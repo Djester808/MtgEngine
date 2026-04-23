@@ -3,6 +3,7 @@ using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using MtgEngine.Api.Services;
 using MtgEngine.Domain.Enums;
 using Xunit;
@@ -26,13 +27,18 @@ public sealed class ScryfallServiceTests : IDisposable
 
     // ---- Helpers --------------------------------------------------
 
-    private ScryfallService MakeService(FakeHttpHandler handler) =>
-        new(
-            new HttpClient(handler) { BaseAddress = new Uri("https://api.scryfall.com/") },
+    private ScryfallService MakeService(FakeHttpHandler handler)
+    {
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.scryfall.com/") };
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient("ScryfallApi")).Returns(http);
+        return new ScryfallService(
+            factory.Object,
             NullLogger<ScryfallService>.Instance,
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?> { ["ScryfallCache:Directory"] = _tempDir })
                 .Build());
+    }
 
     private static string CreatureJson(
         string oracleId = "aaaaaaaa-0000-0000-0000-000000000001",

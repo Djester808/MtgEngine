@@ -1,0 +1,64 @@
+using Microsoft.EntityFrameworkCore;
+using MtgEngine.Domain.Models;
+
+namespace MtgEngine.Api.Data;
+
+public sealed class MtgEngineDbContext : DbContext
+{
+    public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
+
+    public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
+        : base(options)
+    {
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Collection
+        modelBuilder.Entity<Collection>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+
+            // Relationships
+            entity.HasMany(e => e.Cards)
+                .WithOne(c => c.Collection)
+                .HasForeignKey(c => c.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.Name });
+        });
+
+        // CollectionCard
+        modelBuilder.Entity<CollectionCard>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CollectionId).IsRequired();
+            entity.Property(e => e.OracleId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.ScryfallId).HasMaxLength(256);
+            entity.Property(e => e.Quantity).IsRequired();
+            entity.Property(e => e.QuantityFoil).IsRequired();
+            entity.Property(e => e.Notes).HasMaxLength(1000);
+            entity.Property(e => e.AddedAt).IsRequired();
+
+            // Relationships
+            entity.HasOne(e => e.Collection)
+                .WithMany(c => c.Cards)
+                .HasForeignKey(e => e.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.CollectionId);
+            entity.HasIndex(e => new { e.CollectionId, e.OracleId }).IsUnique();
+        });
+    }
+}

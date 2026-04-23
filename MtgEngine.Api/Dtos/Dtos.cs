@@ -157,3 +157,63 @@ public sealed record JoinGameResponse(
 public sealed record CastSpellRequest(string CardId, string[] TargetIds);
 public sealed record DeclareBlockersRequest(Dictionary<string, string> BlockerToAttacker);
 public sealed record SetBlockerOrderRequest(string AttackerId, string[] OrderedBlockerIds);
+
+// ---- Collection Management --------------------------------
+
+public sealed record CollectionCardDto
+{
+    public Guid Id { get; init; }
+    public string OracleId { get; init; } = string.Empty;
+    public string? ScryfallId { get; init; }
+    public int Quantity { get; init; }
+    public int QuantityFoil { get; init; }
+    public string? Notes { get; init; }
+    public DateTime AddedAt { get; init; }
+    public CardDto? CardDetails { get; init; }
+}
+
+public sealed record CollectionDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public int CardCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
+public sealed record CollectionDetailDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+    public CollectionCardDto[] Cards { get; init; } = [];
+}
+
+public sealed record CreateCollectionRequest(string Name, string? Description = null);
+public sealed record UpdateCollectionRequest(string Name, string? Description = null);
+public sealed record AddCardToCollectionRequest(
+    string OracleId,
+    string? ScryfallId = null,
+    int Quantity = 1,
+    int QuantityFoil = 0,
+    string? Notes = null
+);
+public sealed record UpdateCollectionCardRequest(
+    int Quantity,
+    int QuantityFoil,
+    string? ScryfallId = null,
+    string? Notes = null
+);
+
+public sealed record PrintingDto
+{
+    public string  ScryfallId      { get; init; } = string.Empty;
+    public string  SetCode         { get; init; } = string.Empty;
+    public string  SetName         { get; init; } = string.Empty;
+    public string? CollectorNumber { get; init; }
+    public string? ImageUriSmall   { get; init; }
+    public string? ImageUriNormal  { get; init; }
+};

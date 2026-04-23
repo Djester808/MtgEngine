@@ -109,16 +109,23 @@ public sealed class CardsController : ControllerBase
         return Ok(DomainMapper.ToDto(card));
     }
 
-    // GET /api/cards/search?q=...
+    // GET /api/cards/search?q=...&limit=20
     [HttpGet("search")]
-    public async Task<ActionResult<CardDto[]>> Search([FromQuery] string q)
+    public async Task<ActionResult<CardDto[]>> Search([FromQuery] string q, [FromQuery] int limit = 20)
     {
         if (string.IsNullOrWhiteSpace(q)) return BadRequest();
 
-        var def = await _scryfall.GetByNameAsync(q);
-        if (def is null) return Ok(Array.Empty<CardDto>());
+        var defs = await _scryfall.SearchAsync(q, Math.Clamp(limit, 1, 60));
+        var cards = defs.Select(def => DomainMapper.ToDto(
+            new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty })).ToArray();
+        return Ok(cards);
+    }
 
-        var card = new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty };
-        return Ok(new[] { DomainMapper.ToDto(card) });
+    // GET /api/cards/{oracleId}/printings
+    [HttpGet("{oracleId}/printings")]
+    public async Task<ActionResult<PrintingDto[]>> GetPrintings(string oracleId)
+    {
+        var printings = await _scryfall.GetPrintingsAsync(oracleId);
+        return Ok(printings);
     }
 }
