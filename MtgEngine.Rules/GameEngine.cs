@@ -132,12 +132,18 @@ public static class GameEngine
         }
         else
         {
-            // Resolve the top of stack immediately when a player passes.
-            // (Full two-player impl would give the opponent a priority window first;
-            // simplified here so single-player testing works.)
-            state = ZoneManager.ResolveTopOfStack(state);
-            state = RunSBAs(state);
-            return state with { PriorityPlayerId = state.ActivePlayerId };
+            // Active player passes → give opponent a priority window.
+            // Opponent passes back → both have passed, resolve top of stack.
+            if (playerId == state.ActivePlayerId)
+            {
+                return state with { PriorityPlayerId = opponentId };
+            }
+            else
+            {
+                state = ZoneManager.ResolveTopOfStack(state);
+                state = RunSBAs(state);
+                return state with { PriorityPlayerId = state.ActivePlayerId };
+            }
         }
     }
 

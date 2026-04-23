@@ -202,7 +202,8 @@ public static class CombatEngine
         if (!state.PermanentExists(targetId)) return state;
 
         var target = state.GetPermanent(targetId);
-        state = state.UpdatePermanent(target.AddDamage(amount));
+        bool fromDeathtouch = source.HasKeyword(KeywordAbility.Deathtouch);
+        state = state.UpdatePermanent(target.AddDamage(amount, fromDeathtouch));
 
         // Lifelink
         if (source.HasKeyword(KeywordAbility.Lifelink))

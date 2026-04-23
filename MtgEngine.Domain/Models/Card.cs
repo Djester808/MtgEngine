@@ -94,6 +94,7 @@ public sealed record Permanent
     public bool IsTapped { get; init; }
     public bool HasSummoningSickness { get; init; } = true;
     public int DamageMarked { get; init; }
+    public bool HasDeathtouchDamage { get; init; }
     public IReadOnlyDictionary<CounterType, int> Counters { get; init; } = new Dictionary<CounterType, int>();
     public IReadOnlyList<Guid> Attachments { get; init; } = [];
 
@@ -136,8 +137,9 @@ public sealed record Permanent
 
     public Permanent ClearSummoningSickness() => this with { HasSummoningSickness = false };
 
-    public Permanent AddDamage(int amount) => this with { DamageMarked = DamageMarked + amount };
-    public Permanent ClearDamage()         => this with { DamageMarked = 0 };
+    public Permanent AddDamage(int amount, bool fromDeathtouch = false) =>
+        this with { DamageMarked = DamageMarked + amount, HasDeathtouchDamage = HasDeathtouchDamage || fromDeathtouch };
+    public Permanent ClearDamage() => this with { DamageMarked = 0, HasDeathtouchDamage = false };
 
     public Permanent AddCounter(CounterType type, int count = 1)
     {

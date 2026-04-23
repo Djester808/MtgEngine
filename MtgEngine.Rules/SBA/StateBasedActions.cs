@@ -80,8 +80,7 @@ public static class StateBasedActions
             bool hasLethalDamage = permanent.EffectiveToughness.HasValue
                 && permanent.DamageMarked >= permanent.EffectiveToughness.Value;
 
-            bool hasDeathtouchDamage = permanent.DamageMarked > 0
-                && permanent.HasKeyword(KeywordAbility.Deathtouch);
+            bool hasDeathtouchDamage = permanent.HasDeathtouchDamage;
 
             if (hasLethalDamage || hasDeathtouchDamage)
             {
