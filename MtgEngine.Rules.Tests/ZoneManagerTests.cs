@@ -263,4 +263,246 @@ public class ZoneManagerTests
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*not a land*");
     }
+
+    // =========================================================
+    // PlayLand — additional guard coverage
+    // =========================================================
+
+    [Fact]
+    public void Cannot_play_land_while_stack_is_nonempty()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef("Grizzly Bears", 2, 2, "1G");
+        var creature = TestFactory.MakeCard(creatureDef, TestFactory.Player1Id);
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakeCard(landDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, creature)
+            .WithCardInHand(TestFactory.Player1Id, land)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green, 2);
+
+        var afterCast = ZoneManager.CastSpell(state, TestFactory.Player1Id, creature.CardId);
+        var act = () => ZoneManager.PlayLand(afterCast, TestFactory.Player1Id, land.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*non-empty*");
+    }
+
+    [Fact]
+    public void Cannot_play_land_without_priority()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakeCard(landDef, TestFactory.Player2Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player2Id, land);
+
+        var act = () => ZoneManager.PlayLand(state, TestFactory.Player2Id, land.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*priority*");
+    }
+
+    [Fact]
+    public void Cannot_play_non_land_card_as_land()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef();
+        var card = TestFactory.MakeCard(creatureDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, card);
+
+        var act = () => ZoneManager.PlayLand(state, TestFactory.Player1Id, card.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not a land*");
+    }
+
+    [Fact]
+    public void Can_play_land_during_post_combat_main_phase()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakeCard(landDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PostCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, land);
+
+        var result = ZoneManager.PlayLand(state, TestFactory.Player1Id, land.CardId);
+
+        result.Battlefield.Should().HaveCount(1);
+        result.GetPlayer(TestFactory.Player1Id).HasLandPlayedThisTurn.Should().BeTrue();
+    }
+
+    // =========================================================
+    // TapLandForMana — additional guard coverage
+    // =========================================================
+
+    [Fact]
+    public void Cannot_tap_land_controlled_by_another_player()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(land);
+
+        var act = () => ZoneManager.TapLandForMana(state, TestFactory.Player2Id, land.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*control*");
+    }
+
+    [Fact]
+    public void Cannot_tap_non_land_permanent_for_mana()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef();
+        var creature = TestFactory.MakePermanent(creatureDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(creature);
+
+        var act = () => ZoneManager.TapLandForMana(state, TestFactory.Player1Id, creature.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not a land*");
+    }
+
+    // =========================================================
+    // CastSpell — additional guard coverage
+    // =========================================================
+
+    [Fact]
+    public void Cannot_cast_spell_without_priority()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef();
+        var card = TestFactory.MakeCard(creatureDef, TestFactory.Player2Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player2Id, card)
+            .WithMana(TestFactory.Player2Id, ManaColor.Green, 2);
+
+        var act = () => ZoneManager.CastSpell(state, TestFactory.Player2Id, card.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*priority*");
+    }
+
+    [Fact]
+    public void Cannot_cast_sorcery_speed_spell_during_combat()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef();
+        var card = TestFactory.MakeCard(creatureDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.Combat, Step.DeclareAttackers)
+            .WithCardInHand(TestFactory.Player1Id, card)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green, 2);
+
+        var act = () => ZoneManager.CastSpell(state, TestFactory.Player1Id, card.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*sorcery speed*");
+    }
+
+    [Fact]
+    public void Can_cast_instant_during_combat()
+    {
+        var instantDef = TestFactory.MakeInstantDef("Counterspell", "1U");
+        var card = TestFactory.MakeCard(instantDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.Combat, Step.DeclareAttackers)
+            .WithCardInHand(TestFactory.Player1Id, card)
+            .WithMana(TestFactory.Player1Id, ManaColor.Blue, 2);
+
+        var result = ZoneManager.CastSpell(state, TestFactory.Player1Id, card.CardId);
+
+        result.Stack.IsEmpty.Should().BeFalse();
+        result.GetPlayer(TestFactory.Player1Id).Hand.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Cannot_cast_a_land()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakeCard(landDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, land);
+
+        var act = () => ZoneManager.CastSpell(state, TestFactory.Player1Id, land.CardId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*played, not cast*");
+    }
+
+    [Fact]
+    public void CastSpell_deducts_mana_from_pool()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef("Grizzly Bears", 2, 2, "1G");
+        var card = TestFactory.MakeCard(creatureDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, card)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green, 3);
+
+        var result = ZoneManager.CastSpell(state, TestFactory.Player1Id, card.CardId);
+
+        result.GetPlayer(TestFactory.Player1Id).ManaPool.Total.Should().Be(1);
+    }
+
+    // =========================================================
+    // ResolveTopOfStack — additional coverage
+    // =========================================================
+
+    [Fact]
+    public void Cannot_resolve_empty_stack()
+    {
+        var state = TestFactory.MakeTwoPlayerGame();
+
+        var act = () => ZoneManager.ResolveTopOfStack(state);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*empty*");
+    }
+
+    [Fact]
+    public void Resolving_instant_puts_card_in_graveyard()
+    {
+        var instantDef = TestFactory.MakeInstantDef("Giant Growth", "G");
+        var card = TestFactory.MakeCard(instantDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame(Phase.PreCombatMain, Step.Main)
+            .WithCardInHand(TestFactory.Player1Id, card)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green, 1);
+
+        var afterCast = ZoneManager.CastSpell(state, TestFactory.Player1Id, card.CardId);
+        var afterResolve = ZoneManager.ResolveTopOfStack(afterCast);
+
+        afterResolve.Battlefield.Should().BeEmpty();
+        afterResolve.Stack.IsEmpty.Should().BeTrue();
+        afterResolve.GetPlayer(TestFactory.Player1Id).Graveyard.Should().HaveCount(1);
+    }
+
+    // =========================================================
+    // BounceToHand
+    // =========================================================
+
+    [Fact]
+    public void BounceToHand_removes_permanent_from_battlefield()
+    {
+        var def = TestFactory.MakeCreatureDef();
+        var permanent = TestFactory.MakePermanent(def, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(permanent);
+
+        var result = ZoneManager.BounceToHand(state, permanent.PermanentId);
+
+        result.Battlefield.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void BounceToHand_returns_card_to_owners_hand()
+    {
+        var def = TestFactory.MakeCreatureDef();
+        var permanent = TestFactory.MakePermanent(def, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(permanent);
+
+        var result = ZoneManager.BounceToHand(state, permanent.PermanentId);
+
+        result.GetPlayer(TestFactory.Player1Id).Hand.Should().HaveCount(1);
+        result.GetPlayer(TestFactory.Player1Id).Hand[0].CardId
+            .Should().Be(permanent.SourceCard.CardId);
+    }
+
+    // =========================================================
+    // ExilePermanent — additional coverage
+    // =========================================================
+
+    [Fact]
+    public void Exile_bypasses_indestructible()
+    {
+        var def = TestFactory.MakeCreatureDef(keywords: KeywordAbility.Indestructible);
+        var permanent = TestFactory.MakePermanent(def, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(permanent);
+
+        var result = ZoneManager.ExilePermanent(state, permanent.PermanentId);
+
+        result.Battlefield.Should().BeEmpty();
+        result.GetPlayer(TestFactory.Player1Id).Exile.Should().HaveCount(1);
+    }
 }
