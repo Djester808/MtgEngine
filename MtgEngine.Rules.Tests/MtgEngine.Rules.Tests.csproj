@@ -18,5 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Domain\MtgEngine.Domain.csproj" />
     <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
+    <ProjectReference Include="..\MtgEngine.Api\MtgEngine.Api.csproj" />
   </ItemGroup>
 </Project>

@@ -73,6 +73,35 @@ public static class ZoneManager
     }
 
     // =========================================================
+    // Untapping lands (undo mana activation)
+    // =========================================================
+
+    public static GameState UntapLand(GameState state, Guid playerId, Guid permanentId)
+    {
+        var permanent = state.GetPermanent(permanentId);
+
+        if (permanent.ControllerId != playerId)
+            throw new InvalidOperationException("You do not control that permanent.");
+
+        if (!permanent.IsTapped)
+            throw new InvalidOperationException($"{permanent.Name} is not tapped.");
+
+        if (!permanent.IsLand)
+            throw new InvalidOperationException($"{permanent.Name} is not a land.");
+
+        var color = permanent.Definition.BasicLandColor
+            ?? throw new InvalidOperationException($"{permanent.Name} does not have a basic land mana ability.");
+
+        var player = state.GetPlayer(playerId);
+        if (!player.ManaPool.Amounts.ContainsKey(color) || player.ManaPool.Amounts[color] <= 0)
+            throw new InvalidOperationException("Cannot untap — the mana from this land has already been spent.");
+
+        return state
+            .UpdatePermanent(permanent.Untap())
+            .UpdatePlayer(player with { ManaPool = player.ManaPool.Remove(color) });
+    }
+
+    // =========================================================
     // Casting spells
     // =========================================================
 

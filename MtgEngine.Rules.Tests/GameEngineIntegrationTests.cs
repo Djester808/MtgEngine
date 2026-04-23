@@ -213,4 +213,94 @@ public class GameEngineIntegrationTests
         state.Stack.IsEmpty.Should().BeTrue();
         state.PriorityPlayerId.Should().Be(TestFactory.Player1Id); // priority returns to active player
     }
+
+    // =========================================================
+    // CreateGame
+    // =========================================================
+
+    private static List<Card> MakeDeck(Guid ownerId, int size = 30) =>
+        Enumerable.Range(0, size)
+            .Select(_ => TestFactory.MakeCard(TestFactory.MakeCreatureDef(), ownerId))
+            .ToList();
+
+    [Fact]
+    public void CreateGame_starts_in_PreCombatMain_phase_with_main_step()
+    {
+        var state = GameEngine.CreateGame(
+            TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
+            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            firstPlayerId: TestFactory.Player1Id);
+
+        state.CurrentPhase.Should().Be(Phase.PreCombatMain);
+        state.CurrentStep.Should().Be(Step.Main);
+    }
+
+    [Fact]
+    public void CreateGame_assigns_active_and_priority_to_first_player()
+    {
+        var state = GameEngine.CreateGame(
+            TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
+            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            firstPlayerId: TestFactory.Player1Id);
+
+        state.ActivePlayerId.Should().Be(TestFactory.Player1Id);
+        state.PriorityPlayerId.Should().Be(TestFactory.Player1Id);
+    }
+
+    [Fact]
+    public void CreateGame_deals_seven_cards_to_each_player()
+    {
+        var state = GameEngine.CreateGame(
+            TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
+            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            firstPlayerId: TestFactory.Player1Id);
+
+        state.GetPlayer(TestFactory.Player1Id).Hand.Should().HaveCount(7);
+        state.GetPlayer(TestFactory.Player2Id).Hand.Should().HaveCount(7);
+    }
+
+    [Fact]
+    public void CreateGame_both_players_start_at_20_life()
+    {
+        var state = GameEngine.CreateGame(
+            TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
+            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            firstPlayerId: TestFactory.Player1Id);
+
+        state.GetPlayer(TestFactory.Player1Id).Life.Should().Be(20);
+        state.GetPlayer(TestFactory.Player2Id).Life.Should().Be(20);
+    }
+
+    [Fact]
+    public void CreateGame_respects_specified_first_player()
+    {
+        var state = GameEngine.CreateGame(
+            TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
+            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            firstPlayerId: TestFactory.Player2Id);
+
+        state.ActivePlayerId.Should().Be(TestFactory.Player2Id);
+    }
+
+    // =========================================================
+    // Untap land via GameEngine
+    // =========================================================
+
+    [Fact]
+    public void UntapLand_round_trip_tap_then_untap_restores_state()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(land);
+
+        // Tap for mana
+        state = GameEngine.ActivateMana(state, TestFactory.Player1Id, land.PermanentId);
+        state.GetPlayer(TestFactory.Player1Id).ManaPool.Total.Should().Be(1);
+        state.GetPermanent(land.PermanentId).IsTapped.Should().BeTrue();
+
+        // Untap (returns mana to pool → removes mana and untaps)
+        state = GameEngine.UntapLand(state, TestFactory.Player1Id, land.PermanentId);
+        state.GetPermanent(land.PermanentId).IsTapped.Should().BeFalse();
+        state.GetPlayer(TestFactory.Player1Id).ManaPool.Total.Should().Be(0);
+    }
 }

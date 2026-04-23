@@ -117,8 +117,12 @@ public static class DomainMapper
         Keywords        = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
         ImageUriNormal  = def.ImageUriNormal,
         ImageUriSmall   = def.ImageUriSmall,
+        ImageUriArtCrop = def.ImageUriArtCrop,
         ColorIdentity   = def.ColorIdentity.Select(ToDto).ToArray(),
         OwnerId         = ownerId.ToString(),
+        FlavorText      = def.FlavorText,
+        Artist          = def.Artist,
+        SetCode         = def.SetCode,
     };
 
     // ---- Player -------------------------------------------
@@ -194,7 +198,9 @@ public static class DomainMapper
 
     public static ManaPoolDto ToDto(ManaPool pool) => new()
     {
-        Amounts = pool.Amounts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+        // Use short symbols ("W","U","B","R","G","C") not enum names ("White","Blue"…)
+        // so the frontend mana-cost parser ("2WW") can match pool keys directly.
+        Amounts = pool.Amounts.ToDictionary(kv => ToDto(kv.Key).ToString(), kv => kv.Value),
         Total   = pool.Total,
     };
 

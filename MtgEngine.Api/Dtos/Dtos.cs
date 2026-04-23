@@ -27,10 +27,14 @@ public sealed record CardDto
     public int?   Toughness       { get; init; }
     public int?   StartingLoyalty { get; init; }
     public string[] Keywords      { get; init; } = [];
-    public string? ImageUriNormal { get; init; }
-    public string? ImageUriSmall  { get; init; }
+    public string? ImageUriNormal  { get; init; }
+    public string? ImageUriSmall   { get; init; }
+    public string? ImageUriArtCrop { get; init; }
     public ManaColorDto[] ColorIdentity { get; init; } = [];
     public string OwnerId         { get; init; } = string.Empty;
+    public string? FlavorText     { get; init; }
+    public string? Artist         { get; init; }
+    public string? SetCode        { get; init; }
 }
 
 public sealed record PermanentDto

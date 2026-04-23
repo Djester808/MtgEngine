@@ -14,49 +14,134 @@ public interface IScryfallService
 }
 
 /// <summary>
-/// Fetches card data from the Scryfall API and caches it aggressively.
-/// Per Scryfall ToS: include a descriptive User-Agent and cache responses.
+/// Fetches card data from the Scryfall API.
+/// Two-layer cache: in-memory (process lifetime) + disk (persists across restarts).
+/// Disk cache stores raw Scryfall JSON so new parsed fields don't require re-fetching.
+/// Per Scryfall ToS: descriptive User-Agent, max ~10 req/sec.
 /// </summary>
 public sealed class ScryfallService : IScryfallService
 {
     private readonly HttpClient _http;
     private readonly ILogger<ScryfallService> _logger;
 
-    // Cache by oracle ID and by name (normalized)
+    // In-memory cache (fast path)
     private readonly ConcurrentDictionary<string, CardDefinition?> _byOracleId = new();
-    private readonly ConcurrentDictionary<string, CardDefinition?> _byName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, CardDefinition?> _byName     = new(StringComparer.OrdinalIgnoreCase);
+
+    // Disk cache root
+    private readonly string _cacheDir;
 
     // Rate limiting: Scryfall asks for max 10 req/sec
     private readonly SemaphoreSlim _rateLimiter = new(1, 1);
     private DateTime _lastRequest = DateTime.MinValue;
     private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(110);
 
-    public ScryfallService(HttpClient http, ILogger<ScryfallService> logger)
+    private static readonly JsonSerializerOptions _jsonOpts = new() { WriteIndented = false };
+
+    public ScryfallService(HttpClient http, ILogger<ScryfallService> logger, IConfiguration config)
     {
-        _http   = http;
-        _logger = logger;
+        _http      = http;
+        _logger    = logger;
+        _cacheDir  = config["ScryfallCache:Directory"]
+                     ?? Path.Combine(AppContext.BaseDirectory, "card-cache");
+
+        Directory.CreateDirectory(Path.Combine(_cacheDir, "by-oracle"));
+        Directory.CreateDirectory(Path.Combine(_cacheDir, "by-name"));
     }
+
+    // ---- Public API ----------------------------------------
 
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
-        if (_byOracleId.TryGetValue(oracleId, out var cached)) return cached;
+        if (_byOracleId.TryGetValue(oracleId, out var mem)) return mem;
 
-        var json = await FetchAsync($"cards/{oracleId}");
-        var def  = json is null ? null : ParseCardDefinition(json.Value);
+        var json = await LoadDiskAsync(OracleCachePath(oracleId))
+                   ?? await FetchAndCacheByOracleIdAsync(oracleId);
+
+        var def = json is null ? null : ParseCardDefinition(json.Value);
         _byOracleId[oracleId] = def;
         return def;
     }
 
     public async Task<CardDefinition?> GetByNameAsync(string name)
     {
-        if (_byName.TryGetValue(name, out var cached)) return cached;
+        if (_byName.TryGetValue(name, out var mem)) return mem;
 
-        var encoded = Uri.EscapeDataString(name);
-        var json    = await FetchAsync($"cards/named?fuzzy={encoded}");
-        var def     = json is null ? null : ParseCardDefinition(json.Value);
+        var json = await LoadDiskAsync(NameCachePath(name))
+                   ?? await FetchAndCacheByNameAsync(name);
+
+        var def = json is null ? null : ParseCardDefinition(json.Value);
         _byName[name] = def;
         if (def is not null) _byOracleId[def.OracleId] = def;
         return def;
+    }
+
+    // ---- Fetch + disk-write --------------------------------
+
+    private async Task<JsonElement?> FetchAndCacheByOracleIdAsync(string oracleId)
+    {
+        var json = await FetchAsync($"cards/{oracleId}");
+        if (json is null) return null;
+
+        await SaveDiskAsync(OracleCachePath(oracleId), json.Value);
+        return json;
+    }
+
+    private async Task<JsonElement?> FetchAndCacheByNameAsync(string name)
+    {
+        var encoded = Uri.EscapeDataString(name);
+        var json    = await FetchAsync($"cards/named?fuzzy={encoded}");
+        if (json is null) return null;
+
+        await SaveDiskAsync(NameCachePath(name), json.Value);
+
+        // Cross-populate oracle ID cache so a future lookup by ID hits disk too
+        if (json.Value.TryGetProperty("oracle_id", out var oid))
+            await SaveDiskAsync(OracleCachePath(oid.GetString()!), json.Value);
+
+        return json;
+    }
+
+    // ---- Disk helpers --------------------------------------
+
+    private string OracleCachePath(string oracleId) =>
+        Path.Combine(_cacheDir, "by-oracle", $"{oracleId}.json");
+
+    private string NameCachePath(string name)
+    {
+        var safe = string.Concat(name.Select(c =>
+            Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        return Path.Combine(_cacheDir, "by-name", $"{safe}.json");
+    }
+
+    private async Task<JsonElement?> LoadDiskAsync(string path)
+    {
+        if (!File.Exists(path)) return null;
+        try
+        {
+            await using var stream = File.OpenRead(path);
+            var el = await JsonSerializer.DeserializeAsync<JsonElement>(stream);
+            _logger.LogDebug("Disk cache hit: {Path}", path);
+            return el;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read disk cache: {Path}", path);
+            return null;
+        }
+    }
+
+    private async Task SaveDiskAsync(string path, JsonElement json)
+    {
+        try
+        {
+            await using var stream = File.Create(path);
+            await JsonSerializer.SerializeAsync(stream, json, _jsonOpts);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write disk cache: {Path}", path);
+        }
     }
 
     // ---- HTTP + rate limit --------------------------------
@@ -105,44 +190,53 @@ public sealed class ScryfallService : IScryfallService
             var oracle   = json.TryGetProperty("oracle_text", out var ot) ? ot.GetString() ?? "" : "";
             var mc       = json.TryGetProperty("mana_cost", out var mcEl) ? ParseManaCostString(mcEl.GetString() ?? "") : ManaCost.Zero;
 
-            int? power     = null, toughness = null, loyalty = null;
-            if (json.TryGetProperty("power",    out var pw) && int.TryParse(pw.GetString(), out var p)) power     = p;
-            if (json.TryGetProperty("toughness",out var th) && int.TryParse(th.GetString(), out var t)) toughness = t;
-            if (json.TryGetProperty("loyalty",  out var lo) && int.TryParse(lo.GetString(), out var l)) loyalty   = l;
+            int? power = null, toughness = null, loyalty = null;
+            if (json.TryGetProperty("power",     out var pw) && int.TryParse(pw.GetString(), out var p)) power     = p;
+            if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t)) toughness = t;
+            if (json.TryGetProperty("loyalty",   out var lo) && int.TryParse(lo.GetString(), out var l)) loyalty   = l;
 
-            string? imgNormal = null, imgSmall = null;
+            string? imgNormal = null, imgSmall = null, imgArtCrop = null;
             if (json.TryGetProperty("image_uris", out var imgs))
             {
-                if (imgs.TryGetProperty("normal", out var n)) imgNormal = n.GetString();
-                if (imgs.TryGetProperty("small",  out var s)) imgSmall  = s.GetString();
+                if (imgs.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
+                if (imgs.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
+                if (imgs.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
             }
 
-            var cardTypes = ParseCardTypes(typeLine);
-            var subtypes  = ParseSubtypes(typeLine);
-            var supertypes= ParseSupertypes(typeLine);
-            var keywords  = ParseKeywords(json);
-            var colorId   = ParseColorIdentity(json);
-            var speed     = cardTypes.HasFlag(CardType.Instant) || HasFlash(keywords)
+            var flavorText = json.TryGetProperty("flavor_text", out var ft) ? ft.GetString() : null;
+            var artist     = json.TryGetProperty("artist",       out var ar) ? ar.GetString() : null;
+            var setCode    = json.TryGetProperty("set",          out var sc) ? sc.GetString() : null;
+
+            var cardTypes  = ParseCardTypes(typeLine);
+            var subtypes   = ParseSubtypes(typeLine);
+            var supertypes = ParseSupertypes(typeLine);
+            var keywords   = ParseKeywords(json);
+            var colorId    = ParseColorIdentity(json);
+            var speed      = cardTypes.HasFlag(CardType.Instant) || HasFlash(keywords)
                 ? SpeedRestriction.Instant
                 : SpeedRestriction.Sorcery;
 
             return new CardDefinition
             {
-                OracleId       = oracleId,
-                Name           = name,
-                ManaCost       = mc,
-                CardTypes      = cardTypes,
-                Subtypes       = subtypes,
-                Supertypes     = supertypes,
-                OracleText     = oracle,
-                Power          = power,
-                Toughness      = toughness,
-                StartingLoyalty= loyalty,
-                Keywords       = keywords,
-                ColorIdentity  = colorId,
-                ImageUriNormal = imgNormal,
-                ImageUriSmall  = imgSmall,
-                CastingSpeed   = speed,
+                OracleId        = oracleId,
+                Name            = name,
+                ManaCost        = mc,
+                CardTypes       = cardTypes,
+                Subtypes        = subtypes,
+                Supertypes      = supertypes,
+                OracleText      = oracle,
+                Power           = power,
+                Toughness       = toughness,
+                StartingLoyalty = loyalty,
+                Keywords        = keywords,
+                ColorIdentity   = colorId,
+                ImageUriNormal  = imgNormal,
+                ImageUriSmall   = imgSmall,
+                ImageUriArtCrop = imgArtCrop,
+                CastingSpeed    = speed,
+                FlavorText      = flavorText,
+                Artist          = artist,
+                SetCode         = setCode,
             };
         }
         catch (Exception)
@@ -153,12 +247,9 @@ public sealed class ScryfallService : IScryfallService
 
     private static ManaCost ParseManaCostString(string cost)
     {
-        // Scryfall format: {1}{G}{G} -> strip braces and parse
         var cleaned = cost
             .Replace("{", "").Replace("}", "")
-            .Replace("X", "")  // ignore X for now
-            .Replace("W", "W").Replace("U", "U").Replace("B", "B")
-            .Replace("R", "R").Replace("G", "G");
+            .Replace("X", "");
         try { return ManaCost.Parse(cleaned); }
         catch { return ManaCost.Zero; }
     }
@@ -199,20 +290,20 @@ public sealed class ScryfallService : IScryfallService
             var s = kw.GetString() ?? "";
             flags |= s switch
             {
-                "Flying"       => KeywordAbility.Flying,
-                "Reach"        => KeywordAbility.Reach,
-                "First strike" => KeywordAbility.FirstStrike,
-                "Double strike"=> KeywordAbility.DoubleStrike,
-                "Trample"      => KeywordAbility.Trample,
-                "Deathtouch"   => KeywordAbility.Deathtouch,
-                "Lifelink"     => KeywordAbility.Lifelink,
-                "Vigilance"    => KeywordAbility.Vigilance,
-                "Haste"        => KeywordAbility.Haste,
-                "Hexproof"     => KeywordAbility.Hexproof,
-                "Indestructible"=>KeywordAbility.Indestructible,
-                "Menace"       => KeywordAbility.Menace,
-                "Flash"        => KeywordAbility.Flash,
-                "Shroud"       => KeywordAbility.Shroud,
+                "Flying"        => KeywordAbility.Flying,
+                "Reach"         => KeywordAbility.Reach,
+                "First strike"  => KeywordAbility.FirstStrike,
+                "Double strike" => KeywordAbility.DoubleStrike,
+                "Trample"       => KeywordAbility.Trample,
+                "Deathtouch"    => KeywordAbility.Deathtouch,
+                "Lifelink"      => KeywordAbility.Lifelink,
+                "Vigilance"     => KeywordAbility.Vigilance,
+                "Haste"         => KeywordAbility.Haste,
+                "Hexproof"      => KeywordAbility.Hexproof,
+                "Indestructible"=> KeywordAbility.Indestructible,
+                "Menace"        => KeywordAbility.Menace,
+                "Flash"         => KeywordAbility.Flash,
+                "Shroud"        => KeywordAbility.Shroud,
                 _ => KeywordAbility.None
             };
         }

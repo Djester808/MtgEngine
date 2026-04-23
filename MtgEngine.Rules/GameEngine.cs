@@ -54,24 +54,18 @@ public static class GameEngine
             p2 = p2.DrawCard();
         }
 
-        var state = new GameState
+        // Start directly in pre-combat main so the active player can immediately
+        // play lands and spells without having to pass through untap/upkeep/draw.
+        return new GameState
         {
             Players = ImmutableList.Create(p1, p2),
             ActivePlayerId = firstPlayerId.Value,
             PriorityPlayerId = firstPlayerId.Value,
-            CurrentPhase = Phase.Beginning,
-            CurrentStep = Step.Untap,
+            CurrentPhase = Phase.PreCombatMain,
+            CurrentStep = Step.Main,
             Turn = 1,
             IsFirstTurn = true,
         };
-
-        // Enter the first step
-        return TurnStateMachine.AdvanceStep(state with
-        {
-            CurrentPhase = Phase.Ending,
-            CurrentStep = Step.Cleanup,
-            ActivePlayerId = GetOpponent(state, firstPlayerId.Value),
-        });
     }
 
     // =========================================================
@@ -106,6 +100,15 @@ public static class GameEngine
     }
 
     /// <summary>
+    /// Untap a land and remove the mana it produced (undo mana activation).
+    /// Only legal while the mana is still floating (unspent) in the pool.
+    /// </summary>
+    public static GameState UntapLand(GameState state, Guid playerId, Guid permanentId)
+    {
+        return ZoneManager.UntapLand(state, playerId, permanentId);
+    }
+
+    /// <summary>
     /// Player passes priority.
     /// If both players pass with an empty stack, the step advances.
     /// If both players pass with a non-empty stack, the top resolves.
@@ -129,22 +132,12 @@ public static class GameEngine
         }
         else
         {
-            // Pass to opponent. If opponent already passed (tracked below), resolve top.
-            // Simplified: always pass to opponent; use a "both passed" flag in a future iteration.
-            // For now: if priority is the active player passing, give to opponent.
-            // If opponent passes back, resolve.
-            if (playerId == state.ActivePlayerId)
-            {
-                return state with { PriorityPlayerId = opponentId };
-            }
-            else
-            {
-                // Non-active player passed back -- resolve top of stack
-                state = ZoneManager.ResolveTopOfStack(state);
-                state = RunSBAs(state);
-                // Return priority to active player
-                return state with { PriorityPlayerId = state.ActivePlayerId };
-            }
+            // Resolve the top of stack immediately when a player passes.
+            // (Full two-player impl would give the opponent a priority window first;
+            // simplified here so single-player testing works.)
+            state = ZoneManager.ResolveTopOfStack(state);
+            state = RunSBAs(state);
+            return state with { PriorityPlayerId = state.ActivePlayerId };
         }
     }
 

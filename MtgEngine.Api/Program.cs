@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
 
@@ -5,7 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ---- Services --------------------------------------------
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -17,7 +20,9 @@ builder.Services.AddSignalR(opts =>
 {
     opts.EnableDetailedErrors = builder.Environment.IsDevelopment();
     opts.MaximumReceiveMessageSize = 64 * 1024; // 64 KB
-});
+})
+.AddJsonProtocol(o =>
+    o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // HTTP client for Scryfall
 builder.Services.AddHttpClient<IScryfallService, ScryfallService>(client =>

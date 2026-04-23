@@ -109,7 +109,7 @@ public sealed class ManaCost : IEquatable<ManaCost>
             };
             sb.Append(new string(symbol, count));
         }
-        return sb.Length == 0 ? "0" : sb.ToString();
+        return sb.ToString();
     }
 
     public bool Equals(ManaCost? other)
@@ -181,6 +181,15 @@ public sealed class ManaPool
 
         if (generic > 0) throw new InvalidOperationException("Cannot pay: insufficient mana.");
         return new ManaPool(remaining);
+    }
+
+    public ManaPool Remove(ManaColor color, int count = 1)
+    {
+        var next = new Dictionary<ManaColor, int>(Amounts);
+        int current = next.GetValueOrDefault(color);
+        if (current <= count) next.Remove(color);
+        else next[color] = current - count;
+        return new ManaPool(next);
     }
 
     public ManaPool Clear() => Empty;

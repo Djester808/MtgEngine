@@ -177,4 +177,90 @@ public class ZoneManagerTests
         result.Battlefield.Should().BeEmpty();
         result.GetPlayer(TestFactory.Player1Id).Exile.Should().HaveCount(1);
     }
+
+    // =========================================================
+    // Untapping lands
+    // =========================================================
+
+    [Fact]
+    public void Untap_land_restores_tapped_state_and_removes_mana()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id, tapped: true);
+        var state = TestFactory.MakeTwoPlayerGame()
+            .WithPermanent(land)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green);
+
+        var result = ZoneManager.UntapLand(state, TestFactory.Player1Id, land.PermanentId);
+
+        result.GetPermanent(land.PermanentId).IsTapped.Should().BeFalse();
+        result.GetPlayer(TestFactory.Player1Id).ManaPool.Total.Should().Be(0);
+    }
+
+    [Fact]
+    public void Untap_land_removes_only_the_correct_color()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id, tapped: true);
+        var state = TestFactory.MakeTwoPlayerGame()
+            .WithPermanent(land)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green)
+            .WithMana(TestFactory.Player1Id, ManaColor.Red);
+
+        var result = ZoneManager.UntapLand(state, TestFactory.Player1Id, land.PermanentId);
+
+        result.GetPlayer(TestFactory.Player1Id).ManaPool.Amounts.ContainsKey(ManaColor.Green).Should().BeFalse();
+        result.GetPlayer(TestFactory.Player1Id).ManaPool.Amounts[ManaColor.Red].Should().Be(1);
+    }
+
+    [Fact]
+    public void Cannot_untap_land_that_is_not_tapped()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id, tapped: false);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(land);
+
+        var act = () => ZoneManager.UntapLand(state, TestFactory.Player1Id, land.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not tapped*");
+    }
+
+    [Fact]
+    public void Cannot_untap_land_controlled_by_another_player()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id, tapped: true);
+        var state = TestFactory.MakeTwoPlayerGame()
+            .WithPermanent(land)
+            .WithMana(TestFactory.Player1Id, ManaColor.Green);
+
+        var act = () => ZoneManager.UntapLand(state, TestFactory.Player2Id, land.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*control*");
+    }
+
+    [Fact]
+    public void Cannot_untap_land_when_mana_already_spent()
+    {
+        var landDef = TestFactory.MakeLandDef("Forest");
+        var land = TestFactory.MakePermanent(landDef, TestFactory.Player1Id, tapped: true);
+        var state = TestFactory.MakeTwoPlayerGame()
+            .WithPermanent(land); // no mana in pool
+
+        var act = () => ZoneManager.UntapLand(state, TestFactory.Player1Id, land.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*spent*");
+    }
+
+    [Fact]
+    public void Cannot_untap_a_non_land_permanent()
+    {
+        var creatureDef = TestFactory.MakeCreatureDef();
+        var creature = TestFactory.MakePermanent(creatureDef, TestFactory.Player1Id, tapped: true);
+        var state = TestFactory.MakeTwoPlayerGame().WithPermanent(creature);
+
+        var act = () => ZoneManager.UntapLand(state, TestFactory.Player1Id, creature.PermanentId);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*not a land*");
+    }
 }

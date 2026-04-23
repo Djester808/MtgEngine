@@ -91,4 +91,51 @@ public class ManaCostTests
         var cost = ManaCost.Parse("2WW");
         cost.ToString().Should().Be("2WW");
     }
+
+    // =========================================================
+    // ManaPool.Remove
+    // =========================================================
+
+    [Fact]
+    public void Remove_reduces_amount_by_one()
+    {
+        var pool = ManaPool.Empty.Add(ManaColor.Green, 3);
+        var result = pool.Remove(ManaColor.Green);
+        result.Amounts[ManaColor.Green].Should().Be(2);
+    }
+
+    [Fact]
+    public void Remove_eliminates_key_when_last_pip_removed()
+    {
+        var pool = ManaPool.Empty.Add(ManaColor.Blue);
+        var result = pool.Remove(ManaColor.Blue);
+        result.Amounts.ContainsKey(ManaColor.Blue).Should().BeFalse();
+        result.Total.Should().Be(0);
+    }
+
+    [Fact]
+    public void Remove_with_count_removes_multiple_pips()
+    {
+        var pool = ManaPool.Empty.Add(ManaColor.Red, 3);
+        var result = pool.Remove(ManaColor.Red, 2);
+        result.Amounts[ManaColor.Red].Should().Be(1);
+    }
+
+    [Fact]
+    public void Remove_eliminates_key_when_count_exceeds_amount()
+    {
+        var pool = ManaPool.Empty.Add(ManaColor.White);
+        var result = pool.Remove(ManaColor.White, 5);
+        result.Amounts.ContainsKey(ManaColor.White).Should().BeFalse();
+        result.Total.Should().Be(0);
+    }
+
+    [Fact]
+    public void Remove_leaves_other_colors_untouched()
+    {
+        var pool = ManaPool.Empty.Add(ManaColor.Green, 2).Add(ManaColor.Red, 1);
+        var result = pool.Remove(ManaColor.Green);
+        result.Amounts[ManaColor.Green].Should().Be(1);
+        result.Amounts[ManaColor.Red].Should().Be(1);
+    }
 }

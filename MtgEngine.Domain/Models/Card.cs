@@ -23,10 +23,14 @@ public sealed class CardDefinition
     public KeywordAbility Keywords { get; init; }
     public SpeedRestriction CastingSpeed { get; init; }
 
-    // Scryfall image URIs -- populated by ScryfallService
+    // Scryfall image URIs and metadata -- populated by ScryfallService
     public string? ImageUriNormal { get; init; }
     public string? ImageUriSmall { get; init; }
+    public string? ImageUriArtCrop { get; init; }
     public IReadOnlyList<ManaColor> ColorIdentity { get; init; } = [];
+    public string? FlavorText { get; init; }
+    public string? Artist { get; init; }
+    public string? SetCode { get; init; }
 
     public bool IsCreature    => CardTypes.HasFlag(CardType.Creature);
     public bool IsInstant     => CardTypes.HasFlag(CardType.Instant);

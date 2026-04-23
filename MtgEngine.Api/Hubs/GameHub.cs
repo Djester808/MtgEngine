@@ -112,6 +112,12 @@ public sealed class GameHub : Hub
         await ApplyAction(state => GameEngine.ActivateMana(state, GetCallerId(), pid));
     }
 
+    public async Task UntapLand(string permanentId)
+    {
+        if (!Guid.TryParse(permanentId, out var pid)) { await Error("Invalid permanent ID."); return; }
+        await ApplyAction(state => GameEngine.UntapLand(state, GetCallerId(), pid));
+    }
+
     public async Task DeclareAttackers(string[] attackerIds)
     {
         var ids = ParseGuids(attackerIds);
