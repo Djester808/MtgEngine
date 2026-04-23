@@ -50,10 +50,7 @@ public interface IStaticAbility : IAbility
 /// <summary>
 /// Represents a game event that abilities may trigger on.
 /// </summary>
-public abstract record GameEvent
-{
-    public Guid? SourceId { get; init; }
-}
+public abstract record GameEvent;
 
 public sealed record CreatureEnteredBattlefield(Guid PermanentId, Guid ControllerId) : GameEvent;
 public sealed record CreatureDied(Guid PermanentId, Card SourceCard, Guid ControllerId) : GameEvent;

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -7,5 +7,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Domain\MtgEngine.Domain.csproj" />
+    <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 </Project>

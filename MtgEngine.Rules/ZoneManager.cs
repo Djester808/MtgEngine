@@ -219,6 +219,6 @@ public static class ZoneManager
         SourceCard = card,
         ControllerId = controllerId,
         IsTapped = false,
-        HasSummoningSickness = card.IsCreature && !card.Definition.HasKeyword(Domain.Enums.KeywordAbility.Haste),
+        HasSummoningSickness = card.Definition.IsCreature && !card.Definition.HasKeyword(Domain.Enums.KeywordAbility.Haste),
     };
 }

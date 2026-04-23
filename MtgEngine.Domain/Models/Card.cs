@@ -26,6 +26,7 @@ public sealed class CardDefinition
     // Scryfall image URIs -- populated by ScryfallService
     public string? ImageUriNormal { get; init; }
     public string? ImageUriSmall { get; init; }
+    public IReadOnlyList<ManaColor> ColorIdentity { get; init; } = [];
 
     public bool IsCreature    => CardTypes.HasFlag(CardType.Creature);
     public bool IsInstant     => CardTypes.HasFlag(CardType.Instant);
@@ -81,7 +82,7 @@ public sealed class Card
 /// A permanent on the battlefield. Wraps a Card with battlefield-specific state.
 /// Immutable -- all mutations return a new Permanent.
 /// </summary>
-public sealed class Permanent
+public sealed record Permanent
 {
     public Guid PermanentId { get; init; } = Guid.NewGuid();
     public Card SourceCard { get; init; } = null!;
