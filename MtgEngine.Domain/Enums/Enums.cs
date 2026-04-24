@@ -12,6 +12,9 @@ public enum CardType
     Land        = 1 << 5,
     Planeswalker= 1 << 6,
     Tribal      = 1 << 7,
+    Token       = 1 << 8,
+    Battle      = 1 << 9,
+    Other       = 1 << 10,
 }
 
 [Flags]

@@ -287,4 +287,73 @@ public class DomainMapperTests
         diff.ChangedPermanents.Should().HaveCount(1);
         diff.ChangedPermanents[0].PermanentId.Should().Be(perm.PermanentId.ToString());
     }
+
+    // ---- ImageUriNormalBack ----------------------------------------
+
+    [Fact]
+    public void ToDto_Card_MapsImageUriNormalBack()
+    {
+        var def = new CardDefinition
+        {
+            OracleId           = Guid.NewGuid().ToString(),
+            Name               = "DFC Card",
+            ManaCost           = ManaCost.Parse("1G"),
+            CardTypes          = CardType.Creature,
+            CastingSpeed       = SpeedRestriction.Sorcery,
+            ImageUriNormal     = "https://example.com/front.jpg",
+            ImageUriNormalBack = "https://example.com/back.jpg",
+        };
+
+        var dto = DomainMapper.ToDto(def, Guid.NewGuid(), Guid.NewGuid());
+
+        dto.ImageUriNormal.Should().Be("https://example.com/front.jpg");
+        dto.ImageUriNormalBack.Should().Be("https://example.com/back.jpg");
+    }
+
+    [Fact]
+    public void ToDto_Card_ImageUriNormalBackIsNullForSingleFaceCard()
+    {
+        var def = TestFactory.MakeCreatureDef();
+
+        var dto = DomainMapper.ToDto(def, Guid.NewGuid(), Guid.NewGuid());
+
+        dto.ImageUriNormalBack.Should().BeNull();
+    }
+
+    // ---- Legalities ----------------------------------------
+
+    [Fact]
+    public void ToDto_Card_MapsLegalitiesFromDefinition()
+    {
+        var def = new CardDefinition
+        {
+            OracleId     = Guid.NewGuid().ToString(),
+            Name         = "Lightning Bolt",
+            ManaCost     = ManaCost.Parse("R"),
+            CardTypes    = CardType.Instant,
+            CastingSpeed = SpeedRestriction.Instant,
+            Legalities   = new Dictionary<string, string>
+            {
+                ["modern"]   = "legal",
+                ["standard"] = "not_legal",
+                ["vintage"]  = "restricted",
+            },
+        };
+
+        var dto = DomainMapper.ToDto(def, Guid.NewGuid(), Guid.NewGuid());
+
+        dto.Legalities.Should().ContainKey("modern").WhoseValue.Should().Be("legal");
+        dto.Legalities.Should().ContainKey("standard").WhoseValue.Should().Be("not_legal");
+        dto.Legalities.Should().ContainKey("vintage").WhoseValue.Should().Be("restricted");
+    }
+
+    [Fact]
+    public void ToDto_Card_EmptyLegalitiesMapsThroughAsEmpty()
+    {
+        var def = TestFactory.MakeCreatureDef();
+
+        var dto = DomainMapper.ToDto(def, Guid.NewGuid(), Guid.NewGuid());
+
+        dto.Legalities.Should().BeEmpty();
+    }
 }

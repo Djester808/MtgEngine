@@ -109,16 +109,34 @@ public sealed class CardsController : ControllerBase
         return Ok(DomainMapper.ToDto(card));
     }
 
-    // GET /api/cards/search?q=...&limit=20
+    // GET /api/cards/search?q=...&limit=60&offset=0&sortBy=name&sortDir=asc
     [HttpGet("search")]
-    public async Task<ActionResult<CardDto[]>> Search([FromQuery] string q, [FromQuery] int limit = 20)
+    public async Task<ActionResult<CardDto[]>> Search(
+        [FromQuery] string q,
+        [FromQuery] int    limit   = 60,
+        [FromQuery] int    offset  = 0,
+        [FromQuery] string sortBy  = "name",
+        [FromQuery] string sortDir = "asc")
     {
         if (string.IsNullOrWhiteSpace(q)) return BadRequest();
 
-        var defs = await _scryfall.SearchAsync(q, Math.Clamp(limit, 1, 60));
+        var defs = await _scryfall.SearchAsync(
+            q,
+            Math.Clamp(limit, 1, 60),
+            Math.Max(offset, 0),
+            sortBy,
+            sortDir);
         var cards = defs.Select(def => DomainMapper.ToDto(
             new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty })).ToArray();
         return Ok(cards);
+    }
+
+    // GET /api/cards/sets
+    [HttpGet("sets")]
+    public async Task<ActionResult<SetSummaryDto[]>> GetSets()
+    {
+        var sets = await _scryfall.GetSetsAsync();
+        return Ok(sets);
     }
 
     // GET /api/cards/scryfall/{scryfallId}

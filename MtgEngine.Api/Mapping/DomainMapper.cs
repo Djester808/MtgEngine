@@ -115,14 +115,16 @@ public static class DomainMapper
         Toughness       = def.Toughness,
         StartingLoyalty = def.StartingLoyalty,
         Keywords        = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
-        ImageUriNormal  = def.ImageUriNormal,
-        ImageUriSmall   = def.ImageUriSmall,
-        ImageUriArtCrop = def.ImageUriArtCrop,
+        ImageUriNormal     = def.ImageUriNormal,
+        ImageUriNormalBack = def.ImageUriNormalBack,
+        ImageUriSmall      = def.ImageUriSmall,
+        ImageUriArtCrop    = def.ImageUriArtCrop,
         ColorIdentity   = def.ColorIdentity.Select(ToDto).ToArray(),
         OwnerId         = ownerId.ToString(),
         FlavorText      = def.FlavorText,
         Artist          = def.Artist,
         SetCode         = def.SetCode,
+        Legalities      = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
     };
 
     // ---- Player -------------------------------------------

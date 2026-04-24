@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
@@ -30,6 +31,12 @@ public sealed class BulkDataService : IScryfallService
     private Dictionary<string, PrintingDto[]> _printingsByOracleId = new(32_000);
     // scryfall_id → (oracleId, imgNormal, imgSmall, imgArtCrop, setCode) – lightweight
     private Dictionary<string, PrintingEntry> _byScryfallId = new(250_000);
+    // set code → oracle IDs that have a printing in that set
+    private Dictionary<string, List<string>> _bySetCode = new(StringComparer.OrdinalIgnoreCase);
+    // set code → human-readable set name
+    private Dictionary<string, string> _setNames = new(StringComparer.OrdinalIgnoreCase);
+    // oracle_id → rarity of canonical printing
+    private Dictionary<string, string> _rarityByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
 
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _ready = false;
@@ -98,29 +105,187 @@ public sealed class BulkDataService : IScryfallService
         return await _api.GetPrintingsAsync(oracleId);
     }
 
-    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20)
+    public async Task<SetSummaryDto[]> GetSetsAsync()
+    {
+        await WaitReadyAsync();
+        return _bySetCode
+            .OrderBy(kv => _setNames.TryGetValue(kv.Key, out var n) ? n : kv.Key)
+            .Select(kv => new SetSummaryDto(
+                kv.Key.ToUpperInvariant(),
+                _setNames.TryGetValue(kv.Key, out var name) ? name : kv.Key.ToUpperInvariant(),
+                kv.Value.Count))
+            .ToArray();
+    }
+
+    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc")
     {
         await WaitReadyAsync();
         var q = query.Trim();
         if (q.Length < 2) return [];
 
-        // Starts-with results first, then contains
-        var results = _byName.Keys
-            .Where(n => n.StartsWith(q, StringComparison.OrdinalIgnoreCase))
-            .Concat(_byName.Keys
-                .Where(n => !n.StartsWith(q, StringComparison.OrdinalIgnoreCase)
-                         && n.Contains(q, StringComparison.OrdinalIgnoreCase)))
+        var nameFilter      = ParseName(q);
+        var typeFlags       = ParseTypes(q);
+        var setFilter       = ParseSet(q);
+        var raritySet       = ParseRarities(q);
+        var (cmcOp, cmcVal) = ParseCmc(q);
+        var descending      = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+
+        IEnumerable<string> oracleIds;
+        if (setFilter is not null)
+        {
+            if (!_bySetCode.TryGetValue(setFilter, out var setList) || setList.Count == 0)
+                return await _api.SearchAsync(query, limit, offset, sortBy, sortDir);
+            oracleIds = setList;
+        }
+        else
+        {
+            // Name-only fast path (no type/rarity/cmc filters)
+            if (nameFilter is not null && typeFlags == CardType.None && raritySet.Count == 0 && cmcOp is null)
+            {
+                var nameKeys = _byName.Keys
+                    .Where(n => n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase))
+                    .Concat(_byName.Keys.Where(n => !n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase)
+                                                 && n.Contains(nameFilter, StringComparison.OrdinalIgnoreCase)));
+                nameKeys = descending ? nameKeys.OrderByDescending(n => n) : nameKeys.OrderBy(n => n);
+                var localResults = nameKeys
+                    .Skip(offset)
+                    .Take(limit)
+                    .Select(n => _byOracleId.TryGetValue(_byName[n], out var d) ? d : null)
+                    .Where(d => d is not null).Cast<CardDefinition>()
+                    .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
+                    .ToArray();
+                if (localResults.Length > 0 || offset > 0) return localResults;
+            }
+            oracleIds = _byOracleId.Keys;
+        }
+
+        var filtered = oracleIds
+            .Select(oid => _byOracleId.TryGetValue(oid, out var d) ? d : null)
+            .Where(d => d is not null).Cast<CardDefinition>()
+            .Where(d => nameFilter is null || d.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
+            .Where(d => raritySet.Count == 0 ||
+                        (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
+            .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal));
+
+        var sorted = sortBy.Equals("cmc", StringComparison.OrdinalIgnoreCase)
+            ? (descending
+                ? filtered.OrderByDescending(d => d.ManaCost.ManaValue).ThenBy(d => d.Name)
+                : filtered.OrderBy(d => d.ManaCost.ManaValue).ThenBy(d => d.Name))
+            : (descending
+                ? filtered.OrderByDescending(d => d.Name)
+                : (IOrderedEnumerable<CardDefinition>)filtered.OrderBy(d => d.Name));
+
+        var results = sorted
+            .Skip(offset)
             .Take(limit)
-            .Select(n => _byOracleId.TryGetValue(_byName[n], out var d) ? d : null)
-            .Where(d => d is not null)
-            .Cast<CardDefinition>()
-            .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
+            .Select(d =>
+            {
+                if (setFilter is not null && _printingsByOracleId.TryGetValue(d.OracleId, out var prints))
+                {
+                    var p = prints.FirstOrDefault(pr =>
+                        pr.SetCode?.Equals(setFilter, StringComparison.OrdinalIgnoreCase) == true);
+                    if (p is not null)
+                        return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriSmall, null,
+                                                       p.SetCode, p.ImageUriNormalBack);
+                }
+                return d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d;
+            })
             .ToArray();
 
-        if (results.Length > 0) return results;
+        if (results.Length > 0 || offset > 0) return results;
+        return await _api.SearchAsync(query, limit, offset, sortBy, sortDir);
+    }
 
-        // Nothing in bulk data — one API call as last resort
-        return await _api.SearchAsync(query, limit);
+    // ---- Query parsers ---------------------------------------------------
+
+    private static string? ParseName(string q)
+    {
+        // name:"some text"
+        var idx = q.IndexOf("name:\"", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var start = idx + 6;
+            var end = q.IndexOf('"', start);
+            if (end > start) return q[start..end];
+        }
+        return null;
+    }
+
+    private static CardType ParseTypes(string q)
+    {
+        var flags = CardType.None;
+        var i = 0;
+        while ((i = q.IndexOf("t:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            i += 2;
+            var end = i;
+            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            flags |= q[i..end].ToLowerInvariant() switch
+            {
+                "creature"     => CardType.Creature,
+                "instant"      => CardType.Instant,
+                "sorcery"      => CardType.Sorcery,
+                "enchantment"  => CardType.Enchantment,
+                "artifact"     => CardType.Artifact,
+                "land"         => CardType.Land,
+                "planeswalker" => CardType.Planeswalker,
+                "token"        => CardType.Token,
+                "battle"       => CardType.Battle,
+                "other"        => CardType.Other,
+                _              => CardType.None
+            };
+            i = end;
+        }
+        return flags;
+    }
+
+    private static string? ParseSet(string q)
+    {
+        var idx = q.IndexOf("s:", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return null;
+        var start = idx + 2;
+        var end = start;
+        while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+        return end > start ? q[start..end] : null;
+    }
+
+    private static HashSet<string> ParseRarities(string q)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var i = 0;
+        while ((i = q.IndexOf("r:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            i += 2;
+            var end = i;
+            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            var r = q[i..end].ToLowerInvariant();
+            if (r is "common" or "uncommon" or "rare" or "mythic") result.Add(r);
+            i = end;
+        }
+        return result;
+    }
+
+    private static (string? Op, int Val) ParseCmc(string q)
+    {
+        foreach (var op in new[] { "<=", ">=", "=" })
+        {
+            var key = "cmc" + op;
+            var idx = q.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) continue;
+            var start = idx + key.Length;
+            var end   = start;
+            while (end < q.Length && char.IsDigit(q[end])) end++;
+            if (end > start && int.TryParse(q[start..end], out var val))
+                return (op, val);
+        }
+        return (null, 0);
+    }
+
+    private static bool MatchesCmc(CardDefinition d, string op, int val)
+    {
+        var mv = d.ManaCost.ManaValue;
+        return op switch { "<=" => mv <= val, ">=" => mv >= val, _ => mv == val };
     }
 
     // ---- Refresh logic ---------------------------------------------------
@@ -208,6 +373,8 @@ public sealed class BulkDataService : IScryfallService
         using var doc = await JsonDocument.ParseAsync(stream,
             new JsonDocumentOptions { AllowTrailingCommas = true });
 
+        var rarityMap = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
+
         foreach (var card in doc.RootElement.EnumerateArray())
         {
             // Skip digital-only and non-English
@@ -219,16 +386,22 @@ public sealed class BulkDataService : IScryfallService
 
             byOracleId[def.OracleId] = def;
             byName[def.Name] = def.OracleId;
+
+            var rarity = card.TryGetProperty("rarity", out var rEl) ? rEl.GetString() ?? "" : "";
+            if (rarity.Length > 0) rarityMap[def.OracleId] = rarity;
         }
 
-        _byOracleId = byOracleId;
-        _byName     = byName;
+        _byOracleId        = byOracleId;
+        _byName            = byName;
+        _rarityByOracleId  = rarityMap;
     }
 
     private async Task LoadDefaultCardsAsync(string path)
     {
-        var printings  = new Dictionary<string, List<PrintingDto>>(32_000);
+        var printings   = new Dictionary<string, List<PrintingDto>>(32_000);
         var scryfallIdx = new Dictionary<string, PrintingEntry>(250_000);
+        var setIdx      = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
+        var setNames    = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing default_cards.json…");
         await using var stream = File.OpenRead(path);
@@ -308,10 +481,24 @@ public sealed class BulkDataService : IScryfallService
             list.Add(dto);
 
             scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgSmall, imgArtCrop, setCode, imgNormalBack);
+
+            // Build set-code → oracle-id index and set name lookup
+            if (setCode.Length > 0)
+            {
+                if (!setIdx.TryGetValue(setCode, out var setList))
+                {
+                    setList = new List<string>(32);
+                    setIdx[setCode] = setList;
+                }
+                if (!setList.Contains(oid)) setList.Add(oid);
+                if (setName.Length > 0) setNames.TryAdd(setCode, setName);
+            }
         }
 
         _printingsByOracleId = printings.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
         _byScryfallId        = scryfallIdx;
+        _bySetCode           = setIdx;
+        _setNames            = setNames;
     }
 
     private static string? GetStr(JsonElement? el, string prop)

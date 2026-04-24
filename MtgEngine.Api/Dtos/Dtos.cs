@@ -36,6 +36,7 @@ public sealed record CardDto
     public string? FlavorText     { get; init; }
     public string? Artist         { get; init; }
     public string? SetCode        { get; init; }
+    public Dictionary<string, string> Legalities { get; init; } = [];
 }
 
 public sealed record PermanentDto
@@ -208,6 +209,8 @@ public sealed record UpdateCollectionCardRequest(
     string? ScryfallId = null,
     string? Notes = null
 );
+
+public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 
 public sealed record PrintingDto
 {

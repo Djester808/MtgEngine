@@ -360,6 +360,139 @@ public sealed class ScryfallServiceTests : IDisposable
         result!.ImageUriNormalBack.Should().BeNull();
     }
 
+    // ---- CardType parsing (Token / Battle / Other) --------------
+
+    [Fact]
+    public async Task GetByNameAsync_TokenTypeLine_SetsTokenFlag()
+    {
+        var json = """
+            {
+              "oracle_id":    "tttttttt-0000-0000-0000-000000000001",
+              "name":         "Goblin Token",
+              "type_line":    "Token Creature — Goblin",
+              "oracle_text":  "",
+              "mana_cost":    "",
+              "color_identity": ["R"],
+              "keywords":     []
+            }
+            """;
+        var handler = new FakeHttpHandler(json);
+        var result  = await MakeService(handler).GetByNameAsync("Goblin Token");
+
+        result.Should().NotBeNull();
+        result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Token);
+        result.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Creature);
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_BattleTypeLine_SetsBattleFlag()
+    {
+        var json = """
+            {
+              "oracle_id":    "bbbbbbbb-1111-0000-0000-000000000001",
+              "name":         "Invasion of Tarkir",
+              "type_line":    "Battle — Siege",
+              "oracle_text":  "When this battle is defeated…",
+              "mana_cost":    "{3}{R}",
+              "color_identity": ["R"],
+              "keywords":     []
+            }
+            """;
+        var handler = new FakeHttpHandler(json);
+        var result  = await MakeService(handler).GetByNameAsync("Invasion of Tarkir");
+
+        result.Should().NotBeNull();
+        result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Battle);
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_UnrecognizedTypeLine_SetsOtherFlag()
+    {
+        var json = """
+            {
+              "oracle_id":    "oooooooo-0000-0000-0000-000000000001",
+              "name":         "Dungeon of the Mad Mage",
+              "type_line":    "Dungeon",
+              "oracle_text":  "…",
+              "color_identity": [],
+              "keywords":     []
+            }
+            """;
+        var handler = new FakeHttpHandler(json);
+        var result  = await MakeService(handler).GetByNameAsync("Dungeon of the Mad Mage");
+
+        result.Should().NotBeNull();
+        result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Other);
+    }
+
+    // ---- Legalities parsing -------------------------------------
+
+    [Fact]
+    public async Task GetByNameAsync_WithLegalities_ParsesLegalFormats()
+    {
+        var json = """
+            {
+              "oracle_id":    "llllllll-0000-0000-0000-000000000001",
+              "name":         "Counterspell",
+              "type_line":    "Instant",
+              "oracle_text":  "Counter target spell.",
+              "mana_cost":    "{U}{U}",
+              "color_identity": ["U"],
+              "keywords":     [],
+              "legalities": {
+                "standard": "not_legal",
+                "modern":   "legal",
+                "legacy":   "legal",
+                "vintage":  "legal"
+              }
+            }
+            """;
+        var handler = new FakeHttpHandler(json);
+        var result  = await MakeService(handler).GetByNameAsync("Counterspell");
+
+        result.Should().NotBeNull();
+        result!.Legalities.Should().ContainKey("modern").WhoseValue.Should().Be("legal");
+        result.Legalities.Should().ContainKey("standard").WhoseValue.Should().Be("not_legal");
+        result.Legalities.Should().ContainKey("legacy").WhoseValue.Should().Be("legal");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_RestrictedFormat_ParsesRestrictedStatus()
+    {
+        var json = """
+            {
+              "oracle_id":    "rrrrrrrr-0000-0000-0000-000000000001",
+              "name":         "Black Lotus",
+              "type_line":    "Artifact",
+              "oracle_text":  "{T}, Sacrifice Black Lotus: Add three mana of any one color.",
+              "mana_cost":    "{0}",
+              "color_identity": [],
+              "keywords":     [],
+              "legalities": {
+                "vintage":  "restricted",
+                "legacy":   "not_legal",
+                "modern":   "not_legal"
+              }
+            }
+            """;
+        var handler = new FakeHttpHandler(json);
+        var result  = await MakeService(handler).GetByNameAsync("Black Lotus");
+
+        result.Should().NotBeNull();
+        result!.Legalities["vintage"].Should().Be("restricted");
+        result.Legalities["legacy"].Should().Be("not_legal");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_NoLegalitiesProperty_ReturnsEmptyDictionary()
+    {
+        var handler = new FakeHttpHandler(CreatureJson());
+        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+
+        result.Should().NotBeNull();
+        result!.Legalities.Should().BeEmpty();
+    }
+
     // ---- Fake handler ------------------------------------------
 
     private sealed class FakeHttpHandler : HttpMessageHandler

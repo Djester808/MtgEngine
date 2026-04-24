@@ -84,6 +84,7 @@ internal static class CardParser
             var supertypes = ParseSupertypes(typeLine);
             var keywords   = ParseKeywords(json);
             var colorId    = ParseColorIdentity(json);
+            var legalities = ParseLegalities(json);
             var speed      = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
                 ? SpeedRestriction.Instant
                 : SpeedRestriction.Sorcery;
@@ -111,6 +112,7 @@ internal static class CardParser
                 FlavorText      = flavorText,
                 Artist          = artist,
                 SetCode         = setCode,
+                Legalities      = legalities,
             };
         }
         catch
@@ -146,6 +148,7 @@ internal static class CardParser
             ImageUriSmall      = imgSmall      ?? oracle.ImageUriSmall,
             ImageUriArtCrop    = imgArtCrop    ?? oracle.ImageUriArtCrop,
             SetCode            = setCode       ?? oracle.SetCode,
+            Legalities         = oracle.Legalities,
         };
 
     // ---- Parsers -------------------------------------------------------
@@ -165,6 +168,7 @@ internal static class CardParser
     private static CardType ParseCardTypes(string typeLine)
     {
         var flags = CardType.None;
+        if (typeLine.Contains("Token"))        flags |= CardType.Token;
         if (typeLine.Contains("Creature"))     flags |= CardType.Creature;
         if (typeLine.Contains("Instant"))      flags |= CardType.Instant;
         if (typeLine.Contains("Sorcery"))      flags |= CardType.Sorcery;
@@ -172,7 +176,9 @@ internal static class CardParser
         if (typeLine.Contains("Artifact"))     flags |= CardType.Artifact;
         if (typeLine.Contains("Land"))         flags |= CardType.Land;
         if (typeLine.Contains("Planeswalker")) flags |= CardType.Planeswalker;
-        return flags == CardType.None ? CardType.Sorcery : flags;
+        if (typeLine.Contains("Battle"))       flags |= CardType.Battle;
+        if (flags == CardType.None)            flags  = CardType.Other;
+        return flags;
     }
 
     private static IReadOnlyList<string> ParseSubtypes(string typeLine)
@@ -215,6 +221,15 @@ internal static class CardParser
             };
         }
         return flags;
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseLegalities(JsonElement json)
+    {
+        if (!json.TryGetProperty("legalities", out var leg)) return new Dictionary<string, string>();
+        var result = new Dictionary<string, string>();
+        foreach (var prop in leg.EnumerateObject())
+            result[prop.Name] = prop.Value.GetString() ?? "unknown";
+        return result;
     }
 
     private static IReadOnlyList<ManaColor> ParseColorIdentity(JsonElement json)
