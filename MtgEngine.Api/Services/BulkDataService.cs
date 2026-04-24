@@ -34,7 +34,7 @@ public sealed class BulkDataService : IScryfallService
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _ready = false;
 
-    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgSmall, string? ImgArtCrop, string? SetCode);
+    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack = null);
 
     public BulkDataService(
         ScryfallService api,
@@ -84,7 +84,7 @@ public sealed class BulkDataService : IScryfallService
         if (_byScryfallId.TryGetValue(scryfallId, out var entry)
             && _byOracleId.TryGetValue(entry.OracleId, out var oracle))
         {
-            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode);
+            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack);
         }
         _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
         return await _api.GetByScryfallIdAsync(scryfallId);
@@ -248,25 +248,56 @@ public sealed class BulkDataService : IScryfallService
 
             if (id is null || oid is null) continue;
 
-            string? imgSmall = null, imgNormal = null, imgArtCrop = null;
+            string? imgSmall = null, imgNormal = null, imgArtCrop = null, imgNormalBack = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
                 if (imgs.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
                 if (imgs.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
             }
+            else if (card.TryGetProperty("card_faces", out var dfcImgs) && dfcImgs.GetArrayLength() > 0)
+            {
+                var f0 = dfcImgs[0];
+                if (f0.TryGetProperty("image_uris", out var fi0))
+                {
+                    if (fi0.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
+                    if (fi0.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
+                    if (fi0.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                }
+                if (dfcImgs.GetArrayLength() > 1)
+                {
+                    var f1 = dfcImgs[1];
+                    if (f1.TryGetProperty("image_uris", out var fi1) && fi1.TryGetProperty("normal", out var nb))
+                        imgNormalBack = nb.GetString();
+                }
+            }
 
             // Only include cards that have artwork
             if (imgNormal is null) continue;
 
+            // Per-printing text fields — fall back to card_faces[0] for DFCs
+            JsonElement? face0 = null;
+            if (card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
+                face0 = faces[0];
+
+            string? artist     = GetStr(card, "artist")      ?? GetStr(face0, "artist");
+            string? oracleText = GetStr(card, "oracle_text") ?? GetStr(face0, "oracle_text");
+            string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
+            string? manaCost   = GetStr(card, "mana_cost")   ?? GetStr(face0, "mana_cost");
+
             var dto = new PrintingDto
             {
-                ScryfallId      = id,
-                SetCode         = setCode,
-                SetName         = setName,
-                CollectorNumber = num,
-                ImageUriSmall   = imgSmall,
-                ImageUriNormal  = imgNormal,
+                ScryfallId         = id,
+                SetCode            = setCode,
+                SetName            = setName,
+                CollectorNumber    = num,
+                ImageUriSmall      = imgSmall,
+                ImageUriNormal     = imgNormal,
+                ImageUriNormalBack = imgNormalBack,
+                Artist             = artist,
+                OracleText         = oracleText,
+                FlavorText         = flavorText,
+                ManaCost           = manaCost,
             };
 
             if (!printings.TryGetValue(oid, out var list))
@@ -276,11 +307,17 @@ public sealed class BulkDataService : IScryfallService
             }
             list.Add(dto);
 
-            scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgSmall, imgArtCrop, setCode);
+            scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgSmall, imgArtCrop, setCode, imgNormalBack);
         }
 
         _printingsByOracleId = printings.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
         _byScryfallId        = scryfallIdx;
+    }
+
+    private static string? GetStr(JsonElement? el, string prop)
+    {
+        if (el is null) return null;
+        return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
     private CardDefinition EnrichWithFirstPrinting(CardDefinition oracle)

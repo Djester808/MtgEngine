@@ -121,6 +121,15 @@ public sealed class CardsController : ControllerBase
         return Ok(cards);
     }
 
+    // GET /api/cards/scryfall/{scryfallId}
+    [HttpGet("scryfall/{scryfallId}")]
+    public async Task<ActionResult<CardDto>> GetCardByScryfallId(string scryfallId)
+    {
+        var def = await _scryfall.GetByScryfallIdAsync(scryfallId);
+        if (def is null) return NotFound();
+        return Ok(DomainMapper.ToDto(def, Guid.Empty, Guid.Empty));
+    }
+
     // GET /api/cards/{oracleId}/printings
     [HttpGet("{oracleId}/printings")]
     public async Task<ActionResult<PrintingDto[]>> GetPrintings(string oracleId)

@@ -27,9 +27,10 @@ public sealed record CardDto
     public int?   Toughness       { get; init; }
     public int?   StartingLoyalty { get; init; }
     public string[] Keywords      { get; init; } = [];
-    public string? ImageUriNormal  { get; init; }
-    public string? ImageUriSmall   { get; init; }
-    public string? ImageUriArtCrop { get; init; }
+    public string? ImageUriNormal     { get; init; }
+    public string? ImageUriNormalBack { get; init; }
+    public string? ImageUriSmall      { get; init; }
+    public string? ImageUriArtCrop    { get; init; }
     public ManaColorDto[] ColorIdentity { get; init; } = [];
     public string OwnerId         { get; init; } = string.Empty;
     public string? FlavorText     { get; init; }
@@ -214,6 +215,12 @@ public sealed record PrintingDto
     public string  SetCode         { get; init; } = string.Empty;
     public string  SetName         { get; init; } = string.Empty;
     public string? CollectorNumber { get; init; }
-    public string? ImageUriSmall   { get; init; }
-    public string? ImageUriNormal  { get; init; }
+    public string? ImageUriSmall      { get; init; }
+    public string? ImageUriNormal     { get; init; }
+    public string? ImageUriNormalBack { get; init; }
+    // Per-printing text (can differ per set due to errata, new art, etc.)
+    public string? OracleText         { get; init; }
+    public string? FlavorText      { get; init; }
+    public string? Artist          { get; init; }
+    public string? ManaCost        { get; init; }
 };

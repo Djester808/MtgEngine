@@ -173,9 +173,11 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Collection not found");
 
-        // Check if card already exists in collection
+        // Check if this exact printing already exists in the collection
         var existing = await _context.CollectionCards
-            .Where(cc => cc.CollectionId == collectionId && cc.OracleId == request.OracleId)
+            .Where(cc => cc.CollectionId == collectionId
+                      && cc.OracleId == request.OracleId
+                      && cc.ScryfallId == request.ScryfallId)
             .FirstOrDefaultAsync();
 
         CollectionCard cardRecord;
@@ -369,7 +371,7 @@ public sealed class CollectionService : ICollectionService
             CardId = def.OracleId,
             OracleId = def.OracleId,
             Name = def.Name,
-            ManaCost = def.ManaCost.ToString(),
+            ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
             ManaValue = def.ManaCost.ManaValue,
             CardTypes = def.CardTypes.ToString().Split(", ")
                 .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
@@ -384,9 +386,10 @@ public sealed class CollectionService : ICollectionService
             Keywords = def.Keywords.ToString().Split(", ")
                 .Where(k => !string.IsNullOrEmpty(k) && k != "None")
                 .ToArray(),
-            ImageUriNormal = def.ImageUriNormal,
-            ImageUriSmall = def.ImageUriSmall,
-            ImageUriArtCrop = def.ImageUriArtCrop,
+            ImageUriNormal     = def.ImageUriNormal,
+            ImageUriNormalBack = def.ImageUriNormalBack,
+            ImageUriSmall      = def.ImageUriSmall,
+            ImageUriArtCrop    = def.ImageUriArtCrop,
             ColorIdentity = def.ColorIdentity
                 .Select(c => c switch
                 {

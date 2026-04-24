@@ -105,7 +105,7 @@ public static class DomainMapper
         CardId          = cardId.ToString(),
         OracleId        = def.OracleId,
         Name            = def.Name,
-        ManaCost        = def.ManaCost.ToString(),
+        ManaCost        = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
         ManaValue       = def.ManaCost.ManaValue,
         CardTypes       = ToCardTypeDto(def.CardTypes),
         Subtypes        = def.Subtypes.ToArray(),

@@ -108,15 +108,44 @@ public sealed class ScryfallService : IScryfallService
             var setCode = card.TryGetProperty("set",              out var setEl) ? setEl.GetString()  ?? "" : "";
             var setName = card.TryGetProperty("set_name",         out var snEl)  ? snEl.GetString()   ?? "" : "";
             var num     = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString()       : null;
+
             string? imgSmall = null, imgNormal = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("small",  out var s)) imgSmall  = s.GetString();
                 if (imgs.TryGetProperty("normal", out var n)) imgNormal = n.GetString();
             }
-            printings.Add(new PrintingDto { ScryfallId = id, SetCode = setCode, SetName = setName, CollectorNumber = num, ImageUriSmall = imgSmall, ImageUriNormal = imgNormal });
+
+            // Per-printing text — fall back to card_faces[0] for DFCs
+            var face0 = card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0
+                ? faces[0] : (JsonElement?)null;
+
+            string? oracleText = GetStr(card, "oracle_text") ?? GetStr(face0, "oracle_text");
+            string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
+            string? artist     = GetStr(card, "artist")      ?? GetStr(face0, "artist");
+            string? manaCost   = GetStr(card, "mana_cost")   ?? GetStr(face0, "mana_cost");
+
+            printings.Add(new PrintingDto
+            {
+                ScryfallId      = id,
+                SetCode         = setCode,
+                SetName         = setName,
+                CollectorNumber = num,
+                ImageUriSmall   = imgSmall,
+                ImageUriNormal  = imgNormal,
+                OracleText      = oracleText,
+                FlavorText      = flavorText,
+                Artist          = artist,
+                ManaCost        = manaCost,
+            });
         }
         return [..printings];
+    }
+
+    private static string? GetStr(JsonElement? el, string prop)
+    {
+        if (el is null) return null;
+        return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
     public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20)

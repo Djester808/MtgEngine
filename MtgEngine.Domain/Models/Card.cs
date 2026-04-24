@@ -13,6 +13,8 @@ public sealed class CardDefinition
     public string OracleId { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public ManaCost ManaCost { get; init; } = ManaCost.Zero;
+    /// <summary>Raw Scryfall mana cost string e.g. "{2}{W}{B}". Used for display only.</summary>
+    public string ManaCostRaw { get; init; } = string.Empty;
     public CardType CardTypes { get; init; }
     public IReadOnlyList<string> Subtypes { get; init; } = [];
     public IReadOnlyList<string> Supertypes { get; init; } = [];
@@ -25,6 +27,7 @@ public sealed class CardDefinition
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
     public string? ImageUriNormal { get; init; }
+    public string? ImageUriNormalBack { get; init; }
     public string? ImageUriSmall { get; init; }
     public string? ImageUriArtCrop { get; init; }
     public IReadOnlyList<ManaColor> ColorIdentity { get; init; } = [];

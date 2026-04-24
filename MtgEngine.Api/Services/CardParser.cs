@@ -18,17 +18,39 @@ internal static class CardParser
             var oracleId = json.GetProperty("oracle_id").GetString() ?? Guid.NewGuid().ToString();
             var name     = json.GetProperty("name").GetString() ?? "";
             var typeLine = json.GetProperty("type_line").GetString() ?? "";
-            var oracle   = json.TryGetProperty("oracle_text", out var ot) ? ot.GetString() ?? "" : "";
-            var mc       = json.TryGetProperty("mana_cost", out var mcEl)
-                           ? ParseManaCost(mcEl.GetString() ?? "")
-                           : ManaCost.Zero;
+            var oracle = json.TryGetProperty("oracle_text", out var ot) ? ot.GetString() ?? "" : "";
+            // DFC cards store oracle_text on each face, not at root
+            if (oracle.Length == 0 && json.TryGetProperty("card_faces", out var otFaces) && otFaces.GetArrayLength() > 0)
+            {
+                if (otFaces[0].TryGetProperty("oracle_text", out var f0ot))
+                    oracle = f0ot.GetString() ?? "";
+                if (otFaces.GetArrayLength() > 1 && otFaces[1].TryGetProperty("oracle_text", out var f1ot))
+                {
+                    var back = f1ot.GetString() ?? "";
+                    if (back.Length > 0) oracle = oracle.Length > 0 ? oracle + "\n//\n" + back : back;
+                }
+            }
+            // Try root-level mana_cost first; fall back to card_faces[0] for DFCs
+            var mc = ManaCost.Zero;
+            var mcRaw = string.Empty;
+            if (json.TryGetProperty("mana_cost", out var mcEl))
+            {
+                mcRaw = mcEl.GetString() ?? "";
+                mc = ParseManaCost(mcRaw);
+            }
+            else if (json.TryGetProperty("card_faces", out var mcFaces) && mcFaces.GetArrayLength() > 0
+                     && mcFaces[0].TryGetProperty("mana_cost", out var faceMcEl))
+            {
+                mcRaw = faceMcEl.GetString() ?? "";
+                mc = ParseManaCost(mcRaw);
+            }
 
             int? power = null, toughness = null, loyalty = null;
             if (json.TryGetProperty("power",     out var pw) && int.TryParse(pw.GetString(), out var p)) power     = p;
             if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t)) toughness = t;
             if (json.TryGetProperty("loyalty",   out var lo) && int.TryParse(lo.GetString(), out var l)) loyalty   = l;
 
-            string? imgNormal = null, imgSmall = null, imgArtCrop = null;
+            string? imgNormal = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
             if (json.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
@@ -38,12 +60,18 @@ internal static class CardParser
             else if (json.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
             {
                 // DFC: images live on individual faces
-                var face = faces[0];
-                if (face.TryGetProperty("image_uris", out var fi))
+                var face0 = faces[0];
+                if (face0.TryGetProperty("image_uris", out var fi))
                 {
                     if (fi.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
                     if (fi.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
                     if (fi.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                }
+                if (faces.GetArrayLength() > 1)
+                {
+                    var face1 = faces[1];
+                    if (face1.TryGetProperty("image_uris", out var fi1) && fi1.TryGetProperty("normal", out var nb))
+                        imgNormalBack = nb.GetString();
                 }
             }
 
@@ -65,6 +93,7 @@ internal static class CardParser
                 OracleId        = oracleId,
                 Name            = name,
                 ManaCost        = mc,
+                ManaCostRaw     = mcRaw,
                 CardTypes       = cardTypes,
                 Subtypes        = subtypes,
                 Supertypes      = supertypes,
@@ -74,10 +103,11 @@ internal static class CardParser
                 StartingLoyalty = loyalty,
                 Keywords        = keywords,
                 ColorIdentity   = colorId,
-                ImageUriNormal  = imgNormal,
-                ImageUriSmall   = imgSmall,
-                ImageUriArtCrop = imgArtCrop,
-                CastingSpeed    = speed,
+                ImageUriNormal     = imgNormal,
+                ImageUriNormalBack = imgNormalBack,
+                ImageUriSmall      = imgSmall,
+                ImageUriArtCrop    = imgArtCrop,
+                CastingSpeed       = speed,
                 FlavorText      = flavorText,
                 Artist          = artist,
                 SetCode         = setCode,
@@ -92,35 +122,42 @@ internal static class CardParser
     /// <summary>
     /// Copies a CardDefinition but overrides the image URIs and set code for a specific printing.
     /// </summary>
-    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgSmall, string? imgArtCrop, string? setCode) =>
+    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null) =>
         new()
         {
-            OracleId        = oracle.OracleId,
-            Name            = oracle.Name,
-            ManaCost        = oracle.ManaCost,
-            CardTypes       = oracle.CardTypes,
-            Subtypes        = oracle.Subtypes,
-            Supertypes      = oracle.Supertypes,
-            OracleText      = oracle.OracleText,
-            Power           = oracle.Power,
-            Toughness       = oracle.Toughness,
-            StartingLoyalty = oracle.StartingLoyalty,
-            Keywords        = oracle.Keywords,
-            CastingSpeed    = oracle.CastingSpeed,
-            ColorIdentity   = oracle.ColorIdentity,
-            FlavorText      = oracle.FlavorText,
-            Artist          = oracle.Artist,
-            ImageUriNormal  = imgNormal  ?? oracle.ImageUriNormal,
-            ImageUriSmall   = imgSmall   ?? oracle.ImageUriSmall,
-            ImageUriArtCrop = imgArtCrop ?? oracle.ImageUriArtCrop,
-            SetCode         = setCode    ?? oracle.SetCode,
+            OracleId           = oracle.OracleId,
+            Name               = oracle.Name,
+            ManaCost           = oracle.ManaCost,
+            ManaCostRaw        = oracle.ManaCostRaw,
+            CardTypes          = oracle.CardTypes,
+            Subtypes           = oracle.Subtypes,
+            Supertypes         = oracle.Supertypes,
+            OracleText         = oracle.OracleText,
+            Power              = oracle.Power,
+            Toughness          = oracle.Toughness,
+            StartingLoyalty    = oracle.StartingLoyalty,
+            Keywords           = oracle.Keywords,
+            CastingSpeed       = oracle.CastingSpeed,
+            ColorIdentity      = oracle.ColorIdentity,
+            FlavorText         = oracle.FlavorText,
+            Artist             = oracle.Artist,
+            ImageUriNormal     = imgNormal     ?? oracle.ImageUriNormal,
+            ImageUriNormalBack = imgNormalBack ?? oracle.ImageUriNormalBack,
+            ImageUriSmall      = imgSmall      ?? oracle.ImageUriSmall,
+            ImageUriArtCrop    = imgArtCrop    ?? oracle.ImageUriArtCrop,
+            SetCode            = setCode       ?? oracle.SetCode,
         };
 
     // ---- Parsers -------------------------------------------------------
 
     private static ManaCost ParseManaCost(string cost)
     {
-        var cleaned = cost.Replace("{", "").Replace("}", "").Replace("X", "");
+        // Strip braces, then keep only digits + WUBRGC (drop X, hybrid /, phyrexian P, snow S, etc.)
+        var cleaned = new string(
+            cost.Replace("{", "").Replace("}", "")
+                .Where(c => char.IsDigit(c) || "WwUuBbRrGg".Contains(c))
+                .ToArray()
+        );
         try { return ManaCost.Parse(cleaned); }
         catch { return ManaCost.Zero; }
     }

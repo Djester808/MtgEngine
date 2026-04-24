@@ -64,6 +64,40 @@ public sealed class ScryfallServiceTests : IDisposable
         }
         """;
 
+    private static string DfcJson(
+        string oracleId   = "cccccccc-0000-0000-0000-000000000001",
+        string frontName  = "Needleverge Pathway",
+        string backName   = "Pillarverge Pathway",
+        string frontOracle = "{T}: Add {R}.",
+        string backOracle  = "{T}: Add {W}.") => $$"""
+        {
+          "oracle_id":  "{{oracleId}}",
+          "name":       "{{frontName}} // {{backName}}",
+          "type_line":  "Land // Land",
+          "color_identity": [],
+          "keywords":   [],
+          "card_faces": [
+            {
+              "name":        "{{frontName}}",
+              "oracle_text": "{{frontOracle}}",
+              "mana_cost":   "",
+              "image_uris": {
+                "normal":   "https://example.com/front-normal.jpg",
+                "small":    "https://example.com/front-small.jpg",
+                "art_crop": "https://example.com/front-art.jpg"
+              }
+            },
+            {
+              "name":        "{{backName}}",
+              "oracle_text": "{{backOracle}}",
+              "image_uris": {
+                "normal": "https://example.com/back-normal.jpg"
+              }
+            }
+          ]
+        }
+        """;
+
     private static string LandJson(
         string oracleId = "bbbbbbbb-0000-0000-0000-000000000001") => $$"""
         {
@@ -273,6 +307,57 @@ public sealed class ScryfallServiceTests : IDisposable
         var nameFiles = Directory.GetFiles(Path.Combine(_tempDir, "by-name"), "*.json");
         nameFiles.Should().HaveCount(2);
         handler.CallCount.Should().Be(2);
+    }
+
+    // ---- Double-faced card (DFC) parsing -----------------------
+
+    [Fact]
+    public async Task GetByNameAsync_DfcCard_CombinesOracleTextFromBothFaces()
+    {
+        var handler = new FakeHttpHandler(DfcJson());
+        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+
+        result.Should().NotBeNull();
+        result!.OracleText.Should().Be("{T}: Add {R}.\n//\n{T}: Add {W}.");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_DfcCard_SetsImageUriNormalFromFrontFace()
+    {
+        var handler = new FakeHttpHandler(DfcJson());
+        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+
+        result!.ImageUriNormal.Should().Be("https://example.com/front-normal.jpg");
+        result.ImageUriSmall.Should().Be("https://example.com/front-small.jpg");
+        result.ImageUriArtCrop.Should().Be("https://example.com/front-art.jpg");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_DfcCard_SetsImageUriNormalBackFromBackFace()
+    {
+        var handler = new FakeHttpHandler(DfcJson());
+        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+
+        result!.ImageUriNormalBack.Should().Be("https://example.com/back-normal.jpg");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_DfcCard_SingleFaceOracleText_WhenBackFaceEmpty()
+    {
+        var handler = new FakeHttpHandler(DfcJson(backOracle: ""));
+        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+
+        result!.OracleText.Should().Be("{T}: Add {R}.");
+        result.OracleText.Should().NotContain("//");
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_StandardCard_HasNullImageUriNormalBack()
+    {
+        var handler = new FakeHttpHandler(CreatureJson());
+        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+
+        result!.ImageUriNormalBack.Should().BeNull();
     }
 
     // ---- Fake handler ------------------------------------------

@@ -56,9 +56,10 @@ public sealed class MtgEngineDbContext : DbContext
                 .HasForeignKey(e => e.CollectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Indexes
+            // Indexes — one entry per (collection, printing); same oracle can appear multiple times with different scryfallIds
             entity.HasIndex(e => e.CollectionId);
-            entity.HasIndex(e => new { e.CollectionId, e.OracleId }).IsUnique();
+            entity.HasIndex(e => new { e.CollectionId, e.OracleId });
+            entity.HasIndex(e => new { e.CollectionId, e.ScryfallId }).IsUnique();
         });
     }
 }
