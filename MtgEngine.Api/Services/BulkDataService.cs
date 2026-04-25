@@ -106,6 +106,15 @@ public sealed class BulkDataService : IScryfallService
         return await _api.GetPrintingsAsync(oracleId);
     }
 
+    public async Task<RulingDto[]> GetRulingsAsync(string oracleId)
+    {
+        await WaitReadyAsync();
+        // Use the first known Scryfall ID for this oracle entry so we call the right rulings endpoint.
+        if (_printingsByOracleId.TryGetValue(oracleId, out var prints) && prints.Length > 0)
+            return await _api.GetRulingsByScryfallIdAsync(prints[0].ScryfallId);
+        return await _api.GetRulingsAsync(oracleId); // fallback: let ScryfallService resolve it
+    }
+
     public async Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null)
     {
         await WaitReadyAsync();

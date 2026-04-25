@@ -37,6 +37,7 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.UserId).IsRequired().HasMaxLength(256);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
             entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.IsDeck).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
 

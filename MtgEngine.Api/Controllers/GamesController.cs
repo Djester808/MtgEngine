@@ -161,4 +161,12 @@ public sealed class CardsController : ControllerBase
         var printings = await _scryfall.GetPrintingsAsync(oracleId);
         return Ok(printings);
     }
+
+    // GET /api/cards/{oracleId}/rulings
+    [HttpGet("{oracleId}/rulings")]
+    public async Task<ActionResult<RulingDto[]>> GetRulings(string oracleId)
+    {
+        var rulings = await _scryfall.GetRulingsAsync(oracleId);
+        return Ok(rulings);
+    }
 }

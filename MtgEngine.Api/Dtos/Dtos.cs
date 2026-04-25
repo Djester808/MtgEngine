@@ -210,6 +210,31 @@ public sealed record UpdateCollectionCardRequest(
     string? Notes = null
 );
 
+// ---- Deck Management (reuses CollectionCardDto for cards) --
+
+public sealed record DeckDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? CoverUri { get; init; }
+    public int CardCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
+public sealed record DeckDetailDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? CoverUri { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+    public CollectionCardDto[] Cards { get; init; } = [];
+}
+
+public sealed record CreateDeckRequest(string Name, string? CoverUri = null);
+public sealed record UpdateDeckRequest(string Name, string? CoverUri = null);
+
 public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 
 // ---- Auth -----------------------------------------------------
@@ -217,6 +242,8 @@ public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 public sealed record RegisterRequest(string Username, string Email, string Password);
 public sealed record LoginRequest(string Username, string Password);
 public sealed record AuthTokenResponse(string Token, string Username);
+
+public sealed record RulingDto(string Source, string PublishedAt, string Comment);
 
 public sealed record PrintingDto
 {

@@ -8,14 +8,14 @@ namespace MtgEngine.Api.Services;
 
 public interface ICollectionService
 {
-    // Collections
+    // Collections (IsDeck = false only)
     Task<CollectionDto[]> GetUserCollectionsAsync(string userId);
     Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId);
     Task<CollectionDetailDto> CreateCollectionAsync(string userId, CreateCollectionRequest request);
     Task<CollectionDetailDto> UpdateCollectionAsync(Guid collectionId, string userId, UpdateCollectionRequest request);
     Task<bool> DeleteCollectionAsync(Guid collectionId, string userId);
 
-    // Collection Cards
+    // Shared card management (used by both collections and decks)
     Task<CollectionCardDto> AddCardToCollectionAsync(
         Guid collectionId,
         string userId,
@@ -31,6 +31,13 @@ public interface ICollectionService
 
     // Deck building from collection
     Task<CardDto[]> GetAvailableCardsForDeckAsync(Guid collectionId, string userId);
+
+    // Decks (IsDeck = true)
+    Task<DeckDto[]> GetUserDecksAsync(string userId);
+    Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId);
+    Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request);
+    Task<DeckDetailDto> UpdateDeckAsync(Guid deckId, string userId, UpdateDeckRequest request);
+    Task<bool> DeleteDeckAsync(Guid deckId, string userId);
 }
 
 public sealed class CollectionService : ICollectionService
@@ -49,7 +56,7 @@ public sealed class CollectionService : ICollectionService
     public async Task<CollectionDto[]> GetUserCollectionsAsync(string userId)
     {
         var collections = await _context.Collections
-            .Where(c => c.UserId == userId)
+            .Where(c => c.UserId == userId && !c.IsDeck)
             .OrderByDescending(c => c.UpdatedAt)
             .Select(c => new CollectionDto
             {
@@ -110,7 +117,7 @@ public sealed class CollectionService : ICollectionService
 
     public async Task<CollectionDetailDto> CreateCollectionAsync(string userId, CreateCollectionRequest request)
     {
-        var collection = new Collection(userId, request.Name, request.Description);
+        var collection = new Collection(userId, request.Name, request.Description, isDeck: false);
         _context.Collections.Add(collection);
         await _context.SaveChangesAsync();
 
@@ -360,6 +367,112 @@ public sealed class CollectionService : ICollectionService
         }
 
         return [..cards];
+    }
+
+    // ---- Deck methods ----
+
+    public async Task<DeckDto[]> GetUserDecksAsync(string userId)
+    {
+        return await _context.Collections
+            .Where(c => c.UserId == userId && c.IsDeck)
+            .OrderByDescending(c => c.UpdatedAt)
+            .Select(c => new DeckDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                CoverUri = c.Description,
+                CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt,
+            })
+            .ToArrayAsync();
+    }
+
+    public async Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId)
+    {
+        var deck = await _context.Collections
+            .AsNoTracking()
+            .Where(c => c.Id == deckId && c.UserId == userId && c.IsDeck)
+            .Include(c => c.Cards)
+            .FirstOrDefaultAsync();
+
+        if (deck == null) return null;
+
+        var cards = new List<CollectionCardDto>();
+        foreach (var card in deck.Cards)
+        {
+            var cardDef = card.ScryfallId is not null
+                ? await _scryfallService.GetByScryfallIdAsync(card.ScryfallId)
+                : await _scryfallService.GetByOracleIdAsync(card.OracleId);
+
+            cards.Add(new CollectionCardDto
+            {
+                Id = card.Id,
+                OracleId = card.OracleId,
+                ScryfallId = card.ScryfallId,
+                Quantity = card.Quantity,
+                QuantityFoil = card.QuantityFoil,
+                Notes = card.Notes,
+                AddedAt = card.AddedAt,
+                CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
+            });
+        }
+
+        return new DeckDetailDto
+        {
+            Id = deck.Id,
+            Name = deck.Name,
+            CoverUri = deck.Description,
+            CreatedAt = deck.CreatedAt,
+            UpdatedAt = deck.UpdatedAt,
+            Cards = [..cards]
+        };
+    }
+
+    public async Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request)
+    {
+        var deck = new Collection(userId, request.Name, request.CoverUri, isDeck: true);
+        _context.Collections.Add(deck);
+        await _context.SaveChangesAsync();
+
+        return new DeckDetailDto
+        {
+            Id = deck.Id,
+            Name = deck.Name,
+            CoverUri = deck.Description,
+            CreatedAt = deck.CreatedAt,
+            UpdatedAt = deck.UpdatedAt,
+            Cards = []
+        };
+    }
+
+    public async Task<DeckDetailDto> UpdateDeckAsync(Guid deckId, string userId, UpdateDeckRequest request)
+    {
+        var deck = await _context.Collections
+            .Where(c => c.Id == deckId && c.UserId == userId && c.IsDeck)
+            .FirstOrDefaultAsync()
+            ?? throw new KeyNotFoundException("Deck not found");
+
+        deck.Name = request.Name;
+        deck.Description = request.CoverUri;
+        deck.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return await GetDeckAsync(deckId, userId)
+            ?? throw new InvalidOperationException("Failed to retrieve updated deck");
+    }
+
+    public async Task<bool> DeleteDeckAsync(Guid deckId, string userId)
+    {
+        var deck = await _context.Collections
+            .Where(c => c.Id == deckId && c.UserId == userId && c.IsDeck)
+            .FirstOrDefaultAsync();
+
+        if (deck == null) return false;
+
+        _context.Collections.Remove(deck);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     // ---- Helpers ----

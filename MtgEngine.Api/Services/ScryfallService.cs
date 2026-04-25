@@ -11,6 +11,7 @@ public interface IScryfallService
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
     Task<PrintingDto[]>    GetPrintingsAsync(string oracleId);
+    Task<RulingDto[]>      GetRulingsAsync(string oracleId);
     Task<SetSummaryDto[]>  GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
 }
@@ -143,6 +144,46 @@ public sealed class ScryfallService : IScryfallService
             });
         }
         return [..printings];
+    }
+
+    private readonly ConcurrentDictionary<string, RulingDto[]> _rulingsByOracleId = new();
+
+    // Scryfall's rulings endpoint requires a printing-specific Scryfall ID, not an oracle ID.
+    // GetRulingsAsync resolves an oracleId → scryfallId via printings, then delegates here.
+    internal async Task<RulingDto[]> GetRulingsByScryfallIdAsync(string scryfallId)
+    {
+        if (_rulingsByOracleId.TryGetValue(scryfallId, out var mem)) return mem;
+
+        Directory.CreateDirectory(Path.Combine(_cacheDir, "rulings"));
+        var cachePath = Path.Combine(_cacheDir, "rulings", $"{scryfallId}.json");
+
+        var json = await LoadDiskAsync(cachePath)
+                   ?? await FetchAndSaveAsync(cachePath, $"cards/{scryfallId}/rulings");
+
+        if (json is null || !json.Value.TryGetProperty("data", out var data))
+        {
+            _rulingsByOracleId[scryfallId] = [];
+            return [];
+        }
+
+        var rulings = data.EnumerateArray()
+            .Select(r => new RulingDto(
+                r.TryGetProperty("source",       out var src) ? src.GetString() ?? "" : "",
+                r.TryGetProperty("published_at", out var pub) ? pub.GetString() ?? "" : "",
+                r.TryGetProperty("comment",      out var cmt) ? cmt.GetString() ?? "" : ""))
+            .Where(r => r.Comment.Length > 0)
+            .ToArray();
+
+        _rulingsByOracleId[scryfallId] = rulings;
+        return rulings;
+    }
+
+    public async Task<RulingDto[]> GetRulingsAsync(string oracleId)
+    {
+        // Resolve oracle ID → any printing's Scryfall ID, then fetch rulings by that ID.
+        var printings = await GetPrintingsAsync(oracleId);
+        if (printings.Length == 0) return [];
+        return await GetRulingsByScryfallIdAsync(printings[0].ScryfallId);
     }
 
     private static string? GetStr(JsonElement? el, string prop)
