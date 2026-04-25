@@ -15,6 +15,8 @@ public sealed class CardDefinition
     public ManaCost ManaCost { get; init; } = ManaCost.Zero;
     /// <summary>Raw Scryfall mana cost string e.g. "{2}{W}{B}". Used for display only.</summary>
     public string ManaCostRaw { get; init; } = string.Empty;
+    /// <summary>Authoritative mana value (CMC) from Scryfall's cmc field. Use this for filtering.</summary>
+    public int Cmc { get; init; }
     public CardType CardTypes { get; init; }
     public IReadOnlyList<string> Subtypes { get; init; } = [];
     public IReadOnlyList<string> Supertypes { get; init; } = [];

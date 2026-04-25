@@ -109,14 +109,17 @@ public sealed class CardsController : ControllerBase
         return Ok(DomainMapper.ToDto(card));
     }
 
-    // GET /api/cards/search?q=...&limit=60&offset=0&sortBy=name&sortDir=asc
+    // GET /api/cards/search?q=...&limit=60&offset=0&sortBy=name&sortDir=asc&matchCase=false&matchWord=false&useRegex=false
     [HttpGet("search")]
     public async Task<ActionResult<CardDto[]>> Search(
         [FromQuery] string q,
-        [FromQuery] int    limit   = 60,
-        [FromQuery] int    offset  = 0,
-        [FromQuery] string sortBy  = "name",
-        [FromQuery] string sortDir = "asc")
+        [FromQuery] int    limit     = 60,
+        [FromQuery] int    offset    = 0,
+        [FromQuery] string sortBy    = "name",
+        [FromQuery] string sortDir   = "asc",
+        [FromQuery] bool   matchCase = false,
+        [FromQuery] bool   matchWord = false,
+        [FromQuery] bool   useRegex  = false)
     {
         if (string.IsNullOrWhiteSpace(q)) return BadRequest();
 
@@ -125,17 +128,20 @@ public sealed class CardsController : ControllerBase
             Math.Clamp(limit, 1, 60),
             Math.Max(offset, 0),
             sortBy,
-            sortDir);
+            sortDir,
+            matchCase,
+            matchWord,
+            useRegex);
         var cards = defs.Select(def => DomainMapper.ToDto(
             new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty })).ToArray();
         return Ok(cards);
     }
 
-    // GET /api/cards/sets
+    // GET /api/cards/sets?q=...
     [HttpGet("sets")]
-    public async Task<ActionResult<SetSummaryDto[]>> GetSets()
+    public async Task<ActionResult<SetSummaryDto[]>> GetSets([FromQuery] string? q = null)
     {
-        var sets = await _scryfall.GetSetsAsync();
+        var sets = await _scryfall.GetSetsAsync(q);
         return Ok(sets);
     }
 

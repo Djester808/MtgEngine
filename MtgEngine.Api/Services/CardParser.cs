@@ -79,6 +79,7 @@ internal static class CardParser
             var artist     = json.TryGetProperty("artist",       out var ar) ? ar.GetString() : null;
             var setCode    = json.TryGetProperty("set",          out var sc) ? sc.GetString() : null;
 
+            var cmc        = json.TryGetProperty("cmc", out var cmcEl) ? (int)cmcEl.GetDouble() : 0;
             var cardTypes  = ParseCardTypes(typeLine);
             var subtypes   = ParseSubtypes(typeLine);
             var supertypes = ParseSupertypes(typeLine);
@@ -95,6 +96,7 @@ internal static class CardParser
                 Name            = name,
                 ManaCost        = mc,
                 ManaCostRaw     = mcRaw,
+                Cmc             = cmc,
                 CardTypes       = cardTypes,
                 Subtypes        = subtypes,
                 Supertypes      = supertypes,
@@ -131,6 +133,7 @@ internal static class CardParser
             Name               = oracle.Name,
             ManaCost           = oracle.ManaCost,
             ManaCostRaw        = oracle.ManaCostRaw,
+            Cmc                = oracle.Cmc,
             CardTypes          = oracle.CardTypes,
             Subtypes           = oracle.Subtypes,
             Supertypes         = oracle.Supertypes,

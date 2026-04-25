@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
@@ -105,10 +106,40 @@ public sealed class BulkDataService : IScryfallService
         return await _api.GetPrintingsAsync(oracleId);
     }
 
-    public async Task<SetSummaryDto[]> GetSetsAsync()
+    public async Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null)
     {
         await WaitReadyAsync();
-        return _bySetCode
+
+        IEnumerable<KeyValuePair<string, List<string>>> source = _bySetCode;
+
+        if (!string.IsNullOrWhiteSpace(filterQuery))
+        {
+            var q              = filterQuery.Trim();
+            var nameFilter     = ParseName(q);
+            var typeFlags      = ParseTypes(q);
+            var raritySet      = ParseRarities(q);
+            var (cmcOp, cmcVal) = ParseCmc(q);
+            var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
+
+            var matchingOracleIds = _byOracleId.Values
+                .Where(d => nameFilter is null || d.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
+                .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
+                .Where(d => raritySet.Count == 0 || (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
+                .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
+                .Where(d => !colorFilter || MatchesColor(d, multicolor, colorless, colorSet))
+                .Select(d => d.OracleId)
+                .ToHashSet();
+
+            var relevantSets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var oid in matchingOracleIds)
+                if (_printingsByOracleId.TryGetValue(oid, out var prints))
+                    foreach (var p in prints)
+                        if (p.SetCode is not null) relevantSets.Add(p.SetCode);
+
+            source = _bySetCode.Where(kv => relevantSets.Contains(kv.Key));
+        }
+
+        return source
             .OrderBy(kv => _setNames.TryGetValue(kv.Key, out var n) ? n : kv.Key)
             .Select(kv => new SetSummaryDto(
                 kv.Key.ToUpperInvariant(),
@@ -117,7 +148,7 @@ public sealed class BulkDataService : IScryfallService
             .ToArray();
     }
 
-    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc")
+    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)
     {
         await WaitReadyAsync();
         var q = query.Trim();
@@ -128,19 +159,21 @@ public sealed class BulkDataService : IScryfallService
         var setFilter       = ParseSet(q);
         var raritySet       = ParseRarities(q);
         var (cmcOp, cmcVal) = ParseCmc(q);
+        var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
         var descending      = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
 
         IEnumerable<string> oracleIds;
         if (setFilter is not null)
         {
             if (!_bySetCode.TryGetValue(setFilter, out var setList) || setList.Count == 0)
-                return await _api.SearchAsync(query, limit, offset, sortBy, sortDir);
+                return await _api.SearchAsync(query, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
             oracleIds = setList;
         }
         else
         {
-            // Name-only fast path (no type/rarity/cmc filters)
-            if (nameFilter is not null && typeFlags == CardType.None && raritySet.Count == 0 && cmcOp is null)
+            // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags)
+            if (nameFilter is not null && typeFlags == CardType.None && raritySet.Count == 0
+                && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
             {
                 var nameKeys = _byName.Keys
                     .Where(n => n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase))
@@ -162,11 +195,12 @@ public sealed class BulkDataService : IScryfallService
         var filtered = oracleIds
             .Select(oid => _byOracleId.TryGetValue(oid, out var d) ? d : null)
             .Where(d => d is not null).Cast<CardDefinition>()
-            .Where(d => nameFilter is null || d.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(d => nameFilter is null || MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
             .Where(d => raritySet.Count == 0 ||
                         (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
-            .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal));
+            .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
+            .Where(d => !colorFilter || MatchesColor(d, multicolor, colorless, colorSet));
 
         var sorted = sortBy.Equals("cmc", StringComparison.OrdinalIgnoreCase)
             ? (descending
@@ -194,7 +228,7 @@ public sealed class BulkDataService : IScryfallService
             .ToArray();
 
         if (results.Length > 0 || offset > 0) return results;
-        return await _api.SearchAsync(query, limit, offset, sortBy, sortDir);
+        return await _api.SearchAsync(query, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
     }
 
     // ---- Query parsers ---------------------------------------------------
@@ -209,7 +243,10 @@ public sealed class BulkDataService : IScryfallService
             var end = q.IndexOf('"', start);
             if (end > start) return q[start..end];
         }
-        return null;
+        // Plain text with no query-syntax tokens → treat the whole query as a name filter
+        // Any "key:" pattern (t:, s:, r:, c:, name:, cmc, etc.) signals structured query syntax
+        var hasToken = q.Contains(':') || q.IndexOf("cmc", StringComparison.OrdinalIgnoreCase) >= 0;
+        return hasToken ? null : q.Trim();
     }
 
     private static CardType ParseTypes(string q)
@@ -283,9 +320,56 @@ public sealed class BulkDataService : IScryfallService
     }
 
     private static bool MatchesCmc(CardDefinition d, string op, int val)
+        => op switch { "<=" => d.Cmc <= val, ">=" => d.Cmc >= val, _ => d.Cmc == val };
+
+    private static (bool HasFilter, bool Multicolor, bool Colorless, HashSet<ManaColor> Colors) ParseColors(string q)
     {
-        var mv = d.ManaCost.ManaValue;
-        return op switch { "<=" => mv <= val, ">=" => mv >= val, _ => mv == val };
+        var idx = q.IndexOf("c:", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return (false, false, false, []);
+        var start = idx + 2;
+        var end = start;
+        while (end < q.Length && char.IsLetter(q[end])) end++;
+        if (end == start) return (false, false, false, []);
+        var token = q[start..end].ToLowerInvariant();
+        if (token == "m") return (true, true, false, []);
+        if (token == "c") return (true, false, true, []);
+        var colors = new HashSet<ManaColor>();
+        foreach (var ch in token)
+        {
+            var c = ch switch { 'w' => ManaColor.White, 'u' => ManaColor.Blue, 'b' => ManaColor.Black,
+                                'r' => ManaColor.Red,   'g' => ManaColor.Green, _ => (ManaColor?)null };
+            if (c.HasValue) colors.Add(c.Value);
+        }
+        return colors.Count > 0 ? (true, false, false, colors) : (false, false, false, []);
+    }
+
+    private static bool MatchesColor(CardDefinition d, bool multicolor, bool colorless, HashSet<ManaColor> colors)
+    {
+        if (multicolor)  return d.ColorIdentity.Count >= 2;
+        if (colorless)   return d.ColorIdentity.Count == 0;
+        return d.ColorIdentity.Any(c => colors.Contains(c));
+    }
+
+    private static readonly char[] _wordSeparators = [' ', ',', '-', '\'', '"', '(', ')', '/', ':', '.'];
+
+    internal static bool MatchesName(string name, string filter, bool matchCase, bool matchWord, bool useRegex)
+    {
+        var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        if (useRegex)
+        {
+            try
+            {
+                var opts = matchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
+                return Regex.IsMatch(name, filter, opts | RegexOptions.CultureInvariant);
+            }
+            catch (RegexParseException) { return false; }
+        }
+        if (matchWord)
+        {
+            var words = name.Split(_wordSeparators, StringSplitOptions.RemoveEmptyEntries);
+            return words.Any(w => w.Equals(filter, comparison));
+        }
+        return name.Contains(filter, comparison);
     }
 
     // ---- Refresh logic ---------------------------------------------------

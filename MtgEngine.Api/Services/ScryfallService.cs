@@ -10,8 +10,9 @@ public interface IScryfallService
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
-    Task<PrintingDto[]>   GetPrintingsAsync(string oracleId);
-    Task<CardDefinition[]> SearchAsync(string query, int limit = 20);
+    Task<PrintingDto[]>    GetPrintingsAsync(string oracleId);
+    Task<SetSummaryDto[]>  GetSetsAsync(string? filterQuery = null);
+    Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
 }
 
 /// <summary>
@@ -94,6 +95,8 @@ public sealed class ScryfallService : IScryfallService
         return def;
     }
 
+    public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
+
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {
         var encoded = Uri.EscapeDataString($"oracleid:{oracleId}");
@@ -148,9 +151,18 @@ public sealed class ScryfallService : IScryfallService
         return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
-    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20)
+    public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)
     {
-        var def = await GetByNameAsync(query);
+        // Strip name:"..." wrapper if present so Scryfall fuzzy lookup gets the plain name
+        var name = query.Trim();
+        var idx = name.IndexOf("name:\"", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var start = idx + 6;
+            var end = name.IndexOf('"', start);
+            if (end > start) name = name[start..end];
+        }
+        var def = await GetByNameAsync(name);
         return def is null ? [] : [def];
     }
 
