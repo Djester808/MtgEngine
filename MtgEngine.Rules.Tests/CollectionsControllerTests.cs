@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using MtgEngine.Api.Controllers;
@@ -12,11 +14,56 @@ public sealed class CollectionsControllerTests
 {
     private readonly Mock<ICollectionService> _collectionServiceMock;
     private readonly CollectionsController _controller;
+    private const string TestUserId = "11111111-1111-1111-1111-111111111111";
 
     public CollectionsControllerTests()
     {
         _collectionServiceMock = new Mock<ICollectionService>();
         _controller = new CollectionsController(_collectionServiceMock.Object);
+
+        // Provide a ClaimsPrincipal so User.FindFirstValue(NameIdentifier) works
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, TestUserId)], "Test"));
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal },
+        };
+    }
+
+    // ---- UserId from claims ----
+
+    [Fact]
+    public async Task GetCollections_PassesClaimUserIdToService()
+    {
+        _collectionServiceMock.Setup(s => s.GetUserCollectionsAsync(TestUserId)).ReturnsAsync([]);
+
+        await _controller.GetCollections();
+
+        _collectionServiceMock.Verify(s => s.GetUserCollectionsAsync(TestUserId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateCollection_PassesClaimUserIdToService()
+    {
+        var request = new CreateCollectionRequest("My Collection");
+        _collectionServiceMock
+            .Setup(s => s.CreateCollectionAsync(TestUserId, request))
+            .ReturnsAsync(new CollectionDetailDto { Id = Guid.NewGuid(), Name = "My Collection" });
+
+        await _controller.CreateCollection(request);
+
+        _collectionServiceMock.Verify(s => s.CreateCollectionAsync(TestUserId, request), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteCollection_PassesClaimUserIdToService()
+    {
+        var id = Guid.NewGuid();
+        _collectionServiceMock.Setup(s => s.DeleteCollectionAsync(id, TestUserId)).ReturnsAsync(true);
+
+        await _controller.DeleteCollection(id);
+
+        _collectionServiceMock.Verify(s => s.DeleteCollectionAsync(id, TestUserId), Times.Once);
     }
 
     // ---- GetCollections Tests ----

@@ -1,8 +1,11 @@
+using System.Text;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +74,23 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
 
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 
+// ---- Auth ------------------------------------------------
+builder.Services.AddScoped<TokenService>();
+
+var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!);
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =>
+    {
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey        = new SymmetricSecurityKey(jwtKey),
+            ValidateIssuer          = false,
+            ValidateAudience        = false,
+            ClockSkew               = TimeSpan.Zero,
+        };
+    });
+
 // ---- CORS ------------------------------------------------
 builder.Services.AddCors(opts =>
 {
@@ -100,6 +120,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AngularDev");
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

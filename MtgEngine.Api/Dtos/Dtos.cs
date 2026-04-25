@@ -212,6 +212,12 @@ public sealed record UpdateCollectionCardRequest(
 
 public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 
+// ---- Auth -----------------------------------------------------
+
+public sealed record RegisterRequest(string Username, string Email, string Password);
+public sealed record LoginRequest(string Username, string Password);
+public sealed record AuthTokenResponse(string Token, string Username);
+
 public sealed record PrintingDto
 {
     public string  ScryfallId      { get; init; } = string.Empty;

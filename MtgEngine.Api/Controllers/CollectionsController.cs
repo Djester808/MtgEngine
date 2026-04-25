@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
@@ -7,12 +9,16 @@ namespace MtgEngine.Api.Controllers;
 /// <summary>
 /// Manages user card collections and deck building from owned cards.
 /// </summary>
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public sealed class CollectionsController : ControllerBase
 {
     private readonly ICollectionService _collectionService;
-    private const string DefaultUserId = "user-default"; // TODO: Replace with actual auth
+
+    private string UserId =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new InvalidOperationException("User ID claim missing from token");
 
     public CollectionsController(ICollectionService collectionService)
     {
@@ -27,7 +33,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<CollectionDto[]>> GetCollections()
     {
-        var collections = await _collectionService.GetUserCollectionsAsync(DefaultUserId);
+        var collections = await _collectionService.GetUserCollectionsAsync(UserId);
         return Ok(collections);
     }
 
@@ -37,7 +43,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpGet("{collectionId:guid}")]
     public async Task<ActionResult<CollectionDetailDto>> GetCollection(Guid collectionId)
     {
-        var collection = await _collectionService.GetCollectionAsync(collectionId, DefaultUserId);
+        var collection = await _collectionService.GetCollectionAsync(collectionId, UserId);
         if (collection == null)
             return NotFound();
 
@@ -54,7 +60,7 @@ public sealed class CollectionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("Collection name is required");
 
-        var collection = await _collectionService.CreateCollectionAsync(DefaultUserId, request);
+        var collection = await _collectionService.CreateCollectionAsync(UserId, request);
         return CreatedAtAction(nameof(GetCollection), new { collectionId = collection.Id }, collection);
     }
 
@@ -71,7 +77,7 @@ public sealed class CollectionsController : ControllerBase
 
         try
         {
-            var collection = await _collectionService.UpdateCollectionAsync(collectionId, DefaultUserId, request);
+            var collection = await _collectionService.UpdateCollectionAsync(collectionId, UserId, request);
             return Ok(collection);
         }
         catch (KeyNotFoundException)
@@ -86,7 +92,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpDelete("{collectionId:guid}")]
     public async Task<ActionResult> DeleteCollection(Guid collectionId)
     {
-        var success = await _collectionService.DeleteCollectionAsync(collectionId, DefaultUserId);
+        var success = await _collectionService.DeleteCollectionAsync(collectionId, UserId);
         if (!success)
             return NotFound();
 
@@ -111,8 +117,8 @@ public sealed class CollectionsController : ControllerBase
 
         try
         {
-            var card = await _collectionService.AddCardToCollectionAsync(collectionId, DefaultUserId, request);
-            return CreatedAtAction(nameof(GetCollectionCard), 
+            var card = await _collectionService.AddCardToCollectionAsync(collectionId, UserId, request);
+            return CreatedAtAction(nameof(GetCollectionCard),
                 new { collectionId, cardId = card.Id }, card);
         }
         catch (KeyNotFoundException)
@@ -127,7 +133,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpGet("{collectionId:guid}/cards/{cardId:guid}")]
     public async Task<ActionResult<CollectionCardDto>> GetCollectionCard(Guid collectionId, Guid cardId)
     {
-        var card = await _collectionService.GetCollectionCardAsync(collectionId, cardId, DefaultUserId);
+        var card = await _collectionService.GetCollectionCardAsync(collectionId, cardId, UserId);
         if (card == null)
             return NotFound();
 
@@ -149,7 +155,7 @@ public sealed class CollectionsController : ControllerBase
         try
         {
             var card = await _collectionService.UpdateCollectionCardAsync(
-                collectionId, cardId, DefaultUserId, request);
+                collectionId, cardId, UserId, request);
             return Ok(card);
         }
         catch (KeyNotFoundException)
@@ -164,7 +170,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpDelete("{collectionId:guid}/cards/{cardId:guid}")]
     public async Task<ActionResult> RemoveCardFromCollection(Guid collectionId, Guid cardId)
     {
-        var success = await _collectionService.RemoveCardFromCollectionAsync(collectionId, cardId, DefaultUserId);
+        var success = await _collectionService.RemoveCardFromCollectionAsync(collectionId, cardId, UserId);
         if (!success)
             return NotFound();
 
@@ -177,7 +183,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpDelete("{collectionId:guid}/cards/by-oracle/{oracleId}")]
     public async Task<ActionResult> RemoveCardByOracle(Guid collectionId, string oracleId)
     {
-        var success = await _collectionService.RemoveCardByOracleAsync(collectionId, oracleId, DefaultUserId);
+        var success = await _collectionService.RemoveCardByOracleAsync(collectionId, oracleId, UserId);
         if (!success)
             return NotFound();
 
@@ -192,7 +198,7 @@ public sealed class CollectionsController : ControllerBase
     [HttpGet("{collectionId:guid}/deck-cards")]
     public async Task<ActionResult<CardDto[]>> GetDeckCards(Guid collectionId)
     {
-        var cards = await _collectionService.GetAvailableCardsForDeckAsync(collectionId, DefaultUserId);
+        var cards = await _collectionService.GetAvailableCardsForDeckAsync(collectionId, UserId);
         return Ok(cards);
     }
 }
