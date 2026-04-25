@@ -179,6 +179,7 @@ public sealed record CollectionDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
+    public string? CoverUri { get; init; }
     public int CardCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -189,13 +190,14 @@ public sealed record CollectionDetailDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
+    public string? CoverUri { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
 public sealed record CreateCollectionRequest(string Name, string? Description = null);
-public sealed record UpdateCollectionRequest(string Name, string? Description = null);
+public sealed record UpdateCollectionRequest(string Name, string? Description = null, string? CoverUri = null);
 public sealed record AddCardToCollectionRequest(
     string OracleId,
     string? ScryfallId = null,

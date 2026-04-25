@@ -63,6 +63,7 @@ public sealed class CollectionService : ICollectionService
                 Id = c.Id,
                 Name = c.Name,
                 Description = c.Description,
+                CoverUri = c.CoverUri,
                 CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt
@@ -109,6 +110,7 @@ public sealed class CollectionService : ICollectionService
             Id = collection.Id,
             Name = collection.Name,
             Description = collection.Description,
+            CoverUri = collection.CoverUri,
             CreatedAt = collection.CreatedAt,
             UpdatedAt = collection.UpdatedAt,
             Cards = [..cards]
@@ -126,6 +128,7 @@ public sealed class CollectionService : ICollectionService
             Id = collection.Id,
             Name = collection.Name,
             Description = collection.Description,
+            CoverUri = collection.CoverUri,
             CreatedAt = collection.CreatedAt,
             UpdatedAt = collection.UpdatedAt,
             Cards = []
@@ -144,6 +147,7 @@ public sealed class CollectionService : ICollectionService
 
         collection.Name = request.Name;
         collection.Description = request.Description;
+        collection.CoverUri = request.CoverUri;
         collection.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

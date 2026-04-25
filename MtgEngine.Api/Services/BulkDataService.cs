@@ -164,6 +164,7 @@ public sealed class BulkDataService : IScryfallService
         if (q.Length < 2) return [];
 
         var nameFilter      = ParseName(q);
+        var oracleFilter    = ParseOracleText(q);
         var typeFlags       = ParseTypes(q);
         var setFilter       = ParseSet(q);
         var raritySet       = ParseRarities(q);
@@ -180,8 +181,8 @@ public sealed class BulkDataService : IScryfallService
         }
         else
         {
-            // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags)
-            if (nameFilter is not null && typeFlags == CardType.None && raritySet.Count == 0
+            // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags, no oracle filter)
+            if (nameFilter is not null && oracleFilter is null && typeFlags == CardType.None && raritySet.Count == 0
                 && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
             {
                 var nameKeys = _byName.Keys
@@ -204,7 +205,9 @@ public sealed class BulkDataService : IScryfallService
         var filtered = oracleIds
             .Select(oid => _byOracleId.TryGetValue(oid, out var d) ? d : null)
             .Where(d => d is not null).Cast<CardDefinition>()
-            .Where(d => nameFilter is null || MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
+            .Where(d => (nameFilter is null && oracleFilter is null)
+                     || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
+                     || (oracleFilter is not null && MatchesOracleText(d, oracleFilter, matchCase)))
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
             .Where(d => raritySet.Count == 0 ||
                         (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
@@ -256,6 +259,34 @@ public sealed class BulkDataService : IScryfallService
         // Any "key:" pattern (t:, s:, r:, c:, name:, cmc, etc.) signals structured query syntax
         var hasToken = q.Contains(':') || q.IndexOf("cmc", StringComparison.OrdinalIgnoreCase) >= 0;
         return hasToken ? null : q.Trim();
+    }
+
+    private static string? ParseOracleText(string q)
+    {
+        // o:"some text"
+        var idx = q.IndexOf("o:\"", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var start = idx + 3;
+            var end = q.IndexOf('"', start);
+            if (end > start) return q[start..end];
+        }
+        // o:word (unquoted single token)
+        idx = q.IndexOf("o:", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var start = idx + 2;
+            var end = start;
+            while (end < q.Length && !char.IsWhiteSpace(q[end])) end++;
+            if (end > start) return q[start..end];
+        }
+        return null;
+    }
+
+    private static bool MatchesOracleText(CardDefinition d, string filter, bool matchCase)
+    {
+        var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        return d.OracleText.Contains(filter, comparison);
     }
 
     private static CardType ParseTypes(string q)
