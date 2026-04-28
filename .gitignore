@@ -33,3 +33,7 @@ artifacts/
 .DS_Store
 Thumbs.db
 .claude/
+
+# Local secrets — never commit
+appsettings.Development.json
+*.db
