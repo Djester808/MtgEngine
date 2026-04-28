@@ -293,6 +293,7 @@ public sealed record SynergyRequest
     public string CardOracleId      { get; init; } = string.Empty;
     public string CardName          { get; init; } = string.Empty;
     public string CardText          { get; init; } = string.Empty;
+    public string[] DeckCardNames   { get; init; } = [];
 }
 
 public sealed record SynergyResultDto

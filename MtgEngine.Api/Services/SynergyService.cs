@@ -20,7 +20,8 @@ public sealed class SynergyService : ISynergyService
     private readonly string _apiKey;
     private readonly ILogger<SynergyService> _logger;
 
-    private const string ModelId = "claude-haiku-4-5-20251001";
+    private const string ModelId      = "claude-haiku-4-5-20251001";
+    private const string CacheVersion = "claude-haiku-4-5-20251001-deck-v1";
 
     public SynergyService(
         MtgEngineDbContext db,
@@ -28,31 +29,49 @@ public sealed class SynergyService : ISynergyService
         IConfiguration config,
         ILogger<SynergyService> logger)
     {
-        _db         = db;
+        _db          = db;
         _httpFactory = httpFactory;
-        _apiKey     = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
-        _logger     = logger;
+        _apiKey      = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _logger      = logger;
     }
 
     public async Task<SynergyResultDto> GetSynergyAsync(SynergyRequest request)
     {
         var cached = await _db.CardSynergyScores.FirstOrDefaultAsync(s =>
             s.CommanderOracleId == request.CommanderOracleId &&
-            s.CardOracleId      == request.CardOracleId);
+            s.CardOracleId      == request.CardOracleId &&
+            s.ModelVersion      == CacheVersion);
 
         if (cached != null)
             return new SynergyResultDto { Score = cached.Score, Reason = cached.Reason };
 
         var result = await CallAnthropicAsync(request);
 
-        _db.CardSynergyScores.Add(new CardSynergyScore
+        var entity = new CardSynergyScore
         {
             CommanderOracleId = request.CommanderOracleId,
             CardOracleId      = request.CardOracleId,
             Score             = result.Score,
             Reason            = result.Reason,
-            ModelVersion      = ModelId,
-        });
+            ModelVersion      = CacheVersion,
+        };
+
+        // Upsert — a stale entry from an older cache version may already exist for this pair
+        var stale = await _db.CardSynergyScores.FirstOrDefaultAsync(s =>
+            s.CommanderOracleId == request.CommanderOracleId &&
+            s.CardOracleId      == request.CardOracleId);
+
+        if (stale != null)
+        {
+            stale.Score        = result.Score;
+            stale.Reason       = result.Reason;
+            stale.ModelVersion = CacheVersion;
+            stale.CreatedAt    = DateTime.UtcNow;
+        }
+        else
+        {
+            _db.CardSynergyScores.Add(entity);
+        }
 
         try { await _db.SaveChangesAsync(); }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to cache synergy score"); }
@@ -62,19 +81,25 @@ public sealed class SynergyService : ISynergyService
 
     private async Task<SynergyResultDto> CallAnthropicAsync(SynergyRequest req)
     {
-        var prompt = $$"""
-            You are a Magic: The Gathering expert. Rate how well a card synergizes with a commander for the Commander/EDH format.
+        var deckContext = req.DeckCardNames.Length > 0
+            ? $"\n\nOther cards already in the deck ({req.DeckCardNames.Length}):\n{string.Join(", ", req.DeckCardNames)}"
+            : string.Empty;
 
-            Commander: {{req.CommanderName}}
-            Commander oracle text: {{req.CommanderText}}
+        var prompt = $$"""
+            You are a Magic: The Gathering Commander/EDH expert. Evaluate how well a card fits into a specific deck.
+
+            Commander (primary focus): {{req.CommanderName}}
+            Commander oracle text: {{req.CommanderText}}{{deckContext}}
 
             Card to evaluate: {{req.CardName}}
             Card oracle text: {{req.CardText}}
 
-            Respond with ONLY valid JSON in exactly this format (no markdown, no extra text):
-            {"score": <integer 0-100>, "reason": "<one concise sentence explaining why>"}
+            Score how well this card fits the deck. The commander's strategy is the most important factor, but also consider how the card supports or complements the other cards already in the deck.
 
-            Where 0 = no synergy whatsoever, 100 = exceptional synergy.
+            Respond with ONLY valid JSON in exactly this format (no markdown, no extra text):
+            {"score": <integer 0-100>, "reason": "<one concise sentence explaining the fit>"}
+
+            Where 0 = no synergy whatsoever, 100 = exceptional fit.
             """;
 
         var body = new
@@ -93,7 +118,12 @@ public sealed class SynergyService : ISynergyService
         httpReq.Headers.Add("anthropic-version", "2023-06-01");
 
         var resp = await http.SendAsync(httpReq);
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode)
+        {
+            var errBody = await resp.Content.ReadAsStringAsync();
+            _logger.LogError("Anthropic API {Status}: {Body}", resp.StatusCode, errBody);
+            throw new HttpRequestException($"{resp.StatusCode}: {errBody}");
+        }
 
         var respJson = await resp.Content.ReadAsStringAsync();
         var doc      = JsonDocument.Parse(respJson);
@@ -102,7 +132,6 @@ public sealed class SynergyService : ISynergyService
             .GetProperty("text")
             .GetString() ?? "{}";
 
-        // Strip markdown fences if the model wraps the JSON
         text = text.Trim();
         if (text.StartsWith("```")) text = text[(text.IndexOf('\n') + 1)..];
         if (text.EndsWith("```"))  text = text[..text.LastIndexOf("```")].TrimEnd();
