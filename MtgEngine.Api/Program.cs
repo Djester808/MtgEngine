@@ -74,6 +74,15 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
 
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 
+// ---- Deck import -----------------------------------------
+builder.Services.AddHttpClient("DeckImport", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.Add("User-Agent", "MtgEngineApp/1.0");
+    client.DefaultRequestHeaders.Add("X-Moxfield-Version", "2.0");
+});
+builder.Services.AddScoped<DeckImportService>();
+
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
 

@@ -17,7 +17,11 @@ internal static class CardParser
         {
             var oracleId = json.GetProperty("oracle_id").GetString() ?? Guid.NewGuid().ToString();
             var name     = json.GetProperty("name").GetString() ?? "";
-            var typeLine = json.GetProperty("type_line").GetString() ?? "";
+            var typeLineFull = json.GetProperty("type_line").GetString() ?? "";
+            // For split/prepared cards, type_line is "Creature ... // Sorcery" — only parse the primary face
+            var typeLine = typeLineFull.Contains("//")
+                ? typeLineFull.Split("//")[0].Trim()
+                : typeLineFull;
             var oracle = json.TryGetProperty("oracle_text", out var ot) ? ot.GetString() ?? "" : "";
             // DFC cards store oracle_text on each face, not at root
             if (oracle.Length == 0 && json.TryGetProperty("card_faces", out var otFaces) && otFaces.GetArrayLength() > 0)
@@ -78,15 +82,30 @@ internal static class CardParser
             var flavorText = json.TryGetProperty("flavor_text", out var ft) ? ft.GetString() : null;
             var artist     = json.TryGetProperty("artist",       out var ar) ? ar.GetString() : null;
             var setCode    = json.TryGetProperty("set",          out var sc) ? sc.GetString() : null;
+            var rarity     = json.TryGetProperty("rarity",       out var rar) ? rar.GetString() : null;
 
-            var cmc        = json.TryGetProperty("cmc", out var cmcEl) ? (int)cmcEl.GetDouble() : 0;
-            var cardTypes  = ParseCardTypes(typeLine);
-            var subtypes   = ParseSubtypes(typeLine);
-            var supertypes = ParseSupertypes(typeLine);
-            var keywords   = ParseKeywords(json);
-            var colorId    = ParseColorIdentity(json);
-            var legalities = ParseLegalities(json);
-            var speed      = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
+            // Root cmc is the sum of all faces for split/prepared cards. Prefer face[0] mana cost.
+            var cmc = json.TryGetProperty("cmc", out var cmcEl) ? (int)cmcEl.GetDouble() : 0;
+            if (json.TryGetProperty("card_faces", out var cmcFaces) && cmcFaces.GetArrayLength() > 0
+                && cmcFaces[0].TryGetProperty("mana_cost", out var face0McEl))
+            {
+                var face0Cost = face0McEl.GetString() ?? "";
+                if (!string.IsNullOrEmpty(face0Cost))
+                    cmc = CalculateCmcFromCost(face0Cost);
+            }
+            else if (!string.IsNullOrEmpty(mcRaw) && mcRaw.Contains("//"))
+            {
+                // Prepared/split cards store combined cost at root with no card_faces — use first half only
+                cmc = CalculateCmcFromCost(mcRaw.Split("//")[0].Trim());
+            }
+            var cardTypes   = ParseCardTypes(typeLine);
+            var subtypes    = ParseSubtypes(typeLine);
+            var supertypes  = ParseSupertypes(typeLine);
+            var keywords    = ParseKeywords(json);
+            var colorId     = ParseColorIdentity(json);
+            var legalities  = ParseLegalities(json);
+            var gameChanger = json.TryGetProperty("game_changer", out var gcEl) && gcEl.GetBoolean();
+            var speed       = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
                 ? SpeedRestriction.Instant
                 : SpeedRestriction.Sorcery;
 
@@ -114,7 +133,9 @@ internal static class CardParser
                 FlavorText      = flavorText,
                 Artist          = artist,
                 SetCode         = setCode,
+                Rarity          = rarity,
                 Legalities      = legalities,
+                GameChanger     = gameChanger,
             };
         }
         catch
@@ -146,15 +167,40 @@ internal static class CardParser
             ColorIdentity      = oracle.ColorIdentity,
             FlavorText         = oracle.FlavorText,
             Artist             = oracle.Artist,
+            Rarity             = oracle.Rarity,
             ImageUriNormal     = imgNormal     ?? oracle.ImageUriNormal,
             ImageUriNormalBack = imgNormalBack ?? oracle.ImageUriNormalBack,
             ImageUriSmall      = imgSmall      ?? oracle.ImageUriSmall,
             ImageUriArtCrop    = imgArtCrop    ?? oracle.ImageUriArtCrop,
             SetCode            = setCode       ?? oracle.SetCode,
             Legalities         = oracle.Legalities,
+            GameChanger        = oracle.GameChanger,
         };
 
     // ---- Parsers -------------------------------------------------------
+
+    private static int CalculateCmcFromCost(string cost)
+    {
+        // Parse each {token} and sum CMC contributions:
+        // X/Y/Z = 0, integers = face value, everything else (W,U,B,R,G,C,S,hybrid,phyrexian) = 1
+        var total = 0;
+        var i = 0;
+        while (i < cost.Length)
+        {
+            if (cost[i] != '{') { i++; continue; }
+            var end = cost.IndexOf('}', i);
+            if (end < 0) break;
+            var sym = cost[(i + 1)..end];
+            total += sym switch
+            {
+                "X" or "Y" or "Z" => 0,
+                _ when int.TryParse(sym, out var n) => n,
+                _ => 1,
+            };
+            i = end + 1;
+        }
+        return total;
+    }
 
     private static ManaCost ParseManaCost(string cost)
     {

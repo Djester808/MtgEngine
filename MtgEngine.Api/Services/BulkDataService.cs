@@ -126,6 +126,7 @@ public sealed class BulkDataService : IScryfallService
             var q              = filterQuery.Trim();
             var nameFilter     = ParseName(q);
             var typeFlags      = ParseTypes(q);
+            var supertypeFilter = ParseSupertypes(q);
             var raritySet      = ParseRarities(q);
             var (cmcOp, cmcVal) = ParseCmc(q);
             var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
@@ -133,6 +134,7 @@ public sealed class BulkDataService : IScryfallService
             var matchingOracleIds = _byOracleId.Values
                 .Where(d => nameFilter is null || d.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
                 .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
+                .Where(d => supertypeFilter.Count == 0 || supertypeFilter.All(s => d.Supertypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
                 .Where(d => raritySet.Count == 0 || (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
                 .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
                 .Where(d => !colorFilter || MatchesColor(d, multicolor, colorless, colorSet))
@@ -166,6 +168,7 @@ public sealed class BulkDataService : IScryfallService
         var nameFilter      = ParseName(q);
         var oracleFilter    = ParseOracleText(q);
         var typeFlags       = ParseTypes(q);
+        var supertypeFilter = ParseSupertypes(q);
         var setFilter       = ParseSet(q);
         var raritySet       = ParseRarities(q);
         var (cmcOp, cmcVal) = ParseCmc(q);
@@ -182,8 +185,8 @@ public sealed class BulkDataService : IScryfallService
         else
         {
             // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags, no oracle filter)
-            if (nameFilter is not null && oracleFilter is null && typeFlags == CardType.None && raritySet.Count == 0
-                && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
+            if (nameFilter is not null && oracleFilter is null && typeFlags == CardType.None && supertypeFilter.Count == 0
+                && raritySet.Count == 0 && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
             {
                 var nameKeys = _byName.Keys
                     .Where(n => n.StartsWith(nameFilter, StringComparison.OrdinalIgnoreCase))
@@ -209,6 +212,7 @@ public sealed class BulkDataService : IScryfallService
                      || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
                      || (oracleFilter is not null && MatchesOracleText(d, oracleFilter, matchCase)))
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
+            .Where(d => supertypeFilter.Count == 0 || supertypeFilter.All(s => d.Supertypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
             .Where(d => raritySet.Count == 0 ||
                         (_rarityByOracleId.TryGetValue(d.OracleId, out var r) && raritySet.Contains(r)))
             .Where(d => cmcOp is null || MatchesCmc(d, cmcOp, cmcVal))
@@ -315,6 +319,23 @@ public sealed class BulkDataService : IScryfallService
             i = end;
         }
         return flags;
+    }
+
+    private static HashSet<string> ParseSupertypes(string q)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var i = 0;
+        while ((i = q.IndexOf("t:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            i += 2;
+            var end = i;
+            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            var token = q[i..end].ToLowerInvariant();
+            if (token is "legendary" or "basic" or "snow" or "world")
+                result.Add(token);
+            i = end;
+        }
+        return result;
     }
 
     private static string? ParseSet(string q)

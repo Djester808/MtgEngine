@@ -64,6 +64,22 @@ public sealed class DecksController : ControllerBase
         }
     }
 
+    [HttpPost("import")]
+    public async Task<ActionResult<ImportDeckResult>> ImportDeck(
+        [FromBody] ImportDeckRequest request,
+        [FromServices] DeckImportService importer)
+    {
+        if (string.IsNullOrWhiteSpace(request.Text) && string.IsNullOrWhiteSpace(request.Url))
+            return BadRequest(new { message = "Either 'text' or 'url' is required." });
+        try
+        {
+            var result = await importer.ImportAsync(UserId, request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (HttpRequestException ex)      { return BadRequest(new { message = $"Failed to fetch deck: {ex.Message}" }); }
+    }
+
     [HttpDelete("{deckId:guid}")]
     public async Task<ActionResult> DeleteDeck(Guid deckId)
     {

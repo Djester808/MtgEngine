@@ -36,7 +36,9 @@ public sealed record CardDto
     public string? FlavorText     { get; init; }
     public string? Artist         { get; init; }
     public string? SetCode        { get; init; }
+    public string? Rarity         { get; init; }
     public Dictionary<string, string> Legalities { get; init; } = [];
+    public bool GameChanger { get; init; }
 }
 
 public sealed record PermanentDto
@@ -219,6 +221,8 @@ public sealed record DeckDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? CoverUri { get; init; }
+    public string? Format { get; init; }
+    public string? CommanderOracleId { get; init; }
     public int CardCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
@@ -229,13 +233,29 @@ public sealed record DeckDetailDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? CoverUri { get; init; }
+    public string? Format { get; init; }
+    public string? CommanderOracleId { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
-public sealed record CreateDeckRequest(string Name, string? CoverUri = null);
-public sealed record UpdateDeckRequest(string Name, string? CoverUri = null);
+public sealed record CreateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
+public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
+
+public sealed record ImportDeckRequest(
+    string Name,
+    string? Text   = null,
+    string? Url    = null,
+    string? Format = null
+);
+
+public sealed record ImportDeckResult(
+    DeckDetailDto Deck,
+    int CardsResolved,
+    int CardsTotal,
+    IReadOnlyList<string> UnresolvedCards
+);
 
 public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 

@@ -385,6 +385,8 @@ public sealed class CollectionService : ICollectionService
                 Id = c.Id,
                 Name = c.Name,
                 CoverUri = c.Description,
+                Format = c.Format,
+                CommanderOracleId = c.CommanderOracleId,
                 CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,
@@ -427,6 +429,8 @@ public sealed class CollectionService : ICollectionService
             Id = deck.Id,
             Name = deck.Name,
             CoverUri = deck.Description,
+            Format = deck.Format,
+            CommanderOracleId = deck.CommanderOracleId,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
             Cards = [..cards]
@@ -435,7 +439,11 @@ public sealed class CollectionService : ICollectionService
 
     public async Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request)
     {
-        var deck = new Collection(userId, request.Name, request.CoverUri, isDeck: true);
+        var deck = new Collection(userId, request.Name, request.CoverUri, isDeck: true)
+        {
+            Format = request.Format,
+            CommanderOracleId = request.CommanderOracleId,
+        };
         _context.Collections.Add(deck);
         await _context.SaveChangesAsync();
 
@@ -444,6 +452,8 @@ public sealed class CollectionService : ICollectionService
             Id = deck.Id,
             Name = deck.Name,
             CoverUri = deck.Description,
+            Format = deck.Format,
+            CommanderOracleId = deck.CommanderOracleId,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
             Cards = []
@@ -459,6 +469,8 @@ public sealed class CollectionService : ICollectionService
 
         deck.Name = request.Name;
         deck.Description = request.CoverUri;
+        deck.Format = request.Format;
+        deck.CommanderOracleId = request.CommanderOracleId;
         deck.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -489,7 +501,7 @@ public sealed class CollectionService : ICollectionService
             OracleId = def.OracleId,
             Name = def.Name,
             ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-            ManaValue = def.ManaCost.ManaValue,
+            ManaValue = def.Cmc,
             CardTypes = def.CardTypes.ToString().Split(", ")
                 .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
                 .Select(t => Enum.Parse<CardTypeDto>(t))
@@ -520,7 +532,8 @@ public sealed class CollectionService : ICollectionService
                 .ToArray(),
             FlavorText = def.FlavorText,
             Artist = def.Artist,
-            SetCode = def.SetCode
+            SetCode = def.SetCode,
+            Rarity = def.Rarity
         };
     }
 }

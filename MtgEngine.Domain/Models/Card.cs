@@ -36,7 +36,9 @@ public sealed class CardDefinition
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
     public string? SetCode { get; init; }
+    public string? Rarity { get; init; }
     public IReadOnlyDictionary<string, string> Legalities { get; init; } = new Dictionary<string, string>();
+    public bool GameChanger { get; init; }
 
     public bool IsCreature    => CardTypes.HasFlag(CardType.Creature);
     public bool IsInstant     => CardTypes.HasFlag(CardType.Instant);

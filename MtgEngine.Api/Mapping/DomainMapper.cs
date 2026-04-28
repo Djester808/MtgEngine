@@ -125,6 +125,7 @@ public static class DomainMapper
         Artist          = def.Artist,
         SetCode         = def.SetCode,
         Legalities      = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
+        GameChanger     = def.GameChanger,
     };
 
     // ---- Player -------------------------------------------
