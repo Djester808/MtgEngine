@@ -74,6 +74,14 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
 
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 
+// ---- Anthropic API ---------------------------------------
+builder.Services.AddHttpClient("AnthropicApi", client =>
+{
+    client.BaseAddress = new Uri("https://api.anthropic.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISynergyService, SynergyService>();
+
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>
 {

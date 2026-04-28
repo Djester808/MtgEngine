@@ -282,3 +282,21 @@ public sealed record PrintingDto
     public string? Artist          { get; init; }
     public string? ManaCost        { get; init; }
 };
+
+// ---- Synergy scoring ----------------------------------------
+
+public sealed record SynergyRequest
+{
+    public string CommanderOracleId { get; init; } = string.Empty;
+    public string CommanderName     { get; init; } = string.Empty;
+    public string CommanderText     { get; init; } = string.Empty;
+    public string CardOracleId      { get; init; } = string.Empty;
+    public string CardName          { get; init; } = string.Empty;
+    public string CardText          { get; init; } = string.Empty;
+}
+
+public sealed record SynergyResultDto
+{
+    public int    Score  { get; init; }
+    public string Reason { get; init; } = string.Empty;
+}

@@ -8,6 +8,7 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
+    public DbSet<CardSynergyScore> CardSynergyScores => Set<CardSynergyScore>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -74,6 +75,19 @@ public sealed class MtgEngineDbContext : DbContext
             entity.HasIndex(e => e.CollectionId);
             entity.HasIndex(e => new { e.CollectionId, e.OracleId });
             entity.HasIndex(e => new { e.CollectionId, e.ScryfallId }).IsUnique();
+        });
+
+        // CardSynergyScore
+        modelBuilder.Entity<CardSynergyScore>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CommanderOracleId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.CardOracleId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Score).IsRequired();
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId }).IsUnique();
         });
     }
 }

@@ -147,4 +147,29 @@ public sealed class DecksController : ControllerBase
         if (!success) return NotFound();
         return NoContent();
     }
+
+    // ---- Synergy scoring -------------------------------------------
+
+    [HttpPost("synergy")]
+    public async Task<ActionResult<SynergyResultDto>> GetSynergy(
+        [FromBody] SynergyRequest request,
+        [FromServices] ISynergyService synergyService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId) || string.IsNullOrWhiteSpace(request.CardOracleId))
+            return BadRequest("CommanderOracleId and CardOracleId are required");
+
+        try
+        {
+            var result = await synergyService.GetSynergyAsync(request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
 }
