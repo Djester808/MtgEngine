@@ -533,7 +533,9 @@ public sealed class CollectionService : ICollectionService
             FlavorText = def.FlavorText,
             Artist = def.Artist,
             SetCode = def.SetCode,
-            Rarity = def.Rarity
+            Rarity = def.Rarity,
+            Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
+            GameChanger = def.GameChanger,
         };
     }
 }
