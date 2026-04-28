@@ -81,6 +81,7 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<ISynergyService, SynergyService>();
+builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
 
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>

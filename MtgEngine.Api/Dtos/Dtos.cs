@@ -283,6 +283,32 @@ public sealed record PrintingDto
     public string? ManaCost        { get; init; }
 };
 
+// ---- Deck suggestions ---------------------------------------
+
+public sealed record DeckSuggestionsRequest
+{
+    public string CommanderOracleId { get; init; } = string.Empty;
+    public string CommanderName     { get; init; } = string.Empty;
+    public string CommanderText     { get; init; } = string.Empty;
+    public string[] DeckCardNames   { get; init; } = [];
+}
+
+public sealed record SuggestedCardDto
+{
+    public string   Name       { get; init; } = string.Empty;
+    public string   Reason     { get; init; } = string.Empty;
+    public string?  ScryfallId { get; init; }
+    public CardDto? Card       { get; init; }
+}
+
+public sealed record DeckSuggestionsDto
+{
+    public SuggestedCardDto[] LatestSet       { get; init; } = [];
+    public SuggestedCardDto[] TopSynergy      { get; init; } = [];
+    public SuggestedCardDto[] GameChangers    { get; init; } = [];
+    public SuggestedCardDto[] NotableMentions { get; init; } = [];
+}
+
 // ---- Synergy scoring ----------------------------------------
 
 public sealed record SynergyRequest

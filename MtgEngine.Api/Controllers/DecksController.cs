@@ -148,6 +148,31 @@ public sealed class DecksController : ControllerBase
         return NoContent();
     }
 
+    // ---- Deck suggestions ------------------------------------------
+
+    [HttpPost("suggestions")]
+    public async Task<ActionResult<DeckSuggestionsDto>> GetSuggestions(
+        [FromBody] DeckSuggestionsRequest request,
+        [FromServices] IDeckSuggestionsService suggestionsService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+            return BadRequest("CommanderOracleId is required");
+
+        try
+        {
+            var result = await suggestionsService.GetSuggestionsAsync(request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
+
     // ---- Synergy scoring -------------------------------------------
 
     [HttpPost("synergy")]
