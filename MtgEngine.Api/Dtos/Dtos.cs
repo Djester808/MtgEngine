@@ -313,6 +313,30 @@ public sealed record DeckSuggestionsDto
     public SuggestedCardDto[] NotableMentions { get; init; } = [];
 }
 
+// ---- Mana fine-tune -----------------------------------------
+
+public sealed record ManaFineTuneRequest
+{
+    public string   Format           { get; init; } = string.Empty;
+    public string[] DeckCardNames    { get; init; } = [];
+    public int      CurrentLands     { get; init; }
+    public int      RecommendedLands { get; init; }
+    public double   AvgCmc           { get; init; }
+    public string[] ActiveColors     { get; init; } = [];
+}
+
+public sealed record ManaLandSuggestion
+{
+    public string Name   { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+}
+
+public sealed record ManaFineTuneDto
+{
+    public string[]              Advice          { get; init; } = [];
+    public ManaLandSuggestion[]  LandSuggestions { get; init; } = [];
+}
+
 // ---- Synergy scoring ----------------------------------------
 
 public sealed record SynergyRequest

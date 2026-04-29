@@ -173,6 +173,28 @@ public sealed class DecksController : ControllerBase
         }
     }
 
+    // ---- Mana fine-tune -------------------------------------------
+
+    [HttpPost("mana-tune")]
+    public async Task<ActionResult<ManaFineTuneDto>> GetManaFineTune(
+        [FromBody] ManaFineTuneRequest request,
+        [FromServices] IManaFineTuneService manaFineTuneService)
+    {
+        try
+        {
+            var result = await manaFineTuneService.GetFineTuneAsync(request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
+
     // ---- Synergy scoring -------------------------------------------
 
     [HttpPost("synergy")]

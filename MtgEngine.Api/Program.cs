@@ -82,6 +82,7 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
 });
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
+builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
 
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>
