@@ -35,12 +35,28 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
     public async Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request)
     {
-        var raw = await CallAnthropicAsync(request);
+        var cmdDef    = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId);
+        var cmdColors = cmdDef?.ColorIdentity.ToHashSet() ?? new HashSet<ManaColor>();
 
-        var latestSet       = await ResolveAsync(raw.LatestSet,       request.DeckCardNames);
-        var topSynergy      = await ResolveAsync(raw.TopSynergy,      request.DeckCardNames);
-        var gameChangers    = await ResolveAsync(raw.GameChangers,     request.DeckCardNames);
-        var notableMentions = await ResolveAsync(raw.NotableMentions,  request.DeckCardNames);
+        var recentSets     = await _scryfall.GetRecentSetCodesAsync(6);
+        var recentCardNames = await _scryfall.GetRecentCardNamesAsync(recentSets, cmdColors);
+
+        var raw = await CallAnthropicAsync(request, recentCardNames);
+
+        var latestSet       = await ResolveAsync(raw.LatestSet,       request.DeckCardNames, cmdColors, recentSets,  requireGameChanger: false);
+        var topSynergy      = await ResolveAsync(raw.TopSynergy,      request.DeckCardNames, cmdColors, null,        requireGameChanger: false);
+        var gameChangers    = await ResolveAsync(raw.GameChangers,     request.DeckCardNames, cmdColors, null,        requireGameChanger: true);
+        var notableMentions = await ResolveAsync(raw.NotableMentions,  request.DeckCardNames, cmdColors, null,        requireGameChanger: false);
+
+        // Deduplicate across all categories: each card appears in at most one section
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        SuggestedCardDto[] Dedup(SuggestedCardDto[] cards) =>
+            cards.Where(c => seen.Add(c.Name)).ToArray();
+
+        latestSet       = Dedup(latestSet);
+        topSynergy      = Dedup(topSynergy);
+        gameChangers    = Dedup(gameChangers);
+        notableMentions = Dedup(notableMentions);
 
         return new DeckSuggestionsDto
         {
@@ -53,42 +69,54 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
     // ---- LLM call ---------------------------------------------------
 
-    private async Task<RawSuggestions> CallAnthropicAsync(DeckSuggestionsRequest req)
+    private async Task<RawSuggestions> CallAnthropicAsync(DeckSuggestionsRequest req, string[] recentCardNames)
     {
         var deckContext = req.DeckCardNames.Length > 0
             ? $"\n\nCards already in the deck ({req.DeckCardNames.Length}):\n{string.Join(", ", req.DeckCardNames)}"
+            : string.Empty;
+
+        var allTags = req.DeckTags.Concat(req.SuggestionTags).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var tagsContext = allTags.Length > 0
+            ? $"\n\nDeck style / focus tags: {string.Join(", ", allTags)}\nLet these tags strongly guide your suggestions (e.g. 'budget' → prefer affordable cards; 'combo' → lean into synergistic combos)."
+            : string.Empty;
+
+        var recentContext = recentCardNames.Length > 0
+            ? $"\n\nRecent cards available for the latestSet category (choose the best 4 from this list):\n{string.Join(", ", recentCardNames)}"
             : string.Empty;
 
         var prompt = $$"""
             You are a Magic: The Gathering Commander/EDH expert.
 
             Commander: {{req.CommanderName}}
-            Oracle text: {{req.CommanderText}}{{deckContext}}
+            Oracle text: {{req.CommanderText}}{{deckContext}}{{tagsContext}}{{recentContext}}
 
             Suggest cards NOT already in the deck that would improve it. Use only real, official Magic card names (exact spelling).
+            Only suggest cards that are legal in the commander's color identity.
 
             Respond with ONLY this exact JSON (no markdown, no extra text):
             {
-              "latestSet": [{"name": "...", "reason": "..."}, ...],
-              "topSynergy": [{"name": "...", "reason": "..."}, ...],
-              "gameChangers": [{"name": "...", "reason": "..."}, ...],
-              "notableMentions": [{"name": "...", "reason": "..."}, ...]
+              "latestSet": [{"name": "...", "reason": "...", "score": 85}, ...],
+              "topSynergy": [{"name": "...", "reason": "...", "score": 85}, ...],
+              "gameChangers": [{"name": "...", "reason": "...", "score": 85}, ...],
+              "notableMentions": [{"name": "...", "reason": "...", "score": 85}, ...]
             }
 
             Rules:
-            - latestSet: exactly 4 cards from Magic sets released in 2024 or 2025 that fit this strategy
+            - latestSet: exactly 4 cards chosen from the "Recent cards available" list above that best fit this strategy (MUST use names exactly as given)
             - topSynergy: exactly 6 cards with the strongest synergy with this specific commander
             - gameChangers: exactly 4 high-impact cards that define games or close out wins for this strategy
             - notableMentions: exactly 4 solid staples or support cards worth including
+            - score: 0-100 compatibility percentage with this commander and existing deck
 
             Do not repeat cards between categories. Do not suggest cards already in the deck.
             """;
 
         var body = new
         {
-            model      = ModelId,
-            max_tokens = 1500,
-            messages   = new[] { new { role = "user", content = prompt } },
+            model       = ModelId,
+            max_tokens  = 1500,
+            temperature = 0,
+            messages    = new[] { new { role = "user", content = prompt } },
         };
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -126,30 +154,58 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     // ---- Card resolution --------------------------------------------
 
     private async Task<SuggestedCardDto[]> ResolveAsync(
-        RawCard[] rawCards, string[] deckCardNames)
+        RawCard[] rawCards,
+        string[] deckCardNames,
+        HashSet<ManaColor> cmdColors,
+        IReadOnlySet<string>? recentSets,
+        bool requireGameChanger)
     {
         var deckSet = new HashSet<string>(deckCardNames, StringComparer.OrdinalIgnoreCase);
         var tasks   = rawCards
             .Where(r => !string.IsNullOrWhiteSpace(r.Name) && !deckSet.Contains(r.Name))
-            .Select(r => ResolveOneAsync(r));
-        return await Task.WhenAll(tasks);
+            .Select(r => ResolveOneAsync(r, cmdColors, recentSets, requireGameChanger));
+        var results = await Task.WhenAll(tasks);
+        return results.Where(r => r is not null).Select(r => r!).ToArray();
     }
 
-    private async Task<SuggestedCardDto> ResolveOneAsync(RawCard raw)
+    private async Task<SuggestedCardDto?> ResolveOneAsync(
+        RawCard raw,
+        HashSet<ManaColor> cmdColors,
+        IReadOnlySet<string>? recentSets,
+        bool requireGameChanger)
     {
         try
         {
             var def = await _scryfall.GetByNameAsync(raw.Name);
             if (def is null)
-                return new SuggestedCardDto { Name = raw.Name, Reason = raw.Reason };
+                return requireGameChanger ? null : new SuggestedCardDto { Name = raw.Name, Reason = raw.Reason, Score = raw.Score };
 
-            var printings  = await _scryfall.GetPrintingsAsync(def.OracleId);
+            // Color identity check — filter cards that exceed the commander's color identity
+            if (cmdColors.Count > 0)
+            {
+                bool isLegal = def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c));
+                if (!isLegal) return null;
+            }
+
+            // Game Changer check — only official GC-designated cards allowed in this category
+            if (requireGameChanger && !def.GameChanger) return null;
+
+            var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
+
+            // Recent-set check (latestSet category only)
+            if (recentSets is { Count: > 0 })
+            {
+                bool hasRecentPrinting = printings.Any(p => p.SetCode is not null && recentSets.Contains(p.SetCode));
+                if (!hasRecentPrinting) return null;
+            }
+
             var scryfallId = printings.FirstOrDefault()?.ScryfallId;
 
             return new SuggestedCardDto
             {
                 Name       = raw.Name,
                 Reason     = raw.Reason,
+                Score      = raw.Score,
                 ScryfallId = scryfallId,
                 Card       = MapToCardDto(def),
             };
@@ -157,7 +213,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve suggestion: {Name}", raw.Name);
-            return new SuggestedCardDto { Name = raw.Name, Reason = raw.Reason };
+            return new SuggestedCardDto { Name = raw.Name, Reason = raw.Reason, Score = raw.Score };
         }
     }
 
@@ -220,5 +276,6 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     {
         [JsonPropertyName("name")]   public string Name   { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
+        [JsonPropertyName("score")]  public int    Score  { get; set; }
     }
 }

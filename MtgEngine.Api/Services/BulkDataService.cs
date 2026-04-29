@@ -36,6 +36,8 @@ public sealed class BulkDataService : IScryfallService
     private Dictionary<string, List<string>> _bySetCode = new(StringComparer.OrdinalIgnoreCase);
     // set code → human-readable set name
     private Dictionary<string, string> _setNames = new(StringComparer.OrdinalIgnoreCase);
+    // set code → release date (from released_at on card printings)
+    private Dictionary<string, DateOnly> _setReleaseDates = new(StringComparer.OrdinalIgnoreCase);
     // oracle_id → rarity of canonical printing
     private Dictionary<string, string> _rarityByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
 
@@ -157,6 +159,53 @@ public sealed class BulkDataService : IScryfallService
                 _setNames.TryGetValue(kv.Key, out var name) ? name : kv.Key.ToUpperInvariant(),
                 kv.Value.Count))
             .ToArray();
+    }
+
+    public async Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6)
+    {
+        await WaitReadyAsync();
+        var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-monthsBack));
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in _setReleaseDates)
+            if (kv.Value >= cutoff)
+                result.Add(kv.Key);
+        return result;
+    }
+
+    public async Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors)
+    {
+        await WaitReadyAsync();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new List<string>(256);
+
+        foreach (var setCode in setCodes)
+        {
+            if (!_bySetCode.TryGetValue(setCode, out var oracleIds)) continue;
+            foreach (var oid in oracleIds)
+            {
+                if (!seen.Add(oid)) continue;
+                if (!_byOracleId.TryGetValue(oid, out var def)) continue;
+                // Skip tokens, basic lands, and commander-illegal card types
+                if (def.Supertypes.Contains("Basic")) continue;
+                if (def.CardTypes.HasFlag(Domain.Enums.CardType.Token)) continue;
+                // Color identity check
+                if (commanderColors.Count > 0 &&
+                    !def.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
+                    continue;
+                names.Add(def.Name);
+            }
+        }
+
+        // Shuffle so we don't always return the same subset when truncating
+        var rng = Random.Shared;
+        for (int i = names.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (names[i], names[j]) = (names[j], names[i]);
+        }
+
+        // Cap at 80 names to keep prompt size reasonable
+        return names.Count <= 80 ? names.ToArray() : names.Take(80).ToArray();
     }
 
     public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)
@@ -543,10 +592,11 @@ public sealed class BulkDataService : IScryfallService
 
     private async Task LoadDefaultCardsAsync(string path)
     {
-        var printings   = new Dictionary<string, List<PrintingDto>>(32_000);
-        var scryfallIdx = new Dictionary<string, PrintingEntry>(250_000);
-        var setIdx      = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
-        var setNames    = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
+        var printings        = new Dictionary<string, List<PrintingDto>>(32_000);
+        var scryfallIdx      = new Dictionary<string, PrintingEntry>(250_000);
+        var setIdx           = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
+        var setNames         = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
+        var setReleaseDates  = new Dictionary<string, DateOnly>(500, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing default_cards.json…");
         await using var stream = File.OpenRead(path);
@@ -560,9 +610,10 @@ public sealed class BulkDataService : IScryfallService
 
             var id      = card.TryGetProperty("id",               out var idEl)  ? idEl.GetString()  : null;
             var oid     = card.TryGetProperty("oracle_id",        out var oidEl) ? oidEl.GetString() : null;
-            var setCode = card.TryGetProperty("set",              out var scEl)  ? scEl.GetString()  ?? "" : "";
-            var setName = card.TryGetProperty("set_name",         out var snEl)  ? snEl.GetString()  ?? "" : "";
-            var num     = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
+            var setCode     = card.TryGetProperty("set",              out var scEl)  ? scEl.GetString()  ?? "" : "";
+            var setName     = card.TryGetProperty("set_name",         out var snEl)  ? snEl.GetString()  ?? "" : "";
+            var releasedAt  = card.TryGetProperty("released_at",      out var raEl)  ? raEl.GetString()  : null;
+            var num         = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
             if (id is null || oid is null) continue;
 
@@ -593,15 +644,29 @@ public sealed class BulkDataService : IScryfallService
             // Only include cards that have artwork
             if (imgNormal is null) continue;
 
-            // Per-printing text fields — fall back to card_faces[0] for DFCs
-            JsonElement? face0 = null;
+            // Per-printing text fields — fall back to card_faces[0/1] for DFCs
+            JsonElement? face0 = null, face1 = null;
             if (card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
+            {
                 face0 = faces[0];
+                if (faces.GetArrayLength() > 1) face1 = faces[1];
+            }
 
             string? artist     = GetStr(card, "artist")      ?? GetStr(face0, "artist");
-            string? oracleText = GetStr(card, "oracle_text") ?? GetStr(face0, "oracle_text");
             string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
             string? manaCost   = GetStr(card, "mana_cost")   ?? GetStr(face0, "mana_cost");
+
+            // For DFCs, combine both faces with the same separator CardParser uses so the
+            // modal can split them when showing the flipped side's oracle text.
+            string? oracleText = GetStr(card, "oracle_text");
+            if (oracleText is null)
+            {
+                var f0Text = GetStr(face0, "oracle_text") ?? "";
+                var f1Text = GetStr(face1, "oracle_text") ?? "";
+                oracleText = f0Text.Length > 0 && f1Text.Length > 0
+                    ? f0Text + "\n//\n" + f1Text
+                    : f0Text.Length > 0 ? f0Text : null;
+            }
 
             var dto = new PrintingDto
             {
@@ -637,6 +702,8 @@ public sealed class BulkDataService : IScryfallService
                 }
                 if (!setList.Contains(oid)) setList.Add(oid);
                 if (setName.Length > 0) setNames.TryAdd(setCode, setName);
+                if (releasedAt is not null && DateOnly.TryParse(releasedAt, out var releaseDate))
+                    setReleaseDates.TryAdd(setCode, releaseDate);
             }
         }
 
@@ -644,6 +711,7 @@ public sealed class BulkDataService : IScryfallService
         _byScryfallId        = scryfallIdx;
         _bySetCode           = setIdx;
         _setNames            = setNames;
+        _setReleaseDates     = setReleaseDates;
     }
 
     private static string? GetStr(JsonElement? el, string prop)

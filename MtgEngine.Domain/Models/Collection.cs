@@ -13,6 +13,7 @@ public sealed class Collection
     public string? Format { get; set; }
     public string? CommanderOracleId { get; set; }
     public bool IsDeck { get; set; } = false;
+    public List<string> Tags { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

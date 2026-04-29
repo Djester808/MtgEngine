@@ -431,6 +431,7 @@ public sealed class CollectionService : ICollectionService
             CoverUri = deck.Description,
             Format = deck.Format,
             CommanderOracleId = deck.CommanderOracleId,
+            Tags = [..deck.Tags],
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
             Cards = [..cards]
@@ -471,6 +472,7 @@ public sealed class CollectionService : ICollectionService
         deck.Description = request.CoverUri;
         deck.Format = request.Format;
         deck.CommanderOracleId = request.CommanderOracleId;
+        if (request.Tags is not null) deck.Tags = [..request.Tags];
         deck.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 

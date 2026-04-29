@@ -560,6 +560,109 @@ public sealed class CollectionServiceTests : IAsyncLifetime
         dbCard.Should().NotBeNull();
     }
 
+    // ---- Deck Tags Tests ----
+
+    [Fact]
+    public async Task GetDeckAsync_IncludesTagsInDto()
+    {
+        // Arrange
+        var deck = new Collection(TestUserId, "Tagged Deck", isDeck: true)
+        {
+            Tags = ["combo", "aggro"]
+        };
+        await _context.Collections.AddAsync(deck);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetDeckAsync(deck.Id, TestUserId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Tags.Should().BeEquivalentTo(new[] { "combo", "aggro" });
+    }
+
+    [Fact]
+    public async Task GetDeckAsync_ReturnsEmptyTagsWhenNoneSet()
+    {
+        // Arrange
+        var deck = new Collection(TestUserId, "Untagged Deck", isDeck: true);
+        await _context.Collections.AddAsync(deck);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetDeckAsync(deck.Id, TestUserId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Tags.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdateDeckAsync_UpdatesTags_WhenTagsProvided()
+    {
+        // Arrange
+        var deck = new Collection(TestUserId, "Deck", isDeck: true)
+        {
+            Tags = ["old-tag"]
+        };
+        await _context.Collections.AddAsync(deck);
+        await _context.SaveChangesAsync();
+
+        var request = new UpdateDeckRequest("Deck", Tags: ["new-tag1", "new-tag2"]);
+
+        // Act
+        var result = await _service.UpdateDeckAsync(deck.Id, TestUserId, request);
+
+        // Assert
+        result.Tags.Should().BeEquivalentTo(new[] { "new-tag1", "new-tag2" });
+
+        var dbDeck = await _context.Collections.FirstAsync(c => c.Id == deck.Id);
+        dbDeck.Tags.Should().BeEquivalentTo(new[] { "new-tag1", "new-tag2" });
+    }
+
+    [Fact]
+    public async Task UpdateDeckAsync_PreservesExistingTags_WhenTagsIsNull()
+    {
+        // Arrange
+        var deck = new Collection(TestUserId, "Deck", isDeck: true)
+        {
+            Tags = ["preserved-tag"]
+        };
+        await _context.Collections.AddAsync(deck);
+        await _context.SaveChangesAsync();
+
+        var request = new UpdateDeckRequest("Updated Name", Tags: null);
+
+        // Act
+        var result = await _service.UpdateDeckAsync(deck.Id, TestUserId, request);
+
+        // Assert
+        result.Tags.Should().BeEquivalentTo(new[] { "preserved-tag" });
+    }
+
+    [Fact]
+    public async Task UpdateDeckAsync_ClearsTags_WhenTagsIsEmptyArray()
+    {
+        // Arrange
+        var deck = new Collection(TestUserId, "Deck", isDeck: true)
+        {
+            Tags = ["to-remove"]
+        };
+        await _context.Collections.AddAsync(deck);
+        await _context.SaveChangesAsync();
+
+        var request = new UpdateDeckRequest("Deck", Tags: []);
+
+        // Act
+        var result = await _service.UpdateDeckAsync(deck.Id, TestUserId, request);
+
+        // Assert
+        result.Tags.Should().BeEmpty();
+
+        var dbDeck = await _context.Collections.FirstAsync(c => c.Id == deck.Id);
+        dbDeck.Tags.Should().BeEmpty();
+    }
+
     // ---- Helper Methods ----
 
     private static CardDefinition CreateTestCardDefinition(string oracleId, string name, string manaCost)

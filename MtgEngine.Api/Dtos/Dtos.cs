@@ -235,13 +235,14 @@ public sealed record DeckDetailDto
     public string? CoverUri { get; init; }
     public string? Format { get; init; }
     public string? CommanderOracleId { get; init; }
+    public string[] Tags { get; init; } = [];
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
 public sealed record CreateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
-public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
+public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null, string[]? Tags = null);
 
 public sealed record ImportDeckRequest(
     string Name,
@@ -291,12 +292,15 @@ public sealed record DeckSuggestionsRequest
     public string CommanderName     { get; init; } = string.Empty;
     public string CommanderText     { get; init; } = string.Empty;
     public string[] DeckCardNames   { get; init; } = [];
+    public string[] DeckTags        { get; init; } = [];
+    public string[] SuggestionTags  { get; init; } = [];
 }
 
 public sealed record SuggestedCardDto
 {
     public string   Name       { get; init; } = string.Empty;
     public string   Reason     { get; init; } = string.Empty;
+    public int      Score      { get; init; }
     public string?  ScryfallId { get; init; }
     public CardDto? Card       { get; init; }
 }
