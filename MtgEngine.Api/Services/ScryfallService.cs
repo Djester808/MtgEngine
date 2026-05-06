@@ -16,7 +16,7 @@ public interface IScryfallService
     Task<SetSummaryDto[]>  GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
     Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6);
-    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors);
+    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null);
 }
 
 /// <summary>
@@ -101,7 +101,7 @@ public sealed class ScryfallService : IScryfallService
 
     public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
     public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
-    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
+    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null) => Task.FromResult(Array.Empty<string>());
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {

@@ -99,6 +99,7 @@ public sealed class CollectionService : ICollectionService
                 Quantity = card.Quantity,
                 QuantityFoil = card.QuantityFoil,
                 Notes = card.Notes,
+                Board = card.Board,
                 AddedAt = card.AddedAt,
                 CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
             };
@@ -184,11 +185,14 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Collection not found");
 
-        // Check if this exact printing already exists in the collection
+        var board = string.IsNullOrWhiteSpace(request.Board) ? "main" : request.Board;
+
+        // Check if this exact printing+board already exists in the collection
         var existing = await _context.CollectionCards
             .Where(cc => cc.CollectionId == collectionId
                       && cc.OracleId == request.OracleId
-                      && cc.ScryfallId == request.ScryfallId)
+                      && cc.ScryfallId == request.ScryfallId
+                      && cc.Board == board)
             .FirstOrDefaultAsync();
 
         CollectionCard cardRecord;
@@ -207,7 +211,8 @@ public sealed class CollectionService : ICollectionService
                 request.ScryfallId,
                 request.Quantity,
                 request.QuantityFoil,
-                request.Notes);
+                request.Notes,
+                board);
             _context.CollectionCards.Add(cardRecord);
         }
 
@@ -225,6 +230,7 @@ public sealed class CollectionService : ICollectionService
             Quantity = cardRecord.Quantity,
             QuantityFoil = cardRecord.QuantityFoil,
             Notes = cardRecord.Notes,
+            Board = cardRecord.Board,
             AddedAt = cardRecord.AddedAt,
             CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
         };
@@ -256,6 +262,7 @@ public sealed class CollectionService : ICollectionService
             Quantity = card.Quantity,
             QuantityFoil = card.QuantityFoil,
             Notes = card.Notes,
+            Board = card.Board,
             AddedAt = card.AddedAt,
             CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
         };
@@ -298,6 +305,7 @@ public sealed class CollectionService : ICollectionService
             Quantity = card.Quantity,
             QuantityFoil = card.QuantityFoil,
             Notes = card.Notes,
+            Board = card.Board,
             AddedAt = card.AddedAt,
             CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
         };
@@ -419,6 +427,7 @@ public sealed class CollectionService : ICollectionService
                 Quantity = card.Quantity,
                 QuantityFoil = card.QuantityFoil,
                 Notes = card.Notes,
+                Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
                 AddedAt = card.AddedAt,
                 CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
             });
@@ -432,6 +441,7 @@ public sealed class CollectionService : ICollectionService
             Format = deck.Format,
             CommanderOracleId = deck.CommanderOracleId,
             Tags = [..deck.Tags],
+            Notes = deck.Notes,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
             Cards = [..cards]
@@ -473,6 +483,7 @@ public sealed class CollectionService : ICollectionService
         deck.Format = request.Format;
         deck.CommanderOracleId = request.CommanderOracleId;
         if (request.Tags is not null) deck.Tags = [..request.Tags];
+        if (request.Notes is not null) deck.Notes = request.Notes;
         deck.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 

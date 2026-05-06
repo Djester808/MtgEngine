@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MtgEngine.Api.Data;
 
@@ -10,9 +11,11 @@ using MtgEngine.Api.Data;
 namespace MtgEngine.Api.Migrations
 {
     [DbContext(typeof(MtgEngineDbContext))]
-    partial class MtgEngineDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260430231145_AddBoardToCollectionCard")]
+    partial class AddBoardToCollectionCard
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -89,9 +92,6 @@ namespace MtgEngine.Api.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Notes")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Tags")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -124,9 +124,7 @@ namespace MtgEngine.Api.Migrations
 
                     b.Property<string>("Board")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("main");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("CollectionId")
                         .HasColumnType("TEXT");
@@ -156,94 +154,10 @@ namespace MtgEngine.Api.Migrations
 
                     b.HasIndex("CollectionId", "OracleId");
 
-                    b.HasIndex("CollectionId", "ScryfallId", "Board")
+                    b.HasIndex("CollectionId", "ScryfallId")
                         .IsUnique();
 
                     b.ToTable("CollectionCards");
-                });
-
-            modelBuilder.Entity("MtgEngine.Domain.Models.ForumComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthorId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthorUsername")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ForumPostId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ForumPostId");
-
-                    b.ToTable("ForumComments");
-                });
-
-            modelBuilder.Entity("MtgEngine.Domain.Models.ForumPost", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthorId")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AuthorUsername")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ColorIdentityJson")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("[]");
-
-                    b.Property<Guid>("DeckId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("PublishedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AuthorId");
-
-                    b.HasIndex("DeckId")
-                        .IsUnique();
-
-                    b.HasIndex("PublishedAt");
-
-                    b.ToTable("ForumPosts");
                 });
 
             modelBuilder.Entity("MtgEngine.Domain.Models.User", b =>
@@ -291,25 +205,9 @@ namespace MtgEngine.Api.Migrations
                     b.Navigation("Collection");
                 });
 
-            modelBuilder.Entity("MtgEngine.Domain.Models.ForumComment", b =>
-                {
-                    b.HasOne("MtgEngine.Domain.Models.ForumPost", "ForumPost")
-                        .WithMany("Comments")
-                        .HasForeignKey("ForumPostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ForumPost");
-                });
-
             modelBuilder.Entity("MtgEngine.Domain.Models.Collection", b =>
                 {
                     b.Navigation("Cards");
-                });
-
-            modelBuilder.Entity("MtgEngine.Domain.Models.ForumPost", b =>
-                {
-                    b.Navigation("Comments");
                 });
 #pragma warning restore 612, 618
         }

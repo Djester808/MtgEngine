@@ -195,6 +195,32 @@ public sealed class DecksController : ControllerBase
         }
     }
 
+    // ---- AI deck build ---------------------------------------------
+
+    [HttpPost("{deckId:guid}/ai-build")]
+    public async Task<ActionResult<AiBuildResultDto>> AiBuildDeck(
+        Guid deckId,
+        [FromBody] AiBuildRequest request,
+        [FromServices] IAiBuildService aiBuildService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+            return BadRequest("CommanderOracleId is required");
+
+        try
+        {
+            var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
+
     // ---- Synergy scoring -------------------------------------------
 
     [HttpPost("synergy")]

@@ -73,6 +73,7 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
     options.UseSqlite("Data Source=mtgengine.db"));
 
 builder.Services.AddScoped<ICollectionService, CollectionService>();
+builder.Services.AddScoped<IForumService, ForumService>();
 
 // ---- Anthropic API ---------------------------------------
 builder.Services.AddHttpClient("AnthropicApi", client =>
@@ -83,6 +84,7 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
 builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
+builder.Services.AddScoped<IAiBuildService, AiBuildService>();
 
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>

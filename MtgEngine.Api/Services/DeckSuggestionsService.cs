@@ -142,9 +142,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             .GetProperty("text")
             .GetString() ?? "{}";
 
-        text = text.Trim();
-        if (text.StartsWith("```")) text = text[(text.IndexOf('\n') + 1)..];
-        if (text.EndsWith("```"))  text = text[..text.LastIndexOf("```")].TrimEnd();
+        text = ExtractJsonObject(text);
 
         return JsonSerializer.Deserialize<RawSuggestions>(text,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
@@ -277,5 +275,23 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         [JsonPropertyName("name")]   public string Name   { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
         [JsonPropertyName("score")]  public int    Score  { get; set; }
+    }
+
+    private static string ExtractJsonObject(string text)
+    {
+        int start = text.IndexOf('{');
+        if (start < 0) return "{}";
+        int depth = 0; bool inString = false; bool escaped = false;
+        for (int i = start; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (escaped)              { escaped = false; continue; }
+            if (c == '\\' && inString){ escaped = true;  continue; }
+            if (c == '"')             { inString = !inString; continue; }
+            if (inString)               continue;
+            if (c == '{') depth++;
+            else if (c == '}') { if (--depth == 0) return text[start..(i + 1)]; }
+        }
+        return text[start..];
     }
 }

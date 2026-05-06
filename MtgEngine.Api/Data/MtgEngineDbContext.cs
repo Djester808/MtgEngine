@@ -9,6 +9,8 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
     public DbSet<CardSynergyScore> CardSynergyScores => Set<CardSynergyScore>();
+    public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
+    public DbSet<ForumComment> ForumComments => Set<ForumComment>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -71,6 +73,7 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.Quantity).IsRequired();
             entity.Property(e => e.QuantityFoil).IsRequired();
             entity.Property(e => e.Notes).HasMaxLength(1000);
+            entity.Property(e => e.Board).IsRequired().HasDefaultValue("main");
             entity.Property(e => e.AddedAt).IsRequired();
 
             // Relationships
@@ -79,10 +82,10 @@ public sealed class MtgEngineDbContext : DbContext
                 .HasForeignKey(e => e.CollectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Indexes — one entry per (collection, printing); same oracle can appear multiple times with different scryfallIds
+            // Indexes — one entry per (collection, printing, board); same card can appear in main+side+maybe
             entity.HasIndex(e => e.CollectionId);
             entity.HasIndex(e => new { e.CollectionId, e.OracleId });
-            entity.HasIndex(e => new { e.CollectionId, e.ScryfallId }).IsUnique();
+            entity.HasIndex(e => new { e.CollectionId, e.ScryfallId, e.Board }).IsUnique();
         });
 
         // CardSynergyScore
@@ -96,6 +99,47 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(64);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId }).IsUnique();
+        });
+
+        // ForumPost
+        modelBuilder.Entity<ForumPost>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DeckId).IsRequired();
+            entity.Property(e => e.AuthorId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.AuthorUsername).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.ColorIdentityJson).IsRequired().HasColumnType("TEXT").HasDefaultValue("[]");
+            entity.Property(e => e.PublishedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+
+            entity.HasMany(e => e.Comments)
+                .WithOne(c => c.ForumPost)
+                .HasForeignKey(c => c.ForumPostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.DeckId).IsUnique();
+            entity.HasIndex(e => e.AuthorId);
+            entity.HasIndex(e => e.PublishedAt);
+        });
+
+        // ForumComment
+        modelBuilder.Entity<ForumComment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ForumPostId).IsRequired();
+            entity.Property(e => e.AuthorId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.AuthorUsername).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Content).IsRequired().HasMaxLength(4000);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+
+            entity.HasOne(e => e.ForumPost)
+                .WithMany(p => p.Comments)
+                .HasForeignKey(e => e.ForumPostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.ForumPostId);
         });
     }
 }

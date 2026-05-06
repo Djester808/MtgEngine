@@ -109,6 +109,16 @@ public sealed class CardsController : ControllerBase
         return Ok(DomainMapper.ToDto(card));
     }
 
+    // GET /api/cards/named?name=Mountain
+    [HttpGet("named")]
+    public async Task<ActionResult<CardDto>> GetCardByName([FromQuery] string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest();
+        var def = await _scryfall.GetByNameAsync(name.Trim());
+        if (def is null) return NotFound();
+        return Ok(DomainMapper.ToDto(new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty }));
+    }
+
     // GET /api/cards/search?q=...&limit=60&offset=0&sortBy=name&sortDir=asc&matchCase=false&matchWord=false&useRegex=false
     [HttpGet("search")]
     public async Task<ActionResult<CardDto[]>> Search(

@@ -54,8 +54,8 @@ public sealed class BulkDataRefreshWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "BulkDataRefreshWorker: refresh failed");
-            // Non-fatal: keep running, next scheduled check will retry
+            try { _logger.LogError(ex, "BulkDataRefreshWorker: refresh failed"); }
+            catch { /* EventLog may be disposed during host shutdown; swallow to keep worker alive */ }
         }
     }
 }

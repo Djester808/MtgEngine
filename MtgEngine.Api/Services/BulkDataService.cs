@@ -172,7 +172,7 @@ public sealed class BulkDataService : IScryfallService
         return result;
     }
 
-    public async Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors)
+    public async Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null)
     {
         await WaitReadyAsync();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -188,6 +188,10 @@ public sealed class BulkDataService : IScryfallService
                 // Skip tokens, basic lands, and commander-illegal card types
                 if (def.Supertypes.Contains("Basic")) continue;
                 if (def.CardTypes.HasFlag(Domain.Enums.CardType.Token)) continue;
+                // Rarity filter
+                if (allowedRarities != null && allowedRarities.Count > 0 &&
+                    !allowedRarities.Contains(def.Rarity ?? string.Empty))
+                    continue;
                 // Color identity check
                 if (commanderColors.Count > 0 &&
                     !def.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))

@@ -76,10 +76,10 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 
         var body = new
         {
-            model      = ModelId,
-            max_tokens = 800,
+            model       = ModelId,
+            max_tokens  = 800,
             temperature = 0,
-            messages   = new[] { new { role = "user", content = prompt } },
+            messages    = new[] { new { role = "user", content = prompt } },
         };
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -105,9 +105,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
             .GetProperty("text")
             .GetString() ?? "{}";
 
-        text = text.Trim();
-        if (text.StartsWith("```")) text = text[(text.IndexOf('\n') + 1)..];
-        if (text.EndsWith("```"))  text = text[..text.LastIndexOf("```")].TrimEnd();
+        text = ExtractJsonObject(text);
 
         var raw = JsonSerializer.Deserialize<RawFineTune>(text,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
@@ -132,5 +130,23 @@ public sealed class ManaFineTuneService : IManaFineTuneService
     {
         [JsonPropertyName("name")]   public string Name   { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
+    }
+
+    private static string ExtractJsonObject(string text)
+    {
+        int start = text.IndexOf('{');
+        if (start < 0) return "{}";
+        int depth = 0; bool inString = false; bool escaped = false;
+        for (int i = start; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (escaped)              { escaped = false; continue; }
+            if (c == '\\' && inString){ escaped = true;  continue; }
+            if (c == '"')             { inString = !inString; continue; }
+            if (inString)               continue;
+            if (c == '{') depth++;
+            else if (c == '}') { if (--depth == 0) return text[start..(i + 1)]; }
+        }
+        return text[start..];
     }
 }

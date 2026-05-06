@@ -172,6 +172,7 @@ public sealed record CollectionCardDto
     public int Quantity { get; init; }
     public int QuantityFoil { get; init; }
     public string? Notes { get; init; }
+    public string Board { get; init; } = "main";
     public DateTime AddedAt { get; init; }
     public CardDto? CardDetails { get; init; }
 }
@@ -205,7 +206,8 @@ public sealed record AddCardToCollectionRequest(
     string? ScryfallId = null,
     int Quantity = 1,
     int QuantityFoil = 0,
-    string? Notes = null
+    string? Notes = null,
+    string Board = "main"
 );
 public sealed record UpdateCollectionCardRequest(
     int Quantity,
@@ -236,13 +238,14 @@ public sealed record DeckDetailDto
     public string? Format { get; init; }
     public string? CommanderOracleId { get; init; }
     public string[] Tags { get; init; } = [];
+    public string? Notes { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
 public sealed record CreateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
-public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null, string[]? Tags = null);
+public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null, string[]? Tags = null, string? Notes = null);
 
 public sealed record ImportDeckRequest(
     string Name,
@@ -355,3 +358,71 @@ public sealed record SynergyResultDto
     public int    Score  { get; init; }
     public string Reason { get; init; } = string.Empty;
 }
+
+// ---- AI deck build ------------------------------------------
+
+public sealed record AiBuildRequest
+{
+    public string CommanderOracleId  { get; init; } = string.Empty;
+    public int    Bracket            { get; init; } = 3;           // 1–5
+    public string PriceRange         { get; init; } = "any";       // "budget" | "mid" | "any"
+    public bool   IncludeSideboard   { get; init; } = false;
+    public bool   IncludeMaybeboard  { get; init; } = false;
+}
+
+public sealed record AiBuildResultDto
+{
+    public int CardsAdded        { get; init; }
+    public int SideboardAdded    { get; init; }
+    public int MaybeboardAdded   { get; init; }
+    public int CardsSkipped      { get; init; }
+}
+
+// ---- Forum --------------------------------------------------
+
+public sealed record ForumPostSummaryDto
+{
+    public Guid Id { get; init; }
+    public Guid DeckId { get; init; }
+    public string AuthorUsername { get; init; } = string.Empty;
+    public string DeckName { get; init; } = string.Empty;
+    public string? DeckCoverUri { get; init; }
+    public string? DeckFormat { get; init; }
+    public string? Description { get; init; }
+    public string[] ColorIdentity { get; init; } = [];
+    public int CardCount { get; init; }
+    public int CommentCount { get; init; }
+    public DateTime PublishedAt { get; init; }
+}
+
+public sealed record ForumPostDetailDto
+{
+    public Guid Id { get; init; }
+    public Guid DeckId { get; init; }
+    public string AuthorId { get; init; } = string.Empty;
+    public string AuthorUsername { get; init; } = string.Empty;
+    public string DeckName { get; init; } = string.Empty;
+    public string? DeckCoverUri { get; init; }
+    public string? DeckFormat { get; init; }
+    public string? CommanderOracleId { get; init; }
+    public string? Description { get; init; }
+    public string[] ColorIdentity { get; init; } = [];
+    public DateTime PublishedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+    public CollectionCardDto[] Cards { get; init; } = [];
+    public ForumCommentDto[] Comments { get; init; } = [];
+}
+
+public sealed record ForumCommentDto
+{
+    public Guid Id { get; init; }
+    public string AuthorId { get; init; } = string.Empty;
+    public string AuthorUsername { get; init; } = string.Empty;
+    public string Content { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
+public sealed record PublishDeckRequest(Guid DeckId, string? Description = null);
+public sealed record CreateCommentRequest(string Content);
+public sealed record UpdateCommentRequest(string Content);

@@ -13,6 +13,7 @@ public sealed class Collection
     public string? Format { get; set; }
     public string? CommanderOracleId { get; set; }
     public bool IsDeck { get; set; } = false;
+    public string? Notes { get; set; }
     public List<string> Tags { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -57,6 +58,9 @@ public sealed class CollectionCard
     /// <summary>Custom notes about this copy</summary>
     public string? Notes { get; set; }
 
+    /// <summary>Which deck zone this card belongs to: "main", "side", or "maybe"</summary>
+    public string Board { get; set; } = "main";
+
     /// <summary>When this card was added to the collection</summary>
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 
@@ -68,7 +72,8 @@ public sealed class CollectionCard
         string? scryfallId = null,
         int quantity = 1,
         int quantityFoil = 0,
-        string? notes = null)
+        string? notes = null,
+        string board = "main")
     {
         CollectionId = collectionId;
         OracleId = oracleId;
@@ -76,5 +81,6 @@ public sealed class CollectionCard
         Quantity = quantity;
         QuantityFoil = quantityFoil;
         Notes = notes;
+        Board = board;
     }
 }
