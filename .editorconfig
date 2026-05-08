@@ -1,0 +1,54 @@
+root = true
+
+[*]
+indent_style = space
+end_of_line = crlf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.cs]
+indent_size = 4
+
+# C# formatting rules
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_blocks = true
+
+# Naming conventions — private fields use _camelCase (underscore prefix)
+dotnet_naming_rule.private_fields_underscore_camel.severity = suggestion
+dotnet_naming_rule.private_fields_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore_camel.style = underscore_camel_style
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel_style.capitalization = camel_case
+dotnet_naming_style.underscore_camel_style.required_prefix = _
+
+# Sort using directives
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Unnecessary code
+dotnet_diagnostic.IDE0001.severity = suggestion  # Simplify name
+dotnet_diagnostic.IDE0005.severity = warning      # Remove unnecessary using
+dotnet_diagnostic.IDE0055.severity = warning      # Fix formatting
+dotnet_diagnostic.IDE0051.severity = warning      # Remove unused private member
+dotnet_diagnostic.IDE0052.severity = suggestion   # Remove unread private member
+dotnet_diagnostic.IDE1006.severity = none         # Naming — handled by naming rules above
+
+[*.{json,csproj,props,targets}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
