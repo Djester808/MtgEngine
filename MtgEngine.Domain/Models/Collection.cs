@@ -25,12 +25,13 @@ public sealed class Collection
 
     public Collection() { }
 
-    public Collection(string userId, string name, string? description = null, bool isDeck = false)
+    public Collection(string userId, string name, string? description = null, bool isDeck = false, string? coverUri = null)
     {
         UserId = userId;
         Name = name;
         Description = description;
         IsDeck = isDeck;
+        CoverUri = coverUri;
     }
 }
 

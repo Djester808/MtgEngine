@@ -239,6 +239,7 @@ public sealed record DeckDetailDto
     public string? CommanderOracleId { get; init; }
     public string[] Tags { get; init; } = [];
     public string? Notes { get; init; }
+    public bool IsPublished { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public CollectionCardDto[] Cards { get; init; } = [];
@@ -405,6 +406,8 @@ public sealed record ForumPostDetailDto
     public string? DeckCoverUri { get; init; }
     public string? DeckFormat { get; init; }
     public string? CommanderOracleId { get; init; }
+    public string? CommanderImageUri { get; init; }
+    public string? CommanderName { get; init; }
     public string? Description { get; init; }
     public string[] ColorIdentity { get; init; } = [];
     public DateTime PublishedAt { get; init; }
@@ -423,6 +426,105 @@ public sealed record ForumCommentDto
     public DateTime UpdatedAt { get; init; }
 }
 
+public sealed record UserProfileDto
+{
+    public string Username { get; init; } = string.Empty;
+    public DateTime JoinedAt { get; init; }
+    public int DeckCount { get; init; }
+    public int CommentCount { get; init; }
+    public ForumPostSummaryDto[] PublishedDecks { get; init; } = [];
+    public UserCommentDto[] RecentComments { get; init; } = [];
+}
+
+public sealed record UserCommentDto
+{
+    public Guid CommentId { get; init; }
+    public Guid ForumPostId { get; init; }
+    public string DeckName { get; init; } = string.Empty;
+    public string Content { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+}
+
+public sealed record UserPreferencesDto
+{
+    public string? DeckLayout   { get; init; }
+    public string? ForumLayout  { get; init; }
+    public string? ForumSort    { get; init; }
+}
+
 public sealed record PublishDeckRequest(Guid DeckId, string? Description = null);
 public sealed record CreateCommentRequest(string Content);
 public sealed record UpdateCommentRequest(string Content);
+
+// ---- Commanders --------------------------------------------------
+
+public sealed record CommanderSummaryDto
+{
+    public string   OracleId        { get; init; } = string.Empty;
+    public string   Name            { get; init; } = string.Empty;
+    public string?  ImageUri        { get; init; }
+    public string?  ImageUriArtCrop { get; init; }
+    public string[] ColorIdentity   { get; init; } = [];
+    public string?  ManaCost        { get; init; }
+    public int      DeckCount       { get; init; }
+    public int      Rank            { get; init; }
+}
+
+public sealed record CommanderProfileDto
+{
+    public string      OracleId        { get; init; } = string.Empty;
+    public string      Name            { get; init; } = string.Empty;
+    public string?     ImageUri        { get; init; }
+    public string?     ImageUriArtCrop { get; init; }
+    public string[]    ColorIdentity   { get; init; } = [];
+    public string?     ManaCost        { get; init; }
+    public string?     OracleText      { get; init; }
+    public int         DeckCount       { get; init; }
+    public int         Rank            { get; init; }
+    public TagCountDto[] TopTags       { get; init; } = [];
+}
+
+public sealed record TagCountDto(string Tag, int Count);
+
+public sealed record CommanderCardEntryDto
+{
+    public CardDto Card             { get; init; } = null!;
+    public int     DeckCount        { get; init; }
+    public int     TotalDecks       { get; init; }
+    public double  InclusionPercent { get; init; }
+    public bool    IsGameChanger    { get; init; }
+}
+
+public sealed record CommanderCardsDto
+{
+    public int                    TotalDecks { get; init; }
+    public CommanderCardEntryDto[] Cards     { get; init; } = [];
+}
+
+public sealed record CommanderHistoryPointDto(string Month, int DeckCount);
+
+public sealed record SimilarCommanderDto
+{
+    public string   OracleId        { get; init; } = string.Empty;
+    public string   Name            { get; init; } = string.Empty;
+    public string?  ImageUri        { get; init; }
+    public string?  ImageUriArtCrop { get; init; }
+    public string[] ColorIdentity   { get; init; } = [];
+    public int      DeckCount       { get; init; }
+    public int      SharedCards     { get; init; }
+    public int      Rank            { get; init; }
+}
+
+public sealed record CommanderDeckDto
+{
+    public Guid     ForumPostId    { get; init; }
+    public Guid     DeckId         { get; init; }
+    public string   Name           { get; init; } = string.Empty;
+    public string?  Description    { get; init; }
+    public string   AuthorUsername { get; init; } = string.Empty;
+    public DateTime PublishedAt    { get; init; }
+    public int      CardCount      { get; init; }
+    public int      Bracket        { get; init; }
+    public string[] Tags           { get; init; } = [];
+    public string[] ColorIdentity  { get; init; } = [];
+}

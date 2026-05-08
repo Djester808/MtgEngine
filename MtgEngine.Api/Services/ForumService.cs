@@ -44,7 +44,7 @@ public sealed class ForumService : IForumService
         var decks = await _context.Collections
             .AsNoTracking()
             .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
-            .Select(c => new { c.Id, c.Name, c.Description, c.Format, c.Cards })
+            .Select(c => new { c.Id, c.Name, c.CoverUri, c.Description, c.Format, c.Cards })
             .ToListAsync();
 
         var deckCardCounts = await _context.Collections
@@ -72,7 +72,7 @@ public sealed class ForumService : IForumService
                 DeckId = p.DeckId,
                 AuthorUsername = p.AuthorUsername,
                 DeckName = deck?.Name ?? "Unknown Deck",
-                DeckCoverUri = deck?.Description,
+                DeckCoverUri = deck?.CoverUri,
                 DeckFormat = deck?.Format,
                 Description = p.Description,
                 ColorIdentity = colorIdentity,
@@ -126,6 +126,15 @@ public sealed class ForumService : IForumService
 
         var colorIdentity = JsonSerializer.Deserialize<string[]>(post.ColorIdentityJson, (JsonSerializerOptions?)null) ?? [];
 
+        string? commanderImageUri = null;
+        string? commanderName = null;
+        if (deck?.CommanderOracleId is not null)
+        {
+            var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId);
+            commanderImageUri = cmdDef?.ImageUriNormal;
+            commanderName = cmdDef?.Name;
+        }
+
         return new ForumPostDetailDto
         {
             Id = post.Id,
@@ -133,9 +142,11 @@ public sealed class ForumService : IForumService
             AuthorId = post.AuthorId,
             AuthorUsername = post.AuthorUsername,
             DeckName = deck?.Name ?? "Unknown Deck",
-            DeckCoverUri = deck?.Description,
+            DeckCoverUri = deck?.CoverUri,
             DeckFormat = deck?.Format,
             CommanderOracleId = deck?.CommanderOracleId,
+            CommanderImageUri = commanderImageUri,
+            CommanderName = commanderName,
             Description = post.Description,
             ColorIdentity = colorIdentity,
             PublishedAt = post.PublishedAt,
@@ -223,7 +234,7 @@ public sealed class ForumService : IForumService
             DeckId = post.DeckId,
             AuthorUsername = post.AuthorUsername,
             DeckName = deck.Name,
-            DeckCoverUri = deck.Description,
+            DeckCoverUri = deck.CoverUri,
             DeckFormat = deck.Format,
             Description = post.Description,
             ColorIdentity = colorIdentity,

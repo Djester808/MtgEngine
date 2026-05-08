@@ -74,6 +74,7 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
 
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 builder.Services.AddScoped<IForumService, ForumService>();
+builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
 
 // ---- Anthropic API ---------------------------------------
 builder.Services.AddHttpClient("AnthropicApi", client =>
@@ -86,6 +87,15 @@ builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
 builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
 builder.Services.AddScoped<IAiBuildService, AiBuildService>();
 
+// EDHREC JSON — community deck card recommendations
+builder.Services.AddHttpClient("EdhrecApi", client =>
+{
+    client.BaseAddress = new Uri("https://json.edhrec.com/");
+    client.DefaultRequestHeaders.Add("User-Agent", "MtgEngine/0.1 (contact@example.com)");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
 // ---- Deck import -----------------------------------------
 builder.Services.AddHttpClient("DeckImport", client =>
 {
@@ -94,6 +104,7 @@ builder.Services.AddHttpClient("DeckImport", client =>
     client.DefaultRequestHeaders.Add("X-Moxfield-Version", "2.0");
 });
 builder.Services.AddScoped<DeckImportService>();
+builder.Services.AddScoped<CommanderDeckSeeder>();
 
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();

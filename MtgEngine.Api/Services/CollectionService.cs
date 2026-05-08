@@ -392,7 +392,7 @@ public sealed class CollectionService : ICollectionService
             {
                 Id = c.Id,
                 Name = c.Name,
-                CoverUri = c.Description,
+                CoverUri = c.CoverUri,
                 Format = c.Format,
                 CommanderOracleId = c.CommanderOracleId,
                 CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil),
@@ -411,6 +411,8 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync();
 
         if (deck == null) return null;
+
+        var isPublished = await _context.ForumPosts.AnyAsync(p => p.DeckId == deckId);
 
         var cards = new List<CollectionCardDto>();
         foreach (var card in deck.Cards)
@@ -437,11 +439,12 @@ public sealed class CollectionService : ICollectionService
         {
             Id = deck.Id,
             Name = deck.Name,
-            CoverUri = deck.Description,
+            CoverUri = deck.CoverUri,
             Format = deck.Format,
             CommanderOracleId = deck.CommanderOracleId,
             Tags = [..deck.Tags],
             Notes = deck.Notes,
+            IsPublished = isPublished,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
             Cards = [..cards]
@@ -450,7 +453,7 @@ public sealed class CollectionService : ICollectionService
 
     public async Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request)
     {
-        var deck = new Collection(userId, request.Name, request.CoverUri, isDeck: true)
+        var deck = new Collection(userId, request.Name, isDeck: true, coverUri: request.CoverUri)
         {
             Format = request.Format,
             CommanderOracleId = request.CommanderOracleId,
@@ -462,7 +465,7 @@ public sealed class CollectionService : ICollectionService
         {
             Id = deck.Id,
             Name = deck.Name,
-            CoverUri = deck.Description,
+            CoverUri = deck.CoverUri,
             Format = deck.Format,
             CommanderOracleId = deck.CommanderOracleId,
             CreatedAt = deck.CreatedAt,
@@ -479,7 +482,7 @@ public sealed class CollectionService : ICollectionService
             ?? throw new KeyNotFoundException("Deck not found");
 
         deck.Name = request.Name;
-        deck.Description = request.CoverUri;
+        deck.CoverUri = request.CoverUri;
         deck.Format = request.Format;
         deck.CommanderOracleId = request.CommanderOracleId;
         if (request.Tags is not null) deck.Tags = [..request.Tags];
