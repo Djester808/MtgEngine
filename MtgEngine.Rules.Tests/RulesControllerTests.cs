@@ -48,7 +48,7 @@ public class RulesControllerTests
     public void GetKeywords_returns_same_count_as_full_payload()
     {
         var full = GetPayload(new RulesController().Get());
-        var kw   = GetArray(new RulesController().GetKeywords());
+        var kw = GetArray(new RulesController().GetKeywords());
 
         kw.Should().HaveCount(full.Keywords.Length);
     }
@@ -116,7 +116,7 @@ public class RulesControllerTests
     public void GetMechanics_returns_same_count_as_full_payload()
     {
         var full = GetPayload(new RulesController().Get());
-        var m    = GetArray(new RulesController().GetMechanics());
+        var m = GetArray(new RulesController().GetMechanics());
 
         m.Should().HaveCount(full.Mechanics.Length);
     }
@@ -155,11 +155,11 @@ public class RulesControllerTests
         var mechanics = GetArray(new RulesController().GetMechanics());
 
         foreach (var m in mechanics)
-        foreach (var s in m.Steps ?? [])
-        {
-            s.Name.Should().NotBeNullOrWhiteSpace(because: $"mechanic '{m.Name}' step must have a name");
-            s.Description.Should().NotBeNullOrWhiteSpace(because: $"mechanic '{m.Name}' step '{s.Name}' must have a description");
-        }
+            foreach (var s in m.Steps ?? [])
+            {
+                s.Name.Should().NotBeNullOrWhiteSpace(because: $"mechanic '{m.Name}' step must have a name");
+                s.Description.Should().NotBeNullOrWhiteSpace(because: $"mechanic '{m.Name}' step '{s.Name}' must have a description");
+            }
     }
 
     // =========================================================
@@ -170,7 +170,7 @@ public class RulesControllerTests
     public void GetSba_returns_same_count_as_full_payload()
     {
         var full = GetPayload(new RulesController().Get());
-        var sba  = GetArray(new RulesController().GetSba());
+        var sba = GetArray(new RulesController().GetSba());
 
         sba.Should().HaveCount(full.StateBasedActions.Length);
     }

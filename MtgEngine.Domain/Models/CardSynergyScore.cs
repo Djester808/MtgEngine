@@ -6,11 +6,11 @@ namespace MtgEngine.Domain.Models;
 /// </summary>
 public sealed class CardSynergyScore
 {
-    public Guid   Id                 { get; set; } = Guid.NewGuid();
-    public string CommanderOracleId  { get; set; } = string.Empty;
-    public string CardOracleId       { get; set; } = string.Empty;
-    public int    Score              { get; set; }
-    public string Reason             { get; set; } = string.Empty;
-    public string ModelVersion       { get; set; } = string.Empty;
-    public DateTime CreatedAt        { get; set; } = DateTime.UtcNow;
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string CommanderOracleId { get; set; } = string.Empty;
+    public string CardOracleId { get; set; } = string.Empty;
+    public int Score { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string ModelVersion { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

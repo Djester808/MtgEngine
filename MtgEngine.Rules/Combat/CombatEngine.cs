@@ -1,6 +1,6 @@
+using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
-using System.Collections.Immutable;
 
 namespace MtgEngine.Rules.Combat;
 
@@ -117,15 +117,19 @@ public static class CombatEngine
 
         foreach (var (attackerId, blockerIds) in combat.AttackersToBlockers)
         {
-            if (!state.PermanentExists(attackerId)) continue;
+            if (!state.PermanentExists(attackerId))
+                continue;
             var attacker = state.GetPermanent(attackerId);
 
             bool attackerIsFirstStriker = attacker.HasKeyword(KeywordAbility.FirstStrike) || attacker.HasKeyword(KeywordAbility.DoubleStrike);
-            if (firstStrike && !attackerIsFirstStriker) continue;
-            if (!firstStrike && attacker.HasKeyword(KeywordAbility.FirstStrike) && !attacker.HasKeyword(KeywordAbility.DoubleStrike)) continue;
+            if (firstStrike && !attackerIsFirstStriker)
+                continue;
+            if (!firstStrike && attacker.HasKeyword(KeywordAbility.FirstStrike) && !attacker.HasKeyword(KeywordAbility.DoubleStrike))
+                continue;
 
             int? power = attacker.EffectivePower;
-            if (power is null || power <= 0) continue;
+            if (power is null || power <= 0)
+                continue;
 
             if (blockerIds.IsEmpty)
             {
@@ -143,19 +147,24 @@ public static class CombatEngine
         // Blockers deal damage back to attackers
         foreach (var (attackerId, blockerIds) in combat.AttackersToBlockers)
         {
-            if (!state.PermanentExists(attackerId)) continue;
+            if (!state.PermanentExists(attackerId))
+                continue;
             foreach (var blockerId in blockerIds)
             {
-                if (!state.PermanentExists(blockerId)) continue;
+                if (!state.PermanentExists(blockerId))
+                    continue;
                 var blocker = state.GetPermanent(blockerId);
                 var attacker = state.GetPermanent(attackerId);
 
                 bool blockerIsFirstStriker = blocker.HasKeyword(KeywordAbility.FirstStrike) || blocker.HasKeyword(KeywordAbility.DoubleStrike);
-                if (firstStrike && !blockerIsFirstStriker) continue;
-                if (!firstStrike && blocker.HasKeyword(KeywordAbility.FirstStrike) && !blocker.HasKeyword(KeywordAbility.DoubleStrike)) continue;
+                if (firstStrike && !blockerIsFirstStriker)
+                    continue;
+                if (!firstStrike && blocker.HasKeyword(KeywordAbility.FirstStrike) && !blocker.HasKeyword(KeywordAbility.DoubleStrike))
+                    continue;
 
                 int? blockerPower = blocker.EffectivePower;
-                if (blockerPower is null || blockerPower <= 0) continue;
+                if (blockerPower is null || blockerPower <= 0)
+                    continue;
 
                 state = DealDamageToPermanent(state, blocker, attackerId, blockerPower.Value);
             }
@@ -174,15 +183,18 @@ public static class CombatEngine
 
         foreach (var blockerId in order)
         {
-            if (!state.PermanentExists(blockerId)) continue;
-            if (remaining <= 0) break;
+            if (!state.PermanentExists(blockerId))
+                continue;
+            if (remaining <= 0)
+                break;
 
             var blocker = state.GetPermanent(blockerId);
             int lethal = hasDeathtouch ? 1 : Math.Max(0, (blocker.EffectiveToughness ?? 0) - blocker.DamageMarked);
             int assign = hasTrample ? Math.Min(remaining, lethal) : Math.Min(remaining, blocker.EffectivePower ?? remaining);
             // Without trample, must assign at least lethal but can assign more
             assign = Math.Max(lethal, Math.Min(remaining, assign));
-            if (assign > remaining) assign = remaining;
+            if (assign > remaining)
+                assign = remaining;
 
             state = DealDamageToPermanent(state, attacker, blockerId, assign);
             remaining -= assign;
@@ -199,7 +211,8 @@ public static class CombatEngine
 
     private static GameState DealDamageToPermanent(GameState state, Permanent source, Guid targetId, int amount)
     {
-        if (!state.PermanentExists(targetId)) return state;
+        if (!state.PermanentExists(targetId))
+            return state;
 
         var target = state.GetPermanent(targetId);
         bool fromDeathtouch = source.HasKeyword(KeywordAbility.Deathtouch);

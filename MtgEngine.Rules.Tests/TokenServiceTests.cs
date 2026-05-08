@@ -19,9 +19,9 @@ public sealed class TokenServiceTests
 
     private static User MakeUser(string username = "testuser") => new()
     {
-        Id       = Guid.NewGuid(),
+        Id = Guid.NewGuid(),
         Username = username,
-        Email    = $"{username}@example.com",
+        Email = $"{username}@example.com",
     };
 
     // ---- Shape ----
@@ -45,9 +45,9 @@ public sealed class TokenServiceTests
     [Fact]
     public void Generate_ContainsNameIdentifierEqualToUserId()
     {
-        var user  = MakeUser();
+        var user = MakeUser();
         var token = MakeService().Generate(user);
-        var jwt   = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
         jwt.Claims
             .First(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid")
@@ -57,9 +57,9 @@ public sealed class TokenServiceTests
     [Fact]
     public void Generate_ContainsNameEqualToUsername()
     {
-        var user  = MakeUser("alice");
+        var user = MakeUser("alice");
         var token = MakeService().Generate(user);
-        var jwt   = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
         jwt.Claims
             .First(c => c.Type == ClaimTypes.Name || c.Type == "unique_name")
@@ -72,7 +72,7 @@ public sealed class TokenServiceTests
     public void Generate_ExpiryIsInTheFuture()
     {
         var token = MakeService().Generate(MakeUser());
-        var jwt   = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         jwt.ValidTo.Should().BeAfter(DateTime.UtcNow);
     }
 
@@ -80,7 +80,7 @@ public sealed class TokenServiceTests
     public void Generate_ExpiryIsAboutThirtyDaysFromNow()
     {
         var token = MakeService().Generate(MakeUser());
-        var jwt   = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         jwt.ValidTo.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), TimeSpan.FromMinutes(1));
     }
 
@@ -90,8 +90,8 @@ public sealed class TokenServiceTests
     public void Generate_DifferentUsersGetDifferentTokens()
     {
         var svc = MakeService();
-        var t1  = svc.Generate(MakeUser("alice"));
-        var t2  = svc.Generate(MakeUser("bob"));
+        var t1 = svc.Generate(MakeUser("alice"));
+        var t2 = svc.Generate(MakeUser("bob"));
         t1.Should().NotBe(t2);
     }
 }

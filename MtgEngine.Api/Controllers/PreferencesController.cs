@@ -24,7 +24,8 @@ public sealed class PreferencesController : ControllerBase
     public async Task<ActionResult<UserPreferencesDto>> GetPreferences()
     {
         var user = await _db.Users.FindAsync(UserId);
-        if (user == null) return NotFound();
+        if (user == null)
+            return NotFound();
 
         var prefs = string.IsNullOrEmpty(user.PreferencesJson)
             ? new UserPreferencesDto()
@@ -37,7 +38,8 @@ public sealed class PreferencesController : ControllerBase
     public async Task<ActionResult<UserPreferencesDto>> UpdatePreferences([FromBody] UserPreferencesDto request)
     {
         var user = await _db.Users.FindAsync(UserId);
-        if (user == null) return NotFound();
+        if (user == null)
+            return NotFound();
 
         user.PreferencesJson = JsonSerializer.Serialize(request);
         await _db.SaveChangesAsync();

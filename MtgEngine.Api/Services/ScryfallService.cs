@@ -11,9 +11,9 @@ public interface IScryfallService
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
-    Task<PrintingDto[]>    GetPrintingsAsync(string oracleId);
-    Task<RulingDto[]>      GetRulingsAsync(string oracleId);
-    Task<SetSummaryDto[]>  GetSetsAsync(string? filterQuery = null);
+    Task<PrintingDto[]> GetPrintingsAsync(string oracleId);
+    Task<RulingDto[]> GetRulingsAsync(string oracleId);
+    Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
     Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6);
     Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null);
@@ -41,9 +41,9 @@ public sealed class ScryfallService : IScryfallService
 
     public ScryfallService(IHttpClientFactory httpClientFactory, ILogger<ScryfallService> logger, IConfiguration config)
     {
-        _http      = httpClientFactory.CreateClient("ScryfallApi");
-        _logger    = logger;
-        _cacheDir  = config["ScryfallCache:Directory"]
+        _http = httpClientFactory.CreateClient("ScryfallApi");
+        _logger = logger;
+        _cacheDir = config["ScryfallCache:Directory"]
                      ?? Path.Combine(AppContext.BaseDirectory, "card-cache");
 
         Directory.CreateDirectory(Path.Combine(_cacheDir, "by-oracle"));
@@ -55,7 +55,8 @@ public sealed class ScryfallService : IScryfallService
 
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
-        if (_byOracleId.TryGetValue(oracleId, out var mem)) return mem;
+        if (_byOracleId.TryGetValue(oracleId, out var mem))
+            return mem;
 
         var json = await LoadDiskAsync(OraclePath(oracleId))
                    ?? await FetchAndSaveAsync(OraclePath(oracleId), $"cards/{oracleId}");
@@ -67,7 +68,8 @@ public sealed class ScryfallService : IScryfallService
 
     public async Task<CardDefinition?> GetByNameAsync(string name)
     {
-        if (_byName.TryGetValue(name, out var mem)) return mem;
+        if (_byName.TryGetValue(name, out var mem))
+            return mem;
 
         var encoded = Uri.EscapeDataString(name);
         var json = await LoadDiskAsync(NamePath(name))
@@ -107,22 +109,26 @@ public sealed class ScryfallService : IScryfallService
     {
         var encoded = Uri.EscapeDataString($"oracleid:{oracleId}");
         var json = await FetchRawAsync($"cards/search?q={encoded}&unique=prints&order=released&dir=asc");
-        if (json is null) return [];
-        if (!json.Value.TryGetProperty("data", out var data)) return [];
+        if (json is null)
+            return [];
+        if (!json.Value.TryGetProperty("data", out var data))
+            return [];
 
         var printings = new List<PrintingDto>();
         foreach (var card in data.EnumerateArray())
         {
-            var id      = card.TryGetProperty("id",               out var idEl)  ? idEl.GetString()   ?? "" : "";
-            var setCode = card.TryGetProperty("set",              out var setEl) ? setEl.GetString()  ?? "" : "";
-            var setName = card.TryGetProperty("set_name",         out var snEl)  ? snEl.GetString()   ?? "" : "";
-            var num     = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString()       : null;
+            var id = card.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+            var setCode = card.TryGetProperty("set", out var setEl) ? setEl.GetString() ?? "" : "";
+            var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
+            var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
             string? imgSmall = null, imgNormal = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
-                if (imgs.TryGetProperty("small",  out var s)) imgSmall  = s.GetString();
-                if (imgs.TryGetProperty("normal", out var n)) imgNormal = n.GetString();
+                if (imgs.TryGetProperty("small", out var s))
+                    imgSmall = s.GetString();
+                if (imgs.TryGetProperty("normal", out var n))
+                    imgNormal = n.GetString();
             }
 
             // Per-printing text — fall back to card_faces[0] for DFCs
@@ -131,24 +137,24 @@ public sealed class ScryfallService : IScryfallService
 
             string? oracleText = GetStr(card, "oracle_text") ?? GetStr(face0, "oracle_text");
             string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
-            string? artist     = GetStr(card, "artist")      ?? GetStr(face0, "artist");
-            string? manaCost   = GetStr(card, "mana_cost")   ?? GetStr(face0, "mana_cost");
+            string? artist = GetStr(card, "artist") ?? GetStr(face0, "artist");
+            string? manaCost = GetStr(card, "mana_cost") ?? GetStr(face0, "mana_cost");
 
             printings.Add(new PrintingDto
             {
-                ScryfallId      = id,
-                SetCode         = setCode,
-                SetName         = setName,
+                ScryfallId = id,
+                SetCode = setCode,
+                SetName = setName,
                 CollectorNumber = num,
-                ImageUriSmall   = imgSmall,
-                ImageUriNormal  = imgNormal,
-                OracleText      = oracleText,
-                FlavorText      = flavorText,
-                Artist          = artist,
-                ManaCost        = manaCost,
+                ImageUriSmall = imgSmall,
+                ImageUriNormal = imgNormal,
+                OracleText = oracleText,
+                FlavorText = flavorText,
+                Artist = artist,
+                ManaCost = manaCost,
             });
         }
-        return [..printings];
+        return [.. printings];
     }
 
     private readonly ConcurrentDictionary<string, RulingDto[]> _rulingsByOracleId = new();
@@ -157,7 +163,8 @@ public sealed class ScryfallService : IScryfallService
     // GetRulingsAsync resolves an oracleId → scryfallId via printings, then delegates here.
     internal async Task<RulingDto[]> GetRulingsByScryfallIdAsync(string scryfallId)
     {
-        if (_rulingsByOracleId.TryGetValue(scryfallId, out var mem)) return mem;
+        if (_rulingsByOracleId.TryGetValue(scryfallId, out var mem))
+            return mem;
 
         Directory.CreateDirectory(Path.Combine(_cacheDir, "rulings"));
         var cachePath = Path.Combine(_cacheDir, "rulings", $"{scryfallId}.json");
@@ -173,9 +180,9 @@ public sealed class ScryfallService : IScryfallService
 
         var rulings = data.EnumerateArray()
             .Select(r => new RulingDto(
-                r.TryGetProperty("source",       out var src) ? src.GetString() ?? "" : "",
+                r.TryGetProperty("source", out var src) ? src.GetString() ?? "" : "",
                 r.TryGetProperty("published_at", out var pub) ? pub.GetString() ?? "" : "",
-                r.TryGetProperty("comment",      out var cmt) ? cmt.GetString() ?? "" : ""))
+                r.TryGetProperty("comment", out var cmt) ? cmt.GetString() ?? "" : ""))
             .Where(r => r.Comment.Length > 0)
             .ToArray();
 
@@ -187,13 +194,15 @@ public sealed class ScryfallService : IScryfallService
     {
         // Resolve oracle ID → any printing's Scryfall ID, then fetch rulings by that ID.
         var printings = await GetPrintingsAsync(oracleId);
-        if (printings.Length == 0) return [];
+        if (printings.Length == 0)
+            return [];
         return await GetRulingsByScryfallIdAsync(printings[0].ScryfallId);
     }
 
     private static string? GetStr(JsonElement? el, string prop)
     {
-        if (el is null) return null;
+        if (el is null)
+            return null;
         return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
@@ -206,7 +215,8 @@ public sealed class ScryfallService : IScryfallService
         {
             var start = idx + 6;
             var end = name.IndexOf('"', start);
-            if (end > start) name = name[start..end];
+            if (end > start)
+                name = name[start..end];
         }
         var def = await GetByNameAsync(name);
         return def is null ? [] : [def];
@@ -214,7 +224,7 @@ public sealed class ScryfallService : IScryfallService
 
     // ---- Disk helpers --------------------------------------------
 
-    private string OraclePath(string id)   => Path.Combine(_cacheDir, "by-oracle",   $"{id}.json");
+    private string OraclePath(string id) => Path.Combine(_cacheDir, "by-oracle", $"{id}.json");
     private string NamePath(string name)
     {
         var safe = string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
@@ -224,7 +234,8 @@ public sealed class ScryfallService : IScryfallService
 
     private async Task<JsonElement?> LoadDiskAsync(string path)
     {
-        if (!File.Exists(path)) return null;
+        if (!File.Exists(path))
+            return null;
         try
         {
             await using var stream = File.OpenRead(path);

@@ -1,10 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Controllers;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
@@ -143,8 +143,8 @@ public sealed class AuthControllerTests : IAsyncLifetime
             new RegisterRequest("henry", "henry@example.com", "password123"));
 
         var token = ((OkObjectResult)result.Result!).Value as AuthTokenResponse;
-        var jwt   = new JwtSecurityTokenHandler().ReadJwtToken(token!.Token);
-        var sub   = jwt.Claims.First(c => c.Type is "nameid" or ClaimTypes.NameIdentifier).Value;
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token!.Token);
+        var sub = jwt.Claims.First(c => c.Type is "nameid" or ClaimTypes.NameIdentifier).Value;
 
         var dbUser = await _db.Users.FirstAsync(u => u.Username == "henry");
         sub.Should().Be(dbUser.Id.ToString());
@@ -198,10 +198,10 @@ public sealed class AuthControllerTests : IAsyncLifetime
     {
         var user = await SeedUser("leo", "leo@example.com", "password");
 
-        var result  = await _controller.Login(new LoginRequest("leo", "password"));
-        var token   = ((OkObjectResult)result.Result!).Value as AuthTokenResponse;
-        var jwt     = new JwtSecurityTokenHandler().ReadJwtToken(token!.Token);
-        var sub     = jwt.Claims.First(c => c.Type is "nameid" or ClaimTypes.NameIdentifier).Value;
+        var result = await _controller.Login(new LoginRequest("leo", "password"));
+        var token = ((OkObjectResult)result.Result!).Value as AuthTokenResponse;
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token!.Token);
+        var sub = jwt.Claims.First(c => c.Type is "nameid" or ClaimTypes.NameIdentifier).Value;
 
         sub.Should().Be(user.Id.ToString());
     }
@@ -212,8 +212,8 @@ public sealed class AuthControllerTests : IAsyncLifetime
     {
         var user = new User
         {
-            Username     = username,
-            Email        = email,
+            Username = username,
+            Email = email,
             PasswordHash = PasswordHasher.Hash(password),
         };
         _db.Users.Add(user);

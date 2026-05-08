@@ -12,10 +12,10 @@ public interface IAiBuildService
 
 public sealed class AiBuildService : IAiBuildService
 {
-    private readonly IScryfallService     _scryfall;
-    private readonly ICollectionService   _collection;
-    private readonly IHttpClientFactory   _httpFactory;
-    private readonly string               _apiKey;
+    private readonly IScryfallService _scryfall;
+    private readonly ICollectionService _collection;
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly string _apiKey;
     private readonly ILogger<AiBuildService> _logger;
 
     private const string ModelId = "claude-sonnet-4-6";
@@ -32,11 +32,11 @@ public sealed class AiBuildService : IAiBuildService
         IConfiguration config,
         ILogger<AiBuildService> logger)
     {
-        _scryfall    = scryfall;
-        _collection  = collection;
+        _scryfall = scryfall;
+        _collection = collection;
         _httpFactory = httpFactory;
-        _apiKey      = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
-        _logger      = logger;
+        _apiKey = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _logger = logger;
     }
 
     public async Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request)
@@ -46,7 +46,7 @@ public sealed class AiBuildService : IAiBuildService
         var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId)
             ?? throw new InvalidOperationException($"Commander not found: {commanderOracleId}");
 
-        var cmdColors  = cmdDef.ColorIdentity.ToHashSet();
+        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
         var colorNames = FormatColors(cmdColors);
 
         // Fetch the current deck to know how many main-board slots remain
@@ -59,8 +59,10 @@ public sealed class AiBuildService : IAiBuildService
         int existingMainCount = 0;
         foreach (var c in existingCards)
         {
-            if ((c.Board ?? "main") != "main") continue;
-            if (string.Equals(c.OracleId, commanderOracleId, StringComparison.OrdinalIgnoreCase)) continue;
+            if ((c.Board ?? "main") != "main")
+                continue;
+            if (string.Equals(c.OracleId, commanderOracleId, StringComparison.OrdinalIgnoreCase))
+                continue;
             existingMainCount += c.Quantity;
             addedOracleIds.Add(c.OracleId);
         }
@@ -68,7 +70,7 @@ public sealed class AiBuildService : IAiBuildService
         int mainSlotsLeft = Math.Max(0, 99 - existingMainCount);
 
         // Fetch cards from recent sets to feed the LLM as candidates
-        var recentSetCodes  = await _scryfall.GetRecentSetCodesAsync(monthsBack: 9);
+        var recentSetCodes = await _scryfall.GetRecentSetCodesAsync(monthsBack: 9);
         var recentCardNames = await _scryfall.GetRecentCardNamesAsync(recentSetCodes, cmdColors);
 
         var llmResult = await CallAnthropicAsync(
@@ -82,9 +84,9 @@ public sealed class AiBuildService : IAiBuildService
             request.IncludeMaybeboard,
             recentCardNames);
 
-        var (mainAdded,  mainSkipped)  = await AddCards(llmResult.Main,  "main",  deckId, userId, cmdColors, addedOracleIds, mainSlotsLeft,  request.Bracket);
-        var (sideAdded,  sideSkipped)  = request.IncludeSideboard
-            ? await AddCards(llmResult.Side,  "side",  deckId, userId, cmdColors, addedOracleIds, 10, request.Bracket)
+        var (mainAdded, mainSkipped) = await AddCards(llmResult.Main, "main", deckId, userId, cmdColors, addedOracleIds, mainSlotsLeft, request.Bracket);
+        var (sideAdded, sideSkipped) = request.IncludeSideboard
+            ? await AddCards(llmResult.Side, "side", deckId, userId, cmdColors, addedOracleIds, 10, request.Bracket)
             : (0, 0);
         var (maybeAdded, maybeSkipped) = request.IncludeMaybeboard
             ? await AddCards(llmResult.Maybe, "maybe", deckId, userId, cmdColors, addedOracleIds, 10, request.Bracket)
@@ -92,10 +94,10 @@ public sealed class AiBuildService : IAiBuildService
 
         return new AiBuildResultDto
         {
-            CardsAdded      = mainAdded,
-            SideboardAdded  = sideAdded,
+            CardsAdded = mainAdded,
+            SideboardAdded = sideAdded,
             MaybeboardAdded = maybeAdded,
-            CardsSkipped    = mainSkipped + sideSkipped + maybeSkipped,
+            CardsSkipped = mainSkipped + sideSkipped + maybeSkipped,
         };
     }
 
@@ -108,39 +110,43 @@ public sealed class AiBuildService : IAiBuildService
         int added = 0, skipped = 0;
         foreach (var name in names)
         {
-            if (added >= maxCards) break;
-            if (string.IsNullOrWhiteSpace(name)) continue;
+            if (added >= maxCards)
+                break;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
             try
             {
                 var def = await _scryfall.GetByNameAsync(name);
-                if (def is null) { skipped++; continue; }
+                if (def is null)
+                { skipped++; continue; }
 
                 if (cmdColors.Count > 0)
                 {
                     bool legal = def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c));
-                    if (!legal) { skipped++; continue; }
+                    if (!legal)
+                    { skipped++; continue; }
                 }
 
                 if (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
-                    { skipped++; continue; }
+                { skipped++; continue; }
 
                 // Hard-enforce bracket: game changers only allowed in bracket 4+
                 if (def.GameChanger && bracket < 4)
-                    { skipped++; continue; }
+                { skipped++; continue; }
 
                 bool isBasic = BasicLands.Contains(def.Name);
                 if (!isBasic && addedOracleIds.Contains(def.OracleId))
-                    { skipped++; continue; }
+                { skipped++; continue; }
 
-                var printings  = await _scryfall.GetPrintingsAsync(def.OracleId);
+                var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
                 var scryfallId = printings.FirstOrDefault()?.ScryfallId;
 
                 await _collection.AddCardToCollectionAsync(deckId, userId, new AddCardToCollectionRequest(
-                    OracleId:     def.OracleId,
-                    ScryfallId:   scryfallId,
-                    Quantity:     1,
+                    OracleId: def.OracleId,
+                    ScryfallId: scryfallId,
+                    Quantity: 1,
                     QuantityFoil: 0,
-                    Board:        board
+                    Board: board
                 ));
 
                 addedOracleIds.Add(def.OracleId);
@@ -165,7 +171,8 @@ public sealed class AiBuildService : IAiBuildService
         bool includeSide, bool includeMaybe,
         string[] recentCardNames)
     {
-        var bracketDesc = bracket switch {
+        var bracketDesc = bracket switch
+        {
             1 => """
                  Bracket 1 (Casual):
                  - NO tutors of any kind (no Demonic Tutor, Vampiric Tutor, Enlightened Tutor, Worldly Tutor, etc.)
@@ -206,7 +213,8 @@ public sealed class AiBuildService : IAiBuildService
             _ => "Bracket 3 (Upgraded): Standard Commander experience without game changers.",
         };
 
-        var priceDesc = priceRange switch {
+        var priceDesc = priceRange switch
+        {
             "budget" => """
                         PRICE CONSTRAINT — Budget (under $100 total):
                         - Individual cards should cost under $3 each
@@ -214,14 +222,14 @@ public sealed class AiBuildService : IAiBuildService
                         - GOOD budget lands: Guildgates, bounce lands (Dimir Aqueduct), basics, Terramorphic Expanse, Evolving Wilds, Command Tower
                         - GOOD budget ramp: Cultivate, Kodama's Reach, Arcane Signet, Commander's Sphere, Wayfarer's Bauble
                         """,
-            "mid"    => """
+            "mid" => """
                         PRICE CONSTRAINT — Mid-range (under $500 total):
                         - Most cards should be under $20; a few can reach $30
                         - FORBIDDEN: original dual lands (Underground Sea, Tropical Island, etc.), Mana Crypt, Jeweled Lotus, Mox Diamond, Chrome Mox
                         - ALLOWED: shock lands (Breeding Pool, Blood Crypt), fetch lands, Demonic Tutor, Vampiric Tutor, Rhystic Study (if bracket allows)
                         - Mix expensive staples sparingly with efficient mid-range cards
                         """,
-            _        => "PRICE CONSTRAINT: None — use the best cards available for the strategy.",
+            _ => "PRICE CONSTRAINT: None — use the best cards available for the strategy.",
         };
 
         // Cap to ~60 names so the prompt doesn't balloon; shuffle for variety
@@ -303,10 +311,10 @@ public sealed class AiBuildService : IAiBuildService
 
         var body = new
         {
-            model       = ModelId,
-            max_tokens  = 6000,
+            model = ModelId,
+            max_tokens = 6000,
             temperature = 0,
-            messages    = new[] { new { role = "user", content = prompt } },
+            messages = new[] { new { role = "user", content = prompt } },
         };
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -326,8 +334,8 @@ public sealed class AiBuildService : IAiBuildService
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
-        var doc      = JsonDocument.Parse(respJson);
-        var text     = doc.RootElement
+        var doc = JsonDocument.Parse(respJson);
+        var text = doc.RootElement
             .GetProperty("content")[0]
             .GetProperty("text")
             .GetString() ?? "{}";
@@ -351,14 +359,21 @@ public sealed class AiBuildService : IAiBuildService
 
     private static string FormatColors(HashSet<ManaColor> colors)
     {
-        if (colors.Count == 0) return "Colorless";
+        if (colors.Count == 0)
+            return "Colorless";
         var parts = new List<string>();
-        if (colors.Contains(ManaColor.White))  parts.Add("White");
-        if (colors.Contains(ManaColor.Blue))   parts.Add("Blue");
-        if (colors.Contains(ManaColor.Black))  parts.Add("Black");
-        if (colors.Contains(ManaColor.Red))    parts.Add("Red");
-        if (colors.Contains(ManaColor.Green))  parts.Add("Green");
-        if (colors.Contains(ManaColor.Colorless) && parts.Count == 0) parts.Add("Colorless");
+        if (colors.Contains(ManaColor.White))
+            parts.Add("White");
+        if (colors.Contains(ManaColor.Blue))
+            parts.Add("Blue");
+        if (colors.Contains(ManaColor.Black))
+            parts.Add("Black");
+        if (colors.Contains(ManaColor.Red))
+            parts.Add("Red");
+        if (colors.Contains(ManaColor.Green))
+            parts.Add("Green");
+        if (colors.Contains(ManaColor.Colorless) && parts.Count == 0)
+            parts.Add("Colorless");
         return string.Join(", ", parts);
     }
 
@@ -366,21 +381,28 @@ public sealed class AiBuildService : IAiBuildService
     private static string ExtractJsonObject(string text)
     {
         int start = text.IndexOf('{');
-        if (start < 0) return "{}";
+        if (start < 0)
+            return "{}";
 
         int depth = 0;
         bool inString = false;
-        bool escaped  = false;
+        bool escaped = false;
 
         for (int i = start; i < text.Length; i++)
         {
             char c = text[i];
-            if (escaped)              { escaped = false; continue; }
-            if (c == '\\' && inString){ escaped = true;  continue; }
-            if (c == '"')             { inString = !inString; continue; }
-            if (inString)               continue;
-            if (c == '{') depth++;
-            else if (c == '}') { if (--depth == 0) return text[start..(i + 1)]; }
+            if (escaped)
+            { escaped = false; continue; }
+            if (c == '\\' && inString)
+            { escaped = true; continue; }
+            if (c == '"')
+            { inString = !inString; continue; }
+            if (inString)
+                continue;
+            if (c == '{')
+                depth++;
+            else if (c == '}')
+            { if (--depth == 0) return text[start..(i + 1)]; }
         }
 
         return text[start..]; // malformed — return from '{' to end and let the caller throw

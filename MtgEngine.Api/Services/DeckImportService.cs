@@ -19,30 +19,33 @@ public static class DeckListParser
     };
 
     public record ParseResult(
-        string?                         DetectedFormat,
-        string?                         CommanderName,
+        string? DetectedFormat,
+        string? CommanderName,
         IReadOnlyList<(int Qty, string Name)> Cards);
 
     public static ParseResult Parse(string text)
     {
-        var lines   = text.ReplaceLineEndings("\n").Split('\n');
-        var cards   = new List<(int, string)>();
-        string? commanderName      = null;
-        string? format             = null;
-        bool    inCommanderSection = false;
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var cards = new List<(int, string)>();
+        string? commanderName = null;
+        string? format = null;
+        bool inCommanderSection = false;
 
         foreach (var rawLine in lines)
         {
             var line = rawLine.Trim();
-            if (string.IsNullOrEmpty(line)) { inCommanderSection = false; continue; }
-            if (line.StartsWith("//") || line.StartsWith('#')) continue;
+            if (string.IsNullOrEmpty(line))
+            { inCommanderSection = false; continue; }
+            if (line.StartsWith("//") || line.StartsWith('#'))
+                continue;
 
             // Section headers (bare word, optional trailing colon)
             var headerKey = line.TrimEnd(':');
             if (SectionHeaders.Contains(headerKey))
             {
                 inCommanderSection = headerKey.Equals("Commander", StringComparison.OrdinalIgnoreCase);
-                if (inCommanderSection) format ??= "commander";
+                if (inCommanderSection)
+                    format ??= "commander";
                 continue;
             }
 
@@ -58,19 +61,20 @@ public static class DeckListParser
             // "N[x] <name>" or just "<name>" (qty = 1)
             var m = Regex.Match(cleaned, @"^(\d+)[xX]?\s+(.+)$");
             string name;
-            int    qty;
+            int qty;
             if (m.Success)
             {
-                qty  = int.Parse(m.Groups[1].Value);
+                qty = int.Parse(m.Groups[1].Value);
                 name = m.Groups[2].Value.Trim();
             }
             else
             {
-                qty  = 1;
+                qty = 1;
                 name = cleaned;
             }
 
-            if (string.IsNullOrWhiteSpace(name)) continue;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
 
             cards.Add((qty, name));
             if ((inCommanderSection || isCommanderCard) && commanderName == null)
@@ -85,33 +89,33 @@ public static class DeckListParser
 
 public sealed class DeckImportService
 {
-    private readonly IScryfallService  _scryfall;
+    private readonly IScryfallService _scryfall;
     private readonly ICollectionService _collection;
     private readonly IHttpClientFactory _httpFactory;
 
     public DeckImportService(
-        IScryfallService   scryfall,
+        IScryfallService scryfall,
         ICollectionService collection,
         IHttpClientFactory httpFactory)
     {
-        _scryfall   = scryfall;
+        _scryfall = scryfall;
         _collection = collection;
         _httpFactory = httpFactory;
     }
 
     public async Task<ImportDeckResult> ImportAsync(string userId, ImportDeckRequest request)
     {
-        string  text;
-        string? detectedName          = null;
-        string? detectedFormat        = request.Format;
+        string text;
+        string? detectedName = null;
+        string? detectedFormat = request.Format;
         string? detectedCommanderName = null;
 
         if (!string.IsNullOrWhiteSpace(request.Url))
         {
-            var fetched           = await FetchFromUrlAsync(request.Url.Trim());
-            text                  = fetched.Text;
-            detectedName          = fetched.Name;
-            detectedFormat      ??= fetched.Format;
+            var fetched = await FetchFromUrlAsync(request.Url.Trim());
+            text = fetched.Text;
+            detectedName = fetched.Name;
+            detectedFormat ??= fetched.Format;
             detectedCommanderName = fetched.CommanderName;
         }
         else
@@ -119,8 +123,8 @@ public sealed class DeckImportService
             text = request.Text ?? string.Empty;
         }
 
-        var parsed  = DeckListParser.Parse(text);
-        var format  = detectedFormat ?? parsed.DetectedFormat;
+        var parsed = DeckListParser.Parse(text);
+        var format = detectedFormat ?? parsed.DetectedFormat;
         var deckName = !string.IsNullOrWhiteSpace(request.Name)
             ? request.Name.Trim()
             : (detectedName ?? "Imported Deck");
@@ -128,10 +132,10 @@ public sealed class DeckImportService
         var deck = await _collection.CreateDeckAsync(userId,
             new CreateDeckRequest(deckName, null, format));
 
-        var unresolved  = new List<string>();
-        int resolved    = 0;
-        string? commanderName      = detectedCommanderName ?? parsed.CommanderName;
-        string? commanderOracleId  = null;
+        var unresolved = new List<string>();
+        int resolved = 0;
+        string? commanderName = detectedCommanderName ?? parsed.CommanderName;
+        string? commanderOracleId = null;
 
         foreach (var (qty, name) in parsed.Cards)
         {
@@ -142,7 +146,7 @@ public sealed class DeckImportService
                 continue;
             }
 
-            var printings  = await _scryfall.GetPrintingsAsync(def.OracleId);
+            var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
             var scryfallId = printings.FirstOrDefault()?.ScryfallId;
 
             await _collection.AddCardToCollectionAsync(deck.Id, userId,
@@ -172,10 +176,12 @@ public sealed class DeckImportService
         FetchFromUrlAsync(string url)
     {
         var moxfield = Regex.Match(url, @"moxfield\.com/decks/([A-Za-z0-9_-]+)");
-        if (moxfield.Success) return await FetchMoxfieldAsync(moxfield.Groups[1].Value);
+        if (moxfield.Success)
+            return await FetchMoxfieldAsync(moxfield.Groups[1].Value);
 
         var archidekt = Regex.Match(url, @"archidekt\.com/decks/(\d+)");
-        if (archidekt.Success) return await FetchArchidektAsync(archidekt.Groups[1].Value);
+        if (archidekt.Success)
+            return await FetchArchidektAsync(archidekt.Groups[1].Value);
 
         throw new InvalidOperationException(
             "Unsupported deck URL. Paste a Moxfield or Archidekt link, " +
@@ -185,11 +191,11 @@ public sealed class DeckImportService
     private async Task<(string Text, string? Name, string? Format, string? CommanderName)>
         FetchMoxfieldAsync(string deckId)
     {
-        var client  = _httpFactory.CreateClient("DeckImport");
+        var client = _httpFactory.CreateClient("DeckImport");
         var request = new HttpRequestMessage(HttpMethod.Get,
             $"https://api.moxfield.com/v2/decks/all/{deckId}");
-        request.Headers.Add("Accept",  "application/json, text/plain, */*");
-        request.Headers.Add("Origin",  "https://moxfield.com");
+        request.Headers.Add("Accept", "application/json, text/plain, */*");
+        request.Headers.Add("Origin", "https://moxfield.com");
         request.Headers.Add("Referer", "https://moxfield.com/");
         var resp = await client.SendAsync(request);
 
@@ -200,9 +206,9 @@ public sealed class DeckImportService
                 $"Moxfield returned {(int)resp.StatusCode} {resp.ReasonPhrase}: {body}");
         }
 
-        using var doc  = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-        var root       = doc.RootElement;
-        string? name   = root.TryGetProperty("name",   out var np) ? np.GetString() : null;
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        string? name = root.TryGetProperty("name", out var np) ? np.GetString() : null;
         string? format = root.TryGetProperty("format", out var fp) ? fp.GetString() : null;
 
         var sb = new StringBuilder();
@@ -216,10 +222,11 @@ public sealed class DeckImportService
                 sb.AppendLine("Commander");
                 foreach (var entry in cmdrCards.EnumerateObject())
                 {
-                    var qty      = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                    var qty = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
                     var cardName = entry.Value.TryGetProperty("card", out var cp) &&
                                    cp.TryGetProperty("name", out var cnp) ? cnp.GetString() : null;
-                    if (cardName == null) continue;
+                    if (cardName == null)
+                        continue;
                     commanderName ??= cardName;
                     sb.AppendLine($"{qty} {cardName}");
                 }
@@ -232,10 +239,11 @@ public sealed class DeckImportService
                 sb.AppendLine("Deck");
                 foreach (var entry in mainCards.EnumerateObject())
                 {
-                    var qty      = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                    var qty = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
                     var cardName = entry.Value.TryGetProperty("card", out var cp) &&
                                    cp.TryGetProperty("name", out var cnp) ? cnp.GetString() : null;
-                    if (cardName != null) sb.AppendLine($"{qty} {cardName}");
+                    if (cardName != null)
+                        sb.AppendLine($"{qty} {cardName}");
                 }
             }
         }
@@ -247,12 +255,12 @@ public sealed class DeckImportService
         FetchArchidektAsync(string deckId)
     {
         var client = _httpFactory.CreateClient("DeckImport");
-        var resp   = await client.GetAsync($"https://archidekt.com/api/decks/{deckId}/small/");
+        var resp = await client.GetAsync($"https://archidekt.com/api/decks/{deckId}/small/");
         resp.EnsureSuccessStatusCode();
 
-        using var doc  = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-        var root       = doc.RootElement;
-        string? name   = root.TryGetProperty("name", out var np) ? np.GetString() : null;
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        string? name = root.TryGetProperty("name", out var np) ? np.GetString() : null;
         string? format = null;
         if (root.TryGetProperty("deckFormat", out var fp))
             format = fp.GetInt32() switch { 3 => "commander", _ => null };
@@ -264,13 +272,14 @@ public sealed class DeckImportService
         {
             foreach (var card in cards.EnumerateArray())
             {
-                var qty      = card.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                var qty = card.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
                 string? cardName = null;
                 if (card.TryGetProperty("card", out var cp) &&
                     cp.TryGetProperty("oracleCard", out var op) &&
                     op.TryGetProperty("name", out var cnp))
                     cardName = cnp.GetString();
-                if (cardName == null) continue;
+                if (cardName == null)
+                    continue;
 
                 bool isCommander = false;
                 if (card.TryGetProperty("categories", out var cats))
@@ -278,7 +287,8 @@ public sealed class DeckImportService
                         if (cat.GetString()?.Equals("Commander", StringComparison.OrdinalIgnoreCase) == true)
                         { isCommander = true; break; }
 
-                if (isCommander) commanderName ??= cardName;
+                if (isCommander)
+                    commanderName ??= cardName;
                 sb.AppendLine($"{qty} {cardName}");
             }
         }

@@ -1,6 +1,5 @@
 using FluentAssertions;
 using MtgEngine.Domain.Enums;
-using MtgEngine.Domain.ValueObjects;
 using Xunit;
 
 namespace MtgEngine.Rules.Tests;

@@ -1,6 +1,4 @@
-using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
-using MtgEngine.Domain.ValueObjects;
 
 namespace MtgEngine.Api.Services;
 
@@ -25,13 +23,14 @@ public sealed class DeckBuilderService : IDeckBuilderService
     public async Task<IReadOnlyList<Card>> BuildDeckAsync(string[] presets, Guid ownerId)
     {
         var preset = presets.FirstOrDefault() ?? "mono-green";
-        var list   = GetDeckList(preset);
-        var cards  = new List<Card>();
+        var list = GetDeckList(preset);
+        var cards = new List<Card>();
 
         foreach (var (name, count) in list)
         {
             var def = await _scryfall.GetByNameAsync(name);
-            if (def is null) continue;
+            if (def is null)
+                continue;
             for (int i = 0; i < count; i++)
                 cards.Add(new Card { Definition = def, OwnerId = ownerId });
         }
@@ -45,10 +44,10 @@ public sealed class DeckBuilderService : IDeckBuilderService
         preset switch
         {
             "mono-green" => MonoGreen,
-            "mono-red"   => MonoRed,
-            "wu-flyers"  => WuFlyers,
+            "mono-red" => MonoRed,
+            "wu-flyers" => WuFlyers,
             "rb-control" => RbControl,
-            "gw-tokens"  => GwTokens,
+            "gw-tokens" => GwTokens,
             _ => MonoGreen,
         };
 

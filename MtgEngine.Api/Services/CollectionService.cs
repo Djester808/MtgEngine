@@ -1,8 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
-using MtgEngine.Domain.Models;
 using MtgEngine.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
+using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
 
@@ -114,7 +114,7 @@ public sealed class CollectionService : ICollectionService
             CoverUri = collection.CoverUri,
             CreatedAt = collection.CreatedAt,
             UpdatedAt = collection.UpdatedAt,
-            Cards = [..cards]
+            Cards = [.. cards]
         };
     }
 
@@ -378,7 +378,7 @@ public sealed class CollectionService : ICollectionService
             }
         }
 
-        return [..cards];
+        return [.. cards];
     }
 
     // ---- Deck methods ----
@@ -410,7 +410,8 @@ public sealed class CollectionService : ICollectionService
             .Include(c => c.Cards)
             .FirstOrDefaultAsync();
 
-        if (deck == null) return null;
+        if (deck == null)
+            return null;
 
         var isPublished = await _context.ForumPosts.AnyAsync(p => p.DeckId == deckId);
 
@@ -442,12 +443,12 @@ public sealed class CollectionService : ICollectionService
             CoverUri = deck.CoverUri,
             Format = deck.Format,
             CommanderOracleId = deck.CommanderOracleId,
-            Tags = [..deck.Tags],
+            Tags = [.. deck.Tags],
             Notes = deck.Notes,
             IsPublished = isPublished,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
-            Cards = [..cards]
+            Cards = [.. cards]
         };
     }
 
@@ -485,8 +486,10 @@ public sealed class CollectionService : ICollectionService
         deck.CoverUri = request.CoverUri;
         deck.Format = request.Format;
         deck.CommanderOracleId = request.CommanderOracleId;
-        if (request.Tags is not null) deck.Tags = [..request.Tags];
-        if (request.Notes is not null) deck.Notes = request.Notes;
+        if (request.Tags is not null)
+            deck.Tags = [.. request.Tags];
+        if (request.Notes is not null)
+            deck.Notes = request.Notes;
         deck.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -500,7 +503,8 @@ public sealed class CollectionService : ICollectionService
             .Where(c => c.Id == deckId && c.UserId == userId && c.IsDeck)
             .FirstOrDefaultAsync();
 
-        if (deck == null) return false;
+        if (deck == null)
+            return false;
 
         _context.Collections.Remove(deck);
         await _context.SaveChangesAsync();
@@ -522,8 +526,8 @@ public sealed class CollectionService : ICollectionService
                 .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
                 .Select(t => Enum.Parse<CardTypeDto>(t))
                 .ToArray(),
-            Subtypes = [..def.Subtypes],
-            Supertypes = [..def.Supertypes],
+            Subtypes = [.. def.Subtypes],
+            Supertypes = [.. def.Supertypes],
             OracleText = def.OracleText,
             Power = def.Power,
             Toughness = def.Toughness,
@@ -531,19 +535,19 @@ public sealed class CollectionService : ICollectionService
             Keywords = def.Keywords.ToString().Split(", ")
                 .Where(k => !string.IsNullOrEmpty(k) && k != "None")
                 .ToArray(),
-            ImageUriNormal     = def.ImageUriNormal,
+            ImageUriNormal = def.ImageUriNormal,
             ImageUriNormalBack = def.ImageUriNormalBack,
-            ImageUriSmall      = def.ImageUriSmall,
-            ImageUriArtCrop    = def.ImageUriArtCrop,
+            ImageUriSmall = def.ImageUriSmall,
+            ImageUriArtCrop = def.ImageUriArtCrop,
             ColorIdentity = def.ColorIdentity
                 .Select(c => c switch
                 {
                     ManaColor.White => ManaColorDto.W,
-                    ManaColor.Blue  => ManaColorDto.U,
+                    ManaColor.Blue => ManaColorDto.U,
                     ManaColor.Black => ManaColorDto.B,
-                    ManaColor.Red   => ManaColorDto.R,
+                    ManaColor.Red => ManaColorDto.R,
                     ManaColor.Green => ManaColorDto.G,
-                    _               => ManaColorDto.C,
+                    _ => ManaColorDto.C,
                 })
                 .ToArray(),
             FlavorText = def.FlavorText,

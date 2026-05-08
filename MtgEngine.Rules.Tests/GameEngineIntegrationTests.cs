@@ -1,8 +1,6 @@
 using FluentAssertions;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
-using MtgEngine.Domain.ValueObjects;
-using System.Collections.Immutable;
 using Xunit;
 
 namespace MtgEngine.Rules.Tests;
@@ -228,7 +226,7 @@ public class GameEngineIntegrationTests
     {
         var state = GameEngine.CreateGame(
             TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
-            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            TestFactory.Player2Id, "Bob", MakeDeck(TestFactory.Player2Id),
             firstPlayerId: TestFactory.Player1Id);
 
         state.CurrentPhase.Should().Be(Phase.PreCombatMain);
@@ -240,7 +238,7 @@ public class GameEngineIntegrationTests
     {
         var state = GameEngine.CreateGame(
             TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
-            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            TestFactory.Player2Id, "Bob", MakeDeck(TestFactory.Player2Id),
             firstPlayerId: TestFactory.Player1Id);
 
         state.ActivePlayerId.Should().Be(TestFactory.Player1Id);
@@ -252,7 +250,7 @@ public class GameEngineIntegrationTests
     {
         var state = GameEngine.CreateGame(
             TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
-            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            TestFactory.Player2Id, "Bob", MakeDeck(TestFactory.Player2Id),
             firstPlayerId: TestFactory.Player1Id);
 
         state.GetPlayer(TestFactory.Player1Id).Hand.Should().HaveCount(7);
@@ -264,7 +262,7 @@ public class GameEngineIntegrationTests
     {
         var state = GameEngine.CreateGame(
             TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
-            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            TestFactory.Player2Id, "Bob", MakeDeck(TestFactory.Player2Id),
             firstPlayerId: TestFactory.Player1Id);
 
         state.GetPlayer(TestFactory.Player1Id).Life.Should().Be(20);
@@ -276,7 +274,7 @@ public class GameEngineIntegrationTests
     {
         var state = GameEngine.CreateGame(
             TestFactory.Player1Id, "Alice", MakeDeck(TestFactory.Player1Id),
-            TestFactory.Player2Id, "Bob",   MakeDeck(TestFactory.Player2Id),
+            TestFactory.Player2Id, "Bob", MakeDeck(TestFactory.Player2Id),
             firstPlayerId: TestFactory.Player2Id);
 
         state.ActivePlayerId.Should().Be(TestFactory.Player2Id);

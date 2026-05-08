@@ -74,17 +74,17 @@ public class DomainMapperTests
     {
         var def = new CardDefinition
         {
-            OracleId      = Guid.NewGuid().ToString(),
-            Name          = "Test",
-            ManaCost      = ManaCost.Parse("1G"),
-            CardTypes     = CardType.Creature,
-            Subtypes      = ["Beast"],
-            Power         = 2,
-            Toughness     = 2,
-            CastingSpeed  = SpeedRestriction.Sorcery,
-            FlavorText    = "It lurks in the shadows.",
-            Artist        = "Jane Painter",
-            SetCode       = "m21",
+            OracleId = Guid.NewGuid().ToString(),
+            Name = "Test",
+            ManaCost = ManaCost.Parse("1G"),
+            CardTypes = CardType.Creature,
+            Subtypes = ["Beast"],
+            Power = 2,
+            Toughness = 2,
+            CastingSpeed = SpeedRestriction.Sorcery,
+            FlavorText = "It lurks in the shadows.",
+            Artist = "Jane Painter",
+            SetCode = "m21",
         };
 
         var dto = DomainMapper.ToDto(def, Guid.NewGuid(), Guid.NewGuid());
@@ -191,34 +191,34 @@ public class DomainMapperTests
     // ---- Enum conversions ----------------------------------------
 
     [Theory]
-    [InlineData(Phase.Beginning,      PhaseDto.Beginning)]
-    [InlineData(Phase.PreCombatMain,  PhaseDto.PreCombatMain)]
-    [InlineData(Phase.Combat,         PhaseDto.Combat)]
+    [InlineData(Phase.Beginning, PhaseDto.Beginning)]
+    [InlineData(Phase.PreCombatMain, PhaseDto.PreCombatMain)]
+    [InlineData(Phase.Combat, PhaseDto.Combat)]
     [InlineData(Phase.PostCombatMain, PhaseDto.PostCombatMain)]
-    [InlineData(Phase.Ending,         PhaseDto.Ending)]
+    [InlineData(Phase.Ending, PhaseDto.Ending)]
     public void ToDto_Phase_MapsAllValues(Phase input, PhaseDto expected)
     {
         DomainMapper.ToDto(input).Should().Be(expected);
     }
 
     [Theory]
-    [InlineData(Step.Untap,           StepDto.Untap)]
-    [InlineData(Step.Draw,            StepDto.Draw)]
-    [InlineData(Step.Main,            StepDto.Main)]
-    [InlineData(Step.DeclareAttackers,StepDto.DeclareAttackers)]
-    [InlineData(Step.CombatDamage,    StepDto.CombatDamage)]
-    [InlineData(Step.Cleanup,         StepDto.Cleanup)]
+    [InlineData(Step.Untap, StepDto.Untap)]
+    [InlineData(Step.Draw, StepDto.Draw)]
+    [InlineData(Step.Main, StepDto.Main)]
+    [InlineData(Step.DeclareAttackers, StepDto.DeclareAttackers)]
+    [InlineData(Step.CombatDamage, StepDto.CombatDamage)]
+    [InlineData(Step.Cleanup, StepDto.Cleanup)]
     public void ToDto_Step_MapsValues(Step input, StepDto expected)
     {
         DomainMapper.ToDto(input).Should().Be(expected);
     }
 
     [Theory]
-    [InlineData(ManaColor.White,     ManaColorDto.W)]
-    [InlineData(ManaColor.Blue,      ManaColorDto.U)]
-    [InlineData(ManaColor.Black,     ManaColorDto.B)]
-    [InlineData(ManaColor.Red,       ManaColorDto.R)]
-    [InlineData(ManaColor.Green,     ManaColorDto.G)]
+    [InlineData(ManaColor.White, ManaColorDto.W)]
+    [InlineData(ManaColor.Blue, ManaColorDto.U)]
+    [InlineData(ManaColor.Black, ManaColorDto.B)]
+    [InlineData(ManaColor.Red, ManaColorDto.R)]
+    [InlineData(ManaColor.Green, ManaColorDto.G)]
     [InlineData(ManaColor.Colorless, ManaColorDto.C)]
     public void ToDto_ManaColor_MapsAllColors(ManaColor input, ManaColorDto expected)
     {
@@ -226,10 +226,10 @@ public class DomainMapperTests
     }
 
     [Theory]
-    [InlineData(GameResult.InProgress,  GameResultDto.InProgress)]
+    [InlineData(GameResult.InProgress, GameResultDto.InProgress)]
     [InlineData(GameResult.Player1Wins, GameResultDto.Player1Wins)]
     [InlineData(GameResult.Player2Wins, GameResultDto.Player2Wins)]
-    [InlineData(GameResult.Draw,        GameResultDto.Draw)]
+    [InlineData(GameResult.Draw, GameResultDto.Draw)]
     public void ToDto_GameResult_MapsAllValues(GameResult input, GameResultDto expected)
     {
         DomainMapper.ToDto(input).Should().Be(expected);
@@ -242,7 +242,7 @@ public class DomainMapperTests
     {
         var perm = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
         var before = TestFactory.MakeTwoPlayerGame().WithPermanent(perm);
-        var after  = TestFactory.MakeTwoPlayerGame().WithPermanent(perm with { IsTapped = true });
+        var after = TestFactory.MakeTwoPlayerGame().WithPermanent(perm with { IsTapped = true });
 
         var diff = DomainMapper.ToDiff(before, after, TestFactory.Player1Id);
 
@@ -255,7 +255,7 @@ public class DomainMapperTests
     {
         var perm = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
         var before = TestFactory.MakeTwoPlayerGame().WithPermanent(perm);
-        var after  = TestFactory.MakeTwoPlayerGame();
+        var after = TestFactory.MakeTwoPlayerGame();
 
         var diff = DomainMapper.ToDiff(before, after, TestFactory.Player1Id);
 
@@ -266,7 +266,7 @@ public class DomainMapperTests
     [Fact]
     public void ToDiff_UnchangedPermanent_NotInAnyList()
     {
-        var perm  = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
+        var perm = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
         var state = TestFactory.MakeTwoPlayerGame().WithPermanent(perm);
 
         var diff = DomainMapper.ToDiff(state, state, TestFactory.Player1Id);
@@ -278,9 +278,9 @@ public class DomainMapperTests
     [Fact]
     public void ToDiff_NewPermanent_AppearsInChangedList()
     {
-        var perm   = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
+        var perm = TestFactory.MakePermanent(TestFactory.MakeCreatureDef(), TestFactory.Player1Id);
         var before = TestFactory.MakeTwoPlayerGame();
-        var after  = TestFactory.MakeTwoPlayerGame().WithPermanent(perm);
+        var after = TestFactory.MakeTwoPlayerGame().WithPermanent(perm);
 
         var diff = DomainMapper.ToDiff(before, after, TestFactory.Player1Id);
 
@@ -295,12 +295,12 @@ public class DomainMapperTests
     {
         var def = new CardDefinition
         {
-            OracleId           = Guid.NewGuid().ToString(),
-            Name               = "DFC Card",
-            ManaCost           = ManaCost.Parse("1G"),
-            CardTypes          = CardType.Creature,
-            CastingSpeed       = SpeedRestriction.Sorcery,
-            ImageUriNormal     = "https://example.com/front.jpg",
+            OracleId = Guid.NewGuid().ToString(),
+            Name = "DFC Card",
+            ManaCost = ManaCost.Parse("1G"),
+            CardTypes = CardType.Creature,
+            CastingSpeed = SpeedRestriction.Sorcery,
+            ImageUriNormal = "https://example.com/front.jpg",
             ImageUriNormalBack = "https://example.com/back.jpg",
         };
 
@@ -327,16 +327,16 @@ public class DomainMapperTests
     {
         var def = new CardDefinition
         {
-            OracleId     = Guid.NewGuid().ToString(),
-            Name         = "Lightning Bolt",
-            ManaCost     = ManaCost.Parse("R"),
-            CardTypes    = CardType.Instant,
+            OracleId = Guid.NewGuid().ToString(),
+            Name = "Lightning Bolt",
+            ManaCost = ManaCost.Parse("R"),
+            CardTypes = CardType.Instant,
             CastingSpeed = SpeedRestriction.Instant,
-            Legalities   = new Dictionary<string, string>
+            Legalities = new Dictionary<string, string>
             {
-                ["modern"]   = "legal",
+                ["modern"] = "legal",
                 ["standard"] = "not_legal",
-                ["vintage"]  = "restricted",
+                ["vintage"] = "restricted",
             },
         };
 

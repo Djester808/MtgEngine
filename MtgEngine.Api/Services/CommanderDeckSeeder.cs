@@ -15,7 +15,7 @@ public sealed class CommanderDeckSeeder
     private readonly ILogger<CommanderDeckSeeder> _logger;
 
     private const string SeedUsername = "CommunityBot";
-    private const string SeedEmail    = "communitybot@mtgengine.local";
+    private const string SeedEmail = "communitybot@mtgengine.local";
 
     private static readonly string[] Adjectives =
     [
@@ -25,8 +25,11 @@ public sealed class CommanderDeckSeeder
 
     private static readonly Dictionary<string, string> BasicLandNames = new()
     {
-        ["W"] = "Plains", ["U"] = "Island", ["B"] = "Swamp",
-        ["R"] = "Mountain", ["G"] = "Forest",
+        ["W"] = "Plains",
+        ["U"] = "Island",
+        ["B"] = "Swamp",
+        ["R"] = "Mountain",
+        ["G"] = "Forest",
     };
 
     public CommanderDeckSeeder(
@@ -35,19 +38,19 @@ public sealed class CommanderDeckSeeder
         IHttpClientFactory httpFactory,
         ILogger<CommanderDeckSeeder> logger)
     {
-        _db          = db;
-        _scryfall    = scryfall;
+        _db = db;
+        _scryfall = scryfall;
         _scryfallHttp = httpFactory.CreateClient("ScryfallApi");
-        _edhrecHttp  = httpFactory.CreateClient("EdhrecApi");
-        _logger      = logger;
+        _edhrecHttp = httpFactory.CreateClient("EdhrecApi");
+        _logger = logger;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
 
     public async Task<string> SeedAsync(
-        int commanderCount    = 50,
+        int commanderCount = 50,
         int decksPerCommander = 10,
-        CancellationToken ct  = default)
+        CancellationToken ct = default)
     {
         var userId = await EnsureSeedUserAsync(ct);
 
@@ -106,14 +109,15 @@ public sealed class CommanderDeckSeeder
     private async Task<string> EnsureSeedUserAsync(CancellationToken ct)
     {
         var existing = await _db.Users.FirstOrDefaultAsync(u => u.Username == SeedUsername, ct);
-        if (existing is not null) return existing.Id.ToString();
+        if (existing is not null)
+            return existing.Id.ToString();
 
         var user = new User
         {
-            Username     = SeedUsername,
-            Email        = SeedEmail,
+            Username = SeedUsername,
+            Email = SeedEmail,
             PasswordHash = "SEEDED_NO_LOGIN",
-            CreatedAt    = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -145,7 +149,8 @@ public sealed class CommanderDeckSeeder
     public async Task<string> ClearSeedAsync(CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == SeedUsername, ct);
-        if (user is null) return "No seed user found — nothing to clear.";
+        if (user is null)
+            return "No seed user found — nothing to clear.";
 
         var userId = user.Id.ToString();
 
@@ -184,15 +189,18 @@ public sealed class CommanderDeckSeeder
             try
             {
                 var resp = await _scryfallHttp.GetAsync(url, ct);
-                if (!resp.IsSuccessStatusCode) break;
+                if (!resp.IsSuccessStatusCode)
+                    break;
 
                 var doc = await JsonSerializer.DeserializeAsync<JsonElement>(
                     await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-                if (!doc.TryGetProperty("data", out var data)) break;
+                if (!doc.TryGetProperty("data", out var data))
+                    break;
 
                 foreach (var card in data.EnumerateArray())
                 {
-                    if (list.Count >= count) break;
+                    if (list.Count >= count)
+                        break;
                     var info = ParseCommanderCard(card);
                     if (info is not null && list.All(x => x.OracleId != info.OracleId))
                         list.Add(info);
@@ -239,43 +247,50 @@ public sealed class CommanderDeckSeeder
             bool found = TryNav(doc, out cardlists, "container", "json_dict", "cardlists")
                       || TryNav(doc, out cardlists, "container", "json_dict", "commanders");
 
-            if (!found) return list;
+            if (!found)
+                return list;
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var section in cardlists.EnumerateArray())
             {
-                if (list.Count >= count) break;
+                if (list.Count >= count)
+                    break;
 
                 // Could be a "cardviews" section or direct commander entries
                 var items = section.ValueKind == JsonValueKind.Array
                     ? section
                     : (section.TryGetProperty("cardviews", out var cv) ? cv : default);
 
-                if (items.ValueKind != JsonValueKind.Array) continue;
+                if (items.ValueKind != JsonValueKind.Array)
+                    continue;
 
                 foreach (var item in items.EnumerateArray())
                 {
-                    if (list.Count >= count) break;
+                    if (list.Count >= count)
+                        break;
                     var name = GetStr(item, "name");
-                    if (name is null || !seen.Add(name)) continue;
+                    if (name is null || !seen.Add(name))
+                        continue;
 
                     var def = await _scryfall.GetByNameAsync(name);
-                    if (def is null) continue;
+                    if (def is null)
+                        continue;
 
                     var colors = def.ColorIdentity
                         .Select(c => c switch
                         {
                             MtgEngine.Domain.Enums.ManaColor.White => "W",
-                            MtgEngine.Domain.Enums.ManaColor.Blue  => "U",
+                            MtgEngine.Domain.Enums.ManaColor.Blue => "U",
                             MtgEngine.Domain.Enums.ManaColor.Black => "B",
-                            MtgEngine.Domain.Enums.ManaColor.Red   => "R",
+                            MtgEngine.Domain.Enums.ManaColor.Red => "R",
                             MtgEngine.Domain.Enums.ManaColor.Green => "G",
                             _ => "C",
                         })
                         .ToArray();
 
-                    if (colors.Length == 0) continue;
+                    if (colors.Length == 0)
+                        continue;
 
                     list.Add(new CommanderInfo(def.OracleId, def.OracleId, def.Name, colors, def.ImageUriNormal));
                 }
@@ -292,22 +307,26 @@ public sealed class CommanderDeckSeeder
 
     private CommanderInfo? ParseCommanderCard(JsonElement card)
     {
-        var oracleId   = GetStr(card, "oracle_id");
+        var oracleId = GetStr(card, "oracle_id");
         var scryfallId = GetStr(card, "id");
-        var name       = GetStr(card, "name");
-        if (oracleId is null || scryfallId is null || name is null) return null;
+        var name = GetStr(card, "name");
+        if (oracleId is null || scryfallId is null || name is null)
+            return null;
 
         var colors = Array.Empty<string>();
         if (card.TryGetProperty("color_identity", out var ci))
             colors = [.. ci.EnumerateArray().Select(c => c.GetString() ?? "").Where(s => s.Length > 0)];
 
-        if (colors.Length == 0) return null;
+        if (colors.Length == 0)
+            return null;
 
         string? imgUri = null;
         if (card.TryGetProperty("image_uris", out var imgs))
         {
-            if (imgs.TryGetProperty("art_crop", out var art)) imgUri = art.GetString();
-            else if (imgs.TryGetProperty("normal", out var norm)) imgUri = norm.GetString();
+            if (imgs.TryGetProperty("art_crop", out var art))
+                imgUri = art.GetString();
+            else if (imgs.TryGetProperty("normal", out var norm))
+                imgUri = norm.GetString();
         }
 
         return new CommanderInfo(oracleId, scryfallId, name, colors, imgUri);
@@ -348,22 +367,27 @@ public sealed class CommanderDeckSeeder
                 await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
 
             // Try: container.json_dict.cardlists
-            if (!TryNav(doc, out var root, "container", "json_dict")) return pool;
-            if (!root.TryGetProperty("cardlists", out var cardlists)) return pool;
+            if (!TryNav(doc, out var root, "container", "json_dict"))
+                return pool;
+            if (!root.TryGetProperty("cardlists", out var cardlists))
+                return pool;
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var section in cardlists.EnumerateArray())
             {
                 var tag = section.TryGetProperty("tag", out var t) ? t.GetString() ?? "" : "";
-                if (tag.Contains("basic", StringComparison.OrdinalIgnoreCase)) continue;
+                if (tag.Contains("basic", StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-                if (!section.TryGetProperty("cardviews", out var cardviews)) continue;
+                if (!section.TryGetProperty("cardviews", out var cardviews))
+                    continue;
 
                 foreach (var view in cardviews.EnumerateArray())
                 {
                     var name = GetStr(view, "name");
-                    if (name is null || !seen.Add(name)) continue;
+                    if (name is null || !seen.Add(name))
+                        continue;
 
                     var def = await _scryfall.GetByNameAsync(name);
                     if (def is not null)
@@ -395,17 +419,20 @@ public sealed class CommanderDeckSeeder
         {
             await Task.Delay(150, ct);
             var resp = await _scryfallHttp.GetAsync(url, ct);
-            if (!resp.IsSuccessStatusCode) return;
+            if (!resp.IsSuccessStatusCode)
+                return;
 
             var doc = await JsonSerializer.DeserializeAsync<JsonElement>(
                 await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            if (!doc.TryGetProperty("data", out var data)) return;
+            if (!doc.TryGetProperty("data", out var data))
+                return;
 
             foreach (var card in data.EnumerateArray())
             {
-                var oId  = GetStr(card, "oracle_id");
+                var oId = GetStr(card, "oracle_id");
                 var name = GetStr(card, "name");
-                if (oId is null || name is null || existingIds.Contains(oId)) continue;
+                if (oId is null || name is null || existingIds.Contains(oId))
+                    continue;
                 pool.Add(new CardEntry(oId, name));
                 existingIds.Add(oId);
             }
@@ -433,8 +460,8 @@ public sealed class CommanderDeckSeeder
         var publishedAt = DateTime.UtcNow.AddDays(-daysBack);
 
         var adjective = Adjectives[index % Adjectives.Length];
-        var deckName  = $"{cmd.Name} — {adjective}";
-        var colorStr  = string.Join("", cmd.ColorIdentity.Select(c => $"{{{c}}}"));
+        var deckName = $"{cmd.Name} — {adjective}";
+        var colorStr = string.Join("", cmd.ColorIdentity.Select(c => $"{{{c}}}"));
         var desc = $"A {adjective.ToLower()} {colorStr} build of {cmd.Name}. " +
                    "Built from popular EDHREC picks.";
 
@@ -443,22 +470,26 @@ public sealed class CommanderDeckSeeder
         // Build color tags
         var colorTags = cmd.ColorIdentity.Select(c => c switch
         {
-            "W" => "white", "U" => "blue", "B" => "black",
-            "R" => "red",   "G" => "green", _ => "colorless",
+            "W" => "white",
+            "U" => "blue",
+            "B" => "black",
+            "R" => "red",
+            "G" => "green",
+            _ => "colorless",
         }).ToList();
 
         var collection = new Collection
         {
-            UserId            = userId,
-            Name              = deckName,
-            Description       = desc,
-            IsDeck            = true,
-            Format            = "commander",
+            UserId = userId,
+            Name = deckName,
+            Description = desc,
+            IsDeck = true,
+            Format = "commander",
             CommanderOracleId = cmd.OracleId,
-            CoverUri          = cmd.ImageUri,
-            Tags              = [adjective.ToLower(), .. colorTags],
-            CreatedAt         = publishedAt,
-            UpdatedAt         = publishedAt,
+            CoverUri = cmd.ImageUri,
+            Tags = [adjective.ToLower(), .. colorTags],
+            CreatedAt = publishedAt,
+            UpdatedAt = publishedAt,
         };
         _db.Collections.Add(collection);
 
@@ -466,11 +497,11 @@ public sealed class CommanderDeckSeeder
         _db.CollectionCards.Add(new CollectionCard
         {
             CollectionId = collection.Id,
-            OracleId     = cmd.OracleId,
-            ScryfallId   = null,
-            Quantity     = 1,
-            Board        = "commander",
-            AddedAt      = publishedAt,
+            OracleId = cmd.OracleId,
+            ScryfallId = null,
+            Quantity = 1,
+            Board = "commander",
+            AddedAt = publishedAt,
         });
 
         // Sample 63 non-land cards from pool (randomized per deck)
@@ -484,21 +515,22 @@ public sealed class CommanderDeckSeeder
             _db.CollectionCards.Add(new CollectionCard
             {
                 CollectionId = collection.Id,
-                OracleId     = card.OracleId,
-                ScryfallId   = null,
-                Quantity     = 1,
-                Board        = "main",
-                AddedAt      = publishedAt,
+                OracleId = card.OracleId,
+                ScryfallId = null,
+                Quantity = 1,
+                Board = "main",
+                AddedAt = publishedAt,
             });
         }
 
         // Basic lands: 36 total distributed by color identity
         var deckColors = cmd.ColorIdentity.Where(c => landIds.ContainsKey(c)).ToList();
-        if (deckColors.Count == 0) deckColors = landIds.Keys.Take(1).ToList();
+        if (deckColors.Count == 0)
+            deckColors = landIds.Keys.Take(1).ToList();
 
-        int totalLands  = 36;
-        int perColor    = totalLands / deckColors.Count;
-        int extraLands  = totalLands - perColor * deckColors.Count;
+        int totalLands = 36;
+        int perColor = totalLands / deckColors.Count;
+        int extraLands = totalLands - perColor * deckColors.Count;
 
         foreach (var color in deckColors)
         {
@@ -506,23 +538,23 @@ public sealed class CommanderDeckSeeder
             _db.CollectionCards.Add(new CollectionCard
             {
                 CollectionId = collection.Id,
-                OracleId     = landIds[color],
-                ScryfallId   = null,
-                Quantity     = qty,
-                Board        = "main",
-                AddedAt      = publishedAt,
+                OracleId = landIds[color],
+                ScryfallId = null,
+                Quantity = qty,
+                Board = "main",
+                AddedAt = publishedAt,
             });
         }
 
         var post = new ForumPost
         {
-            DeckId            = collection.Id,
-            AuthorId          = userId,
-            AuthorUsername    = SeedUsername,
-            Description       = desc,
+            DeckId = collection.Id,
+            AuthorId = userId,
+            AuthorUsername = SeedUsername,
+            Description = desc,
             ColorIdentityJson = colorJson,
-            PublishedAt       = publishedAt,
-            UpdatedAt         = publishedAt,
+            PublishedAt = publishedAt,
+            UpdatedAt = publishedAt,
         };
         _db.ForumPosts.Add(post);
     }
@@ -533,7 +565,8 @@ public sealed class CommanderDeckSeeder
     {
         result = root;
         foreach (var key in path)
-            if (!result.TryGetProperty(key, out result)) return false;
+            if (!result.TryGetProperty(key, out result))
+                return false;
         return true;
     }
 

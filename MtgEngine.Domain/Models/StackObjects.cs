@@ -1,5 +1,3 @@
-using MtgEngine.Domain.Enums;
-
 namespace MtgEngine.Domain.Models;
 
 /// <summary>

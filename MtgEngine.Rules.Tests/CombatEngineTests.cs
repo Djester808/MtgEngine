@@ -94,9 +94,12 @@ public class CombatEngineTests
             .WithPermanent(attacker)
             .WithPermanent(blocker) with
         {
-            Combat = new() { AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
-                AttackersDeclared = true }
+            Combat = new()
+            {
+                AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
+                new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
+                AttackersDeclared = true
+            }
         };
 
         var result = CombatEngine.DeclareBlockers(state, TestFactory.Player2Id,
@@ -118,9 +121,12 @@ public class CombatEngineTests
             .WithPermanent(attacker)
             .WithPermanent(blocker) with
         {
-            Combat = new() { AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
-                AttackersDeclared = true }
+            Combat = new()
+            {
+                AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
+                new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
+                AttackersDeclared = true
+            }
         };
 
         var act = () => CombatEngine.DeclareBlockers(state, TestFactory.Player2Id,
@@ -142,9 +148,12 @@ public class CombatEngineTests
             .WithPermanent(attacker)
             .WithPermanent(blocker) with
         {
-            Combat = new() { AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
-                AttackersDeclared = true }
+            Combat = new()
+            {
+                AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
+                new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
+                AttackersDeclared = true
+            }
         };
 
         var result = CombatEngine.DeclareBlockers(state, TestFactory.Player2Id,
@@ -169,7 +178,7 @@ public class CombatEngineTests
             Combat = new()
             {
                 AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                    new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
+                    new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
                 AttackersDeclared = true,
                 BlockersDeclared = true,
             }
@@ -196,7 +205,7 @@ public class CombatEngineTests
             Combat = new()
             {
                 AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                    new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(
+                    new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(
                         attacker.PermanentId, System.Collections.Immutable.ImmutableList.Create(blocker.PermanentId)) }),
                 AttackersDeclared = true,
                 BlockersDeclared = true,
@@ -222,7 +231,7 @@ public class CombatEngineTests
             Combat = new()
             {
                 AttackersToBlockers = System.Collections.Immutable.ImmutableDictionary.CreateRange(
-                    new[] { new System.Collections.Generic.KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
+                    new[] { new KeyValuePair<Guid, System.Collections.Immutable.ImmutableList<Guid>>(attacker.PermanentId, System.Collections.Immutable.ImmutableList<Guid>.Empty) }),
                 AttackersDeclared = true,
                 BlockersDeclared = true,
             }

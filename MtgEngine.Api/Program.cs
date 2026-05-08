@@ -116,10 +116,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey        = new SymmetricSecurityKey(jwtKey),
-            ValidateIssuer          = false,
-            ValidateAudience        = false,
-            ClockSkew               = TimeSpan.Zero,
+            IssuerSigningKey = new SymmetricSecurityKey(jwtKey),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero,
         };
     });
 

@@ -46,7 +46,8 @@ public sealed class GamesController : ControllerBase
         [FromHeader(Name = "X-Player-Token")] string? token)
     {
         var session = _sessions.Get(gameId);
-        if (session is null) return NotFound();
+        if (session is null)
+            return NotFound();
 
         var playerId = ResolvePlayer(session, token);
         return Ok(DomainMapper.ToDto(session.State, playerId));
@@ -59,7 +60,8 @@ public sealed class GamesController : ControllerBase
         [FromBody] JoinGameRequest request)
     {
         var session = _sessions.Get(gameId);
-        if (session is null) return NotFound();
+        if (session is null)
+            return NotFound();
 
         if (!session.TryResolveToken(request.PlayerToken, out var playerId))
             return Unauthorized("Invalid player token.");
@@ -76,7 +78,8 @@ public sealed class GamesController : ControllerBase
 
     private static Guid ResolvePlayer(GameSession session, string? token)
     {
-        if (token is not null && session.TryResolveToken(token, out var id)) return id;
+        if (token is not null && session.TryResolveToken(token, out var id))
+            return id;
         return session.Player1Id; // default to player 1 for anonymous GET
     }
 }
@@ -99,12 +102,13 @@ public sealed class CardsController : ControllerBase
     public async Task<ActionResult<CardDto>> GetCard(string oracleId)
     {
         var def = await _scryfall.GetByOracleIdAsync(oracleId);
-        if (def is null) return NotFound();
+        if (def is null)
+            return NotFound();
 
         var card = new Domain.Models.Card
         {
             Definition = def,
-            OwnerId    = Guid.Empty,
+            OwnerId = Guid.Empty,
         };
         return Ok(DomainMapper.ToDto(card));
     }
@@ -113,9 +117,11 @@ public sealed class CardsController : ControllerBase
     [HttpGet("named")]
     public async Task<ActionResult<CardDto>> GetCardByName([FromQuery] string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return BadRequest();
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest();
         var def = await _scryfall.GetByNameAsync(name.Trim());
-        if (def is null) return NotFound();
+        if (def is null)
+            return NotFound();
         return Ok(DomainMapper.ToDto(new Domain.Models.Card { Definition = def, OwnerId = Guid.Empty }));
     }
 
@@ -123,15 +129,16 @@ public sealed class CardsController : ControllerBase
     [HttpGet("search")]
     public async Task<ActionResult<CardDto[]>> Search(
         [FromQuery] string q,
-        [FromQuery] int    limit     = 60,
-        [FromQuery] int    offset    = 0,
-        [FromQuery] string sortBy    = "name",
-        [FromQuery] string sortDir   = "asc",
-        [FromQuery] bool   matchCase = false,
-        [FromQuery] bool   matchWord = false,
-        [FromQuery] bool   useRegex  = false)
+        [FromQuery] int limit = 60,
+        [FromQuery] int offset = 0,
+        [FromQuery] string sortBy = "name",
+        [FromQuery] string sortDir = "asc",
+        [FromQuery] bool matchCase = false,
+        [FromQuery] bool matchWord = false,
+        [FromQuery] bool useRegex = false)
     {
-        if (string.IsNullOrWhiteSpace(q)) return BadRequest();
+        if (string.IsNullOrWhiteSpace(q))
+            return BadRequest();
 
         var defs = await _scryfall.SearchAsync(
             q,
@@ -160,7 +167,8 @@ public sealed class CardsController : ControllerBase
     public async Task<ActionResult<CardDto>> GetCardByScryfallId(string scryfallId)
     {
         var def = await _scryfall.GetByScryfallIdAsync(scryfallId);
-        if (def is null) return NotFound();
+        if (def is null)
+            return NotFound();
         return Ok(DomainMapper.ToDto(def, Guid.Empty, Guid.Empty));
     }
 

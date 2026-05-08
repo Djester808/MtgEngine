@@ -15,12 +15,12 @@ public sealed class ForumControllerTests
     private readonly Mock<IForumService> _forumMock;
     private readonly ForumController _controller;
 
-    private const string TestUserId   = "11111111-1111-1111-1111-111111111111";
+    private const string TestUserId = "11111111-1111-1111-1111-111111111111";
     private const string TestUsername = "player1";
 
     public ForumControllerTests()
     {
-        _forumMock  = new Mock<IForumService>();
+        _forumMock = new Mock<IForumService>();
         _controller = new ForumController(_forumMock.Object);
         SetUser(TestUserId, TestUsername);
     }
@@ -43,38 +43,38 @@ public sealed class ForumControllerTests
 
     private static ForumPostSummaryDto MakePostSummary(Guid? id = null) => new()
     {
-        Id             = id ?? Guid.NewGuid(),
-        DeckId         = Guid.NewGuid(),
+        Id = id ?? Guid.NewGuid(),
+        DeckId = Guid.NewGuid(),
         AuthorUsername = TestUsername,
-        DeckName       = "Test Deck",
-        DeckFormat     = "commander",
-        CardCount      = 100,
-        CommentCount   = 0,
-        PublishedAt    = DateTime.UtcNow,
+        DeckName = "Test Deck",
+        DeckFormat = "commander",
+        CardCount = 100,
+        CommentCount = 0,
+        PublishedAt = DateTime.UtcNow,
     };
 
     private static ForumPostDetailDto MakePostDetail(Guid? id = null) => new()
     {
-        Id             = id ?? Guid.NewGuid(),
-        DeckId         = Guid.NewGuid(),
-        AuthorId       = TestUserId,
+        Id = id ?? Guid.NewGuid(),
+        DeckId = Guid.NewGuid(),
+        AuthorId = TestUserId,
         AuthorUsername = TestUsername,
-        DeckName       = "Test Deck",
-        DeckFormat     = "commander",
-        PublishedAt    = DateTime.UtcNow,
-        UpdatedAt      = DateTime.UtcNow,
-        Cards          = [],
-        Comments       = [],
+        DeckName = "Test Deck",
+        DeckFormat = "commander",
+        PublishedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
+        Cards = [],
+        Comments = [],
     };
 
     private static ForumCommentDto MakeComment(Guid? id = null) => new()
     {
-        Id             = id ?? Guid.NewGuid(),
-        AuthorId       = TestUserId,
+        Id = id ?? Guid.NewGuid(),
+        AuthorId = TestUserId,
         AuthorUsername = TestUsername,
-        Content        = "Great deck!",
-        CreatedAt      = DateTime.UtcNow,
-        UpdatedAt      = DateTime.UtcNow,
+        Content = "Great deck!",
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
     };
 
     // ── GetPosts ──────────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task AddComment_ReturnsOkWithComment()
     {
-        var postId  = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var request = new CreateCommentRequest("Nice deck!");
         var comment = MakeComment();
         _forumMock.Setup(s => s.AddCommentAsync(postId, TestUserId, TestUsername, request)).ReturnsAsync(comment);
@@ -209,7 +209,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task AddComment_ReturnsBadRequestWhenContentIsEmpty()
     {
-        var postId  = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var request = new CreateCommentRequest("");
 
         var result = await _controller.AddComment(postId, request);
@@ -220,7 +220,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task AddComment_ReturnsBadRequestWhenContentIsWhitespace()
     {
-        var postId  = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var request = new CreateCommentRequest("   ");
 
         var result = await _controller.AddComment(postId, request);
@@ -231,7 +231,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task AddComment_ReturnsNotFoundWhenPostDoesNotExist()
     {
-        var postId  = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var request = new CreateCommentRequest("Nice deck!");
         _forumMock.Setup(s => s.AddCommentAsync(postId, TestUserId, TestUsername, request))
                   .ThrowsAsync(new KeyNotFoundException());
@@ -246,10 +246,10 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task UpdateComment_ReturnsOkWithUpdatedComment()
     {
-        var postId    = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var commentId = Guid.NewGuid();
-        var request   = new UpdateCommentRequest("Updated content");
-        var comment   = MakeComment(commentId);
+        var request = new UpdateCommentRequest("Updated content");
+        var comment = MakeComment(commentId);
         _forumMock.Setup(s => s.UpdateCommentAsync(postId, commentId, TestUserId, request)).ReturnsAsync(comment);
 
         var result = await _controller.UpdateComment(postId, commentId, request);
@@ -271,9 +271,9 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task UpdateComment_ReturnsNotFoundWhenCommentNotFound()
     {
-        var postId    = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var commentId = Guid.NewGuid();
-        var request   = new UpdateCommentRequest("Updated");
+        var request = new UpdateCommentRequest("Updated");
         _forumMock.Setup(s => s.UpdateCommentAsync(postId, commentId, TestUserId, request))
                   .ReturnsAsync((ForumCommentDto?)null);
 
@@ -287,7 +287,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task DeleteComment_ReturnsNoContentOnSuccess()
     {
-        var postId    = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var commentId = Guid.NewGuid();
         _forumMock.Setup(s => s.DeleteCommentAsync(postId, commentId, TestUserId)).ReturnsAsync(true);
 
@@ -299,7 +299,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task DeleteComment_ReturnsNotFoundWhenCommentDoesNotExist()
     {
-        var postId    = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var commentId = Guid.NewGuid();
         _forumMock.Setup(s => s.DeleteCommentAsync(postId, commentId, TestUserId)).ReturnsAsync(false);
 
@@ -311,7 +311,7 @@ public sealed class ForumControllerTests
     [Fact]
     public async Task DeleteComment_PassesUserIdFromClaimsToService()
     {
-        var postId    = Guid.NewGuid();
+        var postId = Guid.NewGuid();
         var commentId = Guid.NewGuid();
         _forumMock.Setup(s => s.DeleteCommentAsync(postId, commentId, TestUserId)).ReturnsAsync(true);
 

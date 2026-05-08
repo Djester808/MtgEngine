@@ -36,10 +36,10 @@ public sealed class UsersController : ControllerBase
 
         var results = groups.Select(g => new UserProfileDto
         {
-            Username       = g.Username,
-            JoinedAt       = g.Latest,
-            DeckCount      = g.DeckCount,
-            CommentCount   = commentCounts.GetValueOrDefault(g.Username),
+            Username = g.Username,
+            JoinedAt = g.Latest,
+            DeckCount = g.DeckCount,
+            CommentCount = commentCounts.GetValueOrDefault(g.Username),
             PublishedDecks = [],
             RecentComments = [],
         }).ToArray();
@@ -95,17 +95,17 @@ public sealed class UsersController : ControllerBase
             var colors = JsonSerializer.Deserialize<string[]>(p.ColorIdentityJson) ?? [];
             return new ForumPostSummaryDto
             {
-                Id             = p.Id,
-                DeckId         = p.DeckId,
+                Id = p.Id,
+                DeckId = p.DeckId,
                 AuthorUsername = p.AuthorUsername,
-                DeckName       = deck?.Name ?? "Unknown Deck",
-                DeckCoverUri   = deck?.CoverUri,
-                DeckFormat     = deck?.Format,
-                Description    = p.Description,
-                ColorIdentity  = colors,
-                CardCount      = cardCounts.GetValueOrDefault(p.DeckId),
-                CommentCount   = commentCounts.GetValueOrDefault(p.Id),
-                PublishedAt    = p.PublishedAt,
+                DeckName = deck?.Name ?? "Unknown Deck",
+                DeckCoverUri = deck?.CoverUri,
+                DeckFormat = deck?.Format,
+                Description = p.Description,
+                ColorIdentity = colors,
+                CardCount = cardCounts.GetValueOrDefault(p.DeckId),
+                CommentCount = commentCounts.GetValueOrDefault(p.Id),
+                PublishedAt = p.PublishedAt,
             };
         }).ToArray();
 
@@ -134,11 +134,11 @@ public sealed class UsersController : ControllerBase
             commentDecks.TryGetValue(deckId, out var deckName);
             return new UserCommentDto
             {
-                CommentId   = c.Id,
+                CommentId = c.Id,
                 ForumPostId = c.ForumPostId,
-                DeckName    = deckName ?? "Unknown Deck",
-                Content     = c.Content,
-                CreatedAt   = c.CreatedAt,
+                DeckName = deckName ?? "Unknown Deck",
+                Content = c.Content,
+                CreatedAt = c.CreatedAt,
             };
         }).ToArray();
 
@@ -147,10 +147,10 @@ public sealed class UsersController : ControllerBase
 
         return Ok(new UserProfileDto
         {
-            Username       = resolvedUsername,
-            JoinedAt       = joinedAt,
-            DeckCount      = posts.Count,
-            CommentCount   = commentCount,
+            Username = resolvedUsername,
+            JoinedAt = joinedAt,
+            DeckCount = posts.Count,
+            CommentCount = commentCount,
             PublishedDecks = publishedDecks,
             RecentComments = recentComments,
         });

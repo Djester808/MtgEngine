@@ -42,7 +42,7 @@ public sealed class ScryfallServiceTests : IDisposable
 
     private static string CreatureJson(
         string oracleId = "aaaaaaaa-0000-0000-0000-000000000001",
-        string name     = "Test Creature") => $$"""
+        string name = "Test Creature") => $$"""
         {
           "oracle_id":    "{{oracleId}}",
           "name":         "{{name}}",
@@ -65,11 +65,11 @@ public sealed class ScryfallServiceTests : IDisposable
         """;
 
     private static string DfcJson(
-        string oracleId   = "cccccccc-0000-0000-0000-000000000001",
-        string frontName  = "Needleverge Pathway",
-        string backName   = "Pillarverge Pathway",
+        string oracleId = "cccccccc-0000-0000-0000-000000000001",
+        string frontName = "Needleverge Pathway",
+        string backName = "Pillarverge Pathway",
         string frontOracle = "{T}: Add {R}.",
-        string backOracle  = "{T}: Add {W}.") => $$"""
+        string backOracle = "{T}: Add {W}.") => $$"""
         {
           "oracle_id":  "{{oracleId}}",
           "name":       "{{frontName}} // {{backName}}",
@@ -146,7 +146,7 @@ public sealed class ScryfallServiceTests : IDisposable
 
         // Second instance (fresh memory) should serve from disk
         var handler2 = new FakeHttpHandler(CreatureJson());
-        var result   = await MakeService(handler2).GetByNameAsync("Test Creature");
+        var result = await MakeService(handler2).GetByNameAsync("Test Creature");
 
         handler2.CallCount.Should().Be(0);
         result.Should().NotBeNull();
@@ -164,7 +164,7 @@ public sealed class ScryfallServiceTests : IDisposable
 
         // Fresh instance: oracle lookup should be served from disk
         var handler2 = new FakeHttpHandler(CreatureJson(oracleId));
-        var result   = await MakeService(handler2).GetByOracleIdAsync(oracleId);
+        var result = await MakeService(handler2).GetByOracleIdAsync(oracleId);
 
         handler2.CallCount.Should().Be(0);
         result.Should().NotBeNull();
@@ -230,7 +230,7 @@ public sealed class ScryfallServiceTests : IDisposable
             "{ this is not valid json !!!!");
 
         var handler = new FakeHttpHandler(CreatureJson());
-        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+        var result = await MakeService(handler).GetByNameAsync("Test Creature");
 
         handler.CallCount.Should().Be(1);
         result.Should().NotBeNull();
@@ -242,7 +242,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_ParsesAllFields()
     {
         var handler = new FakeHttpHandler(CreatureJson(name: "Test Creature"));
-        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+        var result = await MakeService(handler).GetByNameAsync("Test Creature");
 
         result.Should().NotBeNull();
         result!.Name.Should().Be("Test Creature");
@@ -264,7 +264,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_LandCard_HasEmptyManaCostString()
     {
         var handler = new FakeHttpHandler(LandJson());
-        var result  = await MakeService(handler).GetByNameAsync("Forest");
+        var result = await MakeService(handler).GetByNameAsync("Forest");
 
         result.Should().NotBeNull();
         result!.ManaCost.ToString().Should().BeEmpty();
@@ -288,7 +288,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(instantJson);
-        var result  = await MakeService(handler).GetByNameAsync("Counterspell");
+        var result = await MakeService(handler).GetByNameAsync("Counterspell");
 
         result!.CastingSpeed.Should().Be(SpeedRestriction.Instant);
     }
@@ -298,7 +298,7 @@ public sealed class ScryfallServiceTests : IDisposable
     {
         var handler = new FakeHttpHandler();
         handler.AddResponse("fuzzy=Test+Creature", CreatureJson("aaa00001-0000-0000-0000-000000000001", "Test Creature"));
-        handler.AddResponse("fuzzy=Forest",         LandJson("bbb00001-0000-0000-0000-000000000001"));
+        handler.AddResponse("fuzzy=Forest", LandJson("bbb00001-0000-0000-0000-000000000001"));
 
         var svc = MakeService(handler);
         await svc.GetByNameAsync("Test Creature");
@@ -315,7 +315,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_DfcCard_CombinesOracleTextFromBothFaces()
     {
         var handler = new FakeHttpHandler(DfcJson());
-        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+        var result = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
 
         result.Should().NotBeNull();
         result!.OracleText.Should().Be("{T}: Add {R}.\n//\n{T}: Add {W}.");
@@ -325,7 +325,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_DfcCard_SetsImageUriNormalFromFrontFace()
     {
         var handler = new FakeHttpHandler(DfcJson());
-        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+        var result = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
 
         result!.ImageUriNormal.Should().Be("https://example.com/front-normal.jpg");
         result.ImageUriSmall.Should().Be("https://example.com/front-small.jpg");
@@ -336,7 +336,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_DfcCard_SetsImageUriNormalBackFromBackFace()
     {
         var handler = new FakeHttpHandler(DfcJson());
-        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+        var result = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
 
         result!.ImageUriNormalBack.Should().Be("https://example.com/back-normal.jpg");
     }
@@ -345,7 +345,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_DfcCard_SingleFaceOracleText_WhenBackFaceEmpty()
     {
         var handler = new FakeHttpHandler(DfcJson(backOracle: ""));
-        var result  = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
+        var result = await MakeService(handler).GetByNameAsync("Needleverge Pathway");
 
         result!.OracleText.Should().Be("{T}: Add {R}.");
         result.OracleText.Should().NotContain("//");
@@ -355,7 +355,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_StandardCard_HasNullImageUriNormalBack()
     {
         var handler = new FakeHttpHandler(CreatureJson());
-        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+        var result = await MakeService(handler).GetByNameAsync("Test Creature");
 
         result!.ImageUriNormalBack.Should().BeNull();
     }
@@ -377,7 +377,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(json);
-        var result  = await MakeService(handler).GetByNameAsync("Goblin Token");
+        var result = await MakeService(handler).GetByNameAsync("Goblin Token");
 
         result.Should().NotBeNull();
         result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Token);
@@ -399,7 +399,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(json);
-        var result  = await MakeService(handler).GetByNameAsync("Invasion of Tarkir");
+        var result = await MakeService(handler).GetByNameAsync("Invasion of Tarkir");
 
         result.Should().NotBeNull();
         result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Battle);
@@ -419,7 +419,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(json);
-        var result  = await MakeService(handler).GetByNameAsync("Dungeon of the Mad Mage");
+        var result = await MakeService(handler).GetByNameAsync("Dungeon of the Mad Mage");
 
         result.Should().NotBeNull();
         result!.CardTypes.Should().HaveFlag(Domain.Enums.CardType.Other);
@@ -448,7 +448,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(json);
-        var result  = await MakeService(handler).GetByNameAsync("Counterspell");
+        var result = await MakeService(handler).GetByNameAsync("Counterspell");
 
         result.Should().NotBeNull();
         result!.Legalities.Should().ContainKey("modern").WhoseValue.Should().Be("legal");
@@ -476,7 +476,7 @@ public sealed class ScryfallServiceTests : IDisposable
             }
             """;
         var handler = new FakeHttpHandler(json);
-        var result  = await MakeService(handler).GetByNameAsync("Black Lotus");
+        var result = await MakeService(handler).GetByNameAsync("Black Lotus");
 
         result.Should().NotBeNull();
         result!.Legalities["vintage"].Should().Be("restricted");
@@ -487,7 +487,7 @@ public sealed class ScryfallServiceTests : IDisposable
     public async Task GetByNameAsync_NoLegalitiesProperty_ReturnsEmptyDictionary()
     {
         var handler = new FakeHttpHandler(CreatureJson());
-        var result  = await MakeService(handler).GetByNameAsync("Test Creature");
+        var result = await MakeService(handler).GetByNameAsync("Test Creature");
 
         result.Should().NotBeNull();
         result!.Legalities.Should().BeEmpty();
@@ -505,7 +505,7 @@ public sealed class ScryfallServiceTests : IDisposable
 
         public FakeHttpHandler(string json = "{}", HttpStatusCode status = HttpStatusCode.OK)
         {
-            _defaultJson   = json;
+            _defaultJson = json;
             _defaultStatus = status;
         }
 

@@ -12,18 +12,18 @@ public class TurnStateMachineTests
     // =========================================================
 
     [Theory]
-    [InlineData(Phase.Beginning, Step.Untap,  Phase.Beginning, Step.Upkeep)]
+    [InlineData(Phase.Beginning, Step.Untap, Phase.Beginning, Step.Upkeep)]
     [InlineData(Phase.Beginning, Step.Upkeep, Phase.Beginning, Step.Draw)]
-    [InlineData(Phase.Beginning, Step.Draw,   Phase.PreCombatMain, Step.Main)]
+    [InlineData(Phase.Beginning, Step.Draw, Phase.PreCombatMain, Step.Main)]
     [InlineData(Phase.PreCombatMain, Step.Main, Phase.Combat, Step.BeginningOfCombat)]
     [InlineData(Phase.Combat, Step.BeginningOfCombat, Phase.Combat, Step.DeclareAttackers)]
-    [InlineData(Phase.Combat, Step.DeclareAttackers,  Phase.Combat, Step.DeclareBlockers)]
-    [InlineData(Phase.Combat, Step.DeclareBlockers,   Phase.Combat, Step.FirstStrikeDamage)]
+    [InlineData(Phase.Combat, Step.DeclareAttackers, Phase.Combat, Step.DeclareBlockers)]
+    [InlineData(Phase.Combat, Step.DeclareBlockers, Phase.Combat, Step.FirstStrikeDamage)]
     [InlineData(Phase.Combat, Step.FirstStrikeDamage, Phase.Combat, Step.CombatDamage)]
-    [InlineData(Phase.Combat, Step.CombatDamage,      Phase.Combat, Step.EndOfCombat)]
-    [InlineData(Phase.Combat, Step.EndOfCombat,       Phase.PostCombatMain, Step.Main)]
-    [InlineData(Phase.PostCombatMain, Step.Main,      Phase.Ending, Step.End)]
-    [InlineData(Phase.Ending, Step.End,     Phase.Ending, Step.Cleanup)]
+    [InlineData(Phase.Combat, Step.CombatDamage, Phase.Combat, Step.EndOfCombat)]
+    [InlineData(Phase.Combat, Step.EndOfCombat, Phase.PostCombatMain, Step.Main)]
+    [InlineData(Phase.PostCombatMain, Step.Main, Phase.Ending, Step.End)]
+    [InlineData(Phase.Ending, Step.End, Phase.Ending, Step.Cleanup)]
     [InlineData(Phase.Ending, Step.Cleanup, Phase.Beginning, Step.Untap)]
     public void Step_sequence_is_correct(Phase fromPhase, Step fromStep, Phase toPhase, Step toStep)
     {

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.SignalR;
-using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
 using MtgEngine.Api.Services;
 using MtgEngine.Rules;
@@ -26,7 +25,7 @@ public sealed class GameHub : Hub
     public GameHub(GameSessionService sessions, ILogger<GameHub> logger)
     {
         _sessions = sessions;
-        _logger   = logger;
+        _logger = logger;
     }
 
     // ---- Connection lifecycle ----------------------------
@@ -34,7 +33,8 @@ public sealed class GameHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await _mapLock.WaitAsync();
-        try { _connectionMap.Remove(Context.ConnectionId); }
+        try
+        { _connectionMap.Remove(Context.ConnectionId); }
         finally { _mapLock.Release(); }
         await base.OnDisconnectedAsync(exception);
     }
@@ -44,10 +44,12 @@ public sealed class GameHub : Hub
     /// <summary>Join a game group. Must be called before any game actions.</summary>
     public async Task JoinGame(string gameId, string playerToken)
     {
-        if (!Guid.TryParse(gameId, out var gid)) { await Error("Invalid game ID."); return; }
+        if (!Guid.TryParse(gameId, out var gid))
+        { await Error("Invalid game ID."); return; }
 
         var session = _sessions.Get(gid);
-        if (session is null) { await Error("Game not found."); return; }
+        if (session is null)
+        { await Error("Game not found."); return; }
 
         if (!session.TryResolveToken(playerToken, out var playerId))
         { await Error("Invalid player token."); return; }
@@ -55,7 +57,8 @@ public sealed class GameHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(gid));
 
         await _mapLock.WaitAsync();
-        try { _connectionMap[Context.ConnectionId] = (gid, playerId); }
+        try
+        { _connectionMap[Context.ConnectionId] = (gid, playerId); }
         finally { _mapLock.Release(); }
 
         // Send full state snapshot to joining player
@@ -69,7 +72,8 @@ public sealed class GameHub : Hub
     public async Task RequestStateSync()
     {
         var (gid, playerId) = await GetContext();
-        if (gid == Guid.Empty) return;
+        if (gid == Guid.Empty)
+            return;
 
         var session = _sessions.GetOrThrow(gid);
         var snapshot = DomainMapper.ToDto(session.State, playerId);
@@ -88,19 +92,21 @@ public sealed class GameHub : Hub
 
     public async Task PlayLand(string cardId)
     {
-        if (!Guid.TryParse(cardId, out var cid)) { await Error("Invalid card ID."); return; }
+        if (!Guid.TryParse(cardId, out var cid))
+        { await Error("Invalid card ID."); return; }
         await ApplyAction(state => GameEngine.PlayLand(state, GetCallerId(), cid));
     }
 
     public async Task CastSpell(string cardId, string[] targetIds)
     {
-        if (!Guid.TryParse(cardId, out var cid)) { await Error("Invalid card ID."); return; }
+        if (!Guid.TryParse(cardId, out var cid))
+        { await Error("Invalid card ID."); return; }
         var targets = targetIds
             .Where(t => Guid.TryParse(t, out _))
             .Select(t => new Domain.Models.Target
             {
                 Type = Domain.Models.TargetType.Permanent,
-                Id   = Guid.Parse(t),
+                Id = Guid.Parse(t),
             })
             .ToList();
         await ApplyAction(state => GameEngine.CastSpell(state, GetCallerId(), cid, targets));
@@ -108,13 +114,15 @@ public sealed class GameHub : Hub
 
     public async Task ActivateMana(string permanentId)
     {
-        if (!Guid.TryParse(permanentId, out var pid)) { await Error("Invalid permanent ID."); return; }
+        if (!Guid.TryParse(permanentId, out var pid))
+        { await Error("Invalid permanent ID."); return; }
         await ApplyAction(state => GameEngine.ActivateMana(state, GetCallerId(), pid));
     }
 
     public async Task UntapLand(string permanentId)
     {
-        if (!Guid.TryParse(permanentId, out var pid)) { await Error("Invalid permanent ID."); return; }
+        if (!Guid.TryParse(permanentId, out var pid))
+        { await Error("Invalid permanent ID."); return; }
         await ApplyAction(state => GameEngine.UntapLand(state, GetCallerId(), pid));
     }
 
@@ -134,7 +142,8 @@ public sealed class GameHub : Hub
 
     public async Task SetBlockerOrder(string attackerId, string[] orderedBlockerIds)
     {
-        if (!Guid.TryParse(attackerId, out var aid)) { await Error("Invalid attacker ID."); return; }
+        if (!Guid.TryParse(attackerId, out var aid))
+        { await Error("Invalid attacker ID."); return; }
         var ids = ParseGuids(orderedBlockerIds);
         await ApplyAction(state => GameEngine.SetBlockerOrder(state, GetCallerId(), aid, ids));
     }
@@ -150,7 +159,8 @@ public sealed class GameHub : Hub
     private async Task ApplyAction(Func<Domain.Models.GameState, Domain.Models.GameState> action)
     {
         var (gid, playerId) = await GetContext();
-        if (gid == Guid.Empty) return;
+        if (gid == Guid.Empty)
+            return;
 
         var session = _sessions.GetOrThrow(gid);
 
@@ -160,7 +170,7 @@ public sealed class GameHub : Hub
 
             // Send each player their own personalised diff
             var group = Clients.Group(GroupName(gid));
-            var diff  = DomainMapper.ToDiff(before, after, playerId);
+            var diff = DomainMapper.ToDiff(before, after, playerId);
             await group.SendAsync("GameStateDiff", diff);
         }
         catch (InvalidOperationException ex)

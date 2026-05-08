@@ -16,7 +16,7 @@ public sealed class AuthController : ControllerBase
 
     public AuthController(MtgEngineDbContext db, TokenService tokens)
     {
-        _db     = db;
+        _db = db;
         _tokens = tokens;
     }
 
@@ -38,8 +38,8 @@ public sealed class AuthController : ControllerBase
 
         var user = new User
         {
-            Username     = request.Username,
-            Email        = request.Email,
+            Username = request.Username,
+            Email = request.Email,
             PasswordHash = PasswordHasher.Hash(request.Password),
         };
 

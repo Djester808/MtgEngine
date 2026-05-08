@@ -52,11 +52,11 @@ public sealed class BulkDataService : IScryfallService
         ILogger<BulkDataService> logger,
         IConfiguration config)
     {
-        _api            = api;
-        _metaClient     = httpClientFactory.CreateClient("ScryfallApi");
+        _api = api;
+        _metaClient = httpClientFactory.CreateClient("ScryfallApi");
         _downloadClient = httpClientFactory.CreateClient("ScryfallBulk");
-        _logger         = logger;
-        _bulkDir        = config["BulkData:Directory"]
+        _logger = logger;
+        _bulkDir = config["BulkData:Directory"]
                           ?? Path.Combine(AppContext.BaseDirectory, "bulk-data");
         Directory.CreateDirectory(_bulkDir);
     }
@@ -66,10 +66,12 @@ public sealed class BulkDataService : IScryfallService
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
         await WaitReadyAsync();
-        if (_byOracleId.TryGetValue(oracleId, out var def)) return def;
+        if (_byOracleId.TryGetValue(oracleId, out var def))
+            return def;
         _logger.LogDebug("Oracle miss, falling back to API: {Id}", oracleId);
         var result = await _api.GetByOracleIdAsync(oracleId);
-        if (result is not null) _byOracleId.TryAdd(oracleId, result);
+        if (result is not null)
+            _byOracleId.TryAdd(oracleId, result);
         return result;
     }
 
@@ -103,7 +105,8 @@ public sealed class BulkDataService : IScryfallService
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {
         await WaitReadyAsync();
-        if (_printingsByOracleId.TryGetValue(oracleId, out var printings)) return printings;
+        if (_printingsByOracleId.TryGetValue(oracleId, out var printings))
+            return printings;
         _logger.LogDebug("Printings miss, falling back to API: {Id}", oracleId);
         return await _api.GetPrintingsAsync(oracleId);
     }
@@ -125,11 +128,11 @@ public sealed class BulkDataService : IScryfallService
 
         if (!string.IsNullOrWhiteSpace(filterQuery))
         {
-            var q              = filterQuery.Trim();
-            var nameFilter     = ParseName(q);
-            var typeFlags      = ParseTypes(q);
+            var q = filterQuery.Trim();
+            var nameFilter = ParseName(q);
+            var typeFlags = ParseTypes(q);
             var supertypeFilter = ParseSupertypes(q);
-            var raritySet      = ParseRarities(q);
+            var raritySet = ParseRarities(q);
             var (cmcOp, cmcVal) = ParseCmc(q);
             var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
 
@@ -147,7 +150,8 @@ public sealed class BulkDataService : IScryfallService
             foreach (var oid in matchingOracleIds)
                 if (_printingsByOracleId.TryGetValue(oid, out var prints))
                     foreach (var p in prints)
-                        if (p.SetCode is not null) relevantSets.Add(p.SetCode);
+                        if (p.SetCode is not null)
+                            relevantSets.Add(p.SetCode);
 
             source = _bySetCode.Where(kv => relevantSets.Contains(kv.Key));
         }
@@ -180,14 +184,19 @@ public sealed class BulkDataService : IScryfallService
 
         foreach (var setCode in setCodes)
         {
-            if (!_bySetCode.TryGetValue(setCode, out var oracleIds)) continue;
+            if (!_bySetCode.TryGetValue(setCode, out var oracleIds))
+                continue;
             foreach (var oid in oracleIds)
             {
-                if (!seen.Add(oid)) continue;
-                if (!_byOracleId.TryGetValue(oid, out var def)) continue;
+                if (!seen.Add(oid))
+                    continue;
+                if (!_byOracleId.TryGetValue(oid, out var def))
+                    continue;
                 // Skip tokens, basic lands, and commander-illegal card types
-                if (def.Supertypes.Contains("Basic")) continue;
-                if (def.CardTypes.HasFlag(Domain.Enums.CardType.Token)) continue;
+                if (def.Supertypes.Contains("Basic"))
+                    continue;
+                if (def.CardTypes.HasFlag(Domain.Enums.CardType.Token))
+                    continue;
                 // Rarity filter
                 if (allowedRarities != null && allowedRarities.Count > 0 &&
                     !allowedRarities.Contains(def.Rarity ?? string.Empty))
@@ -216,17 +225,18 @@ public sealed class BulkDataService : IScryfallService
     {
         await WaitReadyAsync();
         var q = query.Trim();
-        if (q.Length < 2) return [];
+        if (q.Length < 2)
+            return [];
 
-        var nameFilter      = ParseName(q);
-        var oracleFilter    = ParseOracleText(q);
-        var typeFlags       = ParseTypes(q);
+        var nameFilter = ParseName(q);
+        var oracleFilter = ParseOracleText(q);
+        var typeFlags = ParseTypes(q);
         var supertypeFilter = ParseSupertypes(q);
-        var setFilter       = ParseSet(q);
-        var raritySet       = ParseRarities(q);
+        var setFilter = ParseSet(q);
+        var raritySet = ParseRarities(q);
         var (cmcOp, cmcVal) = ParseCmc(q);
         var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
-        var descending      = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+        var descending = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
 
         IEnumerable<string> oracleIds;
         if (setFilter is not null)
@@ -253,7 +263,8 @@ public sealed class BulkDataService : IScryfallService
                     .Where(d => d is not null).Cast<CardDefinition>()
                     .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
                     .ToArray();
-                if (localResults.Length > 0 || offset > 0) return localResults;
+                if (localResults.Length > 0 || offset > 0)
+                    return localResults;
             }
             oracleIds = _byOracleId.Keys;
         }
@@ -296,7 +307,8 @@ public sealed class BulkDataService : IScryfallService
             })
             .ToArray();
 
-        if (results.Length > 0 || offset > 0) return results;
+        if (results.Length > 0 || offset > 0)
+            return results;
         return await _api.SearchAsync(query, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
     }
 
@@ -310,7 +322,8 @@ public sealed class BulkDataService : IScryfallService
         {
             var start = idx + 6;
             var end = q.IndexOf('"', start);
-            if (end > start) return q[start..end];
+            if (end > start)
+                return q[start..end];
         }
         // Plain text with no query-syntax tokens → treat the whole query as a name filter
         // Any "key:" pattern (t:, s:, r:, c:, name:, cmc, etc.) signals structured query syntax
@@ -326,7 +339,8 @@ public sealed class BulkDataService : IScryfallService
         {
             var start = idx + 3;
             var end = q.IndexOf('"', start);
-            if (end > start) return q[start..end];
+            if (end > start)
+                return q[start..end];
         }
         // o:word (unquoted single token)
         idx = q.IndexOf("o:", StringComparison.OrdinalIgnoreCase);
@@ -334,8 +348,10 @@ public sealed class BulkDataService : IScryfallService
         {
             var start = idx + 2;
             var end = start;
-            while (end < q.Length && !char.IsWhiteSpace(q[end])) end++;
-            if (end > start) return q[start..end];
+            while (end < q.Length && !char.IsWhiteSpace(q[end]))
+                end++;
+            if (end > start)
+                return q[start..end];
         }
         return null;
     }
@@ -354,20 +370,21 @@ public sealed class BulkDataService : IScryfallService
         {
             i += 2;
             var end = i;
-            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            while (end < q.Length && char.IsLetterOrDigit(q[end]))
+                end++;
             flags |= q[i..end].ToLowerInvariant() switch
             {
-                "creature"     => CardType.Creature,
-                "instant"      => CardType.Instant,
-                "sorcery"      => CardType.Sorcery,
-                "enchantment"  => CardType.Enchantment,
-                "artifact"     => CardType.Artifact,
-                "land"         => CardType.Land,
+                "creature" => CardType.Creature,
+                "instant" => CardType.Instant,
+                "sorcery" => CardType.Sorcery,
+                "enchantment" => CardType.Enchantment,
+                "artifact" => CardType.Artifact,
+                "land" => CardType.Land,
                 "planeswalker" => CardType.Planeswalker,
-                "token"        => CardType.Token,
-                "battle"       => CardType.Battle,
-                "other"        => CardType.Other,
-                _              => CardType.None
+                "token" => CardType.Token,
+                "battle" => CardType.Battle,
+                "other" => CardType.Other,
+                _ => CardType.None
             };
             i = end;
         }
@@ -382,7 +399,8 @@ public sealed class BulkDataService : IScryfallService
         {
             i += 2;
             var end = i;
-            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            while (end < q.Length && char.IsLetterOrDigit(q[end]))
+                end++;
             var token = q[i..end].ToLowerInvariant();
             if (token is "legendary" or "basic" or "snow" or "world")
                 result.Add(token);
@@ -394,10 +412,12 @@ public sealed class BulkDataService : IScryfallService
     private static string? ParseSet(string q)
     {
         var idx = q.IndexOf("s:", StringComparison.OrdinalIgnoreCase);
-        if (idx < 0) return null;
+        if (idx < 0)
+            return null;
         var start = idx + 2;
         var end = start;
-        while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+        while (end < q.Length && char.IsLetterOrDigit(q[end]))
+            end++;
         return end > start ? q[start..end] : null;
     }
 
@@ -409,9 +429,11 @@ public sealed class BulkDataService : IScryfallService
         {
             i += 2;
             var end = i;
-            while (end < q.Length && char.IsLetterOrDigit(q[end])) end++;
+            while (end < q.Length && char.IsLetterOrDigit(q[end]))
+                end++;
             var r = q[i..end].ToLowerInvariant();
-            if (r is "common" or "uncommon" or "rare" or "mythic") result.Add(r);
+            if (r is "common" or "uncommon" or "rare" or "mythic")
+                result.Add(r);
             i = end;
         }
         return result;
@@ -423,10 +445,12 @@ public sealed class BulkDataService : IScryfallService
         {
             var key = "cmc" + op;
             var idx = q.IndexOf(key, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) continue;
+            if (idx < 0)
+                continue;
             var start = idx + key.Length;
-            var end   = start;
-            while (end < q.Length && char.IsDigit(q[end])) end++;
+            var end = start;
+            while (end < q.Length && char.IsDigit(q[end]))
+                end++;
             if (end > start && int.TryParse(q[start..end], out var val))
                 return (op, val);
         }
@@ -439,28 +463,43 @@ public sealed class BulkDataService : IScryfallService
     private static (bool HasFilter, bool Multicolor, bool Colorless, HashSet<ManaColor> Colors) ParseColors(string q)
     {
         var idx = q.IndexOf("c:", StringComparison.OrdinalIgnoreCase);
-        if (idx < 0) return (false, false, false, []);
+        if (idx < 0)
+            return (false, false, false, []);
         var start = idx + 2;
         var end = start;
-        while (end < q.Length && char.IsLetter(q[end])) end++;
-        if (end == start) return (false, false, false, []);
+        while (end < q.Length && char.IsLetter(q[end]))
+            end++;
+        if (end == start)
+            return (false, false, false, []);
         var token = q[start..end].ToLowerInvariant();
-        if (token == "m") return (true, true, false, []);
-        if (token == "c") return (true, false, true, []);
+        if (token == "m")
+            return (true, true, false, []);
+        if (token == "c")
+            return (true, false, true, []);
         var colors = new HashSet<ManaColor>();
         foreach (var ch in token)
         {
-            var c = ch switch { 'w' => ManaColor.White, 'u' => ManaColor.Blue, 'b' => ManaColor.Black,
-                                'r' => ManaColor.Red,   'g' => ManaColor.Green, _ => (ManaColor?)null };
-            if (c.HasValue) colors.Add(c.Value);
+            var c = ch switch
+            {
+                'w' => ManaColor.White,
+                'u' => ManaColor.Blue,
+                'b' => ManaColor.Black,
+                'r' => ManaColor.Red,
+                'g' => ManaColor.Green,
+                _ => (ManaColor?)null
+            };
+            if (c.HasValue)
+                colors.Add(c.Value);
         }
         return colors.Count > 0 ? (true, false, false, colors) : (false, false, false, []);
     }
 
     private static bool MatchesColor(CardDefinition d, bool multicolor, bool colorless, HashSet<ManaColor> colors)
     {
-        if (multicolor)  return d.ColorIdentity.Count >= 2;
-        if (colorless)   return d.ColorIdentity.Count == 0;
+        if (multicolor)
+            return d.ColorIdentity.Count >= 2;
+        if (colorless)
+            return d.ColorIdentity.Count == 0;
         return d.ColorIdentity.Any(c => colors.Contains(c));
     }
 
@@ -520,7 +559,8 @@ public sealed class BulkDataService : IScryfallService
 
     private async Task WaitReadyAsync()
     {
-        if (_ready) return;
+        if (_ready)
+            return;
         // Yield so the caller doesn't block the request thread on first startup
         await Task.Yield();
         // If still not ready, just let through — fallback to API will handle it
@@ -533,7 +573,7 @@ public sealed class BulkDataService : IScryfallService
         {
             _ready = false;
 
-            var oraclePath  = Path.Combine(_bulkDir, "oracle_cards.json");
+            var oraclePath = Path.Combine(_bulkDir, "oracle_cards.json");
             var defaultPath = Path.Combine(_bulkDir, "default_cards.json");
 
             var sw = Stopwatch.StartNew();
@@ -564,7 +604,7 @@ public sealed class BulkDataService : IScryfallService
     private async Task LoadOracleCardsAsync(string path)
     {
         var byOracleId = new Dictionary<string, CardDefinition>(32_000);
-        var byName     = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing oracle_cards.json…");
         await using var stream = File.OpenRead(path);
@@ -576,31 +616,35 @@ public sealed class BulkDataService : IScryfallService
         foreach (var card in doc.RootElement.EnumerateArray())
         {
             // Skip digital-only and non-English
-            if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean()) continue;
-            if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en") continue;
+            if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean())
+                continue;
+            if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en")
+                continue;
 
             var def = CardParser.Parse(card);
-            if (def is null) continue;
+            if (def is null)
+                continue;
 
             byOracleId[def.OracleId] = def;
             byName[def.Name] = def.OracleId;
 
             var rarity = card.TryGetProperty("rarity", out var rEl) ? rEl.GetString() ?? "" : "";
-            if (rarity.Length > 0) rarityMap[def.OracleId] = rarity;
+            if (rarity.Length > 0)
+                rarityMap[def.OracleId] = rarity;
         }
 
-        _byOracleId        = byOracleId;
-        _byName            = byName;
-        _rarityByOracleId  = rarityMap;
+        _byOracleId = byOracleId;
+        _byName = byName;
+        _rarityByOracleId = rarityMap;
     }
 
     private async Task LoadDefaultCardsAsync(string path)
     {
-        var printings        = new Dictionary<string, List<PrintingDto>>(32_000);
-        var scryfallIdx      = new Dictionary<string, PrintingEntry>(250_000);
-        var setIdx           = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
-        var setNames         = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
-        var setReleaseDates  = new Dictionary<string, DateOnly>(500, StringComparer.OrdinalIgnoreCase);
+        var printings = new Dictionary<string, List<PrintingDto>>(32_000);
+        var scryfallIdx = new Dictionary<string, PrintingEntry>(250_000);
+        var setIdx = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
+        var setNames = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
+        var setReleaseDates = new Dictionary<string, DateOnly>(500, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing default_cards.json…");
         await using var stream = File.OpenRead(path);
@@ -609,33 +653,42 @@ public sealed class BulkDataService : IScryfallService
 
         foreach (var card in doc.RootElement.EnumerateArray())
         {
-            if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean()) continue;
-            if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en") continue;
+            if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean())
+                continue;
+            if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en")
+                continue;
 
-            var id      = card.TryGetProperty("id",               out var idEl)  ? idEl.GetString()  : null;
-            var oid     = card.TryGetProperty("oracle_id",        out var oidEl) ? oidEl.GetString() : null;
-            var setCode     = card.TryGetProperty("set",              out var scEl)  ? scEl.GetString()  ?? "" : "";
-            var setName     = card.TryGetProperty("set_name",         out var snEl)  ? snEl.GetString()  ?? "" : "";
-            var releasedAt  = card.TryGetProperty("released_at",      out var raEl)  ? raEl.GetString()  : null;
-            var num         = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
+            var id = card.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+            var oid = card.TryGetProperty("oracle_id", out var oidEl) ? oidEl.GetString() : null;
+            var setCode = card.TryGetProperty("set", out var scEl) ? scEl.GetString() ?? "" : "";
+            var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
+            var releasedAt = card.TryGetProperty("released_at", out var raEl) ? raEl.GetString() : null;
+            var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
-            if (id is null || oid is null) continue;
+            if (id is null || oid is null)
+                continue;
 
             string? imgSmall = null, imgNormal = null, imgArtCrop = null, imgNormalBack = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
-                if (imgs.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
-                if (imgs.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
-                if (imgs.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                if (imgs.TryGetProperty("small", out var s))
+                    imgSmall = s.GetString();
+                if (imgs.TryGetProperty("normal", out var n))
+                    imgNormal = n.GetString();
+                if (imgs.TryGetProperty("art_crop", out var a))
+                    imgArtCrop = a.GetString();
             }
             else if (card.TryGetProperty("card_faces", out var dfcImgs) && dfcImgs.GetArrayLength() > 0)
             {
                 var f0 = dfcImgs[0];
                 if (f0.TryGetProperty("image_uris", out var fi0))
                 {
-                    if (fi0.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
-                    if (fi0.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
-                    if (fi0.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                    if (fi0.TryGetProperty("small", out var s))
+                        imgSmall = s.GetString();
+                    if (fi0.TryGetProperty("normal", out var n))
+                        imgNormal = n.GetString();
+                    if (fi0.TryGetProperty("art_crop", out var a))
+                        imgArtCrop = a.GetString();
                 }
                 if (dfcImgs.GetArrayLength() > 1)
                 {
@@ -646,19 +699,21 @@ public sealed class BulkDataService : IScryfallService
             }
 
             // Only include cards that have artwork
-            if (imgNormal is null) continue;
+            if (imgNormal is null)
+                continue;
 
             // Per-printing text fields — fall back to card_faces[0/1] for DFCs
             JsonElement? face0 = null, face1 = null;
             if (card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
             {
                 face0 = faces[0];
-                if (faces.GetArrayLength() > 1) face1 = faces[1];
+                if (faces.GetArrayLength() > 1)
+                    face1 = faces[1];
             }
 
-            string? artist     = GetStr(card, "artist")      ?? GetStr(face0, "artist");
+            string? artist = GetStr(card, "artist") ?? GetStr(face0, "artist");
             string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
-            string? manaCost   = GetStr(card, "mana_cost")   ?? GetStr(face0, "mana_cost");
+            string? manaCost = GetStr(card, "mana_cost") ?? GetStr(face0, "mana_cost");
 
             // For DFCs, combine both faces with the same separator CardParser uses so the
             // modal can split them when showing the flipped side's oracle text.
@@ -674,17 +729,17 @@ public sealed class BulkDataService : IScryfallService
 
             var dto = new PrintingDto
             {
-                ScryfallId         = id,
-                SetCode            = setCode,
-                SetName            = setName,
-                CollectorNumber    = num,
-                ImageUriSmall      = imgSmall,
-                ImageUriNormal     = imgNormal,
+                ScryfallId = id,
+                SetCode = setCode,
+                SetName = setName,
+                CollectorNumber = num,
+                ImageUriSmall = imgSmall,
+                ImageUriNormal = imgNormal,
                 ImageUriNormalBack = imgNormalBack,
-                Artist             = artist,
-                OracleText         = oracleText,
-                FlavorText         = flavorText,
-                ManaCost           = manaCost,
+                Artist = artist,
+                OracleText = oracleText,
+                FlavorText = flavorText,
+                ManaCost = manaCost,
             };
 
             if (!printings.TryGetValue(oid, out var list))
@@ -704,23 +759,26 @@ public sealed class BulkDataService : IScryfallService
                     setList = new List<string>(32);
                     setIdx[setCode] = setList;
                 }
-                if (!setList.Contains(oid)) setList.Add(oid);
-                if (setName.Length > 0) setNames.TryAdd(setCode, setName);
+                if (!setList.Contains(oid))
+                    setList.Add(oid);
+                if (setName.Length > 0)
+                    setNames.TryAdd(setCode, setName);
                 if (releasedAt is not null && DateOnly.TryParse(releasedAt, out var releaseDate))
                     setReleaseDates.TryAdd(setCode, releaseDate);
             }
         }
 
         _printingsByOracleId = printings.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
-        _byScryfallId        = scryfallIdx;
-        _bySetCode           = setIdx;
-        _setNames            = setNames;
-        _setReleaseDates     = setReleaseDates;
+        _byScryfallId = scryfallIdx;
+        _bySetCode = setIdx;
+        _setNames = setNames;
+        _setReleaseDates = setReleaseDates;
     }
 
     private static string? GetStr(JsonElement? el, string prop)
     {
-        if (el is null) return null;
+        if (el is null)
+            return null;
         return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
@@ -742,27 +800,32 @@ public sealed class BulkDataService : IScryfallService
         try
         {
             using var response = await _metaClient.GetAsync("bulk-data", ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+                return null;
 
             using var doc = await JsonDocument.ParseAsync(
                 await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
 
-            if (!doc.RootElement.TryGetProperty("data", out var data)) return null;
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+                return null;
 
             BulkEntry? oracle = null, defaults = null;
             foreach (var entry in data.EnumerateArray())
             {
-                var type = entry.TryGetProperty("type",         out var t) ? t.GetString() : null;
-                var uri  = entry.TryGetProperty("download_uri", out var u) ? u.GetString() : null;
-                var name = entry.TryGetProperty("name",         out var n) ? n.GetString() ?? "" : "";
+                var type = entry.TryGetProperty("type", out var t) ? t.GetString() : null;
+                var uri = entry.TryGetProperty("download_uri", out var u) ? u.GetString() : null;
+                var name = entry.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
                 DateTimeOffset updatedAt = default;
                 if (entry.TryGetProperty("updated_at", out var ua))
                     DateTimeOffset.TryParse(ua.GetString(), out updatedAt);
 
-                if (uri is null) continue;
+                if (uri is null)
+                    continue;
                 var be = new BulkEntry(name, uri, updatedAt);
-                if (type == "oracle_cards")  oracle   = be;
-                if (type == "default_cards") defaults = be;
+                if (type == "oracle_cards")
+                    oracle = be;
+                if (type == "default_cards")
+                    defaults = be;
             }
 
             return new BulkMeta(oracle, defaults);
@@ -777,7 +840,7 @@ public sealed class BulkDataService : IScryfallService
     private async Task<bool> DownloadIfStaleAsync(BulkEntry entry, string fileName, CancellationToken ct)
     {
         var localPath = Path.Combine(_bulkDir, fileName);
-        var metaPath  = localPath + ".meta";
+        var metaPath = localPath + ".meta";
 
         if (File.Exists(localPath) && File.Exists(metaPath))
         {
@@ -797,7 +860,7 @@ public sealed class BulkDataService : IScryfallService
             response.EnsureSuccessStatusCode();
 
             var tmpPath = localPath + ".tmp";
-            await using (var src  = await response.Content.ReadAsStreamAsync(ct))
+            await using (var src = await response.Content.ReadAsStreamAsync(ct))
             await using (var dest = File.Create(tmpPath))
             {
                 // Bulk files may be delivered as gzip even without .gz extension

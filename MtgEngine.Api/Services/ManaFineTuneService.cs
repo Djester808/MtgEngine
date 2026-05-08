@@ -24,8 +24,8 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         ILogger<ManaFineTuneService> logger)
     {
         _httpFactory = httpFactory;
-        _apiKey      = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
-        _logger      = logger;
+        _apiKey = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _logger = logger;
     }
 
     public async Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
@@ -33,7 +33,12 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         var colorNames = req.ActiveColors.Length > 0
             ? string.Join(", ", req.ActiveColors.Select(c => c switch
             {
-                "W" => "White", "U" => "Blue", "B" => "Black", "R" => "Red", "G" => "Green", _ => c,
+                "W" => "White",
+                "U" => "Blue",
+                "B" => "Black",
+                "R" => "Red",
+                "G" => "Green",
+                _ => c,
             }))
             : "Colorless";
 
@@ -76,10 +81,10 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 
         var body = new
         {
-            model       = ModelId,
-            max_tokens  = 800,
+            model = ModelId,
+            max_tokens = 800,
             temperature = 0,
-            messages    = new[] { new { role = "user", content = prompt } },
+            messages = new[] { new { role = "user", content = prompt } },
         };
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -99,8 +104,8 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
-        var doc      = JsonDocument.Parse(respJson);
-        var text     = doc.RootElement
+        var doc = JsonDocument.Parse(respJson);
+        var text = doc.RootElement
             .GetProperty("content")[0]
             .GetProperty("text")
             .GetString() ?? "{}";
@@ -113,7 +118,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 
         return new ManaFineTuneDto
         {
-            Advice          = raw.Advice,
+            Advice = raw.Advice,
             LandSuggestions = raw.LandSuggestions
                 .Select(l => new ManaLandSuggestion { Name = l.Name, Reason = l.Reason })
                 .ToArray(),
@@ -122,30 +127,39 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 
     private sealed class RawFineTune
     {
-        [JsonPropertyName("advice")]          public string[]            Advice          { get; set; } = [];
+        [JsonPropertyName("advice")] public string[] Advice { get; set; } = [];
         [JsonPropertyName("landSuggestions")] public RawLandSuggestion[] LandSuggestions { get; set; } = [];
     }
 
     private sealed class RawLandSuggestion
     {
-        [JsonPropertyName("name")]   public string Name   { get; set; } = string.Empty;
+        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
     }
 
     private static string ExtractJsonObject(string text)
     {
         int start = text.IndexOf('{');
-        if (start < 0) return "{}";
-        int depth = 0; bool inString = false; bool escaped = false;
+        if (start < 0)
+            return "{}";
+        int depth = 0;
+        bool inString = false;
+        bool escaped = false;
         for (int i = start; i < text.Length; i++)
         {
             char c = text[i];
-            if (escaped)              { escaped = false; continue; }
-            if (c == '\\' && inString){ escaped = true;  continue; }
-            if (c == '"')             { inString = !inString; continue; }
-            if (inString)               continue;
-            if (c == '{') depth++;
-            else if (c == '}') { if (--depth == 0) return text[start..(i + 1)]; }
+            if (escaped)
+            { escaped = false; continue; }
+            if (c == '\\' && inString)
+            { escaped = true; continue; }
+            if (c == '"')
+            { inString = !inString; continue; }
+            if (inString)
+                continue;
+            if (c == '{')
+                depth++;
+            else if (c == '}')
+            { if (--depth == 0) return text[start..(i + 1)]; }
         }
         return text[start..];
     }

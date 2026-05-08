@@ -1,6 +1,5 @@
 using FluentAssertions;
 using MtgEngine.Domain.Enums;
-using MtgEngine.Domain.Models;
 using MtgEngine.Rules.SBA;
 using Xunit;
 
@@ -143,7 +142,7 @@ public class StateBasedActionTests
     [Fact]
     public void Two_legendary_creatures_with_same_name_triggers_legend_rule()
     {
-        var def = new MtgEngine.Domain.Models.CardDefinition
+        var def = new Domain.Models.CardDefinition
         {
             OracleId = "legendary-test",
             Name = "Legendary Hero",
@@ -175,7 +174,7 @@ public class StateBasedActionTests
     [Fact]
     public void Planeswalker_with_zero_loyalty_dies()
     {
-        var def = new MtgEngine.Domain.Models.CardDefinition
+        var def = new Domain.Models.CardDefinition
         {
             OracleId = "pw-test",
             Name = "Test Planeswalker",

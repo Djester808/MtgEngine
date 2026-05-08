@@ -1,7 +1,4 @@
 using System.Collections.Concurrent;
-using MtgEngine.Domain.Models;
-using MtgEngine.Domain.Enums;
-using MtgEngine.Domain.ValueObjects;
 using MtgEngine.Rules;
 
 namespace MtgEngine.Api.Services;
@@ -23,7 +20,7 @@ public sealed class GameSessionService : IHostedService, IDisposable
         ILogger<GameSessionService> logger,
         IServiceScopeFactory scopeFactory)
     {
-        _logger      = logger;
+        _logger = logger;
         _scopeFactory = scopeFactory;
     }
 

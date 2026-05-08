@@ -26,7 +26,8 @@ public sealed class ManaCost : IEquatable<ManaCost>
 
     public ManaCost(int generic, Dictionary<ManaColor, int> colored)
     {
-        if (generic < 0) throw new ArgumentOutOfRangeException(nameof(generic));
+        if (generic < 0)
+            throw new ArgumentOutOfRangeException(nameof(generic));
         Generic = generic;
         Colored = colored.Where(kv => kv.Value > 0)
                          .ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -38,7 +39,8 @@ public sealed class ManaCost : IEquatable<ManaCost>
     /// </summary>
     public static ManaCost Parse(string cost)
     {
-        if (string.IsNullOrWhiteSpace(cost)) return Zero;
+        if (string.IsNullOrWhiteSpace(cost))
+            return Zero;
 
         var colored = new Dictionary<ManaColor, int>();
         int generic = 0;
@@ -49,7 +51,8 @@ public sealed class ManaCost : IEquatable<ManaCost>
             if (char.IsDigit(cost[i]))
             {
                 int start = i;
-                while (i < cost.Length && char.IsDigit(cost[i])) i++;
+                while (i < cost.Length && char.IsDigit(cost[i]))
+                    i++;
                 generic += int.Parse(cost[start..i]);
             }
             else
@@ -83,7 +86,8 @@ public sealed class ManaCost : IEquatable<ManaCost>
         foreach (var (color, count) in Colored)
         {
             int available = remaining.GetValueOrDefault(color);
-            if (available < count) return false;
+            if (available < count)
+                return false;
             remaining[color] = available - count;
         }
 
@@ -95,15 +99,16 @@ public sealed class ManaCost : IEquatable<ManaCost>
     public override string ToString()
     {
         var sb = new System.Text.StringBuilder();
-        if (Generic > 0) sb.Append(Generic);
+        if (Generic > 0)
+            sb.Append(Generic);
         foreach (var (color, count) in Colored)
         {
             var symbol = color switch
             {
                 ManaColor.White => 'W',
-                ManaColor.Blue  => 'U',
+                ManaColor.Blue => 'U',
                 ManaColor.Black => 'B',
-                ManaColor.Red   => 'R',
+                ManaColor.Red => 'R',
                 ManaColor.Green => 'G',
                 _ => 'C'
             };
@@ -114,11 +119,15 @@ public sealed class ManaCost : IEquatable<ManaCost>
 
     public bool Equals(ManaCost? other)
     {
-        if (other is null) return false;
-        if (Generic != other.Generic) return false;
-        if (Colored.Count != other.Colored.Count) return false;
+        if (other is null)
+            return false;
+        if (Generic != other.Generic)
+            return false;
+        if (Colored.Count != other.Colored.Count)
+            return false;
         foreach (var (k, v) in Colored)
-            if (!other.Colored.TryGetValue(k, out int ov) || ov != v) return false;
+            if (!other.Colored.TryGetValue(k, out int ov) || ov != v)
+                return false;
         return true;
     }
 
@@ -166,20 +175,24 @@ public sealed class ManaPool
         foreach (var (color, count) in cost.Colored)
         {
             remaining[color] = remaining.GetValueOrDefault(color) - count;
-            if (remaining[color] <= 0) remaining.Remove(color);
+            if (remaining[color] <= 0)
+                remaining.Remove(color);
         }
 
         int generic = cost.Generic;
         foreach (var color in remaining.Keys.ToList())
         {
-            if (generic <= 0) break;
+            if (generic <= 0)
+                break;
             int take = Math.Min(generic, remaining[color]);
             remaining[color] -= take;
             generic -= take;
-            if (remaining[color] <= 0) remaining.Remove(color);
+            if (remaining[color] <= 0)
+                remaining.Remove(color);
         }
 
-        if (generic > 0) throw new InvalidOperationException("Cannot pay: insufficient mana.");
+        if (generic > 0)
+            throw new InvalidOperationException("Cannot pay: insufficient mana.");
         return new ManaPool(remaining);
     }
 
@@ -187,8 +200,10 @@ public sealed class ManaPool
     {
         var next = new Dictionary<ManaColor, int>(Amounts);
         int current = next.GetValueOrDefault(color);
-        if (current <= count) next.Remove(color);
-        else next[color] = current - count;
+        if (current <= count)
+            next.Remove(color);
+        else
+            next[color] = current - count;
         return new ManaPool(next);
     }
 

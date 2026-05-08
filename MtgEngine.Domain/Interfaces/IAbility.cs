@@ -1,5 +1,5 @@
-using MtgEngine.Domain.Models;
 using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Domain.Interfaces;
 

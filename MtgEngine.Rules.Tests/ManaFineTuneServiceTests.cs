@@ -22,8 +22,8 @@ public sealed class ManaFineTuneServiceTests
     private static string AnthropicEnvelope(string innerJson) =>
         JsonSerializer.Serialize(new
         {
-            id      = "msg_test",
-            type    = "message",
+            id = "msg_test",
+            type = "message",
             content = new[] { new { type = "text", text = innerJson } },
         });
 
@@ -39,7 +39,7 @@ public sealed class ManaFineTuneServiceTests
             .ReturnsAsync(new HttpResponseMessage
             {
                 StatusCode = status,
-                Content    = new StringContent(responseBody, Encoding.UTF8, "application/json"),
+                Content = new StringContent(responseBody, Encoding.UTF8, "application/json"),
             });
 
         var httpClient = new HttpClient(handler.Object)
@@ -72,7 +72,7 @@ public sealed class ManaFineTuneServiceTests
                 return new HttpResponseMessage
                 {
                     StatusCode = HttpStatusCode.OK,
-                    Content    = new StringContent(responseEnvelope, Encoding.UTF8, "application/json"),
+                    Content = new StringContent(responseEnvelope, Encoding.UTF8, "application/json"),
                 };
             });
 
@@ -86,12 +86,12 @@ public sealed class ManaFineTuneServiceTests
 
     private static ManaFineTuneRequest DefaultRequest() => new()
     {
-        Format           = "commander",
-        DeckCardNames    = ["Sol Ring", "Counterspell"],
-        CurrentLands     = 30,
+        Format = "commander",
+        DeckCardNames = ["Sol Ring", "Counterspell"],
+        CurrentLands = 30,
         RecommendedLands = 36,
-        AvgCmc           = 3.2,
-        ActiveColors     = ["U", "W"],
+        AvgCmc = 3.2,
+        ActiveColors = ["U", "W"],
     };
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ public sealed class ManaFineTuneServiceTests
                 return new HttpResponseMessage
                 {
                     StatusCode = HttpStatusCode.OK,
-                    Content    = new StringContent(responseEnvelope, Encoding.UTF8, "application/json"),
+                    Content = new StringContent(responseEnvelope, Encoding.UTF8, "application/json"),
                 };
             });
 
@@ -269,7 +269,7 @@ public sealed class ManaFineTuneServiceTests
     public void Constructor_ThrowsInvalidOperationException_WhenApiKeyMissing()
     {
         var factory = new Mock<IHttpClientFactory>();
-        var config  = new Mock<IConfiguration>();
+        var config = new Mock<IConfiguration>();
         config.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
         var logger = Mock.Of<ILogger<ManaFineTuneService>>();
 

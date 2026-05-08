@@ -3,50 +3,50 @@ namespace MtgEngine.Domain.Enums;
 [Flags]
 public enum CardType
 {
-    None        = 0,
-    Creature    = 1 << 0,
-    Instant     = 1 << 1,
-    Sorcery     = 1 << 2,
+    None = 0,
+    Creature = 1 << 0,
+    Instant = 1 << 1,
+    Sorcery = 1 << 2,
     Enchantment = 1 << 3,
-    Artifact    = 1 << 4,
-    Land        = 1 << 5,
-    Planeswalker= 1 << 6,
-    Tribal      = 1 << 7,
-    Token       = 1 << 8,
-    Battle      = 1 << 9,
-    Other       = 1 << 10,
+    Artifact = 1 << 4,
+    Land = 1 << 5,
+    Planeswalker = 1 << 6,
+    Tribal = 1 << 7,
+    Token = 1 << 8,
+    Battle = 1 << 9,
+    Other = 1 << 10,
 }
 
 [Flags]
 public enum KeywordAbility
 {
-    None          = 0,
-    Flying        = 1 << 0,
-    Reach         = 1 << 1,
-    FirstStrike   = 1 << 2,
-    DoubleStrike  = 1 << 3,
-    Trample       = 1 << 4,
-    Deathtouch    = 1 << 5,
-    Lifelink      = 1 << 6,
-    Vigilance     = 1 << 7,
-    Haste         = 1 << 8,
-    Hexproof      = 1 << 9,
-    Indestructible= 1 << 10,
-    Menace        = 1 << 11,
-    Flash         = 1 << 12,
-    Shroud        = 1 << 13,
-    Protection    = 1 << 14,
-    Ward          = 1 << 15,
+    None = 0,
+    Flying = 1 << 0,
+    Reach = 1 << 1,
+    FirstStrike = 1 << 2,
+    DoubleStrike = 1 << 3,
+    Trample = 1 << 4,
+    Deathtouch = 1 << 5,
+    Lifelink = 1 << 6,
+    Vigilance = 1 << 7,
+    Haste = 1 << 8,
+    Hexproof = 1 << 9,
+    Indestructible = 1 << 10,
+    Menace = 1 << 11,
+    Flash = 1 << 12,
+    Shroud = 1 << 13,
+    Protection = 1 << 14,
+    Ward = 1 << 15,
 }
 
 public enum ManaColor
 {
     Colorless = 0,
-    White     = 1,
-    Blue      = 2,
-    Black     = 3,
-    Red       = 4,
-    Green     = 5,
+    White = 1,
+    Blue = 2,
+    Black = 3,
+    Red = 4,
+    Green = 5,
 }
 
 public enum Phase

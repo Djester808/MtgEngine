@@ -8,18 +8,18 @@ namespace MtgEngine.Api.Controllers;
 [Route("api/commanders")]
 public sealed class CommandersController : ControllerBase
 {
-    private readonly ICommanderStatsService   _stats;
-    private readonly IDeckSuggestionsService  _suggestions;
-    private readonly IScryfallService         _scryfall;
+    private readonly ICommanderStatsService _stats;
+    private readonly IDeckSuggestionsService _suggestions;
+    private readonly IScryfallService _scryfall;
 
     public CommandersController(
-        ICommanderStatsService  stats,
+        ICommanderStatsService stats,
         IDeckSuggestionsService suggestions,
-        IScryfallService        scryfall)
+        IScryfallService scryfall)
     {
-        _stats       = stats;
+        _stats = stats;
         _suggestions = suggestions;
-        _scryfall    = scryfall;
+        _scryfall = scryfall;
     }
 
     /// <summary>Top commanders ranked by number of community published decks.</summary>
@@ -39,7 +39,8 @@ public sealed class CommandersController : ControllerBase
     public async Task<ActionResult<CommanderProfileDto>> GetCommanderProfile(string oracleId)
     {
         var profile = await _stats.GetCommanderProfileAsync(oracleId);
-        if (profile == null) return NotFound();
+        if (profile == null)
+            return NotFound();
         return Ok(profile);
     }
 
@@ -92,14 +93,15 @@ public sealed class CommandersController : ControllerBase
     public async Task<ActionResult<DeckSuggestionsDto>> GetCommanderSuggestions(string oracleId)
     {
         var card = await _scryfall.GetByOracleIdAsync(oracleId);
-        if (card == null) return NotFound();
+        if (card == null)
+            return NotFound();
 
         var request = new DeckSuggestionsRequest
         {
             CommanderOracleId = oracleId,
-            CommanderName     = card.Name,
-            CommanderText     = card.OracleText,
-            DeckCardNames     = [],
+            CommanderName = card.Name,
+            CommanderText = card.OracleText,
+            DeckCardNames = [],
         };
 
         var suggestions = await _suggestions.GetSuggestionsAsync(request);

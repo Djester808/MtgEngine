@@ -1,9 +1,9 @@
+using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Combat;
 using MtgEngine.Rules.SBA;
 using MtgEngine.Rules.Turn;
-using System.Collections.Immutable;
 
 namespace MtgEngine.Rules;
 
@@ -230,11 +230,4 @@ public static class GameEngine
         var (next, _) = StateBasedActions.Apply(state);
         return next;
     }
-
-    // =========================================================
-    // Helpers
-    // =========================================================
-
-    private static Guid GetOpponent(GameState state, Guid playerId) =>
-        state.Players.First(p => p.PlayerId != playerId).PlayerId;
 }

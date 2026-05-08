@@ -1,7 +1,7 @@
+using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Domain.ValueObjects;
-using MtgEngine.Api.Dtos;
 
 namespace MtgEngine.Api.Mapping;
 
@@ -17,17 +17,17 @@ public static class DomainMapper
     {
         return new GameStateDto
         {
-            GameId           = state.GameId.ToString(),
-            Players          = state.Players.Select(p => ToPlayerDto(p, p.PlayerId == requestingPlayerId)).ToArray(),
-            Battlefield      = state.Battlefield.Select(ToDto).ToArray(),
-            Stack            = state.Stack.Reverse().Select(ToDto).ToArray(),
-            Turn             = state.Turn,
-            ActivePlayerId   = state.ActivePlayerId.ToString(),
+            GameId = state.GameId.ToString(),
+            Players = state.Players.Select(p => ToPlayerDto(p, p.PlayerId == requestingPlayerId)).ToArray(),
+            Battlefield = state.Battlefield.Select(ToDto).ToArray(),
+            Stack = state.Stack.Reverse().Select(ToDto).ToArray(),
+            Turn = state.Turn,
+            ActivePlayerId = state.ActivePlayerId.ToString(),
             PriorityPlayerId = state.PriorityPlayerId.ToString(),
-            CurrentPhase     = ToDto(state.CurrentPhase),
-            CurrentStep      = ToDto(state.CurrentStep),
-            Result           = ToDto(state.Result),
-            Combat           = state.Combat is null ? null : ToDto(state.Combat),
+            CurrentPhase = ToDto(state.CurrentPhase),
+            CurrentStep = ToDto(state.CurrentStep),
+            Result = ToDto(state.Result),
+            Combat = state.Combat is null ? null : ToDto(state.Combat),
         };
     }
 
@@ -70,13 +70,13 @@ public static class DomainMapper
         {
             ChangedPermanents = changedPerms,
             RemovedPermanentIds = removedIds,
-            Stack            = after.Stack.Reverse().Select(ToDto).ToArray(),
+            Stack = after.Stack.Reverse().Select(ToDto).ToArray(),
             PriorityPlayerId = after.PriorityPlayerId.ToString(),
-            CurrentPhase     = ToDto(after.CurrentPhase),
-            CurrentStep      = ToDto(after.CurrentStep),
-            Result           = ToDto(after.Result),
-            Combat           = after.Combat is null ? null : ToDto(after.Combat),
-            PlayerUpdates    = playerUpdates,
+            CurrentPhase = ToDto(after.CurrentPhase),
+            CurrentStep = ToDto(after.CurrentStep),
+            Result = ToDto(after.Result),
+            Combat = after.Combat is null ? null : ToDto(after.Combat),
+            PlayerUpdates = playerUpdates,
         };
     }
 
@@ -84,16 +84,16 @@ public static class DomainMapper
 
     public static PermanentDto ToDto(Permanent p) => new()
     {
-        PermanentId          = p.PermanentId.ToString(),
-        SourceCard           = ToDto(p.SourceCard),
-        ControllerId         = p.ControllerId.ToString(),
-        IsTapped             = p.IsTapped,
+        PermanentId = p.PermanentId.ToString(),
+        SourceCard = ToDto(p.SourceCard),
+        ControllerId = p.ControllerId.ToString(),
+        IsTapped = p.IsTapped,
         HasSummoningSickness = p.HasSummoningSickness,
-        DamageMarked         = p.DamageMarked,
-        Counters             = p.Counters.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
-        Attachments          = p.Attachments.Select(a => a.ToString()).ToArray(),
-        EffectivePower       = p.EffectivePower,
-        EffectiveToughness   = p.EffectiveToughness,
+        DamageMarked = p.DamageMarked,
+        Counters = p.Counters.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+        Attachments = p.Attachments.Select(a => a.ToString()).ToArray(),
+        EffectivePower = p.EffectivePower,
+        EffectiveToughness = p.EffectiveToughness,
     };
 
     // ---- Card ---------------------------------------------
@@ -102,50 +102,50 @@ public static class DomainMapper
 
     public static CardDto ToDto(CardDefinition def, Guid cardId, Guid ownerId) => new()
     {
-        CardId          = cardId.ToString(),
-        OracleId        = def.OracleId,
-        Name            = def.Name,
-        ManaCost        = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-        ManaValue       = def.ManaCost.ManaValue,
-        CardTypes       = ToCardTypeDto(def.CardTypes),
-        Subtypes        = def.Subtypes.ToArray(),
-        Supertypes      = def.Supertypes.ToArray(),
-        OracleText      = def.OracleText,
-        Power           = def.Power,
-        Toughness       = def.Toughness,
+        CardId = cardId.ToString(),
+        OracleId = def.OracleId,
+        Name = def.Name,
+        ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
+        ManaValue = def.ManaCost.ManaValue,
+        CardTypes = ToCardTypeDto(def.CardTypes),
+        Subtypes = def.Subtypes.ToArray(),
+        Supertypes = def.Supertypes.ToArray(),
+        OracleText = def.OracleText,
+        Power = def.Power,
+        Toughness = def.Toughness,
         StartingLoyalty = def.StartingLoyalty,
-        Keywords        = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
-        ImageUriNormal     = def.ImageUriNormal,
+        Keywords = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
+        ImageUriNormal = def.ImageUriNormal,
         ImageUriNormalBack = def.ImageUriNormalBack,
-        ImageUriSmall      = def.ImageUriSmall,
-        ImageUriArtCrop    = def.ImageUriArtCrop,
-        ColorIdentity   = def.ColorIdentity.Select(ToDto).ToArray(),
-        OwnerId         = ownerId.ToString(),
-        FlavorText      = def.FlavorText,
-        Artist          = def.Artist,
-        SetCode         = def.SetCode,
-        Legalities      = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
-        GameChanger     = def.GameChanger,
+        ImageUriSmall = def.ImageUriSmall,
+        ImageUriArtCrop = def.ImageUriArtCrop,
+        ColorIdentity = def.ColorIdentity.Select(ToDto).ToArray(),
+        OwnerId = ownerId.ToString(),
+        FlavorText = def.FlavorText,
+        Artist = def.Artist,
+        SetCode = def.SetCode,
+        Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
+        GameChanger = def.GameChanger,
     };
 
     // ---- Player -------------------------------------------
 
     public static PlayerStateDto ToPlayerDto(PlayerState p, bool isLocal) => new()
     {
-        PlayerId          = p.PlayerId.ToString(),
-        Name              = p.Name,
-        Life              = p.Life,
-        PoisonCounters    = p.PoisonCounters,
-        ManaPool          = ToDto(p.ManaPool),
-        HandCount         = p.Hand.Count,
-        LibraryCount      = p.Library.Count,
-        GraveyardCount    = p.Graveyard.Count,
-        ExileCount        = p.Exile.Count,
+        PlayerId = p.PlayerId.ToString(),
+        Name = p.Name,
+        Life = p.Life,
+        PoisonCounters = p.PoisonCounters,
+        ManaPool = ToDto(p.ManaPool),
+        HandCount = p.Hand.Count,
+        LibraryCount = p.Library.Count,
+        GraveyardCount = p.Graveyard.Count,
+        ExileCount = p.Exile.Count,
         HasLandPlayedThisTurn = p.HasLandPlayedThisTurn,
         // Only expose hand / graveyard / exile contents to the owning player
-        Hand      = isLocal ? p.Hand.Select(c => ToDto(c)).ToArray() : [],
+        Hand = isLocal ? p.Hand.Select(c => ToDto(c)).ToArray() : [],
         Graveyard = p.Graveyard.Select(c => ToDto(c)).ToArray(),   // graveyard is public
-        Exile     = p.Exile.Select(c => ToDto(c)).ToArray(),       // exile is public
+        Exile = p.Exile.Select(c => ToDto(c)).ToArray(),       // exile is public
     };
 
     // ---- Stack --------------------------------------------
@@ -154,30 +154,30 @@ public static class DomainMapper
     {
         SpellOnStack spell => new StackObjectDto
         {
-            StackObjectId  = spell.StackObjectId.ToString(),
-            Type           = StackObjectTypeDto.Spell,
-            ControllerId   = spell.ControllerId.ToString(),
-            Description    = spell.Description,
+            StackObjectId = spell.StackObjectId.ToString(),
+            Type = StackObjectTypeDto.Spell,
+            ControllerId = spell.ControllerId.ToString(),
+            Description = spell.Description,
             SourceCardName = spell.SourceCard.Name,
-            Targets        = spell.Targets.Select(ToDto).ToArray(),
+            Targets = spell.Targets.Select(ToDto).ToArray(),
         },
         ActivatedAbilityOnStack act => new StackObjectDto
         {
-            StackObjectId  = act.StackObjectId.ToString(),
-            Type           = StackObjectTypeDto.ActivatedAbility,
-            ControllerId   = act.ControllerId.ToString(),
-            Description    = act.Description,
+            StackObjectId = act.StackObjectId.ToString(),
+            Type = StackObjectTypeDto.ActivatedAbility,
+            ControllerId = act.ControllerId.ToString(),
+            Description = act.Description,
             SourceCardName = act.AbilityText,
-            Targets        = act.Targets.Select(ToDto).ToArray(),
+            Targets = act.Targets.Select(ToDto).ToArray(),
         },
         TriggeredAbilityOnStack trig => new StackObjectDto
         {
-            StackObjectId  = trig.StackObjectId.ToString(),
-            Type           = StackObjectTypeDto.TriggeredAbility,
-            ControllerId   = trig.ControllerId.ToString(),
-            Description    = trig.Description,
+            StackObjectId = trig.StackObjectId.ToString(),
+            Type = StackObjectTypeDto.TriggeredAbility,
+            ControllerId = trig.ControllerId.ToString(),
+            Description = trig.Description,
             SourceCardName = trig.TriggerText,
-            Targets        = trig.Targets.Select(ToDto).ToArray(),
+            Targets = trig.Targets.Select(ToDto).ToArray(),
         },
         _ => throw new InvalidOperationException($"Unknown stack object: {obj.GetType().Name}")
     };
@@ -188,13 +188,13 @@ public static class DomainMapper
 
     public static CombatStateDto ToDto(CombatState c) => new()
     {
-        Attackers         = c.Attackers.Select(a => a.ToString()).ToArray(),
+        Attackers = c.Attackers.Select(a => a.ToString()).ToArray(),
         AttackersToBlockers = c.AttackersToBlockers
             .ToDictionary(
                 kv => kv.Key.ToString(),
                 kv => kv.Value.Select(b => b.ToString()).ToArray()),
         AttackersDeclared = c.AttackersDeclared,
-        BlockersDeclared  = c.BlockersDeclared,
+        BlockersDeclared = c.BlockersDeclared,
     };
 
     // ---- Mana pool ----------------------------------------
@@ -204,54 +204,54 @@ public static class DomainMapper
         // Use short symbols ("W","U","B","R","G","C") not enum names ("White","Blue"…)
         // so the frontend mana-cost parser ("2WW") can match pool keys directly.
         Amounts = pool.Amounts.ToDictionary(kv => ToDto(kv.Key).ToString(), kv => kv.Value),
-        Total   = pool.Total,
+        Total = pool.Total,
     };
 
     // ---- Enum conversions ---------------------------------
 
     public static PhaseDto ToDto(Phase p) => p switch
     {
-        Phase.Beginning      => PhaseDto.Beginning,
-        Phase.PreCombatMain  => PhaseDto.PreCombatMain,
-        Phase.Combat         => PhaseDto.Combat,
+        Phase.Beginning => PhaseDto.Beginning,
+        Phase.PreCombatMain => PhaseDto.PreCombatMain,
+        Phase.Combat => PhaseDto.Combat,
         Phase.PostCombatMain => PhaseDto.PostCombatMain,
-        Phase.Ending         => PhaseDto.Ending,
+        Phase.Ending => PhaseDto.Ending,
         _ => throw new ArgumentOutOfRangeException(nameof(p))
     };
 
     public static StepDto ToDto(Step s) => s switch
     {
-        Step.Untap              => StepDto.Untap,
-        Step.Upkeep             => StepDto.Upkeep,
-        Step.Draw               => StepDto.Draw,
-        Step.Main               => StepDto.Main,
-        Step.BeginningOfCombat  => StepDto.BeginningOfCombat,
-        Step.DeclareAttackers   => StepDto.DeclareAttackers,
-        Step.DeclareBlockers    => StepDto.DeclareBlockers,
-        Step.FirstStrikeDamage  => StepDto.FirstStrikeDamage,
-        Step.CombatDamage       => StepDto.CombatDamage,
-        Step.EndOfCombat        => StepDto.EndOfCombat,
-        Step.End                => StepDto.End,
-        Step.Cleanup            => StepDto.Cleanup,
+        Step.Untap => StepDto.Untap,
+        Step.Upkeep => StepDto.Upkeep,
+        Step.Draw => StepDto.Draw,
+        Step.Main => StepDto.Main,
+        Step.BeginningOfCombat => StepDto.BeginningOfCombat,
+        Step.DeclareAttackers => StepDto.DeclareAttackers,
+        Step.DeclareBlockers => StepDto.DeclareBlockers,
+        Step.FirstStrikeDamage => StepDto.FirstStrikeDamage,
+        Step.CombatDamage => StepDto.CombatDamage,
+        Step.EndOfCombat => StepDto.EndOfCombat,
+        Step.End => StepDto.End,
+        Step.Cleanup => StepDto.Cleanup,
         _ => throw new ArgumentOutOfRangeException(nameof(s))
     };
 
     public static GameResultDto ToDto(GameResult r) => r switch
     {
-        GameResult.InProgress  => GameResultDto.InProgress,
+        GameResult.InProgress => GameResultDto.InProgress,
         GameResult.Player1Wins => GameResultDto.Player1Wins,
         GameResult.Player2Wins => GameResultDto.Player2Wins,
-        GameResult.Draw        => GameResultDto.Draw,
+        GameResult.Draw => GameResultDto.Draw,
         _ => throw new ArgumentOutOfRangeException(nameof(r))
     };
 
     public static ManaColorDto ToDto(ManaColor c) => c switch
     {
-        ManaColor.White     => ManaColorDto.W,
-        ManaColor.Blue      => ManaColorDto.U,
-        ManaColor.Black     => ManaColorDto.B,
-        ManaColor.Red       => ManaColorDto.R,
-        ManaColor.Green     => ManaColorDto.G,
+        ManaColor.White => ManaColorDto.W,
+        ManaColor.Blue => ManaColorDto.U,
+        ManaColor.Black => ManaColorDto.B,
+        ManaColor.Red => ManaColorDto.R,
+        ManaColor.Green => ManaColorDto.G,
         ManaColor.Colorless => ManaColorDto.C,
         _ => ManaColorDto.C
     };
@@ -259,31 +259,38 @@ public static class DomainMapper
     public static CardTypeDto[] ToCardTypeDto(CardType flags)
     {
         var result = new List<CardTypeDto>();
-        if (flags.HasFlag(CardType.Creature))     result.Add(CardTypeDto.Creature);
-        if (flags.HasFlag(CardType.Instant))      result.Add(CardTypeDto.Instant);
-        if (flags.HasFlag(CardType.Sorcery))      result.Add(CardTypeDto.Sorcery);
-        if (flags.HasFlag(CardType.Enchantment))  result.Add(CardTypeDto.Enchantment);
-        if (flags.HasFlag(CardType.Artifact))     result.Add(CardTypeDto.Artifact);
-        if (flags.HasFlag(CardType.Land))         result.Add(CardTypeDto.Land);
-        if (flags.HasFlag(CardType.Planeswalker)) result.Add(CardTypeDto.Planeswalker);
+        if (flags.HasFlag(CardType.Creature))
+            result.Add(CardTypeDto.Creature);
+        if (flags.HasFlag(CardType.Instant))
+            result.Add(CardTypeDto.Instant);
+        if (flags.HasFlag(CardType.Sorcery))
+            result.Add(CardTypeDto.Sorcery);
+        if (flags.HasFlag(CardType.Enchantment))
+            result.Add(CardTypeDto.Enchantment);
+        if (flags.HasFlag(CardType.Artifact))
+            result.Add(CardTypeDto.Artifact);
+        if (flags.HasFlag(CardType.Land))
+            result.Add(CardTypeDto.Land);
+        if (flags.HasFlag(CardType.Planeswalker))
+            result.Add(CardTypeDto.Planeswalker);
         return result.ToArray();
     }
 
     // ---- Equality helpers (for diff) ----------------------
 
     private static bool ArePermanantsEqual(Permanent a, Permanent b) =>
-        a.IsTapped             == b.IsTapped &&
-        a.DamageMarked         == b.DamageMarked &&
+        a.IsTapped == b.IsTapped &&
+        a.DamageMarked == b.DamageMarked &&
         a.HasSummoningSickness == b.HasSummoningSickness &&
-        a.ControllerId         == b.ControllerId &&
-        a.Counters.Count       == b.Counters.Count;
+        a.ControllerId == b.ControllerId &&
+        a.Counters.Count == b.Counters.Count;
 
     private static bool ArePlayersEqual(PlayerState a, PlayerState b) =>
-        a.Life             == b.Life &&
-        a.PoisonCounters   == b.PoisonCounters &&
-        a.ManaPool.Total   == b.ManaPool.Total &&
-        a.Hand.Count       == b.Hand.Count &&
-        a.Library.Count    == b.Library.Count &&
-        a.Graveyard.Count  == b.Graveyard.Count &&
+        a.Life == b.Life &&
+        a.PoisonCounters == b.PoisonCounters &&
+        a.ManaPool.Total == b.ManaPool.Total &&
+        a.Hand.Count == b.Hand.Count &&
+        a.Library.Count == b.Library.Count &&
+        a.Graveyard.Count == b.Graveyard.Count &&
         a.HasLandPlayedThisTurn == b.HasLandPlayedThisTurn;
 }

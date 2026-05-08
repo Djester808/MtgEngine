@@ -33,7 +33,8 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<DeckDetailDto>> GetDeck(Guid deckId)
     {
         var deck = await _service.GetDeckAsync(deckId, UserId);
-        if (deck == null) return NotFound();
+        if (deck == null)
+            return NotFound();
         return Ok(deck);
     }
 
@@ -77,14 +78,15 @@ public sealed class DecksController : ControllerBase
             return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-        catch (HttpRequestException ex)      { return BadRequest(new { message = $"Failed to fetch deck: {ex.Message}" }); }
+        catch (HttpRequestException ex) { return BadRequest(new { message = $"Failed to fetch deck: {ex.Message}" }); }
     }
 
     [HttpDelete("{deckId:guid}")]
     public async Task<ActionResult> DeleteDeck(Guid deckId)
     {
         var success = await _service.DeleteDeckAsync(deckId, UserId);
-        if (!success) return NotFound();
+        if (!success)
+            return NotFound();
         return NoContent();
     }
 
@@ -116,7 +118,8 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<CollectionCardDto>> GetCard(Guid deckId, Guid cardId)
     {
         var card = await _service.GetCollectionCardAsync(deckId, cardId, UserId);
-        if (card == null) return NotFound();
+        if (card == null)
+            return NotFound();
         return Ok(card);
     }
 
@@ -144,7 +147,8 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult> RemoveCard(Guid deckId, Guid cardId)
     {
         var success = await _service.RemoveCardFromCollectionAsync(deckId, cardId, UserId);
-        if (!success) return NotFound();
+        if (!success)
+            return NotFound();
         return NoContent();
     }
 

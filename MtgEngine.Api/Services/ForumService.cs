@@ -90,7 +90,8 @@ public sealed class ForumService : IForumService
             .Include(p => p.Comments)
             .FirstOrDefaultAsync(p => p.Id == postId);
 
-        if (post == null) return null;
+        if (post == null)
+            return null;
 
         var deck = await _context.Collections
             .AsNoTracking()
@@ -121,7 +122,7 @@ public sealed class ForumService : IForumService
                     CardDetails = cardDef != null ? MapToCardDto(cardDef) : null,
                 });
             }
-            cardDtos = [..cardList];
+            cardDtos = [.. cardList];
         }
 
         var colorIdentity = JsonSerializer.Deserialize<string[]>(post.ColorIdentityJson, (JsonSerializerOptions?)null) ?? [];
@@ -181,19 +182,21 @@ public sealed class ForumService : IForumService
         foreach (var card in deck.Cards)
         {
             var cardDef = await _scryfall.GetByOracleIdAsync(card.OracleId);
-            if (cardDef == null) continue;
+            if (cardDef == null)
+                continue;
             foreach (var color in cardDef.ColorIdentity)
             {
                 var letter = color switch
                 {
                     ManaColor.White => "W",
-                    ManaColor.Blue  => "U",
+                    ManaColor.Blue => "U",
                     ManaColor.Black => "B",
-                    ManaColor.Red   => "R",
+                    ManaColor.Red => "R",
                     ManaColor.Green => "G",
-                    _               => null,
+                    _ => null,
                 };
-                if (letter != null) colorSet.Add(letter);
+                if (letter != null)
+                    colorSet.Add(letter);
             }
         }
         var colorIdentity = ColorOrder.Where(colorSet.Contains).ToArray();
@@ -249,7 +252,8 @@ public sealed class ForumService : IForumService
         var post = await _context.ForumPosts
             .FirstOrDefaultAsync(p => p.Id == postId && p.AuthorId == userId);
 
-        if (post == null) return false;
+        if (post == null)
+            return false;
 
         _context.ForumPosts.Remove(post);
         await _context.SaveChangesAsync();
@@ -259,7 +263,8 @@ public sealed class ForumService : IForumService
     public async Task<ForumCommentDto> AddCommentAsync(Guid postId, string userId, string username, CreateCommentRequest request)
     {
         var postExists = await _context.ForumPosts.AnyAsync(p => p.Id == postId);
-        if (!postExists) throw new KeyNotFoundException("Forum post not found");
+        if (!postExists)
+            throw new KeyNotFoundException("Forum post not found");
 
         var comment = new ForumComment
         {
@@ -288,7 +293,8 @@ public sealed class ForumService : IForumService
         var comment = await _context.ForumComments
             .FirstOrDefaultAsync(c => c.Id == commentId && c.ForumPostId == postId && c.AuthorId == userId);
 
-        if (comment == null) return null;
+        if (comment == null)
+            return null;
 
         comment.Content = request.Content;
         comment.UpdatedAt = DateTime.UtcNow;
@@ -310,7 +316,8 @@ public sealed class ForumService : IForumService
         var comment = await _context.ForumComments
             .FirstOrDefaultAsync(c => c.Id == commentId && c.ForumPostId == postId && c.AuthorId == userId);
 
-        if (comment == null) return false;
+        if (comment == null)
+            return false;
 
         _context.ForumComments.Remove(comment);
         await _context.SaveChangesAsync();
@@ -330,8 +337,8 @@ public sealed class ForumService : IForumService
                 .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
                 .Select(t => Enum.Parse<CardTypeDto>(t))
                 .ToArray(),
-            Subtypes = [..def.Subtypes],
-            Supertypes = [..def.Supertypes],
+            Subtypes = [.. def.Subtypes],
+            Supertypes = [.. def.Supertypes],
             OracleText = def.OracleText,
             Power = def.Power,
             Toughness = def.Toughness,
@@ -339,19 +346,19 @@ public sealed class ForumService : IForumService
             Keywords = def.Keywords.ToString().Split(", ")
                 .Where(k => !string.IsNullOrEmpty(k) && k != "None")
                 .ToArray(),
-            ImageUriNormal     = def.ImageUriNormal,
+            ImageUriNormal = def.ImageUriNormal,
             ImageUriNormalBack = def.ImageUriNormalBack,
-            ImageUriSmall      = def.ImageUriSmall,
-            ImageUriArtCrop    = def.ImageUriArtCrop,
+            ImageUriSmall = def.ImageUriSmall,
+            ImageUriArtCrop = def.ImageUriArtCrop,
             ColorIdentity = def.ColorIdentity
                 .Select(c => c switch
                 {
                     ManaColor.White => ManaColorDto.W,
-                    ManaColor.Blue  => ManaColorDto.U,
+                    ManaColor.Blue => ManaColorDto.U,
                     ManaColor.Black => ManaColorDto.B,
-                    ManaColor.Red   => ManaColorDto.R,
+                    ManaColor.Red => ManaColorDto.R,
                     ManaColor.Green => ManaColorDto.G,
-                    _               => ManaColorDto.C,
+                    _ => ManaColorDto.C,
                 })
                 .ToArray(),
             FlavorText = def.FlavorText,

@@ -46,7 +46,7 @@ public sealed class CollectionCard
 
     /// <summary>The oracle ID of the card (from CardDefinition)</summary>
     public string OracleId { get; set; } = string.Empty;
-    
+
     /// <summary>The Scryfall card ID (for tracking specific printings)</summary>
     public string? ScryfallId { get; set; }
 

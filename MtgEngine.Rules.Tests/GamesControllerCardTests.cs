@@ -32,10 +32,10 @@ public class CardsControllerTests
 
     private static CardDefinition MakeCardDef(string name = "Test", string manaCost = "1G") => new()
     {
-        OracleId     = Guid.NewGuid().ToString(),
-        Name         = name,
-        ManaCost     = ManaCost.Parse(manaCost),
-        CardTypes    = CardType.Creature,
+        OracleId = Guid.NewGuid().ToString(),
+        Name = name,
+        ManaCost = ManaCost.Parse(manaCost),
+        CardTypes = CardType.Creature,
         CastingSpeed = SpeedRestriction.Sorcery,
     };
 
@@ -130,23 +130,23 @@ public class CardsControllerTests
     {
         var def = new CardDefinition
         {
-            OracleId     = Guid.NewGuid().ToString(),
-            Name         = "Force of Will",
-            ManaCost     = ManaCost.Parse("3UU"),
-            CardTypes    = CardType.Instant,
+            OracleId = Guid.NewGuid().ToString(),
+            Name = "Force of Will",
+            ManaCost = ManaCost.Parse("3UU"),
+            CardTypes = CardType.Instant,
             CastingSpeed = SpeedRestriction.Instant,
-            Legalities   = new Dictionary<string, string>
+            Legalities = new Dictionary<string, string>
             {
-                ["legacy"]  = "legal",
+                ["legacy"] = "legal",
                 ["vintage"] = "legal",
-                ["modern"]  = "not_legal",
+                ["modern"] = "not_legal",
             },
         };
         var controller = MakeController(MockScryfall(searchResult: [def]));
 
         var result = await controller.Search("force");
 
-        var ok    = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var cards = ok.Value.Should().BeOfType<CardDto[]>().Subject;
         cards[0].Legalities.Should().ContainKey("legacy").WhoseValue.Should().Be("legal");
         cards[0].Legalities.Should().ContainKey("modern").WhoseValue.Should().Be("not_legal");
@@ -166,7 +166,7 @@ public class CardsControllerTests
 
         var result = await controller.GetSets();
 
-        var ok   = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var dtos = ok.Value.Should().BeOfType<SetSummaryDto[]>().Subject;
         dtos.Should().HaveCount(2);
         dtos.Select(s => s.Code).Should().Contain("NEO");
@@ -179,7 +179,7 @@ public class CardsControllerTests
 
         var result = await controller.GetSets();
 
-        var ok   = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var dtos = ok.Value.Should().BeOfType<SetSummaryDto[]>().Subject;
         dtos.Should().BeEmpty();
     }

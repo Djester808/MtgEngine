@@ -1,6 +1,5 @@
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
-using MtgEngine.Rules.SBA;
 
 namespace MtgEngine.Rules.Turn;
 
@@ -57,18 +56,18 @@ public static class TurnStateMachine
 
     private static GameState EnterStep(GameState state) => state.CurrentStep switch
     {
-        Step.Untap          => EnterUntap(state),
-        Step.Upkeep         => EnterUpkeep(state),
-        Step.Draw           => EnterDraw(state),
-        Step.Main           => EnterMain(state),
+        Step.Untap => EnterUntap(state),
+        Step.Upkeep => EnterUpkeep(state),
+        Step.Draw => EnterDraw(state),
+        Step.Main => EnterMain(state),
         Step.BeginningOfCombat => EnterBeginningOfCombat(state),
-        Step.DeclareAttackers  => EnterDeclareAttackers(state),
-        Step.DeclareBlockers   => EnterDeclareBlockers(state),
+        Step.DeclareAttackers => EnterDeclareAttackers(state),
+        Step.DeclareBlockers => EnterDeclareBlockers(state),
         Step.FirstStrikeDamage => EnterFirstStrikeDamage(state),
-        Step.CombatDamage      => EnterCombatDamage(state),
-        Step.EndOfCombat       => EnterEndOfCombat(state),
-        Step.End            => EnterEndStep(state),
-        Step.Cleanup        => EnterCleanup(state),
+        Step.CombatDamage => EnterCombatDamage(state),
+        Step.EndOfCombat => EnterEndOfCombat(state),
+        Step.End => EnterEndStep(state),
+        Step.Cleanup => EnterCleanup(state),
         _ => state
     };
 
@@ -229,26 +228,26 @@ public static class TurnStateMachine
         return (phase, step) switch
         {
             // Beginning phase
-            (Phase.Beginning, Step.Untap)  => (Phase.Beginning, Step.Upkeep),
+            (Phase.Beginning, Step.Untap) => (Phase.Beginning, Step.Upkeep),
             (Phase.Beginning, Step.Upkeep) => (Phase.Beginning, Step.Draw),
-            (Phase.Beginning, Step.Draw)   => (Phase.PreCombatMain, Step.Main),
+            (Phase.Beginning, Step.Draw) => (Phase.PreCombatMain, Step.Main),
 
             // Pre-combat main
             (Phase.PreCombatMain, Step.Main) => (Phase.Combat, Step.BeginningOfCombat),
 
             // Combat
             (Phase.Combat, Step.BeginningOfCombat) => (Phase.Combat, Step.DeclareAttackers),
-            (Phase.Combat, Step.DeclareAttackers)  => (Phase.Combat, Step.DeclareBlockers),
-            (Phase.Combat, Step.DeclareBlockers)   => (Phase.Combat, Step.FirstStrikeDamage),
+            (Phase.Combat, Step.DeclareAttackers) => (Phase.Combat, Step.DeclareBlockers),
+            (Phase.Combat, Step.DeclareBlockers) => (Phase.Combat, Step.FirstStrikeDamage),
             (Phase.Combat, Step.FirstStrikeDamage) => (Phase.Combat, Step.CombatDamage),
-            (Phase.Combat, Step.CombatDamage)      => (Phase.Combat, Step.EndOfCombat),
-            (Phase.Combat, Step.EndOfCombat)       => (Phase.PostCombatMain, Step.Main),
+            (Phase.Combat, Step.CombatDamage) => (Phase.Combat, Step.EndOfCombat),
+            (Phase.Combat, Step.EndOfCombat) => (Phase.PostCombatMain, Step.Main),
 
             // Post-combat main
             (Phase.PostCombatMain, Step.Main) => (Phase.Ending, Step.End),
 
             // Ending
-            (Phase.Ending, Step.End)     => (Phase.Ending, Step.Cleanup),
+            (Phase.Ending, Step.End) => (Phase.Ending, Step.Cleanup),
             (Phase.Ending, Step.Cleanup) => (Phase.Beginning, Step.Untap), // signals turn change
 
             _ => throw new InvalidOperationException($"No step after {phase}/{step}")

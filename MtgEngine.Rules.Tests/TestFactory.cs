@@ -1,7 +1,7 @@
+using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Domain.ValueObjects;
-using System.Collections.Immutable;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -65,15 +65,15 @@ public static class TestFactory
         bool summoningSick = false,
         int damage = 0,
         Dictionary<CounterType, int>? counters = null) => new()
-    {
-        PermanentId = Guid.NewGuid(),
-        SourceCard = MakeCard(def, controllerId),
-        ControllerId = controllerId,
-        IsTapped = tapped,
-        HasSummoningSickness = summoningSick,
-        DamageMarked = damage,
-        Counters = counters ?? new Dictionary<CounterType, int>(),
-    };
+        {
+            PermanentId = Guid.NewGuid(),
+            SourceCard = MakeCard(def, controllerId),
+            ControllerId = controllerId,
+            IsTapped = tapped,
+            HasSummoningSickness = summoningSick,
+            DamageMarked = damage,
+            Counters = counters ?? new Dictionary<CounterType, int>(),
+        };
 
     public static PlayerState MakePlayer(Guid playerId, string name = "Player", int life = 20) => new()
     {
@@ -88,18 +88,18 @@ public static class TestFactory
     public static GameState MakeTwoPlayerGame(
         Phase phase = Phase.PreCombatMain,
         Step step = Step.Main) => new()
-    {
-        GameId = Guid.NewGuid(),
-        Players = ImmutableList.Create(
+        {
+            GameId = Guid.NewGuid(),
+            Players = ImmutableList.Create(
             MakePlayer(Player1Id, "Alice"),
             MakePlayer(Player2Id, "Bob")),
-        ActivePlayerId = Player1Id,
-        PriorityPlayerId = Player1Id,
-        CurrentPhase = phase,
-        CurrentStep = step,
-        Turn = 1,
-        IsFirstTurn = false,
-    };
+            ActivePlayerId = Player1Id,
+            PriorityPlayerId = Player1Id,
+            CurrentPhase = phase,
+            CurrentStep = step,
+            Turn = 1,
+            IsFirstTurn = false,
+        };
 
     public static GameState WithPermanent(this GameState state, Permanent permanent) =>
         state.AddPermanent(permanent);

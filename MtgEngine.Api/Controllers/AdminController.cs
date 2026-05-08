@@ -15,7 +15,7 @@ public sealed class AdminController : ControllerBase
     public AdminController(IServiceScopeFactory scopeFactory, ILogger<AdminController> logger)
     {
         _scopeFactory = scopeFactory;
-        _logger       = logger;
+        _logger = logger;
     }
 
     /// <summary>Deletes all seed data created by CommunityBot so you can re-seed cleanly.</summary>
@@ -34,14 +34,14 @@ public sealed class AdminController : ControllerBase
     /// </summary>
     [HttpPost("seed-commanders")]
     public IActionResult SeedCommanders(
-        [FromQuery] int commanders  = 50,
-        [FromQuery] int decksEach   = 10)
+        [FromQuery] int commanders = 50,
+        [FromQuery] int decksEach = 10)
     {
         if (Interlocked.CompareExchange(ref _seedingInProgress, 1, 0) != 0)
             return Conflict(new { message = "Seeding already in progress." });
 
         commanders = Math.Clamp(commanders, 1, 200);
-        decksEach  = Math.Clamp(decksEach,  1,  20);
+        decksEach = Math.Clamp(decksEach, 1, 20);
 
         _ = Task.Run(async () =>
         {
@@ -64,8 +64,8 @@ public sealed class AdminController : ControllerBase
 
         return Accepted(new
         {
-            message  = $"Seeding {commanders} commanders × {decksEach} decks started in background.",
-            hint     = "Check API logs or GET /api/commanders for progress.",
+            message = $"Seeding {commanders} commanders × {decksEach} decks started in background.",
+            hint = "Check API logs or GET /api/commanders for progress.",
         });
     }
 }

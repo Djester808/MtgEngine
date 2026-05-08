@@ -1,6 +1,5 @@
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.ValueObjects;
-using MtgEngine.Domain.Interfaces;
 
 namespace MtgEngine.Domain.Models;
 
@@ -40,14 +39,14 @@ public sealed class CardDefinition
     public IReadOnlyDictionary<string, string> Legalities { get; init; } = new Dictionary<string, string>();
     public bool GameChanger { get; init; }
 
-    public bool IsCreature    => CardTypes.HasFlag(CardType.Creature);
-    public bool IsInstant     => CardTypes.HasFlag(CardType.Instant);
-    public bool IsSorcery     => CardTypes.HasFlag(CardType.Sorcery);
-    public bool IsLand        => CardTypes.HasFlag(CardType.Land);
+    public bool IsCreature => CardTypes.HasFlag(CardType.Creature);
+    public bool IsInstant => CardTypes.HasFlag(CardType.Instant);
+    public bool IsSorcery => CardTypes.HasFlag(CardType.Sorcery);
+    public bool IsLand => CardTypes.HasFlag(CardType.Land);
     public bool IsEnchantment => CardTypes.HasFlag(CardType.Enchantment);
-    public bool IsArtifact    => CardTypes.HasFlag(CardType.Artifact);
-    public bool IsPlaneswalker=> CardTypes.HasFlag(CardType.Planeswalker);
-    public bool IsNonland     => !IsLand;
+    public bool IsArtifact => CardTypes.HasFlag(CardType.Artifact);
+    public bool IsPlaneswalker => CardTypes.HasFlag(CardType.Planeswalker);
+    public bool IsNonland => !IsLand;
     public bool IsPermanentType => IsCreature || IsEnchantment || IsArtifact || IsLand || IsPlaneswalker;
 
     public bool HasKeyword(KeywordAbility kw) => Keywords.HasFlag(kw);
@@ -55,11 +54,11 @@ public sealed class CardDefinition
     /// <summary>Returns the basic land color this produces, if applicable.</summary>
     public ManaColor? BasicLandColor => Name switch
     {
-        "Plains"   => ManaColor.White,
-        "Island"   => ManaColor.Blue,
-        "Swamp"    => ManaColor.Black,
+        "Plains" => ManaColor.White,
+        "Island" => ManaColor.Blue,
+        "Swamp" => ManaColor.Black,
         "Mountain" => ManaColor.Red,
-        "Forest"   => ManaColor.Green,
+        "Forest" => ManaColor.Green,
         _ => null
     };
 }
@@ -140,8 +139,8 @@ public sealed record Permanent
     public bool CanBlock => IsCreature && !IsTapped;
 
     // Fluent mutators -- each returns a new Permanent
-    public Permanent Tap()      => this with { IsTapped = true };
-    public Permanent Untap()    => this with { IsTapped = false };
+    public Permanent Tap() => this with { IsTapped = true };
+    public Permanent Untap() => this with { IsTapped = false };
 
     public Permanent ClearSummoningSickness() => this with { HasSummoningSickness = false };
 
@@ -161,8 +160,10 @@ public sealed record Permanent
         var next = new Dictionary<CounterType, int>(Counters);
         int current = next.GetValueOrDefault(type);
         int after = current - count;
-        if (after <= 0) next.Remove(type);
-        else next[type] = after;
+        if (after <= 0)
+            next.Remove(type);
+        else
+            next[type] = after;
         return this with { Counters = next };
     }
 

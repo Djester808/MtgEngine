@@ -16,7 +16,7 @@ internal static class CardParser
         try
         {
             var oracleId = json.GetProperty("oracle_id").GetString() ?? Guid.NewGuid().ToString();
-            var name     = json.GetProperty("name").GetString() ?? "";
+            var name = json.GetProperty("name").GetString() ?? "";
             var typeLineFull = json.GetProperty("type_line").GetString() ?? "";
             // For split/prepared cards, type_line is "Creature ... // Sorcery" — only parse the primary face
             var typeLine = typeLineFull.Contains("//")
@@ -31,7 +31,8 @@ internal static class CardParser
                 if (otFaces.GetArrayLength() > 1 && otFaces[1].TryGetProperty("oracle_text", out var f1ot))
                 {
                     var back = f1ot.GetString() ?? "";
-                    if (back.Length > 0) oracle = oracle.Length > 0 ? oracle + "\n//\n" + back : back;
+                    if (back.Length > 0)
+                        oracle = oracle.Length > 0 ? oracle + "\n//\n" + back : back;
                 }
             }
             // Try root-level mana_cost first; fall back to card_faces[0] for DFCs
@@ -50,16 +51,22 @@ internal static class CardParser
             }
 
             int? power = null, toughness = null, loyalty = null;
-            if (json.TryGetProperty("power",     out var pw) && int.TryParse(pw.GetString(), out var p)) power     = p;
-            if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t)) toughness = t;
-            if (json.TryGetProperty("loyalty",   out var lo) && int.TryParse(lo.GetString(), out var l)) loyalty   = l;
+            if (json.TryGetProperty("power", out var pw) && int.TryParse(pw.GetString(), out var p))
+                power = p;
+            if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t))
+                toughness = t;
+            if (json.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
+                loyalty = l;
 
             string? imgNormal = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
             if (json.TryGetProperty("image_uris", out var imgs))
             {
-                if (imgs.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
-                if (imgs.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
-                if (imgs.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                if (imgs.TryGetProperty("normal", out var n))
+                    imgNormal = n.GetString();
+                if (imgs.TryGetProperty("small", out var s))
+                    imgSmall = s.GetString();
+                if (imgs.TryGetProperty("art_crop", out var a))
+                    imgArtCrop = a.GetString();
             }
             else if (json.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
             {
@@ -67,9 +74,12 @@ internal static class CardParser
                 var face0 = faces[0];
                 if (face0.TryGetProperty("image_uris", out var fi))
                 {
-                    if (fi.TryGetProperty("normal",   out var n)) imgNormal  = n.GetString();
-                    if (fi.TryGetProperty("small",    out var s)) imgSmall   = s.GetString();
-                    if (fi.TryGetProperty("art_crop", out var a)) imgArtCrop = a.GetString();
+                    if (fi.TryGetProperty("normal", out var n))
+                        imgNormal = n.GetString();
+                    if (fi.TryGetProperty("small", out var s))
+                        imgSmall = s.GetString();
+                    if (fi.TryGetProperty("art_crop", out var a))
+                        imgArtCrop = a.GetString();
                 }
                 if (faces.GetArrayLength() > 1)
                 {
@@ -80,9 +90,9 @@ internal static class CardParser
             }
 
             var flavorText = json.TryGetProperty("flavor_text", out var ft) ? ft.GetString() : null;
-            var artist     = json.TryGetProperty("artist",       out var ar) ? ar.GetString() : null;
-            var setCode    = json.TryGetProperty("set",          out var sc) ? sc.GetString() : null;
-            var rarity     = json.TryGetProperty("rarity",       out var rar) ? rar.GetString() : null;
+            var artist = json.TryGetProperty("artist", out var ar) ? ar.GetString() : null;
+            var setCode = json.TryGetProperty("set", out var sc) ? sc.GetString() : null;
+            var rarity = json.TryGetProperty("rarity", out var rar) ? rar.GetString() : null;
 
             // Root cmc is the sum of all faces for split/prepared cards. Prefer face[0] mana cost.
             var cmc = json.TryGetProperty("cmc", out var cmcEl) ? (int)cmcEl.GetDouble() : 0;
@@ -98,44 +108,44 @@ internal static class CardParser
                 // Prepared/split cards store combined cost at root with no card_faces — use first half only
                 cmc = CalculateCmcFromCost(mcRaw.Split("//")[0].Trim());
             }
-            var cardTypes   = ParseCardTypes(typeLine);
-            var subtypes    = ParseSubtypes(typeLine);
-            var supertypes  = ParseSupertypes(typeLine);
-            var keywords    = ParseKeywords(json);
-            var colorId     = ParseColorIdentity(json);
-            var legalities  = ParseLegalities(json);
+            var cardTypes = ParseCardTypes(typeLine);
+            var subtypes = ParseSubtypes(typeLine);
+            var supertypes = ParseSupertypes(typeLine);
+            var keywords = ParseKeywords(json);
+            var colorId = ParseColorIdentity(json);
+            var legalities = ParseLegalities(json);
             var gameChanger = json.TryGetProperty("game_changer", out var gcEl) && gcEl.GetBoolean();
-            var speed       = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
+            var speed = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
                 ? SpeedRestriction.Instant
                 : SpeedRestriction.Sorcery;
 
             return new CardDefinition
             {
-                OracleId        = oracleId,
-                Name            = name,
-                ManaCost        = mc,
-                ManaCostRaw     = mcRaw,
-                Cmc             = cmc,
-                CardTypes       = cardTypes,
-                Subtypes        = subtypes,
-                Supertypes      = supertypes,
-                OracleText      = oracle,
-                Power           = power,
-                Toughness       = toughness,
+                OracleId = oracleId,
+                Name = name,
+                ManaCost = mc,
+                ManaCostRaw = mcRaw,
+                Cmc = cmc,
+                CardTypes = cardTypes,
+                Subtypes = subtypes,
+                Supertypes = supertypes,
+                OracleText = oracle,
+                Power = power,
+                Toughness = toughness,
                 StartingLoyalty = loyalty,
-                Keywords        = keywords,
-                ColorIdentity   = colorId,
-                ImageUriNormal     = imgNormal,
+                Keywords = keywords,
+                ColorIdentity = colorId,
+                ImageUriNormal = imgNormal,
                 ImageUriNormalBack = imgNormalBack,
-                ImageUriSmall      = imgSmall,
-                ImageUriArtCrop    = imgArtCrop,
-                CastingSpeed       = speed,
-                FlavorText      = flavorText,
-                Artist          = artist,
-                SetCode         = setCode,
-                Rarity          = rarity,
-                Legalities      = legalities,
-                GameChanger     = gameChanger,
+                ImageUriSmall = imgSmall,
+                ImageUriArtCrop = imgArtCrop,
+                CastingSpeed = speed,
+                FlavorText = flavorText,
+                Artist = artist,
+                SetCode = setCode,
+                Rarity = rarity,
+                Legalities = legalities,
+                GameChanger = gameChanger,
             };
         }
         catch
@@ -150,31 +160,31 @@ internal static class CardParser
     public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null) =>
         new()
         {
-            OracleId           = oracle.OracleId,
-            Name               = oracle.Name,
-            ManaCost           = oracle.ManaCost,
-            ManaCostRaw        = oracle.ManaCostRaw,
-            Cmc                = oracle.Cmc,
-            CardTypes          = oracle.CardTypes,
-            Subtypes           = oracle.Subtypes,
-            Supertypes         = oracle.Supertypes,
-            OracleText         = oracle.OracleText,
-            Power              = oracle.Power,
-            Toughness          = oracle.Toughness,
-            StartingLoyalty    = oracle.StartingLoyalty,
-            Keywords           = oracle.Keywords,
-            CastingSpeed       = oracle.CastingSpeed,
-            ColorIdentity      = oracle.ColorIdentity,
-            FlavorText         = oracle.FlavorText,
-            Artist             = oracle.Artist,
-            Rarity             = oracle.Rarity,
-            ImageUriNormal     = imgNormal     ?? oracle.ImageUriNormal,
+            OracleId = oracle.OracleId,
+            Name = oracle.Name,
+            ManaCost = oracle.ManaCost,
+            ManaCostRaw = oracle.ManaCostRaw,
+            Cmc = oracle.Cmc,
+            CardTypes = oracle.CardTypes,
+            Subtypes = oracle.Subtypes,
+            Supertypes = oracle.Supertypes,
+            OracleText = oracle.OracleText,
+            Power = oracle.Power,
+            Toughness = oracle.Toughness,
+            StartingLoyalty = oracle.StartingLoyalty,
+            Keywords = oracle.Keywords,
+            CastingSpeed = oracle.CastingSpeed,
+            ColorIdentity = oracle.ColorIdentity,
+            FlavorText = oracle.FlavorText,
+            Artist = oracle.Artist,
+            Rarity = oracle.Rarity,
+            ImageUriNormal = imgNormal ?? oracle.ImageUriNormal,
             ImageUriNormalBack = imgNormalBack ?? oracle.ImageUriNormalBack,
-            ImageUriSmall      = imgSmall      ?? oracle.ImageUriSmall,
-            ImageUriArtCrop    = imgArtCrop    ?? oracle.ImageUriArtCrop,
-            SetCode            = setCode       ?? oracle.SetCode,
-            Legalities         = oracle.Legalities,
-            GameChanger        = oracle.GameChanger,
+            ImageUriSmall = imgSmall ?? oracle.ImageUriSmall,
+            ImageUriArtCrop = imgArtCrop ?? oracle.ImageUriArtCrop,
+            SetCode = setCode ?? oracle.SetCode,
+            Legalities = oracle.Legalities,
+            GameChanger = oracle.GameChanger,
         };
 
     // ---- Parsers -------------------------------------------------------
@@ -187,9 +197,11 @@ internal static class CardParser
         var i = 0;
         while (i < cost.Length)
         {
-            if (cost[i] != '{') { i++; continue; }
+            if (cost[i] != '{')
+            { i++; continue; }
             var end = cost.IndexOf('}', i);
-            if (end < 0) break;
+            if (end < 0)
+                break;
             var sym = cost[(i + 1)..end];
             total += sym switch
             {
@@ -210,30 +222,42 @@ internal static class CardParser
                 .Where(c => char.IsDigit(c) || "WwUuBbRrGg".Contains(c))
                 .ToArray()
         );
-        try { return ManaCost.Parse(cleaned); }
+        try
+        { return ManaCost.Parse(cleaned); }
         catch { return ManaCost.Zero; }
     }
 
     private static CardType ParseCardTypes(string typeLine)
     {
         var flags = CardType.None;
-        if (typeLine.Contains("Token"))        flags |= CardType.Token;
-        if (typeLine.Contains("Creature"))     flags |= CardType.Creature;
-        if (typeLine.Contains("Instant"))      flags |= CardType.Instant;
-        if (typeLine.Contains("Sorcery"))      flags |= CardType.Sorcery;
-        if (typeLine.Contains("Enchantment"))  flags |= CardType.Enchantment;
-        if (typeLine.Contains("Artifact"))     flags |= CardType.Artifact;
-        if (typeLine.Contains("Land"))         flags |= CardType.Land;
-        if (typeLine.Contains("Planeswalker")) flags |= CardType.Planeswalker;
-        if (typeLine.Contains("Battle"))       flags |= CardType.Battle;
-        if (flags == CardType.None)            flags  = CardType.Other;
+        if (typeLine.Contains("Token"))
+            flags |= CardType.Token;
+        if (typeLine.Contains("Creature"))
+            flags |= CardType.Creature;
+        if (typeLine.Contains("Instant"))
+            flags |= CardType.Instant;
+        if (typeLine.Contains("Sorcery"))
+            flags |= CardType.Sorcery;
+        if (typeLine.Contains("Enchantment"))
+            flags |= CardType.Enchantment;
+        if (typeLine.Contains("Artifact"))
+            flags |= CardType.Artifact;
+        if (typeLine.Contains("Land"))
+            flags |= CardType.Land;
+        if (typeLine.Contains("Planeswalker"))
+            flags |= CardType.Planeswalker;
+        if (typeLine.Contains("Battle"))
+            flags |= CardType.Battle;
+        if (flags == CardType.None)
+            flags = CardType.Other;
         return flags;
     }
 
     private static IReadOnlyList<string> ParseSubtypes(string typeLine)
     {
         var idx = typeLine.IndexOf('—');
-        if (idx < 0) return [];
+        if (idx < 0)
+            return [];
         return typeLine[(idx + 1)..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
     }
 
@@ -246,27 +270,28 @@ internal static class CardParser
     private static KeywordAbility ParseKeywords(JsonElement json)
     {
         var flags = KeywordAbility.None;
-        if (!json.TryGetProperty("keywords", out var kwArr)) return flags;
+        if (!json.TryGetProperty("keywords", out var kwArr))
+            return flags;
 
         foreach (var kw in kwArr.EnumerateArray())
         {
             flags |= kw.GetString() switch
             {
-                "Flying"         => KeywordAbility.Flying,
-                "Reach"          => KeywordAbility.Reach,
-                "First strike"   => KeywordAbility.FirstStrike,
-                "Double strike"  => KeywordAbility.DoubleStrike,
-                "Trample"        => KeywordAbility.Trample,
-                "Deathtouch"     => KeywordAbility.Deathtouch,
-                "Lifelink"       => KeywordAbility.Lifelink,
-                "Vigilance"      => KeywordAbility.Vigilance,
-                "Haste"          => KeywordAbility.Haste,
-                "Hexproof"       => KeywordAbility.Hexproof,
+                "Flying" => KeywordAbility.Flying,
+                "Reach" => KeywordAbility.Reach,
+                "First strike" => KeywordAbility.FirstStrike,
+                "Double strike" => KeywordAbility.DoubleStrike,
+                "Trample" => KeywordAbility.Trample,
+                "Deathtouch" => KeywordAbility.Deathtouch,
+                "Lifelink" => KeywordAbility.Lifelink,
+                "Vigilance" => KeywordAbility.Vigilance,
+                "Haste" => KeywordAbility.Haste,
+                "Hexproof" => KeywordAbility.Hexproof,
                 "Indestructible" => KeywordAbility.Indestructible,
-                "Menace"         => KeywordAbility.Menace,
-                "Flash"          => KeywordAbility.Flash,
-                "Shroud"         => KeywordAbility.Shroud,
-                _                => KeywordAbility.None,
+                "Menace" => KeywordAbility.Menace,
+                "Flash" => KeywordAbility.Flash,
+                "Shroud" => KeywordAbility.Shroud,
+                _ => KeywordAbility.None,
             };
         }
         return flags;
@@ -274,7 +299,8 @@ internal static class CardParser
 
     private static IReadOnlyDictionary<string, string> ParseLegalities(JsonElement json)
     {
-        if (!json.TryGetProperty("legalities", out var leg)) return new Dictionary<string, string>();
+        if (!json.TryGetProperty("legalities", out var leg))
+            return new Dictionary<string, string>();
         var result = new Dictionary<string, string>();
         foreach (var prop in leg.EnumerateObject())
             result[prop.Name] = prop.Value.GetString() ?? "unknown";
@@ -283,12 +309,17 @@ internal static class CardParser
 
     private static IReadOnlyList<ManaColor> ParseColorIdentity(JsonElement json)
     {
-        if (!json.TryGetProperty("color_identity", out var ci)) return [];
+        if (!json.TryGetProperty("color_identity", out var ci))
+            return [];
         return ci.EnumerateArray()
             .Select(c => c.GetString() switch
             {
-                "W" => ManaColor.White, "U" => ManaColor.Blue, "B" => ManaColor.Black,
-                "R" => ManaColor.Red,   "G" => ManaColor.Green, _ => ManaColor.Colorless,
+                "W" => ManaColor.White,
+                "U" => ManaColor.Blue,
+                "B" => ManaColor.Black,
+                "R" => ManaColor.Red,
+                "G" => ManaColor.Green,
+                _ => ManaColor.Colorless,
             })
             .ToArray();
     }

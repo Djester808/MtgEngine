@@ -27,7 +27,7 @@ public sealed class GameSession
 
     public GameSession(GameState initialState, Guid player1Id, Guid player2Id)
     {
-        _state    = initialState;
+        _state = initialState;
         Player1Id = player1Id;
         Player2Id = player2Id;
 
@@ -51,7 +51,7 @@ public sealed class GameSession
         try
         {
             var before = _state;
-            var after  = action(_state);
+            var after = action(_state);
             _state = after;
             LastActivityAt = DateTime.UtcNow;
             return (before, after);

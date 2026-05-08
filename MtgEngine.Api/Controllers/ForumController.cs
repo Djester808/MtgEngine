@@ -38,7 +38,8 @@ public sealed class ForumController : ControllerBase
     public async Task<ActionResult<ForumPostDetailDto>> GetPost(Guid postId)
     {
         var post = await _forum.GetPostAsync(postId);
-        if (post == null) return NotFound();
+        if (post == null)
+            return NotFound();
         return Ok(post);
     }
 
@@ -64,7 +65,8 @@ public sealed class ForumController : ControllerBase
     public async Task<ActionResult> DeletePost(Guid postId)
     {
         var success = await _forum.DeletePostAsync(postId, UserId);
-        if (!success) return NotFound();
+        if (!success)
+            return NotFound();
         return NoContent();
     }
 
@@ -94,7 +96,8 @@ public sealed class ForumController : ControllerBase
             return BadRequest("Comment content is required");
 
         var comment = await _forum.UpdateCommentAsync(postId, commentId, UserId, request);
-        if (comment == null) return NotFound();
+        if (comment == null)
+            return NotFound();
         return Ok(comment);
     }
 
@@ -103,7 +106,8 @@ public sealed class ForumController : ControllerBase
     public async Task<ActionResult> DeleteComment(Guid postId, Guid commentId)
     {
         var success = await _forum.DeleteCommentAsync(postId, commentId, UserId);
-        if (!success) return NotFound();
+        if (!success)
+            return NotFound();
         return NoContent();
     }
 }

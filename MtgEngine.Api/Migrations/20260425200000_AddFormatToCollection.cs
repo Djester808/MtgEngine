@@ -26,7 +26,7 @@ namespace MtgEngine.Api.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(name: "Format",            table: "Collections");
+            migrationBuilder.DropColumn(name: "Format", table: "Collections");
             migrationBuilder.DropColumn(name: "CommanderOracleId", table: "Collections");
         }
     }

@@ -36,7 +36,8 @@ public static class ZoneManager
             throw new InvalidOperationException($"{card.Name} is not a land.");
 
         var updatedPlayer = player
-            .RemoveCardFromHand(cardId) with { HasLandPlayedThisTurn = true };
+            .RemoveCardFromHand(cardId) with
+        { HasLandPlayedThisTurn = true };
 
         var permanent = CreatePermanent(card, playerId);
         return state
@@ -133,7 +134,8 @@ public static class ZoneManager
             throw new InvalidOperationException($"Insufficient mana to cast {card.Name}.");
 
         var updatedPlayer = player
-            .RemoveCardFromHand(cardId) with { ManaPool = player.ManaPool.Pay(card.ManaCost) };
+            .RemoveCardFromHand(cardId) with
+        { ManaPool = player.ManaPool.Pay(card.ManaCost) };
 
         var spell = new SpellOnStack
         {

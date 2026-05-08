@@ -61,7 +61,8 @@ public static class StateBasedActions
         // CR 704.5f - Creature with toughness 0 or less is put into graveyard
         foreach (var permanent in state.Battlefield.ToList())
         {
-            if (!permanent.IsCreature) continue;
+            if (!permanent.IsCreature)
+                continue;
             int? toughness = permanent.EffectiveToughness;
             if (toughness.HasValue && toughness.Value <= 0)
             {
@@ -74,8 +75,10 @@ public static class StateBasedActions
         // CR 704.5g - Creature with lethal damage is destroyed
         foreach (var permanent in state.Battlefield.ToList())
         {
-            if (!permanent.IsCreature) continue;
-            if (permanent.HasKeyword(KeywordAbility.Indestructible)) continue;
+            if (!permanent.IsCreature)
+                continue;
+            if (permanent.HasKeyword(KeywordAbility.Indestructible))
+                continue;
 
             bool hasLethalDamage = permanent.EffectiveToughness.HasValue
                 && permanent.DamageMarked >= permanent.EffectiveToughness.Value;
@@ -112,8 +115,10 @@ public static class StateBasedActions
         // CR 704.5i - Aura with no legal attachment is put into graveyard
         foreach (var permanent in state.Battlefield.ToList())
         {
-            if (!permanent.CardTypes.HasFlag(CardType.Enchantment)) continue;
-            if (!permanent.Definition.Subtypes.Contains("Aura")) continue;
+            if (!permanent.CardTypes.HasFlag(CardType.Enchantment))
+                continue;
+            if (!permanent.Definition.Subtypes.Contains("Aura"))
+                continue;
 
             // An aura must be attached to something. If not, goes to graveyard.
             // (Simplified: check that whatever it's attached to still exists)
@@ -123,7 +128,8 @@ public static class StateBasedActions
         // CR 704.5q - Planeswalker with 0 loyalty is put into graveyard
         foreach (var permanent in state.Battlefield.ToList())
         {
-            if (!permanent.Definition.IsPlaneswalker) continue;
+            if (!permanent.Definition.IsPlaneswalker)
+                continue;
             int loyalty = permanent.Counters.GetValueOrDefault(CounterType.Loyalty);
             if (loyalty <= 0)
             {
@@ -143,7 +149,8 @@ public static class StateBasedActions
         return state
             .RemovePermanent(permanent.PermanentId)
             .UpdatePlayer(updatedOwner)
-            with { StateBasedActionsRequired = false };
+            with
+        { StateBasedActionsRequired = false };
     }
 
     private static GameState DetermineWinner(GameState state, Guid losingPlayerId)

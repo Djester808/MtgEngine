@@ -14,7 +14,7 @@ public sealed class BulkDataRefreshWorker : BackgroundService
     public BulkDataRefreshWorker(BulkDataService bulkData, ILogger<BulkDataRefreshWorker> logger)
     {
         _bulkData = bulkData;
-        _logger   = logger;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -54,7 +54,8 @@ public sealed class BulkDataRefreshWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            try { _logger.LogError(ex, "BulkDataRefreshWorker: refresh failed"); }
+            try
+            { _logger.LogError(ex, "BulkDataRefreshWorker: refresh failed"); }
             catch { /* EventLog may be disposed during host shutdown; swallow to keep worker alive */ }
         }
     }
