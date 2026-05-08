@@ -58,11 +58,13 @@ internal static class CardParser
             if (json.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
                 loyalty = l;
 
-            string? imgNormal = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
+            string? imgNormal = null, imgLarge = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
             if (json.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("normal", out var n))
                     imgNormal = n.GetString();
+                if (imgs.TryGetProperty("large", out var lg))
+                    imgLarge = lg.GetString();
                 if (imgs.TryGetProperty("small", out var s))
                     imgSmall = s.GetString();
                 if (imgs.TryGetProperty("art_crop", out var a))
@@ -76,6 +78,8 @@ internal static class CardParser
                 {
                     if (fi.TryGetProperty("normal", out var n))
                         imgNormal = n.GetString();
+                    if (fi.TryGetProperty("large", out var lg))
+                        imgLarge = lg.GetString();
                     if (fi.TryGetProperty("small", out var s))
                         imgSmall = s.GetString();
                     if (fi.TryGetProperty("art_crop", out var a))
@@ -136,6 +140,7 @@ internal static class CardParser
                 Keywords = keywords,
                 ColorIdentity = colorId,
                 ImageUriNormal = imgNormal,
+                ImageUriLarge = imgLarge,
                 ImageUriNormalBack = imgNormalBack,
                 ImageUriSmall = imgSmall,
                 ImageUriArtCrop = imgArtCrop,
@@ -157,7 +162,7 @@ internal static class CardParser
     /// <summary>
     /// Copies a CardDefinition but overrides the image URIs and set code for a specific printing.
     /// </summary>
-    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null) =>
+    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgLarge, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null) =>
         new()
         {
             OracleId = oracle.OracleId,
@@ -179,6 +184,7 @@ internal static class CardParser
             Artist = oracle.Artist,
             Rarity = oracle.Rarity,
             ImageUriNormal = imgNormal ?? oracle.ImageUriNormal,
+            ImageUriLarge = imgLarge ?? oracle.ImageUriLarge,
             ImageUriNormalBack = imgNormalBack ?? oracle.ImageUriNormalBack,
             ImageUriSmall = imgSmall ?? oracle.ImageUriSmall,
             ImageUriArtCrop = imgArtCrop ?? oracle.ImageUriArtCrop,

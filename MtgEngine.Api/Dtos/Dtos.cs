@@ -28,6 +28,7 @@ public sealed record CardDto
     public int? StartingLoyalty { get; init; }
     public string[] Keywords { get; init; } = [];
     public string? ImageUriNormal { get; init; }
+    public string? ImageUriLarge { get; init; }
     public string? ImageUriNormalBack { get; init; }
     public string? ImageUriSmall { get; init; }
     public string? ImageUriArtCrop { get; init; }
@@ -280,6 +281,7 @@ public sealed record PrintingDto
     public string? CollectorNumber { get; init; }
     public string? ImageUriSmall { get; init; }
     public string? ImageUriNormal { get; init; }
+    public string? ImageUriLarge { get; init; }
     public string? ImageUriNormalBack { get; init; }
     // Per-printing text (can differ per set due to errata, new art, etc.)
     public string? OracleText { get; init; }

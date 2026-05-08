@@ -116,6 +116,7 @@ public static class DomainMapper
         StartingLoyalty = def.StartingLoyalty,
         Keywords = def.Keywords.ToString().Split(',').Select(s => s.Trim()).Where(s => s != "None").ToArray(),
         ImageUriNormal = def.ImageUriNormal,
+        ImageUriLarge = def.ImageUriLarge,
         ImageUriNormalBack = def.ImageUriNormalBack,
         ImageUriSmall = def.ImageUriSmall,
         ImageUriArtCrop = def.ImageUriArtCrop,

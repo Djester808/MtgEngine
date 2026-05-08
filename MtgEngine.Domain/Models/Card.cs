@@ -28,6 +28,7 @@ public sealed class CardDefinition
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
     public string? ImageUriNormal { get; init; }
+    public string? ImageUriLarge { get; init; }
     public string? ImageUriNormalBack { get; init; }
     public string? ImageUriSmall { get; init; }
     public string? ImageUriArtCrop { get; init; }

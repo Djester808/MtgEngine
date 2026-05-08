@@ -122,13 +122,15 @@ public sealed class ScryfallService : IScryfallService
             var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
             var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
-            string? imgSmall = null, imgNormal = null;
+            string? imgSmall = null, imgNormal = null, imgLarge = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("small", out var s))
                     imgSmall = s.GetString();
                 if (imgs.TryGetProperty("normal", out var n))
                     imgNormal = n.GetString();
+                if (imgs.TryGetProperty("large", out var lg))
+                    imgLarge = lg.GetString();
             }
 
             // Per-printing text — fall back to card_faces[0] for DFCs
@@ -148,6 +150,7 @@ public sealed class ScryfallService : IScryfallService
                 CollectorNumber = num,
                 ImageUriSmall = imgSmall,
                 ImageUriNormal = imgNormal,
+                ImageUriLarge = imgLarge,
                 OracleText = oracleText,
                 FlavorText = flavorText,
                 Artist = artist,

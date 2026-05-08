@@ -44,7 +44,7 @@ public sealed class BulkDataService : IScryfallService
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _ready = false;
 
-    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack = null);
+    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack = null);
 
     public BulkDataService(
         ScryfallService api,
@@ -96,7 +96,7 @@ public sealed class BulkDataService : IScryfallService
         if (_byScryfallId.TryGetValue(scryfallId, out var entry)
             && _byOracleId.TryGetValue(entry.OracleId, out var oracle))
         {
-            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack);
+            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack);
         }
         _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
         return await _api.GetByScryfallIdAsync(scryfallId);
@@ -300,7 +300,7 @@ public sealed class BulkDataService : IScryfallService
                     var p = prints.FirstOrDefault(pr =>
                         pr.SetCode?.Equals(setFilter, StringComparison.OrdinalIgnoreCase) == true);
                     if (p is not null)
-                        return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriSmall, null,
+                        return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriLarge, p.ImageUriSmall, null,
                                                        p.SetCode, p.ImageUriNormalBack);
                 }
                 return d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d;
@@ -668,13 +668,15 @@ public sealed class BulkDataService : IScryfallService
             if (id is null || oid is null)
                 continue;
 
-            string? imgSmall = null, imgNormal = null, imgArtCrop = null, imgNormalBack = null;
+            string? imgSmall = null, imgNormal = null, imgLarge = null, imgArtCrop = null, imgNormalBack = null;
             if (card.TryGetProperty("image_uris", out var imgs))
             {
                 if (imgs.TryGetProperty("small", out var s))
                     imgSmall = s.GetString();
                 if (imgs.TryGetProperty("normal", out var n))
                     imgNormal = n.GetString();
+                if (imgs.TryGetProperty("large", out var lg))
+                    imgLarge = lg.GetString();
                 if (imgs.TryGetProperty("art_crop", out var a))
                     imgArtCrop = a.GetString();
             }
@@ -687,6 +689,8 @@ public sealed class BulkDataService : IScryfallService
                         imgSmall = s.GetString();
                     if (fi0.TryGetProperty("normal", out var n))
                         imgNormal = n.GetString();
+                    if (fi0.TryGetProperty("large", out var lg))
+                        imgLarge = lg.GetString();
                     if (fi0.TryGetProperty("art_crop", out var a))
                         imgArtCrop = a.GetString();
                 }
@@ -735,6 +739,7 @@ public sealed class BulkDataService : IScryfallService
                 CollectorNumber = num,
                 ImageUriSmall = imgSmall,
                 ImageUriNormal = imgNormal,
+                ImageUriLarge = imgLarge,
                 ImageUriNormalBack = imgNormalBack,
                 Artist = artist,
                 OracleText = oracleText,
@@ -749,7 +754,7 @@ public sealed class BulkDataService : IScryfallService
             }
             list.Add(dto);
 
-            scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgSmall, imgArtCrop, setCode, imgNormalBack);
+            scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgLarge, imgSmall, imgArtCrop, setCode, imgNormalBack);
 
             // Build set-code → oracle-id index and set name lookup
             if (setCode.Length > 0)
@@ -787,7 +792,7 @@ public sealed class BulkDataService : IScryfallService
         if (!_printingsByOracleId.TryGetValue(oracle.OracleId, out var printings) || printings.Length == 0)
             return oracle;
         var first = printings[0];
-        return CardParser.WithPrinting(oracle, first.ImageUriNormal, first.ImageUriSmall, null, first.SetCode);
+        return CardParser.WithPrinting(oracle, first.ImageUriNormal, first.ImageUriLarge, first.ImageUriSmall, null, first.SetCode);
     }
 
     // ---- Bulk-data metadata & download -----------------------------------
