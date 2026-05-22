@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MtgEngine.Api.Data;
-using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,15 +18,6 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "MTG Engine API", Version = "v1" });
 });
-
-// SignalR
-builder.Services.AddSignalR(opts =>
-{
-    opts.EnableDetailedErrors = builder.Environment.IsDevelopment();
-    opts.MaximumReceiveMessageSize = 64 * 1024;
-})
-.AddJsonProtocol(o =>
-    o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // ---- HTTP clients ----------------------------------------
 
@@ -63,9 +53,7 @@ builder.Services.AddSingleton<IScryfallService>(sp => sp.GetRequiredService<Bulk
 // Background worker: downloads/refreshes bulk files on startup and daily
 builder.Services.AddHostedService<BulkDataRefreshWorker>();
 
-// ---- Game services ---------------------------------------
-builder.Services.AddSingleton<GameSessionService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<GameSessionService>());
+// ---- Deck services ---------------------------------------
 builder.Services.AddScoped<IDeckBuilderService, DeckBuilderService>();
 
 // ---- Database --------------------------------------------
@@ -156,6 +144,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<GameHub>("/hubs/game");
 
 app.Run();

@@ -7,10 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MtgEngine.Domain\MtgEngine.Domain.csproj" />
-    <ProjectReference Include="..\MtgEngine.Rules\MtgEngine.Rules.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />

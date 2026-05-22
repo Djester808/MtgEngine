@@ -49,69 +49,6 @@ public enum ManaColor
     Green = 5,
 }
 
-public enum Phase
-{
-    Beginning,
-    PreCombatMain,
-    Combat,
-    PostCombatMain,
-    Ending,
-}
-
-public enum Step
-{
-    // Beginning
-    Untap,
-    Upkeep,
-    Draw,
-    // Main (no steps)
-    Main,
-    // Combat
-    BeginningOfCombat,
-    DeclareAttackers,
-    DeclareBlockers,
-    FirstStrikeDamage,
-    CombatDamage,
-    EndOfCombat,
-    // Ending
-    End,
-    Cleanup,
-}
-
-public enum Zone
-{
-    Library,
-    Hand,
-    Battlefield,
-    Graveyard,
-    Exile,
-    Stack,
-    Command,
-}
-
-public enum CounterType
-{
-    PlusOnePlusOne,
-    MinusOneMinusOne,
-    Loyalty,
-    Poison,
-    Charge,
-    Fade,
-    Time,
-    Age,
-    Feather,
-    Lore,
-    Verse,
-}
-
-public enum GameResult
-{
-    InProgress,
-    Player1Wins,
-    Player2Wins,
-    Draw,
-}
-
 public enum SpeedRestriction
 {
     Sorcery,   // Main phase, empty stack, active player only

@@ -63,7 +63,7 @@ public sealed class CommanderStatsService : ICommanderStatsService
             {
                 OracleId = item.OracleId,
                 Name = card.Name,
-                ImageUri = card.ImageUriNormal,
+                ImageUri = card.ImageUriLarge ?? card.ImageUriNormal,
                 ImageUriArtCrop = card.ImageUriArtCrop,
                 ColorIdentity = ToColorLetters(card.ColorIdentity),
                 ManaCost = card.ManaCostRaw,
@@ -128,7 +128,7 @@ public sealed class CommanderStatsService : ICommanderStatsService
         {
             OracleId = oracleId,
             Name = card.Name,
-            ImageUri = card.ImageUriNormal,
+            ImageUri = card.ImageUriLarge ?? card.ImageUriNormal,
             ImageUriArtCrop = card.ImageUriArtCrop,
             ColorIdentity = ToColorLetters(card.ColorIdentity),
             ManaCost = card.ManaCostRaw,
@@ -286,7 +286,7 @@ public sealed class CommanderStatsService : ICommanderStatsService
             {
                 OracleId = item.OracleId,
                 Name = card.Name,
-                ImageUri = card.ImageUriNormal,
+                ImageUri = card.ImageUriLarge ?? card.ImageUriNormal,
                 ImageUriArtCrop = card.ImageUriArtCrop,
                 ColorIdentity = ToColorLetters(card.ColorIdentity),
                 DeckCount = item.DeckCount,
