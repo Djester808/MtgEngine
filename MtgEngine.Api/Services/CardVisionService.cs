@@ -23,7 +23,7 @@ public sealed class CardVisionService
         _logger = logger;
     }
 
-    public async Task<string?> IdentifyCardAsync(string imageBase64, string mediaType)
+    public async Task<(string? CardName, string? Error)> IdentifyCardAsync(string imageBase64, string mediaType)
     {
         var body = new
         {
@@ -69,22 +69,24 @@ public sealed class CardVisionService
         req.Headers.Add("anthropic-version", "2023-06-01");
 
         var resp = await http.SendAsync(req);
+        var body2 = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
         {
-            var err = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic vision {Status}: {Body}", resp.StatusCode, err);
-            return null;
+            _logger.LogError("Anthropic vision {Status}: {Body}", resp.StatusCode, body2);
+            return (null, $"Claude API error {(int)resp.StatusCode}: {body2}");
         }
 
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        using var doc = JsonDocument.Parse(body2);
         var text = doc.RootElement
             .GetProperty("content")[0]
             .GetProperty("text")
             .GetString()
             ?.Trim();
 
+        _logger.LogInformation("Claude vision response: {Text}", text);
+
         return string.IsNullOrEmpty(text) || text.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : text;
+            ? (null, null)
+            : (text, null);
     }
 }

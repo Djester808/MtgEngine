@@ -19,11 +19,11 @@ public sealed class VisionController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ImageBase64))
             return BadRequest("ImageBase64 is required");
 
-        var cardName = await _vision.IdentifyCardAsync(
+        var (cardName, error) = await _vision.IdentifyCardAsync(
             request.ImageBase64,
             request.MediaType ?? "image/jpeg"
         );
-        return Ok(new { cardName });
+        return Ok(new { cardName, error });
     }
 }
 
