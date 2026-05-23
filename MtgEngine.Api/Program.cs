@@ -70,6 +70,7 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
     client.BaseAddress = new Uri("https://api.anthropic.com/");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
+builder.Services.AddScoped<CardVisionService>();
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
 builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
