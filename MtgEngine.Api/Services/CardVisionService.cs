@@ -9,7 +9,7 @@ public sealed class CardVisionService
     private readonly string _apiKey;
     private readonly ILogger<CardVisionService> _logger;
 
-    private const string ModelId = "claude-haiku-4-5-20251001";
+    private const string ModelId = "claude-sonnet-4-6";
 
     public CardVisionService(
         IHttpClientFactory httpFactory,
