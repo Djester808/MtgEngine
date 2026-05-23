@@ -49,7 +49,7 @@ public sealed class CardVisionService
                         new
                         {
                             type = "text",
-                            text = "This is a photo of a Magic: The Gathering card. What is the exact card name printed at the top of the card? Reply with ONLY the card name, nothing else. If you cannot clearly identify a Magic: The Gathering card or read its name, reply with exactly: UNKNOWN",
+                            text = "Someone is holding a Magic: The Gathering card up to the camera. Find the card in the image and read the card name printed at the top. Reply with ONLY the card name — no punctuation, no explanation. If you genuinely cannot read any card name, reply with exactly: UNKNOWN",
                         },
                     },
                 },
