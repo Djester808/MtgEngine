@@ -190,6 +190,30 @@ public sealed record DeckSuggestionsDto
     public SuggestedCardDto[] TopSynergy { get; init; } = [];
     public SuggestedCardDto[] GameChangers { get; init; } = [];
     public SuggestedCardDto[] NotableMentions { get; init; } = [];
+
+    /// <summary>What the validation layer discarded from the model's proposals.</summary>
+    public SuggestionDiagnosticsDto Diagnostics { get; init; } = new();
+}
+
+/// <summary>
+/// Why suggestions were dropped between the model proposing them and the response.
+/// </summary>
+/// <remarks>
+/// Validation turns hallucinations into missing results rather than wrong ones, which
+/// is correct but invisible: a category returning nothing looks the same as a category
+/// the model declined to fill. Reporting the rejections makes a 100%-rejection bug
+/// observable instead of silent.
+/// </remarks>
+public sealed record SuggestionDiagnosticsDto
+{
+    /// <summary>Cards the model proposed, before validation.</summary>
+    public int Proposed { get; init; }
+
+    /// <summary>Cards returned to the caller, after validation and de-duplication.</summary>
+    public int Accepted { get; init; }
+
+    /// <summary>Rejection reason -> count. Empty when nothing was discarded.</summary>
+    public Dictionary<string, int> Rejected { get; init; } = [];
 }
 
 // ---- Mana fine-tune -----------------------------------------

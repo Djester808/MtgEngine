@@ -65,11 +65,19 @@ builder.Services.AddScoped<IForumService, ForumService>();
 builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
 
 // ---- Anthropic API ---------------------------------------
+// The AI services are scoped, so their key guard would not fire until the first
+// AI request. Validate eagerly here so a misconfigured deployment fails at boot.
+SecretConfig.AnthropicApiKey(builder.Configuration);
+
 builder.Services.AddHttpClient("AnthropicApi", client =>
 {
     client.BaseAddress = new Uri("https://api.anthropic.com/");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
+    // The resilience pipeline owns all timeouts (per-attempt and total). A finite
+    // HttpClient.Timeout here would cancel the whole pipeline mid-retry.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+})
+.AddAnthropicResilience();
+builder.Services.AddScoped<IAiCacheService, AiCacheService>();
 builder.Services.AddScoped<CardVisionService>();
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
@@ -98,7 +106,7 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
 
-var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!);
+var jwtKey = Encoding.UTF8.GetBytes(SecretConfig.JwtSecret(builder.Configuration));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {

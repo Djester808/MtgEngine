@@ -176,13 +176,43 @@ public sealed class BulkDataService : IScryfallService
         return result;
     }
 
+    /// <summary>
+    /// Cached Game Changer definitions (~53 cards), built once on first use. Scanning
+    /// the whole corpus per request would be wasteful for a set this small and static.
+    /// </summary>
+    private CardDefinition[]? _gameChangers;
+
+    public async Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors)
+    {
+        await WaitReadyAsync();
+
+        // Sorted so the resulting prompt is stable and cacheable.
+        _gameChangers ??= _byOracleId.Values
+            .Where(d => d.GameChanger)
+            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var legal = commanderColors.Count == 0
+            ? _gameChangers.AsEnumerable()
+            : _gameChangers.Where(d =>
+                d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)));
+
+        return legal
+            .Select(d => d.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public async Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null)
     {
         await WaitReadyAsync();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var names = new List<string>(256);
 
-        foreach (var setCode in setCodes)
+        // Iterate set codes in a fixed order: HashSet enumeration order is not part of
+        // its contract, and callers depend on this list being stable to build a
+        // reproducible, cacheable prompt.
+        foreach (var setCode in setCodes.OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
         {
             if (!_bySetCode.TryGetValue(setCode, out var oracleIds))
                 continue;
@@ -209,16 +239,11 @@ public sealed class BulkDataService : IScryfallService
             }
         }
 
-        // Shuffle so we don't always return the same subset when truncating
-        var rng = Random.Shared;
-        for (int i = names.Count - 1; i > 0; i--)
-        {
-            int j = rng.Next(i + 1);
-            (names[i], names[j]) = (names[j], names[i]);
-        }
-
-        // Cap at 80 names to keep prompt size reasonable
-        return names.Count <= 80 ? names.ToArray() : names.Take(80).ToArray();
+        // Returns the full candidate set in a deterministic order. Truncating here
+        // would bias the result (alphabetically, or by whichever set sorted first),
+        // and shuffling here would make every caller's prompt unreproducible and
+        // uncacheable. Callers pick their own subset via DeterministicSample.
+        return [.. names];
     }
 
     public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)

@@ -37,3 +37,6 @@ Thumbs.db
 # Local secrets — never commit
 appsettings.Development.json
 *.db
+
+# Redirected stderr from local runs
+*.err

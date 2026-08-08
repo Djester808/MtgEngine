@@ -31,7 +31,7 @@ public sealed class SynergyService : ISynergyService
     {
         _db = db;
         _httpFactory = httpFactory;
-        _apiKey = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
@@ -127,20 +127,7 @@ public sealed class SynergyService : ISynergyService
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(respJson);
-        var text = doc.RootElement
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString() ?? "{}";
-
-        text = text.Trim();
-        if (text.StartsWith("```"))
-            text = text[(text.IndexOf('\n') + 1)..];
-        if (text.EndsWith("```"))
-            text = text[..text.LastIndexOf("```")].TrimEnd();
-
-        var parsed = JsonSerializer.Deserialize<SynergyJson>(text,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var parsed = AnthropicResponse.DeserializeJson<SynergyJson>(respJson);
 
         return new SynergyResultDto
         {

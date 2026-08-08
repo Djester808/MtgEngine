@@ -35,7 +35,7 @@ public sealed class AiBuildService : IAiBuildService
         _scryfall = scryfall;
         _collection = collection;
         _httpFactory = httpFactory;
-        _apiKey = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
@@ -232,12 +232,14 @@ public sealed class AiBuildService : IAiBuildService
             _ => "PRICE CONSTRAINT: None — use the best cards available for the strategy.",
         };
 
-        // Cap to ~60 names so the prompt doesn't balloon; shuffle for variety
-        var rng = new Random();
-        var recentSpotlight = recentCardNames
-            .OrderBy(_ => rng.Next())
-            .Take(60)
-            .ToArray();
+        // Cap to ~60 names so the prompt doesn't balloon. Sampling is seeded on the
+        // request so the same commander + bracket + price always produces a
+        // byte-identical prompt, which is what makes prompt caching possible.
+        // Note this does not make the *deck* reproducible: measured output overlap
+        // between two identical requests is ~50%, because the API does not guarantee
+        // identical completions at temperature = 0.
+        var recentSpotlight = DeterministicSample.Take(
+            recentCardNames, 60, $"{commanderName}|{bracket}|{priceRange}");
 
         var recentSection = recentSpotlight.Length > 0
             ? $"\nRECENT SETS SPOTLIGHT (from the last 9 months of Magic releases):\n" +
@@ -309,6 +311,12 @@ public sealed class AiBuildService : IAiBuildService
             {{responseShape}}
             """;
 
+        // The prompt must be a pure function of the request for Anthropic's prompt
+        // cache to hit. Logging its fingerprint makes a cache-busting regression
+        // (e.g. a stray timestamp or unseeded shuffle) visible instead of silent.
+        _logger.LogDebug("AI build prompt: {Chars} chars, sha256={Hash}",
+            prompt.Length, PromptFingerprint(prompt));
+
         var body = new
         {
             model = ModelId,
@@ -334,21 +342,18 @@ public sealed class AiBuildService : IAiBuildService
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(respJson);
-        var text = doc.RootElement
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString() ?? "{}";
-
-        text = ExtractJsonObject(text);
-
-        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var parsed = JsonSerializer.Deserialize<JsonElement>(text, opts);
+        var parsed = AnthropicResponse.DeserializeJson<JsonElement>(respJson);
 
         string[] ParseArray(string key)
         {
-            if (parsed.TryGetProperty(key, out var el) && el.ValueKind == JsonValueKind.Array)
-                return el.Deserialize<string[]>(opts) ?? [];
+            // Guard on Object: an unparseable response yields a default JsonElement
+            // (ValueKind.Undefined), on which TryGetProperty would throw.
+            if (parsed.ValueKind == JsonValueKind.Object
+                && parsed.TryGetProperty(key, out var el)
+                && el.ValueKind == JsonValueKind.Array)
+            {
+                return el.Deserialize<string[]>(AnthropicResponse.JsonOptions) ?? [];
+            }
             return [];
         }
 
@@ -356,6 +361,13 @@ public sealed class AiBuildService : IAiBuildService
     }
 
     // ---- Helpers ---------------------------------------------------
+
+    /// <summary>Short SHA-256 prefix of the prompt, for cache-stability diagnostics.</summary>
+    private static string PromptFingerprint(string prompt)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(prompt));
+        return Convert.ToHexString(bytes)[..12];
+    }
 
     private static string FormatColors(HashSet<ManaColor> colors)
     {
@@ -377,34 +389,4 @@ public sealed class AiBuildService : IAiBuildService
         return string.Join(", ", parts);
     }
 
-    // Extracts the first complete JSON object from text that may contain preamble/postamble.
-    private static string ExtractJsonObject(string text)
-    {
-        int start = text.IndexOf('{');
-        if (start < 0)
-            return "{}";
-
-        int depth = 0;
-        bool inString = false;
-        bool escaped = false;
-
-        for (int i = start; i < text.Length; i++)
-        {
-            char c = text[i];
-            if (escaped)
-            { escaped = false; continue; }
-            if (c == '\\' && inString)
-            { escaped = true; continue; }
-            if (c == '"')
-            { inString = !inString; continue; }
-            if (inString)
-                continue;
-            if (c == '{')
-                depth++;
-            else if (c == '}')
-            { if (--depth == 0) return text[start..(i + 1)]; }
-        }
-
-        return text[start..]; // malformed — return from '{' to end and let the caller throw
-    }
 }
