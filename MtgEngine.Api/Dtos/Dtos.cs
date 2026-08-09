@@ -138,6 +138,9 @@ public sealed record ImportDeckResult(
 
 public sealed record SetSummaryDto(string Code, string Name, int CardCount);
 
+/// <summary>A recently released set, with enough detail to name it in the UI.</summary>
+public sealed record RecentSetDto(string Code, string Name, DateOnly ReleasedAt, int LegalCardCount);
+
 // ---- Auth -----------------------------------------------------
 
 public sealed record RegisterRequest(string Username, string Email, string Password);
@@ -190,6 +193,12 @@ public sealed record DeckSuggestionsDto
     public SuggestedCardDto[] TopSynergy { get; init; } = [];
     public SuggestedCardDto[] GameChangers { get; init; } = [];
     public SuggestedCardDto[] NotableMentions { get; init; } = [];
+
+    /// <summary>
+    /// The sets <see cref="LatestSet"/> was drawn from, newest first. Shown in the UI so
+    /// "latest sets" is a claim the user can check rather than take on trust.
+    /// </summary>
+    public RecentSetDto[] LatestSetSources { get; init; } = [];
 
     /// <summary>What the validation layer discarded from the model's proposals.</summary>
     public SuggestionDiagnosticsDto Diagnostics { get; init; } = new();

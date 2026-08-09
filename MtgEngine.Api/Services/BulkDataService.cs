@@ -155,6 +155,12 @@ public sealed class BulkDataService : IScryfallService
                         if (p.SetCode is not null)
                             relevantSets.Add(p.SetCode);
 
+            // A bare word is far more likely to name the set than a card inside it.
+            // Matching only card text meant "hobbit" listed the Lord of the Rings sets
+            // (they contain cards with Hobbit in the name) and not The Hobbit itself.
+            foreach (var code in MatchSetCodes(nameFilter ?? q))
+                relevantSets.Add(code);
+
             source = _bySetCode.Where(kv => relevantSets.Contains(kv.Key));
         }
 
@@ -176,20 +182,41 @@ public sealed class BulkDataService : IScryfallService
     /// Without this filter "recent" is dominated by Secret Lairs and promo drops, which
     /// is why the latest-set suggestions were full of cards from nowhere in particular.
     /// </remarks>
+    /// <remarks>
+    /// "eternal" covers the Universes Beyond bonus sheets (Transformers, Jurassic World,
+    /// The Hobbit Eternal). They are Commander-legal releases of new cards, so leaving
+    /// them out hid half of a set's launch.
+    /// </remarks>
     private static readonly HashSet<string> ReleaseSetTypes = new(StringComparer.OrdinalIgnoreCase)
-        { "expansion", "core", "commander", "draft_innovation" };
+        { "expansion", "core", "commander", "draft_innovation", "eternal" };
 
     /// <summary>
-    /// True when a set contains at least one Commander-legal card.
+    /// How many Commander-legal cards a set needs before it counts as released here.
+    /// </summary>
+    /// <remarks>
+    /// Scryfall carries partially-spoiled sets weeks before release, sometimes with a
+    /// single card. Such a set is "the newest" by date but has nothing to suggest from,
+    /// so treating it as the latest release silently starves the category.
+    /// </remarks>
+    private const int MinLegalCardsForRelease = 50;
+
+    /// <summary>
+    /// How far ahead of its release date a set counts as "the latest set".
+    /// </summary>
+    private const int SpoilerWindowDays = 21;
+
+    /// <summary>
+    /// Number of Commander-legal cards in a set.
     /// </summary>
     /// <remarks>
     /// Some sets carry a release set_type yet are entirely outside the format -- the
     /// Marvel sets are standalone products where every card is not_legal. Treating one
     /// as "the latest set" made the suggestions panel offer cards that cannot be played.
     /// </remarks>
-    private bool HasCommanderLegalCards(string setCode) =>
+    private int CountCommanderLegalCards(string setCode) =>
         _bySetCode.TryGetValue(setCode, out var oracleIds)
-        && oracleIds.Any(oid => _byOracleId.TryGetValue(oid, out var d) && CommanderRules.IsLegalInCommander(d));
+            ? oracleIds.Count(oid => _byOracleId.TryGetValue(oid, out var d) && CommanderRules.IsLegalInCommander(d))
+            : 0;
 
     /// <summary>
     /// The most recently released real sets, newest first.
@@ -205,32 +232,77 @@ public sealed class BulkDataService : IScryfallService
     /// </param>
     public async Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null)
     {
+        var sets = await GetRecentSetsAsync(monthsBack, maxSets);
+        return new HashSet<string>(sets.Select(s => s.Code), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null)
+    {
         await WaitReadyAsync();
 
-        // Scryfall lists announced sets with future release dates. Those cards are not
-        // playable yet and must not be suggested.
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Scryfall lists sets months before release. A set a fortnight out is fully
+        // spoiled and is what players mean by "the new set" -- the deck builder already
+        // lets them use those cards -- but a set announced for next quarter is not.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(SpoilerWindowDays);
 
-        var released = _setReleaseDates
-            .Where(kv => kv.Value <= today
-                         && _setTypes.TryGetValue(kv.Key, out var t)
-                         && ReleaseSetTypes.Contains(t)
-                         && HasCommanderLegalCards(kv.Key))
-            .OrderByDescending(kv => kv.Value)
-            .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase); // stable tie-break
+        // Walk newest-first and record why each set was passed over. When the answer is
+        // a set from months ago, the log has to explain what happened to everything
+        // newer -- otherwise it just looks like the date sort is broken.
+        var skipped = new List<string>();
+        var accepted = new List<RecentSetDto>();
 
-        IEnumerable<KeyValuePair<string, DateOnly>> chosen = maxSets is > 0
-            ? released.Take(maxSets.Value)
-            : released.Where(kv => kv.Value >= DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-monthsBack)));
+        foreach (var kv in _setReleaseDates
+                     .OrderByDescending(kv => kv.Value)
+                     .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var (code, date) = (kv.Key, kv.Value);
+            _setTypes.TryGetValue(code, out var setType);
 
-        var result = new HashSet<string>(chosen.Select(kv => kv.Key), StringComparer.OrdinalIgnoreCase);
+            string? skipReason =
+                date > today ? $"too far out ({date:yyyy-MM-dd})"
+                : setType is null || !ReleaseSetTypes.Contains(setType) ? $"set_type={setType ?? "?"}"
+                : null;
+
+            int legal = 0;
+            if (skipReason is null)
+            {
+                legal = CountCommanderLegalCards(code);
+                if (legal == 0)
+                    skipReason = "no Commander-legal cards";
+                else if (legal < MinLegalCardsForRelease)
+                    skipReason = $"only {legal} legal cards — looks partially spoiled";
+            }
+
+            if (skipReason is not null)
+            {
+                // Only the newest handful matter; older skips are noise.
+                if (skipped.Count < 8 && date > today.AddMonths(-12))
+                    skipped.Add($"{code} ({skipReason})");
+                continue;
+            }
+
+            accepted.Add(new RecentSetDto(
+                code, _setNames.TryGetValue(code, out var n) ? n : code.ToUpperInvariant(), date, legal));
+
+            if (maxSets is > 0 && accepted.Count >= maxSets.Value)
+                break;
+        }
+
+        if (maxSets is not > 0)
+        {
+            var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-monthsBack));
+            accepted = [.. accepted.Where(s => s.ReleasedAt >= cutoff)];
+        }
 
         _logger.LogInformation(
-            "Recent sets ({Mode}): {Codes}",
+            "Recent sets ({Mode}): {Chosen}. Skipped newer: {Skipped}",
             maxSets is > 0 ? $"latest {maxSets}" : $"{monthsBack}mo",
-            string.Join(", ", result.OrderBy(c => c)));
+            accepted.Count == 0
+                ? "(none)"
+                : string.Join(", ", accepted.Select(s => $"{s.Code} {s.ReleasedAt:yyyy-MM-dd} [{s.LegalCardCount} legal]")),
+            skipped.Count == 0 ? "(none)" : string.Join("; ", skipped));
 
-        return result;
+        return accepted;
     }
 
     /// <summary>
@@ -268,19 +340,60 @@ public sealed class BulkDataService : IScryfallService
         if (string.IsNullOrEmpty(q))
             return [.. pool.Take(limit)];
 
+        // A query is as likely to name a set as a card. Searching only card names meant
+        // "hobbit" returned the five cards with Hobbit in the title and none of the
+        // commanders from The Hobbit, which is what someone typing it actually wants.
+        var matchedSets = MatchSetCodes(q);
+        var inMatchedSets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var code in matchedSets)
+            if (_bySetCode.TryGetValue(code, out var ids))
+                inMatchedSets.UnionWith(ids);
+
         // Prefix matches first -- typing "kro" should surface Krosan before Sakashima
         // of a Thousand Faces just because the latter contains the letters later on.
+        // Set members come last: an exact name match is the stronger signal.
         var prefix = new List<CardDefinition>();
         var contains = new List<CardDefinition>();
-        foreach (var d in _commanders)
+        var bySet = new List<CardDefinition>();
+        foreach (var d in pool)
         {
             if (d.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase))
                 prefix.Add(d);
             else if (d.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
                 contains.Add(d);
+            else if (inMatchedSets.Contains(d.OracleId))
+                bySet.Add(d);
         }
 
-        return [.. prefix.Concat(contains).Take(limit)];
+        if (matchedSets.Count > 0)
+            _logger.LogInformation(
+                "Commander search '{Query}' matched sets {Sets}: {ByName} by name, {BySet} by set",
+                q, string.Join(", ", matchedSets), prefix.Count + contains.Count, bySet.Count);
+
+        return [.. prefix.Concat(contains).Concat(bySet).Take(limit)];
+    }
+
+    /// <summary>
+    /// Set codes whose code or name matches the query. An exact code match ("hob") wins
+    /// outright; otherwise any set whose name contains the query counts.
+    /// </summary>
+    private List<string> MatchSetCodes(string q)
+    {
+        if (_setNames.ContainsKey(q))
+            return [q];
+
+        var matches = new List<string>();
+        foreach (var (code, name) in _setNames)
+        {
+            // Tokens, art series and the like share their parent's name; they hold no
+            // commanders, and including them only widens the scan.
+            if (_setTypes.TryGetValue(code, out var t)
+                && (t is "token" or "memorabilia" or "art_series" or "minigame"))
+                continue;
+            if (name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                matches.Add(code);
+        }
+        return matches;
     }
 
     /// <summary>
@@ -360,7 +473,47 @@ public sealed class BulkDataService : IScryfallService
             .ToArray();
     }
 
-    public async Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null)
+    /// <summary>
+    /// True when the card debuted in one of these sets rather than being reprinted into
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// Modern Commander products are largely reprints, so "new from the latest sets"
+    /// was offering cards like Thran Dynamo, first printed in 1998. Filtering on the
+    /// debut printing is what makes the heading true.
+    /// </remarks>
+    private bool DebutedIn(string oracleId, IReadOnlySet<string> setCodes)
+    {
+        if (!_printingsByOracleId.TryGetValue(oracleId, out var prints) || prints.Length == 0)
+            return false;
+
+        DateOnly? earliest = null;
+        foreach (var p in prints)
+        {
+            if (p.SetCode is not null
+                && _setReleaseDates.TryGetValue(p.SetCode, out var d)
+                && (earliest is null || d < earliest))
+                earliest = d;
+        }
+
+        DateOnly? target = null;
+        foreach (var code in setCodes)
+            if (_setReleaseDates.TryGetValue(code, out var d) && (target is null || d < target))
+                target = d;
+
+        if (earliest is null || target is null)
+            return false;
+
+        // Prerelease promos and Secret Lair tie-ins ship days before the set proper, so
+        // an exact date match would wrongly disqualify genuinely new cards.
+        return earliest >= target.Value.AddDays(-14);
+    }
+
+    public async Task<string[]> GetRecentCardNamesAsync(
+        IReadOnlySet<string> setCodes,
+        IReadOnlySet<ManaColor> commanderColors,
+        IReadOnlySet<string>? allowedRarities = null,
+        bool debutOnly = false)
     {
         await WaitReadyAsync();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -382,6 +535,8 @@ public sealed class BulkDataService : IScryfallService
                 // Not-legal cards (Un-sets, Alchemy, standalone Universes Beyond
                 // products) must never be spotlighted -- they cannot go in the deck.
                 if (!CommanderRules.IsLegalInCommander(def))
+                    continue;
+                if (debutOnly && !DebutedIn(oid, setCodes))
                     continue;
                 // Skip tokens, basic lands, and commander-illegal card types
                 if (def.Supertypes.Contains("Basic"))
@@ -764,13 +919,14 @@ public sealed class BulkDataService : IScryfallService
 
             var sw = Stopwatch.StartNew();
 
+            // Parsing is CPU-bound and takes seconds; keep it off the caller's thread.
             if (File.Exists(oraclePath))
-                await LoadOracleCardsAsync(oraclePath);
+                await Task.Run(() => LoadOracleCards(oraclePath));
             else
                 _logger.LogWarning("oracle_cards.json not found — card lookups will use live API");
 
             if (File.Exists(defaultPath))
-                await LoadDefaultCardsAsync(defaultPath);
+                await Task.Run(() => LoadDefaultCards(defaultPath));
             else
                 _logger.LogWarning("default_cards.json not found — printings will use live API");
 
@@ -787,19 +943,82 @@ public sealed class BulkDataService : IScryfallService
         }
     }
 
-    private async Task LoadOracleCardsAsync(string path)
+    /// <summary>
+    /// Streams the card objects out of a bulk file.
+    /// </summary>
+    /// <remarks>
+    /// Handles both shapes Scryfall has published: a single JSON array, and the
+    /// newline-delimited form it serves now. Line-at-a-time parsing also keeps peak
+    /// memory flat, where the array path had to hold the whole 500 MB document.
+    /// The yielded element is only valid inside the caller's loop body.
+    /// </remarks>
+    private IEnumerable<JsonElement> EnumerateCards(string path)
+    {
+        using var reader = new StreamReader(path);
+        var stats = new ParseStats();
+
+        foreach (var el in ReadCards(reader, stats))
+            yield return el;
+
+        if (stats.BadLines > 0)
+            _logger.LogWarning("Skipped {Count} unparseable lines in {Path}", stats.BadLines, Path.GetFileName(path));
+    }
+
+    internal sealed class ParseStats
+    {
+        public int BadLines;
+    }
+
+    /// <inheritdoc cref="EnumerateCards"/>
+    internal static IEnumerable<JsonElement> ReadCards(TextReader reader, ParseStats? stats = null)
+    {
+        while (reader.Peek() is ' ' or '\t' or '\r' or '\n')
+            reader.Read();
+
+        if (reader.Peek() == '[')
+        {
+            using var doc = JsonDocument.Parse(
+                reader.ReadToEnd(), new JsonDocumentOptions { AllowTrailingCommas = true });
+            foreach (var el in doc.RootElement.EnumerateArray())
+                yield return el;
+            yield break;
+        }
+
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            // Tolerate the array file's punctuation in case a mixed file turns up.
+            var trimmed = line.TrimEnd(',', '\r');
+            if (trimmed.Length < 2 || trimmed is "[" or "]")
+                continue;
+
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(trimmed);
+            }
+            catch (JsonException)
+            {
+                if (stats is not null)
+                    stats.BadLines++;
+                continue;
+            }
+
+            using (doc)
+                yield return doc.RootElement;
+        }
+    }
+
+    private void LoadOracleCards(string path)
     {
         var byOracleId = new Dictionary<string, CardDefinition>(32_000);
         var byName = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing oracle_cards.json…");
-        await using var stream = File.OpenRead(path);
-        using var doc = await JsonDocument.ParseAsync(stream,
-            new JsonDocumentOptions { AllowTrailingCommas = true });
 
         var rarityMap = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var card in doc.RootElement.EnumerateArray())
+        foreach (var card in EnumerateCards(path))
         {
             // Skip digital-only and non-English
             if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean())
@@ -824,7 +1043,7 @@ public sealed class BulkDataService : IScryfallService
         _rarityByOracleId = rarityMap;
     }
 
-    private async Task LoadDefaultCardsAsync(string path)
+    private void LoadDefaultCards(string path)
     {
         var printings = new Dictionary<string, List<PrintingDto>>(32_000);
         var scryfallIdx = new Dictionary<string, PrintingEntry>(250_000);
@@ -834,11 +1053,8 @@ public sealed class BulkDataService : IScryfallService
         var setTypes = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing default_cards.json…");
-        await using var stream = File.OpenRead(path);
-        using var doc = await JsonDocument.ParseAsync(stream,
-            new JsonDocumentOptions { AllowTrailingCommas = true });
 
-        foreach (var card in doc.RootElement.EnumerateArray())
+        foreach (var card in EnumerateCards(path))
         {
             if (card.TryGetProperty("digital", out var dig) && dig.GetBoolean())
                 continue;
@@ -956,8 +1172,14 @@ public sealed class BulkDataService : IScryfallService
                     setList.Add(oid);
                 if (setName.Length > 0)
                     setNames.TryAdd(setCode, setName);
+                // released_at is per printing, and promos folded into a set can carry
+                // later dates. The set released when its first card did, so keep the
+                // earliest -- TryAdd would have frozen whichever card the file listed first.
                 if (releasedAt is not null && DateOnly.TryParse(releasedAt, out var releaseDate))
-                    setReleaseDates.TryAdd(setCode, releaseDate);
+                {
+                    if (!setReleaseDates.TryGetValue(setCode, out var known) || releaseDate < known)
+                        setReleaseDates[setCode] = releaseDate;
+                }
                 if (setType.Length > 0)
                     setTypes.TryAdd(setCode, setType);
             }
@@ -1006,23 +1228,40 @@ public sealed class BulkDataService : IScryfallService
                 return null;
 
             BulkEntry? oracle = null, defaults = null;
+            var missingUri = new List<string>();
             foreach (var entry in data.EnumerateArray())
             {
                 var type = entry.TryGetProperty("type", out var t) ? t.GetString() : null;
-                var uri = entry.TryGetProperty("download_uri", out var u) ? u.GetString() : null;
                 var name = entry.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
                 DateTimeOffset updatedAt = default;
                 if (entry.TryGetProperty("updated_at", out var ua))
                     DateTimeOffset.TryParse(ua.GetString(), out updatedAt);
 
+                // Scryfall replaced download_uri (a JSON array) with jsonl_download_uri
+                // (gzipped newline-delimited JSON). Reading only the old field made every
+                // entry look unusable, so refreshes quietly stopped for months.
+                var uri = (entry.TryGetProperty("jsonl_download_uri", out var ju) ? ju.GetString() : null)
+                          ?? (entry.TryGetProperty("download_uri", out var u) ? u.GetString() : null);
+
                 if (uri is null)
+                {
+                    if (type is "oracle_cards" or "default_cards")
+                        missingUri.Add(type);
                     continue;
+                }
                 var be = new BulkEntry(name, uri, updatedAt);
                 if (type == "oracle_cards")
                     oracle = be;
                 if (type == "default_cards")
                     defaults = be;
             }
+
+            // Never let a schema change downgrade itself into "nothing to do".
+            if (missingUri.Count > 0)
+                _logger.LogError(
+                    "Scryfall bulk-data entries {Types} have no recognised download URI — " +
+                    "the API shape has changed and card data will go stale",
+                    string.Join(", ", missingUri));
 
             return new BulkMeta(oracle, defaults);
         }
@@ -1031,6 +1270,51 @@ public sealed class BulkDataService : IScryfallService
             _logger.LogError(ex, "Failed to fetch bulk-data metadata");
             return null;
         }
+    }
+
+    /// <summary>
+    /// A read-only stream that replays a few already-consumed bytes before continuing
+    /// with the underlying stream. Lets us sniff a magic number without buffering the
+    /// whole (hundreds of megabytes) body.
+    /// </summary>
+    private sealed class PrefixedStream(ReadOnlyMemory<byte> prefix, Stream inner) : Stream
+    {
+        private int _prefixPos;
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_prefixPos < prefix.Length)
+            {
+                int n = Math.Min(buffer.Length, prefix.Length - _prefixPos);
+                prefix.Span.Slice(_prefixPos, n).CopyTo(buffer);
+                _prefixPos += n;
+                return n;
+            }
+            return inner.Read(buffer);
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+        {
+            if (_prefixPos < prefix.Length)
+                return ValueTask.FromResult(Read(buffer.Span));
+            return inner.ReadAsync(buffer, ct);
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct)
+            => ReadAsync(buffer.AsMemory(offset, count), ct).AsTask();
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private async Task<bool> DownloadIfStaleAsync(BulkEntry entry, string fileName, CancellationToken ct)
@@ -1056,13 +1340,17 @@ public sealed class BulkDataService : IScryfallService
             response.EnsureSuccessStatusCode();
 
             var tmpPath = localPath + ".tmp";
-            await using (var src = await response.Content.ReadAsStreamAsync(ct))
+            await using (var raw = await response.Content.ReadAsStreamAsync(ct))
             await using (var dest = File.Create(tmpPath))
             {
-                // Bulk files may be delivered as gzip even without .gz extension
-                var contentEncoding = response.Content.Headers.ContentEncoding.FirstOrDefault() ?? "";
-                if (contentEncoding.Contains("gzip", StringComparison.OrdinalIgnoreCase)
-                    || entry.DownloadUri.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+                // Whether the body still needs decompressing depends on the URL, the
+                // Content-Encoding header, and whether the handler already unwrapped it.
+                // The first two bytes settle it without having to reason about all three.
+                var head = new byte[2];
+                int got = await raw.ReadAtLeastAsync(head, 2, throwOnEndOfStream: false, ct);
+                await using var src = new PrefixedStream(head.AsMemory(0, got), raw);
+
+                if (got == 2 && head[0] == 0x1f && head[1] == 0x8b)
                 {
                     await using var gz = new GZipStream(src, CompressionMode.Decompress);
                     await gz.CopyToAsync(dest, ct);

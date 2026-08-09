@@ -40,7 +40,13 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     // v6: not_legal cards are rejected, and sets with no Commander-legal cards no
     //     longer count as "recent".
     // v7: reasons are rewritten against each card's real rules text.
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v7";
+    // v8: reasons must cite verbatim spans of the card and commander text, and are
+    //     replaced with a plain rules-text restatement when the citation does not check out.
+    // v9: a separate judge pass rejects reasons whose inference is wrong even though
+    //     the quotes are real (Treasures being sacrificed to "sacrifice a creature").
+    // v10: quote check counts words rather than characters (mana abilities are mostly
+    //      symbols), and the fallback quotes an activated ability rather than a drawback.
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v10";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
@@ -56,8 +62,12 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         _logger = logger;
     }
 
-    public Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request)
+    public async Task<DeckSuggestionsDto> GetSuggestionsAsync(DeckSuggestionsRequest request)
     {
+        // Part of the key: when a new set arrives, cached answers still name the old one
+        // as "latest", so they have to expire even though the request is unchanged.
+        var recentSets = await _scryfall.GetRecentSetsAsync(maxSets: LatestSetCount);
+
         // Deck contents and tags are sorted so that merely reordering cards -- which
         // does not change the request semantically -- still hits the cache.
         var keyParts = new[] { request.CommanderOracleId, request.CommanderName }
@@ -65,19 +75,26 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             .Append("|tags|")
             .Concat(request.DeckTags.Concat(request.SuggestionTags)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase));
+                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
+            .Append("|sets|")
+            .Concat(recentSets.Select(s => s.Code).OrderBy(c => c, StringComparer.OrdinalIgnoreCase));
 
-        return _cache.GetOrCreateAsync(
-            "suggestions", CacheVersion, keyParts, () => BuildSuggestionsAsync(request));
+        return await _cache.GetOrCreateAsync(
+            "suggestions", CacheVersion, keyParts, () => BuildSuggestionsAsync(request, recentSets));
     }
 
-    private async Task<DeckSuggestionsDto> BuildSuggestionsAsync(DeckSuggestionsRequest request)
+    private async Task<DeckSuggestionsDto> BuildSuggestionsAsync(
+        DeckSuggestionsRequest request, IReadOnlyList<RecentSetDto> recentSetInfo)
     {
         var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId);
         var cmdColors = cmdDef?.ColorIdentity.ToHashSet() ?? new HashSet<ManaColor>();
 
-        var recentSets = await _scryfall.GetRecentSetCodesAsync(maxSets: LatestSetCount);
-        var allRecentNames = await _scryfall.GetRecentCardNamesAsync(recentSets, cmdColors);
+        var recentSets = new HashSet<string>(
+            recentSetInfo.Select(s => s.Code), StringComparer.OrdinalIgnoreCase);
+        // debutOnly: the heading says "new", so a staple reprinted into a Commander
+        // precon does not belong here however good it is.
+        var allRecentNames = await _scryfall.GetRecentCardNamesAsync(
+            recentSets, cmdColors, allowedRarities: null, debutOnly: true);
 
         // The data layer returns every match; cap the prompt here. Seeded on the
         // commander so repeat requests produce an identical, cacheable prompt.
@@ -91,7 +108,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
         var raw = await CallAnthropicAsync(request, recentCardNames, gameChangerNames);
 
-        var (latestSet, rejLatest) = await ResolveAsync(raw.LatestSet, request.DeckCardNames, cmdColors, recentSets, requireGameChanger: false);
+        var (latestSet, rejLatest) = await ResolveAsync(
+            raw.LatestSet, request.DeckCardNames, cmdColors, recentSets, requireGameChanger: false,
+            allowedNames: new HashSet<string>(recentCardNames, StringComparer.OrdinalIgnoreCase));
         var (topSynergy, rejSynergy) = await ResolveAsync(raw.TopSynergy, request.DeckCardNames, cmdColors, null, requireGameChanger: false);
         var (gameChangers, rejGc) = await ResolveAsync(raw.GameChangers, request.DeckCardNames, cmdColors, null, requireGameChanger: true);
         var (notableMentions, rejNotable) = await ResolveAsync(raw.NotableMentions, request.DeckCardNames, cmdColors, null, requireGameChanger: false);
@@ -156,6 +175,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             TopSynergy = topSynergy,
             GameChangers = gameChangers,
             NotableMentions = notableMentions,
+            LatestSetSources = [.. recentSetInfo],
             Diagnostics = new SuggestionDiagnosticsDto
             {
                 Proposed = proposed,
@@ -191,26 +211,41 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         try
         {
             var reasons = await CallReasonPassAsync(request, resolved);
-            if (reasons.Count == 0)
-                return;
 
-            int rewritten = 0;
+            // Citing real text is not enough. Both halves of "Goblin Bombardment
+            // converts Smaug's Treasures into damage" are quotable; the inference
+            // joining them is what is false, so a separate pass attacks the inference.
+            reasons = await CritiqueReasonsAsync(request, resolved, reasons);
+
+            int verified = 0, fallback = 0;
             foreach (var group in groups)
             {
                 for (int i = 0; i < group.Length; i++)
                 {
+                    var card = group[i].Card;
+                    if (card is null || string.IsNullOrWhiteSpace(card.OracleText))
+                        continue;
+
                     if (reasons.TryGetValue(group[i].Name, out var better)
                         && !string.IsNullOrWhiteSpace(better))
                     {
                         group[i] = group[i] with { Reason = better.Trim() };
-                        rewritten++;
+                        verified++;
+                    }
+                    else
+                    {
+                        // The model's explanation could not be traced back to real rules
+                        // text. A plain restatement of what the card does is less
+                        // interesting than a synergy claim, but it is never wrong.
+                        group[i] = group[i] with { Reason = FallbackReason(card.OracleText) };
+                        fallback++;
                     }
                 }
             }
 
             _logger.LogInformation(
-                "Grounded {Rewritten}/{Total} suggestion reasons for {Commander}",
-                rewritten, resolved.Length, request.CommanderName);
+                "Grounded reasons for {Commander}: {Verified} verified, {Fallback} fell back to rules text",
+                request.CommanderName, verified, fallback);
         }
         catch (Exception ex)
         {
@@ -239,19 +274,225 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             {{cardList}}
 
             Respond with ONLY this JSON (no markdown, no extra text):
-            {"reasons":[{"name":"<exact card name as given>","reason":"<one sentence>"}]}
+            {"reasons":[{
+              "name":"<exact card name as given>",
+              "cardQuote":"<the exact span of THIS CARD'S rules text the reason relies on, copied character for character>",
+              "commanderQuote":"<the exact span of the COMMANDER'S oracle text the reason relies on, copied character for character, or \"\" if the reason makes no claim about the commander>",
+              "reason":"<one sentence>"
+            }]}
 
             Rules:
             - Describe only what the rules text above actually says. Do not rely on memory
               of the card, and never attribute an ability it does not have.
+            - The quotes must be copied verbatim from the text given above. A reason whose
+              quotes are not found in that text is discarded, so do not paraphrase them.
+            - Check that the card types line up before claiming a synergy. A Treasure is an
+              artifact, not a creature; a "sacrifice a creature" cost cannot eat Treasures.
+              Food, Clues and Blood are artifacts too. Only claim one card feeds another
+              when the thing produced is something the other card can actually consume.
+            - If there is no genuine mechanical link to the commander, just say what the
+              card contributes to the deck. An honest generic reason beats an invented combo.
             - Say why it helps this commander specifically, not why it is a good card.
             - Under 18 words each. Include every card, exactly once, name spelled as given.
             """;
 
+        // Each entry now carries two verbatim quotes as well as the sentence.
+        var parsed = await CallJsonAsync<ReasonPassJson>(prompt, maxTokens: 4000);
+
+        var byName = cards.ToDictionary(c => c.Name, c => c.Card!.OracleText!, StringComparer.OrdinalIgnoreCase);
+        var commanderText = Normalize(request.CommanderText ?? string.Empty);
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in parsed?.Reasons ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(r.Name) || string.IsNullOrWhiteSpace(r.Reason))
+                continue;
+            if (!byName.TryGetValue(r.Name, out var oracle))
+                continue;
+
+            // Both citations must be traceable to text we supplied. This is what stops a
+            // fluent-sounding explanation from attributing an ability no card here has.
+            if (!QuoteIsGrounded(r.CardQuote, Normalize(oracle)))
+            {
+                _logger.LogDebug("Reason for {Card} rejected: cardQuote not in rules text ({Quote})",
+                    r.Name, r.CardQuote);
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(r.CommanderQuote)
+                && !QuoteIsGrounded(r.CommanderQuote, commanderText))
+            {
+                _logger.LogDebug("Reason for {Card} rejected: commanderQuote not in commander text ({Quote})",
+                    r.Name, r.CommanderQuote);
+                continue;
+            }
+
+            map[r.Name] = r.Reason;
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Re-reads each surviving reason as a sceptic and drops or repairs the ones whose
+    /// claims do not follow from the two cards' rules text.
+    /// </summary>
+    /// <remarks>
+    /// The failure this exists for is a category error, not a fabrication: every phrase
+    /// is quotable, but the sentence asserts that one card consumes something the other
+    /// produces when the types do not match. Asking the same call that wrote the
+    /// sentence to check it does not work -- it has already committed to the claim.
+    /// A reason that survives here is worth more than four that read well.
+    /// </remarks>
+    private async Task<Dictionary<string, string>> CritiqueReasonsAsync(
+        DeckSuggestionsRequest request,
+        SuggestedCardDto[] cards,
+        Dictionary<string, string> reasons)
+    {
+        var toCheck = cards
+            .Where(c => reasons.ContainsKey(c.Name))
+            .Select(c => (c.Name, Text: c.Card!.OracleText!.Replace("\n", " "), Reason: reasons[c.Name]))
+            .ToArray();
+
+        if (toCheck.Length == 0)
+            return reasons;
+
+        var claimList = string.Join("\n", toCheck.Select((c, i) =>
+            $"{i + 1}. {c.Name}\n   rules text: {c.Text}\n   claim: {c.Reason}"));
+
+        var prompt = $$"""
+            You are a Magic: The Gathering rules judge checking claims for accuracy.
+
+            Commander: {{request.CommanderName}}
+            Commander's oracle text: {{request.CommanderText}}
+
+            Below are claims about why each card belongs in this commander's deck.
+            Decide whether each claim is literally true given only the rules text shown.
+
+            Claims ({{toCheck.Length}}):
+            {{claimList}}
+
+            Reject a claim if it depends on any of these:
+            - Treating an artifact token (Treasure, Food, Clue, Blood, Powerstone, Map) as
+              a creature, or vice versa. "Sacrifice a creature" cannot sacrifice a Treasure.
+            - A trigger firing more often than its text allows. Double strike does not
+              re-trigger "whenever this creature attacks"; that triggers once per combat.
+            - An ability, keyword, type or cost the rules text does not contain.
+            - The commander producing or caring about something its oracle text never mentions.
+
+            Respond with ONLY this JSON (no markdown, no extra text):
+            {"checks":[{"name":"<exact card name>","verdict":"ok"|"wrong","fixed":"<if wrong, a corrected sentence under 18 words that is true given the text; otherwise \"\">"}]}
+
+            Be strict. If a claim is even partly unsupported, mark it wrong and fix it.
+            """;
+
+        try
+        {
+            var parsed = await CallJsonAsync<CritiquePassJson>(prompt, maxTokens: 3000);
+
+            int corrected = 0, dropped = 0;
+            foreach (var check in parsed?.Checks ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(check.Name) || !reasons.ContainsKey(check.Name))
+                    continue;
+                if (!string.Equals(check.Verdict, "wrong", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(check.Fixed))
+                {
+                    reasons[check.Name] = check.Fixed.Trim();
+                    corrected++;
+                }
+                else
+                {
+                    // No usable repair: drop it so the caller falls back to rules text.
+                    reasons.Remove(check.Name);
+                    dropped++;
+                }
+            }
+
+            _logger.LogInformation(
+                "Reason critique for {Commander}: {Checked} checked, {Corrected} rewritten, {Dropped} dropped",
+                request.CommanderName, toCheck.Length, corrected, dropped);
+        }
+        catch (Exception ex)
+        {
+            // An unchecked reason is still quote-grounded; keep it rather than fail.
+            _logger.LogWarning(ex, "Reason critique failed for {Commander}", request.CommanderName);
+        }
+
+        return reasons;
+    }
+
+    /// <summary>Lowercased, punctuation-stripped, whitespace-collapsed form for quote matching.</summary>
+    internal static string Normalize(string s)
+    {
+        var sb = new StringBuilder(s.Length);
+        bool lastSpace = false;
+        foreach (var ch in s)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+                lastSpace = false;
+            }
+            else if (!lastSpace)
+            {
+                sb.Append(' ');
+                lastSpace = true;
+            }
+        }
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>
+    /// True when the quote appears in the source text. One- and two-word quotes are
+    /// rejected: they match almost anything and support no particular claim.
+    /// </summary>
+    /// <remarks>
+    /// The bar is word count, not character count. Stripping punctuation turns
+    /// "{T}: Add {C}{C}{C}." into eleven characters, so a length floor threw out
+    /// perfectly good citations for every mana rock in the game.
+    /// </remarks>
+    internal static bool QuoteIsGrounded(string? quote, string normalizedSource)
+    {
+        var q = Normalize(quote ?? string.Empty);
+        if (q.Length == 0 || !normalizedSource.Contains(q, StringComparison.Ordinal))
+            return false;
+
+        int words = 1;
+        foreach (var ch in q)
+            if (ch == ' ')
+                words++;
+        return words >= 3;
+    }
+
+    /// <summary>
+    /// A reason built only from the card's own rules text, used when the model's
+    /// explanation could not be verified. Truthful by construction.
+    /// </summary>
+    internal static string FallbackReason(string oracleText)
+    {
+        var lines = oracleText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // Prefer an activated ability over the first line: Mana Vault opens with its
+        // drawback, and "doesn't untap during your untap step" is a poor case for
+        // including a card.
+        var pick = Array.Find(lines, l => l.Contains(": ", StringComparison.Ordinal))
+                   ?? (lines.Length > 0 ? lines[0] : oracleText.Trim());
+
+        var cut = pick.IndexOf(". ", StringComparison.Ordinal);
+        if (cut > 0)
+            pick = pick[..(cut + 1)];
+
+        return pick.Length <= 110 ? pick : pick[..107].TrimEnd() + "…";
+    }
+
+    /// <summary>One deterministic JSON-in, JSON-out call to the model.</summary>
+    private async Task<T?> CallJsonAsync<T>(string prompt, int maxTokens)
+    {
         var body = new
         {
             model = ModelId,
-            max_tokens = 2000,
+            max_tokens = maxTokens,
             temperature = 0,
             messages = new[] { new { role = "user", content = prompt } },
         };
@@ -271,14 +512,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
         }
 
-        var parsed = AnthropicResponse.DeserializeJson<ReasonPassJson>(
-            await resp.Content.ReadAsStringAsync());
-
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var r in parsed?.Reasons ?? [])
-            if (!string.IsNullOrWhiteSpace(r.Name))
-                map[r.Name] = r.Reason;
-        return map;
+        return AnthropicResponse.DeserializeJson<T>(await resp.Content.ReadAsStringAsync());
     }
 
     private sealed class ReasonPassJson
@@ -286,9 +520,23 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         [JsonPropertyName("reasons")] public ReasonEntry[] Reasons { get; set; } = [];
     }
 
+    private sealed class CritiquePassJson
+    {
+        [JsonPropertyName("checks")] public CritiqueEntry[] Checks { get; set; } = [];
+    }
+
+    private sealed class CritiqueEntry
+    {
+        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+        [JsonPropertyName("verdict")] public string Verdict { get; set; } = string.Empty;
+        [JsonPropertyName("fixed")] public string Fixed { get; set; } = string.Empty;
+    }
+
     private sealed class ReasonEntry
     {
         [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+        [JsonPropertyName("cardQuote")] public string CardQuote { get; set; } = string.Empty;
+        [JsonPropertyName("commanderQuote")] public string CommanderQuote { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
     }
 
@@ -405,7 +653,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         string[] deckCardNames,
         HashSet<ManaColor> cmdColors,
         IReadOnlySet<string>? recentSets,
-        bool requireGameChanger)
+        bool requireGameChanger,
+        IReadOnlySet<string>? allowedNames = null)
     {
         var deckSet = new HashSet<string>(deckCardNames, StringComparer.OrdinalIgnoreCase);
         var rejections = new List<string>();
@@ -419,7 +668,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         }
 
         var results = await Task.WhenAll(candidates.Select(r =>
-            ResolveOneAsync(r, cmdColors, recentSets, requireGameChanger)));
+            ResolveOneAsync(r, cmdColors, recentSets, requireGameChanger, allowedNames)));
 
         var cards = new List<SuggestedCardDto>();
         foreach (var res in results)
@@ -435,7 +684,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         RawCard raw,
         HashSet<ManaColor> cmdColors,
         IReadOnlySet<string>? recentSets,
-        bool requireGameChanger)
+        bool requireGameChanger,
+        IReadOnlySet<string>? allowedNames = null)
     {
         try
         {
@@ -477,7 +727,13 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
             var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
 
-            // Recent-set check (latestSet category only)
+            // Recent-set check (latestSet category only). The allow-list is the exact set
+            // of names the prompt offered, already filtered to cards that debuted in
+            // these sets -- a card the model recalled instead of reading off the list is
+            // usually an old reprint, which is what put Thran Dynamo under "new cards".
+            if (allowedNames is { Count: > 0 } && !allowedNames.Contains(raw.Name))
+                return new Resolution(null, Rejection.NotRecentPrinting);
+
             if (recentSets is { Count: > 0 })
             {
                 bool hasRecentPrinting = printings.Any(p => p.SetCode is not null && recentSets.Contains(p.SetCode));

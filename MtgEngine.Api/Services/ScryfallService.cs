@@ -16,7 +16,17 @@ public interface IScryfallService
     Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
     Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null);
-    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null);
+
+    /// <summary>
+    /// The same sets as <see cref="GetRecentSetCodesAsync"/>, but named and dated so the
+    /// caller can tell the user which sets "latest" actually resolved to.
+    /// </summary>
+    Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null);
+    /// <param name="debutOnly">
+    /// Keep only cards first printed in these sets. Commander products are mostly
+    /// reprints, so without this a "new cards" list fills up with decades-old staples.
+    /// </param>
+    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false);
 
     /// <summary>
     /// Names of cards on Scryfall's official Game Changer list that are legal in the
@@ -125,7 +135,8 @@ public sealed class ScryfallService : IScryfallService
 
     public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
     public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
-    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null) => Task.FromResult(Array.Empty<string>());
+    public Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlyList<RecentSetDto>>([]);
+    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.
     public Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
