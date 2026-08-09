@@ -60,7 +60,7 @@ public sealed class AiBuildService : IAiBuildService
         var commanderOracleId = request.CommanderOracleId;
 
         var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId)
-            ?? throw new InvalidOperationException($"Commander not found: {commanderOracleId}");
+            ?? throw new ResourceNotFoundException($"Commander not found: {commanderOracleId}");
 
         var cmdColors = cmdDef.ColorIdentity.ToHashSet();
         var colorNames = FormatColors(cmdColors);
@@ -154,13 +154,13 @@ public sealed class AiBuildService : IAiBuildService
     public async Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request)
     {
         var deck = await _collection.GetDeckAsync(deckId, userId)
-            ?? throw new InvalidOperationException($"Deck not found: {deckId}");
+            ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
         if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
-            throw new InvalidOperationException("Deck has no commander to refine against.");
+            throw new InvalidResourceStateException("Deck has no commander to refine against.");
 
         var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
-            ?? throw new InvalidOperationException($"Commander not found: {deck.CommanderOracleId}");
+            ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
 
         var cmdColors = cmdDef.ColorIdentity.ToHashSet();
 
@@ -344,7 +344,7 @@ public sealed class AiBuildService : IAiBuildService
         {
             var err = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic refine {Status}: {Body}", resp.StatusCode, err);
-            throw new HttpRequestException($"{resp.StatusCode}: {err}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
@@ -718,7 +718,7 @@ public sealed class AiBuildService : IAiBuildService
         {
             var err = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic AI-build {Status}: {Body}", resp.StatusCode, err);
-            throw new HttpRequestException($"{resp.StatusCode}: {err}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();

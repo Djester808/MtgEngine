@@ -4,7 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace MtgEngine.Api.Services;
 
-/// <summary>Outcome of identifying a card from a photo.</summary>
+/// <summary>
+/// Outcome of identifying a card from a photo.
+/// </summary>
+/// <remarks>
+/// <see cref="Error"/> covers only recoverable, request-level outcomes -- the image was
+/// processed but no card could be read from it. Provider failures throw
+/// <see cref="AiUpstreamException"/> and surface as 502, matching the other AI endpoints.
+/// </remarks>
 /// <remarks>
 /// <see cref="SetName"/> and <see cref="SetCode"/> are only ever populated from
 /// Scryfall, never from the model. The model's set guess is treated purely as a
@@ -115,8 +122,10 @@ public sealed class CardVisionService
         var rawBody = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
         {
+            // A provider failure is a 502, same as every other AI endpoint. Only
+            // "the image was fine but no card was readable" stays a 200 with Error set.
             _logger.LogError("Anthropic vision {Status}: {Body}", resp.StatusCode, rawBody);
-            return new CardVisionResult { Error = $"Claude API error {(int)resp.StatusCode}" };
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, rawBody);
         }
 
         var text = AnthropicResponse.ExtractText(rawBody).Trim();

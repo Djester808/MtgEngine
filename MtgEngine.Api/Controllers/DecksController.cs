@@ -162,19 +162,8 @@ public sealed class DecksController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return BadRequest("CommanderOracleId is required");
 
-        try
-        {
-            var result = await suggestionsService.GetSuggestionsAsync(request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await suggestionsService.GetSuggestionsAsync(request);
+        return Ok(result);
     }
 
     // ---- Mana fine-tune -------------------------------------------
@@ -184,19 +173,8 @@ public sealed class DecksController : ControllerBase
         [FromBody] ManaFineTuneRequest request,
         [FromServices] IManaFineTuneService manaFineTuneService)
     {
-        try
-        {
-            var result = await manaFineTuneService.GetFineTuneAsync(request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await manaFineTuneService.GetFineTuneAsync(request);
+        return Ok(result);
     }
 
     // ---- AI deck build ---------------------------------------------
@@ -210,19 +188,8 @@ public sealed class DecksController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
             return BadRequest("CommanderOracleId is required");
 
-        try
-        {
-            var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request);
+        return Ok(result);
     }
 
     /// <summary>Scores every card in a built deck against its commander, in one call.</summary>
@@ -231,19 +198,8 @@ public sealed class DecksController : ControllerBase
         Guid deckId,
         [FromServices] ISynergyService synergyService)
     {
-        try
-        {
-            var result = await synergyService.ScoreDeckAsync(deckId, UserId);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await synergyService.ScoreDeckAsync(deckId, UserId);
+        return Ok(result);
     }
 
     /// <summary>Swaps a built deck's weakest cards for better picks from the legal pool.</summary>
@@ -253,19 +209,8 @@ public sealed class DecksController : ControllerBase
         [FromBody] AiRefineRequest? request,
         [FromServices] IAiBuildService aiBuildService)
     {
-        try
-        {
-            var result = await aiBuildService.RefineDeckAsync(deckId, UserId, request ?? new AiRefineRequest());
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await aiBuildService.RefineDeckAsync(deckId, UserId, request ?? new AiRefineRequest());
+        return Ok(result);
     }
 
     // ---- Synergy scoring -------------------------------------------
@@ -278,18 +223,7 @@ public sealed class DecksController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId) || string.IsNullOrWhiteSpace(request.CardOracleId))
             return BadRequest("CommanderOracleId and CardOracleId are required");
 
-        try
-        {
-            var result = await synergyService.GetSynergyAsync(request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return StatusCode(503, new { message = ex.Message });
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
-        }
+        var result = await synergyService.GetSynergyAsync(request);
+        return Ok(result);
     }
 }

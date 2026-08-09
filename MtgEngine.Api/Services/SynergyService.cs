@@ -97,13 +97,13 @@ public sealed class SynergyService : ISynergyService
     public async Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId)
     {
         var deck = await _collection.GetDeckAsync(deckId, userId)
-            ?? throw new InvalidOperationException($"Deck not found: {deckId}");
+            ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
 
         if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
-            throw new InvalidOperationException("Deck has no commander to score against.");
+            throw new InvalidResourceStateException("Deck has no commander to score against.");
 
         var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
-            ?? throw new InvalidOperationException($"Commander not found: {deck.CommanderOracleId}");
+            ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
 
         // Score distinct non-commander main-deck cards. Basic lands are excluded:
         // scoring 30 Swamps says nothing useful and would dominate the average.
@@ -198,7 +198,7 @@ public sealed class SynergyService : ISynergyService
         {
             var errBody = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic deck-scoring {Status}: {Body}", resp.StatusCode, errBody);
-            throw new HttpRequestException($"{resp.StatusCode}: {errBody}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, errBody);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
@@ -322,7 +322,7 @@ public sealed class SynergyService : ISynergyService
         {
             var errBody = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic API {Status}: {Body}", resp.StatusCode, errBody);
-            throw new HttpRequestException($"{resp.StatusCode}: {errBody}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, errBody);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();

@@ -124,7 +124,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         {
             var err = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic mana-tune {Status}: {Body}", resp.StatusCode, err);
-            throw new HttpRequestException($"{resp.StatusCode}: {err}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();

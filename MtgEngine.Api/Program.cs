@@ -77,6 +77,11 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
     client.Timeout = Timeout.InfiniteTimeSpan;
 })
 .AddAnthropicResilience();
+// One place that turns service exceptions into status codes, so every AI endpoint
+// reports failure identically instead of each action repeating its own try/catch.
+builder.Services.AddExceptionHandler<AiExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 builder.Services.AddScoped<IAiCacheService, AiCacheService>();
 builder.Services.AddScoped<IEdhrecPoolService, EdhrecPoolService>();
 builder.Services.AddScoped<CardVisionService>();
@@ -141,6 +146,9 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
     await db.Database.MigrateAsync();
 }
+
+// Must precede the endpoints it protects.
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
