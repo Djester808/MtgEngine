@@ -182,11 +182,12 @@ public sealed class BulkDataService : IScryfallService
     /// </summary>
     private CardDefinition[]? _gameChangers;
 
-    public async Task<string[]> GetLegalCardNamesAsync(IReadOnlySet<ManaColor> commanderColors, int bracket)
+    public async Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
+        IReadOnlySet<ManaColor> commanderColors, int bracket)
     {
         await WaitReadyAsync();
 
-        var names = _byOracleId.Values
+        var legal = _byOracleId.Values
             .Where(d =>
                 // Legality only. No popularity or playability judgement -- a card the
                 // model could reasonably want must not be filtered out here.
@@ -196,17 +197,27 @@ public sealed class BulkDataService : IScryfallService
                 && (commanderColors.Count == 0
                     || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
                 && !(d.GameChanger && bracket < 4))
-            .Select(d => d.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        _logger.LogInformation(
-            "Legal pool: {Count} cards for colours [{Colors}] at bracket {Bracket} = {Chars} chars joined (from {Total} oracle cards)",
-            names.Length, string.Join(",", commanderColors), bracket,
-            names.Sum(n => n.Length + 2), _byOracleId.Count);
+        // Enum order for sections, alphabetical within them: the prompt prefix must be
+        // byte-identical across builds for the same colours and bracket, or the
+        // prompt cache never hits.
+        var byRole = legal
+            .GroupBy(CardRoleClassifier.Classify)
+            .OrderBy(g => g.Key)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(d => d.Name)
+                      .Distinct(StringComparer.OrdinalIgnoreCase)
+                      .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                      .ToArray());
 
-        return names;
+        _logger.LogInformation(
+            "Legal pool: {Count} cards for colours [{Colors}] at bracket {Bracket} -- {Breakdown}",
+            byRole.Sum(kv => kv.Value.Length), string.Join(",", commanderColors), bracket,
+            string.Join(", ", byRole.Select(kv => $"{kv.Key}={kv.Value.Length}")));
+
+        return byRole;
     }
 
     public async Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors)

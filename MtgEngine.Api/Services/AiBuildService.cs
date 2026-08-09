@@ -8,6 +8,12 @@ namespace MtgEngine.Api.Services;
 public interface IAiBuildService
 {
     Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request);
+
+    /// <summary>
+    /// Reviews a built deck and swaps its weakest cards for better picks from the same
+    /// legal pool, leaving the deck the same size.
+    /// </summary>
+    Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request);
 }
 
 public sealed class AiBuildService : IAiBuildService
@@ -143,6 +149,224 @@ public sealed class AiBuildService : IAiBuildService
         };
     }
 
+    // ---- Refine -------------------------------------------------------------
+
+    public async Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request)
+    {
+        var deck = await _collection.GetDeckAsync(deckId, userId)
+            ?? throw new InvalidOperationException($"Deck not found: {deckId}");
+
+        if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
+            throw new InvalidOperationException("Deck has no commander to refine against.");
+
+        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
+            ?? throw new InvalidOperationException($"Commander not found: {deck.CommanderOracleId}");
+
+        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
+
+        // Basics are excluded from swapping: they are the mana base, and trading them
+        // away silently changes the land count the build deliberately set.
+        var swappable = deck.Cards
+            .Where(c => (c.Board ?? "main") == "main"
+                        && !string.Equals(c.OracleId, deck.CommanderOracleId, StringComparison.OrdinalIgnoreCase)
+                        && c.CardDetails is not null
+                        && !c.CardDetails.Supertypes.Contains("Basic"))
+            .GroupBy(c => c.OracleId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+
+        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity);
+
+        if (swappable.Length == 0)
+            return new AiRefineResultDto { DeckSizeBefore = sizeBefore, DeckSizeAfter = sizeBefore };
+
+        var pool = await BuildCandidatePoolAsync(cmdDef.Name, cmdColors, request.Bracket);
+
+        var proposed = await CallRefineAsync(
+            cmdDef.Name, cmdDef.OracleText ?? string.Empty, FormatColors(cmdColors),
+            swappable.Select(c => c.CardDetails!.Name).ToArray(),
+            request, pool);
+
+        var inDeck = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in swappable)
+            inDeck[c.CardDetails!.Name] = c.OracleId;
+
+        var applied = new List<CardSwapDto>();
+        var rejected = new Dictionary<string, int>();
+        void Reject(string reason) => rejected[reason] = rejected.GetValueOrDefault(reason) + 1;
+
+        var addedNames = new HashSet<string>(
+            deck.Cards.Where(c => c.CardDetails is not null).Select(c => c.CardDetails!.Name),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var swap in proposed.Take(Math.Max(0, request.MaxSwaps)))
+        {
+            if (string.IsNullOrWhiteSpace(swap.Out) || string.IsNullOrWhiteSpace(swap.In))
+            { Reject("incomplete-swap"); continue; }
+
+            if (!inDeck.TryGetValue(swap.Out, out var outOracleId))
+            { Reject("out-card-not-in-deck"); continue; }
+
+            if (addedNames.Contains(swap.In))
+            { Reject("in-card-already-in-deck"); continue; }
+
+            var inDef = await _scryfall.GetByNameAsync(swap.In);
+            if (inDef is null)
+            { Reject(Rejection.UnknownCard); continue; }
+
+            if (cmdColors.Count > 0
+                && !inDef.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c)))
+            { Reject(Rejection.ColorIdentity); continue; }
+
+            if (inDef.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
+            { Reject(Rejection.BannedInCommander); continue; }
+
+            if (inDef.GameChanger && request.Bracket < 4)
+            { Reject(Rejection.AboveBracket); continue; }
+
+            try
+            {
+                // Add first, then remove: if the add fails the deck is unchanged rather
+                // than left a card short.
+                var printings = await _scryfall.GetPrintingsAsync(inDef.OracleId);
+                await _collection.AddCardToCollectionAsync(deckId, userId, new AddCardToCollectionRequest(
+                    OracleId: inDef.OracleId,
+                    ScryfallId: printings.FirstOrDefault()?.ScryfallId,
+                    Quantity: 1,
+                    QuantityFoil: 0,
+                    Board: "main"));
+
+                await _collection.RemoveCardByOracleAsync(deckId, outOracleId, userId);
+
+                addedNames.Add(inDef.Name);
+                inDeck.Remove(swap.Out);
+                applied.Add(new CardSwapDto { Out = swap.Out, In = inDef.Name, Why = swap.Why });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Refine: failed to swap '{Out}' for '{In}'", swap.Out, swap.In);
+                Reject(Rejection.AddFailed);
+            }
+        }
+
+        var after = await _collection.GetDeckAsync(deckId, userId);
+        int sizeAfter = after?.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity) ?? sizeBefore;
+
+        if (sizeAfter != sizeBefore)
+        {
+            _logger.LogWarning(
+                "Refine changed deck size for {Commander}: {Before} -> {After}",
+                cmdDef.Name, sizeBefore, sizeAfter);
+        }
+
+        _logger.LogInformation(
+            "Refined {Commander}: {Applied}/{Proposed} swaps applied{Rejected}",
+            cmdDef.Name, applied.Count, proposed.Length,
+            rejected.Count == 0 ? "" : $", rejected {string.Join(", ", rejected.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        return new AiRefineResultDto
+        {
+            Swaps = [.. applied],
+            RejectedByReason = rejected,
+            DeckSizeBefore = sizeBefore,
+            DeckSizeAfter = sizeAfter,
+        };
+    }
+
+    private sealed record ProposedSwap(string Out, string In, string Why);
+
+    private async Task<ProposedSwap[]> CallRefineAsync(
+        string commanderName, string commanderText, string colors,
+        string[] deckCards, AiRefineRequest request, CandidatePool pool)
+    {
+        var bracketDesc = DescribeBracket(request.Bracket);
+        var priceDesc = DescribePrice(request.PriceRange);
+
+        var poolBlock = pool.IsUsable
+            ? $"\nReplacements must come from this legal pool ({pool.LegalCount} cards, grouped by role):\n\n" +
+              string.Join("\n\n", pool.LegalByRole.Select(kv =>
+                  $"{CardRoleClassifier.Label(kv.Key)} ({kv.Value.Length}):\n{string.Join(", ", kv.Value)}"))
+            : string.Empty;
+
+        var prompt = $$"""
+            You are a Magic: The Gathering Commander/EDH expert improving an existing deck.
+
+            Commander: {{commanderName}}
+            Oracle text: {{commanderText}}
+            Color identity: {{colors}}
+
+            ── POWER LEVEL ──────────────────────────────────────────────
+            {{bracketDesc}}
+
+            ── PRICE ────────────────────────────────────────────────────
+            {{priceDesc}}
+            {{poolBlock}}
+
+            ── CURRENT DECK ({{deckCards.Length}} non-basic cards) ──────
+            {{string.Join(", ", deckCards)}}
+
+            Identify the weakest cards in this deck and replace them with better ones.
+            A card is weak if it does little for {{commanderName}}'s game plan, duplicates an
+            effect the deck already does better, or is simply outclassed by an available option.
+
+            Propose AT MOST {{request.MaxSwaps}} swaps. Fewer is fine — only swap where the
+            replacement is a clear improvement. If the deck is already strong, return an empty list.
+
+            Return ONLY a JSON object (no markdown, no explanation):
+            {"swaps":[{"out":"<exact card name currently in the deck>","in":"<exact replacement card name>","why":"<one short sentence>"}]}
+
+            Rules:
+            - "out" must be a card from the CURRENT DECK list above, spelled exactly as given.
+            - "in" must not already be in the deck, and must respect the colour identity {{colors}}
+              and the bracket and price constraints above.
+            - Do not swap lands for spells or spells for lands — keep the mana base intact.
+            - Each "why" under 15 words.
+            """;
+
+        var body = new
+        {
+            model = ModelId,
+            max_tokens = 2000,
+            temperature = 0,
+            messages = new[] { new { role = "user", content = prompt } },
+        };
+
+        var http = _httpFactory.CreateClient("AnthropicApi");
+        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+        };
+        req.Headers.Add("x-api-key", _apiKey);
+        req.Headers.Add("anthropic-version", "2023-06-01");
+
+        var resp = await http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync();
+            _logger.LogError("Anthropic refine {Status}: {Body}", resp.StatusCode, err);
+            throw new HttpRequestException($"{resp.StatusCode}: {err}");
+        }
+
+        var respJson = await resp.Content.ReadAsStringAsync();
+        LogCacheUsage(respJson);
+        var parsed = AnthropicResponse.DeserializeJson<RefineJson>(respJson);
+
+        return [.. (parsed?.Swaps ?? []).Select(s => new ProposedSwap(s.Out, s.In, s.Why))];
+    }
+
+    private sealed class RefineJson
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("swaps")]
+        public RefineSwapJson[] Swaps { get; set; } = [];
+    }
+
+    private sealed class RefineSwapJson
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("out")] public string Out { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("in")] public string In { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("why")] public string Why { get; set; } = string.Empty;
+    }
+
     // ---- Candidate pool -----------------------------------------------------
 
     /// <summary>
@@ -160,18 +384,24 @@ public sealed class AiBuildService : IAiBuildService
     /// listing them alongside the full pool gives a quality signal without narrowing
     /// what may be chosen.
     /// </param>
-    private sealed record CandidatePool(string[] Legal, string[] CommonlyPlayed)
+    private sealed record CandidatePool(
+        IReadOnlyDictionary<CardRole, string[]> LegalByRole,
+        string[] CommonlyPlayed)
     {
-        /// <summary>Below this the pool cannot fill a deck, so fall back to unconstrained generation.</summary>
-        public bool IsUsable => Legal.Length >= 200;
+        public int LegalCount => LegalByRole.Sum(kv => kv.Value.Length);
 
-        public static readonly CandidatePool Empty = new([], []);
+        /// <summary>Below this the pool cannot fill a deck, so fall back to unconstrained generation.</summary>
+        public bool IsUsable => LegalCount >= 200;
+
+        public static readonly CandidatePool Empty =
+            new(new Dictionary<CardRole, string[]>(), []);
     }
 
     private async Task<CandidatePool> BuildCandidatePoolAsync(
         string commanderName, HashSet<ManaColor> cmdColors, int bracket)
     {
-        var legal = await _scryfall.GetLegalCardNamesAsync(cmdColors, bracket);
+        var legalByRole = await _scryfall.GetLegalCardsByRoleAsync(cmdColors, bracket);
+        var legal = legalByRole.SelectMany(kv => kv.Value).ToArray();
         if (legal.Length == 0)
             return CandidatePool.Empty;
 
@@ -193,7 +423,7 @@ public sealed class AiBuildService : IAiBuildService
             "Candidate pool for {Commander}: {Legal} legal cards, {Hint} flagged as commonly played",
             commanderName, legal.Length, commonlyPlayed.Length);
 
-        return new CandidatePool(legal, commonlyPlayed);
+        return new CandidatePool(legalByRole, commonlyPlayed);
     }
 
     // ---- Card resolution + insertion ----------------------------------------
@@ -300,66 +530,8 @@ public sealed class AiBuildService : IAiBuildService
         string[] recentCardNames,
         CandidatePool pool)
     {
-        var bracketDesc = bracket switch
-        {
-            1 => """
-                 Bracket 1 (Casual):
-                 - NO tutors of any kind (no Demonic Tutor, Vampiric Tutor, Enlightened Tutor, Worldly Tutor, etc.)
-                 - NO stax pieces (no Rhystic Study, Smothering Tithe, Esper Sentinel)
-                 - NO mass land denial, no 2-card infinite combos, no free spells
-                 - NO game changer cards whatsoever
-                 - Focus: fun synergies, flavorful cards, creatures that do interesting things
-                 - Example good cards: Cultivate, Commander's Sphere, Reclamation Sage, Divination
-                 """,
-            2 => """
-                 Bracket 2 (Core):
-                 - NO game changer cards (these include: Sol Ring, Rhystic Study, Smothering Tithe, Consecrated Sphinx, Cyclonic Rift, Demonic Tutor, Vampiric Tutor, Mana Crypt, Jeweled Lotus, Doubling Season, Toxrill, Vorinclex, etc.)
-                 - Limited tutors only (Cultivate and Kodama's Reach for land are fine; no tutor-any-card spells)
-                 - No stax, no mass land denial, no fast mana rocks beyond Arcane Signet and Fellwar Stone
-                 - Focus: solid creatures, good removal, fair card draw like Phyrexian Arena or Read the Bones
-                 """,
-            3 => """
-                 Bracket 3 (Upgraded):
-                 - NO game changer cards. The game changer list includes but is not limited to: Sol Ring, Mana Crypt, Jeweled Lotus, Rhystic Study, Smothering Tithe, Consecrated Sphinx, Cyclonic Rift, Demonic Tutor, Vampiric Tutor, Mystical Tutor, Enlightened Tutor, Worldly Tutor, Doubling Season, Parallel Lives, Vorinclex Monstrous Raider, Toxrill the Corrosive, Elesh Norn Grand Cenobite, Jin-Gitaxias, Omniscience, Tooth and Nail
-                 - Tutors that find land (Cultivate, Kodama's Reach, Farseek, Nature's Lore) are fine
-                 - Good staples that ARE allowed: Arcane Signet, Commander's Sphere, Counterspell, Swords to Plowshares, Path to Exile, Sylvan Library, Fierce Guardianship, Heroic Intervention, Teferi's Protection
-                 - Focus: synergistic creatures and spells that advance the commander's strategy
-                 """,
-            4 => """
-                 Bracket 4 (Optimized):
-                 - Game changer cards ARE allowed and encouraged where they fit the strategy
-                 - Include efficient tutors, strong combo pieces, powerful staples
-                 - Fast mana (Sol Ring, Mana Vault, Chrome Mox) is appropriate
-                 - Near-competitive but not full cEDH
-                 """,
-            5 => """
-                 Bracket 5 (cEDH):
-                 - Maximum efficiency — include every legal game changer that fits
-                 - Free spells (Force of Will, Fierce Guardianship, Deflecting Swat)
-                 - Fast mana (Mana Crypt, Jeweled Lotus, Chrome Mox, Mox Diamond)
-                 - Best tutors and fastest win conditions available
-                 """,
-            _ => "Bracket 3 (Upgraded): Standard Commander experience without game changers.",
-        };
-
-        var priceDesc = priceRange switch
-        {
-            "budget" => """
-                        PRICE CONSTRAINT — Budget (under $100 total):
-                        - Individual cards should cost under $3 each
-                        - FORBIDDEN: fetch lands (Scalding Tarn, Verdant Catacombs, etc.), shock lands (Blood Crypt, Breeding Pool, etc.), original dual lands, Mana Crypt, Mana Vault, Demonic Tutor, Vampiric Tutor, Rhystic Study, Smothering Tithe
-                        - GOOD budget lands: Guildgates, bounce lands (Dimir Aqueduct), basics, Terramorphic Expanse, Evolving Wilds, Command Tower
-                        - GOOD budget ramp: Cultivate, Kodama's Reach, Arcane Signet, Commander's Sphere, Wayfarer's Bauble
-                        """,
-            "mid" => """
-                        PRICE CONSTRAINT — Mid-range (under $500 total):
-                        - Most cards should be under $20; a few can reach $30
-                        - FORBIDDEN: original dual lands (Underground Sea, Tropical Island, etc.), Mana Crypt, Jeweled Lotus, Mox Diamond, Chrome Mox
-                        - ALLOWED: shock lands (Breeding Pool, Blood Crypt), fetch lands, Demonic Tutor, Vampiric Tutor, Rhystic Study (if bracket allows)
-                        - Mix expensive staples sparingly with efficient mid-range cards
-                        """,
-            _ => "PRICE CONSTRAINT: None — use the best cards available for the strategy.",
-        };
+        var bracketDesc = DescribeBracket(bracket);
+        var priceDesc = DescribePrice(priceRange);
 
         // Cap to ~60 names so the prompt doesn't balloon. Sampling is seeded on the
         // request so the same commander + bracket + price always produces a
@@ -430,13 +602,17 @@ public sealed class AiBuildService : IAiBuildService
         // Anthropic's prompt cache. The legal pool is ~39k tokens, which is what makes
         // caching worth doing: uncached it is ~$0.12/build, cached ~$0.012.
         var legalPoolBlock = pool.IsUsable
-            ? $"\n── LEGAL CARD POOL ({pool.Legal.Length} cards) ─────────────────────\n" +
+            ? $"\n── LEGAL CARD POOL ({pool.LegalCount} cards) ─────────────────────\n" +
               $"Every card below is Commander-legal, inside the colour identity {colors}, and " +
               $"allowed at this bracket. This list is filtered for legality ONLY — it is not a " +
               $"recommendation list, and it deliberately includes obscure and situational cards.\n" +
               $"Choose freely from it. Do not use any card that is not on this list (basic lands " +
-              $"excepted); anything else will be rejected as illegal.\n\n" +
-              string.Join(", ", pool.Legal)
+              $"excepted); anything else will be rejected as illegal.\n" +
+              $"Cards are grouped by the role they usually fill, to help you hit the composition " +
+              $"targets below. The grouping is a guide, not a rule — a card can serve a different " +
+              $"purpose in the right deck.\n\n" +
+              string.Join("\n\n", pool.LegalByRole.Select(kv =>
+                  $"{CardRoleClassifier.Label(kv.Key)} ({kv.Value.Length}):\n{string.Join(", ", kv.Value)}"))
             : string.Empty;
 
         var stablePrefix = $$"""
@@ -624,4 +800,64 @@ public sealed class AiBuildService : IAiBuildService
         return string.Join(", ", parts);
     }
 
+    private static string DescribeBracket(int bracket) => bracket switch
+    {
+        1 => """
+             Bracket 1 (Casual):
+             - NO tutors of any kind (no Demonic Tutor, Vampiric Tutor, Enlightened Tutor, Worldly Tutor, etc.)
+             - NO stax pieces (no Rhystic Study, Smothering Tithe, Esper Sentinel)
+             - NO mass land denial, no 2-card infinite combos, no free spells
+             - NO game changer cards whatsoever
+             - Focus: fun synergies, flavorful cards, creatures that do interesting things
+             - Example good cards: Cultivate, Commander's Sphere, Reclamation Sage, Divination
+             """,
+        2 => """
+             Bracket 2 (Core):
+             - NO game changer cards (these include: Sol Ring, Rhystic Study, Smothering Tithe, Consecrated Sphinx, Cyclonic Rift, Demonic Tutor, Vampiric Tutor, Mana Crypt, Jeweled Lotus, Doubling Season, Toxrill, Vorinclex, etc.)
+             - Limited tutors only (Cultivate and Kodama's Reach for land are fine; no tutor-any-card spells)
+             - No stax, no mass land denial, no fast mana rocks beyond Arcane Signet and Fellwar Stone
+             - Focus: solid creatures, good removal, fair card draw like Phyrexian Arena or Read the Bones
+             """,
+        3 => """
+             Bracket 3 (Upgraded):
+             - NO game changer cards. The game changer list includes but is not limited to: Sol Ring, Mana Crypt, Jeweled Lotus, Rhystic Study, Smothering Tithe, Consecrated Sphinx, Cyclonic Rift, Demonic Tutor, Vampiric Tutor, Mystical Tutor, Enlightened Tutor, Worldly Tutor, Doubling Season, Parallel Lives, Vorinclex Monstrous Raider, Toxrill the Corrosive, Elesh Norn Grand Cenobite, Jin-Gitaxias, Omniscience, Tooth and Nail
+             - Tutors that find land (Cultivate, Kodama's Reach, Farseek, Nature's Lore) are fine
+             - Good staples that ARE allowed: Arcane Signet, Commander's Sphere, Counterspell, Swords to Plowshares, Path to Exile, Sylvan Library, Fierce Guardianship, Heroic Intervention, Teferi's Protection
+             - Focus: synergistic creatures and spells that advance the commander's strategy
+             """,
+        4 => """
+             Bracket 4 (Optimized):
+             - Game changer cards ARE allowed and encouraged where they fit the strategy
+             - Include efficient tutors, strong combo pieces, powerful staples
+             - Fast mana (Sol Ring, Mana Vault, Chrome Mox) is appropriate
+             - Near-competitive but not full cEDH
+             """,
+        5 => """
+             Bracket 5 (cEDH):
+             - Maximum efficiency — include every legal game changer that fits
+             - Free spells (Force of Will, Fierce Guardianship, Deflecting Swat)
+             - Fast mana (Mana Crypt, Jeweled Lotus, Chrome Mox, Mox Diamond)
+             - Best tutors and fastest win conditions available
+             """,
+        _ => "Bracket 3 (Upgraded): Standard Commander experience without game changers.",
+    };
+
+    private static string DescribePrice(string priceRange) => priceRange switch
+    {
+        "budget" => """
+                    PRICE CONSTRAINT — Budget (under $100 total):
+                    - Individual cards should cost under $3 each
+                    - FORBIDDEN: fetch lands (Scalding Tarn, Verdant Catacombs, etc.), shock lands (Blood Crypt, Breeding Pool, etc.), original dual lands, Mana Crypt, Mana Vault, Demonic Tutor, Vampiric Tutor, Rhystic Study, Smothering Tithe
+                    - GOOD budget lands: Guildgates, bounce lands (Dimir Aqueduct), basics, Terramorphic Expanse, Evolving Wilds, Command Tower
+                    - GOOD budget ramp: Cultivate, Kodama's Reach, Arcane Signet, Commander's Sphere, Wayfarer's Bauble
+                    """,
+        "mid" => """
+                    PRICE CONSTRAINT — Mid-range (under $500 total):
+                    - Most cards should be under $20; a few can reach $30
+                    - FORBIDDEN: original dual lands (Underground Sea, Tropical Island, etc.), Mana Crypt, Jeweled Lotus, Mox Diamond, Chrome Mox
+                    - ALLOWED: shock lands (Breeding Pool, Blood Crypt), fetch lands, Demonic Tutor, Vampiric Tutor, Rhystic Study (if bracket allows)
+                    - Mix expensive staples sparingly with efficient mid-range cards
+                    """,
+        _ => "PRICE CONSTRAINT: None — use the best cards available for the strategy.",
+    };
 }

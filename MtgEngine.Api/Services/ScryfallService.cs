@@ -28,8 +28,10 @@ public interface IScryfallService
     /// Every card that could legally go in this deck: Commander-legal, inside the
     /// colour identity, and allowed at this bracket. Excludes basic lands and tokens.
     /// This is a legality filter only -- it does not rank or judge playability.
+    /// Grouped by deck-building role, names sorted, so the result is deterministic.
     /// </summary>
-    Task<string[]> GetLegalCardNamesAsync(IReadOnlySet<ManaColor> commanderColors, int bracket);
+    Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
+        IReadOnlySet<ManaColor> commanderColors, int bracket);
 }
 
 /// <summary>
@@ -120,7 +122,9 @@ public sealed class ScryfallService : IScryfallService
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.
     public Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
-    public Task<string[]> GetLegalCardNamesAsync(IReadOnlySet<ManaColor> commanderColors, int bracket) => Task.FromResult(Array.Empty<string>());
+    public Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
+        IReadOnlySet<ManaColor> commanderColors, int bracket) =>
+        Task.FromResult<IReadOnlyDictionary<CardRole, string[]>>(new Dictionary<CardRole, string[]>());
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {

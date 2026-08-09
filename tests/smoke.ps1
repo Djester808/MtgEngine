@@ -259,6 +259,8 @@ Check "POST vision/identify-card" {
 
 if ($SkipExpensive) {
     Skip "POST decks/{id}/ai-build" "-SkipExpensive set"
+    Skip "POST decks/{id}/ai-score" "-SkipExpensive set"
+    Skip "POST decks/{id}/ai-refine" "-SkipExpensive set"
 } else {
     Check "POST decks/{id}/ai-build (fills all 99 slots)" {
         $b = @{ commanderOracleId=$script:cmd.oracleId; bracket=2; priceRange="budget";
@@ -283,6 +285,68 @@ if ($SkipExpensive) {
         $reasons = @()
         if ($r.skippedByReason) { $reasons = @($r.skippedByReason.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) }
         "deck=$mainCount/$($r.mainTarget) skipped=$($r.cardsSkipped) [$($reasons -join ' ')]"
+    }
+
+    Check "POST decks/{id}/ai-score (every card scored + reasoned)" {
+        $r = Invoke-RestMethod "$Base/api/decks/$($script:deckId)/ai-score" -Method Post -Headers $H
+        $cards = @($r.cards)
+        if ($cards.Count -eq 0) { throw "no cards scored" }
+        if ($r.averageScore -le 0 -or $r.averageScore -gt 100) { throw "average out of range: $($r.averageScore)" }
+        # A score without a reason is useless to the user — that's the whole point.
+        $noReason = @($cards | Where-Object { -not $_.reason })
+        if ($noReason.Count -gt 0) { throw "$($noReason.Count) cards scored with no reason" }
+        $bad = @($cards | Where-Object { $_.score -lt 0 -or $_.score -gt 100 })
+        if ($bad.Count -gt 0) { throw "$($bad.Count) scores out of 0-100 range" }
+        $script:scoredAvg = $r.averageScore
+        $script:scoredSample = $cards[0]
+        "scored=$($cards.Count) avg=$($r.averageScore) weak=$(@($r.weakestCards).Count)"
+    }
+
+    Check "ai-score warms the single-card synergy cache" {
+        # Batch scoring persists into the same table the per-card endpoint reads.
+        # This silently failed once (EF could not translate string[].Contains on .NET 10)
+        # and only a DB inspection caught it — so assert it through the API.
+        if (-not $script:scoredSample) { throw "no scored card captured" }
+        $b = @{ commanderOracleId=$script:cmd.oracleId; commanderName=$script:cmd.name;
+                commanderText=$script:cmdText;
+                cardOracleId=$script:scoredSample.oracleId; cardName=$script:scoredSample.name;
+                cardText="x"; deckCardNames=@() } | ConvertTo-Json
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        $r = Invoke-RestMethod "$Base/api/decks/synergy" -Method Post -Body $b -ContentType "application/json" -Headers $H
+        $sw.Stop()
+        if ($sw.ElapsedMilliseconds -gt 500) {
+            throw "took $($sw.ElapsedMilliseconds)ms - batch scores were not persisted"
+        }
+        if ($r.score -ne $script:scoredSample.score) {
+            throw "cached score $($r.score) != batch score $($script:scoredSample.score)"
+        }
+        "'$($script:scoredSample.name)' served from cache in $($sw.ElapsedMilliseconds)ms, score=$($r.score)"
+    }
+
+    Check "POST decks/{id}/ai-refine (deck size preserved)" {
+        $before = Invoke-RestMethod "$Base/api/decks/$($script:deckId)" -Headers $H
+        $sizeBefore = (@($before.cards | Where-Object { $_.board -eq 'main' }) | Measure-Object -Property quantity -Sum).Sum
+
+        $b = @{ bracket=2; priceRange="budget"; maxSwaps=5 } | ConvertTo-Json
+        $r = Invoke-RestMethod "$Base/api/decks/$($script:deckId)/ai-refine" -Method Post -Body $b -ContentType "application/json" -Headers $H
+
+        # The invariant that matters: refining must not silently shrink the deck.
+        if ($r.deckSizeAfter -ne $r.deckSizeBefore) {
+            throw "deck size changed $($r.deckSizeBefore) -> $($r.deckSizeAfter)"
+        }
+        $after = Invoke-RestMethod "$Base/api/decks/$($script:deckId)" -Headers $H
+        $sizeAfter = (@($after.cards | Where-Object { $_.board -eq 'main' }) | Measure-Object -Property quantity -Sum).Sum
+        if ($sizeAfter -ne $sizeBefore) { throw "persisted deck changed size $sizeBefore -> $sizeAfter" }
+
+        $swaps = @($r.swaps)
+        foreach ($s in $swaps) {
+            if (-not $s.out -or -not $s.in) { throw "swap missing in/out" }
+            if ($s.out -eq $s.in) { throw "swap replaced '$($s.out)' with itself" }
+        }
+        $rej = @()
+        if ($r.rejectedByReason) { $rej = @($r.rejectedByReason.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) }
+        $eg = if ($swaps.Count -gt 0) { " e.g. '$($swaps[0].out)'->'$($swaps[0].in)'" } else { "" }
+        "swaps=$($swaps.Count) size=$sizeAfter (unchanged)$eg [$($rej -join ' ')]"
     }
 }
 

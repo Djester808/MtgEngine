@@ -225,6 +225,49 @@ public sealed class DecksController : ControllerBase
         }
     }
 
+    /// <summary>Scores every card in a built deck against its commander, in one call.</summary>
+    [HttpPost("{deckId:guid}/ai-score")]
+    public async Task<ActionResult<DeckScoreDto>> ScoreDeck(
+        Guid deckId,
+        [FromServices] ISynergyService synergyService)
+    {
+        try
+        {
+            var result = await synergyService.ScoreDeckAsync(deckId, UserId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
+
+    /// <summary>Swaps a built deck's weakest cards for better picks from the legal pool.</summary>
+    [HttpPost("{deckId:guid}/ai-refine")]
+    public async Task<ActionResult<AiRefineResultDto>> RefineDeck(
+        Guid deckId,
+        [FromBody] AiRefineRequest? request,
+        [FromServices] IAiBuildService aiBuildService)
+    {
+        try
+        {
+            var result = await aiBuildService.RefineDeckAsync(deckId, UserId, request ?? new AiRefineRequest());
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { message = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { message = $"LLM API error: {ex.Message}" });
+        }
+    }
+
     // ---- Synergy scoring -------------------------------------------
 
     [HttpPost("synergy")]

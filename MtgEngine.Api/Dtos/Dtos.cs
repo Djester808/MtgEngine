@@ -259,6 +259,36 @@ public sealed record SynergyResultDto
     public string Reason { get; init; } = string.Empty;
 }
 
+/// <summary>One card's synergy verdict within a scored deck.</summary>
+public sealed record ScoredCardDto
+{
+    public string OracleId { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public int Score { get; init; }
+    public string Reason { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Synergy scores for every card in a deck, from a single batched call.
+/// </summary>
+/// <remarks>
+/// Scoring cards one at a time costs one request each; a 99-card deck is one request
+/// here. Results are written to the same cache the per-card endpoint reads, so scoring
+/// a deck warms it for subsequent single-card lookups.
+/// </remarks>
+public sealed record DeckScoreDto
+{
+    public ScoredCardDto[] Cards { get; init; } = [];
+
+    /// <summary>Mean score across scored cards, as a rough deck-cohesion signal.</summary>
+    public int AverageScore { get; init; }
+
+    /// <summary>Cards scoring below <see cref="WeakThreshold"/> — the obvious swap candidates.</summary>
+    public ScoredCardDto[] WeakestCards { get; init; } = [];
+
+    public const int WeakThreshold = 55;
+}
+
 // ---- AI deck build ------------------------------------------
 
 public sealed record AiBuildRequest
@@ -268,6 +298,35 @@ public sealed record AiBuildRequest
     public string PriceRange { get; init; } = "any";       // "budget" | "mid" | "any"
     public bool IncludeSideboard { get; init; } = false;
     public bool IncludeMaybeboard { get; init; } = false;
+}
+
+public sealed record AiRefineRequest
+{
+    /// <summary>Bracket the refined deck must still respect. Defaults to Commander's mid bracket.</summary>
+    public int Bracket { get; init; } = 3;
+    public string PriceRange { get; init; } = "any";
+
+    /// <summary>Upper bound on swaps, so a refine cannot quietly rebuild the whole deck.</summary>
+    public int MaxSwaps { get; init; } = 10;
+}
+
+/// <summary>One card exchanged for another during a refine.</summary>
+public sealed record CardSwapDto
+{
+    public string Out { get; init; } = string.Empty;
+    public string In { get; init; } = string.Empty;
+    public string Why { get; init; } = string.Empty;
+}
+
+public sealed record AiRefineResultDto
+{
+    public CardSwapDto[] Swaps { get; init; } = [];
+
+    /// <summary>Swaps the model proposed but that could not be applied, with the reason.</summary>
+    public Dictionary<string, int> RejectedByReason { get; init; } = [];
+
+    public int DeckSizeBefore { get; init; }
+    public int DeckSizeAfter { get; init; }
 }
 
 public sealed record AiBuildResultDto
