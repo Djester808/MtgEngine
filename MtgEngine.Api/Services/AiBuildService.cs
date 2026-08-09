@@ -14,6 +14,7 @@ public sealed class AiBuildService : IAiBuildService
 {
     private readonly IScryfallService _scryfall;
     private readonly ICollectionService _collection;
+    private readonly IEdhrecPoolService _edhrec;
     private readonly IHttpClientFactory _httpFactory;
     private readonly string _apiKey;
     private readonly ILogger<AiBuildService> _logger;
@@ -35,12 +36,14 @@ public sealed class AiBuildService : IAiBuildService
     public AiBuildService(
         IScryfallService scryfall,
         ICollectionService collection,
+        IEdhrecPoolService edhrec,
         IHttpClientFactory httpFactory,
         IConfiguration config,
         ILogger<AiBuildService> logger)
     {
         _scryfall = scryfall;
         _collection = collection;
+        _edhrec = edhrec;
         _httpFactory = httpFactory;
         _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
@@ -80,6 +83,11 @@ public sealed class AiBuildService : IAiBuildService
         var recentSetCodes = await _scryfall.GetRecentSetCodesAsync(monthsBack: 9);
         var recentCardNames = await _scryfall.GetRecentCardNamesAsync(recentSetCodes, cmdColors);
 
+        // Commander-specific candidate pool, hard-filtered before the model ever sees it.
+        // Constraining selection to legal cards beats instructing the model to respect
+        // the constraint -- a prompt-only attempt at that measured strictly worse.
+        var pool = await BuildCandidatePoolAsync(cmdDef.Name, cmdColors, request.Bracket);
+
         var llmResult = await CallAnthropicAsync(
             cmdDef.Name,
             cmdDef.OracleText ?? string.Empty,
@@ -89,7 +97,8 @@ public sealed class AiBuildService : IAiBuildService
             request.PriceRange,
             request.IncludeSideboard,
             request.IncludeMaybeboard,
-            recentCardNames);
+            recentCardNames,
+            pool);
 
         // Substitutes trail the main picks so a rejected card is backfilled rather than
         // leaving a hole. Without this the deck comes up short by however many cards
@@ -132,6 +141,75 @@ public sealed class AiBuildService : IAiBuildService
             MainShortfall = shortfall,
             SkippedByReason = byReason,
         };
+    }
+
+    // ---- Candidate pool -----------------------------------------------------
+
+    private sealed record PoolSection(string Name, IReadOnlyList<string> Cards);
+
+    private sealed record CandidatePool(IReadOnlyList<PoolSection> Sections, int Offered, int Dropped)
+    {
+        public int Total => Sections.Sum(s => s.Cards.Count);
+
+        /// <summary>
+        /// Below this the pool cannot plausibly fill a 99-card deck, so the build falls
+        /// back to unconstrained generation rather than boxing the model in.
+        /// </summary>
+        public bool IsUsable => Total >= 60;
+
+        public static readonly CandidatePool Empty = new([], 0, 0);
+    }
+
+    /// <summary>
+    /// Builds a commander-specific pool of cards that are already legal for this build,
+    /// so the model selects from valid options instead of being asked to respect
+    /// constraints while free-recalling from the whole corpus.
+    /// </summary>
+    private async Task<CandidatePool> BuildCandidatePoolAsync(
+        string commanderName, HashSet<ManaColor> cmdColors, int bracket)
+    {
+        var raw = await _edhrec.GetCommanderPoolAsync(commanderName);
+        if (raw.Count == 0)
+            return CandidatePool.Empty;
+
+        var bySection = new Dictionary<string, List<string>>();
+        var order = new List<string>();
+        int dropped = 0;
+
+        foreach (var entry in raw)
+        {
+            var def = await _scryfall.GetByNameAsync(entry.Name);
+
+            // Same gauntlet AddCards applies later. Filtering here means a rejection
+            // costs nothing: the card never reaches the prompt in the first place.
+            if (def is null
+                || (cmdColors.Count > 0 && !def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c)))
+                || (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
+                || (def.GameChanger && bracket < 4))
+            {
+                dropped++;
+                continue;
+            }
+
+            if (!bySection.TryGetValue(entry.Section, out var list))
+            {
+                list = [];
+                bySection[entry.Section] = list;
+                order.Add(entry.Section);
+            }
+            list.Add(def.Name);
+        }
+
+        var pool = new CandidatePool(
+            [.. order.Select(s => new PoolSection(s, bySection[s]))],
+            raw.Count,
+            dropped);
+
+        _logger.LogInformation(
+            "Candidate pool for {Commander}: {Kept}/{Offered} cards survived filtering ({Dropped} dropped), usable={Usable}",
+            commanderName, pool.Total, pool.Offered, dropped, pool.IsUsable);
+
+        return pool;
     }
 
     // ---- Card resolution + insertion ----------------------------------------
@@ -235,7 +313,8 @@ public sealed class AiBuildService : IAiBuildService
         string commanderName, string commanderText, string colors,
         int mainSlots, int bracket, string priceRange,
         bool includeSide, bool includeMaybe,
-        string[] recentCardNames)
+        string[] recentCardNames,
+        CandidatePool pool)
     {
         var bracketDesc = bracket switch
         {
@@ -328,6 +407,20 @@ public sealed class AiBuildService : IAiBuildService
             ? $"\n- \"maybe\": exactly 10 maybeboard cards (cards you'd consider adding, interesting alternatives)"
             : "";
 
+        // Cards here are already verified legal for this commander, bracket and colour
+        // identity, so anything selected from the pool cannot be rejected downstream.
+        var poolSection = pool.IsUsable
+            ? "\n── CANDIDATE POOL ───────────────────────────────────────────\n" +
+              $"These {pool.Total} cards are the ones most played with {commanderName}, and every one " +
+              $"has ALREADY been verified legal for this deck (colour identity {colors}, not banned, " +
+              $"allowed at this bracket). They are grouped by role.\n\n" +
+              string.Join("\n\n", pool.Sections.Select(s =>
+                  $"{s.Name} ({s.Cards.Count}):\n{string.Join(", ", s.Cards)}")) +
+              "\n\nBuild the deck by selecting from this pool. You may also use basic lands, and " +
+              "cards from the RECENT SETS SPOTLIGHT above. Only reach outside those lists if the pool " +
+              "genuinely cannot fill a role — anything else risks being rejected as illegal.\n"
+            : string.Empty;
+
         // Every main pick that fails validation (misspelled, off-colour, banned,
         // above-bracket) would otherwise leave a permanent hole in the deck.
         var substituteSection = $"""
@@ -366,6 +459,7 @@ public sealed class AiBuildService : IAiBuildService
             ── PRICE ────────────────────────────────────────────────────
             {{priceDesc}}
             {{recentSection}}
+            {{poolSection}}
             ── DECK COMPOSITION ({{mainSlots}} main-deck cards) ────────
             Every card must earn its slot. Think about what {{commanderName}} wants to do, then build around that.
 

@@ -78,6 +78,7 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
 })
 .AddAnthropicResilience();
 builder.Services.AddScoped<IAiCacheService, AiCacheService>();
+builder.Services.AddScoped<IEdhrecPoolService, EdhrecPoolService>();
 builder.Services.AddScoped<CardVisionService>();
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
