@@ -20,6 +20,13 @@ public sealed class AiBuildService : IAiBuildService
 
     private const string ModelId = "claude-sonnet-4-6";
 
+    /// <summary>
+    /// Spare candidates requested alongside the main deck, used to backfill slots lost
+    /// to validation. Observed rejection counts run 2-20 per build, so 30 covers the
+    /// range with headroom; unused entries cost nothing but a few output tokens.
+    /// </summary>
+    private const int SubstituteCount = 30;
+
     private static readonly HashSet<string> BasicLands = new(StringComparer.OrdinalIgnoreCase)
         { "Plains", "Island", "Swamp", "Mountain", "Forest",
           "Wastes", "Snow-Covered Plains", "Snow-Covered Island",
@@ -84,13 +91,36 @@ public sealed class AiBuildService : IAiBuildService
             request.IncludeMaybeboard,
             recentCardNames);
 
-        var (mainAdded, mainSkipped) = await AddCards(llmResult.Main, "main", deckId, userId, cmdColors, addedOracleIds, mainSlotsLeft, request.Bracket);
-        var (sideAdded, sideSkipped) = request.IncludeSideboard
+        // Substitutes trail the main picks so a rejected card is backfilled rather than
+        // leaving a hole. Without this the deck comes up short by however many cards
+        // validation discarded -- an illegal deck, reported only as a skip count.
+        var mainCandidates = llmResult.Main.Concat(llmResult.Substitutes).ToArray();
+
+        var (mainAdded, mainSkipped, mainReasons) =
+            await AddCards(mainCandidates, "main", deckId, userId, cmdColors, addedOracleIds, mainSlotsLeft, request.Bracket);
+
+        var (sideAdded, sideSkipped, sideReasons) = request.IncludeSideboard
             ? await AddCards(llmResult.Side, "side", deckId, userId, cmdColors, addedOracleIds, 10, request.Bracket)
-            : (0, 0);
-        var (maybeAdded, maybeSkipped) = request.IncludeMaybeboard
+            : (0, 0, new Dictionary<string, int>());
+
+        var (maybeAdded, maybeSkipped, maybeReasons) = request.IncludeMaybeboard
             ? await AddCards(llmResult.Maybe, "maybe", deckId, userId, cmdColors, addedOracleIds, 10, request.Bracket)
-            : (0, 0);
+            : (0, 0, new Dictionary<string, int>());
+
+        var byReason = new Dictionary<string, int>();
+        foreach (var source in new[] { mainReasons, sideReasons, maybeReasons })
+            foreach (var (reason, count) in source)
+                byReason[reason] = byReason.GetValueOrDefault(reason) + count;
+
+        int shortfall = Math.Max(0, mainSlotsLeft - mainAdded);
+        if (shortfall > 0)
+        {
+            _logger.LogWarning(
+                "AI build for {Commander}: {Added}/{Target} main-deck slots filled — {Short} short " +
+                "after {Candidates} candidates. Rejections: {Reasons}",
+                cmdDef.Name, mainAdded, mainSlotsLeft, shortfall, mainCandidates.Length,
+                string.Join(", ", byReason.Select(kv => $"{kv.Key}={kv.Value}")));
+        }
 
         return new AiBuildResultDto
         {
@@ -98,16 +128,41 @@ public sealed class AiBuildService : IAiBuildService
             SideboardAdded = sideAdded,
             MaybeboardAdded = maybeAdded,
             CardsSkipped = mainSkipped + sideSkipped + maybeSkipped,
+            MainTarget = mainSlotsLeft,
+            MainShortfall = shortfall,
+            SkippedByReason = byReason,
         };
     }
 
     // ---- Card resolution + insertion ----------------------------------------
 
-    private async Task<(int Added, int Skipped)> AddCards(
+    /// <summary>Why a proposed card was not added.</summary>
+    private static class Rejection
+    {
+        public const string UnknownCard = "unknown-card";
+        public const string ColorIdentity = "color-identity";
+        public const string BannedInCommander = "banned-in-commander";
+        public const string AboveBracket = "game-changer-above-bracket";
+        public const string Duplicate = "duplicate";
+        public const string AddFailed = "add-failed";
+    }
+
+    /// <param name="names">
+    /// Primary picks followed by substitutes. The loop stops once <paramref name="maxCards"/>
+    /// is reached, so substitutes cost nothing unless a primary pick was rejected.
+    /// </param>
+    private async Task<(int Added, int Skipped, Dictionary<string, int> Reasons)> AddCards(
         string[] names, string board, Guid deckId, string userId,
         HashSet<ManaColor> cmdColors, HashSet<string> addedOracleIds, int maxCards, int bracket)
     {
         int added = 0, skipped = 0;
+        var reasons = new Dictionary<string, int>();
+        void Reject(string reason)
+        {
+            skipped++;
+            reasons[reason] = reasons.GetValueOrDefault(reason) + 1;
+        }
+
         foreach (var name in names)
         {
             if (added >= maxCards)
@@ -118,25 +173,25 @@ public sealed class AiBuildService : IAiBuildService
             {
                 var def = await _scryfall.GetByNameAsync(name);
                 if (def is null)
-                { skipped++; continue; }
+                { Reject(Rejection.UnknownCard); continue; }
 
                 if (cmdColors.Count > 0)
                 {
                     bool legal = def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c));
                     if (!legal)
-                    { skipped++; continue; }
+                    { Reject(Rejection.ColorIdentity); continue; }
                 }
 
                 if (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
-                { skipped++; continue; }
+                { Reject(Rejection.BannedInCommander); continue; }
 
                 // Hard-enforce bracket: game changers only allowed in bracket 4+
                 if (def.GameChanger && bracket < 4)
-                { skipped++; continue; }
+                { Reject(Rejection.AboveBracket); continue; }
 
                 bool isBasic = BasicLands.Contains(def.Name);
                 if (!isBasic && addedOracleIds.Contains(def.OracleId))
-                { skipped++; continue; }
+                { Reject(Rejection.Duplicate); continue; }
 
                 var printings = await _scryfall.GetPrintingsAsync(def.OracleId);
                 var scryfallId = printings.FirstOrDefault()?.ScryfallId;
@@ -155,15 +210,15 @@ public sealed class AiBuildService : IAiBuildService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "AI build: failed to add card '{Name}' to {Board}", name, board);
-                skipped++;
+                Reject(Rejection.AddFailed);
             }
         }
-        return (added, skipped);
+        return (added, skipped, reasons);
     }
 
     // ---- LLM call ---------------------------------------------------
 
-    private sealed record LlmDeckResponse(string[] Main, string[] Side, string[] Maybe);
+    private sealed record LlmDeckResponse(string[] Main, string[] Side, string[] Maybe, string[] Substitutes);
 
     private async Task<LlmDeckResponse> CallAnthropicAsync(
         string commanderName, string commanderText, string colors,
@@ -256,14 +311,29 @@ public sealed class AiBuildService : IAiBuildService
             ? $"\n- \"maybe\": exactly 10 maybeboard cards (cards you'd consider adding, interesting alternatives)"
             : "";
 
-        var responseShape = includeSide || includeMaybe
-            ? $$"""
+        // Every main pick that fails validation (misspelled, off-colour, banned,
+        // above-bracket) would otherwise leave a permanent hole in the deck.
+        var substituteSection = $"""
+
+            ── SUBSTITUTES ──────────────────────────────────────────────
+            Also return a "substitutes" list of exactly {SubstituteCount} additional cards, in priority order.
+            Some main-deck picks may be unusable (a misremembered name, a card outside the
+            colour identity, or one disallowed by the bracket). Substitutes are drawn on, in
+            order, to fill those slots — so the deck must remain coherent if any are used.
+            - Cover the same roles as the main deck in roughly the same proportion:
+              include lands, ramp, draw, interaction and synergy pieces, not just filler.
+            - They must satisfy every constraint above: colour identity {colors}, the bracket
+              rules, and the price constraint.
+            - Do not repeat anything already in "main".
+            """;
+
+        var responseShape = $$"""
               Return ONLY a JSON object in this exact shape (no markdown, no explanation):
               {
-                "main": ["Card 1", ... ({{mainSlots}} cards)],{{(includeSide ? "\n  \"side\": [\"Card 1\", ... (10 cards)]," : "")}}{{(includeMaybe ? "\n  \"maybe\": [\"Card 1\", ... (10 cards)]" : "")}}
+                "main": ["Card 1", ... ({{mainSlots}} cards)],{{(includeSide ? "\n  \"side\": [\"Card 1\", ... (10 cards)]," : "")}}{{(includeMaybe ? "\n  \"maybe\": [\"Card 1\", ... (10 cards)]," : "")}}
+                "substitutes": ["Card 1", ... ({{SubstituteCount}} cards)]
               }
-              """
-            : $"Return ONLY a JSON object: {{\"main\": [\"Card 1\", ... ({mainSlots} cards)]}}";
+              """;
 
         var prompt = $$"""
             You are a Magic: The Gathering Commander/EDH deck-building expert.
@@ -307,6 +377,8 @@ public sealed class AiBuildService : IAiBuildService
             - Basic lands may repeat
             - Do NOT include {{commanderName}}
             - Strictly follow the bracket and price constraints above — violations will be rejected
+            {{sideSection}}{{maybeSection}}
+            {{substituteSection}}
 
             {{responseShape}}
             """;
@@ -357,7 +429,8 @@ public sealed class AiBuildService : IAiBuildService
             return [];
         }
 
-        return new LlmDeckResponse(ParseArray("main"), ParseArray("side"), ParseArray("maybe"));
+        return new LlmDeckResponse(
+            ParseArray("main"), ParseArray("side"), ParseArray("maybe"), ParseArray("substitutes"));
     }
 
     // ---- Helpers ---------------------------------------------------

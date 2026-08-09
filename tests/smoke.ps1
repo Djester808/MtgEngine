@@ -260,14 +260,29 @@ Check "POST vision/identify-card" {
 if ($SkipExpensive) {
     Skip "POST decks/{id}/ai-build" "-SkipExpensive set"
 } else {
-    Check "POST decks/{id}/ai-build (bracket 2, budget)" {
+    Check "POST decks/{id}/ai-build (fills all 99 slots)" {
         $b = @{ commanderOracleId=$script:cmd.oracleId; bracket=2; priceRange="budget";
                 includeSideboard=$false; includeMaybeboard=$false } | ConvertTo-Json
         $r = Invoke-RestMethod "$Base/api/decks/$($script:deckId)/ai-build" -Method Post -Body $b -ContentType "application/json" -Headers $H
         if ($r.cardsAdded -lt 1) { throw "no cards added (skipped=$($r.cardsSkipped))" }
-        # skipped > 0 is healthy: it means the Scryfall validation layer rejected
-        # hallucinated / illegal / out-of-bracket names the model proposed.
-        "added=$($r.cardsAdded) skipped=$($r.cardsSkipped)"
+
+        # skipped > 0 is healthy -- it means validation rejected hallucinated or
+        # illegal names. What is NOT acceptable is those rejections leaving the deck
+        # short: substitutes must backfill them.
+        if ($r.mainShortfall -ne 0) {
+            throw "deck is $($r.mainShortfall) cards short of $($r.mainTarget) - substitutes exhausted"
+        }
+
+        # Cross-check against what actually landed in the deck, not just the report.
+        $detail = Invoke-RestMethod "$Base/api/decks/$($script:deckId)" -Headers $H
+        $mainCount = (@($detail.cards | Where-Object { $_.board -eq 'main' }) | Measure-Object -Property quantity -Sum).Sum
+        if ($mainCount -ne $r.mainTarget) {
+            throw "deck holds $mainCount main cards but target was $($r.mainTarget)"
+        }
+
+        $reasons = @()
+        if ($r.skippedByReason) { $reasons = @($r.skippedByReason.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) }
+        "deck=$mainCount/$($r.mainTarget) skipped=$($r.cardsSkipped) [$($reasons -join ' ')]"
     }
 }
 

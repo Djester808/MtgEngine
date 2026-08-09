@@ -276,6 +276,18 @@ public sealed record AiBuildResultDto
     public int SideboardAdded { get; init; }
     public int MaybeboardAdded { get; init; }
     public int CardsSkipped { get; init; }
+
+    /// <summary>Main-deck slots this build was asked to fill.</summary>
+    public int MainTarget { get; init; }
+
+    /// <summary>
+    /// Main-deck slots still empty after substitutes were exhausted. Zero for a
+    /// complete deck; non-zero means the result is not legal and needs manual filling.
+    /// </summary>
+    public int MainShortfall { get; init; }
+
+    /// <summary>Rejection reason -> count, for the cards that were discarded.</summary>
+    public Dictionary<string, int> SkippedByReason { get; init; } = [];
 }
 
 // ---- Forum --------------------------------------------------
