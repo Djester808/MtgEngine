@@ -15,7 +15,7 @@ public interface IScryfallService
     Task<RulingDto[]> GetRulingsAsync(string oracleId);
     Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
-    Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6);
+    Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null);
     Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null);
 
     /// <summary>
@@ -32,6 +32,13 @@ public interface IScryfallService
     /// </summary>
     Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
         IReadOnlySet<ManaColor> commanderColors, int bracket);
+
+    /// <summary>
+    /// Cards that can legally head a Commander deck, optionally filtered by name.
+    /// Searches the whole card corpus, not just commanders that already have decks here.
+    /// </summary>
+    /// <param name="setCode">Optional set code, to list the commanders printed in one set.</param>
+    Task<CardDefinition[]> SearchCommandersAsync(string? nameQuery, int limit = 100, string? setCode = null);
 }
 
 /// <summary>
@@ -117,7 +124,7 @@ public sealed class ScryfallService : IScryfallService
     }
 
     public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
-    public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
+    public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
     public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null) => Task.FromResult(Array.Empty<string>());
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.
@@ -125,6 +132,8 @@ public sealed class ScryfallService : IScryfallService
     public Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
         IReadOnlySet<ManaColor> commanderColors, int bracket) =>
         Task.FromResult<IReadOnlyDictionary<CardRole, string[]>>(new Dictionary<CardRole, string[]>());
+    public Task<CardDefinition[]> SearchCommandersAsync(string? nameQuery, int limit = 100, string? setCode = null) =>
+        Task.FromResult(Array.Empty<CardDefinition>());
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {

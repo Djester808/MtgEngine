@@ -34,6 +34,13 @@ public sealed class AiBuildService : IAiBuildService
     /// </summary>
     private const int SubstituteCount = 30;
 
+    /// <summary>
+    /// Sets treated as "recent" when spotlighting new cards during a build. Wider than
+    /// the suggestions panel's window, since a deck can reasonably draw on a few recent
+    /// releases rather than only the newest one or two.
+    /// </summary>
+    private const int RecentSetCount = 6;
+
     private static readonly HashSet<string> BasicLands = new(StringComparer.OrdinalIgnoreCase)
         { "Plains", "Island", "Swamp", "Mountain", "Forest",
           "Wastes", "Snow-Covered Plains", "Snow-Covered Island",
@@ -86,7 +93,7 @@ public sealed class AiBuildService : IAiBuildService
         int mainSlotsLeft = Math.Max(0, 99 - existingMainCount);
 
         // Fetch cards from recent sets to feed the LLM as candidates
-        var recentSetCodes = await _scryfall.GetRecentSetCodesAsync(monthsBack: 9);
+        var recentSetCodes = await _scryfall.GetRecentSetCodesAsync(maxSets: RecentSetCount);
         var recentCardNames = await _scryfall.GetRecentCardNamesAsync(recentSetCodes, cmdColors);
 
         // Commander-specific candidate pool, hard-filtered before the model ever sees it.
@@ -218,8 +225,8 @@ public sealed class AiBuildService : IAiBuildService
                 && !inDef.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c)))
             { Reject(Rejection.ColorIdentity); continue; }
 
-            if (inDef.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
-            { Reject(Rejection.BannedInCommander); continue; }
+            if (!CommanderRules.IsLegalInCommander(inDef))
+            { Reject(Rejection.NotCommanderLegal); continue; }
 
             if (inDef.GameChanger && request.Bracket < 4)
             { Reject(Rejection.AboveBracket); continue; }
@@ -433,7 +440,7 @@ public sealed class AiBuildService : IAiBuildService
     {
         public const string UnknownCard = "unknown-card";
         public const string ColorIdentity = "color-identity";
-        public const string BannedInCommander = "banned-in-commander";
+        public const string NotCommanderLegal = "not-commander-legal";
         public const string AboveBracket = "game-changer-above-bracket";
         public const string Duplicate = "duplicate";
         public const string AddFailed = "add-failed";
@@ -485,8 +492,8 @@ public sealed class AiBuildService : IAiBuildService
                     }
                 }
 
-                if (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
-                { Reject(Rejection.BannedInCommander); continue; }
+                if (!CommanderRules.IsLegalInCommander(def))
+                { Reject(Rejection.NotCommanderLegal); continue; }
 
                 // Hard-enforce bracket: game changers only allowed in bracket 4+
                 if (def.GameChanger && bracket < 4)

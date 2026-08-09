@@ -38,6 +38,8 @@ public sealed class BulkDataService : IScryfallService
     private Dictionary<string, string> _setNames = new(StringComparer.OrdinalIgnoreCase);
     // set code → release date (from released_at on card printings)
     private Dictionary<string, DateOnly> _setReleaseDates = new(StringComparer.OrdinalIgnoreCase);
+    // set code → Scryfall set_type (expansion, commander, promo, alchemy, token, ...)
+    private Dictionary<string, string> _setTypes = new(StringComparer.OrdinalIgnoreCase);
     // oracle_id → rarity of canonical printing
     private Dictionary<string, string> _rarityByOracleId = new(32_000, StringComparer.OrdinalIgnoreCase);
 
@@ -165,14 +167,69 @@ public sealed class BulkDataService : IScryfallService
             .ToArray();
     }
 
-    public async Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6)
+    /// <summary>
+    /// Set types that represent a genuine new-card release players can build with.
+    /// </summary>
+    /// <remarks>
+    /// Excludes promo, token, memorabilia, art series, minigame, Alchemy (digital-only,
+    /// not legal in paper Commander), and reprint-only products such as masters sets.
+    /// Without this filter "recent" is dominated by Secret Lairs and promo drops, which
+    /// is why the latest-set suggestions were full of cards from nowhere in particular.
+    /// </remarks>
+    private static readonly HashSet<string> ReleaseSetTypes = new(StringComparer.OrdinalIgnoreCase)
+        { "expansion", "core", "commander", "draft_innovation" };
+
+    /// <summary>
+    /// True when a set contains at least one Commander-legal card.
+    /// </summary>
+    /// <remarks>
+    /// Some sets carry a release set_type yet are entirely outside the format -- the
+    /// Marvel sets are standalone products where every card is not_legal. Treating one
+    /// as "the latest set" made the suggestions panel offer cards that cannot be played.
+    /// </remarks>
+    private bool HasCommanderLegalCards(string setCode) =>
+        _bySetCode.TryGetValue(setCode, out var oracleIds)
+        && oracleIds.Any(oid => _byOracleId.TryGetValue(oid, out var d) && CommanderRules.IsLegalInCommander(d));
+
+    /// <summary>
+    /// The most recently released real sets, newest first.
+    /// </summary>
+    /// <param name="monthsBack">
+    /// Ignored when <paramref name="maxSets"/> is supplied; kept for callers that still
+    /// think in time windows.
+    /// </param>
+    /// <param name="maxSets">
+    /// Take this many most-recent sets instead of everything inside a date window. A
+    /// window is a poor proxy: Magic ships many products a month, so six months can mean
+    /// twenty-plus sets, and the genuinely new cards get lost among them.
+    /// </param>
+    public async Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null)
     {
         await WaitReadyAsync();
-        var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-monthsBack));
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in _setReleaseDates)
-            if (kv.Value >= cutoff)
-                result.Add(kv.Key);
+
+        // Scryfall lists announced sets with future release dates. Those cards are not
+        // playable yet and must not be suggested.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var released = _setReleaseDates
+            .Where(kv => kv.Value <= today
+                         && _setTypes.TryGetValue(kv.Key, out var t)
+                         && ReleaseSetTypes.Contains(t)
+                         && HasCommanderLegalCards(kv.Key))
+            .OrderByDescending(kv => kv.Value)
+            .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase); // stable tie-break
+
+        IEnumerable<KeyValuePair<string, DateOnly>> chosen = maxSets is > 0
+            ? released.Take(maxSets.Value)
+            : released.Where(kv => kv.Value >= DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-monthsBack)));
+
+        var result = new HashSet<string>(chosen.Select(kv => kv.Key), StringComparer.OrdinalIgnoreCase);
+
+        _logger.LogInformation(
+            "Recent sets ({Mode}): {Codes}",
+            maxSets is > 0 ? $"latest {maxSets}" : $"{monthsBack}mo",
+            string.Join(", ", result.OrderBy(c => c)));
+
         return result;
     }
 
@@ -181,6 +238,68 @@ public sealed class BulkDataService : IScryfallService
     /// the whole corpus per request would be wasteful for a set this small and static.
     /// </summary>
     private CardDefinition[]? _gameChangers;
+
+    /// <summary>Cached list of every Commander-legal commander, built once on first use.</summary>
+    private CardDefinition[]? _commanders;
+
+    public async Task<CardDefinition[]> SearchCommandersAsync(
+        string? nameQuery, int limit = 100, string? setCode = null)
+    {
+        await WaitReadyAsync();
+
+        _commanders ??= _byOracleId.Values
+            .Where(IsCommanderEligible)
+            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var pool = _commanders;
+
+        // Restrict to one set when asked. Uses the set index rather than the card's
+        // canonical SetCode, so a commander reprinted into the set still counts.
+        if (!string.IsNullOrWhiteSpace(setCode))
+        {
+            var inSet = _bySetCode.TryGetValue(setCode.Trim(), out var oracleIds)
+                ? new HashSet<string>(oracleIds, StringComparer.OrdinalIgnoreCase)
+                : [];
+            pool = [.. pool.Where(d => inSet.Contains(d.OracleId))];
+        }
+
+        var q = nameQuery?.Trim();
+        if (string.IsNullOrEmpty(q))
+            return [.. pool.Take(limit)];
+
+        // Prefix matches first -- typing "kro" should surface Krosan before Sakashima
+        // of a Thousand Faces just because the latter contains the letters later on.
+        var prefix = new List<CardDefinition>();
+        var contains = new List<CardDefinition>();
+        foreach (var d in _commanders)
+        {
+            if (d.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase))
+                prefix.Add(d);
+            else if (d.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                contains.Add(d);
+        }
+
+        return [.. prefix.Concat(contains).Take(limit)];
+    }
+
+    /// <summary>
+    /// Legendary creatures, plus the cards that explicitly say they may head a deck
+    /// (planeswalker commanders, backgrounds' partners, Grist, and similar).
+    /// </summary>
+    private static bool IsCommanderEligible(CardDefinition d)
+    {
+        if (!d.Legalities.TryGetValue("commander", out var legal) || legal != "legal")
+            return false;
+        if (d.CardTypes.HasFlag(Domain.Enums.CardType.Token))
+            return false;
+
+        bool legendaryCreature =
+            d.Supertypes.Contains("Legendary") && d.CardTypes.HasFlag(Domain.Enums.CardType.Creature);
+
+        return legendaryCreature
+            || (d.OracleText?.Contains("can be your commander", StringComparison.OrdinalIgnoreCase) ?? false);
+    }
 
     public async Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
         IReadOnlySet<ManaColor> commanderColors, int bracket)
@@ -259,6 +378,10 @@ public sealed class BulkDataService : IScryfallService
                 if (!seen.Add(oid))
                     continue;
                 if (!_byOracleId.TryGetValue(oid, out var def))
+                    continue;
+                // Not-legal cards (Un-sets, Alchemy, standalone Universes Beyond
+                // products) must never be spotlighted -- they cannot go in the deck.
+                if (!CommanderRules.IsLegalInCommander(def))
                     continue;
                 // Skip tokens, basic lands, and commander-illegal card types
                 if (def.Supertypes.Contains("Basic"))
@@ -708,6 +831,7 @@ public sealed class BulkDataService : IScryfallService
         var setIdx = new Dictionary<string, List<string>>(500, StringComparer.OrdinalIgnoreCase);
         var setNames = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
         var setReleaseDates = new Dictionary<string, DateOnly>(500, StringComparer.OrdinalIgnoreCase);
+        var setTypes = new Dictionary<string, string>(500, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogInformation("Parsing default_cards.json…");
         await using var stream = File.OpenRead(path);
@@ -726,6 +850,7 @@ public sealed class BulkDataService : IScryfallService
             var setCode = card.TryGetProperty("set", out var scEl) ? scEl.GetString() ?? "" : "";
             var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
             var releasedAt = card.TryGetProperty("released_at", out var raEl) ? raEl.GetString() : null;
+            var setType = card.TryGetProperty("set_type", out var stEl) ? stEl.GetString() ?? "" : "";
             var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
             if (id is null || oid is null)
@@ -833,6 +958,8 @@ public sealed class BulkDataService : IScryfallService
                     setNames.TryAdd(setCode, setName);
                 if (releasedAt is not null && DateOnly.TryParse(releasedAt, out var releaseDate))
                     setReleaseDates.TryAdd(setCode, releaseDate);
+                if (setType.Length > 0)
+                    setTypes.TryAdd(setCode, setType);
             }
         }
 
@@ -841,6 +968,7 @@ public sealed class BulkDataService : IScryfallService
         _bySetCode = setIdx;
         _setNames = setNames;
         _setReleaseDates = setReleaseDates;
+        _setTypes = setTypes;
     }
 
     private static string? GetStr(JsonElement? el, string prop)

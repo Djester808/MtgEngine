@@ -22,11 +22,24 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
     private const string ModelId = "claude-haiku-4-5-20251001";
 
+    /// <summary>
+    /// How many of the newest sets count as "latest" for the latestSet category.
+    /// A date window pulled in twenty-plus products and the category stopped meaning
+    /// anything; two real sets is what a player understands by "the latest set".
+    /// </summary>
+    private const int LatestSetCount = 2;
+
     /// <summary>Bump when the model or the prompt changes, to invalidate cached responses.</summary>
     // v2: gameChangers grounded in the official Scryfall list.
     // v3: response carries rejection diagnostics; v2 payloads would deserialise with
     //     an empty Diagnostics block and misreport nothing as having been rejected.
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v3";
+    // v4: "recent sets" now means the newest N real expansions rather than a 6-month
+    //     window, so previously cached latestSet picks are no longer correct.
+    // v5: categories with a membership requirement drop unresolved names instead of
+    //     passing them through unverified.
+    // v6: not_legal cards are rejected, and sets with no Commander-legal cards no
+    //     longer count as "recent".
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v6";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
@@ -62,7 +75,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId);
         var cmdColors = cmdDef?.ColorIdentity.ToHashSet() ?? new HashSet<ManaColor>();
 
-        var recentSets = await _scryfall.GetRecentSetCodesAsync(6);
+        var recentSets = await _scryfall.GetRecentSetCodesAsync(maxSets: LatestSetCount);
         var allRecentNames = await _scryfall.GetRecentCardNamesAsync(recentSets, cmdColors);
 
         // The data layer returns every match; cap the prompt here. Seeded on the
@@ -244,6 +257,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         public const string UnknownCard = "unknown-card";
         public const string ColorIdentity = "color-identity";
         public const string NotGameChanger = "not-a-game-changer";
+        public const string NotCommanderLegal = "not-commander-legal";
         public const string NotRecentPrinting = "no-recent-printing";
         public const string DuplicateAcrossCategories = "duplicate-across-categories";
         public const string LookupFailed = "lookup-failed";
@@ -293,15 +307,26 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             var def = await _scryfall.GetByNameAsync(raw.Name);
             if (def is null)
             {
-                // Outside the strict category, an unresolved name is still shown (the
-                // model may know a card the local bulk data does not) -- but it is
-                // counted, so a spike in hallucinated names is visible.
-                return requireGameChanger
+                // Categories with a membership requirement (official Game Changer list,
+                // printed in a recent set) cannot verify an unresolved name, so it must
+                // be dropped -- otherwise "latest set" silently lists cards that may not
+                // be from a recent set at all.
+                bool categoryRequiresProof = requireGameChanger || recentSets is { Count: > 0 };
+
+                // Elsewhere an unresolved name is still shown -- the model may know a card
+                // the local bulk data does not -- but it is counted either way, so a spike
+                // in hallucinated names stays visible.
+                return categoryRequiresProof
                     ? new Resolution(null, Rejection.UnknownCard)
                     : new Resolution(
                         new SuggestedCardDto { Name = raw.Name, Reason = raw.Reason, Score = raw.Score },
                         Rejection.UnknownCard);
             }
+
+            // Format legality. "not_legal" covers Un-sets, Alchemy, and standalone
+            // Universes Beyond products -- none of which can go in a Commander deck.
+            if (!CommanderRules.IsLegalInCommander(def))
+                return new Resolution(null, Rejection.NotCommanderLegal);
 
             // Color identity check — filter cards that exceed the commander's color identity
             if (cmdColors.Count > 0)
