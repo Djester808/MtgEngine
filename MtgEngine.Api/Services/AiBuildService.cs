@@ -145,71 +145,55 @@ public sealed class AiBuildService : IAiBuildService
 
     // ---- Candidate pool -----------------------------------------------------
 
-    private sealed record PoolSection(string Name, IReadOnlyList<string> Cards);
-
-    private sealed record CandidatePool(IReadOnlyList<PoolSection> Sections, int Offered, int Dropped)
+    /// <summary>
+    /// The cards this build may legally use, plus an optional hint about which of them
+    /// are commonly played with this commander.
+    /// </summary>
+    /// <param name="Legal">
+    /// Every Commander-legal card inside the colour identity and allowed at this
+    /// bracket -- roughly 7,000 for a mono-colour commander. Filtered on legality only:
+    /// nothing is excluded for being unpopular or unusual, so the model keeps the full
+    /// search space and can still find off-meta cards.
+    /// </param>
+    /// <param name="CommonlyPlayed">
+    /// A few hundred cards the community plays with this commander. Advisory only --
+    /// listing them alongside the full pool gives a quality signal without narrowing
+    /// what may be chosen.
+    /// </param>
+    private sealed record CandidatePool(string[] Legal, string[] CommonlyPlayed)
     {
-        public int Total => Sections.Sum(s => s.Cards.Count);
+        /// <summary>Below this the pool cannot fill a deck, so fall back to unconstrained generation.</summary>
+        public bool IsUsable => Legal.Length >= 200;
 
-        /// <summary>
-        /// Below this the pool cannot plausibly fill a 99-card deck, so the build falls
-        /// back to unconstrained generation rather than boxing the model in.
-        /// </summary>
-        public bool IsUsable => Total >= 60;
-
-        public static readonly CandidatePool Empty = new([], 0, 0);
+        public static readonly CandidatePool Empty = new([], []);
     }
 
-    /// <summary>
-    /// Builds a commander-specific pool of cards that are already legal for this build,
-    /// so the model selects from valid options instead of being asked to respect
-    /// constraints while free-recalling from the whole corpus.
-    /// </summary>
     private async Task<CandidatePool> BuildCandidatePoolAsync(
         string commanderName, HashSet<ManaColor> cmdColors, int bracket)
     {
-        var raw = await _edhrec.GetCommanderPoolAsync(commanderName);
-        if (raw.Count == 0)
+        var legal = await _scryfall.GetLegalCardNamesAsync(cmdColors, bracket);
+        if (legal.Length == 0)
             return CandidatePool.Empty;
 
-        var bySection = new Dictionary<string, List<string>>();
-        var order = new List<string>();
-        int dropped = 0;
-
-        foreach (var entry in raw)
+        // EDHREC is used as a hint, never as a filter. Restricting selection to it
+        // discards ~96% of legal cards and collapses deck variety.
+        var commonlyPlayed = Array.Empty<string>();
+        try
         {
-            var def = await _scryfall.GetByNameAsync(entry.Name);
-
-            // Same gauntlet AddCards applies later. Filtering here means a rejection
-            // costs nothing: the card never reaches the prompt in the first place.
-            if (def is null
-                || (cmdColors.Count > 0 && !def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c)))
-                || (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
-                || (def.GameChanger && bracket < 4))
-            {
-                dropped++;
-                continue;
-            }
-
-            if (!bySection.TryGetValue(entry.Section, out var list))
-            {
-                list = [];
-                bySection[entry.Section] = list;
-                order.Add(entry.Section);
-            }
-            list.Add(def.Name);
+            var raw = await _edhrec.GetCommanderPoolAsync(commanderName);
+            var legalSet = new HashSet<string>(legal, StringComparer.OrdinalIgnoreCase);
+            commonlyPlayed = [.. raw.Select(r => r.Name).Where(legalSet.Contains).Distinct(StringComparer.OrdinalIgnoreCase)];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "EDHREC hint unavailable for {Commander}", commanderName);
         }
 
-        var pool = new CandidatePool(
-            [.. order.Select(s => new PoolSection(s, bySection[s]))],
-            raw.Count,
-            dropped);
-
         _logger.LogInformation(
-            "Candidate pool for {Commander}: {Kept}/{Offered} cards survived filtering ({Dropped} dropped), usable={Usable}",
-            commanderName, pool.Total, pool.Offered, dropped, pool.IsUsable);
+            "Candidate pool for {Commander}: {Legal} legal cards, {Hint} flagged as commonly played",
+            commanderName, legal.Length, commonlyPlayed.Length);
 
-        return pool;
+        return new CandidatePool(legal, commonlyPlayed);
     }
 
     // ---- Card resolution + insertion ----------------------------------------
@@ -407,18 +391,13 @@ public sealed class AiBuildService : IAiBuildService
             ? $"\n- \"maybe\": exactly 10 maybeboard cards (cards you'd consider adding, interesting alternatives)"
             : "";
 
-        // Cards here are already verified legal for this commander, bracket and colour
-        // identity, so anything selected from the pool cannot be rejected downstream.
-        var poolSection = pool.IsUsable
-            ? "\n── CANDIDATE POOL ───────────────────────────────────────────\n" +
-              $"These {pool.Total} cards are the ones most played with {commanderName}, and every one " +
-              $"has ALREADY been verified legal for this deck (colour identity {colors}, not banned, " +
-              $"allowed at this bracket). They are grouped by role.\n\n" +
-              string.Join("\n\n", pool.Sections.Select(s =>
-                  $"{s.Name} ({s.Cards.Count}):\n{string.Join(", ", s.Cards)}")) +
-              "\n\nBuild the deck by selecting from this pool. You may also use basic lands, and " +
-              "cards from the RECENT SETS SPOTLIGHT above. Only reach outside those lists if the pool " +
-              "genuinely cannot fill a role — anything else risks being rejected as illegal.\n"
+        // Advisory only — a starting point, deliberately not a restriction.
+        var commonlyPlayedSection = pool.CommonlyPlayed.Length > 0
+            ? $"\nCOMMONLY PLAYED WITH {commanderName.ToUpperInvariant()} ({pool.CommonlyPlayed.Length}):\n" +
+              "These are popular choices and a reasonable starting point, but they are only a hint. " +
+              "Any card from the legal pool is equally valid — prefer a less obvious card when it " +
+              "genuinely fits this commander better.\n" +
+              string.Join(", ", pool.CommonlyPlayed)
             : string.Empty;
 
         // Every main pick that fails validation (misspelled, off-colour, banned,
@@ -445,21 +424,41 @@ public sealed class AiBuildService : IAiBuildService
               }
               """;
 
-        var prompt = $$"""
-            You are a Magic: The Gathering Commander/EDH deck-building expert.
+        // ---- Cacheable prefix -------------------------------------------------
+        // Depends only on (colour identity, bracket, price) -- never on the commander --
+        // so every build sharing those values sends byte-identical text here and hits
+        // Anthropic's prompt cache. The legal pool is ~39k tokens, which is what makes
+        // caching worth doing: uncached it is ~$0.12/build, cached ~$0.012.
+        var legalPoolBlock = pool.IsUsable
+            ? $"\n── LEGAL CARD POOL ({pool.Legal.Length} cards) ─────────────────────\n" +
+              $"Every card below is Commander-legal, inside the colour identity {colors}, and " +
+              $"allowed at this bracket. This list is filtered for legality ONLY — it is not a " +
+              $"recommendation list, and it deliberately includes obscure and situational cards.\n" +
+              $"Choose freely from it. Do not use any card that is not on this list (basic lands " +
+              $"excepted); anything else will be rejected as illegal.\n\n" +
+              string.Join(", ", pool.Legal)
+            : string.Empty;
 
-            Build a cohesive, well-thought-out deck for this commander:
-            Commander: {{commanderName}}
-            Oracle text: {{commanderText}}
-            Color identity: {{colors}}
+        var stablePrefix = $$"""
+            You are a Magic: The Gathering Commander/EDH deck-building expert.
 
             ── POWER LEVEL ──────────────────────────────────────────────
             {{bracketDesc}}
 
             ── PRICE ────────────────────────────────────────────────────
             {{priceDesc}}
+            {{legalPoolBlock}}
+            """;
+
+        // ---- Variable remainder (after the cache breakpoint) ------------------
+        var prompt = $$"""
+
+            Build a cohesive, well-thought-out deck for this commander:
+            Commander: {{commanderName}}
+            Oracle text: {{commanderText}}
+            Color identity: {{colors}}
             {{recentSection}}
-            {{poolSection}}
+            {{commonlyPlayedSection}}
             ── DECK COMPOSITION ({{mainSlots}} main-deck cards) ────────
             Every card must earn its slot. Think about what {{commanderName}} wants to do, then build around that.
 
@@ -494,18 +493,40 @@ public sealed class AiBuildService : IAiBuildService
             {{responseShape}}
             """;
 
-        // The prompt must be a pure function of the request for Anthropic's prompt
-        // cache to hit. Logging its fingerprint makes a cache-busting regression
-        // (e.g. a stray timestamp or unseeded shuffle) visible instead of silent.
-        _logger.LogDebug("AI build prompt: {Chars} chars, sha256={Hash}",
-            prompt.Length, PromptFingerprint(prompt));
+        // The prefix must be a pure function of (colours, bracket, price) for the cache
+        // to hit. Logging both fingerprints makes a cache-busting regression visible:
+        // the prefix hash should repeat across different commanders.
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug(
+                "AI build prompt: prefix {PrefixChars} chars sha256={PrefixHash}, body {BodyChars} chars sha256={BodyHash}",
+                stablePrefix.Length, PromptFingerprint(stablePrefix),
+                prompt.Length, PromptFingerprint(prompt));
+        }
 
         var body = new
         {
             model = ModelId,
             max_tokens = 6000,
             temperature = 0,
-            messages = new[] { new { role = "user", content = prompt } },
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        // Breakpoint goes on the last block of the stable prefix.
+                        new
+                        {
+                            type = "text",
+                            text = stablePrefix,
+                            cache_control = new { type = "ephemeral" },
+                        },
+                        new { type = "text", text = prompt },
+                    },
+                },
+            },
         };
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -525,6 +546,7 @@ public sealed class AiBuildService : IAiBuildService
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
+        LogCacheUsage(respJson);
         var parsed = AnthropicResponse.DeserializeJson<JsonElement>(respJson);
 
         string[] ParseArray(string key)
@@ -545,6 +567,35 @@ public sealed class AiBuildService : IAiBuildService
     }
 
     // ---- Helpers ---------------------------------------------------
+
+    /// <summary>
+    /// Reports prompt-cache effectiveness. A read of ~0 across repeated builds with the
+    /// same colours and bracket means the prefix is not byte-stable and the cache is
+    /// silently doing nothing.
+    /// </summary>
+    private void LogCacheUsage(string responseJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            if (!doc.RootElement.TryGetProperty("usage", out var usage))
+                return;
+
+            int Read(string name) =>
+                usage.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
+
+            int write = Read("cache_creation_input_tokens");
+            int hit = Read("cache_read_input_tokens");
+
+            _logger.LogInformation(
+                "AI build tokens: cache_read={Hit} cache_write={Write} uncached_input={In} output={Out}",
+                hit, write, Read("input_tokens"), Read("output_tokens"));
+        }
+        catch (JsonException)
+        {
+            // Diagnostics only; never fail a build over usage reporting.
+        }
+    }
 
     /// <summary>Short SHA-256 prefix of the prompt, for cache-stability diagnostics.</summary>
     private static string PromptFingerprint(string prompt)

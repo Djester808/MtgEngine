@@ -182,6 +182,33 @@ public sealed class BulkDataService : IScryfallService
     /// </summary>
     private CardDefinition[]? _gameChangers;
 
+    public async Task<string[]> GetLegalCardNamesAsync(IReadOnlySet<ManaColor> commanderColors, int bracket)
+    {
+        await WaitReadyAsync();
+
+        var names = _byOracleId.Values
+            .Where(d =>
+                // Legality only. No popularity or playability judgement -- a card the
+                // model could reasonably want must not be filtered out here.
+                d.Legalities.TryGetValue("commander", out var leg) && leg == "legal"
+                && !d.CardTypes.HasFlag(Domain.Enums.CardType.Token)
+                && !d.Supertypes.Contains("Basic")
+                && (commanderColors.Count == 0
+                    || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
+                && !(d.GameChanger && bracket < 4))
+            .Select(d => d.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        _logger.LogInformation(
+            "Legal pool: {Count} cards for colours [{Colors}] at bracket {Bracket} = {Chars} chars joined (from {Total} oracle cards)",
+            names.Length, string.Join(",", commanderColors), bracket,
+            names.Sum(n => n.Length + 2), _byOracleId.Count);
+
+        return names;
+    }
+
     public async Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors)
     {
         await WaitReadyAsync();
