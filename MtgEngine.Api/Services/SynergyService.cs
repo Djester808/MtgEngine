@@ -151,7 +151,17 @@ public sealed class SynergyService : ISynergyService
     private async Task<Dictionary<string, SynergyJson>> CallDeckScoringAsync(
         string commanderName, string commanderText, CollectionCardDto[] cards)
     {
-        var cardList = string.Join("\n", cards.Select(c => $"- {c.CardDetails!.Name}"));
+        // Include each card's rules text. Given names alone the model describes cards
+        // from memory and gets them wrong -- it claimed Goblin Bombardment sacrifices
+        // treasures when it sacrifices a creature.
+        var cardList = string.Join("\n", cards.Select(c =>
+        {
+            var d = c.CardDetails!;
+            var text = string.IsNullOrWhiteSpace(d.OracleText)
+                ? "(no rules text)"
+                : d.OracleText.Replace("\n", " ");
+            return $"- {d.Name} | {d.ManaCost} | {text}";
+        }));
 
         var prompt = $$"""
             You are a Magic: The Gathering Commander/EDH expert reviewing a finished deck.
@@ -162,7 +172,7 @@ public sealed class SynergyService : ISynergyService
             Score how well each card below fits THIS deck, led by the commander's strategy
             but accounting for how the cards support each other.
 
-            Cards ({{cards.Length}}):
+            Cards ({{cards.Length}}), as "name | mana cost | rules text":
             {{cardList}}
 
             Respond with ONLY valid JSON in exactly this shape (no markdown, no extra text):
@@ -174,6 +184,8 @@ public sealed class SynergyService : ISynergyService
             - Be discriminating: a generic good card in a deck it does nothing special for
               should score in the 40s, not the 80s. Reserve 85+ for genuine synergy.
             - Keep each reason under 15 words.
+            - Base every reason on the rules text given above, never on recollection of
+              the card. If the text does not support a claim, do not make it.
             """;
 
         var body = new

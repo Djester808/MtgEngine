@@ -39,7 +39,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     //     passing them through unverified.
     // v6: not_legal cards are rejected, and sets with no Commander-legal cards no
     //     longer count as "recent".
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v6";
+    // v7: reasons are rewritten against each card's real rules text.
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v7";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
@@ -142,6 +143,13 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         WarnIfFullyRejected(nameof(raw.GameChangers), raw.GameChangers.Length, gameChangers.Length);
         WarnIfFullyRejected(nameof(raw.NotableMentions), raw.NotableMentions.Length, notableMentions.Length);
 
+        // The first pass names cards and explains them in one go, so the explanations are
+        // written from recollection -- it described Goblin Bombardment as sacrificing
+        // treasures when it sacrifices a creature. Now that the picks are resolved, their
+        // real rules text is available, so the reasons are rewritten against it.
+        await GroundReasonsAsync(
+            request, [latestSet, topSynergy, gameChangers, notableMentions]);
+
         return new DeckSuggestionsDto
         {
             LatestSet = latestSet,
@@ -155,6 +163,133 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 Rejected = byReason,
             },
         };
+    }
+
+    // ---- Grounded reasons -------------------------------------------
+
+    /// <summary>
+    /// Rewrites each suggestion's reason against the card's actual rules text, in place.
+    /// </summary>
+    /// <remarks>
+    /// Costs one extra call, but the whole response is cached, so it is paid once per
+    /// commander + deck. A reason that misstates what a card does is worse than no
+    /// reason: it makes every other explanation on the page suspect.
+    /// </remarks>
+    private async Task GroundReasonsAsync(
+        DeckSuggestionsRequest request, SuggestedCardDto[][] groups)
+    {
+        // Only cards that resolved have trustworthy rules text to ground against.
+        var resolved = groups.SelectMany(g => g)
+            .Where(c => c.Card is not null && !string.IsNullOrWhiteSpace(c.Card!.OracleText))
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+
+        if (resolved.Length == 0)
+            return;
+
+        try
+        {
+            var reasons = await CallReasonPassAsync(request, resolved);
+            if (reasons.Count == 0)
+                return;
+
+            int rewritten = 0;
+            foreach (var group in groups)
+            {
+                for (int i = 0; i < group.Length; i++)
+                {
+                    if (reasons.TryGetValue(group[i].Name, out var better)
+                        && !string.IsNullOrWhiteSpace(better))
+                    {
+                        group[i] = group[i] with { Reason = better.Trim() };
+                        rewritten++;
+                    }
+                }
+            }
+
+            _logger.LogInformation(
+                "Grounded {Rewritten}/{Total} suggestion reasons for {Commander}",
+                rewritten, resolved.Length, request.CommanderName);
+        }
+        catch (Exception ex)
+        {
+            // Keep the first-pass reasons rather than failing the request. They may be
+            // imprecise, but the suggestions themselves are still valid.
+            _logger.LogWarning(ex, "Reason grounding failed for {Commander}", request.CommanderName);
+        }
+    }
+
+    private async Task<Dictionary<string, string>> CallReasonPassAsync(
+        DeckSuggestionsRequest request, SuggestedCardDto[] cards)
+    {
+        var cardList = string.Join("\n", cards.Select(c =>
+            $"- {c.Name} | {c.Card!.ManaCost} | {c.Card.OracleText.Replace("\n", " ")}"));
+
+        var prompt = $$"""
+            You are a Magic: The Gathering Commander/EDH expert.
+
+            Commander: {{request.CommanderName}}
+            Oracle text: {{request.CommanderText}}
+
+            For each card below, write one short sentence explaining why it is worth
+            playing in THIS deck. Each card is given as "name | mana cost | rules text".
+
+            Cards ({{cards.Length}}):
+            {{cardList}}
+
+            Respond with ONLY this JSON (no markdown, no extra text):
+            {"reasons":[{"name":"<exact card name as given>","reason":"<one sentence>"}]}
+
+            Rules:
+            - Describe only what the rules text above actually says. Do not rely on memory
+              of the card, and never attribute an ability it does not have.
+            - Say why it helps this commander specifically, not why it is a good card.
+            - Under 18 words each. Include every card, exactly once, name spelled as given.
+            """;
+
+        var body = new
+        {
+            model = ModelId,
+            max_tokens = 2000,
+            temperature = 0,
+            messages = new[] { new { role = "user", content = prompt } },
+        };
+
+        var http = _httpFactory.CreateClient("AnthropicApi");
+        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+        };
+        httpReq.Headers.Add("x-api-key", _apiKey);
+        httpReq.Headers.Add("anthropic-version", "2023-06-01");
+
+        var resp = await http.SendAsync(httpReq);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync();
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
+        }
+
+        var parsed = AnthropicResponse.DeserializeJson<ReasonPassJson>(
+            await resp.Content.ReadAsStringAsync());
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in parsed?.Reasons ?? [])
+            if (!string.IsNullOrWhiteSpace(r.Name))
+                map[r.Name] = r.Reason;
+        return map;
+    }
+
+    private sealed class ReasonPassJson
+    {
+        [JsonPropertyName("reasons")] public ReasonEntry[] Reasons { get; set; } = [];
+    }
+
+    private sealed class ReasonEntry
+    {
+        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+        [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
     }
 
     // ---- LLM call ---------------------------------------------------
