@@ -179,7 +179,18 @@ public sealed class AiBuildService : IAiBuildService
                 {
                     bool legal = def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c));
                     if (!legal)
-                    { Reject(Rejection.ColorIdentity); continue; }
+                    {
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                        {
+                            _logger.LogDebug(
+                                "AI build reject (color): '{Card}' identity [{CardColors}] vs commander [{CmdColors}]",
+                                def.Name,
+                                string.Join(",", def.ColorIdentity),
+                                string.Join(",", cmdColors));
+                        }
+                        Reject(Rejection.ColorIdentity);
+                        continue;
+                    }
                 }
 
                 if (def.Legalities.TryGetValue("commander", out var leg) && leg == "banned")
@@ -295,6 +306,12 @@ public sealed class AiBuildService : IAiBuildService
         // identical completions at temperature = 0.
         var recentSpotlight = DeterministicSample.Take(
             recentCardNames, 60, $"{commanderName}|{bracket}|{priceRange}");
+
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug("AI build spotlight ({Count}): {Names}",
+                recentSpotlight.Length, string.Join(" | ", recentSpotlight));
+        }
 
         var recentSection = recentSpotlight.Length > 0
             ? $"\nRECENT SETS SPOTLIGHT (from the last 9 months of Magic releases):\n" +
