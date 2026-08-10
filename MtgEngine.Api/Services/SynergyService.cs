@@ -17,6 +17,12 @@ public interface ISynergyService
     /// results to the same cache the single-card path reads.
     /// </summary>
     Task<DeckScoreDto> ScoreDeckAsync(Guid deckId, string userId);
+
+    /// <summary>
+    /// Scores an arbitrary set of cards against a commander, reading the cache first and
+    /// asking the model only about the ones missing from it.
+    /// </summary>
+    Task<ScoredCardDto[]> ScoreCardsAsync(string commanderOracleId, IReadOnlyList<string> cardOracleIds);
 }
 
 public sealed class SynergyService : ISynergyService
@@ -120,7 +126,11 @@ public sealed class SynergyService : ISynergyService
         if (cards.Length == 0)
             return new DeckScoreDto();
 
-        var scores = await CallDeckScoringAsync(cmdDef.Name, cmdDef.OracleText ?? string.Empty, cards);
+        var scores = await CallDeckScoringAsync(
+            cmdDef.Name,
+            cmdDef.OracleText ?? string.Empty,
+            [.. cards.Select(c => new ScorableCard(
+                c.OracleId, c.CardDetails!.Name, c.CardDetails.ManaCost, c.CardDetails.OracleText))]);
 
         var scored = cards
             .Select(c =>
@@ -148,19 +158,99 @@ public sealed class SynergyService : ISynergyService
         };
     }
 
+    /// <summary>
+    /// The fields the scoring prompt needs, so deck cards and loose candidates can share
+    /// one code path.
+    /// </summary>
+    private readonly record struct ScorableCard(string OracleId, string Name, string ManaCost, string? OracleText);
+
+    public async Task<ScoredCardDto[]> ScoreCardsAsync(
+        string commanderOracleId, IReadOnlyList<string> cardOracleIds)
+    {
+        var wanted = cardOracleIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (wanted.Count == 0)
+            return [];
+
+        var cmdDef = await _scryfall.GetByOracleIdAsync(commanderOracleId)
+            ?? throw new ResourceNotFoundException($"Commander not found: {commanderOracleId}");
+
+        // Cache first. Browsing pages the same cards past repeatedly, and a page that is
+        // fully cached must not cost an API call.
+        var cached = await _db.CardSynergyScores
+            .Where(s => s.CommanderOracleId == commanderOracleId
+                        && s.ModelVersion == CacheVersion
+                        && wanted.Contains(s.CardOracleId))
+            .ToDictionaryAsync(s => s.CardOracleId, StringComparer.OrdinalIgnoreCase);
+
+        var results = new List<ScoredCardDto>(wanted.Count);
+        var missing = new List<ScorableCard>();
+
+        foreach (var id in wanted)
+        {
+            if (cached.TryGetValue(id, out var hit))
+            {
+                results.Add(new ScoredCardDto
+                {
+                    OracleId = id,
+                    Name = (await _scryfall.GetByOracleIdAsync(id))?.Name ?? string.Empty,
+                    Score = hit.Score,
+                    Reason = hit.Reason,
+                });
+                continue;
+            }
+
+            var def = await _scryfall.GetByOracleIdAsync(id);
+            if (def is not null)
+                missing.Add(new ScorableCard(id, def.Name, def.ManaCostRaw, def.OracleText));
+        }
+
+        if (missing.Count > 0)
+        {
+            var scores = await CallDeckScoringAsync(
+                cmdDef.Name, cmdDef.OracleText ?? string.Empty, missing);
+
+            var fresh = missing
+                .Select(c =>
+                {
+                    scores.TryGetValue(c.Name, out var s);
+                    return new ScoredCardDto
+                    {
+                        OracleId = c.OracleId,
+                        Name = c.Name,
+                        Score = Math.Clamp(s?.Score ?? 0, 0, 100),
+                        Reason = s?.Reason ?? string.Empty,
+                    };
+                })
+                .Where(s => s.Score > 0)
+                .ToArray();
+
+            await PersistScoresAsync(commanderOracleId, fresh);
+            results.AddRange(fresh);
+        }
+
+        _logger.LogInformation(
+            "Scored {Total} cards for {Commander}: {Cached} cached, {Fresh} from the model",
+            wanted.Count, cmdDef.Name, cached.Count, missing.Count);
+
+        return [.. results];
+    }
+
     private async Task<Dictionary<string, SynergyJson>> CallDeckScoringAsync(
-        string commanderName, string commanderText, CollectionCardDto[] cards)
+        string commanderName, string commanderText, IReadOnlyList<ScorableCard> cards)
     {
         // Include each card's rules text. Given names alone the model describes cards
         // from memory and gets them wrong -- it claimed Goblin Bombardment sacrifices
         // treasures when it sacrifices a creature.
         var cardList = string.Join("\n", cards.Select(c =>
         {
-            var d = c.CardDetails!;
-            var text = string.IsNullOrWhiteSpace(d.OracleText)
+            var text = string.IsNullOrWhiteSpace(c.OracleText)
                 ? "(no rules text)"
-                : d.OracleText.Replace("\n", " ");
-            return $"- {d.Name} | {d.ManaCost} | {text}";
+                : c.OracleText.Replace("\n", " ");
+            return $"- {c.Name} | {c.ManaCost} | {text}";
         }));
 
         var prompt = $$"""
@@ -172,7 +262,7 @@ public sealed class SynergyService : ISynergyService
             Score how well each card below fits THIS deck, led by the commander's strategy
             but accounting for how the cards support each other.
 
-            Cards ({{cards.Length}}), as "name | mana cost | rules text":
+            Cards ({{cards.Count}}), as "name | mana cost | rules text":
             {{cardList}}
 
             Respond with ONLY valid JSON in exactly this shape (no markdown, no extra text):
@@ -221,11 +311,11 @@ public sealed class SynergyService : ISynergyService
             if (!string.IsNullOrWhiteSpace(s.Name))
                 map[s.Name] = new SynergyJson { Score = s.Score, Reason = s.Reason };
 
-        if (map.Count < cards.Length)
+        if (map.Count < cards.Count)
         {
             _logger.LogWarning(
                 "Deck scoring returned {Got}/{Expected} cards for {Commander}",
-                map.Count, cards.Length, commanderName);
+                map.Count, cards.Count, commanderName);
         }
 
         return map;

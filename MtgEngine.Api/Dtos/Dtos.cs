@@ -142,6 +142,9 @@ public sealed record ImportDeckResult(
 /// </summary>
 public sealed record CandidateCardDto(CardDto Card, string? ScryfallId, string? SetCode, string? SetName);
 
+/// <summary>Score several cards against one commander in a single call.</summary>
+public sealed record SynergyBatchRequest(string CommanderOracleId, string[] CardOracleIds);
+
 /// <summary>A page of the browsable candidate pool, with the unpaged total.</summary>
 public sealed record CandidatePoolDto(int Total, CandidateCardDto[] Cards);
 

@@ -226,4 +226,27 @@ public sealed class DecksController : ControllerBase
         var result = await synergyService.GetSynergyAsync(request);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Scores a page of cards against a commander in one call. Used by the browse list,
+    /// which would otherwise fire one request per row.
+    /// </summary>
+    [HttpPost("synergy/batch")]
+    public async Task<ActionResult<ScoredCardDto[]>> GetSynergyBatch(
+        [FromBody] SynergyBatchRequest request,
+        [FromServices] ISynergyService synergyService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+            return BadRequest("CommanderOracleId is required");
+        if (request.CardOracleIds.Length == 0)
+            return Ok(Array.Empty<ScoredCardDto>());
+        if (request.CardOracleIds.Length > MaxBatchScoreCards)
+            return BadRequest($"At most {MaxBatchScoreCards} cards can be scored per request.");
+
+        var result = await synergyService.ScoreCardsAsync(request.CommanderOracleId, request.CardOracleIds);
+        return Ok(result);
+    }
+
+    /// <summary>One browse page. Larger batches risk truncating the model's reply.</summary>
+    private const int MaxBatchScoreCards = 40;
 }

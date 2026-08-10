@@ -124,6 +124,43 @@ Check "POST decks/synergy" {
     "score=$($r.score)"
 }
 
+Check "POST decks/synergy/batch (scores a browse page, then serves it cached)" {
+    # Uses real oracle ids: the batch path looks each card up to build its prompt.
+    $cmd = Invoke-RestMethod "$Base/api/cards/by-name?name=Krenko,%20Mob%20Boss" -Headers $H
+    $page = Invoke-RestMethod "$Base/api/cards/candidates?commanderOracleId=$($cmd.oracleId)&q=goblin&limit=5" -Headers $H
+    $ids = @($page.cards | ForEach-Object { $_.card.oracleId })
+    if ($ids.Count -eq 0) { throw "candidate pool returned nothing to score" }
+
+    $b = @{ commanderOracleId = $cmd.oracleId; cardOracleIds = $ids } | ConvertTo-Json
+    $r = Invoke-RestMethod "$Base/api/decks/synergy/batch" -Method Post -Body $b -ContentType "application/json" -Headers $H
+    if (@($r).Count -eq 0) { throw "batch returned no scores for $($ids.Count) cards" }
+    foreach ($s in $r) {
+        if ($s.score -lt 1 -or $s.score -gt 100) { throw "score out of range for $($s.name): $($s.score)" }
+    }
+
+    $sw2 = [Diagnostics.Stopwatch]::StartNew()
+    Invoke-RestMethod "$Base/api/decks/synergy/batch" -Method Post -Body $b -ContentType "application/json" -Headers $H | Out-Null
+    $sw2.Stop()
+    if ($sw2.ElapsedMilliseconds -gt 1000) { throw "2nd call took $($sw2.ElapsedMilliseconds)ms - cache likely not hit" }
+    "scored=$(@($r).Count) of $($ids.Count), 2nd call $($sw2.ElapsedMilliseconds)ms (cached)"
+}
+
+Check "POST decks/synergy/batch (rejects an oversized page)" {
+    $b = @{ commanderOracleId = "smoke-oversize"; cardOracleIds = (1..41 | ForEach-Object { "id-$_" }) } | ConvertTo-Json
+    # Windows PowerShell 5.1 throws WebException; pwsh 7 throws HttpResponseException.
+    # Catch broadly and read the status off whichever it is.
+    $accepted = $false
+    try {
+        Invoke-RestMethod "$Base/api/decks/synergy/batch" -Method Post -Body $b -ContentType "application/json" -Headers $H | Out-Null
+        $accepted = $true
+    } catch {
+        $code = [int]$_.Exception.Response.StatusCode
+        if ($code -ne 400) { throw "expected 400, got $code" }
+    }
+    if ($accepted) { throw "41 cards were accepted; the batch cap is not enforced" }
+    "41 cards correctly rejected with 400"
+}
+
 Check "POST decks/synergy (cache hit)" {
     $b = @{ commanderOracleId="smoke-cache-fixed"; commanderName="Atraxa, Praetors' Voice"; commanderText="proliferate";
             cardOracleId="smoke-cache-fixed-card"; cardName="Doubling Season"; cardText="doubles counters";
