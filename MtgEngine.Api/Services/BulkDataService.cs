@@ -164,12 +164,18 @@ public sealed class BulkDataService : IScryfallService
             source = _bySetCode.Where(kv => relevantSets.Contains(kv.Key));
         }
 
+        // Newest first: a set picker is nearly always used to reach a recent set, and
+        // alphabetical order buries this month's release somewhere in the middle.
+        // Undated sets sort last rather than jumping to the top as DateOnly.MinValue.
         return source
-            .OrderBy(kv => _setNames.TryGetValue(kv.Key, out var n) ? n : kv.Key)
             .Select(kv => new SetSummaryDto(
                 kv.Key.ToUpperInvariant(),
                 _setNames.TryGetValue(kv.Key, out var name) ? name : kv.Key.ToUpperInvariant(),
-                kv.Value.Count))
+                kv.Value.Count,
+                _setReleaseDates.TryGetValue(kv.Key, out var d) ? d : null))
+            .OrderByDescending(s => s.ReleasedAt.HasValue)
+            .ThenByDescending(s => s.ReleasedAt)
+            .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
@@ -342,11 +348,16 @@ public sealed class BulkDataService : IScryfallService
             if (_bySetCode.TryGetValue(code, out var ids))
                 inMatchedSets.UnionWith(ids);
 
+        // Someone searching "wolf" wants Wolf commanders, not the six cards with Wolf in
+        // the name. Plurals count too -- "wolves" is the natural way to ask.
+        var subtype = ResolveSubtype(q);
+
         // Prefix matches first -- typing "kro" should surface Krosan before Sakashima
         // of a Thousand Faces just because the latter contains the letters later on.
-        // Set members come last: an exact name match is the stronger signal.
+        // Type and set members come last: an exact name match is the stronger signal.
         var prefix = new List<CardDefinition>();
         var contains = new List<CardDefinition>();
+        var byType = new List<CardDefinition>();
         var bySet = new List<CardDefinition>();
         foreach (var d in pool)
         {
@@ -354,16 +365,19 @@ public sealed class BulkDataService : IScryfallService
                 prefix.Add(d);
             else if (d.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
                 contains.Add(d);
+            else if (subtype is not null && d.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
+                byType.Add(d);
             else if (inMatchedSets.Contains(d.OracleId))
                 bySet.Add(d);
         }
 
-        if (matchedSets.Count > 0)
+        if (matchedSets.Count > 0 || subtype is not null)
             _logger.LogInformation(
-                "Commander search '{Query}' matched sets {Sets}: {ByName} by name, {BySet} by set",
-                q, string.Join(", ", matchedSets), prefix.Count + contains.Count, bySet.Count);
+                "Commander search '{Query}': {ByName} by name, {ByType} by type {Subtype}, {BySet} by set {Sets}",
+                q, prefix.Count + contains.Count, byType.Count, subtype ?? "-",
+                bySet.Count, matchedSets.Count == 0 ? "-" : string.Join(",", matchedSets));
 
-        return [.. prefix.Concat(contains).Concat(bySet).Take(limit)];
+        return [.. prefix.Concat(contains).Concat(byType).Concat(bySet).Take(limit)];
     }
 
     /// <summary>
@@ -387,6 +401,50 @@ public sealed class BulkDataService : IScryfallService
                 matches.Add(code);
         }
         return matches;
+    }
+
+    /// <summary>Every subtype in the corpus, built once. Used to tell a creature type from a word.</summary>
+    private HashSet<string>? _allSubtypes;
+
+    private HashSet<string> AllSubtypes => _allSubtypes ??= new HashSet<string>(
+        _byOracleId.Values.SelectMany(d => d.Subtypes), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The singular forms a query might be the plural of, including the query itself.
+    /// </summary>
+    /// <remarks>
+    /// Players type "wolves", not "Wolf". English is irregular enough that guessing one
+    /// singular goes wrong ("faeries" is not "faery"), so every plausible form is offered
+    /// and the caller keeps whichever is a real creature type.
+    /// </remarks>
+    internal static string[] SingularCandidates(string word)
+    {
+        var w = word.Trim();
+        if (w.Length < 3)
+            return [w];
+
+        var forms = new List<string>(5) { w };
+
+        if (w.EndsWith("ves", StringComparison.OrdinalIgnoreCase))
+            forms.Add(w[..^3] + "f");           // wolves -> wolf, dwarves -> dwarf
+        if (w.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
+            forms.Add(w[..^3] + "y");           // allies -> ally
+        if (w.EndsWith("es", StringComparison.OrdinalIgnoreCase))
+            forms.Add(w[..^2]);                 // foxes -> fox
+        if (w.EndsWith('s'))
+            forms.Add(w[..^1]);                 // goblins -> goblin, faeries -> faerie
+
+        return [.. forms.Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>
+    /// The creature type a query names, or null when it names no type at all.
+    /// </summary>
+    private string? ResolveSubtype(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return null;
+        return Array.Find(SingularCandidates(query), AllSubtypes.Contains);
     }
 
     /// <summary>
@@ -572,6 +630,10 @@ public sealed class BulkDataService : IScryfallService
         var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
         var descending = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
 
+        // "wolves" should find Wolves, not just cards with Wolf in the title. Only a bare
+        // word is treated this way -- an explicit t:/o: query already says what it means.
+        var subtype = useRegex || matchWord ? null : ResolveSubtype(nameFilter);
+
         IEnumerable<string> oracleIds;
         if (setFilter is not null)
         {
@@ -581,8 +643,9 @@ public sealed class BulkDataService : IScryfallService
         }
         else
         {
-            // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags, no oracle filter)
-            if (nameFilter is not null && oracleFilter is null && typeFlags == CardType.None && supertypeFilter.Count == 0
+            // Name-only fast path — only usable for plain case-insensitive contains (no regex/word/case flags, no oracle filter).
+            // A recognised creature type has to take the full scan: the name index cannot see subtypes.
+            if (nameFilter is not null && subtype is null && oracleFilter is null && typeFlags == CardType.None && supertypeFilter.Count == 0
                 && raritySet.Count == 0 && cmcOp is null && !colorFilter && !matchCase && !matchWord && !useRegex)
             {
                 var nameKeys = _byName.Keys
@@ -608,6 +671,7 @@ public sealed class BulkDataService : IScryfallService
             .Where(d => d is not null).Cast<CardDefinition>()
             .Where(d => (nameFilter is null && oracleFilter is null)
                      || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
+                     || (subtype is not null && d.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
                      || (oracleFilter is not null && MatchesOracleText(d, oracleFilter, matchCase)))
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)
             .Where(d => supertypeFilter.Count == 0 || supertypeFilter.All(s => d.Supertypes.Contains(s, StringComparer.OrdinalIgnoreCase)))

@@ -136,7 +136,8 @@ public sealed record ImportDeckResult(
     IReadOnlyList<string> UnresolvedCards
 );
 
-public sealed record SetSummaryDto(string Code, string Name, int CardCount);
+/// <param name="ReleasedAt">Null for the handful of sets with no dated printing.</param>
+public sealed record SetSummaryDto(string Code, string Name, int CardCount, DateOnly? ReleasedAt = null);
 
 /// <summary>A recently released set, with enough detail to name it in the UI.</summary>
 public sealed record RecentSetDto(string Code, string Name, DateOnly ReleasedAt, int LegalCardCount);

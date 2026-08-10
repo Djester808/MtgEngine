@@ -47,7 +47,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     // v10: quote check counts words rather than characters (mana abilities are mostly
     //      symbols), and the fallback quotes an activated ability rather than a drawback.
     // v11: latest = the newest three sets, with no release-date cutoff.
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v11";
+    // v12: candidates carry type line and rules text, and the commander's type line is
+    //      in the prompt, so tribal commanders stop being offered off-type cards.
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v12";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
@@ -107,7 +109,10 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // otherwise the category silently comes back empty.
         var gameChangerNames = await _scryfall.GetGameChangerNamesAsync(cmdColors);
 
-        var raw = await CallAnthropicAsync(request, recentCardNames, gameChangerNames);
+        var recentCardDetails = await DescribeCandidatesAsync(recentCardNames);
+
+        var raw = await CallAnthropicAsync(
+            request, recentCardDetails, gameChangerNames, DescribeTypes(cmdDef));
 
         var (latestSet, rejLatest) = await ResolveAsync(
             raw.LatestSet, request.DeckCardNames, cmdColors, recentSets, requireGameChanger: false,
@@ -184,6 +189,47 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 Rejected = byReason,
             },
         };
+    }
+
+    /// <summary>Renders a card's types the way a type line reads: "Legendary Creature — Wolf".</summary>
+    private static string DescribeTypes(CardDefinition? def)
+    {
+        if (def is null)
+            return "unknown";
+
+        var head = string.Join(" ", def.Supertypes.Concat(
+            Enum.GetValues<Domain.Enums.CardType>()
+                .Where(t => t != Domain.Enums.CardType.None && def.CardTypes.HasFlag(t))
+                .Select(t => t.ToString())));
+
+        return def.Subtypes.Count > 0 ? $"{head} — {string.Join(" ", def.Subtypes)}" : head;
+    }
+
+    /// <summary>
+    /// Turns candidate names into "name | cost | types | rules text" lines for the prompt.
+    /// </summary>
+    /// <remarks>
+    /// Rules text is clipped: the model needs enough to judge relevance, not the full
+    /// card, and eighty untruncated cards would dominate the prompt.
+    /// </remarks>
+    private async Task<string[]> DescribeCandidatesAsync(string[] names)
+    {
+        const int MaxTextChars = 160;
+
+        var described = await Task.WhenAll(names.Select(async n =>
+        {
+            var def = await _scryfall.GetByNameAsync(n);
+            if (def is null)
+                return n;
+
+            var text = (def.OracleText ?? string.Empty).Replace("\n", " ");
+            if (text.Length > MaxTextChars)
+                text = text[..MaxTextChars].TrimEnd() + "…";
+
+            return $"{def.Name} | {def.ManaCostRaw} | {DescribeTypes(def)} | {text}";
+        }));
+
+        return described;
     }
 
     // ---- Grounded reasons -------------------------------------------
@@ -544,7 +590,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     // ---- LLM call ---------------------------------------------------
 
     private async Task<RawSuggestions> CallAnthropicAsync(
-        DeckSuggestionsRequest req, string[] recentCardNames, string[] gameChangerNames)
+        DeckSuggestionsRequest req, string[] recentCardDetails, string[] gameChangerNames,
+        string commanderTypeLine)
     {
         var deckContext = req.DeckCardNames.Length > 0
             ? $"\n\nCards already in the deck ({req.DeckCardNames.Length}):\n{string.Join(", ", req.DeckCardNames)}"
@@ -555,8 +602,14 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             ? $"\n\nDeck style / focus tags: {string.Join(", ", allTags)}\nLet these tags strongly guide your suggestions (e.g. 'budget' → prefer affordable cards; 'combo' → lean into synergistic combos)."
             : string.Empty;
 
-        var recentContext = recentCardNames.Length > 0
-            ? $"\n\nRecent cards available for the latestSet category (choose the best 4 from this list):\n{string.Join(", ", recentCardNames)}"
+        // Give the candidates' types and rules text, not just names. Cards from a set
+        // released after the model's training data are unknown to it, so a bare list of
+        // names is picked from blind -- that is how a Wolf-tribal commander ended up
+        // being offered Rhino, Terrible Trampler.
+        var recentContext = recentCardDetails.Length > 0
+            ? $"\n\nRecent cards available for the latestSet category (choose the best 4 from this list, "
+              + "judging them on the type and rules text given -- do not rely on memory):\n"
+              + string.Join("\n", recentCardDetails.Select(d => $"- {d}"))
             : string.Empty;
 
         var gameChangerContext = gameChangerNames.Length > 0
@@ -569,10 +622,13 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             You are a Magic: The Gathering Commander/EDH expert.
 
             Commander: {{req.CommanderName}}
+            Type: {{commanderTypeLine}}
             Oracle text: {{req.CommanderText}}{{deckContext}}{{tagsContext}}{{recentContext}}{{gameChangerContext}}
 
             Suggest cards NOT already in the deck that would improve it. Use only real, official Magic card names (exact spelling).
             Only suggest cards that are legal in the commander's color identity.
+            If the commander cares about a creature type, weight every category towards
+            that type and towards cards that make or reward it.
 
             Respond with ONLY this exact JSON (no markdown, no extra text):
             {
