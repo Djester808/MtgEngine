@@ -49,7 +49,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     // v11: latest = the newest three sets, with no release-date cutoff.
     // v12: candidates carry type line and rules text, and the commander's type line is
     //      in the prompt, so tribal commanders stop being offered off-type cards.
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v12";
+    // v13: category sizes are ceilings rather than quotas, and the judge cuts cards a
+    //      good deckbuilder would not run instead of padding the list out.
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v13";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
@@ -145,7 +147,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         gameChangers = Dedup(gameChangers);
         notableMentions = Dedup(notableMentions);
 
-        int accepted = latestSet.Length + topSynergy.Length
+        var accepted = latestSet.Length + topSynergy.Length
                      + gameChangers.Length + notableMentions.Length;
 
         var byReason = rejections
@@ -172,8 +174,26 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // written from recollection -- it described Goblin Bombardment as sacrificing
         // treasures when it sacrifices a creature. Now that the picks are resolved, their
         // real rules text is available, so the reasons are rewritten against it.
-        await GroundReasonsAsync(
+        var dropped = await GroundReasonsAsync(
             request, [latestSet, topSynergy, gameChangers, notableMentions]);
+
+        // Cards the judge found irrelevant leave entirely. Padding a category to a fixed
+        // size is what put a Rabbit and an Elf lord in a Wolf deck; a short honest list
+        // is worth more than a full one.
+        if (dropped.Count > 0)
+        {
+            SuggestedCardDto[] Keep(SuggestedCardDto[] cards) =>
+                [.. cards.Where(c => !dropped.Contains(c.Name))];
+
+            latestSet = Keep(latestSet);
+            topSynergy = Keep(topSynergy);
+            gameChangers = Keep(gameChangers);
+            notableMentions = Keep(notableMentions);
+
+            accepted = latestSet.Length + topSynergy.Length
+                     + gameChangers.Length + notableMentions.Length;
+            byReason[Rejection.OffStrategy] = dropped.Count;
+        }
 
         return new DeckSuggestionsDto
         {
@@ -242,9 +262,12 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// commander + deck. A reason that misstates what a card does is worse than no
     /// reason: it makes every other explanation on the page suspect.
     /// </remarks>
-    private async Task GroundReasonsAsync(
+    /// <returns>Names the judge rejected outright; the caller removes them.</returns>
+    private async Task<HashSet<string>> GroundReasonsAsync(
         DeckSuggestionsRequest request, SuggestedCardDto[][] groups)
     {
+        var dropped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         // Only cards that resolved have trustworthy rules text to ground against.
         var resolved = groups.SelectMany(g => g)
             .Where(c => c.Card is not null && !string.IsNullOrWhiteSpace(c.Card!.OracleText))
@@ -253,7 +276,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             .ToArray();
 
         if (resolved.Length == 0)
-            return;
+            return dropped;
 
         try
         {
@@ -262,7 +285,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             // Citing real text is not enough. Both halves of "Goblin Bombardment
             // converts Smaug's Treasures into damage" are quotable; the inference
             // joining them is what is false, so a separate pass attacks the inference.
-            reasons = await CritiqueReasonsAsync(request, resolved, reasons);
+            (reasons, dropped) = await CritiqueReasonsAsync(request, resolved, reasons);
 
             int verified = 0, fallback = 0;
             foreach (var group in groups)
@@ -271,6 +294,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 {
                     var card = group[i].Card;
                     if (card is null || string.IsNullOrWhiteSpace(card.OracleText))
+                        continue;
+                    // Cut by the judge; the caller removes it, so do not count it either way.
+                    if (dropped.Contains(group[i].Name))
                         continue;
 
                     if (reasons.TryGetValue(group[i].Name, out var better)
@@ -300,6 +326,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             // imprecise, but the suggestions themselves are still valid.
             _logger.LogWarning(ex, "Reason grounding failed for {Commander}", request.CommanderName);
         }
+
+        return dropped;
     }
 
     private async Task<Dictionary<string, string>> CallReasonPassAsync(
@@ -389,35 +417,44 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// sentence to check it does not work -- it has already committed to the claim.
     /// A reason that survives here is worth more than four that read well.
     /// </remarks>
-    private async Task<Dictionary<string, string>> CritiqueReasonsAsync(
+    private async Task<(Dictionary<string, string> Reasons, HashSet<string> Dropped)> CritiqueReasonsAsync(
         DeckSuggestionsRequest request,
         SuggestedCardDto[] cards,
         Dictionary<string, string> reasons)
     {
+        var dropped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         var toCheck = cards
             .Where(c => reasons.ContainsKey(c.Name))
             .Select(c => (c.Name, Text: c.Card!.OracleText!.Replace("\n", " "), Reason: reasons[c.Name]))
             .ToArray();
 
         if (toCheck.Length == 0)
-            return reasons;
+            return (reasons, dropped);
 
         var claimList = string.Join("\n", toCheck.Select((c, i) =>
             $"{i + 1}. {c.Name}\n   rules text: {c.Text}\n   claim: {c.Reason}"));
 
+        var focus = request.DeckTags.Concat(request.SuggestionTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var focusContext = focus.Length > 0
+            ? $"\nThe player asked to focus on: {string.Join(", ", focus)}"
+            : "\nThe player gave no particular focus.";
+
         var prompt = $$"""
-            You are a Magic: The Gathering rules judge checking claims for accuracy.
+            You are a Magic: The Gathering rules judge and a strong Commander deckbuilder.
 
             Commander: {{request.CommanderName}}
-            Commander's oracle text: {{request.CommanderText}}
+            Commander's oracle text: {{request.CommanderText}}{{focusContext}}
 
             Below are claims about why each card belongs in this commander's deck.
-            Decide whether each claim is literally true given only the rules text shown.
+            Judge each one twice: is it true, and is the card actually worth a slot here?
 
             Claims ({{toCheck.Length}}):
             {{claimList}}
 
-            Reject a claim if it depends on any of these:
+            Mark a claim "wrong" when it is inaccurate but the card still belongs. Reject
+            the reasoning if it depends on any of these:
             - Treating an artifact token (Treasure, Food, Clue, Blood, Powerstone, Map) as
               a creature, or vice versa. "Sacrifice a creature" cannot sacrifice a Treasure.
             - A trigger firing more often than its text allows. Double strike does not
@@ -425,21 +462,38 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             - An ability, keyword, type or cost the rules text does not contain.
             - The commander producing or caring about something its oracle text never mentions.
 
-            Respond with ONLY this JSON (no markdown, no extra text):
-            {"checks":[{"name":"<exact card name>","verdict":"ok"|"wrong","fixed":"<if wrong, a corrected sentence under 18 words that is true given the text; otherwise \"\">"}]}
+            Mark a card "weak" when a good deckbuilder would not run it here, whatever the
+            claim says. Judge this on the card's own merits for THIS commander and focus:
+            - Its payoff depends on cards this deck has no reason to play, so it does
+              nothing most games.
+            - Another card already suggested does the same job strictly better.
+            - It ignores the stated focus while contributing nothing else the deck wants.
+            Do not reject a card merely for being off-tribe or off-theme. A card that helps
+            the commander's actual abilities earns its slot whatever its creature type.
 
-            Be strict. If a claim is even partly unsupported, mark it wrong and fix it.
+            Respond with ONLY this JSON (no markdown, no extra text):
+            {"checks":[{"name":"<exact card name>","verdict":"ok"|"wrong"|"weak","fixed":"<if wrong, a corrected sentence under 18 words that is true given the text; otherwise \"\">"}]}
+
+            Returning fewer good cards is better than padding the list. Be honest, not generous.
             """;
 
         try
         {
             var parsed = await CallJsonAsync<CritiquePassJson>(prompt, maxTokens: 3000);
 
-            int corrected = 0, dropped = 0;
+            int corrected = 0, unusable = 0;
             foreach (var check in parsed?.Checks ?? [])
             {
                 if (string.IsNullOrWhiteSpace(check.Name) || !reasons.ContainsKey(check.Name))
                     continue;
+
+                if (string.Equals(check.Verdict, "weak", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropped.Add(check.Name);
+                    reasons.Remove(check.Name);
+                    continue;
+                }
+
                 if (!string.Equals(check.Verdict, "wrong", StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -452,13 +506,15 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 {
                     // No usable repair: drop it so the caller falls back to rules text.
                     reasons.Remove(check.Name);
-                    dropped++;
+                    unusable++;
                 }
             }
 
             _logger.LogInformation(
-                "Reason critique for {Commander}: {Checked} checked, {Corrected} rewritten, {Dropped} dropped",
-                request.CommanderName, toCheck.Length, corrected, dropped);
+                "Reason critique for {Commander}: {Checked} checked, {Corrected} rewritten, "
+                + "{Unusable} unrepairable, {Weak} cut as weak [{Names}]",
+                request.CommanderName, toCheck.Length, corrected, unusable, dropped.Count,
+                string.Join(", ", dropped));
         }
         catch (Exception ex)
         {
@@ -466,7 +522,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             _logger.LogWarning(ex, "Reason critique failed for {Commander}", request.CommanderName);
         }
 
-        return reasons;
+        return (reasons, dropped);
     }
 
     /// <summary>Lowercased, punctuation-stripped, whitespace-collapsed form for quote matching.</summary>
@@ -639,11 +695,16 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
             }
 
             Rules:
-            - latestSet: exactly 4 cards chosen from the "Recent cards available" list above that best fit this strategy (MUST use names exactly as given)
-            - topSynergy: exactly 6 cards with the strongest synergy with this specific commander
-            - gameChangers: exactly 4 cards taken verbatim from the "Official Game Changer cards" list above, picking those that best fit this strategy. Do not invent entries for this category — cards outside that list are discarded. If the list has fewer than 4 entries, return all of them.
-            - notableMentions: exactly 4 solid staples or support cards worth including
+            - latestSet: up to 4 cards chosen from the "Recent cards available" list above that best fit this strategy (MUST use names exactly as given)
+            - topSynergy: up to 6 cards with the strongest synergy with this specific commander
+            - gameChangers: up to 4 cards taken verbatim from the "Official Game Changer cards" list above, picking those that best fit this strategy. Do not invent entries for this category — cards outside that list are discarded.
+            - notableMentions: up to 4 solid staples or support cards worth including
             - score: 0-100 compatibility percentage with this commander and existing deck
+
+            These are ceilings, not quotas. Return only cards you would actually play in
+            this deck, and leave a category short — or empty — rather than filling it with
+            the best of a bad set. A card is worth listing when it advances what this
+            commander is doing; judge that on the card's text, not on its creature type.
 
             Do not repeat cards between categories. Do not suggest cards already in the deck.
             """;
@@ -699,6 +760,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         public const string NotGameChanger = "not-a-game-changer";
         public const string NotCommanderLegal = "not-commander-legal";
         public const string NotRecentPrinting = "no-recent-printing";
+        public const string OffStrategy = "off-strategy";
         public const string DuplicateAcrossCategories = "duplicate-across-categories";
         public const string LookupFailed = "lookup-failed";
     }
