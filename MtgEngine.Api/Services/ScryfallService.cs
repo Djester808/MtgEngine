@@ -35,6 +35,7 @@ public interface IScryfallService
     Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
         IReadOnlySet<ManaColor> commanderColors, string? query = null,
         IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
+        CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
         int limit = 50, int offset = 0);
 
     /// <summary>
@@ -150,6 +151,7 @@ public sealed class ScryfallService : IScryfallService
     public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
         IReadOnlySet<ManaColor> commanderColors, string? query = null,
         IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
+        CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
         int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.

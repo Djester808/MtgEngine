@@ -51,6 +51,9 @@ public sealed class CardsController : ControllerBase
         [FromQuery] string commanderOracleId,
         [FromQuery] string? q = null,
         [FromQuery] string? scope = null,
+        [FromQuery] string? types = null,
+        [FromQuery] int? cmcMin = null,
+        [FromQuery] int? cmcMax = null,
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0)
     {
@@ -68,8 +71,16 @@ public sealed class CardsController : ControllerBase
         else if (string.Equals(scope, "gamechangers", StringComparison.OrdinalIgnoreCase))
             gameChangersOnly = true;
 
+        // Unknown type names are ignored rather than rejected: the filter is a
+        // convenience, and a typo should not turn the whole browse list into an error.
+        var typeFlags = CardType.None;
+        foreach (var name in (types ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (Enum.TryParse<CardType>(name, ignoreCase: true, out var parsed))
+                typeFlags |= parsed;
+
         var (cards, total) = await _scryfall.GetCandidatePoolAsync(
             commander.ColorIdentity.ToHashSet(), q, setCodes, gameChangersOnly,
+            typeFlags, cmcMin, cmcMax,
             Math.Clamp(limit, 1, 200), Math.Max(0, offset));
 
         var rows = await Task.WhenAll(cards.Select(async d =>

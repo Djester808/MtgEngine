@@ -517,6 +517,9 @@ public sealed class BulkDataService : IScryfallService
         string? query = null,
         IReadOnlySet<string>? setCodes = null,
         bool gameChangersOnly = false,
+        Domain.Enums.CardType types = Domain.Enums.CardType.None,
+        int? cmcMin = null,
+        int? cmcMax = null,
         int limit = 50,
         int offset = 0)
     {
@@ -542,6 +545,10 @@ public sealed class BulkDataService : IScryfallService
             && !d.CardTypes.HasFlag(Domain.Enums.CardType.Token)
             && !d.Supertypes.Contains("Basic")
             && (!gameChangersOnly || d.GameChanger)
+            // Types are alternatives: ticking Creature and Artifact means either.
+            && (types == Domain.Enums.CardType.None || (d.CardTypes & types) != Domain.Enums.CardType.None)
+            && (cmcMin is null || d.Cmc >= cmcMin)
+            && (cmcMax is null || d.Cmc <= cmcMax)
             && (commanderColors.Count == 0
                 || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c))));
 
