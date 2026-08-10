@@ -16,6 +16,10 @@ public sealed class CardsController : ControllerBase
 
     public CardsController(IScryfallService scryfall) => _scryfall = scryfall;
 
+    /// <summary>Must match DeckSuggestionsService.LatestSetCount so the browse list
+    /// covers exactly the sets the "latest" category drew from.</summary>
+    private const int LatestSetScopeCount = 3;
+
     [HttpGet("search")]
     public async Task<ActionResult<CardDto[]>> Search(
         [FromQuery] string q,
@@ -35,14 +39,18 @@ public sealed class CardsController : ControllerBase
     }
 
     /// <summary>
-    /// The legal card pool for a commander, for browsing when the AI suggestions are
-    /// too short or missed something. No model involved: these are the real candidates.
+    /// The legal card pool a suggestion category is drawn from, so the user can see more
+    /// than the handful the model picked. No model involved: these are the real candidates.
     /// </summary>
+    /// <param name="scope">
+    /// Which category's pool to browse: "latest" for the newest sets, "gamechangers" for
+    /// the official list, anything else for the whole legal pool.
+    /// </param>
     [HttpGet("candidates")]
     public async Task<ActionResult<CandidatePoolDto>> Candidates(
         [FromQuery] string commanderOracleId,
         [FromQuery] string? q = null,
-        [FromQuery] string? set = null,
+        [FromQuery] string? scope = null,
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0)
     {
@@ -53,8 +61,16 @@ public sealed class CardsController : ControllerBase
         if (commander is null)
             return NotFound($"No card with oracle id '{commanderOracleId}'");
 
+        IReadOnlySet<string>? setCodes = null;
+        bool gameChangersOnly = false;
+        if (string.Equals(scope, "latest", StringComparison.OrdinalIgnoreCase))
+            setCodes = await _scryfall.GetRecentSetCodesAsync(maxSets: LatestSetScopeCount);
+        else if (string.Equals(scope, "gamechangers", StringComparison.OrdinalIgnoreCase))
+            gameChangersOnly = true;
+
         var (cards, total) = await _scryfall.GetCandidatePoolAsync(
-            commander.ColorIdentity.ToHashSet(), q, set, Math.Clamp(limit, 1, 200), Math.Max(0, offset));
+            commander.ColorIdentity.ToHashSet(), q, setCodes, gameChangersOnly,
+            Math.Clamp(limit, 1, 200), Math.Max(0, offset));
 
         var rows = await Task.WhenAll(cards.Select(async d =>
         {

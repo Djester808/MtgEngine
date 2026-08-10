@@ -33,7 +33,8 @@ public interface IScryfallService
     /// user to browse. No model involved -- this is what the AI picks are drawn from.
     /// </summary>
     Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
-        IReadOnlySet<ManaColor> commanderColors, string? query = null, string? setCode = null,
+        IReadOnlySet<ManaColor> commanderColors, string? query = null,
+        IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
         int limit = 50, int offset = 0);
 
     /// <summary>
@@ -147,7 +148,8 @@ public sealed class ScryfallService : IScryfallService
     public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
 
     public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
-        IReadOnlySet<ManaColor> commanderColors, string? query = null, string? setCode = null,
+        IReadOnlySet<ManaColor> commanderColors, string? query = null,
+        IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
         int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.

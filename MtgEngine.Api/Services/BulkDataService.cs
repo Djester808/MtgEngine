@@ -515,52 +515,76 @@ public sealed class BulkDataService : IScryfallService
     public async Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
         IReadOnlySet<ManaColor> commanderColors,
         string? query = null,
-        string? setCode = null,
+        IReadOnlySet<string>? setCodes = null,
+        bool gameChangersOnly = false,
         int limit = 50,
         int offset = 0)
     {
         await WaitReadyAsync();
 
         IEnumerable<CardDefinition> pool;
-        if (!string.IsNullOrWhiteSpace(setCode) && _bySetCode.TryGetValue(setCode.Trim(), out var ids))
+        if (setCodes is { Count: > 0 })
+        {
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var code in setCodes)
+                if (_bySetCode.TryGetValue(code, out var setIds))
+                    ids.UnionWith(setIds);
             pool = ids.Select(id => _byOracleId.TryGetValue(id, out var d) ? d : null)
                       .Where(d => d is not null)!;
+        }
         else
+        {
             pool = _byOracleId.Values;
+        }
 
         pool = pool.Where(d =>
             CommanderRules.IsLegalInCommander(d)
             && !d.CardTypes.HasFlag(Domain.Enums.CardType.Token)
             && !d.Supertypes.Contains("Basic")
+            && (!gameChangersOnly || d.GameChanger)
             && (commanderColors.Count == 0
                 || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c))));
 
-        var q = query?.Trim();
-        if (!string.IsNullOrEmpty(q))
-        {
-            var subtype = ResolveSubtype(q);
+        // Several focus tags behave as alternatives, not as an AND: "wolf token" should
+        // widen the list to both, ranked by the better of the two matches.
+        var terms = (query ?? string.Empty)
+            .Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-            // Rank by how directly the card answers the query. When the query names a
-            // real creature type, being that type outranks having the word in the title:
+        if (terms.Length > 0)
+        {
+            var subtypes = terms.Select(ResolveSubtype).ToArray();
+
+            // Rank by how directly the card answers the query. When a term names a real
+            // creature type, being that type outranks having the word in the title:
             // searching "wolf" should lead with Wolves, not Wolf Strike and Wolf's Quarry.
-            static int Tier(CardDefinition d, string q, string? subtype)
+            static int TermTier(CardDefinition d, string term, string? subtype)
             {
                 bool isType = subtype is not null
                     && d.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase);
-                bool namePrefix = d.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase);
+                bool namePrefix = d.Name.StartsWith(term, StringComparison.OrdinalIgnoreCase);
 
                 if (isType)
                     return namePrefix ? 0 : 1;
                 if (namePrefix)
                     return 2;
-                if (d.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                if (d.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
                     return 3;
-                return (d.OracleText?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                return (d.OracleText?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                     ? 4 : int.MaxValue;
             }
 
+            int BestTier(CardDefinition d)
+            {
+                int best = int.MaxValue;
+                for (int i = 0; i < terms.Length; i++)
+                    best = Math.Min(best, TermTier(d, terms[i], subtypes[i]));
+                return best;
+            }
+
             pool = pool
-                .Select(d => (Card: d, Tier: Tier(d, q, subtype)))
+                .Select(d => (Card: d, Tier: BestTier(d)))
                 .Where(x => x.Tier != int.MaxValue)
                 .OrderBy(x => x.Tier)
                 .ThenBy(x => x.Card.Name, StringComparer.OrdinalIgnoreCase)
