@@ -136,6 +136,15 @@ public sealed record ImportDeckResult(
     IReadOnlyList<string> UnresolvedCards
 );
 
+/// <summary>
+/// A browsable candidate. Carries a printing id so the card can be added to a deck
+/// without a second round trip per row.
+/// </summary>
+public sealed record CandidateCardDto(CardDto Card, string? ScryfallId);
+
+/// <summary>A page of the browsable candidate pool, with the unpaged total.</summary>
+public sealed record CandidatePoolDto(int Total, CandidateCardDto[] Cards);
+
 /// <param name="ReleasedAt">Null for the handful of sets with no dated printing.</param>
 public sealed record SetSummaryDto(string Code, string Name, int CardCount, DateOnly? ReleasedAt = null);
 

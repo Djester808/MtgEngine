@@ -34,6 +34,37 @@ public sealed class CardsController : ControllerBase
         return Ok(results.Select(MapToDto).ToArray());
     }
 
+    /// <summary>
+    /// The legal card pool for a commander, for browsing when the AI suggestions are
+    /// too short or missed something. No model involved: these are the real candidates.
+    /// </summary>
+    [HttpGet("candidates")]
+    public async Task<ActionResult<CandidatePoolDto>> Candidates(
+        [FromQuery] string commanderOracleId,
+        [FromQuery] string? q = null,
+        [FromQuery] string? set = null,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0)
+    {
+        if (string.IsNullOrWhiteSpace(commanderOracleId))
+            return BadRequest("commanderOracleId is required");
+
+        var commander = await _scryfall.GetByOracleIdAsync(commanderOracleId);
+        if (commander is null)
+            return NotFound($"No card with oracle id '{commanderOracleId}'");
+
+        var (cards, total) = await _scryfall.GetCandidatePoolAsync(
+            commander.ColorIdentity.ToHashSet(), q, set, Math.Clamp(limit, 1, 200), Math.Max(0, offset));
+
+        var rows = await Task.WhenAll(cards.Select(async d =>
+        {
+            var printings = await _scryfall.GetPrintingsAsync(d.OracleId);
+            return new CandidateCardDto(MapToDto(d), printings.FirstOrDefault()?.ScryfallId);
+        }));
+
+        return Ok(new CandidatePoolDto(total, rows));
+    }
+
     [HttpGet("by-name")]
     public async Task<ActionResult<CardDto>> GetByName([FromQuery] string name)
     {

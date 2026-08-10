@@ -503,6 +503,82 @@ public sealed class BulkDataService : IScryfallService
         return byRole;
     }
 
+    /// <summary>
+    /// Every card that could legally go in this commander's deck, narrowed by a free-text
+    /// query, for the user to browse and pick from directly.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately has no model in the loop and no ranking beyond match quality. The
+    /// suggestion lists are short on purpose now, so this is the escape hatch: when the
+    /// judge cuts a card the player wanted, they can still go and find it.
+    /// </remarks>
+    public async Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
+        IReadOnlySet<ManaColor> commanderColors,
+        string? query = null,
+        string? setCode = null,
+        int limit = 50,
+        int offset = 0)
+    {
+        await WaitReadyAsync();
+
+        IEnumerable<CardDefinition> pool;
+        if (!string.IsNullOrWhiteSpace(setCode) && _bySetCode.TryGetValue(setCode.Trim(), out var ids))
+            pool = ids.Select(id => _byOracleId.TryGetValue(id, out var d) ? d : null)
+                      .Where(d => d is not null)!;
+        else
+            pool = _byOracleId.Values;
+
+        pool = pool.Where(d =>
+            CommanderRules.IsLegalInCommander(d)
+            && !d.CardTypes.HasFlag(Domain.Enums.CardType.Token)
+            && !d.Supertypes.Contains("Basic")
+            && (commanderColors.Count == 0
+                || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c))));
+
+        var q = query?.Trim();
+        if (!string.IsNullOrEmpty(q))
+        {
+            var subtype = ResolveSubtype(q);
+
+            // Rank by how directly the card answers the query. When the query names a
+            // real creature type, being that type outranks having the word in the title:
+            // searching "wolf" should lead with Wolves, not Wolf Strike and Wolf's Quarry.
+            static int Tier(CardDefinition d, string q, string? subtype)
+            {
+                bool isType = subtype is not null
+                    && d.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase);
+                bool namePrefix = d.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase);
+
+                if (isType)
+                    return namePrefix ? 0 : 1;
+                if (namePrefix)
+                    return 2;
+                if (d.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    return 3;
+                return (d.OracleText?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    ? 4 : int.MaxValue;
+            }
+
+            pool = pool
+                .Select(d => (Card: d, Tier: Tier(d, q, subtype)))
+                .Where(x => x.Tier != int.MaxValue)
+                .OrderBy(x => x.Tier)
+                .ThenBy(x => x.Card.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.Card);
+        }
+        else
+        {
+            pool = pool.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
+        }
+
+        var all = pool.ToArray();
+        var page = all.Skip(offset).Take(limit)
+            .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
+            .ToArray();
+
+        return (page, all.Length);
+    }
+
     public async Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors)
     {
         await WaitReadyAsync();

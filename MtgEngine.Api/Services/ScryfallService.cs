@@ -29,6 +29,14 @@ public interface IScryfallService
     Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false);
 
     /// <summary>
+    /// The full legal card pool for a commander, filtered by a free-text query, for the
+    /// user to browse. No model involved -- this is what the AI picks are drawn from.
+    /// </summary>
+    Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
+        IReadOnlySet<ManaColor> commanderColors, string? query = null, string? setCode = null,
+        int limit = 50, int offset = 0);
+
+    /// <summary>
     /// Names of cards on Scryfall's official Game Changer list that are legal in the
     /// given colour identity, in a deterministic order.
     /// </summary>
@@ -137,6 +145,10 @@ public sealed class ScryfallService : IScryfallService
     public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
     public Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlyList<RecentSetDto>>([]);
     public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
+
+    public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
+        IReadOnlySet<ManaColor> commanderColors, string? query = null, string? setCode = null,
+        int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));
 
     // Require a full-corpus scan; only the bulk-data provider can answer these.
     public Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
