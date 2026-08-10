@@ -75,7 +75,15 @@ public sealed class CardsController : ControllerBase
         var rows = await Task.WhenAll(cards.Select(async d =>
         {
             var printings = await _scryfall.GetPrintingsAsync(d.OracleId);
-            return new CandidateCardDto(MapToDto(d), printings.FirstOrDefault()?.ScryfallId);
+
+            // Prefer the printing from the set being browsed, so a card reprinted into
+            // the latest set is labelled with that set rather than its oldest one.
+            var printing = printings.FirstOrDefault(p =>
+                    p.SetCode is not null && setCodes?.Contains(p.SetCode) == true)
+                ?? printings.FirstOrDefault();
+
+            return new CandidateCardDto(
+                MapToDto(d), printing?.ScryfallId, printing?.SetCode?.ToUpperInvariant(), printing?.SetName);
         }));
 
         return Ok(new CandidatePoolDto(total, rows));

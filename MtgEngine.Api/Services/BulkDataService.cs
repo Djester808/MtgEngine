@@ -545,8 +545,10 @@ public sealed class BulkDataService : IScryfallService
             && (commanderColors.Count == 0
                 || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c))));
 
-        // Several focus tags behave as alternatives, not as an AND: "wolf token" should
-        // widen the list to both, ranked by the better of the two matches.
+        // Every term must match somewhere on the card. Typing "destroy target creature"
+        // should narrow, not return ten thousand cards containing any of those words;
+        // and read as a focus, "wolf token" means wolf-token cards, not wolves plus
+        // everything that makes a token.
         var terms = (query ?? string.Empty)
             .Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -575,16 +577,24 @@ public sealed class BulkDataService : IScryfallService
                     ? 4 : int.MaxValue;
             }
 
-            int BestTier(CardDefinition d)
+            // A card is out if any term misses; among survivors, rank by the strongest
+            // match, so a Wolf that also says "token" leads over one that only says both
+            // in its rules text.
+            int MatchTier(CardDefinition d)
             {
                 int best = int.MaxValue;
                 for (int i = 0; i < terms.Length; i++)
-                    best = Math.Min(best, TermTier(d, terms[i], subtypes[i]));
+                {
+                    int tier = TermTier(d, terms[i], subtypes[i]);
+                    if (tier == int.MaxValue)
+                        return int.MaxValue;
+                    best = Math.Min(best, tier);
+                }
                 return best;
             }
 
             pool = pool
-                .Select(d => (Card: d, Tier: BestTier(d)))
+                .Select(d => (Card: d, Tier: MatchTier(d)))
                 .Where(x => x.Tier != int.MaxValue)
                 .OrderBy(x => x.Tier)
                 .ThenBy(x => x.Card.Name, StringComparer.OrdinalIgnoreCase)

@@ -140,7 +140,7 @@ public sealed record ImportDeckResult(
 /// A browsable candidate. Carries a printing id so the card can be added to a deck
 /// without a second round trip per row.
 /// </summary>
-public sealed record CandidateCardDto(CardDto Card, string? ScryfallId);
+public sealed record CandidateCardDto(CardDto Card, string? ScryfallId, string? SetCode, string? SetName);
 
 /// <summary>A page of the browsable candidate pool, with the unpaged total.</summary>
 public sealed record CandidatePoolDto(int Total, CandidateCardDto[] Cards);
