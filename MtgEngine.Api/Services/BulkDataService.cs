@@ -200,10 +200,6 @@ public sealed class BulkDataService : IScryfallService
     /// </remarks>
     private const int MinLegalCardsForRelease = 50;
 
-    /// <summary>
-    /// How far ahead of its release date a set counts as "the latest set".
-    /// </summary>
-    private const int SpoilerWindowDays = 21;
 
     /// <summary>
     /// Number of Commander-legal cards in a set.
@@ -240,11 +236,6 @@ public sealed class BulkDataService : IScryfallService
     {
         await WaitReadyAsync();
 
-        // Scryfall lists sets months before release. A set a fortnight out is fully
-        // spoiled and is what players mean by "the new set" -- the deck builder already
-        // lets them use those cards -- but a set announced for next quarter is not.
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(SpoilerWindowDays);
-
         // Walk newest-first and record why each set was passed over. When the answer is
         // a set from months ago, the log has to explain what happened to everything
         // newer -- otherwise it just looks like the date sort is broken.
@@ -258,9 +249,11 @@ public sealed class BulkDataService : IScryfallService
             var (code, date) = (kv.Key, kv.Value);
             _setTypes.TryGetValue(code, out var setType);
 
+            // No cutoff on the release date. Scryfall carries sets months ahead, but a
+            // set only reaches the card-count threshold below once it is substantially
+            // spoiled, and by then players are already building with it.
             string? skipReason =
-                date > today ? $"too far out ({date:yyyy-MM-dd})"
-                : setType is null || !ReleaseSetTypes.Contains(setType) ? $"set_type={setType ?? "?"}"
+                setType is null || !ReleaseSetTypes.Contains(setType) ? $"set_type={setType ?? "?"}"
                 : null;
 
             int legal = 0;
@@ -275,8 +268,8 @@ public sealed class BulkDataService : IScryfallService
 
             if (skipReason is not null)
             {
-                // Only the newest handful matter; older skips are noise.
-                if (skipped.Count < 8 && date > today.AddMonths(-12))
+                // Only the sets ahead of the ones we chose matter; older skips are noise.
+                if (skipped.Count < 8 && accepted.Count == 0)
                     skipped.Add($"{code} ({skipReason})");
                 continue;
             }

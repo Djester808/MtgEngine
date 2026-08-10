@@ -25,9 +25,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// <summary>
     /// How many of the newest sets count as "latest" for the latestSet category.
     /// A date window pulled in twenty-plus products and the category stopped meaning
-    /// anything; two real sets is what a player understands by "the latest set".
+    /// anything; the newest three sets is the baseline, whenever they happened to ship.
     /// </summary>
-    private const int LatestSetCount = 2;
+    private const int LatestSetCount = 3;
 
     /// <summary>Bump when the model or the prompt changes, to invalidate cached responses.</summary>
     // v2: gameChangers grounded in the official Scryfall list.
@@ -46,7 +46,8 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     //     the quotes are real (Treasures being sacrificed to "sacrifice a creature").
     // v10: quote check counts words rather than characters (mana abilities are mostly
     //      symbols), and the fallback quotes an activated ability rather than a drawback.
-    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v10";
+    // v11: latest = the newest three sets, with no release-date cutoff.
+    private const string CacheVersion = "claude-haiku-4-5-20251001-suggestions-v11";
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
