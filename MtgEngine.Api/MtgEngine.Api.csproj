@@ -14,6 +14,12 @@
     <!-- The prompt/response helpers are internal by design but are pure logic worth unit testing. -->
     <InternalsVisibleTo Include="MtgEngine.Api.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The deckbuilding doctrine ships with the app: it is injected into every AI prompt,
+         so it has to be present at runtime, not just in the source tree. -->
+    <Content Include="Knowledge\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />

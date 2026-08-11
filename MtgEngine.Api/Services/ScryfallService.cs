@@ -32,8 +32,12 @@ public interface IScryfallService
     /// The full legal card pool for a commander, filtered by a free-text query, for the
     /// user to browse. No model involved -- this is what the AI picks are drawn from.
     /// </summary>
+    /// <param name="commander">
+    /// Used to rank the pool when there is no query, so it opens on cards that echo the
+    /// commander rather than on whatever sorts first alphabetically.
+    /// </param>
     Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
-        IReadOnlySet<ManaColor> commanderColors, string? query = null,
+        IReadOnlySet<ManaColor> commanderColors, CardDefinition? commander = null, string? query = null,
         IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
         CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
         int limit = 50, int offset = 0);
@@ -149,7 +153,7 @@ public sealed class ScryfallService : IScryfallService
     public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
 
     public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
-        IReadOnlySet<ManaColor> commanderColors, string? query = null,
+        IReadOnlySet<ManaColor> commanderColors, CardDefinition? commander = null, string? query = null,
         IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
         CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
         int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));

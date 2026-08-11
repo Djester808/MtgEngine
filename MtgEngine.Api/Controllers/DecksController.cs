@@ -243,7 +243,15 @@ public sealed class DecksController : ControllerBase
         if (request.CardOracleIds.Length > MaxBatchScoreCards)
             return BadRequest($"At most {MaxBatchScoreCards} cards can be scored per request.");
 
-        var result = await synergyService.ScoreCardsAsync(request.CommanderOracleId, request.CardOracleIds);
+        // Deck-aware needs a deck; this endpoint scores a loose set of cards, so an
+        // explicit "deck-aware" without one falls back to ideal inside the service.
+        var mode = string.Equals(request.Mode, "deck-aware", StringComparison.OrdinalIgnoreCase)
+            ? ScoringMode.DeckAware
+            : ScoringMode.Ideal;
+
+        var result = await synergyService.ScoreCardsAsync(
+            request.CommanderOracleId, request.CardOracleIds, mode, profile: null, focus: request.Focus);
+
         return Ok(result);
     }
 

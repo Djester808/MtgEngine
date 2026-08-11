@@ -100,7 +100,11 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.Reason).IsRequired().HasMaxLength(500);
             entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(64);
             entity.Property(e => e.CreatedAt).IsRequired();
-            entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId }).IsUnique();
+            // Model version is part of the identity, not just a stamp. A card now has a
+            // score per scoring mode -- ideal, and one per distinct deck shape -- and
+            // keying without the version made writing a deck-aware score clobber the
+            // ideal one for the same pair.
+            entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId, e.ModelVersion }).IsUnique();
         });
 
         // AiResponseCache

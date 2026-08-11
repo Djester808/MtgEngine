@@ -512,8 +512,44 @@ public sealed class BulkDataService : IScryfallService
     /// suggestion lists are short on purpose now, so this is the escape hatch: when the
     /// judge cuts a card the player wanted, they can still go and find it.
     /// </remarks>
+    /// <summary>
+    /// Terms that say a card is about what this commander is about: its own creature
+    /// types, and the ability words and keywords its rules text turns on.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately drawn from the commander itself rather than a hand-written list, so
+    /// it works for any commander without anyone maintaining a table of archetypes.
+    /// </remarks>
+    private static string[] CommanderSignals(CardDefinition? commander)
+    {
+        if (commander is null)
+            return [];
+
+        var signals = new List<string>(commander.Subtypes);
+
+        // Ability words and keywords are the capitalised terms in the rules text --
+        // Ferocious, Menace, Landfall. Skipping the first word of each sentence avoids
+        // picking up ordinary sentence starts.
+        var text = commander.OracleText ?? string.Empty;
+        bool sentenceStart = true;
+        foreach (var raw in text.Split([' ', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var word = raw.Trim('(', ')', ',', '.', ':', ';', '—', '-', '"');
+            bool endsSentence = raw.EndsWith('.') || raw.EndsWith(':') || raw.Contains('\n');
+
+            if (!sentenceStart && word.Length > 3 && char.IsUpper(word[0])
+                && word.All(char.IsLetter) && !signals.Contains(word, StringComparer.OrdinalIgnoreCase))
+                signals.Add(word);
+
+            sentenceStart = endsSentence;
+        }
+
+        return [.. signals];
+    }
+
     public async Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
         IReadOnlySet<ManaColor> commanderColors,
+        CardDefinition? commander = null,
         string? query = null,
         IReadOnlySet<string>? setCodes = null,
         bool gameChangersOnly = false,
@@ -542,6 +578,9 @@ public sealed class BulkDataService : IScryfallService
 
         pool = pool.Where(d =>
             CommanderRules.IsLegalInCommander(d)
+            // The commander is already in the deck; offering it back is noise, and it
+            // ranks first now that ordering rewards matching the commander.
+            && !string.Equals(d.OracleId, commander?.OracleId, StringComparison.OrdinalIgnoreCase)
             && !d.CardTypes.HasFlag(Domain.Enums.CardType.Token)
             && !d.Supertypes.Contains("Basic")
             && (!gameChangersOnly || d.GameChanger)
@@ -609,7 +648,38 @@ public sealed class BulkDataService : IScryfallService
         }
         else
         {
-            pool = pool.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
+            // With no query this used to fall back to alphabetical, so every category's
+            // browse list opened on whatever sorted first -- a Marvel card called
+            // Abomination, for a Wolf commander. Rank by how much a card echoes the
+            // commander instead: shares a creature type, or names an ability word its
+            // rules text turns on. Nothing is filtered out, only ordered.
+            var signals = CommanderSignals(commander);
+            if (signals.Length == 0)
+            {
+                pool = pool.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                int Relevance(CardDefinition d)
+                {
+                    int score = 0;
+                    foreach (var s in signals)
+                    {
+                        // Being the type counts for more than mentioning it.
+                        if (d.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase))
+                            score += 3;
+                        else if (d.OracleText?.Contains(s, StringComparison.OrdinalIgnoreCase) == true)
+                            score += 2;
+                    }
+                    return score;
+                }
+
+                pool = pool
+                    .Select(d => (Card: d, Rank: Relevance(d)))
+                    .OrderByDescending(x => x.Rank)
+                    .ThenBy(x => x.Card.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(x => x.Card);
+            }
         }
 
         var all = pool.ToArray();

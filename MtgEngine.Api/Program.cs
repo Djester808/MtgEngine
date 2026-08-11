@@ -82,7 +82,17 @@ builder.Services.AddHttpClient("AnthropicApi", client =>
 builder.Services.AddExceptionHandler<AiExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+// Singleton: the doctrine is read from disk once and is immutable thereafter. Every AI
+// pass reasons from this one copy, which is the whole point -- when the passes each held
+// their own idea of "good", one card came back 85% in one list and 55% in another.
+builder.Services.AddSingleton<ICommanderDoctrine, CommanderDoctrine>();
+
 builder.Services.AddScoped<IAiCacheService, AiCacheService>();
+
+// Reads each commander's text once and returns its requirements as structured data, so no
+// phrasing has to be enumerated in code. Cached per commander.
+builder.Services.AddScoped<ICommanderAnalysis, CommanderAnalysis>();
+builder.Services.AddScoped<ICandidateRanking, CandidateRanking>();
 builder.Services.AddScoped<IEdhrecPoolService, EdhrecPoolService>();
 builder.Services.AddScoped<CardVisionService>();
 builder.Services.AddScoped<ISynergyService, SynergyService>();

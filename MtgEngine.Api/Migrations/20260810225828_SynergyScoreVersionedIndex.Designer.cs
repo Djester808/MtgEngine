@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MtgEngine.Api.Data;
 
@@ -10,9 +11,11 @@ using MtgEngine.Api.Data;
 namespace MtgEngine.Api.Migrations
 {
     [DbContext(typeof(MtgEngineDbContext))]
-    partial class MtgEngineDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810225828_SynergyScoreVersionedIndex")]
+    partial class SynergyScoreVersionedIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");

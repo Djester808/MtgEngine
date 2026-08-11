@@ -140,10 +140,26 @@ public sealed record ImportDeckResult(
 /// A browsable candidate. Carries a printing id so the card can be added to a deck
 /// without a second round trip per row.
 /// </summary>
-public sealed record CandidateCardDto(CardDto Card, string? ScryfallId, string? SetCode, string? SetName);
+/// <param name="Score">
+/// Synergy score, present only when the pool was ranked by it. Returned with the row so the
+/// list renders the number it was sorted by, rather than fetching scores separately and
+/// risking a different answer than the one that decided the order.
+/// </param>
+public sealed record CandidateCardDto(
+    CardDto Card, string? ScryfallId, string? SetCode, string? SetName, int? Score = null);
 
 /// <summary>Score several cards against one commander in a single call.</summary>
-public sealed record SynergyBatchRequest(string CommanderOracleId, string[] CardOracleIds);
+/// <param name="Focus">
+/// Themes the player has asked to build around, e.g. "wolf". Scoring without them judges
+/// against the commander's printed text alone, so a card satisfying a numeric requirement
+/// can outrank the tribe the player actually asked for.
+/// </param>
+/// <param name="Mode">"ideal" (default) or "deck-aware". See doctrine §10.2.</param>
+public sealed record SynergyBatchRequest(
+    string CommanderOracleId,
+    string[] CardOracleIds,
+    string[]? Focus = null,
+    string? Mode = null);
 
 /// <summary>A page of the browsable candidate pool, with the unpaged total.</summary>
 public sealed record CandidatePoolDto(int Total, CandidateCardDto[] Cards);
@@ -205,7 +221,6 @@ public sealed record DeckSuggestionsDto
     public SuggestedCardDto[] LatestSet { get; init; } = [];
     public SuggestedCardDto[] TopSynergy { get; init; } = [];
     public SuggestedCardDto[] GameChangers { get; init; } = [];
-    public SuggestedCardDto[] NotableMentions { get; init; } = [];
 
     /// <summary>
     /// The sets <see cref="LatestSet"/> was drawn from, newest first. Shown in the UI so

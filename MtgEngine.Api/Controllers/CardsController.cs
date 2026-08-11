@@ -46,14 +46,26 @@ public sealed class CardsController : ControllerBase
     /// Which category's pool to browse: "latest" for the newest sets, "gamechangers" for
     /// the official list, anything else for the whole legal pool.
     /// </param>
+    /// <param name="focus">
+    /// Themes the player asked to build around, comma separated. Scoring without them
+    /// answers a different question and produces different percentages.
+    /// </param>
+    /// <param name="rank">
+    /// "synergy" to order by score — the same ordering the suggestion categories use, so
+    /// the first page here is exactly the category and scrolling continues the same list.
+    /// Anything else keeps relevance order.
+    /// </param>
     [HttpGet("candidates")]
     public async Task<ActionResult<CandidatePoolDto>> Candidates(
         [FromQuery] string commanderOracleId,
+        [FromServices] ICandidateRanking ranking,
         [FromQuery] string? q = null,
         [FromQuery] string? scope = null,
         [FromQuery] string? types = null,
         [FromQuery] int? cmcMin = null,
         [FromQuery] int? cmcMax = null,
+        [FromQuery] string? focus = null,
+        [FromQuery] string? rank = null,
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0)
     {
@@ -78,10 +90,31 @@ public sealed class CardsController : ControllerBase
             if (Enum.TryParse<CardType>(name, ignoreCase: true, out var parsed))
                 typeFlags |= parsed;
 
-        var (cards, total) = await _scryfall.GetCandidatePoolAsync(
-            commander.ColorIdentity.ToHashSet(), q, setCodes, gameChangersOnly,
-            typeFlags, cmcMin, cmcMax,
-            Math.Clamp(limit, 1, 200), Math.Max(0, offset));
+        var focusTags = (focus ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        CardDefinition[] cards;
+        int total;
+        Dictionary<string, int> scoreOf = new(StringComparer.OrdinalIgnoreCase);
+
+        if (string.Equals(rank, "synergy", StringComparison.OrdinalIgnoreCase))
+        {
+            var ranked = await ranking.RankAsync(new RankRequest(
+                commander, q, setCodes, gameChangersOnly, typeFlags, cmcMin, cmcMax,
+                focusTags, Math.Clamp(limit, 1, 200), Math.Max(0, offset)));
+
+            cards = [.. ranked.Cards.Select(c => c.Card)];
+            total = ranked.Total;
+            foreach (var c in ranked.Cards)
+                scoreOf[c.Card.OracleId] = c.Score;
+        }
+        else
+        {
+            (cards, total) = await _scryfall.GetCandidatePoolAsync(
+                commander.ColorIdentity.ToHashSet(), commander, q, setCodes, gameChangersOnly,
+                typeFlags, cmcMin, cmcMax,
+                Math.Clamp(limit, 1, 200), Math.Max(0, offset));
+        }
 
         var rows = await Task.WhenAll(cards.Select(async d =>
         {
@@ -93,8 +126,11 @@ public sealed class CardsController : ControllerBase
                     p.SetCode is not null && setCodes?.Contains(p.SetCode) == true)
                 ?? printings.FirstOrDefault();
 
+            // Ranked responses carry the score, so the client renders the same number it
+            // was ordered by instead of fetching it again and risking a different answer.
             return new CandidateCardDto(
-                MapToDto(d), printing?.ScryfallId, printing?.SetCode?.ToUpperInvariant(), printing?.SetName);
+                MapToDto(d), printing?.ScryfallId, printing?.SetCode?.ToUpperInvariant(), printing?.SetName,
+                scoreOf.TryGetValue(d.OracleId, out var score) && score >= 0 ? score : null);
         }));
 
         return Ok(new CandidatePoolDto(total, rows));
