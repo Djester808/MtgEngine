@@ -1,7 +1,7 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
@@ -15,12 +15,11 @@ public interface IDeckSuggestionsService
 public sealed class DeckSuggestionsService : IDeckSuggestionsService
 {
     private readonly IScryfallService _scryfall;
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly IAnthropicClient _anthropic;
     private readonly IAiCacheService _cache;
     private readonly ISynergyService _synergy;
     private readonly ICandidateRanking _ranking;
     private readonly ICommanderDoctrine _doctrine;
-    private readonly string _apiKey;
     private readonly ILogger<DeckSuggestionsService> _logger;
 
     private const string ModelId = "claude-haiku-4-5-20251001";
@@ -66,21 +65,19 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
     public DeckSuggestionsService(
         IScryfallService scryfall,
-        IHttpClientFactory httpFactory,
+        IAnthropicClient anthropic,
         IAiCacheService cache,
         ISynergyService synergy,
         ICandidateRanking ranking,
         ICommanderDoctrine doctrine,
-        IConfiguration config,
         ILogger<DeckSuggestionsService> logger)
     {
         _scryfall = scryfall;
-        _httpFactory = httpFactory;
+        _anthropic = anthropic;
         _cache = cache;
         _synergy = synergy;
         _ranking = ranking;
         _doctrine = doctrine;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
@@ -598,47 +595,26 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// </param>
     private async Task<T?> CallJsonAsync<T>(string prompt, int maxTokens, bool withDoctrine = false)
     {
-        object body = withDoctrine
-            ? new
-            {
-                model = ModelId,
-                max_tokens = maxTokens,
-                temperature = 0,
-                system = new object[]
-                {
+        var request = new AnthropicRequest(
+            ModelId,
+            MaxTokens: maxTokens,
+            Messages: [new { role = "user", content = prompt }])
+        {
+            System = withDoctrine
+                ?
+                [
                     new
                     {
                         type = "text",
                         text = _doctrine.Text,
                         cache_control = new { type = "ephemeral" },
                     },
-                },
-                messages = new[] { new { role = "user", content = prompt } },
-            }
-            : new
-            {
-                model = ModelId,
-                max_tokens = maxTokens,
-                temperature = 0,
-                messages = new[] { new { role = "user", content = prompt } },
-            };
-
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+                ]
+                : null,
+            Operation = withDoctrine ? "suggestions (doctrine)" : "suggestions",
         };
-        httpReq.Headers.Add("x-api-key", _apiKey);
-        httpReq.Headers.Add("anthropic-version", "2023-06-01");
 
-        var resp = await http.SendAsync(httpReq);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
-        }
-
-        return AnthropicResponse.DeserializeJson<T>(await resp.Content.ReadAsStringAsync());
+        return AnthropicResponse.DeserializeJson<T>(await _anthropic.SendAsync(request));
     }
 
     private sealed class ReasonPassJson
@@ -668,46 +644,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
     // ---- Mapping ------------------------------------------------------
 
-    private static CardDto MapToCardDto(CardDefinition def) => new()
-    {
-        CardId = def.OracleId,
-        OracleId = def.OracleId,
-        Name = def.Name,
-        ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-        ManaValue = def.Cmc,
-        CardTypes = def.CardTypes.ToString().Split(", ")
-                                .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
-                                .Select(t => Enum.Parse<CardTypeDto>(t))
-                                .ToArray(),
-        Subtypes = [.. def.Subtypes],
-        Supertypes = [.. def.Supertypes],
-        OracleText = def.OracleText,
-        Power = def.Power,
-        Toughness = def.Toughness,
-        StartingLoyalty = def.StartingLoyalty,
-        Keywords = def.Keywords.ToString().Split(", ")
-                                .Where(k => !string.IsNullOrEmpty(k) && k != "None")
-                                .ToArray(),
-        ImageUriNormal = def.ImageUriNormal,
-        ImageUriNormalBack = def.ImageUriNormalBack,
-        ImageUriSmall = def.ImageUriSmall,
-        ImageUriArtCrop = def.ImageUriArtCrop,
-        ColorIdentity = def.ColorIdentity
-                                .Select(c => c switch
-                                {
-                                    ManaColor.White => ManaColorDto.W,
-                                    ManaColor.Blue => ManaColorDto.U,
-                                    ManaColor.Black => ManaColorDto.B,
-                                    ManaColor.Red => ManaColorDto.R,
-                                    ManaColor.Green => ManaColorDto.G,
-                                    _ => ManaColorDto.C,
-                                })
-                                .ToArray(),
-        FlavorText = def.FlavorText,
-        Artist = def.Artist,
-        SetCode = def.SetCode,
-        Rarity = def.Rarity,
-        Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
-        GameChanger = def.GameChanger,
-    };
+    /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>
+    private static CardDto MapToCardDto(CardDefinition def) => DomainMapper.ToDto(def);
+
 }

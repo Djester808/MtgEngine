@@ -11,7 +11,7 @@ public class SubtypeSearchTests
 {
     private static void AssertYields(string plural, string expectedSingular)
     {
-        var forms = BulkDataService.SingularCandidates(plural);
+        var forms = CardQuery.SingularCandidates(plural);
         Assert.Contains(expectedSingular, forms, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -32,8 +32,8 @@ public class SubtypeSearchTests
     {
         // Singular searches and types that are already plural-looking ("Merfolk") must
         // still match themselves.
-        Assert.Contains("wolf", BulkDataService.SingularCandidates("wolf"), StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("merfolk", BulkDataService.SingularCandidates("merfolk"), StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("wolf", CardQuery.SingularCandidates("wolf"), StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("merfolk", CardQuery.SingularCandidates("merfolk"), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ public class SubtypeSearchTests
     [Fact]
     public void SingularCandidates_OffersTheFWhenTheWordEndsInVes()
     {
-        var forms = BulkDataService.SingularCandidates("wolves");
+        var forms = CardQuery.SingularCandidates("wolves");
         Assert.Contains("wolf", forms, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("wolves", forms, StringComparer.OrdinalIgnoreCase);
     }
@@ -52,13 +52,13 @@ public class SubtypeSearchTests
     [Fact]
     public void SingularCandidates_LeavesVeryShortWordsAlone()
     {
-        Assert.Equal(["ox"], BulkDataService.SingularCandidates("ox"));
+        Assert.Equal(["ox"], CardQuery.SingularCandidates("ox"));
     }
 
     [Fact]
     public void SingularCandidates_DoesNotRepeatAForm()
     {
-        var forms = BulkDataService.SingularCandidates("wolves");
+        var forms = CardQuery.SingularCandidates("wolves");
         Assert.Equal(forms.Length, forms.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
 }

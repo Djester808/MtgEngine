@@ -9,7 +9,7 @@ namespace MtgEngine.Api.Services;
 public sealed class CommanderDeckSeeder
 {
     private readonly MtgEngineDbContext _db;
-    private readonly IScryfallService _scryfall;
+    private readonly ICardLookup _scryfall;
     private readonly HttpClient _scryfallHttp;
     private readonly HttpClient _edhrecHttp;
     private readonly ILogger<CommanderDeckSeeder> _logger;
@@ -34,7 +34,7 @@ public sealed class CommanderDeckSeeder
 
     public CommanderDeckSeeder(
         MtgEngineDbContext db,
-        IScryfallService scryfall,
+        ICardLookup scryfall,
         IHttpClientFactory httpFactory,
         ILogger<CommanderDeckSeeder> logger)
     {

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
@@ -21,12 +22,12 @@ public interface IForumService
 public sealed class ForumService : IForumService
 {
     private readonly MtgEngineDbContext _context;
-    private readonly IScryfallService _scryfall;
+    private readonly ICardLookup _scryfall;
     private readonly ICollectionService _collections;
 
     private static readonly string[] ColorOrder = ["W", "U", "B", "R", "G"];
 
-    public ForumService(MtgEngineDbContext context, IScryfallService scryfall, ICollectionService collections)
+    public ForumService(MtgEngineDbContext context, ICardLookup scryfall, ICollectionService collections)
     {
         _context = context;
         _scryfall = scryfall;
@@ -324,49 +325,7 @@ public sealed class ForumService : IForumService
         return true;
     }
 
-    private static CardDto MapToCardDto(CardDefinition def)
-    {
-        return new CardDto
-        {
-            CardId = def.OracleId,
-            OracleId = def.OracleId,
-            Name = def.Name,
-            ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-            ManaValue = def.Cmc,
-            CardTypes = def.CardTypes.ToString().Split(", ")
-                .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
-                .Select(t => Enum.Parse<CardTypeDto>(t))
-                .ToArray(),
-            Subtypes = [.. def.Subtypes],
-            Supertypes = [.. def.Supertypes],
-            OracleText = def.OracleText,
-            Power = def.Power,
-            Toughness = def.Toughness,
-            StartingLoyalty = def.StartingLoyalty,
-            Keywords = def.Keywords.ToString().Split(", ")
-                .Where(k => !string.IsNullOrEmpty(k) && k != "None")
-                .ToArray(),
-            ImageUriNormal = def.ImageUriNormal,
-            ImageUriNormalBack = def.ImageUriNormalBack,
-            ImageUriSmall = def.ImageUriSmall,
-            ImageUriArtCrop = def.ImageUriArtCrop,
-            ColorIdentity = def.ColorIdentity
-                .Select(c => c switch
-                {
-                    ManaColor.White => ManaColorDto.W,
-                    ManaColor.Blue => ManaColorDto.U,
-                    ManaColor.Black => ManaColorDto.B,
-                    ManaColor.Red => ManaColorDto.R,
-                    ManaColor.Green => ManaColorDto.G,
-                    _ => ManaColorDto.C,
-                })
-                .ToArray(),
-            FlavorText = def.FlavorText,
-            Artist = def.Artist,
-            SetCode = def.SetCode,
-            Rarity = def.Rarity,
-            Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
-            GameChanger = def.GameChanger,
-        };
-    }
+    /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>
+    private static CardDto MapToCardDto(CardDefinition def) => DomainMapper.ToDto(def);
+
 }

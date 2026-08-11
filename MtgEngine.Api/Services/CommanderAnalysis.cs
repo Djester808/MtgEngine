@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using MtgEngine.Domain.Models;
 
@@ -57,19 +55,16 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
     private const string CacheVersion = "claude-haiku-4-5-20251001-commander-reqs-v1";
 
     private readonly IAiCacheService _cache;
-    private readonly IHttpClientFactory _httpFactory;
-    private readonly string _apiKey;
+    private readonly IAnthropicClient _anthropic;
     private readonly ILogger<CommanderAnalysis> _logger;
 
     public CommanderAnalysis(
         IAiCacheService cache,
-        IHttpClientFactory httpFactory,
-        IConfiguration config,
+        IAnthropicClient anthropic,
         ILogger<CommanderAnalysis> logger)
     {
         _cache = cache;
-        _httpFactory = httpFactory;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
+        _anthropic = anthropic;
         _logger = logger;
     }
 
@@ -153,31 +148,14 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
             - Empty arrays where there is nothing to report. Do not invent requirements.
             """;
 
-        var body = new
+        var json = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
+            MaxTokens: 500,
+            Messages: [new { role = "user", content = prompt }])
         {
-            model = ModelId,
-            max_tokens = 500,
-            temperature = 0,
-            messages = new[] { new { role = "user", content = prompt } },
-        };
+            Operation = "commander analysis",
+        });
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        req.Headers.Add("x-api-key", _apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(req);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Commander analysis {Status}: {Body}", resp.StatusCode, err);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
-        }
-
-        var json = await resp.Content.ReadAsStringAsync();
         return AnthropicResponse.DeserializeJson<ExtractedJson>(json) ?? new ExtractedJson();
     }
 

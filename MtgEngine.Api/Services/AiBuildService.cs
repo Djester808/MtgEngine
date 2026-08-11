@@ -21,8 +21,7 @@ public sealed class AiBuildService : IAiBuildService
     private readonly IScryfallService _scryfall;
     private readonly ICollectionService _collection;
     private readonly IEdhrecPoolService _edhrec;
-    private readonly IHttpClientFactory _httpFactory;
-    private readonly string _apiKey;
+    private readonly IAnthropicClient _anthropic;
     private readonly ILogger<AiBuildService> _logger;
 
     private const string ModelId = "claude-sonnet-4-6";
@@ -50,15 +49,13 @@ public sealed class AiBuildService : IAiBuildService
         IScryfallService scryfall,
         ICollectionService collection,
         IEdhrecPoolService edhrec,
-        IHttpClientFactory httpFactory,
-        IConfiguration config,
+        IAnthropicClient anthropic,
         ILogger<AiBuildService> logger)
     {
         _scryfall = scryfall;
         _collection = collection;
         _edhrec = edhrec;
-        _httpFactory = httpFactory;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
+        _anthropic = anthropic;
         _logger = logger;
     }
 
@@ -330,32 +327,14 @@ public sealed class AiBuildService : IAiBuildService
             - Each "why" under 15 words.
             """;
 
-        var body = new
+        var respJson = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
+            MaxTokens: 2000,
+            Messages: [new { role = "user", content = prompt }])
         {
-            model = ModelId,
-            max_tokens = 2000,
-            temperature = 0,
-            messages = new[] { new { role = "user", content = prompt } },
-        };
+            Operation = "AI refine",
+        });
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        req.Headers.Add("x-api-key", _apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(req);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic refine {Status}: {Body}", resp.StatusCode, err);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
-        }
-
-        var respJson = await resp.Content.ReadAsStringAsync();
-        LogCacheUsage(respJson);
         var parsed = AnthropicResponse.DeserializeJson<RefineJson>(respJson);
 
         return [.. (parsed?.Swaps ?? []).Select(s => new ProposedSwap(s.Out, s.In, s.Why))];
@@ -687,13 +666,11 @@ public sealed class AiBuildService : IAiBuildService
                 prompt.Length, PromptFingerprint(prompt));
         }
 
-        var body = new
-        {
-            model = ModelId,
-            max_tokens = 6000,
-            temperature = 0,
-            messages = new[]
-            {
+        var respJson = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
+            MaxTokens: 6000,
+            Messages:
+            [
                 new
                 {
                     role = "user",
@@ -709,27 +686,11 @@ public sealed class AiBuildService : IAiBuildService
                         new { type = "text", text = prompt },
                     },
                 },
-            },
-        };
-
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
+            ])
         {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        req.Headers.Add("x-api-key", _apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
+            Operation = "AI build",
+        });
 
-        var resp = await http.SendAsync(req);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic AI-build {Status}: {Body}", resp.StatusCode, err);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
-        }
-
-        var respJson = await resp.Content.ReadAsStringAsync();
-        LogCacheUsage(respJson);
         var parsed = AnthropicResponse.DeserializeJson<JsonElement>(respJson);
 
         string[] ParseArray(string key)
@@ -750,35 +711,6 @@ public sealed class AiBuildService : IAiBuildService
     }
 
     // ---- Helpers ---------------------------------------------------
-
-    /// <summary>
-    /// Reports prompt-cache effectiveness. A read of ~0 across repeated builds with the
-    /// same colours and bracket means the prefix is not byte-stable and the cache is
-    /// silently doing nothing.
-    /// </summary>
-    private void LogCacheUsage(string responseJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(responseJson);
-            if (!doc.RootElement.TryGetProperty("usage", out var usage))
-                return;
-
-            int Read(string name) =>
-                usage.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
-
-            int write = Read("cache_creation_input_tokens");
-            int hit = Read("cache_read_input_tokens");
-
-            _logger.LogInformation(
-                "AI build tokens: cache_read={Hit} cache_write={Write} uncached_input={In} output={Out}",
-                hit, write, Read("input_tokens"), Read("output_tokens"));
-        }
-        catch (JsonException)
-        {
-            // Diagnostics only; never fail a build over usage reporting.
-        }
-    }
 
     /// <summary>Short SHA-256 prefix of the prompt, for cache-stability diagnostics.</summary>
     private static string PromptFingerprint(string prompt)

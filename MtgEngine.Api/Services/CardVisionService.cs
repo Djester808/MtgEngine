@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -39,37 +38,32 @@ public sealed record CardVisionResult
 
 public sealed class CardVisionService
 {
-    private readonly IHttpClientFactory _httpFactory;
-    private readonly IScryfallService _scryfall;
-    private readonly string _apiKey;
+    private readonly IAnthropicClient _anthropic;
+    private readonly ICardLookup _scryfall;
     private readonly ILogger<CardVisionService> _logger;
 
     private const string ModelId = "claude-sonnet-4-6";
 
     public CardVisionService(
-        IHttpClientFactory httpFactory,
-        IScryfallService scryfall,
-        IConfiguration config,
+        IAnthropicClient anthropic,
+        ICardLookup scryfall,
         ILogger<CardVisionService> logger)
     {
-        _httpFactory = httpFactory;
+        _anthropic = anthropic;
         _scryfall = scryfall;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
     public async Task<CardVisionResult> IdentifyCardAsync(
         string imageBase64, string mediaType)
     {
-        var body = new
-        {
-            model = ModelId,
-            max_tokens = 128,
-            // This is transcription, not generation: pin sampling so repeated scans of
-            // the same card do not drift. Previously unset, defaulting to 1.0.
-            temperature = 0,
-            messages = new[]
-            {
+        // This is transcription, not generation, so sampling stays pinned at the client's
+        // default temperature of 0: repeated scans of the same card must not drift.
+        var request = new AnthropicRequest(
+            ModelId,
+            MaxTokens: 128,
+            Messages:
+            [
                 new
                 {
                     role = "user",
@@ -103,30 +97,15 @@ public sealed class CardVisionService
                         },
                     },
                 },
-            },
+            ])
+        {
+            Operation = "vision",
         };
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                "application/json"
-            ),
-        };
-        req.Headers.Add("x-api-key", _apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(req);
-        var rawBody = await resp.Content.ReadAsStringAsync();
-        if (!resp.IsSuccessStatusCode)
-        {
-            // A provider failure is a 502, same as every other AI endpoint. Only
-            // "the image was fine but no card was readable" stays a 200 with Error set.
-            _logger.LogError("Anthropic vision {Status}: {Body}", resp.StatusCode, rawBody);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, rawBody);
-        }
+        // A provider failure throws out of SendAsync and surfaces as a 502, same as every
+        // other AI endpoint. Only "the image was fine but no card was readable" gets past
+        // here, and that stays a 200 with Error set.
+        var rawBody = await _anthropic.SendAsync(request);
 
         var text = AnthropicResponse.ExtractText(rawBody).Trim();
 

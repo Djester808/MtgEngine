@@ -17,10 +17,10 @@ public interface IDeckBuilderService
 /// </summary>
 public sealed class DeckBuilderService : IDeckBuilderService
 {
-    private readonly IScryfallService _scryfall;
+    private readonly ICardLookup _scryfall;
     private readonly MtgEngineDbContext _db;
 
-    public DeckBuilderService(IScryfallService scryfall, MtgEngineDbContext db)
+    public DeckBuilderService(ICardLookup scryfall, MtgEngineDbContext db)
     {
         _db = db;
         _scryfall = scryfall;

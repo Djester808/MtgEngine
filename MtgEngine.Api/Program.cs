@@ -50,6 +50,10 @@ builder.Services.AddSingleton<ScryfallService>();
 builder.Services.AddSingleton<BulkDataService>();
 builder.Services.AddSingleton<IScryfallService>(sp => sp.GetRequiredService<BulkDataService>());
 
+// Same instance behind the narrower interface, for the callers that only resolve cards
+// and never scan the corpus. They ask for less; they still get the bulk implementation.
+builder.Services.AddSingleton<ICardLookup>(sp => sp.GetRequiredService<BulkDataService>());
+
 // Background worker: downloads/refreshes bulk files on startup and daily
 builder.Services.AddHostedService<BulkDataRefreshWorker>();
 
@@ -86,6 +90,11 @@ builder.Services.AddProblemDetails();
 // pass reasons from this one copy, which is the whole point -- when the passes each held
 // their own idea of "good", one card came back 85% in one list and 55% in another.
 builder.Services.AddSingleton<ICommanderDoctrine, CommanderDoctrine>();
+
+// The one path to the Messages API. Owns the auth header, the API version, the
+// error-to-exception mapping and the prompt-cache logging, so the services above it
+// hold a prompt and a model id rather than an HttpClient.
+builder.Services.AddSingleton<IAnthropicClient, AnthropicClient>();
 
 builder.Services.AddScoped<IAiCacheService, AiCacheService>();
 

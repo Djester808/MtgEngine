@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 using MtgEngine.Api.Services;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
@@ -182,47 +183,7 @@ public sealed class CardsController : ControllerBase
         return Ok(rulings);
     }
 
-    private static CardDto MapToDto(CardDefinition def) => new()
-    {
-        CardId = def.OracleId,
-        OracleId = def.OracleId,
-        Name = def.Name,
-        ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-        ManaValue = def.Cmc,
-        CardTypes = def.CardTypes.ToString().Split(", ")
-            .Where(t => Enum.IsDefined(typeof(CardTypeDto), t))
-            .Select(t => Enum.Parse<CardTypeDto>(t))
-            .ToArray(),
-        Subtypes = [.. def.Subtypes],
-        Supertypes = [.. def.Supertypes],
-        OracleText = def.OracleText,
-        Power = def.Power,
-        Toughness = def.Toughness,
-        StartingLoyalty = def.StartingLoyalty,
-        Keywords = def.Keywords.ToString().Split(", ")
-            .Where(k => !string.IsNullOrEmpty(k) && k != "None")
-            .ToArray(),
-        ImageUriNormal = def.ImageUriNormal,
-        ImageUriLarge = def.ImageUriLarge,
-        ImageUriNormalBack = def.ImageUriNormalBack,
-        ImageUriSmall = def.ImageUriSmall,
-        ImageUriArtCrop = def.ImageUriArtCrop,
-        ColorIdentity = def.ColorIdentity
-            .Select(c => c switch
-            {
-                ManaColor.White => ManaColorDto.W,
-                ManaColor.Blue => ManaColorDto.U,
-                ManaColor.Black => ManaColorDto.B,
-                ManaColor.Red => ManaColorDto.R,
-                ManaColor.Green => ManaColorDto.G,
-                _ => ManaColorDto.C,
-            })
-            .ToArray(),
-        FlavorText = def.FlavorText,
-        Artist = def.Artist,
-        SetCode = def.SetCode,
-        Rarity = def.Rarity,
-        Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
-        GameChanger = def.GameChanger,
-    };
+    /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>
+    private static CardDto MapToDto(CardDefinition def) => DomainMapper.ToDto(def);
+
 }
