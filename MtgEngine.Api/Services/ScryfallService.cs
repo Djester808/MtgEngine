@@ -15,8 +15,54 @@ public interface IScryfallService
     Task<RulingDto[]> GetRulingsAsync(string oracleId);
     Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
-    Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6);
-    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null);
+    Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null);
+
+    /// <summary>
+    /// The same sets as <see cref="GetRecentSetCodesAsync"/>, but named and dated so the
+    /// caller can tell the user which sets "latest" actually resolved to.
+    /// </summary>
+    Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null);
+    /// <param name="debutOnly">
+    /// Keep only cards first printed in these sets. Commander products are mostly
+    /// reprints, so without this a "new cards" list fills up with decades-old staples.
+    /// </param>
+    Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false);
+
+    /// <summary>
+    /// The full legal card pool for a commander, filtered by a free-text query, for the
+    /// user to browse. No model involved -- this is what the AI picks are drawn from.
+    /// </summary>
+    /// <param name="commander">
+    /// Used to rank the pool when there is no query, so it opens on cards that echo the
+    /// commander rather than on whatever sorts first alphabetically.
+    /// </param>
+    Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
+        IReadOnlySet<ManaColor> commanderColors, CardDefinition? commander = null, string? query = null,
+        IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
+        CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
+        int limit = 50, int offset = 0);
+
+    /// <summary>
+    /// Names of cards on Scryfall's official Game Changer list that are legal in the
+    /// given colour identity, in a deterministic order.
+    /// </summary>
+    Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors);
+
+    /// <summary>
+    /// Every card that could legally go in this deck: Commander-legal, inside the
+    /// colour identity, and allowed at this bracket. Excludes basic lands and tokens.
+    /// This is a legality filter only -- it does not rank or judge playability.
+    /// Grouped by deck-building role, names sorted, so the result is deterministic.
+    /// </summary>
+    Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
+        IReadOnlySet<ManaColor> commanderColors, int bracket);
+
+    /// <summary>
+    /// Cards that can legally head a Commander deck, optionally filtered by name.
+    /// Searches the whole card corpus, not just commanders that already have decks here.
+    /// </summary>
+    /// <param name="setCode">Optional set code, to list the commanders printed in one set.</param>
+    Task<CardDefinition[]> SearchCommandersAsync(string? nameQuery, int limit = 100, string? setCode = null);
 }
 
 /// <summary>
@@ -102,8 +148,23 @@ public sealed class ScryfallService : IScryfallService
     }
 
     public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
-    public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
-    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null) => Task.FromResult(Array.Empty<string>());
+    public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
+    public Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlyList<RecentSetDto>>([]);
+    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
+
+    public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
+        IReadOnlySet<ManaColor> commanderColors, CardDefinition? commander = null, string? query = null,
+        IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
+        CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
+        int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));
+
+    // Require a full-corpus scan; only the bulk-data provider can answer these.
+    public Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
+    public Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
+        IReadOnlySet<ManaColor> commanderColors, int bracket) =>
+        Task.FromResult<IReadOnlyDictionary<CardRole, string[]>>(new Dictionary<CardRole, string[]>());
+    public Task<CardDefinition[]> SearchCommandersAsync(string? nameQuery, int limit = 100, string? setCode = null) =>
+        Task.FromResult(Array.Empty<CardDefinition>());
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {

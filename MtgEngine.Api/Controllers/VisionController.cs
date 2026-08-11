@@ -19,11 +19,13 @@ public sealed class VisionController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ImageBase64))
             return BadRequest("ImageBase64 is required");
 
-        var (cardName, error) = await _vision.IdentifyCardAsync(
+        // Returned as-is: cardName/setName are Scryfall-verified, and setName is null
+        // when the printing could not be determined rather than a model guess.
+        var result = await _vision.IdentifyCardAsync(
             request.ImageBase64,
             request.MediaType ?? "image/jpeg"
         );
-        return Ok(new { cardName, error });
+        return Ok(result);
     }
 }
 

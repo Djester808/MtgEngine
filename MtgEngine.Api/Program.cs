@@ -65,11 +65,35 @@ builder.Services.AddScoped<IForumService, ForumService>();
 builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
 
 // ---- Anthropic API ---------------------------------------
+// The AI services are scoped, so their key guard would not fire until the first
+// AI request. Validate eagerly here so a misconfigured deployment fails at boot.
+SecretConfig.AnthropicApiKey(builder.Configuration);
+
 builder.Services.AddHttpClient("AnthropicApi", client =>
 {
     client.BaseAddress = new Uri("https://api.anthropic.com/");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
+    // The resilience pipeline owns all timeouts (per-attempt and total). A finite
+    // HttpClient.Timeout here would cancel the whole pipeline mid-retry.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+})
+.AddAnthropicResilience();
+// One place that turns service exceptions into status codes, so every AI endpoint
+// reports failure identically instead of each action repeating its own try/catch.
+builder.Services.AddExceptionHandler<AiExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+// Singleton: the doctrine is read from disk once and is immutable thereafter. Every AI
+// pass reasons from this one copy, which is the whole point -- when the passes each held
+// their own idea of "good", one card came back 85% in one list and 55% in another.
+builder.Services.AddSingleton<ICommanderDoctrine, CommanderDoctrine>();
+
+builder.Services.AddScoped<IAiCacheService, AiCacheService>();
+
+// Reads each commander's text once and returns its requirements as structured data, so no
+// phrasing has to be enumerated in code. Cached per commander.
+builder.Services.AddScoped<ICommanderAnalysis, CommanderAnalysis>();
+builder.Services.AddScoped<ICandidateRanking, CandidateRanking>();
+builder.Services.AddScoped<IEdhrecPoolService, EdhrecPoolService>();
 builder.Services.AddScoped<CardVisionService>();
 builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
@@ -98,7 +122,7 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
 
-var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!);
+var jwtKey = Encoding.UTF8.GetBytes(SecretConfig.JwtSecret(builder.Configuration));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
@@ -132,6 +156,9 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<MtgEngineDbContext>();
     await db.Database.MigrateAsync();
 }
+
+// Must precede the endpoints it protects.
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

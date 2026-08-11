@@ -136,7 +136,39 @@ public sealed record ImportDeckResult(
     IReadOnlyList<string> UnresolvedCards
 );
 
-public sealed record SetSummaryDto(string Code, string Name, int CardCount);
+/// <summary>
+/// A browsable candidate. Carries a printing id so the card can be added to a deck
+/// without a second round trip per row.
+/// </summary>
+/// <param name="Score">
+/// Synergy score, present only when the pool was ranked by it. Returned with the row so the
+/// list renders the number it was sorted by, rather than fetching scores separately and
+/// risking a different answer than the one that decided the order.
+/// </param>
+public sealed record CandidateCardDto(
+    CardDto Card, string? ScryfallId, string? SetCode, string? SetName, int? Score = null);
+
+/// <summary>Score several cards against one commander in a single call.</summary>
+/// <param name="Focus">
+/// Themes the player has asked to build around, e.g. "wolf". Scoring without them judges
+/// against the commander's printed text alone, so a card satisfying a numeric requirement
+/// can outrank the tribe the player actually asked for.
+/// </param>
+/// <param name="Mode">"ideal" (default) or "deck-aware". See doctrine §10.2.</param>
+public sealed record SynergyBatchRequest(
+    string CommanderOracleId,
+    string[] CardOracleIds,
+    string[]? Focus = null,
+    string? Mode = null);
+
+/// <summary>A page of the browsable candidate pool, with the unpaged total.</summary>
+public sealed record CandidatePoolDto(int Total, CandidateCardDto[] Cards);
+
+/// <param name="ReleasedAt">Null for the handful of sets with no dated printing.</param>
+public sealed record SetSummaryDto(string Code, string Name, int CardCount, DateOnly? ReleasedAt = null);
+
+/// <summary>A recently released set, with enough detail to name it in the UI.</summary>
+public sealed record RecentSetDto(string Code, string Name, DateOnly ReleasedAt, int LegalCardCount);
 
 // ---- Auth -----------------------------------------------------
 
@@ -189,7 +221,36 @@ public sealed record DeckSuggestionsDto
     public SuggestedCardDto[] LatestSet { get; init; } = [];
     public SuggestedCardDto[] TopSynergy { get; init; } = [];
     public SuggestedCardDto[] GameChangers { get; init; } = [];
-    public SuggestedCardDto[] NotableMentions { get; init; } = [];
+
+    /// <summary>
+    /// The sets <see cref="LatestSet"/> was drawn from, newest first. Shown in the UI so
+    /// "latest sets" is a claim the user can check rather than take on trust.
+    /// </summary>
+    public RecentSetDto[] LatestSetSources { get; init; } = [];
+
+    /// <summary>What the validation layer discarded from the model's proposals.</summary>
+    public SuggestionDiagnosticsDto Diagnostics { get; init; } = new();
+}
+
+/// <summary>
+/// Why suggestions were dropped between the model proposing them and the response.
+/// </summary>
+/// <remarks>
+/// Validation turns hallucinations into missing results rather than wrong ones, which
+/// is correct but invisible: a category returning nothing looks the same as a category
+/// the model declined to fill. Reporting the rejections makes a 100%-rejection bug
+/// observable instead of silent.
+/// </remarks>
+public sealed record SuggestionDiagnosticsDto
+{
+    /// <summary>Cards the model proposed, before validation.</summary>
+    public int Proposed { get; init; }
+
+    /// <summary>Cards returned to the caller, after validation and de-duplication.</summary>
+    public int Accepted { get; init; }
+
+    /// <summary>Rejection reason -> count. Empty when nothing was discarded.</summary>
+    public Dictionary<string, int> Rejected { get; init; } = [];
 }
 
 // ---- Mana fine-tune -----------------------------------------
@@ -235,6 +296,36 @@ public sealed record SynergyResultDto
     public string Reason { get; init; } = string.Empty;
 }
 
+/// <summary>One card's synergy verdict within a scored deck.</summary>
+public sealed record ScoredCardDto
+{
+    public string OracleId { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public int Score { get; init; }
+    public string Reason { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Synergy scores for every card in a deck, from a single batched call.
+/// </summary>
+/// <remarks>
+/// Scoring cards one at a time costs one request each; a 99-card deck is one request
+/// here. Results are written to the same cache the per-card endpoint reads, so scoring
+/// a deck warms it for subsequent single-card lookups.
+/// </remarks>
+public sealed record DeckScoreDto
+{
+    public ScoredCardDto[] Cards { get; init; } = [];
+
+    /// <summary>Mean score across scored cards, as a rough deck-cohesion signal.</summary>
+    public int AverageScore { get; init; }
+
+    /// <summary>Cards scoring below <see cref="WeakThreshold"/> — the obvious swap candidates.</summary>
+    public ScoredCardDto[] WeakestCards { get; init; } = [];
+
+    public const int WeakThreshold = 55;
+}
+
 // ---- AI deck build ------------------------------------------
 
 public sealed record AiBuildRequest
@@ -246,12 +337,53 @@ public sealed record AiBuildRequest
     public bool IncludeMaybeboard { get; init; } = false;
 }
 
+public sealed record AiRefineRequest
+{
+    /// <summary>Bracket the refined deck must still respect. Defaults to Commander's mid bracket.</summary>
+    public int Bracket { get; init; } = 3;
+    public string PriceRange { get; init; } = "any";
+
+    /// <summary>Upper bound on swaps, so a refine cannot quietly rebuild the whole deck.</summary>
+    public int MaxSwaps { get; init; } = 10;
+}
+
+/// <summary>One card exchanged for another during a refine.</summary>
+public sealed record CardSwapDto
+{
+    public string Out { get; init; } = string.Empty;
+    public string In { get; init; } = string.Empty;
+    public string Why { get; init; } = string.Empty;
+}
+
+public sealed record AiRefineResultDto
+{
+    public CardSwapDto[] Swaps { get; init; } = [];
+
+    /// <summary>Swaps the model proposed but that could not be applied, with the reason.</summary>
+    public Dictionary<string, int> RejectedByReason { get; init; } = [];
+
+    public int DeckSizeBefore { get; init; }
+    public int DeckSizeAfter { get; init; }
+}
+
 public sealed record AiBuildResultDto
 {
     public int CardsAdded { get; init; }
     public int SideboardAdded { get; init; }
     public int MaybeboardAdded { get; init; }
     public int CardsSkipped { get; init; }
+
+    /// <summary>Main-deck slots this build was asked to fill.</summary>
+    public int MainTarget { get; init; }
+
+    /// <summary>
+    /// Main-deck slots still empty after substitutes were exhausted. Zero for a
+    /// complete deck; non-zero means the result is not legal and needs manual filling.
+    /// </summary>
+    public int MainShortfall { get; init; }
+
+    /// <summary>Rejection reason -> count, for the cards that were discarded.</summary>
+    public Dictionary<string, int> SkippedByReason { get; init; } = [];
 }
 
 // ---- Forum --------------------------------------------------

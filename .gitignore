@@ -37,3 +37,19 @@ Thumbs.db
 # Local secrets — never commit
 appsettings.Development.json
 *.db
+
+# Redirected stderr from local runs
+*.err
+
+# SQLite side files: binary, rewritten on every request, and meaningless in a diff.
+*.db-shm
+*.db-wal
+
+# Scryfall bulk data (~700 MB) is downloaded on startup, never checked in.
+bulk-data/
+
+# Local run logs
+api-run.log*
+client-run.log*
+server.err
+server.log

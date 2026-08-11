@@ -14,7 +14,10 @@ public static class DomainMapper
         OracleId = def.OracleId,
         Name = def.Name,
         ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
-        ManaValue = def.ManaCost.ManaValue,
+        // Scryfall's cmc, not ManaCost.ManaValue: the parsed cost sums generic + coloured
+        // pips, which reads X as 0 and counts hybrid pips twice. Cmc is authoritative --
+        // see the remarks on CardDefinition.Cmc.
+        ManaValue = def.Cmc,
         CardTypes = ToCardTypeDto(def.CardTypes),
         Subtypes = def.Subtypes.ToArray(),
         Supertypes = def.Supertypes.ToArray(),
@@ -33,6 +36,7 @@ public static class DomainMapper
         FlavorText = def.FlavorText,
         Artist = def.Artist,
         SetCode = def.SetCode,
+        Rarity = def.Rarity,
         Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
         GameChanger = def.GameChanger,
     };

@@ -13,22 +13,46 @@ public interface IManaFineTuneService
 public sealed class ManaFineTuneService : IManaFineTuneService
 {
     private readonly IHttpClientFactory _httpFactory;
+    private readonly IAiCacheService _cache;
     private readonly string _apiKey;
     private readonly ILogger<ManaFineTuneService> _logger;
 
     private const string ModelId = "claude-haiku-4-5-20251001";
 
+    /// <summary>Bump when the model or the prompt changes, to invalidate cached responses.</summary>
+    private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v1";
+
     public ManaFineTuneService(
         IHttpClientFactory httpFactory,
+        IAiCacheService cache,
         IConfiguration config,
         ILogger<ManaFineTuneService> logger)
     {
         _httpFactory = httpFactory;
-        _apiKey = config["Anthropic:ApiKey"] ?? throw new InvalidOperationException("Anthropic:ApiKey not configured");
+        _cache = cache;
+        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
-    public async Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
+    public Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
+    {
+        // AvgCmc is rounded to the same 1dp the prompt renders, so trivially different
+        // floats do not produce different cache keys for an identical prompt.
+        var keyParts = new[]
+            {
+                req.Format,
+                string.Join(',', req.ActiveColors.OrderBy(c => c, StringComparer.Ordinal)),
+                req.CurrentLands.ToString(),
+                req.RecommendedLands.ToString(),
+                req.AvgCmc.ToString("F1"),
+            }
+            .Concat(req.DeckCardNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+
+        return _cache.GetOrCreateAsync(
+            "mana-tune", CacheVersion, keyParts, () => BuildFineTuneAsync(req));
+    }
+
+    private async Task<ManaFineTuneDto> BuildFineTuneAsync(ManaFineTuneRequest req)
     {
         var colorNames = req.ActiveColors.Length > 0
             ? string.Join(", ", req.ActiveColors.Select(c => c switch
@@ -100,21 +124,11 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         {
             var err = await resp.Content.ReadAsStringAsync();
             _logger.LogError("Anthropic mana-tune {Status}: {Body}", resp.StatusCode, err);
-            throw new HttpRequestException($"{resp.StatusCode}: {err}");
+            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
         }
 
         var respJson = await resp.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(respJson);
-        var text = doc.RootElement
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString() ?? "{}";
-
-        text = ExtractJsonObject(text);
-
-        var raw = JsonSerializer.Deserialize<RawFineTune>(text,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-            ?? new RawFineTune();
+        var raw = AnthropicResponse.DeserializeJson<RawFineTune>(respJson) ?? new RawFineTune();
 
         return new ManaFineTuneDto
         {
@@ -135,32 +149,5 @@ public sealed class ManaFineTuneService : IManaFineTuneService
     {
         [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;
-    }
-
-    private static string ExtractJsonObject(string text)
-    {
-        int start = text.IndexOf('{');
-        if (start < 0)
-            return "{}";
-        int depth = 0;
-        bool inString = false;
-        bool escaped = false;
-        for (int i = start; i < text.Length; i++)
-        {
-            char c = text[i];
-            if (escaped)
-            { escaped = false; continue; }
-            if (c == '\\' && inString)
-            { escaped = true; continue; }
-            if (c == '"')
-            { inString = !inString; continue; }
-            if (inString)
-                continue;
-            if (c == '{')
-                depth++;
-            else if (c == '}')
-            { if (--depth == 0) return text[start..(i + 1)]; }
-        }
-        return text[start..];
     }
 }

@@ -12,7 +12,7 @@ public sealed class TokenService
 
     public TokenService(IConfiguration config)
     {
-        _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Secret"]!));
+        _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretConfig.JwtSecret(config)));
     }
 
     public string Generate(User user)

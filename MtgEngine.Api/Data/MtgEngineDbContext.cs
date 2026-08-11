@@ -9,6 +9,7 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
     public DbSet<CardSynergyScore> CardSynergyScores => Set<CardSynergyScore>();
+    public DbSet<AiResponseCache> AiResponseCache => Set<AiResponseCache>();
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
     public DbSet<ForumComment> ForumComments => Set<ForumComment>();
 
@@ -99,7 +100,26 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.Reason).IsRequired().HasMaxLength(500);
             entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(64);
             entity.Property(e => e.CreatedAt).IsRequired();
-            entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId }).IsUnique();
+            // Model version is part of the identity, not just a stamp. A card now has a
+            // score per scoring mode -- ideal, and one per distinct deck shape -- and
+            // keying without the version made writing a deck-aware score clobber the
+            // ideal one for the same pair.
+            entity.HasIndex(e => new { e.CommanderOracleId, e.CardOracleId, e.ModelVersion }).IsUnique();
+        });
+
+        // AiResponseCache
+        modelBuilder.Entity<AiResponseCache>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(32);
+            entity.Property(e => e.CacheKey).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.PayloadJson).IsRequired().HasColumnType("TEXT");
+            entity.Property(e => e.ModelVersion).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.CreatedAt).IsRequired();
+
+            // Lookup is always (kind, key, model version); unique so a hit is unambiguous.
+            entity.HasIndex(e => new { e.Kind, e.CacheKey, e.ModelVersion }).IsUnique();
+            entity.HasIndex(e => e.CreatedAt); // supports TTL sweeps
         });
 
         // ForumPost
