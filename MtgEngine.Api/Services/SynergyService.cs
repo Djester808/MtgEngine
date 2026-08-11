@@ -60,11 +60,10 @@ public sealed class SynergyService : ISynergyService
 {
     private readonly MtgEngineDbContext _db;
     private readonly ICollectionService _collection;
-    private readonly IScryfallService _scryfall;
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly ICardLookup _scryfall;
+    private readonly IAnthropicClient _anthropic;
     private readonly ICommanderDoctrine _doctrine;
     private readonly ICommanderAnalysis _analysis;
-    private readonly string _apiKey;
     private readonly ILogger<SynergyService> _logger;
 
     private const string ModelId = "claude-haiku-4-5-20251001";
@@ -81,20 +80,18 @@ public sealed class SynergyService : ISynergyService
     public SynergyService(
         MtgEngineDbContext db,
         ICollectionService collection,
-        IScryfallService scryfall,
-        IHttpClientFactory httpFactory,
+        ICardLookup scryfall,
+        IAnthropicClient anthropic,
         ICommanderDoctrine doctrine,
         ICommanderAnalysis analysis,
-        IConfiguration config,
         ILogger<SynergyService> logger)
     {
         _db = db;
         _collection = collection;
         _scryfall = scryfall;
-        _httpFactory = httpFactory;
+        _anthropic = anthropic;
         _doctrine = doctrine;
         _analysis = analysis;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
         _logger = logger;
     }
 
@@ -506,47 +503,29 @@ public sealed class SynergyService : ISynergyService
               codes, no references to this document. Under 18 words.
             """;
 
-        var body = new
-        {
-            model = ModelId,
+        var respJson = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
             // ~99 cards x (name + score + tier + role + short reason); 8k leaves headroom.
-            max_tokens = 8000,
-            temperature = 0,
-
+            MaxTokens: 8000,
+            Messages: [new { role = "user", content = prompt }])
+        {
             // The doctrine is byte-identical on every request, so it goes in a cached
             // system prefix rather than the message. Anthropic bills cache reads at a
             // fraction of the input rate and skips re-processing them, which is most of
             // why adding several thousand tokens of standard to every call is affordable.
-            system = new object[]
-            {
+            System =
+            [
                 new
                 {
                     type = "text",
                     text = _doctrine.Text,
                     cache_control = new { type = "ephemeral" },
                 },
-            },
-            messages = new[] { new { role = "user", content = prompt } },
-        };
+            ],
+            Operation = "deck-scoring",
+        });
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        httpReq.Headers.Add("x-api-key", _apiKey);
-        httpReq.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(httpReq);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var errBody = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic deck-scoring {Status}: {Body}", resp.StatusCode, errBody);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, errBody);
-        }
-
-        var respJson = await resp.Content.ReadAsStringAsync();
-        LogCacheUsage(respJson);
+        WarnIfDoctrineUncached(respJson);
         var parsed = AnthropicResponse.DeserializeJson<DeckScoreJson>(respJson);
 
         var map = new Dictionary<string, SynergyJson>(StringComparer.OrdinalIgnoreCase);
@@ -616,11 +595,15 @@ public sealed class SynergyService : ISynergyService
         string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..max];
 
     /// <summary>
-    /// Reports whether the doctrine prefix was served from Anthropic's cache. Worth logging
-    /// rather than assuming: a prefix under the minimum length is accepted silently and
-    /// simply never cached, so the only way to know it is working is to look.
+    /// Warns when the doctrine prefix was neither written to nor read from Anthropic's
+    /// cache. Worth checking rather than assuming: a prefix under the minimum length is
+    /// accepted silently and simply never cached, so the only way to know is to look.
     /// </summary>
-    private void LogCacheUsage(string responseJson)
+    /// <remarks>
+    /// The token counts themselves are logged by <see cref="AnthropicClient"/> for every
+    /// call. This adds only the part that needs the doctrine's own size to interpret.
+    /// </remarks>
+    private void WarnIfDoctrineUncached(string responseJson)
     {
         try
         {
@@ -630,21 +613,13 @@ public sealed class SynergyService : ISynergyService
             int Read(string name) =>
                 usage.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
 
-            var created = Read("cache_creation_input_tokens");
-            var readFromCache = Read("cache_read_input_tokens");
-
-            if (created == 0 && readFromCache == 0)
-            {
-                _logger.LogWarning(
-                    "Doctrine prefix was neither cached nor read from cache ({Tokens} input tokens). " +
-                    "It is ~{Approx} tokens; Anthropic needs {Min} to cache",
-                    Read("input_tokens"), _doctrine.ApproximateTokens, CommanderDoctrine.MinCacheableTokens);
+            if (Read("cache_creation_input_tokens") != 0 || Read("cache_read_input_tokens") != 0)
                 return;
-            }
 
-            _logger.LogInformation(
-                "Prompt cache: {Read} read, {Created} written, {Fresh} uncached input tokens",
-                readFromCache, created, Read("input_tokens"));
+            _logger.LogWarning(
+                "Doctrine prefix was neither cached nor read from cache ({Tokens} input tokens). " +
+                "It is ~{Approx} tokens; Anthropic needs {Min} to cache",
+                Read("input_tokens"), _doctrine.ApproximateTokens, CommanderDoctrine.MinCacheableTokens);
         }
         catch (JsonException)
         {
@@ -689,30 +664,14 @@ public sealed class SynergyService : ISynergyService
             Where 0 = no synergy whatsoever, 100 = exceptional fit.
             """;
 
-        var body = new
+        var respJson = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
+            MaxTokens: 256,
+            Messages: [new { role = "user", content = prompt }])
         {
-            model = ModelId,
-            max_tokens = 256,
-            messages = new[] { new { role = "user", content = prompt } },
-        };
+            Operation = "single-card scoring",
+        });
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        httpReq.Headers.Add("x-api-key", _apiKey);
-        httpReq.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(httpReq);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var errBody = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic API {Status}: {Body}", resp.StatusCode, errBody);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, errBody);
-        }
-
-        var respJson = await resp.Content.ReadAsStringAsync();
         var parsed = AnthropicResponse.DeserializeJson<SynergyJson>(respJson);
 
         return new SynergyResultDto

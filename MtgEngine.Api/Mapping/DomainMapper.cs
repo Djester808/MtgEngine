@@ -4,13 +4,31 @@ using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Mapping;
 
+/// <summary>
+/// The single card-to-DTO mapping. Every endpoint that returns a card goes through here.
+/// </summary>
+/// <remarks>
+/// It was previously copied inline into five callers, which had already drifted: four of
+/// them left <see cref="CardDto.ImageUriLarge"/> unset, so the same card carried a large
+/// image URI when fetched from the cards endpoint and null when it arrived inside a
+/// collection, a deck suggestion, a commander page or a forum post.
+/// </remarks>
 public static class DomainMapper
 {
     public static CardDto ToDto(Card card) => ToDto(card.Definition, card.CardId, card.OwnerId);
 
-    public static CardDto ToDto(CardDefinition def, Guid cardId, Guid ownerId) => new()
+    public static CardDto ToDto(CardDefinition def, Guid cardId, Guid ownerId) =>
+        ToDto(def, cardId.ToString(), ownerId.ToString());
+
+    /// <summary>
+    /// For callers rendering an oracle card with no owned instance behind it. The oracle id
+    /// stands in as the card id, and <see cref="CardDto.OwnerId"/> is left empty.
+    /// </summary>
+    public static CardDto ToDto(CardDefinition def) => ToDto(def, def.OracleId, string.Empty);
+
+    private static CardDto ToDto(CardDefinition def, string cardId, string ownerId) => new()
     {
-        CardId = cardId.ToString(),
+        CardId = cardId,
         OracleId = def.OracleId,
         Name = def.Name,
         ManaCost = string.IsNullOrEmpty(def.ManaCostRaw) ? def.ManaCost.ToString() : def.ManaCostRaw,
@@ -32,7 +50,7 @@ public static class DomainMapper
         ImageUriSmall = def.ImageUriSmall,
         ImageUriArtCrop = def.ImageUriArtCrop,
         ColorIdentity = def.ColorIdentity.Select(ToDto).ToArray(),
-        OwnerId = ownerId.ToString(),
+        OwnerId = ownerId,
         FlavorText = def.FlavorText,
         Artist = def.Artist,
         SetCode = def.SetCode,

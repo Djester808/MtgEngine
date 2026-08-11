@@ -6,15 +6,34 @@ using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
 
-public interface IScryfallService
+/// <summary>
+/// Looking up cards that are already identified, by id or by name.
+/// </summary>
+/// <remarks>
+/// Split from <see cref="IScryfallService"/> because both providers can honour this much:
+/// a single-card lookup is one API call, so the live-API provider answers it as well as
+/// the bulk one. The operations that need a scan of the whole corpus are on
+/// <see cref="IScryfallService"/> instead, which only the bulk provider implements.
+/// Depend on this interface unless you genuinely need the corpus -- most callers only
+/// resolve names to cards.
+/// </remarks>
+public interface ICardLookup
 {
     Task<CardDefinition?> GetByOracleIdAsync(string oracleId);
     Task<CardDefinition?> GetByNameAsync(string name);
     Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId);
     Task<PrintingDto[]> GetPrintingsAsync(string oracleId);
     Task<RulingDto[]> GetRulingsAsync(string oracleId);
-    Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
+}
+
+/// <summary>
+/// Everything in <see cref="ICardLookup"/>, plus the queries that have to walk the whole
+/// card corpus. Only the bulk-data provider can answer these.
+/// </summary>
+public interface IScryfallService : ICardLookup
+{
+    Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null);
     Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null);
 
     /// <summary>
@@ -69,7 +88,13 @@ public interface IScryfallService
 /// Fetches card data from the live Scryfall API with a two-layer cache
 /// (in-memory + disk). Used as fallback when BulkDataService doesn't have a card.
 /// </summary>
-public sealed class ScryfallService : IScryfallService
+/// <remarks>
+/// Implements <see cref="ICardLookup"/> only. It used to declare the whole of
+/// <see cref="IScryfallService"/> and stub the corpus-wide half with empty results, which
+/// meant anything resolving that interface to this class got silently empty sets and
+/// commander lists rather than an error.
+/// </remarks>
+public sealed class ScryfallService : ICardLookup
 {
     private readonly HttpClient _http;
     private readonly ILogger<ScryfallService> _logger;
@@ -146,25 +171,6 @@ public sealed class ScryfallService : IScryfallService
         }
         return def;
     }
-
-    public Task<SetSummaryDto[]> GetSetsAsync(string? filterQuery = null) => Task.FromResult(Array.Empty<SetSummaryDto>());
-    public Task<IReadOnlySet<string>> GetRecentSetCodesAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
-    public Task<IReadOnlyList<RecentSetDto>> GetRecentSetsAsync(int monthsBack = 6, int? maxSets = null) => Task.FromResult<IReadOnlyList<RecentSetDto>>([]);
-    public Task<string[]> GetRecentCardNamesAsync(IReadOnlySet<string> setCodes, IReadOnlySet<ManaColor> commanderColors, IReadOnlySet<string>? allowedRarities = null, bool debutOnly = false) => Task.FromResult(Array.Empty<string>());
-
-    public Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
-        IReadOnlySet<ManaColor> commanderColors, CardDefinition? commander = null, string? query = null,
-        IReadOnlySet<string>? setCodes = null, bool gameChangersOnly = false,
-        CardType types = CardType.None, int? cmcMin = null, int? cmcMax = null,
-        int limit = 50, int offset = 0) => Task.FromResult((Array.Empty<CardDefinition>(), 0));
-
-    // Require a full-corpus scan; only the bulk-data provider can answer these.
-    public Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) => Task.FromResult(Array.Empty<string>());
-    public Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
-        IReadOnlySet<ManaColor> commanderColors, int bracket) =>
-        Task.FromResult<IReadOnlyDictionary<CardRole, string[]>>(new Dictionary<CardRole, string[]>());
-    public Task<CardDefinition[]> SearchCommandersAsync(string? nameQuery, int limit = 100, string? setCode = null) =>
-        Task.FromResult(Array.Empty<CardDefinition>());
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {

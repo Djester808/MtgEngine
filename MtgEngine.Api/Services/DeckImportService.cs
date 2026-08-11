@@ -89,12 +89,12 @@ public static class DeckListParser
 
 public sealed class DeckImportService
 {
-    private readonly IScryfallService _scryfall;
+    private readonly ICardLookup _scryfall;
     private readonly ICollectionService _collection;
     private readonly IHttpClientFactory _httpFactory;
 
     public DeckImportService(
-        IScryfallService scryfall,
+        ICardLookup scryfall,
         ICollectionService collection,
         IHttpClientFactory httpFactory)
     {

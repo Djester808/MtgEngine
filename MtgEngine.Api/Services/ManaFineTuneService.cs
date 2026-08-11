@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using MtgEngine.Api.Dtos;
 
@@ -12,26 +10,18 @@ public interface IManaFineTuneService
 
 public sealed class ManaFineTuneService : IManaFineTuneService
 {
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly IAnthropicClient _anthropic;
     private readonly IAiCacheService _cache;
-    private readonly string _apiKey;
-    private readonly ILogger<ManaFineTuneService> _logger;
 
     private const string ModelId = "claude-haiku-4-5-20251001";
 
     /// <summary>Bump when the model or the prompt changes, to invalidate cached responses.</summary>
     private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v1";
 
-    public ManaFineTuneService(
-        IHttpClientFactory httpFactory,
-        IAiCacheService cache,
-        IConfiguration config,
-        ILogger<ManaFineTuneService> logger)
+    public ManaFineTuneService(IAnthropicClient anthropic, IAiCacheService cache)
     {
-        _httpFactory = httpFactory;
+        _anthropic = anthropic;
         _cache = cache;
-        _apiKey = SecretConfig.AnthropicApiKey(config);
-        _logger = logger;
     }
 
     public Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
@@ -103,31 +93,14 @@ public sealed class ManaFineTuneService : IManaFineTuneService
             - Only use real, officially printed Magic card names
             """;
 
-        var body = new
+        var respJson = await _anthropic.SendAsync(new AnthropicRequest(
+            ModelId,
+            MaxTokens: 800,
+            Messages: [new { role = "user", content = prompt }])
         {
-            model = ModelId,
-            max_tokens = 800,
-            temperature = 0,
-            messages = new[] { new { role = "user", content = prompt } },
-        };
+            Operation = "mana-tune",
+        });
 
-        var http = _httpFactory.CreateClient("AnthropicApi");
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
-        };
-        httpReq.Headers.Add("x-api-key", _apiKey);
-        httpReq.Headers.Add("anthropic-version", "2023-06-01");
-
-        var resp = await http.SendAsync(httpReq);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            _logger.LogError("Anthropic mana-tune {Status}: {Body}", resp.StatusCode, err);
-            throw new AiUpstreamException("Anthropic", resp.StatusCode, err);
-        }
-
-        var respJson = await resp.Content.ReadAsStringAsync();
         var raw = AnthropicResponse.DeserializeJson<RawFineTune>(respJson) ?? new RawFineTune();
 
         return new ManaFineTuneDto
