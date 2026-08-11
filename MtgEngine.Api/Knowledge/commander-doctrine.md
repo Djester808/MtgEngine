@@ -489,6 +489,52 @@ Naming a rule in the reason and leaving the score unchanged is a failure. If a c
 penalised by §6.4 or by T6, the score must land in the band that penalty implies. A reason
 that says "poor fit here" attached to a solid score is self-contradictory.
 
+### 9.10 A restricted ability reaches only the objects it names
+
+An ability either applies to everything relevant or restricts itself to objects that share a
+stated characteristic — a type, a subtype, a keyword, a colour, a name, a numeric threshold.
+A restricted ability confers its effect **only** on objects that actually have that
+characteristic. The restriction is part of the text, never a detail to round off — and it is
+about the **specific object, not the deck**. A deck built full of the named characteristic
+does not make a card that lacks it a valid target; only the card's own characteristics decide.
+
+**This is a check you run on every claim, not a fact you recall.** Characteristics are computed
+facts (§0.1) and each card's type line is supplied. Whenever a claim leans on another card's
+ability — most often the commander's payoff:
+
+1. Read that ability. Does its text limit the objects it affects to a stated characteristic?
+2. If it does, read the beneficiary card's own characteristics — its type line, keywords, text.
+3. The ability reaches the card **only if** the card itself has that characteristic, or the
+   card's own text **creates** objects that have it. Otherwise the ability does not touch this
+   card: its effect on the card does not exist (§9.2), however strong the ability is.
+
+Sharing the deck's theme, colour, or plan never satisfies a restriction — nothing but the
+named characteristic does. A card that *produces* the gated objects enables the ability for
+**those objects**; the producing card's own effects stay unaffected unless it qualifies too.
+
+When a card's **only** hook to the commander is a restriction it does not satisfy, that hook is
+void: withdraw the reason and do not score it (§8 T6). Judge the card solely on what it
+contributes independently (§9.5) — an honest lower score, not an interaction it cannot have.
+
+### 9.11 Name the mechanism, not the association
+
+A reason states a concrete interaction: what triggers what, what one card produces that another
+consumes, which named requirement the card meets. Coupling a card to the commander's headline
+ability with associative filler — "synergizes with", "works with", "fuels", "supports", "pairs
+with", "alongside", "contributes to the plan" — is **not** a reason when it never says *how*. It
+reads as a hook while asserting nothing you could check, and that is exactly how a card with no
+real link keeps a slot.
+
+Treat such filler as no hook at all. Before writing that a card works with the commander's
+payoff, name the rules step that connects them — the specific trigger, cost, or produced object.
+If you cannot, the connection is not there: judge the card only on contributions you *can* name
+(§9.5), and if the only thing tying it to this commander is an association you cannot cash out
+into a rules interaction, it is off-plan (§8 T6) and weak.
+
+This does not penalise honest generic value. "Produces two mana", "draws a card each turn",
+"instant-speed removal for any creature" are concrete and welcome (§9.4). The target is the
+sentence that gestures at the commander's marquee ability to borrow its shine without earning it.
+
 ---
 
 ## 10. Scoring
@@ -583,6 +629,7 @@ the power requirement is a genuine need.
 | The same effect in a low-creature control deck | 78–86 | T4 | Removal | Same card, inverted by archetype |
 | Large creature meeting the commander's power threshold, nothing else | 68–76 | T1 | Threat | Satisfies the named requirement (§9.3) but contributes nothing further |
 | Creature below the power threshold, of the deck's tribe | 58–70 | T2 | Threat | Tribal density (§8 T2); state plainly that it misses the requirement |
+| Card whose only commander link is a restricted ability whose characteristic the card does not have | 15–28 | T6 | — | Fails the restriction; that interaction does not exist (§9.2, §9.10). Any independent contribution is judged on its own, never on the void hook |
 
 Note that two rows describe the **same card in different decks** and land in opposite
 bands. That deck-dependence is the doctrine working, not an inconsistency.
@@ -596,3 +643,6 @@ bands. That deck-dependence is the doctrine working, not an inconsistency.
 | 2026-08-10 | Initial version. Codified fixes for the "generic power" demotion (§9.3), infrastructure dismissal (§9.4), commander-text tunnel vision (§9.5), and split-brain scoring |
 | 2026-08-10 | **Moved rules-text interpretation out of code and into §0.2.** The fact sheet now states structured fields only; reading prose in C# meant a new pattern per mechanic per set, and a naive "enters tapped" match had already misread every land with a conditional tapped clause |
 | 2026-08-10 | **Removed every card name.** Measurement showed a named card with a stated score landed ~20 points above a functionally equivalent unnamed card — the names were acting as a lookup table rather than a rubric, and would not have transferred to new printings. All rules restated as properties; §11 converted from named examples to card shapes. Added §0.1 explaining the ban and §9.9 requiring stated rules to move the score |
+| 2026-08-10 | **Added §9.10: restricted abilities reach only the objects they name.** A commander payoff that applies only to objects with a stated characteristic was credited to a card lacking it, because the effect and the restriction were each quotable on their own. §9.2 covered same-card invented interactions but not this cross-card, restricted case. Added the anti-pattern and a §11 shape row so a hook the card cannot satisfy scores in the T6 band and its reason is withdrawn |
+| 2026-08-10 | **Tightened §9.10 into a mandatory per-claim procedure.** The principle alone still let claims survive by leaning on the deck ("the deck is full of the characteristic") rather than the card's own characteristics. Restated as a numbered check run on every claim, made explicit that the restriction is about the specific object not the deck, and that a card which *produces* the gated objects still does not gain the effect itself unless it qualifies |
+| 2026-08-10 | **Added §9.11: name the mechanism, not the association.** After §9.10 killed outright false claims, reasons fell back to vague coupling — "synergizes with / fuels / supports the commander's payoff" without a named rules step, borrowing the marquee ability's shine without earning it. A reason must state the concrete interaction; filler that says nothing checkable is treated as no hook, and a card whose only tie is such filler is off-plan (T6) and weak |

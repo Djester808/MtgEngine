@@ -75,7 +75,14 @@ public sealed class SynergyService : ISynergyService
     //     numbers -- and the prompt forbids attributing a neighbouring card's ability to
     //     the commander, which had produced "triggers double via commander" for a
     //     commander with no such ability.
-    private const string CacheVersionBase = "claude-haiku-4-5-20251001-doctrine-v5";
+    // v6: doctrine §9.10 added -- a restricted ability reaches only objects with the
+    //     characteristic it names, so the commander's restricted payoff must not be credited
+    //     to a card that does not satisfy the restriction. Scores that leaned on such a void
+    //     hook are no longer comparable, so the cache turns over.
+    // v7: doctrine §9.10 tightened into a mandatory per-claim procedure -- the restriction is
+    //     about the specific object, not the deck; a deck full of the characteristic does not
+    //     qualify a card that lacks it. Scores must reflect the tightened standard.
+    private const string CacheVersionBase = "claude-haiku-4-5-20251001-doctrine-v7";
 
     public SynergyService(
         MtgEngineDbContext db,

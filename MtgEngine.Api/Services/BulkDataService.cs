@@ -522,6 +522,91 @@ public sealed class BulkDataService : IScryfallService
         return [.. signals];
     }
 
+    /// <summary>
+    /// The card types the commander's own rules text rewards, as a flag mask, read from the
+    /// text rather than from any hard-coded card or archetype list. A "noncreature spell"
+    /// commander rewards every spell type; an artifact- or enchantment-matters commander
+    /// rewards that type. This is what lets a spell-matters commander pull instants and
+    /// sorceries into the relevance ranking instead of only on-type creatures. Empty when the
+    /// text names no card type it cares about.
+    /// </summary>
+    private static CardType CommanderTypeAxes(CardDefinition? commander)
+    {
+        var text = commander?.OracleText;
+        if (string.IsNullOrEmpty(text))
+            return CardType.None;
+
+        var t = text.ToLowerInvariant();
+        var axes = CardType.None;
+
+        // "noncreature spell" rewards every spell type (lands are not spells).
+        if (t.Contains("noncreature spell"))
+            axes |= CardType.Instant | CardType.Sorcery | CardType.Enchantment
+                  | CardType.Artifact | CardType.Planeswalker;
+
+        if (t.Contains("instant or sorcery") || t.Contains("instant and sorcery")
+            || t.Contains("instants and sorceries") || t.Contains("instants or sorceries"))
+            axes |= CardType.Instant | CardType.Sorcery;
+
+        // A commander that cares about a permanent type by name rewards that type.
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"\bartifacts?\b"))
+            axes |= CardType.Artifact;
+        if (System.Text.RegularExpressions.Regex.IsMatch(t, @"\benchantments?\b"))
+            axes |= CardType.Enchantment;
+
+        return axes;
+    }
+
+    /// <summary>
+    /// Reorders a relevance-ranked sequence so each card-type bucket is spread evenly through
+    /// the result in proportion to its size, preserving relevance order within a bucket. A card
+    /// at position i of a bucket of n lands at fraction (i + 0.5) / n; sorting every card by
+    /// that fraction interleaves the buckets proportionally. The top slice — the window that
+    /// gets synergy-scored — therefore mirrors the pool's real card-type mix instead of being
+    /// dominated by the most common type. Deterministic and type-agnostic: a single-type input
+    /// comes back in relevance order, and no card or type is named.
+    /// </summary>
+    internal static IEnumerable<CardDefinition> InterleaveByType(IEnumerable<CardDefinition> ranked)
+    {
+        var list = ranked as IReadOnlyList<CardDefinition> ?? ranked.ToList();
+
+        var sizes = new Dictionary<CardType, int>();
+        foreach (var d in list)
+        {
+            var b = PrimaryTypeBucket(d);
+            sizes[b] = sizes.TryGetValue(b, out var n) ? n + 1 : 1;
+        }
+
+        var seen = new Dictionary<CardType, int>();
+        return list
+            .Select(d =>
+            {
+                var b = PrimaryTypeBucket(d);
+                int i = seen.TryGetValue(b, out var v) ? v : 0;
+                seen[b] = i + 1;
+                return (Card: d, Frac: (i + 0.5) / sizes[b]);
+            })
+            .OrderBy(x => x.Frac) // stable: equal fractions keep relevance order
+            .Select(x => x.Card);
+    }
+
+    /// <summary>One representative card-type bucket for a card. Creatures bucket as creatures
+    /// even when they carry another type (Artifact Creature); everything else buckets by its
+    /// most prominent non-creature type.</summary>
+    private static CardType PrimaryTypeBucket(CardDefinition d)
+    {
+        foreach (var t in new[]
+                 {
+                     CardType.Creature, CardType.Land, CardType.Planeswalker, CardType.Battle,
+                     CardType.Artifact, CardType.Enchantment, CardType.Instant, CardType.Sorcery,
+                 })
+        {
+            if ((d.CardTypes & t) != CardType.None)
+                return t;
+        }
+        return CardType.None;
+    }
+
     public async Task<(CardDefinition[] Cards, int Total)> GetCandidatePoolAsync(
         IReadOnlySet<ManaColor> commanderColors,
         CardDefinition? commander = null,
@@ -628,8 +713,21 @@ public sealed class BulkDataService : IScryfallService
             // Abomination, for a Wolf commander. Rank by how much a card echoes the
             // commander instead: shares a creature type, or names an ability word its
             // rules text turns on. Nothing is filtered out, only ordered.
+            // Three layers keep this honest across archetypes, none of them naming a card or
+            // a specific type:
+            //   (1) relevance rewards not only on-type creatures but also the card TYPES the
+            //       commander's own text rewards (a "noncreature spell" commander pulls in
+            //       instants/sorceries), read from the commander — see CommanderTypeAxes;
+            //   (2) the on-type-creature bonus is capped so a common creature type can't run
+            //       away with the ranking;
+            //   (3) the ranked list is interleaved across card-type buckets in proportion to
+            //       the pool itself, so the slice that gets scored mirrors the pool's real type
+            //       mix instead of being flooded by whichever type is most common — see
+            //       InterleaveByType. A genuinely single-type pool stays single-type.
             var signals = CommanderSignals(commander);
-            if (signals.Length == 0)
+            var typeAxes = CommanderTypeAxes(commander);
+
+            if (signals.Length == 0 && typeAxes == CardType.None)
             {
                 pool = pool.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
             }
@@ -637,23 +735,27 @@ public sealed class BulkDataService : IScryfallService
             {
                 int Relevance(CardDefinition d)
                 {
-                    int score = 0;
+                    int subtypeScore = 0, textScore = 0;
                     foreach (var s in signals)
                     {
-                        // Being the type counts for more than mentioning it.
                         if (d.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase))
-                            score += 3;
+                            subtypeScore += 3;
                         else if (d.OracleText?.Contains(s, StringComparison.OrdinalIgnoreCase) == true)
-                            score += 2;
+                            textScore += 2;
                     }
-                    return score;
+                    // (1) on-axis by card type even with no shared creature type; (2) cap the
+                    // subtype contribution so many common types can't dwarf a real payoff.
+                    int axisScore = (d.CardTypes & typeAxes) != CardType.None ? 3 : 0;
+                    return Math.Min(subtypeScore, 6) + textScore + axisScore;
                 }
 
-                pool = pool
+                var ranked = pool
                     .Select(d => (Card: d, Rank: Relevance(d)))
                     .OrderByDescending(x => x.Rank)
                     .ThenBy(x => x.Card.Name, StringComparer.OrdinalIgnoreCase)
                     .Select(x => x.Card);
+
+                pool = InterleaveByType(ranked); // (3)
             }
         }
 

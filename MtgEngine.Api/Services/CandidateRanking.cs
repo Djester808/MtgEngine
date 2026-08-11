@@ -47,7 +47,13 @@ public sealed record RankRequest(
     IReadOnlyList<string>? Focus = null,
     int Limit = 8,
     int Offset = 0,
-    int ScoreWindow = CandidateRanking.DefaultScoreWindow);
+    int ScoreWindow = CandidateRanking.DefaultScoreWindow,
+    /// <summary>
+    /// A pre-resolved candidate shortlist to score and rank, bypassing the Scryfall relevance
+    /// pool. Used to score the cards a commander is actually played with (EDHREC) rather than a
+    /// relevance-ranked slice of the whole colour pool. Null = build the pool from Scryfall.
+    /// </summary>
+    IReadOnlyList<CardDefinition>? Candidates = null);
 
 /// <param name="Total">Size of the whole pool, not just the scored window.</param>
 /// <param name="Scored">How many of the pool were scored and ranked.</param>
@@ -92,11 +98,22 @@ public sealed class CandidateRanking : ICandidateRanking
         foreach (var r in requests)
         {
             var window = Math.Clamp(r.ScoreWindow, r.Limit, 200);
-            var (cards, total) = await _scryfall.GetCandidatePoolAsync(
+
+            if (r.Candidates is { Count: > 0 })
+            {
+                // Pre-resolved pool (e.g. EDHREC): score the head of it directly. The caller
+                // has already ordered it (relevance / type-interleaved), so scoring the window
+                // and ranking by synergy gives the category head.
+                var cards = r.Candidates.Take(window).ToArray();
+                shortlists.Add((r, cards, r.Candidates.Count));
+                continue;
+            }
+
+            var (poolCards, total) = await _scryfall.GetCandidatePoolAsync(
                 r.Commander.ColorIdentity.ToHashSet(), r.Commander, r.Query, r.SetCodes,
                 r.GameChangersOnly, r.Types, r.CmcMin, r.CmcMax, window, offset: 0);
 
-            shortlists.Add((r, cards, total));
+            shortlists.Add((r, poolCards, total));
         }
 
         // Stage 2: one scoring pass over the union. The pools overlap, so this is far less

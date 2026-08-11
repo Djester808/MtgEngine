@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
@@ -164,6 +166,57 @@ public sealed class DecksController : ControllerBase
 
         var result = await suggestionsService.GetSuggestionsAsync(request);
         return Ok(result);
+    }
+
+    /// <summary>Web defaults (camelCase) plus enum-as-string, matching the MVC-serialized
+    /// non-streaming endpoint so the client parses both responses identically.</summary>
+    private static readonly JsonSerializerOptions SseJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    /// <summary>
+    /// Server-Sent-Events variant of <see cref="GetSuggestions"/>. Emits coarse "stage" events
+    /// and a provisional "cards" event while building, then a single "final" event with the
+    /// validated result (or an "error" event). On a cache hit only "final" is sent.
+    /// </summary>
+    [HttpPost("suggestions/stream")]
+    public async Task GetSuggestionsStream(
+        [FromBody] DeckSuggestionsRequest request,
+        [FromServices] IDeckSuggestionsService suggestionsService,
+        CancellationToken ct)
+    {
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no"; // stop proxies buffering the stream
+
+        async Task Emit(string @event, object payload)
+        {
+            var json = JsonSerializer.Serialize(payload, SseJson);
+            await Response.WriteAsync($"event: {@event}\ndata: {json}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+        {
+            await Emit("error", new { message = "CommanderOracleId is required" });
+            return;
+        }
+
+        try
+        {
+            var result = await suggestionsService.GetSuggestionsStreamAsync(request, Emit, ct);
+            await Emit("final", result);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected mid-stream; nothing to report.
+        }
+        catch (Exception)
+        {
+            try { await Emit("error", new { message = "Failed to generate suggestions." }); }
+            catch { /* client already gone */ }
+        }
     }
 
     // ---- Mana fine-tune -------------------------------------------
