@@ -269,6 +269,12 @@ public sealed record ManaLandSuggestion
 {
     public string Name { get; init; } = string.Empty;
     public string Reason { get; init; } = string.Empty;
+
+    /// <summary>Newest printing, so the client can add the card directly.</summary>
+    public string? ScryfallId { get; init; }
+
+    /// <summary>Resolved card data; suggestions that fail to resolve are dropped.</summary>
+    public CardDto? Card { get; init; }
 }
 
 public sealed record ManaFineTuneDto

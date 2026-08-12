@@ -761,7 +761,7 @@ public sealed class BulkDataService : IScryfallService
 
         var all = pool.ToArray();
         var page = all.Skip(offset).Take(limit)
-            .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
+            .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d)
             .ToArray();
 
         return (page, all.Length);
@@ -922,7 +922,7 @@ public sealed class BulkDataService : IScryfallService
                     .Take(limit)
                     .Select(n => _byOracleId.TryGetValue(_byName[n], out var d) ? d : null)
                     .Where(d => d is not null).Cast<CardDefinition>()
-                    .Select(d => d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d)
+                    .Select(d => d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d)
                     .ToArray();
                 if (localResults.Length > 0 || offset > 0)
                     return localResults;
@@ -965,7 +965,7 @@ public sealed class BulkDataService : IScryfallService
                         return CardParser.WithPrinting(d, p.ImageUriNormal, p.ImageUriLarge, p.ImageUriSmall, null,
                                                        p.SetCode, p.ImageUriNormalBack);
                 }
-                return d.ImageUriSmall is null ? EnrichWithFirstPrinting(d) : d;
+                return d.ImageUriSmall is null ? EnrichWithNewestPrinting(d) : d;
             })
             .ToArray();
 
@@ -1293,7 +1293,16 @@ public sealed class BulkDataService : IScryfallService
             }
         }
 
-        _printingsByOracleId = printings.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
+        // Newest set first: printing pickers across the client default to the first entry,
+        // and "the latest printing" is the sensible default everywhere one is chosen.
+        _printingsByOracleId = printings.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value
+                .OrderByDescending(p =>
+                    p.SetCode is not null && setReleaseDates.TryGetValue(p.SetCode, out var d)
+                        ? d
+                        : DateOnly.MinValue)
+                .ToArray());
         _byScryfallId = scryfallIdx;
         _bySetCode = setIdx;
         _setNames = setNames;
@@ -1308,12 +1317,13 @@ public sealed class BulkDataService : IScryfallService
         return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
-    private CardDefinition EnrichWithFirstPrinting(CardDefinition oracle)
+    /// <summary>Fills missing images from printings[0] — newest set first, per the index sort.</summary>
+    private CardDefinition EnrichWithNewestPrinting(CardDefinition oracle)
     {
         if (!_printingsByOracleId.TryGetValue(oracle.OracleId, out var printings) || printings.Length == 0)
             return oracle;
-        var first = printings[0];
-        return CardParser.WithPrinting(oracle, first.ImageUriNormal, first.ImageUriLarge, first.ImageUriSmall, null, first.SetCode);
+        var newest = printings[0];
+        return CardParser.WithPrinting(oracle, newest.ImageUriNormal, newest.ImageUriLarge, newest.ImageUriSmall, null, newest.SetCode);
     }
 
     // ---- Bulk-data metadata & download -----------------------------------

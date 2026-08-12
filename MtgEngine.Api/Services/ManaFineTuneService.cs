@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 
 namespace MtgEngine.Api.Services;
 
@@ -12,16 +14,24 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 {
     private readonly IAnthropicClient _anthropic;
     private readonly IAiCacheService _cache;
+    private readonly ICardLookup _cards;
+    private readonly ILogger<ManaFineTuneService> _logger;
 
     private const string ModelId = "claude-haiku-4-5-20251001";
 
-    /// <summary>Bump when the model or the prompt changes, to invalidate cached responses.</summary>
-    private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v1";
+    /// <summary>Bump when the model, the prompt, or the response shape changes.</summary>
+    private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v3";
 
-    public ManaFineTuneService(IAnthropicClient anthropic, IAiCacheService cache)
+    public ManaFineTuneService(
+        IAnthropicClient anthropic,
+        IAiCacheService cache,
+        ICardLookup cards,
+        ILogger<ManaFineTuneService> logger)
     {
         _anthropic = anthropic;
         _cache = cache;
+        _cards = cards;
+        _logger = logger;
     }
 
     public Task<ManaFineTuneDto> GetFineTuneAsync(ManaFineTuneRequest req)
@@ -106,10 +116,66 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         return new ManaFineTuneDto
         {
             Advice = raw.Advice,
-            LandSuggestions = raw.LandSuggestions
-                .Select(l => new ManaLandSuggestion { Name = l.Name, Reason = l.Reason })
-                .ToArray(),
+            LandSuggestions = await GroundSuggestionsAsync(raw.LandSuggestions, req),
         };
+    }
+
+    /// <summary>
+    /// Resolves each model-proposed land against the card database, so a suggestion is a
+    /// real card the client can add directly (newest printing preselected). Hallucinated
+    /// names and cards already in the deck are dropped rather than shown as dead text.
+    /// </summary>
+    /// <remarks>Internal for tests: the model call above it is faked away there.</remarks>
+    internal async Task<ManaLandSuggestion[]> GroundSuggestionsAsync(
+        RawLandSuggestion[] proposed, ManaFineTuneRequest req)
+    {
+        var inDeck = new HashSet<string>(
+            req.DeckCardNames.Select(n => n.Trim()), StringComparer.OrdinalIgnoreCase);
+        var seenOracleIds = new HashSet<string>(StringComparer.Ordinal);
+        var grounded = new List<ManaLandSuggestion>(proposed.Length);
+
+        foreach (var l in proposed)
+        {
+            var name = l.Name?.Trim() ?? string.Empty;
+            if (name.Length == 0 || inDeck.Contains(name))
+                continue;
+
+            var def = await _cards.GetByNameAsync(name);
+            if (def is null)
+            {
+                _logger.LogInformation("Mana-tune suggestion dropped, unknown card: {Name}", name);
+                continue;
+            }
+            // The section claims "Suggested Lands" — hold the model to it.
+            if (!def.IsLand)
+            {
+                _logger.LogInformation("Mana-tune suggestion dropped, not a land: {Name}", def.Name);
+                continue;
+            }
+            // Re-check under the canonical name: the model may cite one face of an MDFC
+            // the deck stores as "Front // Back", or an alternate spelling.
+            if (inDeck.Contains(def.Name.Trim()))
+                continue;
+            // The same card proposed twice (or via two resolvable spellings) shows once.
+            if (!seenOracleIds.Add(def.OracleId))
+                continue;
+
+            var printings = await _cards.GetPrintingsAsync(def.OracleId);
+            grounded.Add(new ManaLandSuggestion
+            {
+                Name = def.Name,
+                Reason = l.Reason,
+                ScryfallId = printings.FirstOrDefault()?.ScryfallId,
+                Card = DomainMapper.ToDto(def),
+            });
+        }
+
+        if (grounded.Count < proposed.Length)
+            _logger.LogInformation(
+                "Mana-tune grounding kept {Kept}/{Proposed} land suggestions",
+                grounded.Count, proposed.Length);
+
+        return [.. grounded];
     }
 
     private sealed class RawFineTune
@@ -118,7 +184,7 @@ public sealed class ManaFineTuneService : IManaFineTuneService
         [JsonPropertyName("landSuggestions")] public RawLandSuggestion[] LandSuggestions { get; set; } = [];
     }
 
-    private sealed class RawLandSuggestion
+    internal sealed class RawLandSuggestion
     {
         [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
         [JsonPropertyName("reason")] public string Reason { get; set; } = string.Empty;

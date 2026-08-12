@@ -175,7 +175,8 @@ public sealed class ScryfallService : ICardLookup
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
     {
         var encoded = Uri.EscapeDataString($"oracleid:{oracleId}");
-        var json = await FetchRawAsync($"cards/search?q={encoded}&unique=prints&order=released&dir=asc");
+        // dir=desc: newest printing first, matching the bulk-data index ordering.
+        var json = await FetchRawAsync($"cards/search?q={encoded}&unique=prints&order=released&dir=desc");
         if (json is null)
             return [];
         if (!json.Value.TryGetProperty("data", out var data))
