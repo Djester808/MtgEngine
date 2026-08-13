@@ -106,22 +106,8 @@ public sealed class ForumService : IForumService
             var cardList = new List<CollectionCardDto>();
             foreach (var card in deck.Cards)
             {
-                var cardDef = card.ScryfallId is not null
-                    ? await _scryfall.GetByScryfallIdAsync(card.ScryfallId)
-                    : await _scryfall.GetByOracleIdAsync(card.OracleId);
-
-                cardList.Add(new CollectionCardDto
-                {
-                    Id = card.Id,
-                    OracleId = card.OracleId,
-                    ScryfallId = card.ScryfallId,
-                    Quantity = card.Quantity,
-                    QuantityFoil = card.QuantityFoil,
-                    Notes = card.Notes,
-                    Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
-                    AddedAt = card.AddedAt,
-                    CardDetails = cardDef != null ? MapToCardDto(cardDef) : null,
-                });
+                var cardDef = await _scryfall.ResolveForEntryAsync(card);
+                cardList.Add(DomainMapper.ToDto(card, cardDef));
             }
             cardDtos = [.. cardList];
         }
@@ -324,8 +310,5 @@ public sealed class ForumService : IForumService
         await _context.SaveChangesAsync();
         return true;
     }
-
-    /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>
-    private static CardDto MapToCardDto(CardDefinition def) => DomainMapper.ToDto(def);
 
 }

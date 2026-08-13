@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
@@ -25,6 +26,31 @@ public interface ICardLookup
     Task<PrintingDto[]> GetPrintingsAsync(string oracleId);
     Task<RulingDto[]> GetRulingsAsync(string oracleId);
     Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false);
+}
+
+public static class CardLookupExtensions
+{
+    /// <summary>
+    /// Resolves the card definition a collection entry should render with: the pinned
+    /// printing when the row carries one, else the oracle default.
+    /// </summary>
+    /// <remarks>
+    /// Two call sites used to resolve by oracle id unconditionally, so a card pinned to
+    /// a specific printing came back with the default printing's art from AddCard and
+    /// GetCard but the pinned art from GetCollection. Falls back to the oracle default
+    /// when the pinned id cannot be resolved rather than dropping the card details.
+    /// </remarks>
+    public static async Task<CardDefinition?> ResolveForEntryAsync(
+        this ICardLookup lookup, CollectionCard card)
+    {
+        if (card.ScryfallId is not null)
+        {
+            var pinned = await lookup.GetByScryfallIdAsync(card.ScryfallId);
+            if (pinned is not null)
+                return pinned;
+        }
+        return await lookup.GetByOracleIdAsync(card.OracleId);
+    }
 }
 
 /// <summary>
@@ -182,48 +208,14 @@ public sealed class ScryfallService : ICardLookup
         if (!json.Value.TryGetProperty("data", out var data))
             return [];
 
+        // Shared mapping with the bulk-data index — the same oracle id must come back
+        // identical (back-face image, combined DFC text) whichever source answered.
         var printings = new List<PrintingDto>();
         foreach (var card in data.EnumerateArray())
         {
-            var id = card.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
-            var setCode = card.TryGetProperty("set", out var setEl) ? setEl.GetString() ?? "" : "";
-            var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
-            var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
-
-            string? imgSmall = null, imgNormal = null, imgLarge = null;
-            if (card.TryGetProperty("image_uris", out var imgs))
-            {
-                if (imgs.TryGetProperty("small", out var s))
-                    imgSmall = s.GetString();
-                if (imgs.TryGetProperty("normal", out var n))
-                    imgNormal = n.GetString();
-                if (imgs.TryGetProperty("large", out var lg))
-                    imgLarge = lg.GetString();
-            }
-
-            // Per-printing text — fall back to card_faces[0] for DFCs
-            var face0 = card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0
-                ? faces[0] : (JsonElement?)null;
-
-            string? oracleText = GetStr(card, "oracle_text") ?? GetStr(face0, "oracle_text");
-            string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
-            string? artist = GetStr(card, "artist") ?? GetStr(face0, "artist");
-            string? manaCost = GetStr(card, "mana_cost") ?? GetStr(face0, "mana_cost");
-
-            printings.Add(new PrintingDto
-            {
-                ScryfallId = id,
-                SetCode = setCode,
-                SetName = setName,
-                CollectorNumber = num,
-                ImageUriSmall = imgSmall,
-                ImageUriNormal = imgNormal,
-                ImageUriLarge = imgLarge,
-                OracleText = oracleText,
-                FlavorText = flavorText,
-                Artist = artist,
-                ManaCost = manaCost,
-            });
+            var parsed = ScryfallPrintingMapper.Parse(card);
+            if (parsed is not null)
+                printings.Add(parsed.Value.Dto);
         }
         return [.. printings];
     }
@@ -268,13 +260,6 @@ public sealed class ScryfallService : ICardLookup
         if (printings.Length == 0)
             return [];
         return await GetRulingsByScryfallIdAsync(printings[0].ScryfallId);
-    }
-
-    private static string? GetStr(JsonElement? el, string prop)
-    {
-        if (el is null)
-            return null;
-        return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
     public async Task<CardDefinition[]> SearchAsync(string query, int limit = 20, int offset = 0, string sortBy = "name", string sortDir = "asc", bool matchCase = false, bool matchWord = false, bool useRegex = false)

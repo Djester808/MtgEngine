@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
+using static MtgEngine.Api.Services.CardGrounding;
 
 namespace MtgEngine.Api.Services;
 
@@ -218,15 +219,9 @@ public sealed class AiBuildService : IAiBuildService
             if (inDef is null)
             { Reject(Rejection.UnknownCard); continue; }
 
-            if (cmdColors.Count > 0
-                && !inDef.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c)))
-            { Reject(Rejection.ColorIdentity); continue; }
-
-            if (!CommanderRules.IsLegalInCommander(inDef))
-            { Reject(Rejection.NotCommanderLegal); continue; }
-
-            if (inDef.GameChanger && request.Bracket < 4)
-            { Reject(Rejection.AboveBracket); continue; }
+            // Shared ladder with AddCards — color identity, commander legality, bracket.
+            if (CardGrounding.ValidateForCommanderDeck(inDef, cmdColors, request.Bracket) is string rejection)
+            { Reject(rejection); continue; }
 
             try
             {
@@ -414,16 +409,7 @@ public sealed class AiBuildService : IAiBuildService
 
     // ---- Card resolution + insertion ----------------------------------------
 
-    /// <summary>Why a proposed card was not added.</summary>
-    private static class Rejection
-    {
-        public const string UnknownCard = "unknown-card";
-        public const string ColorIdentity = "color-identity";
-        public const string NotCommanderLegal = "not-commander-legal";
-        public const string AboveBracket = "game-changer-above-bracket";
-        public const string Duplicate = "duplicate";
-        public const string AddFailed = "add-failed";
-    }
+    // Rejection reasons live on CardGrounding, shared with the validation ladder.
 
     /// <param name="names">
     /// Primary picks followed by substitutes. The loop stops once <paramref name="maxCards"/>
@@ -453,30 +439,20 @@ public sealed class AiBuildService : IAiBuildService
                 if (def is null)
                 { Reject(Rejection.UnknownCard); continue; }
 
-                if (cmdColors.Count > 0)
+                // Shared ladder with RefineDeckAsync — color identity, legality, bracket.
+                if (CardGrounding.ValidateForCommanderDeck(def, cmdColors, bracket) is string rejection)
                 {
-                    bool legal = def.ColorIdentity.All(c => c == ManaColor.Colorless || cmdColors.Contains(c));
-                    if (!legal)
+                    if (rejection == Rejection.ColorIdentity && _logger.IsEnabled(LogLevel.Debug))
                     {
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                        {
-                            _logger.LogDebug(
-                                "AI build reject (color): '{Card}' identity [{CardColors}] vs commander [{CmdColors}]",
-                                def.Name,
-                                string.Join(",", def.ColorIdentity),
-                                string.Join(",", cmdColors));
-                        }
-                        Reject(Rejection.ColorIdentity);
-                        continue;
+                        _logger.LogDebug(
+                            "AI build reject (color): '{Card}' identity [{CardColors}] vs commander [{CmdColors}]",
+                            def.Name,
+                            string.Join(",", def.ColorIdentity),
+                            string.Join(",", cmdColors));
                     }
+                    Reject(rejection);
+                    continue;
                 }
-
-                if (!CommanderRules.IsLegalInCommander(def))
-                { Reject(Rejection.NotCommanderLegal); continue; }
-
-                // Hard-enforce bracket: game changers only allowed in bracket 4+
-                if (def.GameChanger && bracket < 4)
-                { Reject(Rejection.AboveBracket); continue; }
 
                 bool isBasic = BasicLands.Contains(def.Name);
                 if (!isBasic && addedOracleIds.Contains(def.OracleId))

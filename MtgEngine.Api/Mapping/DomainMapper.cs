@@ -59,6 +59,31 @@ public static class DomainMapper
         GameChanger = def.GameChanger,
     };
 
+    /// <summary>
+    /// The single collection-entry mapping — decks, collections, and forum posts all
+    /// return their card rows through here.
+    /// </summary>
+    /// <remarks>
+    /// Previously copied inline into six callers, which had drifted twice over: only the
+    /// deck and forum copies normalized <see cref="CollectionCardDto.Board"/>, and two
+    /// copies resolved the definition by oracle id even when the row pinned a printing.
+    /// Resolve <paramref name="def"/> via
+    /// <see cref="CardLookupExtensions.ResolveForEntryAsync"/> so the pinned printing's
+    /// art wins on every endpoint.
+    /// </remarks>
+    public static CollectionCardDto ToDto(CollectionCard card, CardDefinition? def) => new()
+    {
+        Id = card.Id,
+        OracleId = card.OracleId,
+        ScryfallId = card.ScryfallId,
+        Quantity = card.Quantity,
+        QuantityFoil = card.QuantityFoil,
+        Notes = card.Notes,
+        Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
+        AddedAt = card.AddedAt,
+        CardDetails = def is null ? null : ToDto(def),
+    };
+
     public static ManaColorDto ToDto(ManaColor c) => c switch
     {
         ManaColor.White => ManaColorDto.W,

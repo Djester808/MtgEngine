@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Mapping;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
@@ -1169,95 +1170,20 @@ public sealed class BulkDataService : IScryfallService
             if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en")
                 continue;
 
-            var id = card.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
             var oid = card.TryGetProperty("oracle_id", out var oidEl) ? oidEl.GetString() : null;
-            var setCode = card.TryGetProperty("set", out var scEl) ? scEl.GetString() ?? "" : "";
-            var setName = card.TryGetProperty("set_name", out var snEl) ? snEl.GetString() ?? "" : "";
             var releasedAt = card.TryGetProperty("released_at", out var raEl) ? raEl.GetString() : null;
             var setType = card.TryGetProperty("set_type", out var stEl) ? stEl.GetString() ?? "" : "";
-            var num = card.TryGetProperty("collector_number", out var numEl) ? numEl.GetString() : null;
 
-            if (id is null || oid is null)
+            if (oid is null)
                 continue;
 
-            string? imgSmall = null, imgNormal = null, imgLarge = null, imgArtCrop = null, imgNormalBack = null;
-            if (card.TryGetProperty("image_uris", out var imgs))
-            {
-                if (imgs.TryGetProperty("small", out var s))
-                    imgSmall = s.GetString();
-                if (imgs.TryGetProperty("normal", out var n))
-                    imgNormal = n.GetString();
-                if (imgs.TryGetProperty("large", out var lg))
-                    imgLarge = lg.GetString();
-                if (imgs.TryGetProperty("art_crop", out var a))
-                    imgArtCrop = a.GetString();
-            }
-            else if (card.TryGetProperty("card_faces", out var dfcImgs) && dfcImgs.GetArrayLength() > 0)
-            {
-                var f0 = dfcImgs[0];
-                if (f0.TryGetProperty("image_uris", out var fi0))
-                {
-                    if (fi0.TryGetProperty("small", out var s))
-                        imgSmall = s.GetString();
-                    if (fi0.TryGetProperty("normal", out var n))
-                        imgNormal = n.GetString();
-                    if (fi0.TryGetProperty("large", out var lg))
-                        imgLarge = lg.GetString();
-                    if (fi0.TryGetProperty("art_crop", out var a))
-                        imgArtCrop = a.GetString();
-                }
-                if (dfcImgs.GetArrayLength() > 1)
-                {
-                    var f1 = dfcImgs[1];
-                    if (f1.TryGetProperty("image_uris", out var fi1) && fi1.TryGetProperty("normal", out var nb))
-                        imgNormalBack = nb.GetString();
-                }
-            }
-
-            // Only include cards that have artwork
-            if (imgNormal is null)
+            // Shared mapping with the live-API path; skips art-less printings.
+            var parsed = ScryfallPrintingMapper.Parse(card);
+            if (parsed is null)
                 continue;
-
-            // Per-printing text fields — fall back to card_faces[0/1] for DFCs
-            JsonElement? face0 = null, face1 = null;
-            if (card.TryGetProperty("card_faces", out var faces) && faces.GetArrayLength() > 0)
-            {
-                face0 = faces[0];
-                if (faces.GetArrayLength() > 1)
-                    face1 = faces[1];
-            }
-
-            string? artist = GetStr(card, "artist") ?? GetStr(face0, "artist");
-            string? flavorText = GetStr(card, "flavor_text") ?? GetStr(face0, "flavor_text");
-            string? manaCost = GetStr(card, "mana_cost") ?? GetStr(face0, "mana_cost");
-
-            // For DFCs, combine both faces with the same separator CardParser uses so the
-            // modal can split them when showing the flipped side's oracle text.
-            string? oracleText = GetStr(card, "oracle_text");
-            if (oracleText is null)
-            {
-                var f0Text = GetStr(face0, "oracle_text") ?? "";
-                var f1Text = GetStr(face1, "oracle_text") ?? "";
-                oracleText = f0Text.Length > 0 && f1Text.Length > 0
-                    ? f0Text + "\n//\n" + f1Text
-                    : f0Text.Length > 0 ? f0Text : null;
-            }
-
-            var dto = new PrintingDto
-            {
-                ScryfallId = id,
-                SetCode = setCode,
-                SetName = setName,
-                CollectorNumber = num,
-                ImageUriSmall = imgSmall,
-                ImageUriNormal = imgNormal,
-                ImageUriLarge = imgLarge,
-                ImageUriNormalBack = imgNormalBack,
-                Artist = artist,
-                OracleText = oracleText,
-                FlavorText = flavorText,
-                ManaCost = manaCost,
-            };
+            var dto = parsed.Value.Dto;
+            var setCode = dto.SetCode;
+            var setName = dto.SetName;
 
             if (!printings.TryGetValue(oid, out var list))
             {
@@ -1266,7 +1192,9 @@ public sealed class BulkDataService : IScryfallService
             }
             list.Add(dto);
 
-            scryfallIdx[id] = new PrintingEntry(oid, imgNormal, imgLarge, imgSmall, imgArtCrop, setCode, imgNormalBack);
+            scryfallIdx[dto.ScryfallId] = new PrintingEntry(
+                oid, dto.ImageUriNormal!, dto.ImageUriLarge, dto.ImageUriSmall,
+                parsed.Value.ImageUriArtCrop, setCode, dto.ImageUriNormalBack);
 
             // Build set-code → oracle-id index and set name lookup
             if (setCode.Length > 0)
@@ -1308,13 +1236,6 @@ public sealed class BulkDataService : IScryfallService
         _setNames = setNames;
         _setReleaseDates = setReleaseDates;
         _setTypes = setTypes;
-    }
-
-    private static string? GetStr(JsonElement? el, string prop)
-    {
-        if (el is null)
-            return null;
-        return el.Value.TryGetProperty(prop, out var v) ? v.GetString() : null;
     }
 
     /// <summary>Fills missing images from printings[0] — newest set first, per the index sort.</summary>

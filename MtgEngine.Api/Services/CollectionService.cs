@@ -88,23 +88,8 @@ public sealed class CollectionService : ICollectionService
         var cards = new List<CollectionCardDto>();
         foreach (var card in collection.Cards)
         {
-            var cardDef = card.ScryfallId is not null
-                ? await _scryfallService.GetByScryfallIdAsync(card.ScryfallId)
-                : await _scryfallService.GetByOracleIdAsync(card.OracleId);
-
-            var dto = new CollectionCardDto
-            {
-                Id = card.Id,
-                OracleId = card.OracleId,
-                ScryfallId = card.ScryfallId,
-                Quantity = card.Quantity,
-                QuantityFoil = card.QuantityFoil,
-                Notes = card.Notes,
-                Board = card.Board,
-                AddedAt = card.AddedAt,
-                CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
-            };
-            cards.Add(dto);
+            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+            cards.Add(DomainMapper.ToDto(card, cardDef));
         }
 
         return new CollectionDetailDto
@@ -221,20 +206,10 @@ public sealed class CollectionService : ICollectionService
         collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        // Map to DTO with card details
-        var cardDef = await _scryfallService.GetByOracleIdAsync(cardRecord.OracleId);
-        return new CollectionCardDto
-        {
-            Id = cardRecord.Id,
-            OracleId = cardRecord.OracleId,
-            ScryfallId = cardRecord.ScryfallId,
-            Quantity = cardRecord.Quantity,
-            QuantityFoil = cardRecord.QuantityFoil,
-            Notes = cardRecord.Notes,
-            Board = cardRecord.Board,
-            AddedAt = cardRecord.AddedAt,
-            CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
-        };
+        // Pinned printing first — resolving by oracle id here made the added card render
+        // with the default printing's art until the next full reload.
+        var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord);
+        return DomainMapper.ToDto(cardRecord, cardDef);
     }
 
     public async Task<CollectionCardDto?> GetCollectionCardAsync(Guid collectionId, Guid cardId, string userId)
@@ -254,19 +229,8 @@ public sealed class CollectionService : ICollectionService
         if (collection == null)
             return null;
 
-        var cardDef = await _scryfallService.GetByOracleIdAsync(card.OracleId);
-        return new CollectionCardDto
-        {
-            Id = card.Id,
-            OracleId = card.OracleId,
-            ScryfallId = card.ScryfallId,
-            Quantity = card.Quantity,
-            QuantityFoil = card.QuantityFoil,
-            Notes = card.Notes,
-            Board = card.Board,
-            AddedAt = card.AddedAt,
-            CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
-        };
+        var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+        return DomainMapper.ToDto(card, cardDef);
     }
 
     public async Task<CollectionCardDto> UpdateCollectionCardAsync(
@@ -295,21 +259,8 @@ public sealed class CollectionService : ICollectionService
 
         await _context.SaveChangesAsync();
 
-        var cardDef = card.ScryfallId is not null
-            ? await _scryfallService.GetByScryfallIdAsync(card.ScryfallId)
-            : await _scryfallService.GetByOracleIdAsync(card.OracleId);
-        return new CollectionCardDto
-        {
-            Id = card.Id,
-            OracleId = card.OracleId,
-            ScryfallId = card.ScryfallId,
-            Quantity = card.Quantity,
-            QuantityFoil = card.QuantityFoil,
-            Notes = card.Notes,
-            Board = card.Board,
-            AddedAt = card.AddedAt,
-            CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
-        };
+        var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+        return DomainMapper.ToDto(card, cardDef);
     }
 
     public async Task<bool> RemoveCardFromCollectionAsync(Guid collectionId, Guid cardId, string userId)
@@ -372,10 +323,10 @@ public sealed class CollectionService : ICollectionService
         var cards = new List<CardDto>();
         foreach (var card in collection.Cards)
         {
-            var cardDef = await _scryfallService.GetByOracleIdAsync(card.OracleId);
+            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
             if (cardDef != null)
             {
-                cards.Add(MapToCardDto(cardDef));
+                cards.Add(DomainMapper.ToDto(cardDef));
             }
         }
 
@@ -419,22 +370,8 @@ public sealed class CollectionService : ICollectionService
         var cards = new List<CollectionCardDto>();
         foreach (var card in deck.Cards)
         {
-            var cardDef = card.ScryfallId is not null
-                ? await _scryfallService.GetByScryfallIdAsync(card.ScryfallId)
-                : await _scryfallService.GetByOracleIdAsync(card.OracleId);
-
-            cards.Add(new CollectionCardDto
-            {
-                Id = card.Id,
-                OracleId = card.OracleId,
-                ScryfallId = card.ScryfallId,
-                Quantity = card.Quantity,
-                QuantityFoil = card.QuantityFoil,
-                Notes = card.Notes,
-                Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
-                AddedAt = card.AddedAt,
-                CardDetails = cardDef != null ? MapToCardDto(cardDef) : null
-            });
+            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
+            cards.Add(DomainMapper.ToDto(card, cardDef));
         }
 
         return new DeckDetailDto
@@ -511,10 +448,5 @@ public sealed class CollectionService : ICollectionService
         await _context.SaveChangesAsync();
         return true;
     }
-
-    // ---- Helpers ----
-
-    /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>
-    private static CardDto MapToCardDto(CardDefinition def) => DomainMapper.ToDto(def);
 
 }
