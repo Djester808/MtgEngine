@@ -855,6 +855,11 @@ public sealed class BulkDataService : IScryfallService
         var (colorFilter, multicolor, colorless, colorSet) = ParseColors(q);
         var descending = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
 
+        // Compile the regex once, with a match timeout, before scanning ~35k names.
+        var nameRegex = useRegex && nameFilter is not null
+            ? CardQuery.CompileNameRegex(nameFilter, matchCase)
+            : null;
+
         // "wolves" should find Wolves, not just cards with Wolf in the title. Only a bare
         // word is treated this way -- an explicit t:/o: query already says what it means.
         var subtype = useRegex || matchWord ? null : ResolveSubtype(nameFilter);
@@ -895,7 +900,7 @@ public sealed class BulkDataService : IScryfallService
             .Select(oid => _byOracleId.TryGetValue(oid, out var d) ? d : null)
             .Where(d => d is not null).Cast<CardDefinition>()
             .Where(d => (nameFilter is null && oracleFilter is null)
-                     || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex))
+                     || (nameFilter is not null && MatchesName(d.Name, nameFilter, matchCase, matchWord, useRegex, nameRegex))
                      || (subtype is not null && d.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
                      || (oracleFilter is not null && MatchesOracleText(d, oracleFilter, matchCase)))
             .Where(d => typeFlags == CardType.None || (d.CardTypes & typeFlags) != CardType.None)

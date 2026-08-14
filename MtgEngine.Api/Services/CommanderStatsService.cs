@@ -322,10 +322,13 @@ public sealed class CommanderStatsService : ICommanderStatsService
             .ToListAsync();
 
         var deckIds = rows.Select(r => r.DeckId).ToList();
+        // Count copies across all boards, matching the app-wide definition used by the deck
+        // list and the forum (ForumService). Counting main-board rows instead reported a
+        // different number than the forum for the very same deck.
         var cardCounts = await _context.CollectionCards
-            .Where(cc => deckIds.Contains(cc.CollectionId) && cc.Board == "main")
+            .Where(cc => deckIds.Contains(cc.CollectionId))
             .GroupBy(cc => cc.CollectionId)
-            .Select(g => new { DeckId = g.Key, Count = g.Count() })
+            .Select(g => new { DeckId = g.Key, Count = g.Sum(cc => cc.Quantity + cc.QuantityFoil) })
             .ToListAsync();
         var countMap = cardCounts.ToDictionary(x => x.DeckId, x => x.Count);
 

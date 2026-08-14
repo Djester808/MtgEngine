@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace MtgEngine.Api.Dtos;
 
 // ---- Enums ------------------------------------------------
@@ -75,15 +77,25 @@ public sealed record CollectionDetailDto
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
-public sealed record CreateCollectionRequest(string Name, string? Description = null);
-public sealed record UpdateCollectionRequest(string Name, string? Description = null, string? CoverUri = null);
+// Length caps live on the request DTOs: SQLite ignores the EF model's HasMaxLength, but
+// MVC validates these annotations before the service runs — a 400 ProblemDetails, not an
+// unbounded blob written to disk.
+public sealed record CreateCollectionRequest(
+    [StringLength(200, MinimumLength = 1)] string Name,
+    [StringLength(4000)] string? Description = null);
+public sealed record UpdateCollectionRequest(
+    [StringLength(200, MinimumLength = 1)] string Name,
+    [StringLength(4000)] string? Description = null,
+    [StringLength(2048)] string? CoverUri = null);
 // Validation attributes on positional records must target the constructor
 // parameter (no `property:` prefix) — MVC throws at bind time otherwise.
 public sealed record AddCardToCollectionRequest(
     string OracleId,
     string? ScryfallId = null,
-    [System.ComponentModel.DataAnnotations.Range(0, 999)] int Quantity = 1,
-    [System.ComponentModel.DataAnnotations.Range(0, 999)] int QuantityFoil = 0,
+    // Same bound as UpdateCollectionCardRequest — a card must be addable at any quantity
+    // it can later be updated to (collections legitimately hold thousands of a common).
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int Quantity = 1,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int QuantityFoil = 0,
     string? Notes = null,
     string Board = "main"
 );
@@ -123,14 +135,24 @@ public sealed record DeckDetailDto
     public CollectionCardDto[] Cards { get; init; } = [];
 }
 
-public sealed record CreateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null);
-public sealed record UpdateDeckRequest(string Name, string? CoverUri = null, string? Format = null, string? CommanderOracleId = null, string[]? Tags = null, string? Notes = null);
+public sealed record CreateDeckRequest(
+    [StringLength(200, MinimumLength = 1)] string Name,
+    [StringLength(2048)] string? CoverUri = null,
+    [StringLength(40)] string? Format = null,
+    [StringLength(64)] string? CommanderOracleId = null);
+public sealed record UpdateDeckRequest(
+    [StringLength(200, MinimumLength = 1)] string Name,
+    [StringLength(2048)] string? CoverUri = null,
+    [StringLength(40)] string? Format = null,
+    [StringLength(64)] string? CommanderOracleId = null,
+    [MaxLength(50)] string[]? Tags = null,
+    [StringLength(8000)] string? Notes = null);
 
 public sealed record ImportDeckRequest(
-    string Name,
-    string? Text = null,
-    string? Url = null,
-    string? Format = null
+    [StringLength(200)] string Name,
+    [StringLength(500_000)] string? Text = null,
+    [StringLength(2048)] string? Url = null,
+    [StringLength(40)] string? Format = null
 );
 
 public sealed record ImportDeckResult(
@@ -176,7 +198,10 @@ public sealed record RecentSetDto(string Code, string Name, DateOnly ReleasedAt,
 
 // ---- Auth -----------------------------------------------------
 
-public sealed record RegisterRequest(string Username, string Email, string Password);
+public sealed record RegisterRequest(
+    [StringLength(64, MinimumLength = 1)] string Username,
+    [StringLength(256, MinimumLength = 3)] string Email,
+    [StringLength(200, MinimumLength = 8)] string Password);
 public sealed record LoginRequest(string Username, string Password);
 public sealed record AuthTokenResponse(string Token, string Username);
 
@@ -471,9 +496,9 @@ public sealed record UserCommentDto
 
 public sealed record UserPreferencesDto
 {
-    public string? DeckLayout { get; init; }
-    public string? ForumLayout { get; init; }
-    public string? ForumSort { get; init; }
+    [StringLength(200)] public string? DeckLayout { get; init; }
+    [StringLength(200)] public string? ForumLayout { get; init; }
+    [StringLength(200)] public string? ForumSort { get; init; }
 }
 
 public sealed record PublishDeckRequest(Guid DeckId, string? Description = null);

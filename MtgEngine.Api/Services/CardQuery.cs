@@ -268,19 +268,36 @@ internal static class CardQuery
 
     private static readonly char[] _wordSeparators = [' ', ',', '-', '\'', '"', '(', ')', '/', ':', '.'];
 
-    internal static bool MatchesName(string name, string filter, bool matchCase, bool matchWord, bool useRegex)
+    /// <summary>
+    /// Compiles a user-supplied name pattern with a hard match timeout, or null if the
+    /// pattern is invalid. Compile once per search and reuse across the scan — never per
+    /// card: the timeout is the only guard against a catastrophic-backtracking pattern
+    /// (e.g. <c>(a+)+b</c>) pegging a core over ~35k names.
+    /// </summary>
+    internal static Regex? CompileNameRegex(string pattern, bool matchCase)
+    {
+        try
+        {
+            var opts = (matchCase ? RegexOptions.None : RegexOptions.IgnoreCase)
+                       | RegexOptions.CultureInvariant;
+            return new Regex(pattern, opts, TimeSpan.FromMilliseconds(50));
+        }
+        // A half-typed regex is a normal thing for a user to send; caller treats null as
+        // "matches nothing" rather than failing the whole search.
+        catch (RegexParseException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    internal static bool MatchesName(
+        string name, string filter, bool matchCase, bool matchWord, bool useRegex, Regex? compiled)
     {
         var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         if (useRegex)
         {
-            try
-            {
-                var opts = matchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
-                return Regex.IsMatch(name, filter, opts | RegexOptions.CultureInvariant);
-            }
-            // A half-typed regex is a normal thing for a user to send; treat it as
-            // matching nothing rather than failing the whole search.
-            catch (RegexParseException) { return false; }
+            if (compiled is null) return false; // invalid pattern → no matches
+            try { return compiled.IsMatch(name); }
+            // One pathological name hitting the timeout is a non-match, not a dead search.
+            catch (RegexMatchTimeoutException) { return false; }
         }
         if (matchWord)
         {

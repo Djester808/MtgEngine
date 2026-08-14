@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -54,14 +55,26 @@ public sealed class EdhrecPoolService : IEdhrecPoolService
         if (string.IsNullOrWhiteSpace(commanderName))
             return [];
 
-        var cached = await _cache.GetOrCreateAsync(
-            "edhrec-pool",
-            PoolVersion,
-            [commanderName],
-            () => FetchAsync(commanderName, ct),
-            CacheTtl);
+        try
+        {
+            var cached = await _cache.GetOrCreateAsync(
+                "edhrec-pool",
+                PoolVersion,
+                [commanderName],
+                () => FetchAsync(commanderName, ct),
+                CacheTtl);
 
-        return cached ?? [];
+            return cached ?? [];
+        }
+        catch (Exception ex)
+        {
+            // A transient EDHREC failure must NOT be cached as "no data" for 30 days — the
+            // factory throwing means GetOrCreateAsync never wrote a cache entry. Callers
+            // fall back to the Scryfall relevance pool for this one request only. (A genuine
+            // 404 returns an empty list normally and IS cached — see FetchAsync.)
+            _logger.LogWarning(ex, "EDHREC pool unavailable for {Commander}; using fallback", commanderName);
+            return [];
+        }
     }
 
     private async Task<List<EdhrecCard>> FetchAsync(string commanderName, CancellationToken ct)
@@ -69,60 +82,58 @@ public sealed class EdhrecPoolService : IEdhrecPoolService
         var pool = new List<EdhrecCard>();
         var slug = ToSlug(commanderName);
 
-        try
+        var http = _httpFactory.CreateClient("EdhrecApi");
+        var resp = await http.GetAsync($"pages/commanders/{slug}.json", ct);
+
+        // 404 is the one status that means "genuinely no page" — obscure or brand-new
+        // commanders — and an empty pool for it is correct and cacheable.
+        if (resp.StatusCode == HttpStatusCode.NotFound)
         {
-            var http = _httpFactory.CreateClient("EdhrecApi");
-            var resp = await http.GetAsync($"pages/commanders/{slug}.json", ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                // Obscure or very new commanders have no page. Callers fall back.
-                _logger.LogInformation("EDHREC {Slug} -> {Status}", slug, resp.StatusCode);
-                return pool;
-            }
-
-            var doc = await JsonSerializer.DeserializeAsync<JsonElement>(
-                await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-
-            if (!TryNav(doc, out var root, "container", "json_dict")
-                || !root.TryGetProperty("cardlists", out var cardlists)
-                || cardlists.ValueKind != JsonValueKind.Array)
-            {
-                _logger.LogWarning("EDHREC {Slug}: unexpected payload shape", slug);
-                return pool;
-            }
-
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var section in cardlists.EnumerateArray())
-            {
-                var tag = section.TryGetProperty("tag", out var t) ? t.GetString() ?? "" : "";
-
-                // Basic lands are handled separately by callers -- the land count depends
-                // on the deck being built, not on what other people played.
-                if (tag.Contains("basic", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (!section.TryGetProperty("cardviews", out var cardviews)
-                    || cardviews.ValueKind != JsonValueKind.Array)
-                    continue;
-
-                foreach (var view in cardviews.EnumerateArray())
-                {
-                    var name = view.TryGetProperty("name", out var n) ? n.GetString() : null;
-                    if (!string.IsNullOrWhiteSpace(name) && seen.Add(name))
-                        pool.Add(new EdhrecCard(name, tag));
-                }
-            }
-
-            _logger.LogInformation(
-                "EDHREC pool for {Commander}: {Count} cards across {Sections} sections",
-                commanderName, pool.Count, cardlists.GetArrayLength());
+            _logger.LogInformation("EDHREC {Slug} -> 404 (no page)", slug);
+            return pool;
         }
-        catch (Exception ex)
+        // Any other non-success (5xx, 429, gateway) is transient — throw so the empty
+        // result is not pinned in the 30-day cache.
+        resp.EnsureSuccessStatusCode();
+
+        var doc = await JsonSerializer.DeserializeAsync<JsonElement>(
+            await resp.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+
+        if (!TryNav(doc, out var root, "container", "json_dict")
+            || !root.TryGetProperty("cardlists", out var cardlists)
+            || cardlists.ValueKind != JsonValueKind.Array)
         {
-            // A pool is an optimisation, never a hard dependency.
-            _logger.LogWarning(ex, "EDHREC fetch failed for {Commander}", commanderName);
+            // A one-off malformed payload is closer to a transient glitch than to real
+            // "no data"; throw rather than caching an empty pool for a month.
+            throw new InvalidOperationException($"EDHREC {slug}: unexpected payload shape");
         }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in cardlists.EnumerateArray())
+        {
+            var tag = section.TryGetProperty("tag", out var t) ? t.GetString() ?? "" : "";
+
+            // Basic lands are handled separately by callers -- the land count depends
+            // on the deck being built, not on what other people played.
+            if (tag.Contains("basic", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!section.TryGetProperty("cardviews", out var cardviews)
+                || cardviews.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var view in cardviews.EnumerateArray())
+            {
+                var name = view.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(name) && seen.Add(name))
+                    pool.Add(new EdhrecCard(name, tag));
+            }
+        }
+
+        _logger.LogInformation(
+            "EDHREC pool for {Commander}: {Count} cards across {Sections} sections",
+            commanderName, pool.Count, cardlists.GetArrayLength());
 
         return pool;
     }

@@ -187,10 +187,14 @@ public sealed class SynergyService : ISynergyService
             ModelVersion = CacheVersion,
         };
 
-        // Upsert — a stale entry from an older cache version may already exist for this pair
+        // Upsert the IDEAL row only. ModelVersion is part of the row identity: without it
+        // this lookup could pick up a deck-aware score (a different ModelVersion) for the
+        // same pair and rewrite it as ideal — destroying a paid deck-aware result, and, if
+        // an ideal row also exists, colliding on the unique index (silently swallowed below).
         var stale = await _db.CardSynergyScores.FirstOrDefaultAsync(s =>
             s.CommanderOracleId == request.CommanderOracleId &&
-            s.CardOracleId == request.CardOracleId);
+            s.CardOracleId == request.CardOracleId &&
+            s.ModelVersion == CacheVersion);
 
         if (stale != null)
         {

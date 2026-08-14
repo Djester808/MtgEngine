@@ -163,7 +163,11 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // part of the key because "latest" means something different once a set ships.
         var recentForKey = await _scryfall.GetRecentSetsAsync(maxSets: LatestSetCount);
 
-        var keyParts = new[] { request.CommanderOracleId, request.CommanderName }
+        // CommanderName is fully determined by CommanderOracleId, so it is redundant in the
+        // key — and including client text in the key is what let one caller poison every
+        // other caller's entry for a commander (BuildAsync rebuilds the commander fields from
+        // the server-resolved definition, so the cached payload is honest regardless).
+        var keyParts = new[] { request.CommanderOracleId }
             .Concat(request.DeckCardNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
             .Append("|tags|")
             .Concat(request.DeckTags.Concat(request.SuggestionTags)
@@ -189,6 +193,16 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     {
         var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId)
             ?? throw new ResourceNotFoundException($"Commander not found: {request.CommanderOracleId}");
+
+        // Never trust the client's commander name/text: both feed the reason and judge prompts,
+        // and CommanderText is the grounding source for quote verification. A caller could
+        // otherwise inject instructions and control what counts as a "grounded" quote, then
+        // have the poisoned result cached and served to everyone. Rebuild from the oracle card.
+        request = request with
+        {
+            CommanderName = cmdDef.Name,
+            CommanderText = cmdDef.OracleText ?? string.Empty,
+        };
 
         var recentSets = await _scryfall.GetRecentSetsAsync(maxSets: LatestSetCount);
         var recentCodes = new HashSet<string>(

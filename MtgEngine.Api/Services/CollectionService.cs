@@ -224,10 +224,18 @@ public sealed class CollectionService : ICollectionService
             }
             catch (DbUpdateException)
             {
-                // Lost the insert race to a concurrent add of the same printing (the
-                // unique index rejected the duplicate) — fold into the winner's row.
+                // The unique index (CollectionId, ScryfallId, Board) rejected the insert.
+                // Usual cause: a concurrent add of the same printing — fold into the winner.
                 _context.Entry(fresh).State = EntityState.Detached;
-                await TryIncrementAsync();
+                if (!await TryIncrementAsync())
+                    // The index collided but our (OracleId-scoped) increment still matches
+                    // nothing: the printing is saved under a *different* oracle id. That is a
+                    // bad request, not a race — surface it instead of NRE-ing on FirstAsync.
+                    throw new InvalidResourceStateException(
+                        "That printing is already saved under a different card.");
+                // Persist the collection's UpdatedAt bump the failed SaveChanges rolled back
+                // (fresh is detached, so this writes only the timestamp).
+                await _context.SaveChangesAsync();
             }
         }
         else
@@ -421,7 +429,12 @@ public sealed class CollectionService : ICollectionService
         deck.Format = request.Format;
         deck.CommanderOracleId = request.CommanderOracleId;
         if (request.Tags is not null)
-            deck.Tags = [.. request.Tags];
+            // Normalize: the DTO caps the count; bound each tag's length here so one giant
+            // tag can't slip past a per-element gap in model validation.
+            deck.Tags = [.. request.Tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().Length > 60 ? t.Trim()[..60] : t.Trim())
+                .Take(50)];
         if (request.Notes is not null)
             deck.Notes = request.Notes;
         deck.UpdatedAt = DateTime.UtcNow;
@@ -439,6 +452,23 @@ public sealed class CollectionService : ICollectionService
 
         if (deck == null)
             return false;
+
+        // A published deck's forum post references it by DeckId with no DB-level cascade,
+        // so deleting the deck alone would strand a post that renders as "Unknown Deck" and
+        // still accepts comments. Remove the post (and its comments) in the same operation.
+        var postIds = await _context.ForumPosts
+            .Where(p => p.DeckId == deckId)
+            .Select(p => p.Id)
+            .ToListAsync();
+        if (postIds.Count > 0)
+        {
+            await _context.ForumComments
+                .Where(c => postIds.Contains(c.ForumPostId))
+                .ExecuteDeleteAsync();
+            await _context.ForumPosts
+                .Where(p => p.DeckId == deckId)
+                .ExecuteDeleteAsync();
+        }
 
         _context.Collections.Remove(deck);
         await _context.SaveChangesAsync();
