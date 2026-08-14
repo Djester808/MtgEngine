@@ -73,6 +73,14 @@ public sealed class CandidateRanking : ICandidateRanking
     /// </summary>
     public const int DefaultScoreWindow = 60;
 
+    /// <summary>
+    /// The deepest the synergy ranker will ever score. Scoring is the expensive part, so
+    /// this caps cost — and it is therefore the most a caller can page through in synergy
+    /// order. The reported Total is bounded by it so the client's pager stops here instead
+    /// of walking off the end of the scored window into empty pages.
+    /// </summary>
+    public const int MaxScoreWindow = 200;
+
     private readonly IScryfallService _scryfall;
     private readonly ISynergyService _synergy;
     private readonly ILogger<CandidateRanking> _logger;
@@ -97,7 +105,9 @@ public sealed class CandidateRanking : ICandidateRanking
         var shortlists = new List<(RankRequest Req, CardDefinition[] Cards, int Total)>(requests.Count);
         foreach (var r in requests)
         {
-            var window = Math.Clamp(r.ScoreWindow, r.Limit, 200);
+            // Score at least deep enough to cover the requested page (offset + limit), so
+            // paging past the default window still returns results rather than dead-ending.
+            var window = Math.Clamp(Math.Max(r.ScoreWindow, r.Offset + r.Limit), r.Limit, MaxScoreWindow);
 
             if (r.Candidates is { Count: > 0 })
             {
@@ -148,9 +158,13 @@ public sealed class CandidateRanking : ICandidateRanking
             .OrderByDescending(x => x.Score)
             .ToArray();
 
+        // Total is the pageable count, not the scored-window size: bound it by the synergy
+        // cap (MaxScoreWindow), not by how deep THIS request happened to score. Reporting
+        // ranked.Length instead made an offset=0 page claim only ~60 results and stopped the
+        // client's pager there, even though up to MaxScoreWindow are reachable.
         return new RankedPool(
             [.. ranked.Skip(r.Offset).Take(r.Limit)],
-            Math.Min(total, ranked.Length),
+            Math.Min(total, MaxScoreWindow),
             ranked.Length);
     }
 

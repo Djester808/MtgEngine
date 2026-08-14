@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
@@ -46,6 +47,22 @@ public sealed class AiBuildService : IAiBuildService
           "Wastes", "Snow-Covered Plains", "Snow-Covered Island",
           "Snow-Covered Swamp", "Snow-Covered Mountain", "Snow-Covered Forest" };
 
+    /// <summary>
+    /// One gate per deck so concurrent builds/refines on the same deck serialize. Both
+    /// read the main-board count, compute free slots from it, then insert — running two
+    /// at once double-filled decks to ~198 cards. Bounded by the number of distinct decks
+    /// that ever use AI build (tiny; a SemaphoreSlim each), so entries are not evicted.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _deckLocks = new();
+
+    private static async Task<T> WithDeckLockAsync<T>(Guid deckId, Func<Task<T>> action)
+    {
+        var gate = _deckLocks.GetOrAdd(deckId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try { return await action(); }
+        finally { gate.Release(); }
+    }
+
     public AiBuildService(
         IScryfallService scryfall,
         ICollectionService collection,
@@ -60,7 +77,10 @@ public sealed class AiBuildService : IAiBuildService
         _logger = logger;
     }
 
-    public async Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request)
+    public Task<AiBuildResultDto> BuildDeckAsync(Guid deckId, string userId, AiBuildRequest request) =>
+        WithDeckLockAsync(deckId, () => BuildDeckCoreAsync(deckId, userId, request));
+
+    private async Task<AiBuildResultDto> BuildDeckCoreAsync(Guid deckId, string userId, AiBuildRequest request)
     {
         var commanderOracleId = request.CommanderOracleId;
 
@@ -159,7 +179,10 @@ public sealed class AiBuildService : IAiBuildService
 
     // ---- Refine -------------------------------------------------------------
 
-    public async Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request)
+    public Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request) =>
+        WithDeckLockAsync(deckId, () => RefineDeckCoreAsync(deckId, userId, request));
+
+    private async Task<AiRefineResultDto> RefineDeckCoreAsync(Guid deckId, string userId, AiRefineRequest request)
     {
         var deck = await _collection.GetDeckAsync(deckId, userId)
             ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");

@@ -240,6 +240,11 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // All three pools are ranked in one pass: they overlap heavily, and scoring them
         // separately meant the same card scored up to three times, each run waiting on the
         // one before it.
+        // Stop before each expensive Anthropic phase if the SSE client has disconnected —
+        // otherwise a closed stream still pays for scoring, reason-grounding and judging.
+        // Throwing here skips the cache write (a partial build must not be cached) and the
+        // streaming controller treats the cancellation as a clean disconnect.
+        ct.ThrowIfCancellationRequested();
         await StageAsync(emit, 1, "Scoring candidates…");
         var pools = await _ranking.RankManyAsync([
             Pool(sets: recentCodes),   // latest — newest-set discovery (Scryfall pool)
@@ -279,6 +284,7 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
         // what we say about them is true. Skipping it is how "triggers double via
         // commander" reached the UI for a commander with no such ability.
         var proposed = latest.Length + gameChangers.Length + top.Length;
+        ct.ThrowIfCancellationRequested();
         var dropped = await GroundReasonsAsync(request, [latest, gameChangers, top], emit);
 
         if (dropped.Count > 0)

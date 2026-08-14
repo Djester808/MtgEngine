@@ -201,11 +201,12 @@ public class CandidateRankingTests
     }
 
     /// <summary>
-    /// Only the scored window is genuinely ranked. Reporting the full pool size would let
-    /// paging walk off the end into relevance order while still looking sorted.
+    /// Total is the pageable count — how far the client can walk in synergy order — not how
+    /// deep this one request happened to score. A pool under the score cap is fully pageable,
+    /// so Total is the whole pool even when a single request scored only its window.
     /// </summary>
     [Fact]
-    public async Task Total_never_exceeds_what_was_actually_ranked()
+    public async Task Total_reports_the_pageable_pool_not_the_single_window()
     {
         var cards = Enumerable.Range(0, 50).Select(i => Card($"c{i}")).ToArray();
         var scores = cards.ToDictionary(c => c.OracleId, _ => 50);
@@ -213,8 +214,37 @@ public class CandidateRankingTests
         var result = await Ranking(new FakePool(cards), new FakeScorer(scores))
             .RankAsync(new RankRequest(Commander, Limit: 5, ScoreWindow: 10));
 
-        Assert.Equal(10, result.Scored);
-        Assert.True(result.Total <= result.Scored);
+        Assert.Equal(10, result.Scored);   // only the window scored in this request
+        Assert.Equal(50, result.Total);    // ...but all 50 are reachable by paging
+    }
+
+    /// <summary>Total is capped at the deepest the ranker will ever score.</summary>
+    [Fact]
+    public async Task Total_is_capped_at_the_max_score_window_for_large_pools()
+    {
+        var cards = Enumerable.Range(0, 500).Select(i => Card($"c{i}")).ToArray();
+        var scores = cards.ToDictionary(c => c.OracleId, _ => 50);
+
+        var result = await Ranking(new FakePool(cards), new FakeScorer(scores))
+            .RankAsync(new RankRequest(Commander, Limit: 5, ScoreWindow: 10));
+
+        Assert.Equal(CandidateRanking.MaxScoreWindow, result.Total);
+    }
+
+    /// <summary>Paging past the default window scores deep enough to fill the requested page.</summary>
+    [Fact]
+    public async Task Paging_past_the_window_still_returns_a_full_page()
+    {
+        var cards = Enumerable.Range(0, 200).Select(i => Card($"c{i}")).ToArray();
+        // Descending scores so ordering is deterministic (c0 highest).
+        var scores = cards.Select((c, i) => (c.OracleId, Score: 200 - i))
+            .ToDictionary(x => x.OracleId, x => x.Score);
+
+        var result = await Ranking(new FakePool(cards), new FakeScorer(scores))
+            .RankAsync(new RankRequest(Commander, Limit: 10, Offset: 100, ScoreWindow: 10));
+
+        // window = max(10, 100 + 10) = 110, so the page at offset 100 is scored and returned.
+        Assert.Equal(10, result.Cards.Count);
     }
 
     [Fact]

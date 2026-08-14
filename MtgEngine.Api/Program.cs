@@ -61,6 +61,9 @@ builder.Services.AddSingleton<ICardLookup>(sp => sp.GetRequiredService<BulkDataS
 // Background worker: downloads/refreshes bulk files on startup and daily
 builder.Services.AddHostedService<BulkDataRefreshWorker>();
 
+// Background worker: prunes the persistent AI caches daily so they don't grow unbounded
+builder.Services.AddHostedService<CacheCleanupWorker>();
+
 // ---- Database --------------------------------------------
 builder.Services.AddDbContext<MtgEngineDbContext>(options =>
     options.UseSqlite("Data Source=mtgengine.db"));
