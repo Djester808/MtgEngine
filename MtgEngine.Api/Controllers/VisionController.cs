@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MtgEngine.Api.Services;
 
 namespace MtgEngine.Api.Controllers;
@@ -9,22 +10,37 @@ namespace MtgEngine.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class VisionController : ControllerBase
 {
+    /// <summary>Media types the vision model accepts; anything else is rejected here.</summary>
+    private static readonly HashSet<string> AllowedMediaTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/gif", "image/webp",
+    };
+
+    /// <summary>
+    /// Base64 length cap ≈ 5 MB decoded. Scanner frames are ~100 KB JPEGs; anything
+    /// near this limit is not a camera frame.
+    /// </summary>
+    private const int MaxImageBase64Length = 7_000_000;
+
     private readonly CardVisionService _vision;
 
     public VisionController(CardVisionService vision) => _vision = vision;
 
+    [EnableRateLimiting("ai")]
     [HttpPost("identify-card")]
     public async Task<IActionResult> IdentifyCard([FromBody] IdentifyCardRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ImageBase64))
             return BadRequest("ImageBase64 is required");
+        if (request.ImageBase64.Length > MaxImageBase64Length)
+            return BadRequest("Image is too large");
+        var mediaType = request.MediaType ?? "image/jpeg";
+        if (!AllowedMediaTypes.Contains(mediaType))
+            return BadRequest("Unsupported media type");
 
         // Returned as-is: cardName/setName are Scryfall-verified, and setName is null
         // when the printing could not be determined rather than a model guess.
-        var result = await _vision.IdentifyCardAsync(
-            request.ImageBase64,
-            request.MediaType ?? "image/jpeg"
-        );
+        var result = await _vision.IdentifyCardAsync(request.ImageBase64, mediaType);
         return Ok(result);
     }
 }

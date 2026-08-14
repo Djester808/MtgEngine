@@ -70,9 +70,12 @@ public sealed class AiBuildService : IAiBuildService
         var cmdColors = cmdDef.ColorIdentity.ToHashSet();
         var colorNames = FormatColors(cmdColors);
 
-        // Fetch the current deck to know how many main-board slots remain
-        var existingDeck = await _collection.GetDeckAsync(deckId, userId);
-        var existingCards = existingDeck?.Cards ?? [];
+        // Fetch the current deck to know how many main-board slots remain. A missing
+        // deck fails here — the old fall-through built the whole prompt, paid for the
+        // LLM call, then failed every insert and reported a 200 with zero cards added.
+        var existingDeck = await _collection.GetDeckAsync(deckId, userId)
+            ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
+        var existingCards = existingDeck.Cards;
 
         var addedOracleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { commanderOracleId };
@@ -235,7 +238,9 @@ public sealed class AiBuildService : IAiBuildService
                     QuantityFoil: 0,
                     Board: "main"));
 
-                await _collection.RemoveCardByOracleAsync(deckId, outOracleId, userId);
+                // Main board only — the swap-out was selected from main, and an
+                // unscoped remove could delete the same card's sideboard row instead.
+                await _collection.RemoveCardByOracleAsync(deckId, outOracleId, userId, board: "main");
 
                 addedNames.Add(inDef.Name);
                 inDeck.Remove(swap.Out);
@@ -332,7 +337,10 @@ public sealed class AiBuildService : IAiBuildService
 
         var parsed = AnthropicResponse.DeserializeJson<RefineJson>(respJson);
 
-        return [.. (parsed?.Swaps ?? []).Select(s => new ProposedSwap(s.Out, s.In, s.Why))];
+        // Filter null elements too — `[null]` deserializes into the array as-is.
+        return [.. (parsed?.Swaps ?? [])
+            .Where(s => s is not null)
+            .Select(s => new ProposedSwap(s.Out, s.In, s.Why))];
     }
 
     private sealed class RefineJson

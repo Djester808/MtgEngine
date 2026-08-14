@@ -21,9 +21,31 @@ public static class PasswordHasher
         var parts = storedHash.Split(':');
         if (parts.Length != 2)
             return false;
-        var salt = Convert.FromBase64String(parts[0]);
-        var expectedHash = Convert.FromBase64String(parts[1]);
+        byte[] salt, expectedHash;
+        try
+        {
+            salt = Convert.FromBase64String(parts[0]);
+            expectedHash = Convert.FromBase64String(parts[1]);
+        }
+        catch (FormatException)
+        {
+            // A corrupt or sentinel hash (the seeder writes "SEEDED_NO_LOGIN") is a
+            // failed login, not a 500.
+            return false;
+        }
         var actualHash = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, Algorithm, HashSize);
         return CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
     }
+
+    /// <summary>
+    /// Burns the same PBKDF2 cost as a real verification and always fails. Login calls
+    /// this when the account does not exist, so response timing no longer separates
+    /// "wrong password" from "no such user".
+    /// </summary>
+    public static void VerifyDummy(string password)
+    {
+        Rfc2898DeriveBytes.Pbkdf2(password, DummySalt, Iterations, Algorithm, HashSize);
+    }
+
+    private static readonly byte[] DummySalt = new byte[SaltSize];
 }

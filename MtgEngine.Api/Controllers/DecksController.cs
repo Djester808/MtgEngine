@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
 
@@ -156,6 +157,7 @@ public sealed class DecksController : ControllerBase
 
     // ---- Deck suggestions ------------------------------------------
 
+    [EnableRateLimiting("ai")]
     [HttpPost("suggestions")]
     public async Task<ActionResult<DeckSuggestionsDto>> GetSuggestions(
         [FromBody] DeckSuggestionsRequest request,
@@ -180,6 +182,7 @@ public sealed class DecksController : ControllerBase
     /// and a provisional "cards" event while building, then a single "final" event with the
     /// validated result (or an "error" event). On a cache hit only "final" is sent.
     /// </summary>
+    [EnableRateLimiting("ai")]
     [HttpPost("suggestions/stream")]
     public async Task GetSuggestionsStream(
         [FromBody] DeckSuggestionsRequest request,
@@ -221,6 +224,7 @@ public sealed class DecksController : ControllerBase
 
     // ---- Mana fine-tune -------------------------------------------
 
+    [EnableRateLimiting("ai")]
     [HttpPost("mana-tune")]
     public async Task<ActionResult<ManaFineTuneDto>> GetManaFineTune(
         [FromBody] ManaFineTuneRequest request,
@@ -232,6 +236,7 @@ public sealed class DecksController : ControllerBase
 
     // ---- AI deck build ---------------------------------------------
 
+    [EnableRateLimiting("ai")]
     [HttpPost("{deckId:guid}/ai-build")]
     public async Task<ActionResult<AiBuildResultDto>> AiBuildDeck(
         Guid deckId,
@@ -246,6 +251,7 @@ public sealed class DecksController : ControllerBase
     }
 
     /// <summary>Scores every card in a built deck against its commander, in one call.</summary>
+    [EnableRateLimiting("ai")]
     [HttpPost("{deckId:guid}/ai-score")]
     public async Task<ActionResult<DeckScoreDto>> ScoreDeck(
         Guid deckId,
@@ -256,6 +262,7 @@ public sealed class DecksController : ControllerBase
     }
 
     /// <summary>Swaps a built deck's weakest cards for better picks from the legal pool.</summary>
+    [EnableRateLimiting("ai")]
     [HttpPost("{deckId:guid}/ai-refine")]
     public async Task<ActionResult<AiRefineResultDto>> RefineDeck(
         Guid deckId,
@@ -268,6 +275,7 @@ public sealed class DecksController : ControllerBase
 
     // ---- Synergy scoring -------------------------------------------
 
+    [EnableRateLimiting("ai")]
     [HttpPost("synergy")]
     public async Task<ActionResult<SynergyResultDto>> GetSynergy(
         [FromBody] SynergyRequest request,
@@ -284,6 +292,7 @@ public sealed class DecksController : ControllerBase
     /// Scores a page of cards against a commander in one call. Used by the browse list,
     /// which would otherwise fire one request per row.
     /// </summary>
+    [EnableRateLimiting("ai")]
     [HttpPost("synergy/batch")]
     public async Task<ActionResult<ScoredCardDto[]>> GetSynergyBatch(
         [FromBody] SynergyBatchRequest request,

@@ -35,9 +35,14 @@ public sealed class AiExceptionHandler(ILogger<AiExceptionHandler> logger) : IEx
                 (StatusCodes.Status504GatewayTimeout, "AI provider timed out",
                  "The AI provider did not respond in time. Please retry."),
 
-            // Misconfiguration (e.g. missing API key) -- the service genuinely is unavailable.
-            InvalidOperationException e =>
-                (StatusCodes.Status503ServiceUnavailable, "Service unavailable", e.Message),
+            // Misconfiguration (e.g. missing API key) -- the service genuinely is
+            // unavailable. The exception message holds setup instructions and config
+            // paths, so a fixed detail goes to the client and the message to the log.
+            // (This arm used to be InvalidOperationException, which also swept up
+            // framework exceptions and echoed their messages to callers.)
+            ConfigurationException =>
+                (StatusCodes.Status503ServiceUnavailable, "Service unavailable",
+                 "The service is not fully configured. Please contact the administrator."),
 
             _ => (0, string.Empty, string.Empty),
         };

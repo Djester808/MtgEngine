@@ -1,6 +1,10 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MtgEngine.Api.Data;
@@ -142,8 +146,53 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuer = false,
             ValidateAudience = false,
             ClockSkew = TimeSpan.Zero,
+            // Pin the algorithm: without this, any signature scheme the key can satisfy
+            // is accepted, which is more surface than a symmetric-key setup needs.
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         };
     });
+
+// Deny by default: any endpoint without explicit auth metadata requires a signed-in
+// user. Public browsing (forum, commander stats, profiles, rules) opts out with
+// [AllowAnonymous] — a forgotten attribute now fails closed instead of open.
+builder.Services.AddAuthorization(o =>
+{
+    o.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// ---- Rate limiting ---------------------------------------
+//
+// Two buckets: credential endpoints are limited per client IP (login is also a CPU
+// sink — each attempt costs a 100k-iteration PBKDF2), and the AI endpoints are
+// limited per user (each request can spend real money at Anthropic).
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+
+    o.AddPolicy("ai", ctx => RateLimitPartition.GetTokenBucketLimiter(
+        ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? ctx.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown",
+        _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 20,
+            TokensPerPeriod = 10,
+            ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+});
 
 // ---- CORS ------------------------------------------------
 builder.Services.AddCors(opts =>
@@ -179,6 +228,8 @@ app.UseHttpsRedirection();
 app.UseCors("AngularDev");
 app.UseAuthentication();
 app.UseAuthorization();
+// After authentication so the per-user AI partition sees the caller's claims.
+app.UseRateLimiter();
 
 app.MapControllers();
 

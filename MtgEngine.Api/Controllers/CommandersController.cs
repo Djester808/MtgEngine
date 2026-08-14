@@ -1,10 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Services;
 using MtgEngine.Domain.Enums;
 
 namespace MtgEngine.Api.Controllers;
 
+/// <summary>
+/// Community commander statistics. Browsing is public (the client's community pages
+/// have no login gate), so the read actions opt out of the app's deny-by-default
+/// policy individually. The one endpoint that spends money — AI suggestions — stays
+/// behind authentication and the AI rate limit.
+/// </summary>
 [ApiController]
 [Route("api/commanders")]
 public sealed class CommandersController : ControllerBase
@@ -24,6 +32,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Top commanders ranked by number of community published decks.</summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<CommanderSummaryDto[]>> GetTopCommanders(
         [FromQuery] int limit = 50,
@@ -44,6 +53,7 @@ public sealed class CommandersController : ControllerBase
     /// everything. This searches the full card corpus and merges deck counts in, so a
     /// commander with no decks yet still shows up (with a count of zero).
     /// </remarks>
+    [AllowAnonymous]
     [HttpGet("search")]
     public async Task<ActionResult<CommanderSummaryDto[]>> SearchCommanders(
         [FromQuery] string? q = null,
@@ -94,6 +104,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Profile + community deck count + top strategy tags for one commander.</summary>
+    [AllowAnonymous]
     [HttpGet("{oracleId}")]
     public async Task<ActionResult<CommanderProfileDto>> GetCommanderProfile(string oracleId)
     {
@@ -104,6 +115,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Top cards used in community decks with this commander, sorted by inclusion %.</summary>
+    [AllowAnonymous]
     [HttpGet("{oracleId}/cards")]
     public async Task<ActionResult<CommanderCardsDto>> GetCommanderCards(
         string oracleId,
@@ -115,6 +127,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Monthly deck-count history for a commander (last N months).</summary>
+    [AllowAnonymous]
     [HttpGet("{oracleId}/history")]
     public async Task<ActionResult<CommanderHistoryPointDto[]>> GetCommanderHistory(
         string oracleId,
@@ -126,6 +139,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Commanders whose decks share the most cards with this commander.</summary>
+    [AllowAnonymous]
     [HttpGet("{oracleId}/similar")]
     public async Task<ActionResult<SimilarCommanderDto[]>> GetSimilarCommanders(
         string oracleId,
@@ -137,6 +151,7 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>Community decks published for a commander, newest first.</summary>
+    [AllowAnonymous]
     [HttpGet("{oracleId}/decks")]
     public async Task<ActionResult<CommanderDeckDto[]>> GetCommanderDecks(
         string oracleId,
@@ -148,11 +163,15 @@ public sealed class CommandersController : ControllerBase
     }
 
     /// <summary>AI-powered card suggestions for a commander (no specific deck required).</summary>
+    [Authorize]
+    [EnableRateLimiting("ai")]
     [HttpGet("{oracleId}/suggestions")]
     public async Task<ActionResult<DeckSuggestionsDto>> GetCommanderSuggestions(string oracleId)
     {
         var card = await _scryfall.GetByOracleIdAsync(oracleId);
-        if (card == null)
+        // Only cards that can actually head a deck get the pipeline — otherwise every
+        // oracle id in the corpus is a distinct paid-generation cache key.
+        if (card == null || !CommanderRules.IsCommanderEligible(card))
             return NotFound();
 
         var request = new DeckSuggestionsRequest

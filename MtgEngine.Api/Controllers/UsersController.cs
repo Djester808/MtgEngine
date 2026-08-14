@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
@@ -6,7 +7,9 @@ using MtgEngine.Api.Dtos;
 
 namespace MtgEngine.Api.Controllers;
 
+/// <summary>Public community profiles — read-only, browsable without a login.</summary>
 [ApiController]
+[AllowAnonymous]
 [Route("api/users")]
 public sealed class UsersController : ControllerBase
 {
@@ -51,15 +54,18 @@ public sealed class UsersController : ControllerBase
     [HttpGet("{username}")]
     public async Task<ActionResult<UserProfileDto>> GetProfile(string username)
     {
+        // Case-insensitive equality — not LIKE, whose %/_ wildcards would let a route
+        // value like "%25" match every user.
+        var normalized = username.ToLower();
         var posts = await _db.ForumPosts
             .AsNoTracking()
-            .Where(p => EF.Functions.Like(p.AuthorUsername, username))
+            .Where(p => p.AuthorUsername.ToLower() == normalized)
             .OrderByDescending(p => p.PublishedAt)
             .ToListAsync();
 
         var commentCount = await _db.ForumComments
             .AsNoTracking()
-            .CountAsync(c => EF.Functions.Like(c.AuthorUsername, username));
+            .CountAsync(c => c.AuthorUsername.ToLower() == normalized);
 
         if (!posts.Any() && commentCount == 0)
             return NotFound(new { message = $"User '{username}' not found." });
@@ -111,7 +117,7 @@ public sealed class UsersController : ControllerBase
 
         var comments = await _db.ForumComments
             .AsNoTracking()
-            .Where(c => EF.Functions.Like(c.AuthorUsername, username))
+            .Where(c => c.AuthorUsername.ToLower() == normalized)
             .OrderByDescending(c => c.CreatedAt)
             .Take(20)
             .ToListAsync();

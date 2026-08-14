@@ -14,22 +14,35 @@ public sealed class PreferencesController : ControllerBase
 {
     private readonly MtgEngineDbContext _db;
 
-    private Guid UserId =>
-        Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? throw new InvalidOperationException("User ID claim missing from token"));
+    // TryParse, not Parse: a token whose subject claim is not a Guid is an auth
+    // problem (401), not a FormatException 500.
+    private Guid? UserId =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
     public PreferencesController(MtgEngineDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<ActionResult<UserPreferencesDto>> GetPreferences()
     {
-        var user = await _db.Users.FindAsync(UserId);
+        if (UserId is not { } userId)
+            return Unauthorized();
+        var user = await _db.Users.FindAsync(userId);
         if (user == null)
             return NotFound();
 
-        var prefs = string.IsNullOrEmpty(user.PreferencesJson)
-            ? new UserPreferencesDto()
-            : JsonSerializer.Deserialize<UserPreferencesDto>(user.PreferencesJson) ?? new UserPreferencesDto();
+        UserPreferencesDto prefs;
+        try
+        {
+            prefs = string.IsNullOrEmpty(user.PreferencesJson)
+                ? new UserPreferencesDto()
+                : JsonSerializer.Deserialize<UserPreferencesDto>(user.PreferencesJson)
+                  ?? new UserPreferencesDto();
+        }
+        catch (JsonException)
+        {
+            // A corrupt stored blob resets to defaults rather than 500ing forever.
+            prefs = new UserPreferencesDto();
+        }
 
         return Ok(prefs);
     }
@@ -37,7 +50,9 @@ public sealed class PreferencesController : ControllerBase
     [HttpPut]
     public async Task<ActionResult<UserPreferencesDto>> UpdatePreferences([FromBody] UserPreferencesDto request)
     {
-        var user = await _db.Users.FindAsync(UserId);
+        if (UserId is not { } userId)
+            return Unauthorized();
+        var user = await _db.Users.FindAsync(userId);
         if (user == null)
             return NotFound();
 

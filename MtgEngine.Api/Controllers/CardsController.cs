@@ -35,6 +35,11 @@ public sealed class CardsController : ControllerBase
         if (string.IsNullOrWhiteSpace(q))
             return Ok(Array.Empty<CardDto>());
 
+        // Clamp like every sibling endpoint — an unclamped limit materializes and
+        // serializes the whole ~30k-card corpus in one response.
+        limit = Math.Clamp(limit, 1, 200);
+        offset = Math.Max(0, offset);
+
         var results = await _scryfall.SearchAsync(q, limit, offset, sortBy, sortDir, matchCase, matchWord, useRegex);
         return Ok(results.Select(MapToDto).ToArray());
     }

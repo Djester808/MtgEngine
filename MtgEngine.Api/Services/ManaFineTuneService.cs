@@ -113,10 +113,12 @@ public sealed class ManaFineTuneService : IManaFineTuneService
 
         var raw = AnthropicResponse.DeserializeJson<RawFineTune>(respJson) ?? new RawFineTune();
 
+        // `= []` initializers only cover absent properties — an explicit "landSuggestions":
+        // null in the reply overwrites them with null and would NRE in grounding.
         return new ManaFineTuneDto
         {
-            Advice = raw.Advice,
-            LandSuggestions = await GroundSuggestionsAsync(raw.LandSuggestions, req),
+            Advice = raw.Advice ?? [],
+            LandSuggestions = await GroundSuggestionsAsync(raw.LandSuggestions ?? [], req),
         };
     }
 

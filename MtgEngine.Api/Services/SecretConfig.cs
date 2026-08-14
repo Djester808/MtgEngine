@@ -25,7 +25,7 @@ internal static class SecretConfig
         var byteCount = System.Text.Encoding.UTF8.GetByteCount(secret);
         if (byteCount < MinJwtSecretBytes)
         {
-            throw new InvalidOperationException(
+            throw new ConfigurationException(
                 $"{JwtSecretPath} is only {byteCount} bytes; HMAC-SHA256 signing requires " +
                 $"at least {MinJwtSecretBytes}. Generate a new one with:\n" +
                 "  dotnet user-secrets set \"Jwt:Secret\" " +
@@ -40,7 +40,7 @@ internal static class SecretConfig
         var value = config[path];
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException(
+            throw new ConfigurationException(
                 $"{path} is not configured. Set it with:\n" +
                 $"  dotnet user-secrets set \"{path}\" \"{exampleValue}\" --project MtgEngine.Api\n" +
                 $"or supply the {path.Replace(":", "__")} environment variable.");

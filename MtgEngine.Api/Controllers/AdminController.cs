@@ -1,20 +1,33 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Services;
 
 namespace MtgEngine.Api.Controllers;
 
+/// <summary>
+/// Development-only seeding tools. These endpoints delete data and launch scraping
+/// jobs, so outside Development they answer 404 as if they did not exist — and they
+/// additionally require a signed-in user, so a misconfigured environment name alone
+/// never leaves them anonymous.
+/// </summary>
 [ApiController]
+[Authorize]
 [Route("api/admin")]
 public sealed class AdminController : ControllerBase
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IHostEnvironment _env;
     private readonly ILogger<AdminController> _logger;
 
     private static int _seedingInProgress = 0;
 
-    public AdminController(IServiceScopeFactory scopeFactory, ILogger<AdminController> logger)
+    public AdminController(
+        IServiceScopeFactory scopeFactory,
+        IHostEnvironment env,
+        ILogger<AdminController> logger)
     {
         _scopeFactory = scopeFactory;
+        _env = env;
         _logger = logger;
     }
 
@@ -22,6 +35,8 @@ public sealed class AdminController : ControllerBase
     [HttpDelete("clear-seed")]
     public async Task<IActionResult> ClearSeed([FromServices] CommanderDeckSeeder seeder)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
         if (_seedingInProgress == 1)
             return Conflict(new { message = "Seeding in progress — wait for it to finish first." });
         var result = await seeder.ClearSeedAsync();
@@ -37,6 +52,8 @@ public sealed class AdminController : ControllerBase
         [FromQuery] int commanders = 50,
         [FromQuery] int decksEach = 10)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
         if (Interlocked.CompareExchange(ref _seedingInProgress, 1, 0) != 0)
             return Conflict(new { message = "Seeding already in progress." });
 

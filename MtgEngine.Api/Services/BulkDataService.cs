@@ -50,6 +50,10 @@ public sealed class BulkDataService : IScryfallService
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private volatile bool _ready = false;
 
+    /// <summary>Completed once, when the first index build finishes.</summary>
+    private readonly TaskCompletionSource _readySignal =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack = null);
 
     public BulkDataService(
@@ -69,16 +73,19 @@ public sealed class BulkDataService : IScryfallService
 
     // ---- IScryfallService ------------------------------------------------
 
+    // The index dictionaries are plain (non-concurrent) and are only ever written by
+    // the rebuild path, which swaps fully-built replacements in. Request paths must
+    // never mutate them: a concurrent write during a resize can corrupt the table.
+    // API-fallback results are cached inside ScryfallService, so misses stay fast
+    // without back-filling here.
+
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
         await WaitReadyAsync();
         if (_byOracleId.TryGetValue(oracleId, out var def))
             return def;
         _logger.LogDebug("Oracle miss, falling back to API: {Id}", oracleId);
-        var result = await _api.GetByOracleIdAsync(oracleId);
-        if (result is not null)
-            _byOracleId.TryAdd(oracleId, result);
-        return result;
+        return await _api.GetByOracleIdAsync(oracleId);
     }
 
     public async Task<CardDefinition?> GetByNameAsync(string name)
@@ -87,13 +94,7 @@ public sealed class BulkDataService : IScryfallService
         if (_byName.TryGetValue(name, out var oracleId) && _byOracleId.TryGetValue(oracleId, out var def))
             return def;
         _logger.LogDebug("Name miss, falling back to API: {Name}", name);
-        var result = await _api.GetByNameAsync(name);
-        if (result is not null)
-        {
-            _byOracleId.TryAdd(result.OracleId, result);
-            _byName.TryAdd(name, result.OracleId);
-        }
-        return result;
+        return await _api.GetByNameAsync(name);
     }
 
     public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
@@ -423,23 +424,9 @@ public sealed class BulkDataService : IScryfallService
         return Array.Find(SingularCandidates(query), AllSubtypes.Contains);
     }
 
-    /// <summary>
-    /// Legendary creatures, plus the cards that explicitly say they may head a deck
-    /// (planeswalker commanders, backgrounds' partners, Grist, and similar).
-    /// </summary>
-    private static bool IsCommanderEligible(CardDefinition d)
-    {
-        if (!d.Legalities.TryGetValue("commander", out var legal) || legal != "legal")
-            return false;
-        if (d.CardTypes.HasFlag(Domain.Enums.CardType.Token))
-            return false;
-
-        bool legendaryCreature =
-            d.Supertypes.Contains("Legendary") && d.CardTypes.HasFlag(Domain.Enums.CardType.Creature);
-
-        return legendaryCreature
-            || (d.OracleText?.Contains("can be your commander", StringComparison.OrdinalIgnoreCase) ?? false);
-    }
+    // Commander eligibility lives in CommanderRules, shared with the API gate.
+    private static bool IsCommanderEligible(CardDefinition d) =>
+        CommanderRules.IsCommanderEligible(d);
 
     public async Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
         IReadOnlySet<ManaColor> commanderColors, int bracket)
@@ -1007,13 +994,19 @@ public sealed class BulkDataService : IScryfallService
 
     // ---- Internal --------------------------------------------------------
 
+    /// <summary>
+    /// Waits (bounded) for the first index build. A warm restart parses the local bulk
+    /// files in well under the cap, so briefly waiting here beats sending one request
+    /// per card through the 110 ms-serialized live API. A cold first run — where the
+    /// download itself takes minutes — falls through after the timeout and degrades to
+    /// the API as before. Daily rebuilds never re-block: the old indexes stay readable
+    /// until the replacements are swapped in.
+    /// </summary>
     private async Task WaitReadyAsync()
     {
         if (_ready)
             return;
-        // Yield so the caller doesn't block the request thread on first startup
-        await Task.Yield();
-        // If still not ready, just let through — fallback to API will handle it
+        await Task.WhenAny(_readySignal.Task, Task.Delay(TimeSpan.FromSeconds(30)));
     }
 
     private async Task RebuildIndexesAsync()
@@ -1044,7 +1037,14 @@ public sealed class BulkDataService : IScryfallService
                 "Bulk indexes ready: {Oracle} oracle cards, {Prints} printing groups, {Scryfall} scryfall IDs ({Ms}ms)",
                 _byOracleId.Count, _printingsByOracleId.Count, _byScryfallId.Count, sw.ElapsedMilliseconds);
 
+            // The derived caches are computed lazily from the indexes just replaced;
+            // without this reset they keep serving the previous corpus until restart.
+            _gameChangers = null;
+            _commanders = null;
+            _allSubtypes = null;
+
             _ready = true;
+            _readySignal.TrySetResult();
         }
         finally
         {

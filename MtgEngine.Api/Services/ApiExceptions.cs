@@ -32,3 +32,10 @@ public sealed class ResourceNotFoundException(string message) : Exception(messag
 /// with no commander. Maps to 409 Conflict.
 /// </summary>
 public sealed class InvalidResourceStateException(string message) : Exception(message);
+
+/// <summary>
+/// The service is missing required configuration (e.g. an API key). Maps to 503 with a
+/// fixed client-facing message — the exception message itself contains setup
+/// instructions and config paths, which belong in the log, never in a response.
+/// </summary>
+public sealed class ConfigurationException(string message) : Exception(message);

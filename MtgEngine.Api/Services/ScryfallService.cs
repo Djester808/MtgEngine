@@ -155,11 +155,12 @@ public sealed class ScryfallService : ICardLookup
         if (_byOracleId.TryGetValue(oracleId, out var mem))
             return mem;
 
-        var json = await LoadDiskAsync(OraclePath(oracleId))
-                   ?? await FetchAndSaveAsync(OraclePath(oracleId), $"cards/{oracleId}");
+        var (json, transient) = await LoadOrFetchAsync(OraclePath(oracleId), $"cards/{oracleId}");
+        if (transient)
+            return null; // not cached — the next call retries
 
         var def = json is null ? null : CardParser.Parse(json.Value);
-        _byOracleId[oracleId] = def;
+        _byOracleId[oracleId] = def; // a real card, or a definite 404
         return def;
     }
 
@@ -169,8 +170,9 @@ public sealed class ScryfallService : ICardLookup
             return mem;
 
         var encoded = Uri.EscapeDataString(name);
-        var json = await LoadDiskAsync(NamePath(name))
-                   ?? await FetchAndSaveAsync(NamePath(name), $"cards/named?fuzzy={encoded}");
+        var (json, transient) = await LoadOrFetchAsync(NamePath(name), $"cards/named?fuzzy={encoded}");
+        if (transient)
+            return null;
 
         var def = json is null ? null : CardParser.Parse(json.Value);
         _byName[name] = def;
@@ -185,8 +187,7 @@ public sealed class ScryfallService : ICardLookup
 
     public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
     {
-        var json = await LoadDiskAsync(ScryfallPath(scryfallId))
-                   ?? await FetchAndSaveAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}");
+        var (json, _) = await LoadOrFetchAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}");
 
         var def = json is null ? null : CardParser.Parse(json.Value);
         if (def is not null)
@@ -232,8 +233,9 @@ public sealed class ScryfallService : ICardLookup
         Directory.CreateDirectory(Path.Combine(_cacheDir, "rulings"));
         var cachePath = Path.Combine(_cacheDir, "rulings", $"{scryfallId}.json");
 
-        var json = await LoadDiskAsync(cachePath)
-                   ?? await FetchAndSaveAsync(cachePath, $"cards/{scryfallId}/rulings");
+        var (json, transient) = await LoadOrFetchAsync(cachePath, $"cards/{scryfallId}/rulings");
+        if (transient)
+            return []; // not cached — retried on the next call
 
         if (json is null || !json.Value.TryGetProperty("data", out var data))
         {
@@ -317,17 +319,35 @@ public sealed class ScryfallService : ICardLookup
         }
     }
 
-    private async Task<JsonElement?> FetchAndSaveAsync(string cachePath, string apiPath)
+    /// <summary>
+    /// Disk cache first, else the live API (saving to disk on success). `Transient` is
+    /// true for rate limits, 5xx, network faults and unparseable bodies — outcomes the
+    /// caller must NOT cache. Only a definite 404 comes back as a cacheable null.
+    /// </summary>
+    /// <remarks>
+    /// Previously any failure returned a bare null that the lookups cached forever, so
+    /// one 429 during a busy moment made a real card resolve as "does not exist" for
+    /// the rest of the process lifetime — which the AI builder then rejected as
+    /// unknown-card and the importer listed as unresolved.
+    /// </remarks>
+    private async Task<(JsonElement? Json, bool Transient)> LoadOrFetchAsync(
+        string cachePath, string apiPath)
     {
-        var json = await FetchRawAsync(apiPath);
-        if (json is not null)
-            await SaveDiskAsync(cachePath, json.Value);
-        return json;
+        var disk = await LoadDiskAsync(cachePath);
+        if (disk is not null)
+            return (disk, false);
+
+        var (outcome, json) = await FetchResultAsync(apiPath);
+        if (outcome == FetchOutcome.Ok)
+            await SaveDiskAsync(cachePath, json!.Value);
+        return (json, outcome == FetchOutcome.Transient);
     }
 
     // ---- HTTP + rate limit ----------------------------------------
 
-    private async Task<JsonElement?> FetchRawAsync(string path)
+    private enum FetchOutcome { Ok, NotFound, Transient }
+
+    private async Task<(FetchOutcome Outcome, JsonElement? Json)> FetchResultAsync(string path)
     {
         await _rateLimiter.WaitAsync();
         try
@@ -338,23 +358,31 @@ public sealed class ScryfallService : ICardLookup
             _lastRequest = DateTime.UtcNow;
 
             var response = await _http.GetAsync(path);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return (FetchOutcome.NotFound, null);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Scryfall {Path} → {Status}", path, (int)response.StatusCode);
-                return null;
+                return (FetchOutcome.Transient, null);
             }
 
             var stream = await response.Content.ReadAsStreamAsync();
-            return await JsonSerializer.DeserializeAsync<JsonElement>(stream);
+            return (FetchOutcome.Ok, await JsonSerializer.DeserializeAsync<JsonElement>(stream));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Scryfall request failed: {Path}", path);
-            return null;
+            return (FetchOutcome.Transient, null);
         }
         finally
         {
             _rateLimiter.Release();
         }
+    }
+
+    private async Task<JsonElement?> FetchRawAsync(string path)
+    {
+        var (_, json) = await FetchResultAsync(path);
+        return json;
     }
 }

@@ -79,8 +79,15 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
         var extracted = await _cache.GetOrCreateAsync(
             "commander-reqs", CacheVersion, [commander.OracleId], () => CallAsync(commander, text));
 
+        // `= []` initializers only cover ABSENT properties — an explicit `"key": null`
+        // in the model's reply overwrites them with null, and this value is cached, so
+        // one bad payload would otherwise re-throw on every later read.
+        var extractedThresholds = extracted.Thresholds ?? [];
+        var extractedTribes = extracted.Tribes ?? [];
+        var extractedKeywords = extracted.Keywords ?? [];
+
         var thresholds = new List<Threshold>();
-        foreach (var t in extracted.Thresholds)
+        foreach (var t in extractedThresholds)
         {
             if (!ValidAttributes.Contains(t.Attribute, StringComparer.OrdinalIgnoreCase))
             {
@@ -99,7 +106,7 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
         // The commander's own subtypes are a tribe by definition; anything the model spotted
         // in the text is added to them.
         var tribes = new List<string>(commander.Subtypes);
-        foreach (var tribe in extracted.Tribes)
+        foreach (var tribe in extractedTribes)
             if (!tribes.Contains(tribe, StringComparer.OrdinalIgnoreCase))
                 tribes.Add(tribe);
 
@@ -108,10 +115,10 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
             commander.Name,
             thresholds.Count > 0 ? string.Join(", ", thresholds.Select(t => t.Describe())) : "no numeric thresholds",
             tribes.Count > 0 ? string.Join("/", tribes) : "none",
-            extracted.Keywords.Length > 0 ? string.Join("/", extracted.Keywords) : "none");
+            extractedKeywords.Length > 0 ? string.Join("/", extractedKeywords) : "none");
 
         return new CommanderRequirements(
-            thresholds, tribes, extracted.Keywords, commander.ColorIdentity);
+            thresholds, tribes, extractedKeywords, commander.ColorIdentity);
     }
 
     /// <summary>Attributes a card actually has a field for, and can therefore be checked against.</summary>

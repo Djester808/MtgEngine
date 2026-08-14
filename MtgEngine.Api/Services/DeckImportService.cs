@@ -9,6 +9,9 @@ namespace MtgEngine.Api.Services;
 
 public static class DeckListParser
 {
+    /// <summary>No sane list wants more copies than a playset of basics per line.</summary>
+    internal const int MaxQuantityPerLine = 99;
+
     private static readonly HashSet<string> SectionHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         "Deck", "Sideboard", "Commander", "Companion", "Maybeboard", "About",
@@ -58,13 +61,19 @@ public static class DeckListParser
                 Regex.IsMatch(cleaned, @"\[Commander\]", RegexOptions.IgnoreCase);
             cleaned = Regex.Replace(cleaned, @"\s*(\*CMDR\*|\[Commander\])\s*", " ", RegexOptions.IgnoreCase).Trim();
 
-            // "N[x] <name>" or just "<name>" (qty = 1)
+            // "N[x] <name>" or just "<name>" (qty = 1). TryParse + clamp: a pasted line
+            // like "99999999999 Sol Ring" used to overflow int.Parse into a 500, and
+            // nothing bounded the quantity a single line could insert.
             var m = Regex.Match(cleaned, @"^(\d+)[xX]?\s+(.+)$");
             string name;
             int qty;
             if (m.Success)
             {
-                qty = int.Parse(m.Groups[1].Value);
+                // A count too large for int still names a real card — clamp it rather
+                // than mistaking the whole line for a card name.
+                qty = int.TryParse(m.Groups[1].Value, out var parsedQty)
+                    ? Math.Clamp(parsedQty, 1, MaxQuantityPerLine)
+                    : MaxQuantityPerLine;
                 name = m.Groups[2].Value.Trim();
             }
             else
@@ -92,15 +101,18 @@ public sealed class DeckImportService
     private readonly ICardLookup _scryfall;
     private readonly ICollectionService _collection;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly ILogger<DeckImportService> _logger;
 
     public DeckImportService(
         ICardLookup scryfall,
         ICollectionService collection,
-        IHttpClientFactory httpFactory)
+        IHttpClientFactory httpFactory,
+        ILogger<DeckImportService> logger)
     {
         _scryfall = scryfall;
         _collection = collection;
         _httpFactory = httpFactory;
+        _logger = logger;
     }
 
     public async Task<ImportDeckResult> ImportAsync(string userId, ImportDeckRequest request)
@@ -201,9 +213,15 @@ public sealed class DeckImportService
 
         if (!resp.IsSuccessStatusCode)
         {
+            // The body is logged, never returned — the controller surfaces this
+            // exception's message to the client, and upstream error payloads can echo
+            // request content or provider internals.
             var body = await resp.Content.ReadAsStringAsync();
+            _logger.LogWarning(
+                "Moxfield returned {Status} for deck {DeckId}: {Body}",
+                (int)resp.StatusCode, deckId, body.Length > 2000 ? body[..2000] + "..." : body);
             throw new HttpRequestException(
-                $"Moxfield returned {(int)resp.StatusCode} {resp.ReasonPhrase}: {body}");
+                $"Moxfield returned {(int)resp.StatusCode} {resp.ReasonPhrase} for that deck URL.");
         }
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
@@ -222,7 +240,7 @@ public sealed class DeckImportService
                 sb.AppendLine("Commander");
                 foreach (var entry in cmdrCards.EnumerateObject())
                 {
-                    var qty = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                    var qty = entry.Value.TryGetProperty("quantity", out var qp) && qp.TryGetInt32(out var q) ? Math.Clamp(q, 1, DeckListParser.MaxQuantityPerLine) : 1;
                     var cardName = entry.Value.TryGetProperty("card", out var cp) &&
                                    cp.TryGetProperty("name", out var cnp) ? cnp.GetString() : null;
                     if (cardName == null)
@@ -239,7 +257,7 @@ public sealed class DeckImportService
                 sb.AppendLine("Deck");
                 foreach (var entry in mainCards.EnumerateObject())
                 {
-                    var qty = entry.Value.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                    var qty = entry.Value.TryGetProperty("quantity", out var qp) && qp.TryGetInt32(out var q) ? Math.Clamp(q, 1, DeckListParser.MaxQuantityPerLine) : 1;
                     var cardName = entry.Value.TryGetProperty("card", out var cp) &&
                                    cp.TryGetProperty("name", out var cnp) ? cnp.GetString() : null;
                     if (cardName != null)
@@ -272,7 +290,7 @@ public sealed class DeckImportService
         {
             foreach (var card in cards.EnumerateArray())
             {
-                var qty = card.TryGetProperty("quantity", out var qp) ? qp.GetInt32() : 1;
+                var qty = card.TryGetProperty("quantity", out var qp) && qp.TryGetInt32(out var q) ? Math.Clamp(q, 1, DeckListParser.MaxQuantityPerLine) : 1;
                 string? cardName = null;
                 if (card.TryGetProperty("card", out var cp) &&
                     cp.TryGetProperty("oracleCard", out var op) &&

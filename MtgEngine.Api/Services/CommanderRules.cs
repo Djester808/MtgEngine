@@ -1,3 +1,4 @@
+using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
@@ -20,4 +21,22 @@ internal static class CommanderRules
     public static bool IsLegalInCommander(CardDefinition def) =>
         def.Legalities.TryGetValue("commander", out var legality)
         && string.Equals(legality, "legal", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Legendary creatures, plus the cards that explicitly say they may head a deck
+    /// (planeswalker commanders, backgrounds' partners, Grist, and similar).
+    /// </summary>
+    public static bool IsCommanderEligible(CardDefinition d)
+    {
+        if (!IsLegalInCommander(d))
+            return false;
+        if (d.CardTypes.HasFlag(CardType.Token))
+            return false;
+
+        bool legendaryCreature =
+            d.Supertypes.Contains("Legendary") && d.CardTypes.HasFlag(CardType.Creature);
+
+        return legendaryCreature
+            || (d.OracleText?.Contains("can be your commander", StringComparison.OrdinalIgnoreCase) ?? false);
+    }
 }

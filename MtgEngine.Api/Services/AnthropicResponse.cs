@@ -93,9 +93,12 @@ internal static class AnthropicResponse
     /// </summary>
     public static T? DeserializeJson<T>(string responseJson)
     {
-        var json = ExtractJsonObject(ExtractText(responseJson));
         try
         {
+            // ExtractText parses responseJson itself, so it belongs inside the guard —
+            // a 2xx body that is not JSON (proxy HTML, truncated stream) used to throw
+            // straight past this method's documented "returns default" contract.
+            var json = ExtractJsonObject(ExtractText(responseJson));
             return JsonSerializer.Deserialize<T>(json, JsonOptions);
         }
         catch (JsonException)

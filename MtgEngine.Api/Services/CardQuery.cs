@@ -49,10 +49,40 @@ internal static class CardQuery
         return [.. forms.Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
+    /// <summary>The token prefixes the query language actually understands.</summary>
+    private static readonly string[] QueryTokens = ["name:", "o:", "t:", "s:", "r:", "c:"];
+
+    /// <summary>
+    /// The index of <paramref name="token"/> at a word boundary (start of query or
+    /// preceded by whitespace), or -1. Every parser goes through this: a loose
+    /// <c>IndexOf</c> made "foo:bar" match "o:" mid-word, which turned unrecognised
+    /// queries into accidental oracle-text searches — or, before the name-filter fix,
+    /// into a match of the entire corpus.
+    /// </summary>
+    private static int IndexOfToken(string q, string token, int startIndex = 0)
+    {
+        var idx = q.IndexOf(token, startIndex, StringComparison.OrdinalIgnoreCase);
+        while (idx >= 0)
+        {
+            if (idx == 0 || char.IsWhiteSpace(q[idx - 1]))
+                return idx;
+            idx = q.IndexOf(token, idx + 1, StringComparison.OrdinalIgnoreCase);
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// True only for syntax this parser will actually act on. "cmc" counts only with a
+    /// comparison operator — a bare "cmcguffin" is a name, and suppressing the name
+    /// filter without producing any structured filter matches everything.
+    /// </summary>
+    private static bool HasQuerySyntax(string q) =>
+        QueryTokens.Any(t => IndexOfToken(q, t) >= 0) || ParseCmc(q).Op is not null;
+
     internal static string? ParseName(string q)
     {
         // name:"some text"
-        var idx = q.IndexOf("name:\"", StringComparison.OrdinalIgnoreCase);
+        var idx = IndexOfToken(q, "name:\"");
         if (idx >= 0)
         {
             var start = idx + 6;
@@ -60,16 +90,14 @@ internal static class CardQuery
             if (end > start)
                 return q[start..end];
         }
-        // Plain text with no query-syntax tokens → treat the whole query as a name filter
-        // Any "key:" pattern (t:, s:, r:, c:, name:, cmc, etc.) signals structured query syntax
-        var hasToken = q.Contains(':') || q.IndexOf("cmc", StringComparison.OrdinalIgnoreCase) >= 0;
-        return hasToken ? null : q.Trim();
+        // Plain text with no recognised tokens → treat the whole query as a name filter
+        return HasQuerySyntax(q) ? null : q.Trim();
     }
 
     internal static string? ParseOracleText(string q)
     {
         // o:"some text"
-        var idx = q.IndexOf("o:\"", StringComparison.OrdinalIgnoreCase);
+        var idx = IndexOfToken(q, "o:\"");
         if (idx >= 0)
         {
             var start = idx + 3;
@@ -78,7 +106,7 @@ internal static class CardQuery
                 return q[start..end];
         }
         // o:word (unquoted single token)
-        idx = q.IndexOf("o:", StringComparison.OrdinalIgnoreCase);
+        idx = IndexOfToken(q, "o:");
         if (idx >= 0)
         {
             var start = idx + 2;
@@ -101,7 +129,7 @@ internal static class CardQuery
     {
         var flags = CardType.None;
         var i = 0;
-        while ((i = q.IndexOf("t:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        while ((i = IndexOfToken(q, "t:", i)) >= 0)
         {
             i += 2;
             var end = i;
@@ -130,7 +158,7 @@ internal static class CardQuery
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var i = 0;
-        while ((i = q.IndexOf("t:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        while ((i = IndexOfToken(q, "t:", i)) >= 0)
         {
             i += 2;
             var end = i;
@@ -146,7 +174,7 @@ internal static class CardQuery
 
     internal static string? ParseSet(string q)
     {
-        var idx = q.IndexOf("s:", StringComparison.OrdinalIgnoreCase);
+        var idx = IndexOfToken(q, "s:");
         if (idx < 0)
             return null;
         var start = idx + 2;
@@ -160,7 +188,7 @@ internal static class CardQuery
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var i = 0;
-        while ((i = q.IndexOf("r:", i, StringComparison.OrdinalIgnoreCase)) >= 0)
+        while ((i = IndexOfToken(q, "r:", i)) >= 0)
         {
             i += 2;
             var end = i;
@@ -179,7 +207,7 @@ internal static class CardQuery
         foreach (var op in new[] { "<=", ">=", "=" })
         {
             var key = "cmc" + op;
-            var idx = q.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+            var idx = IndexOfToken(q, key);
             if (idx < 0)
                 continue;
             var start = idx + key.Length;
@@ -197,7 +225,7 @@ internal static class CardQuery
 
     internal static (bool HasFilter, bool Multicolor, bool Colorless, HashSet<ManaColor> Colors) ParseColors(string q)
     {
-        var idx = q.IndexOf("c:", StringComparison.OrdinalIgnoreCase);
+        var idx = IndexOfToken(q, "c:");
         if (idx < 0)
             return (false, false, false, []);
         var start = idx + 2;

@@ -112,6 +112,14 @@ public static class DomainMapper
             result.Add(CardTypeDto.Land);
         if (flags.HasFlag(CardType.Planeswalker))
             result.Add(CardTypeDto.Planeswalker);
+        if (flags.HasFlag(CardType.Battle))
+            result.Add(CardTypeDto.Battle);
+        if (flags.HasFlag(CardType.Tribal))
+            result.Add(CardTypeDto.Tribal);
+        if (flags.HasFlag(CardType.Token))
+            result.Add(CardTypeDto.Token);
+        if (flags.HasFlag(CardType.Other))
+            result.Add(CardTypeDto.Other);
         return result.ToArray();
     }
 }

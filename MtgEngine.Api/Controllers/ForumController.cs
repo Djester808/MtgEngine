@@ -27,6 +27,7 @@ public sealed class ForumController : ControllerBase
 
     // ---- Public read endpoints ----
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<ForumPostSummaryDto[]>> GetPosts()
     {
@@ -34,6 +35,7 @@ public sealed class ForumController : ControllerBase
         return Ok(posts);
     }
 
+    [AllowAnonymous]
     [HttpGet("{postId:guid}")]
     public async Task<ActionResult<ForumPostDetailDto>> GetPost(Guid postId)
     {
@@ -45,10 +47,17 @@ public sealed class ForumController : ControllerBase
 
     // ---- Auth-required write endpoints ----
 
+    // SQLite does not enforce the model's HasMaxLength, so the caps live here.
+    private const int MaxDescriptionLength = 2000;
+    private const int MaxCommentLength = 4000;
+
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<ForumPostSummaryDto>> PublishDeck([FromBody] PublishDeckRequest request)
     {
+        if (request.Description is { Length: > MaxDescriptionLength })
+            return BadRequest($"Description must be at most {MaxDescriptionLength} characters");
+
         try
         {
             var post = await _forum.PublishDeckAsync(UserId, Username, request);
@@ -76,6 +85,8 @@ public sealed class ForumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Content))
             return BadRequest("Comment content is required");
+        if (request.Content.Length > MaxCommentLength)
+            return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
         try
         {
@@ -94,6 +105,8 @@ public sealed class ForumController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Content))
             return BadRequest("Comment content is required");
+        if (request.Content.Length > MaxCommentLength)
+            return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
         var comment = await _forum.UpdateCommentAsync(postId, commentId, UserId, request);
         if (comment == null)

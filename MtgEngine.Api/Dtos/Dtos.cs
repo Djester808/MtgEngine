@@ -3,7 +3,9 @@ namespace MtgEngine.Api.Dtos;
 // ---- Enums ------------------------------------------------
 
 public enum ManaColorDto { C, W, U, B, R, G }
-public enum CardTypeDto { Creature, Instant, Sorcery, Enchantment, Artifact, Land, Planeswalker }
+// Keep in sync with Domain.Enums.CardType — a missing member here silently strips the
+// type from the DTO (Battles used to reach the client, and the AI judge, typeless).
+public enum CardTypeDto { Creature, Instant, Sorcery, Enchantment, Artifact, Land, Planeswalker, Battle, Tribal, Token, Other }
 // ---- Card / Permanent -------------------------------------
 
 public sealed record CardDto
@@ -75,17 +77,19 @@ public sealed record CollectionDetailDto
 
 public sealed record CreateCollectionRequest(string Name, string? Description = null);
 public sealed record UpdateCollectionRequest(string Name, string? Description = null, string? CoverUri = null);
+// Validation attributes on positional records must target the constructor
+// parameter (no `property:` prefix) — MVC throws at bind time otherwise.
 public sealed record AddCardToCollectionRequest(
     string OracleId,
     string? ScryfallId = null,
-    int Quantity = 1,
-    int QuantityFoil = 0,
+    [System.ComponentModel.DataAnnotations.Range(0, 999)] int Quantity = 1,
+    [System.ComponentModel.DataAnnotations.Range(0, 999)] int QuantityFoil = 0,
     string? Notes = null,
     string Board = "main"
 );
 public sealed record UpdateCollectionCardRequest(
-    int Quantity,
-    int QuantityFoil,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int Quantity,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int QuantityFoil,
     string? ScryfallId = null,
     string? Notes = null
 );
@@ -337,7 +341,11 @@ public sealed record DeckScoreDto
 public sealed record AiBuildRequest
 {
     public string CommanderOracleId { get; init; } = string.Empty;
-    public int Bracket { get; init; } = 3;           // 1–5
+
+    /// <summary>1–5. Validated: an out-of-range value would disable the game-changer gate.</summary>
+    [System.ComponentModel.DataAnnotations.Range(1, 5)]
+    public int Bracket { get; init; } = 3;
+
     public string PriceRange { get; init; } = "any";       // "budget" | "mid" | "any"
     public bool IncludeSideboard { get; init; } = false;
     public bool IncludeMaybeboard { get; init; } = false;
@@ -346,10 +354,13 @@ public sealed record AiBuildRequest
 public sealed record AiRefineRequest
 {
     /// <summary>Bracket the refined deck must still respect. Defaults to Commander's mid bracket.</summary>
+    [System.ComponentModel.DataAnnotations.Range(1, 5)]
     public int Bracket { get; init; } = 3;
+
     public string PriceRange { get; init; } = "any";
 
     /// <summary>Upper bound on swaps, so a refine cannot quietly rebuild the whole deck.</summary>
+    [System.ComponentModel.DataAnnotations.Range(0, 30)]
     public int MaxSwaps { get; init; } = 10;
 }
 

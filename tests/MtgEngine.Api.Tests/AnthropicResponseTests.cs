@@ -119,6 +119,12 @@ public class AnthropicResponseTests
         Assert.Null(AnthropicResponse.DeserializeJson<Score>(Response(("text", "{not valid json"))));
 
     [Fact]
+    public void DeserializeJson_ReturnsDefault_WhenEnvelopeIsNotJson() =>
+        // A proxy can hand back a 2xx with an HTML body; that must be "no result",
+        // not an exception out of the extraction pipeline.
+        Assert.Null(AnthropicResponse.DeserializeJson<Score>("<html>Bad Gateway</html>"));
+
+    [Fact]
     public void DeserializeJson_IsCaseInsensitive()
     {
         var json = Response(("text", """{"Score":7,"REASON":"x"}"""));

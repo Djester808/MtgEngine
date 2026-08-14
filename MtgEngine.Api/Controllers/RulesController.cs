@@ -27,6 +27,7 @@ public sealed record KbDto(
 // ---- Controller ---------------------------------------------
 
 [ApiController]
+[Microsoft.AspNetCore.Authorization.AllowAnonymous] // static knowledge base, public /kb page
 [Route("api/[controller]")]
 public sealed class RulesController : ControllerBase
 {

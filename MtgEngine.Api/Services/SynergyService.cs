@@ -148,6 +148,34 @@ public sealed class SynergyService : ISynergyService
         if (cached != null)
             return new SynergyResultDto { Score = cached.Score, Reason = cached.Reason };
 
+        // Resolve both cards server-side and ignore the client's copies of the names and
+        // oracle texts. The result is cached by oracle id and served to every user, so
+        // trusting client text would let one caller poison the shared cache — and it is
+        // a direct prompt-injection channel besides.
+        var cmdDef = await _scryfall.GetByOracleIdAsync(request.CommanderOracleId)
+            ?? throw new ResourceNotFoundException($"Commander not found: {request.CommanderOracleId}");
+        var cardDef = await _scryfall.GetByOracleIdAsync(request.CardOracleId)
+            ?? throw new ResourceNotFoundException($"Card not found: {request.CardOracleId}");
+
+        // Deck names also reach the prompt: keep only names that resolve to real cards,
+        // capped, so free text cannot ride along.
+        var deckNames = new List<string>(Math.Min(request.DeckCardNames.Length, 150));
+        foreach (var name in request.DeckCardNames.Take(150))
+        {
+            var def = string.IsNullOrWhiteSpace(name) ? null : await _scryfall.GetByNameAsync(name);
+            if (def is not null)
+                deckNames.Add(def.Name);
+        }
+
+        request = request with
+        {
+            CommanderName = cmdDef.Name,
+            CommanderText = cmdDef.OracleText ?? string.Empty,
+            CardName = cardDef.Name,
+            CardText = cardDef.OracleText ?? string.Empty,
+            DeckCardNames = [.. deckNames],
+        };
+
         var result = await CallAnthropicAsync(request);
 
         var entity = new CardSynergyScore

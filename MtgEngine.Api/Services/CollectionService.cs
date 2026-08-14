@@ -28,7 +28,13 @@ public interface ICollectionService
         string userId,
         UpdateCollectionCardRequest request);
     Task<bool> RemoveCardFromCollectionAsync(Guid collectionId, Guid cardId, string userId);
-    Task<bool> RemoveCardByOracleAsync(Guid collectionId, string oracleId, string userId);
+
+    /// <summary>
+    /// Removes every row of a card (all printings). Pass <paramref name="board"/> to
+    /// scope the removal to one board; null removes across all boards.
+    /// </summary>
+    Task<bool> RemoveCardByOracleAsync(
+        Guid collectionId, string oracleId, string userId, string? board = null);
 
     // Deck building from collection
     Task<CardDto[]> GetAvailableCardsForDeckAsync(Guid collectionId, string userId);
@@ -160,6 +166,18 @@ public sealed class CollectionService : ICollectionService
 
     // ---- Collection Cards ----
 
+    /// <summary>
+    /// The only board values the schema means. Anything else is normalized to main on
+    /// write — the previous pass-through let values like "Main" or "commander" create
+    /// rows that bypassed the per-printing unique index and every board filter (a data
+    /// migration already had to repair such rows once).
+    /// </summary>
+    internal static string NormalizeBoard(string? board)
+    {
+        var b = board?.Trim().ToLowerInvariant();
+        return b is "side" or "maybe" ? b : "main";
+    }
+
     public async Task<CollectionCardDto> AddCardToCollectionAsync(
         Guid collectionId,
         string userId,
@@ -171,27 +189,27 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Collection not found");
 
-        var board = string.IsNullOrWhiteSpace(request.Board) ? "main" : request.Board;
+        var board = NormalizeBoard(request.Board);
 
-        // Check if this exact printing+board already exists in the collection
-        var existing = await _context.CollectionCards
-            .Where(cc => cc.CollectionId == collectionId
-                      && cc.OracleId == request.OracleId
-                      && cc.ScryfallId == request.ScryfallId
-                      && cc.Board == board)
-            .FirstOrDefaultAsync();
-
-        CollectionCard cardRecord;
-        if (existing != null)
+        // Increment in SQL, not read-modify-write: two simultaneous adds of the same
+        // printing both computed quantity+1 from the same read and one increment was
+        // silently lost.
+        async Task<bool> TryIncrementAsync()
         {
-            existing.Quantity += request.Quantity;
-            existing.QuantityFoil += request.QuantityFoil;
-            _context.CollectionCards.Update(existing);
-            cardRecord = existing;
+            var n = await _context.CollectionCards
+                .Where(cc => cc.CollectionId == collectionId
+                          && cc.OracleId == request.OracleId
+                          && cc.ScryfallId == request.ScryfallId
+                          && cc.Board == board)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.Quantity, c => c.Quantity + request.Quantity)
+                    .SetProperty(c => c.QuantityFoil, c => c.QuantityFoil + request.QuantityFoil));
+            return n > 0;
         }
-        else
+
+        if (!await TryIncrementAsync())
         {
-            cardRecord = new CollectionCard(
+            var fresh = new CollectionCard(
                 collectionId,
                 request.OracleId,
                 request.ScryfallId,
@@ -199,12 +217,32 @@ public sealed class CollectionService : ICollectionService
                 request.QuantityFoil,
                 request.Notes,
                 board);
-            _context.CollectionCards.Add(cardRecord);
+            _context.CollectionCards.Add(fresh);
+            collection.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Lost the insert race to a concurrent add of the same printing (the
+                // unique index rejected the duplicate) — fold into the winner's row.
+                _context.Entry(fresh).State = EntityState.Detached;
+                await TryIncrementAsync();
+            }
+        }
+        else
+        {
+            collection.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
 
-        await _context.SaveChangesAsync();
-        collection.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        var cardRecord = await _context.CollectionCards
+            .AsNoTracking()
+            .FirstAsync(cc => cc.CollectionId == collectionId
+                           && cc.OracleId == request.OracleId
+                           && cc.ScryfallId == request.ScryfallId
+                           && cc.Board == board);
 
         // Pinned printing first — resolving by oracle id here made the added card render
         // with the default printing's art until the next full reload.
@@ -285,7 +323,8 @@ public sealed class CollectionService : ICollectionService
         return true;
     }
 
-    public async Task<bool> RemoveCardByOracleAsync(Guid collectionId, string oracleId, string userId)
+    public async Task<bool> RemoveCardByOracleAsync(
+        Guid collectionId, string oracleId, string userId, string? board = null)
     {
         var collection = await _context.Collections
             .Where(c => c.Id == collectionId && c.UserId == userId)
@@ -294,14 +333,19 @@ public sealed class CollectionService : ICollectionService
         if (collection == null)
             return false;
 
-        var card = await _context.CollectionCards
-            .Where(cc => cc.CollectionId == collectionId && cc.OracleId == oracleId)
-            .FirstOrDefaultAsync();
+        // All matching rows in one statement. The old FirstOrDefault + Remove deleted a
+        // single arbitrary row — for a card present as several printings or on several
+        // boards, "remove all copies" left the rest behind, and the AI refine path could
+        // delete a sideboard row while meaning the main-board one.
+        var query = _context.CollectionCards
+            .Where(cc => cc.CollectionId == collectionId && cc.OracleId == oracleId);
+        if (board is not null)
+            query = query.Where(cc => cc.Board == board);
 
-        if (card == null)
+        var removed = await query.ExecuteDeleteAsync();
+        if (removed == 0)
             return false;
 
-        _context.CollectionCards.Remove(card);
         collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return true;

@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
@@ -8,6 +10,8 @@ using MtgEngine.Domain.Models;
 namespace MtgEngine.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
+[EnableRateLimiting("auth")]
 [Route("api/[controller]")]
 public sealed class AuthController : ControllerBase
 {
@@ -28,8 +32,8 @@ public sealed class AuthController : ControllerBase
             || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Username, email, and password are required");
 
-        if (request.Password.Length < 6)
-            return BadRequest("Password must be at least 6 characters");
+        if (request.Password.Length < 8)
+            return BadRequest("Password must be at least 8 characters");
 
         var taken = await _db.Users.AnyAsync(u =>
             u.Username == request.Username || u.Email == request.Email);
@@ -56,7 +60,15 @@ public sealed class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(u =>
             u.Username == request.Username || u.Email == request.Username);
 
-        if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null)
+        {
+            // Burn the same hashing cost as a real check so response timing does not
+            // reveal whether the account exists.
+            PasswordHasher.VerifyDummy(request.Password);
+            return Unauthorized("Invalid credentials");
+        }
+
+        if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
             return Unauthorized("Invalid credentials");
 
         return Ok(new AuthTokenResponse(_tokens.Generate(user), user.Username));
