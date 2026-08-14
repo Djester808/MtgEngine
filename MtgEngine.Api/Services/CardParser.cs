@@ -119,9 +119,6 @@ internal static class CardParser
             var colorId = ParseColorIdentity(json);
             var legalities = ParseLegalities(json);
             var gameChanger = json.TryGetProperty("game_changer", out var gcEl) && gcEl.GetBoolean();
-            var speed = cardTypes.HasFlag(CardType.Instant) || keywords.HasFlag(KeywordAbility.Flash)
-                ? SpeedRestriction.Instant
-                : SpeedRestriction.Sorcery;
 
             return new CardDefinition
             {
@@ -144,7 +141,6 @@ internal static class CardParser
                 ImageUriNormalBack = imgNormalBack,
                 ImageUriSmall = imgSmall,
                 ImageUriArtCrop = imgArtCrop,
-                CastingSpeed = speed,
                 FlavorText = flavorText,
                 Artist = artist,
                 SetCode = setCode,
@@ -178,7 +174,6 @@ internal static class CardParser
             Toughness = oracle.Toughness,
             StartingLoyalty = oracle.StartingLoyalty,
             Keywords = oracle.Keywords,
-            CastingSpeed = oracle.CastingSpeed,
             ColorIdentity = oracle.ColorIdentity,
             FlavorText = oracle.FlavorText,
             Artist = oracle.Artist,

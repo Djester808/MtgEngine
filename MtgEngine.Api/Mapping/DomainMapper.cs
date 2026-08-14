@@ -15,11 +15,6 @@ namespace MtgEngine.Api.Mapping;
 /// </remarks>
 public static class DomainMapper
 {
-    public static CardDto ToDto(Card card) => ToDto(card.Definition, card.CardId, card.OwnerId);
-
-    public static CardDto ToDto(CardDefinition def, Guid cardId, Guid ownerId) =>
-        ToDto(def, cardId.ToString(), ownerId.ToString());
-
     /// <summary>
     /// For callers rendering an oracle card with no owned instance behind it. The oracle id
     /// stands in as the card id, and <see cref="CardDto.OwnerId"/> is left empty.
@@ -84,7 +79,7 @@ public static class DomainMapper
         CardDetails = def is null ? null : ToDto(def),
     };
 
-    public static ManaColorDto ToDto(ManaColor c) => c switch
+    private static ManaColorDto ToDto(ManaColor c) => c switch
     {
         ManaColor.White => ManaColorDto.W,
         ManaColor.Blue => ManaColorDto.U,

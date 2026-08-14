@@ -76,7 +76,7 @@ public sealed class CardsController : ControllerBase
         [FromQuery] int offset = 0)
     {
         if (string.IsNullOrWhiteSpace(commanderOracleId))
-            return BadRequest("commanderOracleId is required");
+            return Problem(detail: "commanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
         var commander = await _scryfall.GetByOracleIdAsync(commanderOracleId);
         if (commander is null)
@@ -146,7 +146,7 @@ public sealed class CardsController : ControllerBase
     public async Task<ActionResult<CardDto>> GetByName([FromQuery] string name)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest("name is required");
+            return Problem(detail: "name is required", statusCode: StatusCodes.Status400BadRequest);
 
         var trimmed = name.Trim();
         var card = await _scryfall.GetByNameAsync(trimmed);

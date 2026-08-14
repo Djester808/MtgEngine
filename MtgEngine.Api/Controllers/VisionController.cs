@@ -31,12 +31,12 @@ public sealed class VisionController : ControllerBase
     public async Task<IActionResult> IdentifyCard([FromBody] IdentifyCardRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ImageBase64))
-            return BadRequest("ImageBase64 is required");
+            return Problem(detail: "ImageBase64 is required", statusCode: StatusCodes.Status400BadRequest);
         if (request.ImageBase64.Length > MaxImageBase64Length)
-            return BadRequest("Image is too large");
+            return Problem(detail: "Image is too large", statusCode: StatusCodes.Status400BadRequest);
         var mediaType = request.MediaType ?? "image/jpeg";
         if (!AllowedMediaTypes.Contains(mediaType))
-            return BadRequest("Unsupported media type");
+            return Problem(detail: "Unsupported media type", statusCode: StatusCodes.Status400BadRequest);
 
         // Returned as-is: cardName/setName are Scryfall-verified, and setName is null
         // when the printing could not be determined rather than a model guess.

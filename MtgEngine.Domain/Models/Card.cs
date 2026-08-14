@@ -24,7 +24,6 @@ public sealed class CardDefinition
     public int? Toughness { get; init; }
     public int? StartingLoyalty { get; init; }
     public KeywordAbility Keywords { get; init; }
-    public SpeedRestriction CastingSpeed { get; init; }
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
     public string? ImageUriNormal { get; init; }
@@ -64,29 +63,4 @@ public sealed class CardDefinition
     };
 }
 
-/// <summary>
-/// A specific physical card instance in a game. Has a unique CardId.
-/// References its oracle definition. Carries zone-independent state (owner).
-/// </summary>
-public sealed class Card
-{
-    public Guid CardId { get; init; } = Guid.NewGuid();
-    public CardDefinition Definition { get; init; } = null!;
-    public Guid OwnerId { get; init; }
-
-    // Convenience pass-throughs
-    public string Name => Definition.Name;
-    public ManaCost ManaCost => Definition.ManaCost;
-    public CardType CardTypes => Definition.CardTypes;
-    public KeywordAbility Keywords => Definition.Keywords;
-    public bool IsLand => Definition.IsLand;
-    public bool IsPermanentType => Definition.IsPermanentType;
-
-    public Card WithOwner(Guid ownerId) => new()
-    {
-        CardId = this.CardId,
-        Definition = this.Definition,
-        OwnerId = ownerId,
-    };
-}
 

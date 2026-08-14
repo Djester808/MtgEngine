@@ -74,28 +74,6 @@ public sealed class ManaCost : IEquatable<ManaCost>
         return new ManaCost(generic, colored);
     }
 
-    /// <summary>
-    /// Returns true if the given mana pool can pay this cost.
-    /// Colored pips must be paid with matching color; generic can be paid with any color.
-    /// </summary>
-    public bool CanBePaidBy(ManaPool pool)
-    {
-        var remaining = new Dictionary<ManaColor, int>(pool.Amounts);
-
-        // Pay colored pips first
-        foreach (var (color, count) in Colored)
-        {
-            int available = remaining.GetValueOrDefault(color);
-            if (available < count)
-                return false;
-            remaining[color] = available - count;
-        }
-
-        // Pay generic with whatever is left
-        int leftover = remaining.Values.Sum();
-        return leftover >= Generic;
-    }
-
     public override string ToString()
     {
         var sb = new System.Text.StringBuilder();
@@ -146,66 +124,3 @@ public sealed class ManaCost : IEquatable<ManaCost>
     }
 }
 
-/// <summary>
-/// Represents the mana currently in a player's mana pool.
-/// </summary>
-public sealed class ManaPool
-{
-    public static readonly ManaPool Empty = new(new Dictionary<ManaColor, int>());
-
-    public IReadOnlyDictionary<ManaColor, int> Amounts { get; }
-    public int Total => Amounts.Values.Sum();
-
-    public ManaPool(Dictionary<ManaColor, int> amounts)
-    {
-        Amounts = amounts.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
-    }
-
-    public ManaPool Add(ManaColor color, int count = 1)
-    {
-        var next = new Dictionary<ManaColor, int>(Amounts);
-        next[color] = next.GetValueOrDefault(color) + count;
-        return new ManaPool(next);
-    }
-
-    public ManaPool Pay(ManaCost cost)
-    {
-        var remaining = new Dictionary<ManaColor, int>(Amounts);
-
-        foreach (var (color, count) in cost.Colored)
-        {
-            remaining[color] = remaining.GetValueOrDefault(color) - count;
-            if (remaining[color] <= 0)
-                remaining.Remove(color);
-        }
-
-        int generic = cost.Generic;
-        foreach (var color in remaining.Keys.ToList())
-        {
-            if (generic <= 0)
-                break;
-            int take = Math.Min(generic, remaining[color]);
-            remaining[color] -= take;
-            generic -= take;
-            if (remaining[color] <= 0)
-                remaining.Remove(color);
-        }
-
-        if (generic > 0)
-            throw new InvalidOperationException("Cannot pay: insufficient mana.");
-        return new ManaPool(remaining);
-    }
-
-    public ManaPool Remove(ManaColor color, int count = 1)
-    {
-        var next = new Dictionary<ManaColor, int>(Amounts);
-        int current = next.GetValueOrDefault(color);
-        if (current <= count)
-            next.Remove(color);
-        else
-            next[color] = current - count;
-        return new ManaPool(next);
-    }
-
-    public ManaPool Clear() => Empty;
-}

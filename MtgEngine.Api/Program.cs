@@ -61,9 +61,6 @@ builder.Services.AddSingleton<ICardLookup>(sp => sp.GetRequiredService<BulkDataS
 // Background worker: downloads/refreshes bulk files on startup and daily
 builder.Services.AddHostedService<BulkDataRefreshWorker>();
 
-// ---- Deck services ---------------------------------------
-builder.Services.AddScoped<IDeckBuilderService, DeckBuilderService>();
-
 // ---- Database --------------------------------------------
 builder.Services.AddDbContext<MtgEngineDbContext>(options =>
     options.UseSqlite("Data Source=mtgengine.db"));

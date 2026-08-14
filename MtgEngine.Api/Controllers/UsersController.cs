@@ -68,7 +68,7 @@ public sealed class UsersController : ControllerBase
             .CountAsync(c => c.AuthorUsername.ToLower() == normalized);
 
         if (!posts.Any() && commentCount == 0)
-            return NotFound(new { message = $"User '{username}' not found." });
+            return Problem(detail: $"User '{username}' not found.", statusCode: StatusCodes.Status404NotFound);
 
         // Resolve actual username casing from first result
         var resolvedUsername = posts.Any() ? posts[0].AuthorUsername : username;

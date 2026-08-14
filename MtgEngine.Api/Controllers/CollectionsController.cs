@@ -58,7 +58,7 @@ public sealed class CollectionsController : ControllerBase
         [FromBody] CreateCollectionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest("Collection name is required");
+            return Problem(detail: "Collection name is required", statusCode: StatusCodes.Status400BadRequest);
 
         var collection = await _collectionService.CreateCollectionAsync(UserId, request);
         return CreatedAtAction(nameof(GetCollection), new { collectionId = collection.Id }, collection);
@@ -73,7 +73,7 @@ public sealed class CollectionsController : ControllerBase
         [FromBody] UpdateCollectionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest("Collection name is required");
+            return Problem(detail: "Collection name is required", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
@@ -110,34 +110,22 @@ public sealed class CollectionsController : ControllerBase
         [FromBody] AddCardToCollectionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.OracleId))
-            return BadRequest("OracleId is required");
+            return Problem(detail: "OracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
         if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
-            return BadRequest("Total quantity must be at least 1 and neither value may be negative");
+            return Problem(detail: "Total quantity must be at least 1 and neither value may be negative", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
-            var card = await _collectionService.AddCardToCollectionAsync(collectionId, UserId, request);
-            return CreatedAtAction(nameof(GetCollectionCard),
-                new { collectionId, cardId = card.Id }, card);
+            var (card, created) = await _collectionService.AddCardToCollectionAsync(
+                collectionId, UserId, request);
+            // 201 only for a genuinely new row; incrementing an existing one is a 200.
+            return created ? StatusCode(StatusCodes.Status201Created, card) : Ok(card);
         }
         catch (KeyNotFoundException)
         {
-            return NotFound("Collection not found");
+            return Problem(detail: "Collection not found", statusCode: StatusCodes.Status404NotFound);
         }
-    }
-
-    /// <summary>
-    /// Get a specific card from a collection.
-    /// </summary>
-    [HttpGet("{collectionId:guid}/cards/{cardId:guid}")]
-    public async Task<ActionResult<CollectionCardDto>> GetCollectionCard(Guid collectionId, Guid cardId)
-    {
-        var card = await _collectionService.GetCollectionCardAsync(collectionId, cardId, UserId);
-        if (card == null)
-            return NotFound();
-
-        return Ok(card);
     }
 
     /// <summary>
@@ -150,7 +138,7 @@ public sealed class CollectionsController : ControllerBase
         [FromBody] UpdateCollectionCardRequest request)
     {
         if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
-            return BadRequest("Total quantity must be at least 1 and neither value may be negative");
+            return Problem(detail: "Total quantity must be at least 1 and neither value may be negative", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
@@ -177,28 +165,4 @@ public sealed class CollectionsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>
-    /// Remove all copies of a card (by OracleId) from a collection.
-    /// </summary>
-    [HttpDelete("{collectionId:guid}/cards/by-oracle/{oracleId}")]
-    public async Task<ActionResult> RemoveCardByOracle(Guid collectionId, string oracleId)
-    {
-        var success = await _collectionService.RemoveCardByOracleAsync(collectionId, oracleId, UserId);
-        if (!success)
-            return NotFound();
-
-        return NoContent();
-    }
-
-    // ---- Deck Building ----
-
-    /// <summary>
-    /// Get all cards from a collection that can be used to build a deck.
-    /// </summary>
-    [HttpGet("{collectionId:guid}/deck-cards")]
-    public async Task<ActionResult<CardDto[]>> GetDeckCards(Guid collectionId)
-    {
-        var cards = await _collectionService.GetAvailableCardsForDeckAsync(collectionId, UserId);
-        return Ok(cards);
-    }
 }

@@ -60,9 +60,6 @@ public abstract class StubScryfallService : IScryfallService
         int limit = 50, int offset = 0) =>
         NotStubbed<Task<(CardDefinition[], int)>>(nameof(GetCandidatePoolAsync));
 
-    public virtual Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors) =>
-        NotStubbed<Task<string[]>>(nameof(GetGameChangerNamesAsync));
-
     public virtual Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
         IReadOnlySet<ManaColor> commanderColors, int perRoleLimit) =>
         NotStubbed<Task<IReadOnlyDictionary<CardRole, string[]>>>(nameof(GetLegalCardsByRoleAsync));

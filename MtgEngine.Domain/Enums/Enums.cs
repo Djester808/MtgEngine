@@ -48,9 +48,3 @@ public enum ManaColor
     Red = 4,
     Green = 5,
 }
-
-public enum SpeedRestriction
-{
-    Sorcery,   // Main phase, empty stack, active player only
-    Instant,   // Any time player has priority
-}

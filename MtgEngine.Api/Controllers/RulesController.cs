@@ -31,21 +31,9 @@ public sealed record KbDto(
 [Route("api/[controller]")]
 public sealed class RulesController : ControllerBase
 {
-    // GET /api/rules
+    // GET /api/rules — the kb page takes the whole document and slices it client-side.
     [HttpGet]
     public ActionResult<KbDto> Get() => Ok(_kb);
-
-    // GET /api/rules/keywords
-    [HttpGet("keywords")]
-    public ActionResult<KbKeyword[]> GetKeywords() => Ok(_kb.Keywords);
-
-    // GET /api/rules/mechanics
-    [HttpGet("mechanics")]
-    public ActionResult<KbMechanic[]> GetMechanics() => Ok(_kb.Mechanics);
-
-    // GET /api/rules/sba
-    [HttpGet("sba")]
-    public ActionResult<KbSba[]> GetSba() => Ok(_kb.StateBasedActions);
 
     // ---- Static KB data -------------------------------------
 

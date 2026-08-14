@@ -30,15 +30,15 @@ public sealed class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Username)
             || string.IsNullOrWhiteSpace(request.Email)
             || string.IsNullOrWhiteSpace(request.Password))
-            return BadRequest("Username, email, and password are required");
+            return Problem(detail: "Username, email, and password are required", statusCode: StatusCodes.Status400BadRequest);
 
         if (request.Password.Length < 8)
-            return BadRequest("Password must be at least 8 characters");
+            return Problem(detail: "Password must be at least 8 characters", statusCode: StatusCodes.Status400BadRequest);
 
         var taken = await _db.Users.AnyAsync(u =>
             u.Username == request.Username || u.Email == request.Email);
         if (taken)
-            return Conflict("Username or email is already taken");
+            return Problem(detail: "Username or email is already taken", statusCode: StatusCodes.Status409Conflict);
 
         var user = new User
         {
@@ -65,11 +65,11 @@ public sealed class AuthController : ControllerBase
             // Burn the same hashing cost as a real check so response timing does not
             // reveal whether the account exists.
             PasswordHasher.VerifyDummy(request.Password);
-            return Unauthorized("Invalid credentials");
+            return Problem(detail: "Invalid credentials", statusCode: StatusCodes.Status401Unauthorized);
         }
 
         if (!PasswordHasher.Verify(request.Password, user.PasswordHash))
-            return Unauthorized("Invalid credentials");
+            return Problem(detail: "Invalid credentials", statusCode: StatusCodes.Status401Unauthorized);
 
         return Ok(new AuthTokenResponse(_tokens.Generate(user), user.Username));
     }

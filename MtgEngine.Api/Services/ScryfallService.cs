@@ -88,12 +88,6 @@ public interface IScryfallService : ICardLookup
         int limit = 50, int offset = 0);
 
     /// <summary>
-    /// Names of cards on Scryfall's official Game Changer list that are legal in the
-    /// given colour identity, in a deterministic order.
-    /// </summary>
-    Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors);
-
-    /// <summary>
     /// Every card that could legally go in this deck: Commander-legal, inside the
     /// colour identity, and allowed at this bracket. Excludes basic lands and tokens.
     /// This is a legality filter only -- it does not rank or judge playability.

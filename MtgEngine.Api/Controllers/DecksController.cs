@@ -45,7 +45,7 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<DeckDetailDto>> CreateDeck([FromBody] CreateDeckRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest("Deck name is required");
+            return Problem(detail: "Deck name is required", statusCode: StatusCodes.Status400BadRequest);
 
         var deck = await _service.CreateDeckAsync(UserId, request);
         return CreatedAtAction(nameof(GetDeck), new { deckId = deck.Id }, deck);
@@ -55,7 +55,7 @@ public sealed class DecksController : ControllerBase
     public async Task<ActionResult<DeckDetailDto>> UpdateDeck(Guid deckId, [FromBody] UpdateDeckRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return BadRequest("Deck name is required");
+            return Problem(detail: "Deck name is required", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
@@ -74,14 +74,20 @@ public sealed class DecksController : ControllerBase
         [FromServices] DeckImportService importer)
     {
         if (string.IsNullOrWhiteSpace(request.Text) && string.IsNullOrWhiteSpace(request.Url))
-            return BadRequest(new { message = "Either 'text' or 'url' is required." });
+            return Problem(detail: "Either 'text' or 'url' is required.", statusCode: StatusCodes.Status400BadRequest);
         try
         {
             var result = await importer.ImportAsync(UserId, request);
             return Ok(result);
         }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-        catch (HttpRequestException ex) { return BadRequest(new { message = $"Failed to fetch deck: {ex.Message}" }); }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+        catch (HttpRequestException ex)
+        {
+            return Problem(detail: $"Failed to fetch deck: {ex.Message}", statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     [HttpDelete("{deckId:guid}")]
@@ -101,29 +107,21 @@ public sealed class DecksController : ControllerBase
         [FromBody] AddCardToCollectionRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.OracleId))
-            return BadRequest("OracleId is required");
+            return Problem(detail: "OracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
         if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
-            return BadRequest("Total quantity must be at least 1");
+            return Problem(detail: "Total quantity must be at least 1", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
-            var card = await _service.AddCardToCollectionAsync(deckId, UserId, request);
-            return CreatedAtAction(nameof(GetCard), new { deckId, cardId = card.Id }, card);
+            var (card, created) = await _service.AddCardToCollectionAsync(deckId, UserId, request);
+            // 201 only for a genuinely new row; incrementing an existing one is a 200.
+            return created ? StatusCode(StatusCodes.Status201Created, card) : Ok(card);
         }
         catch (KeyNotFoundException)
         {
-            return NotFound("Deck not found");
+            return Problem(detail: "Deck not found", statusCode: StatusCodes.Status404NotFound);
         }
-    }
-
-    [HttpGet("{deckId:guid}/cards/{cardId:guid}")]
-    public async Task<ActionResult<CollectionCardDto>> GetCard(Guid deckId, Guid cardId)
-    {
-        var card = await _service.GetCollectionCardAsync(deckId, cardId, UserId);
-        if (card == null)
-            return NotFound();
-        return Ok(card);
     }
 
     [HttpPut("{deckId:guid}/cards/{cardId:guid}")]
@@ -133,7 +131,7 @@ public sealed class DecksController : ControllerBase
         [FromBody] UpdateCollectionCardRequest request)
     {
         if (request.Quantity < 0 || request.QuantityFoil < 0 || request.Quantity + request.QuantityFoil < 1)
-            return BadRequest("Total quantity must be at least 1");
+            return Problem(detail: "Total quantity must be at least 1", statusCode: StatusCodes.Status400BadRequest);
 
         try
         {
@@ -164,7 +162,7 @@ public sealed class DecksController : ControllerBase
         [FromServices] IDeckSuggestionsService suggestionsService)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
-            return BadRequest("CommanderOracleId is required");
+            return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
         var result = await suggestionsService.GetSuggestionsAsync(request);
         return Ok(result);
@@ -189,6 +187,22 @@ public sealed class DecksController : ControllerBase
         [FromServices] IDeckSuggestionsService suggestionsService,
         CancellationToken ct)
     {
+        // Validation failures are ordinary HTTP errors — only a valid request becomes
+        // an event stream. (A 200 + SSE "error" event hid the failure from anything
+        // that reads status codes.)
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Detail = "CommanderOracleId is required",
+                    Status = StatusCodes.Status400BadRequest,
+                },
+                ct);
+            return;
+        }
+
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no"; // stop proxies buffering the stream
@@ -198,12 +212,6 @@ public sealed class DecksController : ControllerBase
             var json = JsonSerializer.Serialize(payload, SseJson);
             await Response.WriteAsync($"event: {@event}\ndata: {json}\n\n", ct);
             await Response.Body.FlushAsync(ct);
-        }
-
-        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
-        {
-            await Emit("error", new { message = "CommanderOracleId is required" });
-            return;
         }
 
         try
@@ -244,7 +252,7 @@ public sealed class DecksController : ControllerBase
         [FromServices] IAiBuildService aiBuildService)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
-            return BadRequest("CommanderOracleId is required");
+            return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
 
         var result = await aiBuildService.BuildDeckAsync(deckId, UserId, request);
         return Ok(result);
@@ -282,7 +290,7 @@ public sealed class DecksController : ControllerBase
         [FromServices] ISynergyService synergyService)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId) || string.IsNullOrWhiteSpace(request.CardOracleId))
-            return BadRequest("CommanderOracleId and CardOracleId are required");
+            return Problem(detail: "CommanderOracleId and CardOracleId are required", statusCode: StatusCodes.Status400BadRequest);
 
         var result = await synergyService.GetSynergyAsync(request);
         return Ok(result);
@@ -299,7 +307,7 @@ public sealed class DecksController : ControllerBase
         [FromServices] ISynergyService synergyService)
     {
         if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
-            return BadRequest("CommanderOracleId is required");
+            return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
         if (request.CardOracleIds.Length == 0)
             return Ok(Array.Empty<ScoredCardDto>());
         if (request.CardOracleIds.Length > MaxBatchScoreCards)

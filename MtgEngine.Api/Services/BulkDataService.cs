@@ -309,12 +309,6 @@ public sealed class BulkDataService : IScryfallService
         return accepted;
     }
 
-    /// <summary>
-    /// Cached Game Changer definitions (~53 cards), built once on first use. Scanning
-    /// the whole corpus per request would be wasteful for a set this small and static.
-    /// </summary>
-    private CardDefinition[]? _gameChangers;
-
     /// <summary>Cached list of every Commander-legal commander, built once on first use.</summary>
     private CardDefinition[]? _commanders;
 
@@ -755,27 +749,6 @@ public sealed class BulkDataService : IScryfallService
         return (page, all.Length);
     }
 
-    public async Task<string[]> GetGameChangerNamesAsync(IReadOnlySet<ManaColor> commanderColors)
-    {
-        await WaitReadyAsync();
-
-        // Sorted so the resulting prompt is stable and cacheable.
-        _gameChangers ??= _byOracleId.Values
-            .Where(d => d.GameChanger)
-            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        var legal = commanderColors.Count == 0
-            ? _gameChangers.AsEnumerable()
-            : _gameChangers.Where(d =>
-                d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)));
-
-        return legal
-            .Select(d => d.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
     /// <summary>
     /// True when the card debuted in one of these sets rather than being reprinted into
     /// them.
@@ -1039,7 +1012,6 @@ public sealed class BulkDataService : IScryfallService
 
             // The derived caches are computed lazily from the indexes just replaced;
             // without this reset they keep serving the previous corpus until restart.
-            _gameChangers = null;
             _commanders = null;
             _allSubtypes = null;
 

@@ -16,12 +16,12 @@ public interface ICollectionService
     Task<CollectionDetailDto> UpdateCollectionAsync(Guid collectionId, string userId, UpdateCollectionRequest request);
     Task<bool> DeleteCollectionAsync(Guid collectionId, string userId);
 
-    // Shared card management (used by both collections and decks)
-    Task<CollectionCardDto> AddCardToCollectionAsync(
+    // Shared card management (used by both collections and decks).
+    // Created distinguishes a new row (201) from an increment of an existing one (200).
+    Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(
         Guid collectionId,
         string userId,
         AddCardToCollectionRequest request);
-    Task<CollectionCardDto?> GetCollectionCardAsync(Guid collectionId, Guid cardId, string userId);
     Task<CollectionCardDto> UpdateCollectionCardAsync(
         Guid collectionId,
         Guid cardId,
@@ -35,9 +35,6 @@ public interface ICollectionService
     /// </summary>
     Task<bool> RemoveCardByOracleAsync(
         Guid collectionId, string oracleId, string userId, string? board = null);
-
-    // Deck building from collection
-    Task<CardDto[]> GetAvailableCardsForDeckAsync(Guid collectionId, string userId);
 
     // Decks (IsDeck = true)
     Task<DeckDto[]> GetUserDecksAsync(string userId);
@@ -178,7 +175,7 @@ public sealed class CollectionService : ICollectionService
         return b is "side" or "maybe" ? b : "main";
     }
 
-    public async Task<CollectionCardDto> AddCardToCollectionAsync(
+    public async Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(
         Guid collectionId,
         string userId,
         AddCardToCollectionRequest request)
@@ -207,6 +204,7 @@ public sealed class CollectionService : ICollectionService
             return n > 0;
         }
 
+        var created = false;
         if (!await TryIncrementAsync())
         {
             var fresh = new CollectionCard(
@@ -222,6 +220,7 @@ public sealed class CollectionService : ICollectionService
             try
             {
                 await _context.SaveChangesAsync();
+                created = true;
             }
             catch (DbUpdateException)
             {
@@ -247,28 +246,7 @@ public sealed class CollectionService : ICollectionService
         // Pinned printing first — resolving by oracle id here made the added card render
         // with the default printing's art until the next full reload.
         var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord);
-        return DomainMapper.ToDto(cardRecord, cardDef);
-    }
-
-    public async Task<CollectionCardDto?> GetCollectionCardAsync(Guid collectionId, Guid cardId, string userId)
-    {
-        var card = await _context.CollectionCards
-            .AsNoTracking()
-            .Where(cc => cc.Id == cardId && cc.CollectionId == collectionId)
-            .FirstOrDefaultAsync();
-
-        if (card == null)
-            return null;
-
-        // Verify collection belongs to user
-        var collection = await _context.Collections
-            .Where(c => c.Id == collectionId && c.UserId == userId)
-            .FirstOrDefaultAsync();
-        if (collection == null)
-            return null;
-
-        var cardDef = await _scryfallService.ResolveForEntryAsync(card);
-        return DomainMapper.ToDto(card, cardDef);
+        return (DomainMapper.ToDto(cardRecord, cardDef), created);
     }
 
     public async Task<CollectionCardDto> UpdateCollectionCardAsync(
@@ -349,32 +327,6 @@ public sealed class CollectionService : ICollectionService
         collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return true;
-    }
-
-    // ---- Deck Building ----
-
-    public async Task<CardDto[]> GetAvailableCardsForDeckAsync(Guid collectionId, string userId)
-    {
-        var collection = await _context.Collections
-            .AsNoTracking()
-            .Where(c => c.Id == collectionId && c.UserId == userId)
-            .Include(c => c.Cards)
-            .FirstOrDefaultAsync();
-
-        if (collection == null)
-            return [];
-
-        var cards = new List<CardDto>();
-        foreach (var card in collection.Cards)
-        {
-            var cardDef = await _scryfallService.ResolveForEntryAsync(card);
-            if (cardDef != null)
-            {
-                cards.Add(DomainMapper.ToDto(cardDef));
-            }
-        }
-
-        return [.. cards];
     }
 
     // ---- Deck methods ----

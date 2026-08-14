@@ -65,7 +65,7 @@ public sealed class ForumController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound("Deck not found");
+            return Problem(detail: "Deck not found", statusCode: StatusCodes.Status404NotFound);
         }
     }
 
@@ -84,7 +84,7 @@ public sealed class ForumController : ControllerBase
     public async Task<ActionResult<ForumCommentDto>> AddComment(Guid postId, [FromBody] CreateCommentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Comment content is required");
+            return Problem(detail: "Comment content is required", statusCode: StatusCodes.Status400BadRequest);
         if (request.Content.Length > MaxCommentLength)
             return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
@@ -95,7 +95,7 @@ public sealed class ForumController : ControllerBase
         }
         catch (KeyNotFoundException)
         {
-            return NotFound("Forum post not found");
+            return Problem(detail: "Forum post not found", statusCode: StatusCodes.Status404NotFound);
         }
     }
 
@@ -104,7 +104,7 @@ public sealed class ForumController : ControllerBase
     public async Task<ActionResult<ForumCommentDto>> UpdateComment(Guid postId, Guid commentId, [FromBody] UpdateCommentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Comment content is required");
+            return Problem(detail: "Comment content is required", statusCode: StatusCodes.Status400BadRequest);
         if (request.Content.Length > MaxCommentLength)
             return BadRequest($"Comment must be at most {MaxCommentLength} characters");
 
