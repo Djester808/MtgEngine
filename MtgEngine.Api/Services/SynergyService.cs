@@ -444,7 +444,8 @@ public sealed class SynergyService : ISynergyService
         var parts = await Task.WhenAll(chunks.Select(async chunk =>
         {
             await gate.WaitAsync();
-            try { return await CallDeckScoringAsync(cmd, req, chunk, mode, profile, focus); }
+            try
+            { return await CallDeckScoringAsync(cmd, req, chunk, mode, profile, focus); }
             finally { gate.Release(); }
         }));
 
@@ -647,7 +648,8 @@ public sealed class SynergyService : ISynergyService
         try
         {
             using var doc = JsonDocument.Parse(responseJson);
-            if (!doc.RootElement.TryGetProperty("usage", out var usage)) return;
+            if (!doc.RootElement.TryGetProperty("usage", out var usage))
+                return;
 
             int Read(string name) =>
                 usage.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;

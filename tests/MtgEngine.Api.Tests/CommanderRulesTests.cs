@@ -15,14 +15,14 @@ public class CommanderRulesTests
         string[]? supertypes = null,
         string legality = "legal",
         string? oracleText = null) => new()
-    {
-        OracleId = "oracle-1",
-        Name = "Test Card",
-        CardTypes = types,
-        Supertypes = [.. supertypes ?? []],
-        Legalities = new Dictionary<string, string> { ["commander"] = legality },
-        OracleText = oracleText ?? string.Empty,
-    };
+        {
+            OracleId = "oracle-1",
+            Name = "Test Card",
+            CardTypes = types,
+            Supertypes = [.. supertypes ?? []],
+            Legalities = new Dictionary<string, string> { ["commander"] = legality },
+            OracleText = oracleText ?? string.Empty,
+        };
 
     [Fact]
     public void LegendaryCreature_IsEligible()

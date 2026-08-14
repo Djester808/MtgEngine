@@ -14,14 +14,14 @@ public class CardGroundingTests
         ManaColor[]? identity = null,
         string legality = "legal",
         bool gameChanger = false) => new()
-    {
-        OracleId = "oracle-1",
-        Name = "Test Card",
-        CardTypes = CardType.Creature,
-        ColorIdentity = [.. identity ?? [ManaColor.Red]],
-        Legalities = new Dictionary<string, string> { ["commander"] = legality },
-        GameChanger = gameChanger,
-    };
+        {
+            OracleId = "oracle-1",
+            Name = "Test Card",
+            CardTypes = CardType.Creature,
+            ColorIdentity = [.. identity ?? [ManaColor.Red]],
+            Legalities = new Dictionary<string, string> { ["commander"] = legality },
+            GameChanger = gameChanger,
+        };
 
     private static readonly IReadOnlySet<ManaColor> RedCommander = new HashSet<ManaColor>
     {

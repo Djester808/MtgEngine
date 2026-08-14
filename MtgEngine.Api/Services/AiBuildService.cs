@@ -59,7 +59,8 @@ public sealed class AiBuildService : IAiBuildService
     {
         var gate = _deckLocks.GetOrAdd(deckId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync();
-        try { return await action(); }
+        try
+        { return await action(); }
         finally { gate.Release(); }
     }
 

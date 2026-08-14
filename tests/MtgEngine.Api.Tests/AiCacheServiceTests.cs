@@ -71,7 +71,8 @@ public sealed class AiCacheServiceTests : IDisposable
     public async Task DifferentKeyParts_Miss()
     {
         int calls = 0;
-        Task<Payload> Factory() { calls++; return Task.FromResult(new Payload("x", calls)); }
+        Task<Payload> Factory()
+        { calls++; return Task.FromResult(new Payload("x", calls)); }
 
         await _sut.GetOrCreateAsync("kind", "v1", ["a"], Factory);
         await _sut.GetOrCreateAsync("kind", "v1", ["b"], Factory);
@@ -83,7 +84,8 @@ public sealed class AiCacheServiceTests : IDisposable
     public async Task DifferentModelVersion_Miss()
     {
         int calls = 0;
-        Task<Payload> Factory() { calls++; return Task.FromResult(new Payload("x", calls)); }
+        Task<Payload> Factory()
+        { calls++; return Task.FromResult(new Payload("x", calls)); }
 
         await _sut.GetOrCreateAsync("kind", "v1", ["a"], Factory);
         await _sut.GetOrCreateAsync("kind", "v2", ["a"], Factory);
@@ -95,7 +97,8 @@ public sealed class AiCacheServiceTests : IDisposable
     public async Task DifferentKind_Miss()
     {
         int calls = 0;
-        Task<Payload> Factory() { calls++; return Task.FromResult(new Payload("x", calls)); }
+        Task<Payload> Factory()
+        { calls++; return Task.FromResult(new Payload("x", calls)); }
 
         await _sut.GetOrCreateAsync("suggestions", "v1", ["a"], Factory);
         await _sut.GetOrCreateAsync("mana-tune", "v1", ["a"], Factory);
@@ -108,7 +111,8 @@ public sealed class AiCacheServiceTests : IDisposable
     {
         // ["ab","c"] and ["a","bc"] concatenate identically; a naive key would collide.
         int calls = 0;
-        Task<Payload> Factory() { calls++; return Task.FromResult(new Payload("x", calls)); }
+        Task<Payload> Factory()
+        { calls++; return Task.FromResult(new Payload("x", calls)); }
 
         await _sut.GetOrCreateAsync("kind", "v1", ["ab", "c"], Factory);
         await _sut.GetOrCreateAsync("kind", "v1", ["a", "bc"], Factory);
@@ -120,7 +124,8 @@ public sealed class AiCacheServiceTests : IDisposable
     public async Task ExpiredEntry_IsRefreshed()
     {
         int calls = 0;
-        Task<Payload> Factory() { calls++; return Task.FromResult(new Payload($"call-{calls}", calls)); }
+        Task<Payload> Factory()
+        { calls++; return Task.FromResult(new Payload($"call-{calls}", calls)); }
 
         await _sut.GetOrCreateAsync("kind", "v1", ["a"], Factory);
 

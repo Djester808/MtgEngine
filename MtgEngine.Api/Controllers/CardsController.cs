@@ -150,11 +150,13 @@ public sealed class CardsController : ControllerBase
 
         var trimmed = name.Trim();
         var card = await _scryfall.GetByNameAsync(trimmed);
-        if (card is not null) return Ok(MapToDto(card));
+        if (card is not null)
+            return Ok(MapToDto(card));
 
         // Fallback: bulk search with the name as-is (handles cases where fuzzy live lookup fails)
         var results = await _scryfall.SearchAsync(trimmed, 1);
-        if (results.Length > 0) return Ok(MapToDto(results[0]));
+        if (results.Length > 0)
+            return Ok(MapToDto(results[0]));
 
         return NotFound();
     }
@@ -170,7 +172,8 @@ public sealed class CardsController : ControllerBase
     public async Task<ActionResult<CardDto>> GetCard(string oracleId)
     {
         var card = await _scryfall.GetByOracleIdAsync(oracleId);
-        if (card is null) return NotFound();
+        if (card is null)
+            return NotFound();
         return Ok(MapToDto(card));
     }
 

@@ -111,7 +111,8 @@ public sealed class CardVisionService
 
         _logger.LogInformation("Claude vision response: {Text}", text);
 
-        if (string.IsNullOrEmpty(text)) return new CardVisionResult();
+        if (string.IsNullOrEmpty(text))
+            return new CardVisionResult();
 
         // Salvage the JSON object from markdown fences or surrounding prose.
         var json = AnthropicResponse.ExtractJsonObject(text);
@@ -127,7 +128,8 @@ public sealed class CardVisionService
             rawCollector = ReadString(root, "collectorNumber");
             if (rawCollector is not null)
                 rawCollector = Regex.Match(rawCollector, @"^\d+").Value;
-            if (string.IsNullOrEmpty(rawCollector)) rawCollector = null;
+            if (string.IsNullOrEmpty(rawCollector))
+                rawCollector = null;
 
             rawSet = ReadString(root, "setName");
         }

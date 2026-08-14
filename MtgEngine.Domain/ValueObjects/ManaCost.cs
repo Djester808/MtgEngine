@@ -1,3 +1,4 @@
+using System.Globalization;
 using MtgEngine.Domain.Enums;
 
 namespace MtgEngine.Domain.ValueObjects;
@@ -26,8 +27,7 @@ public sealed class ManaCost : IEquatable<ManaCost>
 
     public ManaCost(int generic, Dictionary<ManaColor, int> colored)
     {
-        if (generic < 0)
-            throw new ArgumentOutOfRangeException(nameof(generic));
+        ArgumentOutOfRangeException.ThrowIfNegative(generic);
         Generic = generic;
         Colored = colored.Where(kv => kv.Value > 0)
                          .ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -53,7 +53,7 @@ public sealed class ManaCost : IEquatable<ManaCost>
                 int start = i;
                 while (i < cost.Length && char.IsDigit(cost[i]))
                     i++;
-                generic += int.Parse(cost[start..i]);
+                generic += int.Parse(cost[start..i], CultureInfo.InvariantCulture);
             }
             else
             {

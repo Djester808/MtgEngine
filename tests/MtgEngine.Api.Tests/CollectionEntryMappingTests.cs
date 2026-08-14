@@ -1,6 +1,6 @@
+using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
 using MtgEngine.Api.Services;
-using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 

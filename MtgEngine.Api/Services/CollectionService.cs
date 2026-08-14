@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
-using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;

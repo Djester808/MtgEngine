@@ -225,7 +225,8 @@ public sealed class DecksController : ControllerBase
         }
         catch (Exception)
         {
-            try { await Emit("error", new { message = "Failed to generate suggestions." }); }
+            try
+            { await Emit("error", new { message = "Failed to generate suggestions." }); }
             catch { /* client already gone */ }
         }
     }

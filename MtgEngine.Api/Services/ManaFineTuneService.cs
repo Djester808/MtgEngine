@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
 

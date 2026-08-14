@@ -125,7 +125,7 @@ public class DeckProfileTests
         var p = DeckProfile.Build(
             Many(8, i => Card($"maker{i}", 3, "{2}{G}", "Create a 2/2 green Wolf creature token.")));
 
-        Assert.Contains(p.Archetypes, a => a.StartsWith("tokens"));
+        Assert.Contains(p.Archetypes, a => a.StartsWith("tokens", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class DeckProfileTests
             Many(1, i => Card("maker", 3, "{2}{G}", "Create a 2/2 green Wolf creature token."))
             .Concat(Many(29, i => Card($"other{i}"))));
 
-        Assert.DoesNotContain(p.Archetypes, a => a.StartsWith("tokens"));
+        Assert.DoesNotContain(p.Archetypes, a => a.StartsWith("tokens", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class DeckProfileTests
             Card($"wolf{i}", 3, "{2}{G}", "Create a 2/2 green Wolf creature token.", subtypes: ["Wolf"])));
 
         Assert.Contains(p.Archetypes, a => a.Contains("creature"));
-        Assert.Contains(p.Archetypes, a => a.StartsWith("tokens"));
+        Assert.Contains(p.Archetypes, a => a.StartsWith("tokens", StringComparison.Ordinal));
         Assert.Contains(p.Archetypes, a => a.Contains("Wolf tribal"));
     }
 
@@ -180,7 +180,7 @@ public class DeckProfileTests
             .Concat(Many(60, i => Card($"spell{i}"))));
 
         Assert.False(p.IsTooSmallForGapAnalysis);
-        Assert.Contains(p.Gaps, g => g.StartsWith("lands:"));
+        Assert.Contains(p.Gaps, g => g.StartsWith("lands:", StringComparison.Ordinal));
     }
 
     [Fact]

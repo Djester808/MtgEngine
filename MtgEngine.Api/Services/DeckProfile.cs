@@ -113,10 +113,12 @@ public sealed record DeckProfile(
     /// </summary>
     private static CardRole ClassifyRole(ProfileCard c)
     {
-        if (c.CardTypes.HasFlag(CardType.Land)) return CardRole.Land;
+        if (c.CardTypes.HasFlag(CardType.Land))
+            return CardRole.Land;
 
         var text = c.OracleText?.ToLowerInvariant() ?? string.Empty;
-        if (text.Length == 0) return CardRole.Other;
+        if (text.Length == 0)
+            return CardRole.Other;
 
         if (AddsMana.IsMatch(text) || Regex.IsMatch(text, @"search your library for (a|up to \w+)[^.]*\bland\b"))
             return CardRole.Ramp;
@@ -183,7 +185,8 @@ public sealed record DeckProfile(
                     "Forest" => ManaColor.Green,
                     _ => null,
                 };
-                if (colour is ManaColor lc) seen.Add(lc);
+                if (colour is ManaColor lc)
+                    seen.Add(lc);
             }
 
             var text = c.OracleText ?? string.Empty;
@@ -200,7 +203,8 @@ public sealed record DeckProfile(
                     foreach (Match m in Regex.Matches(text, @"add[^.]*", RegexOptions.IgnoreCase))
                         foreach (Match sym in ManaSymbol.Matches(m.Value))
                             foreach (var ch in sym.Groups[1].Value)
-                                if (ColourOf(ch) is ManaColor col) seen.Add(col);
+                                if (ColourOf(ch) is ManaColor col)
+                                    seen.Add(col);
                 }
             }
 
@@ -225,36 +229,46 @@ public sealed record DeckProfile(
     private static List<string> DetectArchetypes(ProfileCard[] all, int nonLands)
     {
         var found = new List<string>();
-        if (nonLands == 0) return found;
+        if (nonLands == 0)
+            return found;
 
         var creatures = all.Count(c => c.CardTypes.HasFlag(CardType.Creature));
         var creatureShare = (double)creatures / nonLands;
 
-        if (creatureShare >= 0.55) found.Add($"creature-centric ({creatures} creatures, {creatureShare:P0} of nonlands)");
-        else if (creatureShare >= 0.40) found.Add($"creature-based ({creatures} creatures, {creatureShare:P0} of nonlands)");
+        if (creatureShare >= 0.55)
+            found.Add($"creature-centric ({creatures} creatures, {creatureShare:P0} of nonlands)");
+        else if (creatureShare >= 0.40)
+            found.Add($"creature-based ({creatures} creatures, {creatureShare:P0} of nonlands)");
 
         int Count(Regex r) => all.Count(c => r.IsMatch(c.OracleText ?? string.Empty));
 
         var tokens = Count(MakesToken);
-        if (tokens >= 6) found.Add($"tokens ({tokens} cards create tokens)");
+        if (tokens >= 6)
+            found.Add($"tokens ({tokens} cards create tokens)");
 
         var counters = Count(PlusOneCounter);
-        if (counters >= 8) found.Add($"+1/+1 counters ({counters} cards)");
+        if (counters >= 8)
+            found.Add($"+1/+1 counters ({counters} cards)");
 
         var sac = Count(SacrificeMatters);
-        if (sac >= 6) found.Add($"sacrifice/aristocrats ({sac} cards)");
+        if (sac >= 6)
+            found.Add($"sacrifice/aristocrats ({sac} cards)");
 
         var yard = Count(GraveyardMatters);
-        if (yard >= 8) found.Add($"graveyard ({yard} cards)");
+        if (yard >= 8)
+            found.Add($"graveyard ({yard} cards)");
 
         var landfall = Count(Landfall);
-        if (landfall >= 6) found.Add($"landfall ({landfall} cards)");
+        if (landfall >= 6)
+            found.Add($"landfall ({landfall} cards)");
 
         var spells = all.Count(c => c.CardTypes.HasFlag(CardType.Instant) || c.CardTypes.HasFlag(CardType.Sorcery));
-        if (spells >= 20) found.Add($"spellslinger ({spells} instants/sorceries)");
+        if (spells >= 20)
+            found.Add($"spellslinger ({spells} instants/sorceries)");
 
         var artifacts = all.Count(c => c.CardTypes.HasFlag(CardType.Artifact));
-        if (artifacts >= 15) found.Add($"artifacts ({artifacts} cards)");
+        if (artifacts >= 15)
+            found.Add($"artifacts ({artifacts} cards)");
 
         // Tribal: the most common creature type, if it is dense enough.
         var tribe = all
@@ -275,12 +289,15 @@ public sealed record DeckProfile(
         int total, int lands, Dictionary<CardRole, int> roles, int nonLands)
     {
         var gaps = new List<string>();
-        if (nonLands < MinCardsForGapAnalysis) return gaps;
+        if (nonLands < MinCardsForGapAnalysis)
+            return gaps;
 
         void Check(string label, int actual, int min, int max)
         {
-            if (actual < min) gaps.Add($"{label}: {actual}, short of the {min}-{max} target");
-            else if (actual > max) gaps.Add($"{label}: {actual}, above the {min}-{max} target");
+            if (actual < min)
+                gaps.Add($"{label}: {actual}, short of the {min}-{max} target");
+            else if (actual > max)
+                gaps.Add($"{label}: {actual}, above the {min}-{max} target");
         }
 
         Check("lands", lands, 36, 38);
@@ -298,7 +315,8 @@ public sealed record DeckProfile(
     /// <summary>Renders the profile for a prompt. Empty string when there is no deck to describe.</summary>
     public string Describe()
     {
-        if (TotalCards == 0) return string.Empty;
+        if (TotalCards == 0)
+            return string.Empty;
 
         var sb = new StringBuilder();
         sb.AppendLine($"Cards: {TotalCards} ({Lands} lands, {NonLands} nonlands)");
@@ -342,7 +360,8 @@ public sealed record DeckProfile(
     /// </summary>
     public string GapSignature()
     {
-        if (TotalCards == 0) return "empty";
+        if (TotalCards == 0)
+            return "empty";
 
         var roles = string.Join(",", RoleCounts.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}{kv.Value}"));
         var arch = string.Join(",", Archetypes.OrderBy(a => a, StringComparer.Ordinal));

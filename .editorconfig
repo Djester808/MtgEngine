@@ -47,6 +47,23 @@ dotnet_diagnostic.IDE0051.severity = warning      # Remove unused private member
 dotnet_diagnostic.IDE0052.severity = suggestion   # Remove unread private member
 dotnet_diagnostic.IDE1006.severity = none         # Naming — handled by naming rules above
 
+# Roslyn quality rules. AnalysisMode=Default gives a clean baseline; below we
+# opt IN a curated set of correctness-flavored rules as build-failing errors
+# (TreatWarningsAsErrors is on). Style/micro-perf/culture-noise rules stay off.
+dotnet_diagnostic.CA1001.severity = error         # type owns an IDisposable field but isn't IDisposable (leak)
+dotnet_diagnostic.CA1310.severity = error         # string compare needs an explicit StringComparison (correctness)
+dotnet_diagnostic.CA2016.severity = error         # forward the CancellationToken you were given
+dotnet_diagnostic.CA1068.severity = error         # CancellationToken must be the last parameter
+
+# Deliberately off:
+dotnet_diagnostic.CA1711.severity = none          # "Collection" is a real domain entity, not a suffix smell
+dotnet_diagnostic.CA1848.severity = none          # LoggerMessage delegates — not worth it at this scale
+dotnet_diagnostic.CA2007.severity = none          # ConfigureAwait(false) — not needed in ASP.NET Core
+dotnet_diagnostic.CA1862.severity = none          # fires on EF LINQ .ToLower() compares, where the "fix" breaks SQL translation
+
+# Private fields must be _camelCase (was suggestion; now enforced).
+dotnet_naming_rule.private_fields_underscore_camel.severity = warning
+
 [*.{json,csproj,props,targets}]
 indent_size = 2
 

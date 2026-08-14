@@ -86,7 +86,8 @@ internal static class CardFactSheet
 
             // A threshold on a stat this card does not have says nothing about it.
             // Reporting "power n/a" on an artifact is noise that invites a penalty.
-            if (actual is null) continue;
+            if (actual is null)
+                continue;
 
             facts.Add(t.IsMetBy(actual)
                 ? $"{t.Attribute} {actual} MEETS the commander's \"{t.Describe()}\" requirement"
@@ -101,7 +102,8 @@ internal static class CardFactSheet
     /// </summary>
     private static void AddColourFacts(FactCard card, CommanderRequirements req, List<string> facts)
     {
-        if (req.Colours.Count == 0) return;
+        if (req.Colours.Count == 0)
+            return;
 
         var isLand = card.CardTypes.HasFlag(CardType.Land);
 

@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    Repo-wide build gates. Applies to every project in the solution.
+    Analyzers and code-style run *in the build* so violations are caught by
+    `dotnet build` / CI, not just in the IDE. See CLAUDE.md for the conventions
+    these enforce.
+  -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Roslyn analyzers + .NET code-style, enforced at build time.
+         Mode is Default (a clean, low-noise baseline) rather than Recommended:
+         Recommended pulls in ~100 micro-rules (logging-perf, culture-on-every-
+         format, static-array, concrete-type) that are low value for this app and
+         would bury real findings. High-value correctness rules are instead
+         opted in explicitly as errors in .editorconfig. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Warnings fail the build. New violations cannot be committed. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Required for IDE0005 (remove unused usings) to run on build. We do not
+         require or lint XML doc comments, so silence the whole doc-comment
+         completeness family (missing/mismatched/unresolved param & summary tags). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1572;CS1574;CS1570;CS1571;CS1580;CS1581;CS1584;CS1587;CS1710;CS1712;CS1723</NoWarn>
+  </PropertyGroup>
+</Project>

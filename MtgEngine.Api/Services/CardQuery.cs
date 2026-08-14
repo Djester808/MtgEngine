@@ -294,8 +294,10 @@ internal static class CardQuery
         var comparison = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         if (useRegex)
         {
-            if (compiled is null) return false; // invalid pattern → no matches
-            try { return compiled.IsMatch(name); }
+            if (compiled is null)
+                return false; // invalid pattern → no matches
+            try
+            { return compiled.IsMatch(name); }
             // One pathological name hitting the timeout is a non-match, not a dead search.
             catch (RegexMatchTimeoutException) { return false; }
         }

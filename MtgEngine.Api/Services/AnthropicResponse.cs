@@ -72,10 +72,14 @@ internal static class AnthropicResponse
         {
             char c = text[i];
 
-            if (escaped) { escaped = false; continue; }
-            if (c == '\\' && inString) { escaped = true; continue; }
-            if (c == '"') { inString = !inString; continue; }
-            if (inString) continue;
+            if (escaped)
+            { escaped = false; continue; }
+            if (c == '\\' && inString)
+            { escaped = true; continue; }
+            if (c == '"')
+            { inString = !inString; continue; }
+            if (inString)
+                continue;
 
             if (c == '{')
                 depth++;

@@ -39,7 +39,7 @@ public static class DeckListParser
             var line = rawLine.Trim();
             if (string.IsNullOrEmpty(line))
             { inCommanderSection = false; continue; }
-            if (line.StartsWith("//") || line.StartsWith('#'))
+            if (line.StartsWith("//", StringComparison.Ordinal) || line.StartsWith('#'))
                 continue;
 
             // Section headers (bare word, optional trailing colon)

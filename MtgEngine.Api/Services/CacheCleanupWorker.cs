@@ -77,7 +77,8 @@ public sealed class CacheCleanupWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            try { _logger.LogError(ex, "CacheCleanupWorker: sweep failed"); }
+            try
+            { _logger.LogError(ex, "CacheCleanupWorker: sweep failed"); }
             catch { /* logger may be disposed during shutdown */ }
         }
     }

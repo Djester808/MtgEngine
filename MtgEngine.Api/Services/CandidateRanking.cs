@@ -99,7 +99,8 @@ public sealed class CandidateRanking : ICandidateRanking
 
     public async Task<IReadOnlyList<RankedPool>> RankManyAsync(IReadOnlyList<RankRequest> requests)
     {
-        if (requests.Count == 0) return [];
+        if (requests.Count == 0)
+            return [];
 
         // Stage 1: every shortlist. Relevance ordering is in-memory, so this is free.
         var shortlists = new List<(RankRequest Req, CardDefinition[] Cards, int Total)>(requests.Count);

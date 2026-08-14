@@ -20,7 +20,7 @@ namespace MtgEngine.Api.Services;
 ///
 /// Falls back to ScryfallService (live API + disk cache) for any miss.
 /// </summary>
-public sealed class BulkDataService : IScryfallService
+public sealed class BulkDataService : IScryfallService, IDisposable
 {
     private readonly ScryfallService _api;
     private readonly HttpClient _metaClient;      // ScryfallApi — small JSON, proven working
@@ -1390,4 +1390,6 @@ public sealed class BulkDataService : IScryfallService
             return false;
         }
     }
+
+    public void Dispose() => _loadLock.Dispose();
 }

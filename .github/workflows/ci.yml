@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    # Windows runner on purpose: the codebase and .editorconfig use CRLF, and
+    # `dotnet format --verify-no-changes` checks line endings. A Linux runner would
+    # check out LF and fail the format gate. Windows matches the dev environment.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore MtgEngine.sln
+
+      - name: Format check (whitespace + style)
+        run: dotnet format MtgEngine.sln --verify-no-changes
+
+      - name: Build (analyzers + warnings-as-errors)
+        run: dotnet build MtgEngine.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test MtgEngine.sln -c Release --no-build --verbosity normal

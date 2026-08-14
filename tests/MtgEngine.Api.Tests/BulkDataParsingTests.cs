@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MtgEngine.Api.Services;
 
 namespace MtgEngine.Api.Tests;

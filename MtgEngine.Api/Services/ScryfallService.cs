@@ -114,7 +114,7 @@ public interface IScryfallService : ICardLookup
 /// meant anything resolving that interface to this class got silently empty sets and
 /// commander lists rather than an error.
 /// </remarks>
-public sealed class ScryfallService : ICardLookup
+public sealed class ScryfallService : ICardLookup, IDisposable
 {
     private readonly HttpClient _http;
     private readonly ILogger<ScryfallService> _logger;
@@ -379,4 +379,6 @@ public sealed class ScryfallService : ICardLookup
         var (_, json) = await FetchResultAsync(path);
         return json;
     }
+
+    public void Dispose() => _rateLimiter.Dispose();
 }

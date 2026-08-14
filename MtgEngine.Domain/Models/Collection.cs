@@ -12,7 +12,7 @@ public sealed class Collection
     public string? CoverUri { get; set; }
     public string? Format { get; set; }
     public string? CommanderOracleId { get; set; }
-    public bool IsDeck { get; set; } = false;
+    public bool IsDeck { get; set; }
     public string? Notes { get; set; }
     public List<string> Tags { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -54,7 +54,7 @@ public sealed class CollectionCard
     public int Quantity { get; set; } = 1;
 
     /// <summary>How many foil copies we own</summary>
-    public int QuantityFoil { get; set; } = 0;
+    public int QuantityFoil { get; set; }
 
     /// <summary>Custom notes about this copy</summary>
     public string? Notes { get; set; }

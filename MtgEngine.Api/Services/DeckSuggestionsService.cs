@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json.Serialization;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
-using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Services;
@@ -183,8 +182,10 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
     /// <summary>Reports one coarse progress stage. Never throws — a dead client must not fail the build.</summary>
     private static async Task StageAsync(SuggestionEmit? emit, int step, string label)
     {
-        if (emit is null) return;
-        try { await emit("stage", new { label, step, total = StageTotal }); }
+        if (emit is null)
+            return;
+        try
+        { await emit("stage", new { label, step, total = StageTotal }); }
         catch { /* best-effort: the build is cacheable and must complete regardless */ }
     }
 
@@ -276,7 +277,9 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
                 GameChangers = gameChangers,
                 LatestSetSources = [.. recentSets],
             };
-            try { await emit("cards", provisional); } catch { /* best-effort */ }
+            try
+            { await emit("cards", provisional); }
+            catch { /* best-effort */ }
         }
 
         // Rewrite each reason against the card's real rules text, then let a second pass
@@ -390,10 +393,14 @@ public sealed class DeckSuggestionsService : IDeckSuggestionsService
 
         foreach (var r in pool.Cards)
         {
-            if (picked.Count == CategorySize) break;
-            if (r.Score <= 0) continue;
-            if (inDeck.Contains(r.Card.Name)) continue;
-            if (!shown.Add(r.Card.Name)) continue;
+            if (picked.Count == CategorySize)
+                break;
+            if (r.Score <= 0)
+                continue;
+            if (inDeck.Contains(r.Card.Name))
+                continue;
+            if (!shown.Add(r.Card.Name))
+                continue;
 
             var printings = await _scryfall.GetPrintingsAsync(r.Card.OracleId);
             var printing = printings.FirstOrDefault(pr =>

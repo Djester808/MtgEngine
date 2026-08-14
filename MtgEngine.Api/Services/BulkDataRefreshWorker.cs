@@ -20,7 +20,7 @@ public sealed class BulkDataRefreshWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Initial load/download on startup — runs in background so app starts immediately
-        await RunRefresh(stoppingToken, isStartup: true);
+        await RunRefresh(isStartup: true, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -33,11 +33,11 @@ public sealed class BulkDataRefreshWorker : BackgroundService
                 break;
             }
 
-            await RunRefresh(stoppingToken, isStartup: false);
+            await RunRefresh(isStartup: false, stoppingToken);
         }
     }
 
-    private async Task RunRefresh(CancellationToken ct, bool isStartup)
+    private async Task RunRefresh(bool isStartup, CancellationToken ct)
     {
         try
         {
