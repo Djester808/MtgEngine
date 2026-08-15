@@ -65,6 +65,16 @@ public sealed class CollectionCard
     /// <summary>When this card was added to the collection</summary>
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Market price (Scryfall daily, TCGplayer USD) at the moment the row was created.
+    /// Null for rows that predate price tracking. Never updated afterwards — it is the
+    /// baseline the client compares today's price against.
+    /// </summary>
+    public decimal? PriceUsdAtAdd { get; set; }
+
+    /// <summary>Foil price at add time; see <see cref="PriceUsdAtAdd"/>.</summary>
+    public decimal? PriceUsdFoilAtAdd { get; set; }
+
     public CollectionCard() { }
 
     public CollectionCard(

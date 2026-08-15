@@ -63,6 +63,9 @@ builder.Services.AddHostedService<BulkDataRefreshWorker>();
 // Background worker: prunes the persistent AI caches daily so they don't grow unbounded
 builder.Services.AddHostedService<CacheCleanupWorker>();
 
+// Background worker: records daily price snapshots for printings owned in collections
+builder.Services.AddHostedService<PriceSnapshotWorker>();
+
 // ---- Database --------------------------------------------
 builder.Services.AddDbContext<MtgEngineDbContext>(options =>
     options.UseSqlite("Data Source=mtgengine.db"));
@@ -70,6 +73,7 @@ builder.Services.AddDbContext<MtgEngineDbContext>(options =>
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 builder.Services.AddScoped<IForumService, ForumService>();
 builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
+builder.Services.AddScoped<IPriceHistoryService, PriceHistoryService>();
 
 // ---- Anthropic API ---------------------------------------
 // The AI services are scoped, so their key guard would not fire until the first

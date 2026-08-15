@@ -38,6 +38,8 @@ public sealed class CardDefinition
     public string? Rarity { get; init; }
     public IReadOnlyDictionary<string, string> Legalities { get; init; } = new Dictionary<string, string>();
     public bool GameChanger { get; init; }
+    /// <summary>Prices of the printing this definition currently reflects (per-printing, not per-oracle).</summary>
+    public CardPrices Prices { get; init; } = CardPrices.None;
 
     public bool IsCreature => CardTypes.HasFlag(CardType.Creature);
     public bool IsInstant => CardTypes.HasFlag(CardType.Instant);

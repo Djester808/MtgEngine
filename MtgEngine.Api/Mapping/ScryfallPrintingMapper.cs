@@ -1,5 +1,7 @@
 using System.Text.Json;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Services;
+using MtgEngine.Domain.ValueObjects;
 
 namespace MtgEngine.Api.Mapping;
 
@@ -16,10 +18,12 @@ namespace MtgEngine.Api.Mapping;
 public static class ScryfallPrintingMapper
 {
     /// <summary>
-    /// A parsed printing plus the art crop, which the DTO does not carry — only the
-    /// bulk index stores it (for fly-ghost art and cover suggestions).
+    /// A parsed printing plus two fields carried for the bulk index: the art crop, which
+    /// the DTO does not expose (fly-ghost art and cover suggestions), and the prices as
+    /// their domain type, so the pinned-printing lookup can override a
+    /// CardDefinition's prices without round-tripping through the DTO.
     /// </summary>
-    public readonly record struct ParsedPrinting(PrintingDto Dto, string? ImageUriArtCrop);
+    public readonly record struct ParsedPrinting(PrintingDto Dto, string? ImageUriArtCrop, CardPrices Prices);
 
     /// <summary>
     /// Parses one Scryfall card object. Returns null for entries without a usable id or
@@ -85,6 +89,8 @@ public static class ScryfallPrintingMapper
                 : f0Text.Length > 0 ? f0Text : null;
         }
 
+        var prices = CardParser.ParsePrices(card);
+
         var dto = new PrintingDto
         {
             ScryfallId = id,
@@ -99,9 +105,10 @@ public static class ScryfallPrintingMapper
             OracleText = oracleText,
             FlavorText = flavorText,
             ManaCost = manaCost,
+            Prices = DomainMapper.ToDto(prices),
         };
 
-        return new ParsedPrinting(dto, imgArtCrop);
+        return new ParsedPrinting(dto, imgArtCrop, prices);
     }
 
     private static string? GetStr(JsonElement? el, string prop)

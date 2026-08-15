@@ -119,8 +119,16 @@ public sealed class ScryfallService : ICardLookup, IDisposable
     private readonly HttpClient _http;
     private readonly ILogger<ScryfallService> _logger;
 
-    private readonly ConcurrentDictionary<string, CardDefinition?> _byOracleId = new();
-    private readonly ConcurrentDictionary<string, CardDefinition?> _byName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, CachedDef> _byOracleId = new();
+    private readonly ConcurrentDictionary<string, CachedDef> _byName = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A cached lookup result (null = definite 404) plus when it was cached.</summary>
+    private readonly record struct CachedDef(CardDefinition? Def, DateTime CachedAtUtc);
+
+    // Card JSON carries the prices, and Scryfall refreshes those daily — so cached
+    // fallback lookups expire on the same cadence the bulk data does. Without this,
+    // a bulk-data miss served whatever prices the card had when first cached, forever.
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
     private readonly string _cacheDir;
 
@@ -146,33 +154,31 @@ public sealed class ScryfallService : ICardLookup, IDisposable
 
     public async Task<CardDefinition?> GetByOracleIdAsync(string oracleId)
     {
-        if (_byOracleId.TryGetValue(oracleId, out var mem))
+        if (TryGetFresh(_byOracleId, oracleId, out var mem))
             return mem;
 
         var (json, transient) = await LoadOrFetchAsync(OraclePath(oracleId), $"cards/{oracleId}");
-        if (transient)
-            return null; // not cached — the next call retries
 
         var def = json is null ? null : CardParser.Parse(json.Value);
-        _byOracleId[oracleId] = def; // a real card, or a definite 404
-        return def;
+        if (!transient)
+            _byOracleId[oracleId] = new CachedDef(def, DateTime.UtcNow); // a real card, or a definite 404
+        return def; // on transient this may be a stale disk copy — served, but retried next call
     }
 
     public async Task<CardDefinition?> GetByNameAsync(string name)
     {
-        if (_byName.TryGetValue(name, out var mem))
+        if (TryGetFresh(_byName, name, out var mem))
             return mem;
 
         var encoded = Uri.EscapeDataString(name);
         var (json, transient) = await LoadOrFetchAsync(NamePath(name), $"cards/named?fuzzy={encoded}");
-        if (transient)
-            return null;
 
         var def = json is null ? null : CardParser.Parse(json.Value);
-        _byName[name] = def;
-        if (def is not null)
+        if (!transient)
+            _byName[name] = new CachedDef(def, DateTime.UtcNow);
+        if (def is not null && !transient)
         {
-            _byOracleId[def.OracleId] = def;
+            _byOracleId[def.OracleId] = new CachedDef(def, DateTime.UtcNow);
             if (json.HasValue && json.Value.TryGetProperty("oracle_id", out var oid))
                 await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value);
         }
@@ -181,16 +187,28 @@ public sealed class ScryfallService : ICardLookup, IDisposable
 
     public async Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId)
     {
-        var (json, _) = await LoadOrFetchAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}");
+        var (json, transient) = await LoadOrFetchAsync(ScryfallPath(scryfallId), $"cards/{scryfallId}");
 
         var def = json is null ? null : CardParser.Parse(json.Value);
-        if (def is not null)
+        if (def is not null && !transient)
         {
-            _byOracleId.TryAdd(def.OracleId, def);
+            _byOracleId.TryAdd(def.OracleId, new CachedDef(def, DateTime.UtcNow));
             if (json.HasValue && json.Value.TryGetProperty("oracle_id", out var oid))
                 await SaveDiskAsync(OraclePath(oid.GetString()!), json.Value);
         }
         return def;
+    }
+
+    private static bool TryGetFresh(
+        ConcurrentDictionary<string, CachedDef> cache, string key, out CardDefinition? def)
+    {
+        if (cache.TryGetValue(key, out var entry) && DateTime.UtcNow - entry.CachedAtUtc < CacheTtl)
+        {
+            def = entry.Def;
+            return true;
+        }
+        def = null;
+        return false;
     }
 
     public async Task<PrintingDto[]> GetPrintingsAsync(string oracleId)
@@ -228,8 +246,8 @@ public sealed class ScryfallService : ICardLookup, IDisposable
         var cachePath = Path.Combine(_cacheDir, "rulings", $"{scryfallId}.json");
 
         var (json, transient) = await LoadOrFetchAsync(cachePath, $"cards/{scryfallId}/rulings");
-        if (transient)
-            return []; // not cached — retried on the next call
+        if (transient && json is null)
+            return []; // nothing cached either — retried on the next call
 
         if (json is null || !json.Value.TryGetProperty("data", out var data))
         {
@@ -314,27 +332,55 @@ public sealed class ScryfallService : ICardLookup, IDisposable
     }
 
     /// <summary>
-    /// Disk cache first, else the live API (saving to disk on success). `Transient` is
-    /// true for rate limits, 5xx, network faults and unparseable bodies — outcomes the
-    /// caller must NOT cache. Only a definite 404 comes back as a cacheable null.
+    /// Disk cache first (while younger than <see cref="CacheTtl"/>), else the live API
+    /// (saving to disk on success). `Transient` is true for rate limits, 5xx, network
+    /// faults and unparseable bodies — outcomes the caller must NOT cache; on those the
+    /// expired disk copy is still returned when one exists, so an outage degrades to
+    /// yesterday's prices rather than "card not found". Only a definite 404 comes back
+    /// as a cacheable null.
     /// </summary>
     /// <remarks>
     /// Previously any failure returned a bare null that the lookups cached forever, so
     /// one 429 during a busy moment made a real card resolve as "does not exist" for
     /// the rest of the process lifetime — which the AI builder then rejected as
-    /// unknown-card and the importer listed as unresolved.
+    /// unknown-card and the importer listed as unresolved. The disk cache also had no
+    /// expiry, which pinned first-fetch prices for the life of the file.
     /// </remarks>
     private async Task<(JsonElement? Json, bool Transient)> LoadOrFetchAsync(
         string cachePath, string apiPath)
     {
-        var disk = await LoadDiskAsync(cachePath);
-        if (disk is not null)
-            return (disk, false);
+        var age = CacheFileAge(cachePath);
+        if (age is not null && age < CacheTtl)
+        {
+            var disk = await LoadDiskAsync(cachePath);
+            if (disk is not null)
+                return (disk, false);
+        }
 
         var (outcome, json) = await FetchResultAsync(apiPath);
         if (outcome == FetchOutcome.Ok)
+        {
             await SaveDiskAsync(cachePath, json!.Value);
-        return (json, outcome == FetchOutcome.Transient);
+            return (json, false);
+        }
+        if (outcome == FetchOutcome.NotFound)
+            return (null, false);
+
+        var stale = age is null ? null : await LoadDiskAsync(cachePath);
+        return (stale, true);
+    }
+
+    private static TimeSpan? CacheFileAge(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? DateTime.UtcNow - info.LastWriteTimeUtc : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // ---- HTTP + rate limit ----------------------------------------

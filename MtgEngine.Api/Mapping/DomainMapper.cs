@@ -1,6 +1,7 @@
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
+using MtgEngine.Domain.ValueObjects;
 
 namespace MtgEngine.Api.Mapping;
 
@@ -52,7 +53,28 @@ public static class DomainMapper
         Rarity = def.Rarity,
         Legalities = def.Legalities.ToDictionary(kv => kv.Key, kv => kv.Value),
         GameChanger = def.GameChanger,
+        Prices = ToDto(def.Prices),
     };
+
+    /// <summary>
+    /// Null when no finish has a listing, so the client can tell "unknown" from a real
+    /// price without probing six fields. Record equality makes any all-null instance
+    /// match <see cref="CardPrices.None"/>.
+    /// </summary>
+    public static CardPricesDto? ToDto(CardPrices prices) => prices == CardPrices.None
+        ? null
+        : new CardPricesDto
+        {
+            Usd = prices.Usd,
+            UsdFoil = prices.UsdFoil,
+            UsdEtched = prices.UsdEtched,
+            Eur = prices.Eur,
+            EurFoil = prices.EurFoil,
+            Tix = prices.Tix,
+            TcgplayerId = prices.TcgplayerId,
+            CardmarketId = prices.CardmarketId,
+            MtgoId = prices.MtgoId,
+        };
 
     /// <summary>
     /// The single collection-entry mapping — decks, collections, and forum posts all
@@ -76,6 +98,8 @@ public static class DomainMapper
         Notes = card.Notes,
         Board = card.Board is "main" or "side" or "maybe" ? card.Board : "main",
         AddedAt = card.AddedAt,
+        PriceUsdAtAdd = card.PriceUsdAtAdd,
+        PriceUsdFoilAtAdd = card.PriceUsdFoilAtAdd,
         CardDetails = def is null ? null : ToDto(def),
     };
 
