@@ -108,6 +108,18 @@ GET /api/collections/550e8400-e29b-41d4-a716-446655440000
 }
 ```
 
+#### GET /api/collections/owned-oracle-ids
+Every OracleId the current user owns a copy of, across all of their collections.
+```http
+GET /api/collections/owned-oracle-ids
+```
+**Response**: `string[]` — distinct OracleIds.
+
+Decks and collections share the `Collections` table, so "owned" is the `IsDeck = false`
+half of it: a card listed in a deck is not a card you own, which is the entire question
+the deck grid asks in order to grey out the cards you are missing. Rows whose copies have
+gone to zero (`Quantity + QuantityFoil == 0`) are placeholders and do not count.
+
 #### POST /api/collections
 Create a new collection.
 ```http
@@ -187,6 +199,54 @@ DELETE /api/collections/550e8400-e29b-41d4-a716-446655440000/cards/guid
 ```
 **Response**: 204 No Content
 
+#### POST /api/collections/{collectionId}/cards/{cardId}/move
+Move copies of a card into another collection. Omit the quantities to move the whole row.
+```http
+POST /api/collections/{collectionId}/cards/{cardId}/move
+Content-Type: application/json
+
+{ "targetCollectionId": "guid", "quantity": 1, "quantityFoil": 0 }
+```
+**Response**: `MoveCardResultDto` — `{ target, sourceRemainder }`, where `sourceRemainder`
+is null when the row moved whole and left the source.
+
+#### POST /api/collections/{collectionId}/cards/move
+Move several whole rows at once (multi-select in the UI). **All-or-nothing**: if any id is
+no longer in the collection the whole batch is rejected, rather than moving some and
+silently skipping the rest.
+```http
+POST /api/collections/{collectionId}/cards/move
+Content-Type: application/json
+
+{ "targetCollectionId": "guid", "cardIds": ["guid", "guid"] }
+```
+**Response**: `MoveCardsResultDto` — `{ cardsMoved, cardsFolded, copiesTransferred, removedCardIds }`.
+
+#### POST /api/collections/{collectionId}/merge
+Fold another collection's cards into this one.
+```http
+POST /api/collections/{collectionId}/merge
+Content-Type: application/json
+
+{ "sourceCollectionId": "guid", "deleteSource": false }
+```
+**Response**: `MergeCollectionsResultDto` — `{ cardsMoved, cardsFolded, copiesTransferred,
+sourceDeleted, target }`.
+
+**Transfer semantics (both endpoints)**
+- Copies fold into the destination row for the same **(OracleId, ScryfallId, Board)**;
+  anything else becomes its own row. This is the same key as the unique index, so a
+  transfer can never collide with it.
+- **Acquisition data travels with the copies**: the moved row keeps its original
+  `AddedAt` and price-at-add, because it is the same physical card. When two rows fold
+  together the *earlier* acquisition wins, so the surviving row still describes the
+  oldest copy in it. Resetting these would restate when a card was acquired and wipe the
+  baseline the price-change display compares against.
+- Both collections' `UpdatedAt` are bumped. Decks and collections share the table, so a
+  transfer works between either — ownership is what is checked.
+- Errors: unknown or unowned collection → 404, self-merge / self-move / moving more
+  copies than are held / moving nothing → 409 (via `AiExceptionHandler`).
+
 #### DELETE /api/collections/{collectionId}/cards/by-oracle/{oracleId}
 Remove all copies of a card (by OracleId) from a collection.
 ```http
@@ -241,6 +301,30 @@ Collections and collection cards track:
 - Last update time
 - When cards were added to collection
 
+### 6. Price Tracking
+Scryfall publishes prices daily (USD from TCGplayer, EUR from Cardmarket, tix from
+Cardhoarder), which the app surfaces three ways:
+
+- **Current prices per printing** — `CardDto.Prices` and `PrintingDto.Prices`
+  (`CardPricesDto`: `usd`, `usdFoil`, `usdEtched`, `eur`, `eurFoil`, `tix`, plus
+  `tcgplayerId`/`cardmarketId`/`mtgoId` for building listing links). Null means "no
+  listing for that finish", never zero.
+- **Price at acquisition** — `CollectionCard.PriceUsdAtAdd` / `PriceUsdFoilAtAdd`,
+  captured once when the row is created and never rewritten, so the client can show
+  what a copy cost then against what it costs now.
+- **Daily history** — `CardPriceSnapshots` (one row per printing per day, unique on
+  `(ScryfallId, CapturedAt)`), written by `PriceSnapshotWorker` for every printing that
+  appears in a collection. Scryfall exposes no historical endpoint, so history exists
+  only from the day a printing is first owned. Read it via:
+
+```http
+GET /api/cards/printings/{scryfallId}/price-history?days=90
+```
+**Response**: `PricePointDto[]` — `{ date, usd, usdFoil, eur, tix }`, oldest first.
+
+`CacheCleanupWorker` prunes snapshots past five years, the largest window the endpoint
+serves.
+
 ## Service Implementation Details
 
 ### CollectionService
@@ -280,7 +364,15 @@ The DbContext is configured with:
 - **SQLite** for development/simple deployments
 - **Relationships**: Collections have many CollectionCards (cascade delete)
 - **Constraints**:
-  - Unique index on (CollectionId, OracleId) per collection
+  - Unique index on `(CollectionId, ScryfallId, Board)` — this only constrains rows that
+    **pin a printing**. SQLite treats NULLs as distinct, so it silently permitted any
+    number of duplicate *unpinned* rows for one card, and unpinned rows are the majority
+    (decks rarely pin a printing). A card could therefore occupy several rows in one
+    collection, rendering as duplicate tiles with its count split between them.
+  - A filtered companion index `IX_CollectionCards_Unpinned_Unique` on
+    `(CollectionId, OracleId, Board) WHERE ScryfallId IS NULL` closes that hole. The
+    `UnpinnedRowUniqueness` migration folds pre-existing duplicates into their earliest
+    row (summing quantities, keeping the oldest `AddedAt`/price-at-add) before creating it.
   - Required fields: UserId, Name, OracleId, Quantity, IsFoil
   - Max lengths: UserId (256), Name (256), Description (1000), OracleId (256), Notes (1000)
 - **Timestamps**: CreatedAt and UpdatedAt automatically tracked
@@ -326,7 +418,7 @@ Potential features to build on this foundation:
 
 ### 5. Integration Features
 - Import from external sources (TCGPlayer, Moxfield, etc.)
-- Price tracking integration
+- ~~Price tracking integration~~ — shipped, see "Price Tracking" above
 - Bulk card entry
 - Barcode scanning
 

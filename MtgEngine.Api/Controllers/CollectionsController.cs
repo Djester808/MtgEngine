@@ -38,6 +38,18 @@ public sealed class CollectionsController : ControllerBase
     }
 
     /// <summary>
+    /// Every oracle id the current user owns a copy of, across their collections. Decks
+    /// are not collections for this purpose — the deck grid asks this to tell the cards
+    /// you own from the ones you have only listed.
+    /// </summary>
+    [HttpGet("owned-oracle-ids")]
+    public async Task<ActionResult<string[]>> GetOwnedOracleIds(CancellationToken ct)
+    {
+        var ids = await _collectionService.GetOwnedOracleIdsAsync(UserId, ct);
+        return Ok(ids);
+    }
+
+    /// <summary>
     /// Get a specific collection with all its cards.
     /// </summary>
     [HttpGet("{collectionId:guid}")]
@@ -165,4 +177,42 @@ public sealed class CollectionsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Move copies of a card into another collection. Omit the quantities to move the
+    /// whole row. Errors surface through <see cref="AiExceptionHandler"/>: an unknown or
+    /// unowned collection is a 404, an impossible move a 409.
+    /// </summary>
+    [HttpPost("{collectionId:guid}/cards/{cardId:guid}/move")]
+    public async Task<ActionResult<MoveCardResultDto>> MoveCard(
+        Guid collectionId,
+        Guid cardId,
+        [FromBody] MoveCardRequest request,
+        CancellationToken ct)
+    {
+        return Ok(await _collectionService.MoveCardAsync(collectionId, cardId, UserId, request, ct));
+    }
+
+    /// <summary>
+    /// Move several whole card rows into another collection in one request.
+    /// </summary>
+    [HttpPost("{collectionId:guid}/cards/move")]
+    public async Task<ActionResult<MoveCardsResultDto>> MoveCards(
+        Guid collectionId,
+        [FromBody] MoveCardsRequest request,
+        CancellationToken ct)
+    {
+        return Ok(await _collectionService.MoveCardsAsync(collectionId, UserId, request, ct));
+    }
+
+    /// <summary>
+    /// Merge another collection into this one, folding matching printings together.
+    /// </summary>
+    [HttpPost("{collectionId:guid}/merge")]
+    public async Task<ActionResult<MergeCollectionsResultDto>> MergeCollections(
+        Guid collectionId,
+        [FromBody] MergeCollectionsRequest request,
+        CancellationToken ct)
+    {
+        return Ok(await _collectionService.MergeCollectionsAsync(collectionId, UserId, request, ct));
+    }
 }

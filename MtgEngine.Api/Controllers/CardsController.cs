@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
@@ -14,8 +15,13 @@ namespace MtgEngine.Api.Controllers;
 public sealed class CardsController : ControllerBase
 {
     private readonly IScryfallService _scryfall;
+    private readonly IPriceHistoryService _priceHistory;
 
-    public CardsController(IScryfallService scryfall) => _scryfall = scryfall;
+    public CardsController(IScryfallService scryfall, IPriceHistoryService priceHistory)
+    {
+        _scryfall = scryfall;
+        _priceHistory = priceHistory;
+    }
 
     /// <summary>Must match DeckSuggestionsService.LatestSetCount so the browse list
     /// covers exactly the sets the "latest" category drew from.</summary>
@@ -189,6 +195,19 @@ public sealed class CardsController : ControllerBase
     {
         var rulings = await _scryfall.GetRulingsAsync(oracleId);
         return Ok(rulings);
+    }
+
+    /// <summary>
+    /// Daily price history for one printing. Empty until the printing has spent time in
+    /// a collection — snapshots are only recorded for owned printings.
+    /// </summary>
+    [HttpGet("printings/{scryfallId}/price-history")]
+    public async Task<ActionResult<PricePointDto[]>> GetPriceHistory(
+        [StringLength(256)] string scryfallId,
+        [FromQuery][Range(1, PriceHistoryService.MaxDays)] int days = 90,
+        CancellationToken ct = default)
+    {
+        return Ok(await _priceHistory.GetHistoryAsync(scryfallId, days, ct));
     }
 
     /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>

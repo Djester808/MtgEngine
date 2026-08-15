@@ -504,9 +504,14 @@ public sealed class CommanderDeckSeeder
             AddedAt = publishedAt,
         });
 
-        // Sample 63 non-land cards from pool (randomized per deck)
+        // Sample 63 non-land cards from pool (randomized per deck). DistinctBy on oracle
+        // id: the pool can hold the same card more than once, and sampling it twice used
+        // to insert two rows for one card — which the unique index cannot reject while
+        // ScryfallId is null (SQLite treats NULLs as distinct), so the deck rendered the
+        // card as two tiles with the count split between them.
         var sampled = pool
             .OrderBy(_ => rng.Next())
+            .DistinctBy(c => c.OracleId)
             .Take(63)
             .ToList();
 

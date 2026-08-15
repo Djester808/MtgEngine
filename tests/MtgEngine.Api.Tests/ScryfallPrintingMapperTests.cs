@@ -25,6 +25,8 @@ public class ScryfallPrintingMapperTests
           "oracle_text": "Tap: Create goblins.",
           "flavor_text": "Legitimate business.",
           "mana_cost": "{2}{R}{R}",
+          "tcgplayer_id": 235542,
+          "prices": { "usd": "3.47", "usd_foil": "12.90", "usd_etched": null, "eur": "2.10", "eur_foil": null, "tix": "0.02" },
           "image_uris": {
             "small": "http://img/small.jpg",
             "normal": "http://img/normal.jpg",
@@ -49,6 +51,32 @@ public class ScryfallPrintingMapperTests
         Assert.Equal("Legitimate business.", dto.FlavorText);
         Assert.Equal("{2}{R}{R}", dto.ManaCost);
         Assert.Equal("http://img/art.jpg", parsed.Value.ImageUriArtCrop);
+        Assert.NotNull(dto.Prices);
+        Assert.Equal(3.47m, dto.Prices!.Usd);
+        Assert.Equal(12.90m, dto.Prices.UsdFoil);
+        Assert.Null(dto.Prices.UsdEtched);
+        Assert.Equal(2.10m, dto.Prices.Eur);
+        Assert.Null(dto.Prices.EurFoil);
+        Assert.Equal(0.02m, dto.Prices.Tix);
+        Assert.Equal(235542, dto.Prices.TcgplayerId);
+        Assert.Equal(3.47m, parsed.Value.Prices.Usd);
+    }
+
+    [Fact]
+    public void PricelessPrinting_MapsNullPricesNotAnEmptyObject()
+    {
+        var parsed = ScryfallPrintingMapper.Parse(Json("""
+        {
+          "id": "scry-3",
+          "set": "fdn",
+          "set_name": "Foundations",
+          "prices": { "usd": null, "usd_foil": null, "usd_etched": null, "eur": null, "eur_foil": null, "tix": null },
+          "image_uris": { "normal": "http://img/n.jpg" }
+        }
+        """));
+
+        Assert.NotNull(parsed);
+        Assert.Null(parsed.Value.Dto.Prices);
     }
 
     [Fact]

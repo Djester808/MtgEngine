@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MtgEngine.Api.Data;
 
@@ -10,9 +11,11 @@ using MtgEngine.Api.Data;
 namespace MtgEngine.Api.Migrations
 {
     [DbContext(typeof(MtgEngineDbContext))]
-    partial class MtgEngineDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814231155_PriceTracking")]
+    partial class PriceTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -241,11 +244,6 @@ namespace MtgEngine.Api.Migrations
                     b.HasIndex("CollectionId");
 
                     b.HasIndex("CollectionId", "OracleId");
-
-                    b.HasIndex("CollectionId", "OracleId", "Board")
-                        .IsUnique()
-                        .HasDatabaseName("IX_CollectionCards_Unpinned_Unique")
-                        .HasFilter("\"ScryfallId\" IS NULL");
 
                     b.HasIndex("CollectionId", "ScryfallId", "Board")
                         .IsUnique();

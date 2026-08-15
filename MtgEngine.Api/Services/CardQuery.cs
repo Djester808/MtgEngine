@@ -53,18 +53,26 @@ internal static class CardQuery
     private static readonly string[] QueryTokens = ["name:", "o:", "t:", "s:", "r:", "c:"];
 
     /// <summary>
-    /// The index of <paramref name="token"/> at a word boundary (start of query or
-    /// preceded by whitespace), or -1. Every parser goes through this: a loose
+    /// The index of <paramref name="token"/> at a word boundary (start of query,
+    /// whitespace, or an opening bracket), or -1. Every parser goes through this: a loose
     /// <c>IndexOf</c> made "foo:bar" match "o:" mid-word, which turned unrecognised
     /// queries into accidental oracle-text searches — or, before the name-filter fix,
     /// into a match of the entire corpus.
     /// </summary>
+    /// <remarks>
+    /// The bracket cases are not cosmetic. The client sends every text search as
+    /// <c>(name:"x" or o:"x")</c>; with only whitespace counting as a boundary the
+    /// leading <c>name:</c> was invisible, so the name filter silently dropped out and
+    /// the search degraded to oracle text alone. That looked like it worked — most
+    /// creatures name themselves in their own rules text — but any card that doesn't
+    /// (Llanowar Elves, whose text is just "{T}: Add {G}") could not be found at all.
+    /// </remarks>
     private static int IndexOfToken(string q, string token, int startIndex = 0)
     {
         var idx = q.IndexOf(token, startIndex, StringComparison.OrdinalIgnoreCase);
         while (idx >= 0)
         {
-            if (idx == 0 || char.IsWhiteSpace(q[idx - 1]))
+            if (idx == 0 || char.IsWhiteSpace(q[idx - 1]) || q[idx - 1] is '(' or '[')
                 return idx;
             idx = q.IndexOf(token, idx + 1, StringComparison.OrdinalIgnoreCase);
         }

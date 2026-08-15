@@ -5,6 +5,31 @@ sibling `mtg-client` repo. These are the rules that keep new code from
 re-introducing the debt we deliberately cleaned up. When a rule below and the
 surrounding code disagree, the rule wins — fix the code, don't copy it.
 
+## Verification — never report a UI fix you have not looked at
+
+**A passing unit test is not evidence that the screen is fixed.** A green suite proves the
+function you wrote does what you think; it says nothing about whether the component is
+wired up, whether the branch you changed is the one that runs, or whether the user is
+even on the page you edited. Every one of those has been the actual bug here.
+
+Before telling the user a user-visible defect is fixed:
+
+1. **Open the app and look at the thing.** Dev client is `http://localhost:4200`, API on
+   `https://localhost:7001`. There is a Selenium harness in `mtg-client/e2e`. Drive it to
+   the exact control — open the dropdown, scroll the list, click the toggle — and look.
+2. **Reproduce the failure first.** If you cannot make it fail, you do not know what it
+   is, and you must say so instead of shipping a plausible change.
+3. **If you cannot verify, say the word "unverified" in the report**, and say what you'd
+   need to verify it. Do not describe a speculative change as a fix.
+
+Guessing repeatedly and reporting each guess as a fix wastes the user's money and their
+time re-testing. Three separate rounds were burned that way on the collection grouping
+picker. One screenshot of the open dropdown would have settled it on round one — ask for
+the specific artifact you need, or go get it yourself.
+
+Reason from the code to form a hypothesis. Confirm it against the running app before it
+becomes a claim.
+
 ## Build / run gotchas (read first)
 
 - **Stop the API before building or testing.** `MtgEngine.Api` holds file locks
@@ -13,6 +38,47 @@ surrounding code disagree, the rule wins — fix the code, don't copy it.
 - API listens on `https://localhost:7001`. Dev client on `http://localhost:4200`.
 - Tests are xUnit in `tests/MtgEngine.Api.Tests`. Run `dotnet test` from the
   solution root (after stopping the API).
+
+## Knowledge docs — read the relevant one BEFORE you write code
+
+This file is loaded automatically every session; the documents below are not. Open the
+one that covers your area first, and treat it as authoritative over surrounding code.
+
+**This is enforced, not requested.** `.claude/hooks/require-docs.js` runs as a
+`PreToolUse` hook on `Edit`/`Write`/`MultiEdit`/`NotebookEdit` and **denies** the call
+when the file is governed by a doc that has no `Read` for it in the current session's
+transcript. The instruction below had been in this file for a while and was still being
+skipped — an instruction the assistant is asked to follow is not a control, so the docs
+got a gate like everything else here (build gate, arch tests, CI). The check reads the
+transcript, so it cannot be satisfied by asserting you read something. Edit the rule
+table in that script when a doc starts governing new files; if it fires, read the doc —
+do not route around it by editing a different file.
+
+**The client's standards are gated the same way.** `mtg-client/CLAUDE.md` is *not*
+auto-loaded when you work from this repo — only this file is — so anything under
+`mtg-client/src/` requires reading it first. That gap is not hypothetical: a session
+wrote ~200 lines of client code without it and duplicated `card-search-base.ts`'s entire
+filter vocabulary, which that doc explicitly forbids. Reading this file does not satisfy
+that rule; the hook matches on the trailing path, so the two CLAUDE.md files are
+distinct.
+
+- **`MtgEngine.Api/Knowledge/commander-doctrine.md`** — the deck-building standard every
+  AI pass reasons from (suggestions, synergy scoring, reason writing, deck building).
+  **It is a live runtime asset**: `CommanderDoctrine.cs` loads it and it is injected
+  verbatim into prompts, so editing it changes the app's judgement with no C# change.
+  Read it before touching `AiBuildService`, `SynergyService`, `DeckSuggestionsService`,
+  `CandidateRanking`, or any prompt text. Never duplicate it into another repo — a
+  second copy silently drifts and the two halves start disagreeing.
+- **`CARD_COLLECTION_FEATURE.md`** — collection/deck domain: models, endpoints, price
+  tracking. Read before changing `CollectionService`, `CollectionCard`, or the
+  collection/price endpoints, and **update it in the same commit** when you add surface.
+- **`CARD_COLLECTION_QUICKSTART.md`** — how to exercise the API by hand.
+
+⚠️ The two `CARD_COLLECTION_*` docs predate later work and have drifted: they still
+describe a boolean `IsFoil` (now `Quantity`/`QuantityFoil`), a unique index on
+`(CollectionId, OracleId)` (now `(CollectionId, ScryfallId, Board)`), a hardcoded
+`DefaultUserId` (auth now deny-by-default JWT), and port 5000 (now `https://localhost:7001`).
+Trust the code for those specifics; fix the doc when you touch the area.
 
 ## Layering
 

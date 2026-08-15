@@ -38,6 +38,28 @@ public sealed record CardDto
     public string? Rarity { get; init; }
     public Dictionary<string, string> Legalities { get; init; } = [];
     public bool GameChanger { get; init; }
+    // Null when Scryfall has no price data for this printing, so the client can
+    // distinguish "unknown" from "listed at zero".
+    public CardPricesDto? Prices { get; init; }
+}
+
+/// <summary>
+/// Scryfall's daily market prices for one printing (TCGplayer USD, Cardmarket EUR,
+/// Cardhoarder tix). Null fields mean no listing for that finish. The marketplace
+/// ids let the client link straight to the listing (tcgplayer.com/product/{id},
+/// cardhoarder.com/cards/{mtgoId}).
+/// </summary>
+public sealed record CardPricesDto
+{
+    public decimal? Usd { get; init; }
+    public decimal? UsdFoil { get; init; }
+    public decimal? UsdEtched { get; init; }
+    public decimal? Eur { get; init; }
+    public decimal? EurFoil { get; init; }
+    public decimal? Tix { get; init; }
+    public int? TcgplayerId { get; init; }
+    public int? CardmarketId { get; init; }
+    public int? MtgoId { get; init; }
 }
 
 // ---- Collection Management --------------------------------
@@ -52,8 +74,19 @@ public sealed record CollectionCardDto
     public string? Notes { get; init; }
     public string Board { get; init; } = "main";
     public DateTime AddedAt { get; init; }
+    // Market price when the row was created; null for rows predating price tracking.
+    public decimal? PriceUsdAtAdd { get; init; }
+    public decimal? PriceUsdFoilAtAdd { get; init; }
     public CardDto? CardDetails { get; init; }
 }
+
+/// <summary>One day's prices for one printing, for the price-history chart.</summary>
+public sealed record PricePointDto(
+    DateTime Date,
+    decimal? Usd,
+    decimal? UsdFoil,
+    decimal? Eur,
+    decimal? Tix);
 
 public sealed record CollectionDto
 {
@@ -105,6 +138,60 @@ public sealed record UpdateCollectionCardRequest(
     string? ScryfallId = null,
     string? Notes = null
 );
+
+/// <summary>
+/// Moves copies of one card row to another collection. Null quantities move the whole
+/// row; the caps match <see cref="UpdateCollectionCardRequest"/> so anything holdable is
+/// movable.
+/// </summary>
+public sealed record MoveCardRequest(
+    [Required] Guid TargetCollectionId,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? Quantity = null,
+    [System.ComponentModel.DataAnnotations.Range(0, 9999)] int? QuantityFoil = null
+);
+
+/// <summary>Result of a move: the row as it now stands in each collection.</summary>
+public sealed record MoveCardResultDto
+{
+    /// <summary>The destination row after folding in the moved copies.</summary>
+    public CollectionCardDto Target { get; init; } = null!;
+    /// <summary>What is left in the source, or null when the row moved whole and was removed.</summary>
+    public CollectionCardDto? SourceRemainder { get; init; }
+}
+
+/// <summary>Moves several whole card rows to another collection in one request.</summary>
+public sealed record MoveCardsRequest(
+    [Required] Guid TargetCollectionId,
+    [Required][MaxLength(500)] Guid[] CardIds
+);
+
+public sealed record MoveCardsResultDto
+{
+    public int CardsMoved { get; init; }
+    public int CardsFolded { get; init; }
+    public int CopiesTransferred { get; init; }
+    /// <summary>Ids of the source rows that no longer exist, so the client can drop them.</summary>
+    public Guid[] RemovedCardIds { get; init; } = [];
+}
+
+/// <summary>Folds every card of one collection into another.</summary>
+public sealed record MergeCollectionsRequest(
+    [Required] Guid SourceCollectionId,
+    /// <summary>Delete the emptied source collection afterwards. Off by default — merging is destructive enough.</summary>
+    bool DeleteSource = false
+);
+
+public sealed record MergeCollectionsResultDto
+{
+    /// <summary>Rows that had no counterpart and moved across whole.</summary>
+    public int CardsMoved { get; init; }
+    /// <summary>Rows that matched an existing printing and had their quantities added to it.</summary>
+    public int CardsFolded { get; init; }
+    /// <summary>Total copies (normal + foil) transferred.</summary>
+    public int CopiesTransferred { get; init; }
+    public bool SourceDeleted { get; init; }
+    public CollectionDetailDto Target { get; init; } = null!;
+}
 
 // ---- Deck Management (reuses CollectionCardDto for cards) --
 
@@ -222,6 +309,8 @@ public sealed record PrintingDto
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
     public string? ManaCost { get; init; }
+    // Per-printing prices; null when Scryfall lists none for this printing.
+    public CardPricesDto? Prices { get; init; }
 };
 
 // ---- Deck suggestions ---------------------------------------

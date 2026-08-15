@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
@@ -147,6 +148,7 @@ internal static class CardParser
                 Rarity = rarity,
                 Legalities = legalities,
                 GameChanger = gameChanger,
+                Prices = ParsePrices(json),
             };
         }
         catch
@@ -156,9 +158,11 @@ internal static class CardParser
     }
 
     /// <summary>
-    /// Copies a CardDefinition but overrides the image URIs and set code for a specific printing.
+    /// Copies a CardDefinition but overrides the image URIs and set code for a specific
+    /// printing. Prices replace wholesale when given — falling back per-field would show
+    /// another printing's price for a finish this printing does not have.
     /// </summary>
-    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgLarge, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null) =>
+    public static CardDefinition WithPrinting(CardDefinition oracle, string? imgNormal, string? imgLarge, string? imgSmall, string? imgArtCrop, string? setCode, string? imgNormalBack = null, CardPrices? prices = null) =>
         new()
         {
             OracleId = oracle.OracleId,
@@ -186,7 +190,67 @@ internal static class CardParser
             SetCode = setCode ?? oracle.SetCode,
             Legalities = oracle.Legalities,
             GameChanger = oracle.GameChanger,
+            Prices = prices ?? oracle.Prices,
         };
+
+    /// <summary>
+    /// Parses Scryfall's market data: the <c>prices</c> object (values arrive as decimal
+    /// strings or null, e.g. <c>"usd": "3.47"</c>) plus the root-level marketplace ids
+    /// used to build listing links. Returns the shared <see cref="CardPrices.None"/>
+    /// when nothing is listed, so unlisted cards allocate nothing.
+    /// </summary>
+    public static CardPrices ParsePrices(JsonElement json)
+    {
+        decimal? usd = null, usdFoil = null, usdEtched = null, eur = null, eurFoil = null, tix = null;
+        if (json.TryGetProperty("prices", out var prices) && prices.ValueKind == JsonValueKind.Object)
+        {
+            usd = ReadPrice(prices, "usd");
+            usdFoil = ReadPrice(prices, "usd_foil");
+            usdEtched = ReadPrice(prices, "usd_etched");
+            eur = ReadPrice(prices, "eur");
+            eurFoil = ReadPrice(prices, "eur_foil");
+            tix = ReadPrice(prices, "tix");
+        }
+
+        var tcgplayerId = ReadId(json, "tcgplayer_id");
+        var cardmarketId = ReadId(json, "cardmarket_id");
+        var mtgoId = ReadId(json, "mtgo_id");
+
+        if (usd is null && usdFoil is null && usdEtched is null && eur is null && eurFoil is null && tix is null
+            && tcgplayerId is null && cardmarketId is null && mtgoId is null)
+        {
+            return CardPrices.None;
+        }
+
+        return new CardPrices
+        {
+            Usd = usd,
+            UsdFoil = usdFoil,
+            UsdEtched = usdEtched,
+            Eur = eur,
+            EurFoil = eurFoil,
+            Tix = tix,
+            TcgplayerId = tcgplayerId,
+            CardmarketId = cardmarketId,
+            MtgoId = mtgoId,
+        };
+    }
+
+    private static int? ReadId(JsonElement json, string name)
+    {
+        if (!json.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.Number)
+            return null;
+        return el.TryGetInt32(out var value) ? value : null;
+    }
+
+    private static decimal? ReadPrice(JsonElement prices, string name)
+    {
+        if (!prices.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String)
+            return null;
+        return decimal.TryParse(el.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
 
     // ---- Parsers -------------------------------------------------------
 

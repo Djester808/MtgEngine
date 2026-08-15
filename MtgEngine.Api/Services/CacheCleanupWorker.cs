@@ -26,6 +26,12 @@ public sealed class CacheCleanupWorker : BackgroundService
     /// <summary>Synergy scores are pricier to regenerate, so they are kept longer.</summary>
     private static readonly TimeSpan SynergyRetention = TimeSpan.FromDays(60);
 
+    /// <summary>
+    /// Price history is the product, not a cache — keep five years (the largest window
+    /// the history endpoint serves), then let it go.
+    /// </summary>
+    private static readonly TimeSpan PriceSnapshotRetention = TimeSpan.FromDays(PriceHistoryService.MaxDays);
+
     public CacheCleanupWorker(IServiceScopeFactory scopeFactory, ILogger<CacheCleanupWorker> logger)
     {
         _scopeFactory = scopeFactory;
@@ -65,11 +71,15 @@ public sealed class CacheCleanupWorker : BackgroundService
             var synergyRemoved = await db.CardSynergyScores
                 .Where(c => c.CreatedAt < synergyCutoff)
                 .ExecuteDeleteAsync(ct);
+            var snapshotCutoff = now - PriceSnapshotRetention;
+            var snapshotsRemoved = await db.CardPriceSnapshots
+                .Where(s => s.CapturedAt < snapshotCutoff)
+                .ExecuteDeleteAsync(ct);
 
-            if (aiRemoved > 0 || synergyRemoved > 0)
+            if (aiRemoved > 0 || synergyRemoved > 0 || snapshotsRemoved > 0)
                 _logger.LogInformation(
-                    "Cache cleanup: removed {Ai} AI cache rows and {Synergy} synergy rows",
-                    aiRemoved, synergyRemoved);
+                    "Cache cleanup: removed {Ai} AI cache rows, {Synergy} synergy rows and {Snapshots} price snapshots",
+                    aiRemoved, synergyRemoved, snapshotsRemoved);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

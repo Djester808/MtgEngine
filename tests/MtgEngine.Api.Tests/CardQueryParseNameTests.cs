@@ -59,6 +59,35 @@ public class CardQueryParseNameTests
     public void QuotedNameToken_ExtractsTheQuotedText() =>
         Assert.Equal("Krenko, Mob Boss", CardQuery.ParseName("name:\"Krenko, Mob Boss\" t:creature"));
 
+    /// <summary>
+    /// The shape the client actually sends for every text search. A token right after an
+    /// opening bracket is at a word boundary; treating only whitespace as one dropped the
+    /// name filter here and silently degraded the search to oracle text alone — so a card
+    /// whose rules text does not repeat its own name (Llanowar Elves: "{T}: Add {G}")
+    /// could not be found by name at all.
+    /// </summary>
+    [Fact]
+    public void BracketedClause_KeepsBothTheNameAndOracleFilters()
+    {
+        const string q = "(name:\"llanowar elves\" or o:\"llanowar elves\")";
+        Assert.Equal("llanowar elves", CardQuery.ParseName(q));
+        Assert.Equal("llanowar elves", CardQuery.ParseOracleText(q));
+    }
+
+    [Fact]
+    public void BracketedClause_WithTrailingFilters_StillParsesTheName()
+    {
+        const string q = "(name:\"sol ring\" or o:\"sol ring\") t:artifact";
+        Assert.Equal("sol ring", CardQuery.ParseName(q));
+        Assert.Equal(Domain.Enums.CardType.Artifact, CardQuery.ParseTypes(q));
+    }
+
+    [Fact]
+    public void BracketIsNotAnExcuseForMidWordTokens() =>
+        // The boundary widened to brackets, not to everything: "(foo:bar" still has its
+        // "o:" mid-word and must not become an oracle filter.
+        Assert.Null(CardQuery.ParseOracleText("(foo:bar)"));
+
     // ---- regex name matching (ReDoS-guarded) ----
 
     [Fact]

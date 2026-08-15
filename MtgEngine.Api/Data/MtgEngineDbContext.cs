@@ -12,6 +12,7 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<AiResponseCache> AiResponseCache => Set<AiResponseCache>();
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
     public DbSet<ForumComment> ForumComments => Set<ForumComment>();
+    public DbSet<CardPriceSnapshot> CardPriceSnapshots => Set<CardPriceSnapshot>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -87,7 +88,30 @@ public sealed class MtgEngineDbContext : DbContext
             // Indexes — one entry per (collection, printing, board); same card can appear in main+side+maybe
             entity.HasIndex(e => e.CollectionId);
             entity.HasIndex(e => new { e.CollectionId, e.OracleId });
+            // Only constrains rows that pin a printing. SQLite treats NULLs as distinct,
+            // so this index silently permitted any number of duplicate *unpinned* rows
+            // for one card — and unpinned rows are the majority (decks rarely pin a
+            // printing). The filtered companion below covers them.
             entity.HasIndex(e => new { e.CollectionId, e.ScryfallId, e.Board }).IsUnique();
+            // One unpinned row per (collection, card, board). Filtered so it applies only
+            // where ScryfallId IS NULL, leaving the index above to police pinned rows.
+            entity.HasIndex(e => new { e.CollectionId, e.OracleId, e.Board })
+                  .IsUnique()
+                  .HasFilter("\"ScryfallId\" IS NULL")
+                  .HasDatabaseName("IX_CollectionCards_Unpinned_Unique");
+        });
+
+        // CardPriceSnapshot — daily price history for printings owned in collections
+        modelBuilder.Entity<CardPriceSnapshot>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ScryfallId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.CapturedAt).IsRequired();
+
+            // One row per printing per day; the history query reads by printing ordered
+            // by date, which this index also serves.
+            entity.HasIndex(e => new { e.ScryfallId, e.CapturedAt }).IsUnique();
+            entity.HasIndex(e => e.CapturedAt); // supports the retention sweep
         });
 
         // CardSynergyScore

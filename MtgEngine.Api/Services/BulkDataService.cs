@@ -5,6 +5,7 @@ using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Mapping;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
+using MtgEngine.Domain.ValueObjects;
 
 // The query language moved to CardQuery; imported statically so the filter pipelines
 // below still read as ParseTypes(q) rather than CardQuery.ParseTypes(q).
@@ -54,7 +55,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     private readonly TaskCompletionSource _readySignal =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack = null);
+    private record PrintingEntry(string OracleId, string? ImgNormal, string? ImgLarge, string? ImgSmall, string? ImgArtCrop, string? SetCode, string? ImgNormalBack, CardPrices Prices);
 
     public BulkDataService(
         ScryfallService api,
@@ -103,7 +104,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
         if (_byScryfallId.TryGetValue(scryfallId, out var entry)
             && _byOracleId.TryGetValue(entry.OracleId, out var oracle))
         {
-            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack);
+            return CardParser.WithPrinting(oracle, entry.ImgNormal, entry.ImgLarge, entry.ImgSmall, entry.ImgArtCrop, entry.SetCode, entry.ImgNormalBack, entry.Prices);
         }
         _logger.LogDebug("ScryfallId miss, falling back to API: {Id}", scryfallId);
         return await _api.GetByScryfallIdAsync(scryfallId);
@@ -1171,7 +1172,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
 
             scryfallIdx[dto.ScryfallId] = new PrintingEntry(
                 oid, dto.ImageUriNormal!, dto.ImageUriLarge, dto.ImageUriSmall,
-                parsed.Value.ImageUriArtCrop, setCode, dto.ImageUriNormalBack);
+                parsed.Value.ImageUriArtCrop, setCode, dto.ImageUriNormalBack, parsed.Value.Prices);
 
             // Build set-code → oracle-id index and set name lookup
             if (setCode.Length > 0)
