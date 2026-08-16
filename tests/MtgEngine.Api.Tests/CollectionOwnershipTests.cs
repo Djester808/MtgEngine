@@ -25,7 +25,7 @@ public sealed class CollectionOwnershipTests : IDisposable
         var options = new DbContextOptionsBuilder<MtgEngineDbContext>().UseSqlite(_conn).Options;
         _db = new MtgEngineDbContext(options);
         _db.Database.EnsureCreated();
-        _sut = new CollectionService(_db, new Lookup());
+        _sut = new CollectionService(_db, new Lookup(), new CardHistoryService(_db));
     }
 
     /// <summary>Ownership never consults Scryfall; the stub is only here to construct.</summary>

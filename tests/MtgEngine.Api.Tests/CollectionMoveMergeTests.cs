@@ -26,7 +26,9 @@ public sealed class CollectionMoveMergeTests : IDisposable
         var options = new DbContextOptionsBuilder<MtgEngineDbContext>().UseSqlite(_conn).Options;
         _db = new MtgEngineDbContext(options);
         _db.Database.EnsureCreated();
-        _sut = new CollectionService(_db, new Lookup());
+        // Real history service, not a stub: it shares this context, so the move/merge tests
+        // also prove the audit trail is written inside the same SaveChanges as the transfer.
+        _sut = new CollectionService(_db, new Lookup(), new CardHistoryService(_db));
     }
 
     private sealed class Lookup : StubScryfallService

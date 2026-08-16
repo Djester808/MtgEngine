@@ -325,6 +325,44 @@ GET /api/cards/printings/{scryfallId}/price-history?days=90
 `CacheCleanupWorker` prunes snapshots past five years, the largest window the endpoint
 serves.
 
+### 7. Card History
+
+Every change a user makes to a card is recorded as an append-only `CollectionCardEvent`,
+which backs the **History tab** in the client's card modal.
+
+```http
+GET /api/cards/{oracleId}/history?limit=100
+```
+**Response**: `CardHistoryEntryDto[]` — newest first, capped at `CardHistoryService.MaxLimit`
+(500). Scoped to the caller: this is *their* activity with the card, not the card's.
+
+`eventType` serializes as its name, never an ordinal (global `JsonStringEnumConverter`):
+
+| `eventType` | Written when |
+|---|---|
+| `Added` | A new row was created for the card |
+| `QuantityChanged` | Copies were added to or taken off an existing row (sign says which) |
+| `PrintingChanged` | The row was re-pinned to a different printing |
+| `Removed` | The row was deleted — including when its whole collection or deck was |
+| `MovedOut` / `MovedIn` | The two halves of a move or merge, each naming the other end |
+
+**Recording rules**
+- Events are staged onto the same `SaveChangesAsync` as the change they describe, so the
+  log cannot drift from the data. The one exception is the add path, which saves a second
+  time: increments run as `ExecuteUpdate` and bypass the change tracker, so the resulting
+  copy counts are only knowable after the post-write row read.
+- `UserId`, `CollectionName` and `IsDeck` are **denormalised onto the event**, and the
+  table has **no foreign key to `Collections`**. That is deliberate — a cascade would
+  delete the history along with the collection, and "which deck did I pull this out of"
+  is exactly the question the tab exists to answer. Names are the values as they read at
+  the time; renaming a collection later does not rewrite its past events.
+- A notes-only edit records nothing — nothing about the card itself moved.
+- `SetCode`/`PriceUsd` are only populated where the server already had the card definition
+  in hand (the add path). Resolving them on every event would put a Scryfall lookup inside
+  merge loops that already iterate hundreds of rows. Null means "not recorded".
+- **There is no backfill.** A `CollectionCard` row knows only its current state, so history
+  exists from the day this shipped. An empty tab on a long-owned card is correct.
+
 ## Service Implementation Details
 
 ### CollectionService
@@ -358,6 +396,23 @@ Task<bool> RemoveCardByOracleAsync(Guid collectionId, string oracleId, string us
 Task<CardDto[]> GetAvailableCardsForDeckAsync(Guid collectionId, string userId)
 ```
 
+### CardHistoryService
+
+Owns the `CollectionCardEvent` trail. `CollectionService` depends on it and calls
+`Record(...)` from every mutation path; the read side backs the card modal's History tab.
+
+```csharp
+// Staged onto the caller's SaveChangesAsync — this does not save on its own.
+void Record(Collection collection, CollectionCard card, CollectionCardEventType eventType,
+            int quantityDelta, int quantityFoilDelta, int quantityAfter, int quantityFoilAfter,
+            Collection? counterpart = null, string? setCode = null, decimal? priceUsd = null)
+
+Task<CardHistoryEntryDto[]> GetForCardAsync(string userId, string oracleId, int limit, CancellationToken ct)
+```
+
+Copy counts are passed explicitly rather than read off the entity, because on a removal the
+entity still holds the copies it is about to lose.
+
 ## Database Configuration
 
 The DbContext is configured with:
@@ -376,6 +431,19 @@ The DbContext is configured with:
   - Required fields: UserId, Name, OracleId, Quantity, IsFoil
   - Max lengths: UserId (256), Name (256), Description (1000), OracleId (256), Notes (1000)
 - **Timestamps**: CreatedAt and UpdatedAt automatically tracked
+- **All `DateTime`s are UTC, and say so on the wire.** SQLite has no date type, so values
+  round-trip through TEXT and materialize as `Unspecified`; serialized that way they reach
+  the client with no trailing `Z`, and **JavaScript reads a bare date-time as local**. For a
+  browser at UTC-5 that put every timestamp five hours in the future — the card modal's
+  History tab read "just now" for five hours, and `addedAt` displayed the UTC clock time as
+  if it were local. A convention in `MtgEngineDbContext.ConfigureConventions` converts every
+  `DateTime`/`DateTime?` on read, so no endpoint has to remember to. It is CLR-type
+  preserving, so it needs no migration.
+  - One consequence worth knowing: a value that is a *calendar day* rather than an instant
+    (`CardPriceSnapshot.CapturedAt`, stamped at UTC midnight) must be **rendered in UTC**, or
+    every point west of UTC lands on the previous day's label. See `formatDay` in the
+    client's `utils/price-chart.ts`. Instants (`addedAt`, `publishedAt`, history
+    `createdAt`) should render in local time as normal.
 
 ### Migrations
 

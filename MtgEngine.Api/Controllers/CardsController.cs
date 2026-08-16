@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MtgEngine.Api.Dtos;
@@ -16,11 +17,20 @@ public sealed class CardsController : ControllerBase
 {
     private readonly IScryfallService _scryfall;
     private readonly IPriceHistoryService _priceHistory;
+    private readonly ICardHistoryService _cardHistory;
 
-    public CardsController(IScryfallService scryfall, IPriceHistoryService priceHistory)
+    private string UserId =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new InvalidOperationException("User ID claim missing from token");
+
+    public CardsController(
+        IScryfallService scryfall,
+        IPriceHistoryService priceHistory,
+        ICardHistoryService cardHistory)
     {
         _scryfall = scryfall;
         _priceHistory = priceHistory;
+        _cardHistory = cardHistory;
     }
 
     /// <summary>Must match DeckSuggestionsService.LatestSetCount so the browse list
@@ -208,6 +218,21 @@ public sealed class CardsController : ControllerBase
         CancellationToken ct = default)
     {
         return Ok(await _priceHistory.GetHistoryAsync(scryfallId, days, ct));
+    }
+
+    /// <summary>
+    /// What the current user has done with this card — added, removed, moved between
+    /// collections and decks — newest first. Scoped to the caller: this is their activity,
+    /// not the card's. Empty until the card is touched after history recording shipped;
+    /// nothing reconstructs changes made before that.
+    /// </summary>
+    [HttpGet("{oracleId}/history")]
+    public async Task<ActionResult<CardHistoryEntryDto[]>> GetHistory(
+        [StringLength(256)] string oracleId,
+        [FromQuery][Range(1, CardHistoryService.MaxLimit)] int limit = 100,
+        CancellationToken ct = default)
+    {
+        return Ok(await _cardHistory.GetForCardAsync(UserId, oracleId, limit, ct));
     }
 
     /// <summary>Oracle card to DTO. See <see cref="DomainMapper"/>.</summary>

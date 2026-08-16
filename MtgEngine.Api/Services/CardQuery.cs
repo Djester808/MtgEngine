@@ -242,11 +242,13 @@ internal static class CardQuery
             end++;
         if (end == start)
             return (false, false, false, []);
+        // Every lit pip rides in one token — 'm' and 'c' are not colour letters, so they
+        // cannot be confused with one. The old form only recognised a whole token of "m" or
+        // "c", which meant a combination like "multicolour, within red and white" had to be
+        // thrown away by the client before it was ever sent.
         var token = q[start..end].ToLowerInvariant();
-        if (token == "m")
-            return (true, true, false, []);
-        if (token == "c")
-            return (true, false, true, []);
+        var multicolor = token.Contains('m');
+        var colorless = token.Contains('c');
         var colors = new HashSet<ManaColor>();
         foreach (var ch in token)
         {
@@ -262,16 +264,41 @@ internal static class CardQuery
             if (c.HasValue)
                 colors.Add(c.Value);
         }
-        return colors.Count > 0 ? (true, false, false, colors) : (false, false, false, []);
+        var hasFilter = multicolor || colorless || colors.Count > 0;
+        return hasFilter ? (true, multicolor, colorless, colors) : (false, false, false, []);
     }
 
+    /// <summary>
+    /// "Within these colours": a card matches when its whole colour identity fits inside the
+    /// selection, so <c>c:r</c> is mono-red and <c>c:rw</c> is mono-red, mono-white and Boros.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors <c>matchesColorSelection</c> in the client's <c>utils/color-filter.ts</c>; the
+    /// two must agree, because the same pip row filters locally on the grids and through this
+    /// query on the search panel. Previously both said "contains any selected colour", so
+    /// picking Red returned every Boros, Grixis and five-colour card that merely included red.
+    /// </remarks>
     internal static bool MatchesColor(CardDefinition d, bool multicolor, bool colorless, HashSet<ManaColor> colors)
     {
+        var identity = d.ColorIdentity;
+
+        // Colourless widens rather than narrows: it unions with whatever else is selected.
+        if (colorless && identity.Count == 0)
+            return true;
+
+        if (colors.Count > 0)
+        {
+            // An empty identity is excluded here so that c:r does not return every artifact;
+            // the 'c' pip is how a caller asks for those.
+            var fits = identity.Count > 0 && identity.All(colors.Contains);
+            return multicolor ? fits && identity.Count >= 2 : fits;
+        }
+
         if (multicolor)
-            return d.ColorIdentity.Count >= 2;
-        if (colorless)
-            return d.ColorIdentity.Count == 0;
-        return d.ColorIdentity.Any(c => colors.Contains(c));
+            return identity.Count >= 2;
+
+        // Only 'c' was asked for, and this card has a colour.
+        return false;
     }
 
     private static readonly char[] _wordSeparators = [' ', ',', '-', '\'', '"', '(', ')', '/', ':', '.'];

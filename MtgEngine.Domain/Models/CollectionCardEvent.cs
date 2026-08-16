@@ -33,8 +33,26 @@ public sealed class CollectionCardEvent
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    /// <summary>
+    /// Who this happened to. Denormalised rather than reached through the collection,
+    /// because the collection can be deleted and the history must outlive it — the read
+    /// path filters on this directly and never joins.
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+
     /// <summary>The collection this event happened in.</summary>
     public Guid CollectionId { get; set; }
+
+    /// <summary>
+    /// That collection's name as it read at the time, for the same reason
+    /// <see cref="CounterpartCollectionName"/> is stored: it can be renamed or deleted,
+    /// and "removed from &lt;deleted collection&gt;" is exactly the event a user most wants
+    /// to look up.
+    /// </summary>
+    public string CollectionName { get; set; } = string.Empty;
+
+    /// <summary>Whether that collection was a deck, so the UI can say "deck" not "collection".</summary>
+    public bool IsDeck { get; set; }
 
     /// <summary>The card, stable across printings and across the row being deleted.</summary>
     public string OracleId { get; set; } = string.Empty;

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Dtos;
 
@@ -87,6 +88,30 @@ public sealed record PricePointDto(
     decimal? UsdFoil,
     decimal? Eur,
     decimal? Tix);
+
+/// <summary>
+/// One thing that happened to one card, for the card modal's History tab. Every name here
+/// is the value recorded at the time, not resolved now — see <see cref="CollectionCardEvent"/>.
+/// <c>EventType</c> serializes as its name ("Added", "MovedIn") via the global
+/// <c>JsonStringEnumConverter</c>, so the client never binds to an ordinal.
+/// </summary>
+public sealed record CardHistoryEntryDto(
+    Guid Id,
+    CollectionCardEventType EventType,
+    Guid CollectionId,
+    string CollectionName,
+    bool IsDeck,
+    string Board,
+    string? ScryfallId,
+    string? SetCode,
+    int QuantityDelta,
+    int QuantityFoilDelta,
+    int QuantityAfter,
+    int QuantityFoilAfter,
+    Guid? CounterpartCollectionId,
+    string? CounterpartCollectionName,
+    decimal? PriceUsd,
+    DateTime CreatedAt);
 
 public sealed record CollectionDto
 {
@@ -583,11 +608,22 @@ public sealed record UserCommentDto
     public DateTime CreatedAt { get; init; }
 }
 
+/// <summary>
+/// Per-user display choices, stored as one JSON blob on the user row.
+/// </summary>
+/// <remarks>
+/// Every field the client sends must exist here. The controller round-trips through this
+/// record, so a property the client knows about and this does not is dropped on save and
+/// comes back empty — the setting appears to work until the page is reloaded. The client's
+/// <c>UserPreferences</c> in <c>preferences-api.service.ts</c> is the matching half.
+/// </remarks>
 public sealed record UserPreferencesDto
 {
     [StringLength(200)] public string? DeckLayout { get; init; }
     [StringLength(200)] public string? ForumLayout { get; init; }
     [StringLength(200)] public string? ForumSort { get; init; }
+    [StringLength(200)] public string? CollectionLayout { get; init; }
+    [StringLength(200)] public string? CollectionGroup { get; init; }
 }
 
 public sealed record PublishDeckRequest(Guid DeckId, string? Description = null);

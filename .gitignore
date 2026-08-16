@@ -32,7 +32,11 @@ artifacts/
 # OS
 .DS_Store
 Thumbs.db
-.claude/
+# Claude Code: machine-specific settings stay out, but the docs gate is shared code —
+# CLAUDE.md calls it enforced, which it can only be if it ships with the repo.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 
 # Local secrets — never commit
 appsettings.Development.json

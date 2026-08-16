@@ -81,23 +81,27 @@ public sealed class CommanderDeckSeeder
                     continue;
                 }
 
-                // Vary deck count by rank: top commanders get proportionally more decks
-                // Rank 1 = decksPerCommander, rank 50 = max(3, decksPerCommander/2)
-                var rankRatio = 1.0 - (cmdIdx / (double)Math.Max(1, commanders.Count - 1)) * 0.5;
-                var deckCount = Math.Max(3, (int)Math.Round(decksPerCommander * rankRatio));
+                var deckCount = DeckCountForRank(cmdIdx, commanders.Count, decksPerCommander);
 
                 for (int i = 0; i < deckCount; i++)
-                {
                     await CreateDeckAsync(cmd, pool, basicLandIds, i, deckCount, userId, rng);
-                    created++;
-                }
 
                 await _db.SaveChangesAsync(ct);
+
+                // Counted only once the save succeeds. Incrementing per staged deck made the
+                // summary report decks that were never written — a run that persisted 9 said
+                // it created 19.
+                created += deckCount;
                 _logger.LogInformation("Seeded {N} decks for {Name} (rank {R}, pool: {P})", deckCount, cmd.Name, cmdIdx + 1, pool.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed seeding {Name}", cmd.Name);
+
+                // Drop the failed entities. They stay tracked after a failed SaveChanges, so
+                // without this the next commander's save retries them and fails too: one bad
+                // deck took out every commander after it, and the run stopped dead nine in.
+                _db.ChangeTracker.Clear();
             }
         }
 
@@ -105,6 +109,23 @@ public sealed class CommanderDeckSeeder
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How many decks to build for the commander at <paramref name="rankIndex"/>. Top
+    /// commanders get proportionally more, tapering to half by the end of the list.
+    /// </summary>
+    /// <remarks>
+    /// The floor is capped at what the caller asked for. It used to be a flat
+    /// <c>Math.Max(3, …)</c>, so seeding "twenty commanders, one deck each" silently
+    /// produced sixty decks — the request for one was overridden by a minimum that was only
+    /// ever meant to stop the taper from reaching zero on a large run.
+    /// </remarks>
+    internal static int DeckCountForRank(int rankIndex, int commanderCount, int decksPerCommander)
+    {
+        var rankRatio = 1.0 - (rankIndex / (double)Math.Max(1, commanderCount - 1)) * 0.5;
+        var floor = Math.Min(3, decksPerCommander);
+        return Math.Max(floor, (int)Math.Round(decksPerCommander * rankRatio));
+    }
 
     private async Task<string> EnsureSeedUserAsync(CancellationToken ct)
     {
@@ -320,16 +341,32 @@ public sealed class CommanderDeckSeeder
         if (colors.Length == 0)
             return null;
 
-        string? imgUri = null;
-        if (card.TryGetProperty("image_uris", out var imgs))
+        // A double-faced card carries no top-level image_uris — each face has its own — so
+        // reading only the top level left every DFC commander's deck with a blank cover.
+        string? imgUri = PickArt(card);
+        if (imgUri is null
+            && card.TryGetProperty("card_faces", out var faces)
+            && faces.ValueKind == JsonValueKind.Array)
         {
-            if (imgs.TryGetProperty("art_crop", out var art))
-                imgUri = art.GetString();
-            else if (imgs.TryGetProperty("normal", out var norm))
-                imgUri = norm.GetString();
+            foreach (var face in faces.EnumerateArray())
+            {
+                imgUri = PickArt(face);
+                if (imgUri is not null)
+                    break;
+            }
         }
 
         return new CommanderInfo(oracleId, scryfallId, name, colors, imgUri);
+    }
+
+    /// <summary>Art crop for a card or one face of it, preferring the crop over the full frame.</summary>
+    private static string? PickArt(JsonElement el)
+    {
+        if (!el.TryGetProperty("image_uris", out var imgs))
+            return null;
+        if (imgs.TryGetProperty("art_crop", out var art))
+            return art.GetString();
+        return imgs.TryGetProperty("normal", out var norm) ? norm.GetString() : null;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -504,29 +541,26 @@ public sealed class CommanderDeckSeeder
             AddedAt = publishedAt,
         });
 
-        // Sample 63 non-land cards from pool (randomized per deck). DistinctBy on oracle
-        // id: the pool can hold the same card more than once, and sampling it twice used
-        // to insert two rows for one card — which the unique index cannot reject while
-        // ScryfallId is null (SQLite treats NULLs as distinct), so the deck rendered the
-        // card as two tiles with the count split between them.
+        // The main board, accumulated as one entry per oracle id before anything is added.
+        // `IX_CollectionCards_Unpinned_Unique` allows exactly one unpinned row per
+        // (collection, card, board), so a card reaching this twice is not a duplicate tile
+        // — it is an insert that throws and takes the whole run down with it.
+        var mainBoard = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // Sample 63 non-land cards from pool (randomized per deck). Basic lands are excluded
+        // here because they are added below at a fixed count: EDHREC returns them in
+        // sections this code does not always recognise as basics, and one slipping into the
+        // sample collided with the dedicated land row for the same card.
+        var basicLandIds = landIds.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var sampled = pool
+            .Where(c => !basicLandIds.Contains(c.OracleId))
             .OrderBy(_ => rng.Next())
             .DistinctBy(c => c.OracleId)
             .Take(63)
             .ToList();
 
         foreach (var card in sampled)
-        {
-            _db.CollectionCards.Add(new CollectionCard
-            {
-                CollectionId = collection.Id,
-                OracleId = card.OracleId,
-                ScryfallId = null,
-                Quantity = 1,
-                Board = "main",
-                AddedAt = publishedAt,
-            });
-        }
+            mainBoard[card.OracleId] = 1;
 
         // Basic lands: 36 total distributed by color identity
         var deckColors = cmd.ColorIdentity.Where(c => landIds.ContainsKey(c)).ToList();
@@ -540,12 +574,20 @@ public sealed class CommanderDeckSeeder
         foreach (var color in deckColors)
         {
             var qty = perColor + (extraLands-- > 0 ? 1 : 0);
+            var landId = landIds[color];
+            // Summed rather than assigned: a two-colour identity that resolves both colours
+            // to the same land id would otherwise silently lose one colour's share.
+            mainBoard[landId] = mainBoard.GetValueOrDefault(landId) + qty;
+        }
+
+        foreach (var (oracleId, quantity) in mainBoard)
+        {
             _db.CollectionCards.Add(new CollectionCard
             {
                 CollectionId = collection.Id,
-                OracleId = landIds[color],
+                OracleId = oracleId,
                 ScryfallId = null,
-                Quantity = qty,
+                Quantity = quantity,
                 Board = "main",
                 AddedAt = publishedAt,
             });
@@ -578,10 +620,15 @@ public sealed class CommanderDeckSeeder
     private static string? GetStr(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var v) ? v.GetString() : null;
 
-    private static string ToEdhrecSlug(string name)
+    internal static string ToEdhrecSlug(string name)
     {
         // "Atraxa, Praetor's Voice" → "atraxa-praetors-voice"
-        var s = name.ToLowerInvariant();
+        //
+        // A double-faced card is named "Front // Back", but EDHREC pages it under the front
+        // face alone: the combined slug 403s, which this code read as "no pool" and turned
+        // into a silent skip for every modal-DFC commander (Birgi was dropped that way).
+        var front = name.Split("//", StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+        var s = front.ToLowerInvariant();
         s = Regex.Replace(s, @"[^a-z0-9\s-]", "");
         s = Regex.Replace(s, @"\s+", "-");
         s = Regex.Replace(s, @"-+", "-").Trim('-');

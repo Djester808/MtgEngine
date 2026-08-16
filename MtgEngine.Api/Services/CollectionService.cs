@@ -69,11 +69,14 @@ public sealed class CollectionService : ICollectionService
 {
     private readonly MtgEngineDbContext _context;
     private readonly ICardLookup _scryfallService;
+    private readonly ICardHistoryService _history;
 
-    public CollectionService(MtgEngineDbContext context, ICardLookup scryfallService)
+    public CollectionService(
+        MtgEngineDbContext context, ICardLookup scryfallService, ICardHistoryService history)
     {
         _context = context;
         _scryfallService = scryfallService;
+        _history = history;
     }
 
     // ---- Collections ----
@@ -190,9 +193,31 @@ public sealed class CollectionService : ICollectionService
         if (collection == null)
             return false;
 
+        await RecordCardsLostWithCollectionAsync(collection);
+
         _context.Collections.Remove(collection);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Records a Removed event for every card in a collection that is about to be deleted.
+    /// The cards go with it via cascade, so without this the copies simply vanish from
+    /// history — and "which collection did I delete this out of" is the question the tab
+    /// exists to answer. Events carry no foreign key to the collection precisely so they
+    /// outlive it.
+    /// </summary>
+    private async Task RecordCardsLostWithCollectionAsync(Collection collection)
+    {
+        var cards = await _context.CollectionCards
+            .AsNoTracking()
+            .Where(cc => cc.CollectionId == collection.Id)
+            .ToListAsync();
+
+        foreach (var card in cards)
+            _history.Record(
+                collection, card, CollectionCardEventType.Removed,
+                -card.Quantity, -card.QuantityFoil, 0, 0);
     }
 
     // ---- Collection Cards ----
@@ -315,6 +340,23 @@ public sealed class CollectionService : ICollectionService
         // Pinned printing first — resolving by oracle id here made the added card render
         // with the default printing's art until the next full reload.
         var cardDef = await _scryfallService.ResolveForEntryAsync(cardRecord);
+
+        // Recorded here rather than beside each branch above: the increment paths run as
+        // ExecuteUpdate, which bypasses the change tracker, so the post-write row read is
+        // the first point where the resulting copy counts are known for every path. Costs
+        // one extra save on add; the alternative is a log that guesses at its own numbers.
+        _history.Record(
+            collection,
+            cardRecord,
+            created ? CollectionCardEventType.Added : CollectionCardEventType.QuantityChanged,
+            request.Quantity,
+            request.QuantityFoil,
+            cardRecord.Quantity,
+            cardRecord.QuantityFoil,
+            setCode: cardDef?.SetCode,
+            priceUsd: cardDef?.Prices.Usd);
+        await _context.SaveChangesAsync();
+
         return (DomainMapper.ToDto(cardRecord, cardDef), created);
     }
 
@@ -335,12 +377,28 @@ public sealed class CollectionService : ICollectionService
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Collection not found");
 
+        var qtyDelta = request.Quantity - card.Quantity;
+        var foilDelta = request.QuantityFoil - card.QuantityFoil;
+        var rePinned = request.ScryfallId is not null && request.ScryfallId != card.ScryfallId;
+
         card.Quantity = request.Quantity;
         card.QuantityFoil = request.QuantityFoil;
         card.Notes = request.Notes;
         if (request.ScryfallId is not null)
             card.ScryfallId = request.ScryfallId;
         collection.UpdatedAt = DateTime.UtcNow;
+
+        // One edit can do both, and they are different questions later ("when did I get the
+        // third copy" vs "when did this become the foil printing"), so they are two events.
+        // A notes-only edit records neither — nothing about the card itself moved.
+        if (rePinned)
+            _history.Record(
+                collection, card, CollectionCardEventType.PrintingChanged,
+                0, 0, card.Quantity, card.QuantityFoil);
+        if (qtyDelta != 0 || foilDelta != 0)
+            _history.Record(
+                collection, card, CollectionCardEventType.QuantityChanged,
+                qtyDelta, foilDelta, card.Quantity, card.QuantityFoil);
 
         await _context.SaveChangesAsync();
 
@@ -363,6 +421,10 @@ public sealed class CollectionService : ICollectionService
 
         if (card == null)
             return false;
+
+        _history.Record(
+            collection, card, CollectionCardEventType.Removed,
+            -card.Quantity, -card.QuantityFoil, 0, 0);
 
         _context.CollectionCards.Remove(card);
         collection.UpdatedAt = DateTime.UtcNow;
@@ -389,9 +451,21 @@ public sealed class CollectionService : ICollectionService
         if (board is not null)
             query = query.Where(cc => cc.Board == board);
 
+        // Read before the bulk delete: ExecuteDelete never materializes the rows, so this
+        // is the only chance to say what was lost. Scoped to one card across its printings
+        // and boards, so it is a handful of rows, not a table scan.
+        var doomed = await query.AsNoTracking().ToListAsync();
+        if (doomed.Count == 0)
+            return false;
+
         var removed = await query.ExecuteDeleteAsync();
         if (removed == 0)
             return false;
+
+        foreach (var row in doomed)
+            _history.Record(
+                collection, row, CollectionCardEventType.Removed,
+                -row.Quantity, -row.QuantityFoil, 0, 0);
 
         collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -486,6 +560,15 @@ public sealed class CollectionService : ICollectionService
         if (emptied)
             _context.CollectionCards.Remove(card);
 
+        // Both halves, each naming the other end — the source's history should read "moved
+        // to X" and the target's "moved from Y", and neither can be inferred from the other.
+        _history.Record(
+            source, card, CollectionCardEventType.MovedOut,
+            -moveQty, -moveFoil, card.Quantity, card.QuantityFoil, counterpart: target);
+        _history.Record(
+            target, targetRow, CollectionCardEventType.MovedIn,
+            moveQty, moveFoil, targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
+
         var now = DateTime.UtcNow;
         source.UpdatedAt = now;
         target.UpdatedAt = now;
@@ -525,13 +608,21 @@ public sealed class CollectionService : ICollectionService
         foreach (var card in cards)
         {
             ct.ThrowIfCancellationRequested();
-            var (_, created) = await FoldIntoAsync(
+            var (targetRow, created) = await FoldIntoAsync(
                 request.TargetCollectionId, card, card.Quantity, card.QuantityFoil, ct);
             if (created)
                 moved++;
             else
                 folded++;
             copies += card.Quantity + card.QuantityFoil;
+
+            _history.Record(
+                source, card, CollectionCardEventType.MovedOut,
+                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target);
+            _history.Record(
+                target, targetRow, CollectionCardEventType.MovedIn,
+                card.Quantity, card.QuantityFoil,
+                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
         }
 
         _context.CollectionCards.RemoveRange(cards);
@@ -569,12 +660,20 @@ public sealed class CollectionService : ICollectionService
         foreach (var card in sourceCards)
         {
             ct.ThrowIfCancellationRequested();
-            var (_, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct);
+            var (targetRow, created) = await FoldIntoAsync(targetCollectionId, card, card.Quantity, card.QuantityFoil, ct);
             if (created)
                 moved++;
             else
                 folded++;
             copies += card.Quantity + card.QuantityFoil;
+
+            _history.Record(
+                source, card, CollectionCardEventType.MovedOut,
+                -card.Quantity, -card.QuantityFoil, 0, 0, counterpart: target);
+            _history.Record(
+                target, targetRow, CollectionCardEventType.MovedIn,
+                card.Quantity, card.QuantityFoil,
+                targetRow.Quantity, targetRow.QuantityFoil, counterpart: source);
         }
 
         // The source rows are gone either way — the copies now live in the target.
@@ -714,6 +813,8 @@ public sealed class CollectionService : ICollectionService
 
         if (deck == null)
             return false;
+
+        await RecordCardsLostWithCollectionAsync(deck);
 
         // A published deck's forum post references it by DeckId with no DB-level cascade,
         // so deleting the deck alone would strand a post that renders as "Unknown Deck" and

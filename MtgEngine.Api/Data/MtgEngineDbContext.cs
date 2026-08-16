@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MtgEngine.Domain.Models;
 
 namespace MtgEngine.Api.Data;
@@ -13,10 +14,54 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<ForumPost> ForumPosts => Set<ForumPost>();
     public DbSet<ForumComment> ForumComments => Set<ForumComment>();
     public DbSet<CardPriceSnapshot> CardPriceSnapshots => Set<CardPriceSnapshot>();
+    public DbSet<CollectionCardEvent> CollectionCardEvents => Set<CollectionCardEvent>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
     {
+    }
+
+    /// <summary>
+    /// Every <see cref="DateTime"/> in this database is UTC, and is read back saying so.
+    /// </summary>
+    /// <remarks>
+    /// SQLite has no date type: values round-trip through TEXT and materialize as
+    /// <see cref="DateTimeKind.Unspecified"/>. System.Text.Json then serializes them with no
+    /// trailing <c>Z</c>, and JavaScript reads a bare date-time as *local* — so for a browser at
+    /// UTC-5 every timestamp arrived five hours in the future. That is what made the card
+    /// modal's History tab read "just now" for five hours, and it applied equally to
+    /// <c>addedAt</c>, forum post times and everything else on the wire.
+    /// <para>
+    /// Applied as a convention rather than per property so a new entity cannot quietly opt out
+    /// of it. Writing normalizes a Local value instead of trusting it, because storing local
+    /// wall-clock and then labelling it UTC on read would bake in the very error this removes.
+    /// </para>
+    /// </remarks>
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+        builder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        builder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+    }
+
+    private sealed class UtcDateTimeConverter : ValueConverter<DateTime, DateTime>
+    {
+        public UtcDateTimeConverter()
+            : base(
+                v => v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v,
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc))
+        {
+        }
+    }
+
+    private sealed class NullableUtcDateTimeConverter : ValueConverter<DateTime?, DateTime?>
+    {
+        public NullableUtcDateTimeConverter()
+            : base(
+                v => v.HasValue && v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : v,
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v)
+        {
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -112,6 +157,31 @@ public sealed class MtgEngineDbContext : DbContext
             // by date, which this index also serves.
             entity.HasIndex(e => new { e.ScryfallId, e.CapturedAt }).IsUnique();
             entity.HasIndex(e => e.CapturedAt); // supports the retention sweep
+        });
+
+        // CollectionCardEvent — append-only audit trail behind the card modal's History tab
+        modelBuilder.Entity<CollectionCardEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.CollectionId).IsRequired();
+            entity.Property(e => e.CollectionName).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.IsDeck).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.OracleId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.ScryfallId).HasMaxLength(256);
+            entity.Property(e => e.SetCode).HasMaxLength(16);
+            entity.Property(e => e.Board).IsRequired().HasDefaultValue("main");
+            entity.Property(e => e.EventType).IsRequired();
+            entity.Property(e => e.CounterpartCollectionName).HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).IsRequired();
+
+            // Deliberately NO foreign key to Collections. A cascade would delete the
+            // history when the collection goes, and "what happened to this card" is most
+            // worth asking precisely about a collection that no longer exists. The
+            // denormalised UserId/CollectionName make the row stand on its own.
+
+            // The only read: one user's events for one card, newest first.
+            entity.HasIndex(e => new { e.UserId, e.OracleId, e.CreatedAt });
         });
 
         // CardSynergyScore
