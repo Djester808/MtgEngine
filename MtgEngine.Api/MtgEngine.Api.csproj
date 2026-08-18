@@ -19,6 +19,9 @@
     <!-- The deckbuilding doctrine ships with the app: it is injected into every AI prompt,
          so it has to be present at runtime, not just in the source tree. -->
     <Content Include="Knowledge\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The Comprehensive Rules ship the same way: the knowledge base parses this
+         file at startup, so a new rules release is a file swap, not a code change. -->
+    <Content Include="Knowledge\**\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />

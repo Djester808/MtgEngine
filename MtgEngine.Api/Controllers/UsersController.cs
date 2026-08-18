@@ -1,164 +1,68 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MtgEngine.Api.Data;
+using Microsoft.Net.Http.Headers;
 using MtgEngine.Api.Dtos;
+using MtgEngine.Api.Services;
 
 namespace MtgEngine.Api.Controllers;
 
 /// <summary>Public community profiles — read-only, browsable without a login.</summary>
+/// <remarks>
+/// This controller used to build the whole profile projection inline against the
+/// <c>DbContext</c>. That work now lives in <see cref="IProfileService"/>; the owner-only
+/// half of the same domain is <see cref="ProfileController"/>.
+/// </remarks>
 [ApiController]
 [AllowAnonymous]
 [Route("api/users")]
 public sealed class UsersController : ControllerBase
 {
-    private readonly MtgEngineDbContext _db;
+    private readonly IProfileService _profiles;
 
-    public UsersController(MtgEngineDbContext db) => _db = db;
+    public UsersController(IProfileService profiles) => _profiles = profiles;
 
-    /// <summary>Lists all users who have published decks, with their stats.</summary>
+    /// <summary>Lists community members, most active first.</summary>
     [HttpGet]
-    public async Task<ActionResult<UserProfileDto[]>> GetPlayers()
-    {
-        var groups = await _db.ForumPosts
-            .AsNoTracking()
-            .GroupBy(p => p.AuthorUsername)
-            .Select(g => new { Username = g.Key, DeckCount = g.Count(), Latest = g.Max(p => p.PublishedAt) })
-            .OrderByDescending(g => g.DeckCount)
-            .ToListAsync();
+    public async Task<ActionResult<PlayerSummaryDto[]>> GetPlayers(
+        [FromQuery] int limit = 100, CancellationToken ct = default) =>
+        Ok(await _profiles.GetPlayersAsync(limit, ct));
 
-        var usernames = groups.Select(g => g.Username).ToList();
-
-        var commentCounts = await _db.ForumComments
-            .AsNoTracking()
-            .Where(c => usernames.Contains(c.AuthorUsername))
-            .GroupBy(c => c.AuthorUsername)
-            .Select(g => new { g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Count);
-
-        var results = groups.Select(g => new UserProfileDto
-        {
-            Username = g.Username,
-            JoinedAt = g.Latest,
-            DeckCount = g.DeckCount,
-            CommentCount = commentCounts.GetValueOrDefault(g.Username),
-            PublishedDecks = [],
-            RecentComments = [],
-        }).ToArray();
-
-        return Ok(results);
-    }
-
-    /// <summary>Public profile for a user: their published decks and recent comments.</summary>
+    /// <summary>Public profile: who they are, their stats, decks and recent comments.</summary>
     [HttpGet("{username}")]
-    public async Task<ActionResult<UserProfileDto>> GetProfile(string username)
+    public async Task<ActionResult<UserProfileDto>> GetProfile(
+        string username, CancellationToken ct = default) =>
+        Ok(await _profiles.GetPublicProfileAsync(username, ct));
+
+    /// <summary>A page of a user's comment history, newest first.</summary>
+    [HttpGet("{username}/comments")]
+    public async Task<ActionResult<UserCommentPageDto>> GetComments(
+        string username,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = ProfileService.DefaultCommentPageSize,
+        CancellationToken ct = default) =>
+        Ok(await _profiles.GetCommentHistoryAsync(username, page, pageSize, ct));
+
+    /// <summary>Streams a user's avatar.</summary>
+    /// <remarks>
+    /// The content type is the one sniffed from the bytes at upload, never the uploader's
+    /// claim, and it is pinned with <c>nosniff</c> so no browser re-interprets a stored
+    /// blob as script or markup. Caching is immutable-for-a-year because the URL carries a
+    /// <c>v</c> stamp that changes whenever the image does — a new avatar is a new URL.
+    /// </remarks>
+    [HttpGet("{username}/avatar")]
+    public async Task<IActionResult> GetAvatar(string username, CancellationToken ct = default)
     {
-        // Case-insensitive equality — not LIKE, whose %/_ wildcards would let a route
-        // value like "%25" match every user.
-        var normalized = username.ToLower();
-        var posts = await _db.ForumPosts
-            .AsNoTracking()
-            .Where(p => p.AuthorUsername.ToLower() == normalized)
-            .OrderByDescending(p => p.PublishedAt)
-            .ToListAsync();
+        var avatar = await _profiles.GetAvatarAsync(username, ct);
+        if (avatar is null)
+            return NotFound();
 
-        var commentCount = await _db.ForumComments
-            .AsNoTracking()
-            .CountAsync(c => c.AuthorUsername.ToLower() == normalized);
+        var etag = new EntityTagHeaderValue(avatar.ETag);
 
-        if (!posts.Any() && commentCount == 0)
-            return Problem(detail: $"User '{username}' not found.", statusCode: StatusCodes.Status404NotFound);
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.ContentDisposition = "inline";
+        Response.Headers.CacheControl = "public, max-age=31536000, immutable";
 
-        // Resolve actual username casing from first result
-        var resolvedUsername = posts.Any() ? posts[0].AuthorUsername : username;
-
-        var deckIds = posts.Select(p => p.DeckId).Distinct().ToList();
-
-        var decks = await _db.Collections
-            .AsNoTracking()
-            .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
-            .Select(c => new { c.Id, c.Name, c.CoverUri, c.Format })
-            .ToDictionaryAsync(c => c.Id);
-
-        var cardCounts = await _db.Collections
-            .AsNoTracking()
-            .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
-            .Select(c => new { c.Id, Count = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil) })
-            .ToDictionaryAsync(c => c.Id, c => c.Count);
-
-        var postIds = posts.Select(p => p.Id).ToList();
-        var commentCounts = await _db.ForumComments
-            .AsNoTracking()
-            .Where(fc => postIds.Contains(fc.ForumPostId))
-            .GroupBy(fc => fc.ForumPostId)
-            .Select(g => new { g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Count);
-
-        var publishedDecks = posts.Select(p =>
-        {
-            decks.TryGetValue(p.DeckId, out var deck);
-            var colors = JsonSerializer.Deserialize<string[]>(p.ColorIdentityJson) ?? [];
-            return new ForumPostSummaryDto
-            {
-                Id = p.Id,
-                DeckId = p.DeckId,
-                AuthorUsername = p.AuthorUsername,
-                DeckName = deck?.Name ?? "Unknown Deck",
-                DeckCoverUri = deck?.CoverUri,
-                DeckFormat = deck?.Format,
-                Description = p.Description,
-                ColorIdentity = colors,
-                CardCount = cardCounts.GetValueOrDefault(p.DeckId),
-                CommentCount = commentCounts.GetValueOrDefault(p.Id),
-                PublishedAt = p.PublishedAt,
-            };
-        }).ToArray();
-
-        var comments = await _db.ForumComments
-            .AsNoTracking()
-            .Where(c => c.AuthorUsername.ToLower() == normalized)
-            .OrderByDescending(c => c.CreatedAt)
-            .Take(20)
-            .ToListAsync();
-
-        var commentPostIds = comments.Select(c => c.ForumPostId).Distinct().ToList();
-        var commentPosts = await _db.ForumPosts
-            .AsNoTracking()
-            .Where(p => commentPostIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p.DeckId);
-
-        var commentDeckIds = commentPosts.Values.Distinct().ToList();
-        var commentDecks = await _db.Collections
-            .AsNoTracking()
-            .Where(c => commentDeckIds.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => c.Name);
-
-        var recentComments = comments.Select(c =>
-        {
-            commentPosts.TryGetValue(c.ForumPostId, out var deckId);
-            commentDecks.TryGetValue(deckId, out var deckName);
-            return new UserCommentDto
-            {
-                CommentId = c.Id,
-                ForumPostId = c.ForumPostId,
-                DeckName = deckName ?? "Unknown Deck",
-                Content = c.Content,
-                CreatedAt = c.CreatedAt,
-            };
-        }).ToArray();
-
-        var joinedAt = posts.Any() ? posts.Min(p => p.PublishedAt)
-            : comments.Any() ? comments.Min(c => c.CreatedAt) : DateTime.UtcNow;
-
-        return Ok(new UserProfileDto
-        {
-            Username = resolvedUsername,
-            JoinedAt = joinedAt,
-            DeckCount = posts.Count,
-            CommentCount = commentCount,
-            PublishedDecks = publishedDecks,
-            RecentComments = recentComments,
-        });
+        // File() handles the conditional request: a matching If-None-Match returns 304.
+        return File(avatar.Data, avatar.ContentType, avatar.UpdatedAt, etag);
     }
 }

@@ -30,6 +30,18 @@ the specific artifact you need, or go get it yourself.
 Reason from the code to form a hypothesis. Confirm it against the running app before it
 becomes a claim.
 
+## Mobile/app is the baseline for anything that reaches a screen
+
+The client is designed narrow-first and judged at 375 × 667 before any wider size, and it
+is headed for a packaged build (PWA/Capacitor). That constraint travels with API work:
+default page sizes small enough to render on a phone, payloads that do not assume a wide
+table, and ProblemDetails `Detail` strings short enough to read inside a sheet.
+
+The layout standard itself lives in **`mtg-client/CLAUDE.md` § "Mobile is the baseline"** —
+read it before touching anything under `mtg-client/src/` (the docs hook enforces that
+anyway). It is the source of truth for breakpoints, the shared style vocabularies, the
+reflow-vs-pan rule, and the capture harness that any phone-layout claim has to come from.
+
 ## Build / run gotchas (read first)
 
 - **Stop the API before building or testing.** `MtgEngine.Api` holds file locks
@@ -69,9 +81,25 @@ distinct.
   Read it before touching `AiBuildService`, `SynergyService`, `DeckSuggestionsService`,
   `CandidateRanking`, or any prompt text. Never duplicate it into another repo — a
   second copy silently drifts and the two halves start disagreeing.
+- **`MtgEngine.Api/Knowledge/comprehensive-rules.txt`** — the Magic Comprehensive Rules
+  exactly as Wizards publishes them, and **a live runtime asset**: `ComprehensiveRules.cs`
+  parses it at startup into the sections, rules, keywords and glossary that `/api/rules`
+  and the `/kb` page serve. **Do not hand-edit it.** Moving to a new rules release is a
+  file swap: download the current text from Magic.Wizards.com/Rules and replace the file.
+  The parser throws on any line it does not recognise, so a format change fails at
+  startup rather than serving a partial rulebook — if that happens, fix
+  `ComprehensiveRulesParser`, never the document. Nothing about this knowledge base
+  describes an implementation: it had entries badged "implemented"/"partial"/"stub" and
+  mechanics documenting C# types back when it was a window onto a rules engine, and that
+  engine is gone. Keep it a reference to the game's rules.
 - **`CARD_COLLECTION_FEATURE.md`** — collection/deck domain: models, endpoints, price
   tracking. Read before changing `CollectionService`, `CollectionCard`, or the
   collection/price endpoints, and **update it in the same commit** when you add surface.
+- **`USER_PROFILE_FEATURE.md`** — accounts and profiles: the public/private line, the
+  avatar upload gate, and how each derived stat is computed. Read before changing
+  `ProfileService`, `ProfileController`, `UsersController` or `AvatarImage`. The rule it
+  exists to protect: **counts are public, money is not** — a public profile never carries
+  what a collection is worth, and the DTO has nowhere to put it.
 - **`CARD_COLLECTION_QUICKSTART.md`** — how to exercise the API by hand.
 
 ⚠️ The two `CARD_COLLECTION_*` docs predate later work and have drifted: they still

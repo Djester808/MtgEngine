@@ -11,6 +11,10 @@ namespace MtgEngine.Api.Services;
 public interface IForumService
 {
     Task<ForumPostSummaryDto[]> GetAllPostsAsync();
+
+    /// <summary>Every post a user has published, newest first. Backs their profile.</summary>
+    Task<ForumPostSummaryDto[]> GetPostsByAuthorAsync(string authorId, CancellationToken ct = default);
+
     Task<ForumPostDetailDto?> GetPostAsync(Guid postId);
     Task<ForumPostSummaryDto> PublishDeckAsync(string userId, string username, PublishDeckRequest request);
     Task<bool> DeletePostAsync(Guid postId, string userId);
@@ -41,25 +45,54 @@ public sealed class ForumService : IForumService
             .OrderByDescending(p => p.PublishedAt)
             .ToListAsync();
 
+        return await SummariseAsync(posts, CancellationToken.None);
+    }
+
+    public async Task<ForumPostSummaryDto[]> GetPostsByAuthorAsync(string authorId, CancellationToken ct = default)
+    {
+        var posts = await _context.ForumPosts
+            .AsNoTracking()
+            .Where(p => p.AuthorId == authorId)
+            .OrderByDescending(p => p.PublishedAt)
+            .ToListAsync(ct);
+
+        return await SummariseAsync(posts, ct);
+    }
+
+    /// <summary>
+    /// Turns posts into summaries, resolving the deck name, cover, card count and comment
+    /// count each one needs.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the forum list and the profile rather than written twice. It had already
+    /// been written twice — <c>UsersController</c> carried its own copy, which is how the
+    /// profile ended up showing a card count that summed only non-foil copies.
+    /// </remarks>
+    private async Task<ForumPostSummaryDto[]> SummariseAsync(List<ForumPost> posts, CancellationToken ct)
+    {
+        if (posts.Count == 0)
+            return [];
+
         var deckIds = posts.Select(p => p.DeckId).Distinct().ToList();
         var decks = await _context.Collections
             .AsNoTracking()
             .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
             .Select(c => new { c.Id, c.Name, c.CoverUri, c.Description, c.Format, c.Cards })
-            .ToListAsync();
+            .ToListAsync(ct);
 
         var deckCardCounts = await _context.Collections
             .AsNoTracking()
             .Where(c => deckIds.Contains(c.Id) && c.IsDeck)
             .Select(c => new { c.Id, CardCount = c.Cards.Sum(cc => cc.Quantity + cc.QuantityFoil) })
-            .ToDictionaryAsync(x => x.Id, x => x.CardCount);
+            .ToDictionaryAsync(x => x.Id, x => x.CardCount, ct);
 
+        var postIds = posts.Select(p => p.Id).ToList();
         var commentCounts = await _context.ForumComments
             .AsNoTracking()
-            .Where(fc => posts.Select(p => p.Id).Contains(fc.ForumPostId))
+            .Where(fc => postIds.Contains(fc.ForumPostId))
             .GroupBy(fc => fc.ForumPostId)
             .Select(g => new { PostId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.PostId, x => x.Count);
+            .ToDictionaryAsync(x => x.PostId, x => x.Count, ct);
 
         var deckMap = decks.ToDictionary(d => d.Id);
 

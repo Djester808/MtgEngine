@@ -57,3 +57,8 @@ api-run.log*
 client-run.log*
 server.err
 server.log
+
+# Hand-made SQLite backups taken before destructive migrations. `*.db` does not
+# match these — the extension is no longer last — so without this rule a 19 MB
+# database snapshot gets committed by anyone running `git add -A`.
+*.db.bak-*

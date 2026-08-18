@@ -75,6 +75,7 @@ builder.Services.AddScoped<IForumService, ForumService>();
 builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
 builder.Services.AddScoped<IPriceHistoryService, PriceHistoryService>();
 builder.Services.AddScoped<ICardHistoryService, CardHistoryService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 
 // ---- Anthropic API ---------------------------------------
 // The AI services are scoped, so their key guard would not fire until the first
@@ -98,6 +99,12 @@ builder.Services.AddProblemDetails();
 // pass reasons from this one copy, which is the whole point -- when the passes each held
 // their own idea of "good", one card came back 85% in one list and 55% in another.
 builder.Services.AddSingleton<ICommanderDoctrine, CommanderDoctrine>();
+
+// Singleton for the same reason, and because parsing the Comprehensive Rules is real work
+// (~3,200 rules and 740 glossary entries) that has exactly one correct answer per release.
+// Doing it in the constructor also means a malformed rules file fails at startup rather
+// than serving a knowledge base that is quietly missing half the document.
+builder.Services.AddSingleton<IComprehensiveRules, ComprehensiveRules>();
 
 // The one path to the Messages API. Owns the auth header, the API version, the
 // error-to-exception mapping and the prompt-cache logging, so the services above it

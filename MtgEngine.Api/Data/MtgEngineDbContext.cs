@@ -7,6 +7,7 @@ namespace MtgEngine.Api.Data;
 public sealed class MtgEngineDbContext : DbContext
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserAvatar> UserAvatars => Set<UserAvatar>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionCard> CollectionCards => Set<CollectionCard>();
     public DbSet<CardSynergyScore> CardSynergyScores => Set<CardSynergyScore>();
@@ -79,6 +80,34 @@ public sealed class MtgEngineDbContext : DbContext
             entity.Property(e => e.PreferencesJson).HasColumnType("TEXT");
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
+
+            // Profile text. These lengths are the same numbers the request DTO validates
+            // with -- SQLite does not enforce HasMaxLength, so the DataAnnotations on
+            // UpdateProfileRequest are what actually stops an oversized value; keeping the
+            // two in step means a future move off SQLite does not start rejecting rows the
+            // API accepts.
+            entity.Property(e => e.DisplayName).HasMaxLength(64);
+            entity.Property(e => e.Tagline).HasMaxLength(120);
+            entity.Property(e => e.Bio).HasMaxLength(2000);
+            entity.Property(e => e.FavoriteFormat).HasMaxLength(32);
+            entity.Property(e => e.FavoriteCommanderOracleId).HasMaxLength(64);
+        });
+
+        // UserAvatar -- one row per user, holding the image bytes.
+        modelBuilder.Entity<UserAvatar>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Data).IsRequired();
+            entity.Property(e => e.ETag).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.UpdatedAt).IsRequired();
+
+            // Cascade: an avatar is meaningless without its user, and leaving orphaned
+            // blobs behind would keep a deleted account's picture reachable by id.
+            entity.HasOne<User>()
+                .WithOne()
+                .HasForeignKey<UserAvatar>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Collection

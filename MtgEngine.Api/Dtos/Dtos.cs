@@ -589,24 +589,7 @@ public sealed record ForumCommentDto
     public DateTime UpdatedAt { get; init; }
 }
 
-public sealed record UserProfileDto
-{
-    public string Username { get; init; } = string.Empty;
-    public DateTime JoinedAt { get; init; }
-    public int DeckCount { get; init; }
-    public int CommentCount { get; init; }
-    public ForumPostSummaryDto[] PublishedDecks { get; init; } = [];
-    public UserCommentDto[] RecentComments { get; init; } = [];
-}
-
-public sealed record UserCommentDto
-{
-    public Guid CommentId { get; init; }
-    public Guid ForumPostId { get; init; }
-    public string DeckName { get; init; } = string.Empty;
-    public string Content { get; init; } = string.Empty;
-    public DateTime CreatedAt { get; init; }
-}
+// User profiles (public profile, stats, avatar, self-edit) live in ProfileDtos.cs.
 
 /// <summary>
 /// Per-user display choices, stored as one JSON blob on the user row.

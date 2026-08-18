@@ -34,6 +34,17 @@ public sealed class ResourceNotFoundException(string message) : Exception(messag
 public sealed class InvalidResourceStateException(string message) : Exception(message);
 
 /// <summary>
+/// The request itself is wrong — a payload that DataAnnotations cannot express, such as an
+/// upload whose bytes are not a readable image. Maps to 400.
+/// </summary>
+/// <remarks>
+/// The message is written for the person who sent the request and is returned verbatim, so
+/// throw sites must keep it free of request content, file names and internals. Anything
+/// that needs to say more belongs in the log.
+/// </remarks>
+public sealed class InvalidRequestException(string message) : Exception(message);
+
+/// <summary>
 /// The service is missing required configuration (e.g. an API key). Maps to 503 with a
 /// fixed client-facing message — the exception message itself contains setup
 /// instructions and config paths, which belong in the log, never in a response.

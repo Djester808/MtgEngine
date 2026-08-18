@@ -25,6 +25,10 @@ public sealed class AiExceptionHandler(ILogger<AiExceptionHandler> logger) : IEx
             InvalidResourceStateException e =>
                 (StatusCodes.Status409Conflict, "Cannot process in current state", e.Message),
 
+            // Message is authored for the caller at the throw site (see the type's remarks).
+            InvalidRequestException e =>
+                (StatusCodes.Status400BadRequest, "Invalid request", e.Message),
+
             // Upstream detail is logged, not returned: it can echo request content.
             AiUpstreamException =>
                 (StatusCodes.Status502BadGateway, "AI provider unavailable",

@@ -45,6 +45,16 @@ const RULES = [
     docs: ['CARD_COLLECTION_FEATURE.md'],
     why: 'The collection/price domain and its DTO shapes are defined there.',
   },
+  {
+    test: /(profileservice|profilecontroller|userscontroller|avatarimage|profiledtos)\.cs$/,
+    docs: ['USER_PROFILE_FEATURE.md'],
+    why: 'Which profile fields are public and which are owner-only is decided there, as is what the avatar gate does and does not protect against.',
+  },
+  {
+    test: /(^|\/)mtg-client\/src\/app\/(community\/user-profile|profile)\//,
+    docs: ['USER_PROFILE_FEATURE.md'],
+    why: 'These screens bind to the profile DTOs, whose public/private split is defined there.',
+  },
 ];
 
 /**
