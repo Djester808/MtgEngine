@@ -68,6 +68,31 @@ table does.
 **Nothing here asks a model whether a deck is good.** That would be circular, expensive,
 and unstable between runs. The measurement has to be the one thing that does not move.
 
+### Commander shortlists
+
+A shortlist is one call rather than two, so covering it is far cheaper than covering a
+build — and it is half the feature, previously verified exactly once by hand. It fails
+differently, so it has its own checks, all hard:
+
+- **count-honest** — never more than was asked for. Fewer is correct when the pool cannot
+  fill the list honestly; padding is what the prompt is told not to do (§9.6).
+- **colour-match** — every commander's identity exactly matches the request. This is the
+  complaint that started the work: picking green and black and being offered a mono-green
+  commander.
+- **is-a-commander** — a legendary creature, or a card that says it can be one (§1.1).
+- **bracket-gate** — no Game Changer commander below bracket 4 (§1.4).
+- **reasons-name-a-mechanism** — §9.11. A reason must state the concrete interaction;
+  "synergizes with the commander" reads as a hook while asserting nothing checkable. The
+  prompt already forbids it, and this measures whether that holds, because an instruction
+  is not a control. Filler only fails when nothing checkable sits beside it.
+- **archetype-variety** — banded. The prompt asks for variety, so ten commanders that build
+  the same deck is a worse answer than a shorter list.
+
+One measured modal-card note, because it bit once: §6.4's mass-removal check skips cards
+whose sweeper sits behind "choose one". A sweeper you can decline is not a liability, and
+the only card that check ever flagged was Golgari Charm, whose other modes are
+destroy-an-enchantment and regenerate-your-team.
+
 ## What it found the first time it was used
 
 Two attempts to make the assessment cheaper — it is 46% of a build's wall clock, on a call
@@ -98,8 +123,10 @@ it, and trust several cases moving the same way over one moving a lot.
 
 ## Cases
 
-`cases.json`. Eight builds, each varying an axis the checks read: colour count (1, 2, 4),
-tribal versus not, bracket (1, 2, 3, 4) and price tier. Every case carries a `why`.
+`cases.json`. Eight builds and three shortlists, each varying an axis the checks read:
+colour count (0, 1, 2, 4), tribal versus not, bracket (1, 2, 3, 4) and price tier. Every
+case carries a `why`. A case with `"kind": "suggestions"` is a shortlist; anything else is
+a build.
 
 Keep it short. Every entry is two Opus calls per run, and a matrix nobody can afford to run
 is a matrix nobody runs.

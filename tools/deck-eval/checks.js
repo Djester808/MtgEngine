@@ -24,6 +24,16 @@ const BASIC_LANDS = new Set([
 /** Ceilings must match AiBuildService.PriceCeiling. */
 const PRICE_CEILING = { budget: 3, mid: 30 };
 
+/**
+ * Modal wording. A sweeper you can decline is not a liability.
+ *
+ * §6.4 is about a card whose effect *is* symmetrical removal — "the deck loses more than
+ * the table does". A card offering a small sweep as one of three modes never has to sweep,
+ * and counting it made the only card this check ever flagged a false positive: Golgari
+ * Charm, whose other modes are destroy-an-enchantment and regenerate-your-team.
+ */
+const MODAL = /choose (one|two|up to)/i;
+
 /** Symmetrical sweepers — the effects §6.4 says a creature-dense deck should not want. */
 const SYMMETRICAL_WIPE =
   /(destroy all creatures|exile all creatures|destroy each creature|all creatures get -\d+\/-\d+|destroy all nonland permanents)/i;
@@ -143,7 +153,9 @@ function score(record) {
   // §6.4 inverts with archetype: a creature-dense board loses more than the table does.
   const creaturePct = f.creaturePercentOfNonland ?? 0;
   if (creaturePct >= 55) {
-    const wipes = cards.filter((c) => SYMMETRICAL_WIPE.test(c.oracleText)).map((c) => c.name);
+    const wipes = cards
+      .filter((c) => SYMMETRICAL_WIPE.test(c.oracleText) && !MODAL.test(c.oracleText))
+      .map((c) => c.name);
     checks.push(hard(
       'mass-removal-fit',
       wipes.length === 0,
@@ -180,4 +192,105 @@ function score(record) {
   };
 }
 
-module.exports = { score, landBand, PRICE_CEILING };
+/**
+ * Coupling language that says nothing checkable.
+ *
+ * Doctrine §9.11: a reason must name the concrete interaction — what triggers what, what
+ * one card produces that another consumes. "Synergizes with the commander" reads as a hook
+ * while asserting nothing, and is exactly how a card with no real link keeps a slot.
+ *
+ * The prompt already forbids it. This measures whether that instruction is obeyed, because
+ * an instruction is not a control.
+ */
+const FILLER = /(synergiz\w*|works? well with|pairs? with|fuels?|supports?|contributes? to the plan|alongside)/i;
+
+/** A mechanism is named when the reason points at a rules step, not just an association. */
+const MECHANISM = /(trigger|whenever|enters|dies|sacrific|counter|token|draw|mana|attack|cast|exile|destroy|graveyard|\+1\/\+1|tap|untap)/i;
+
+/**
+ * Scores one recorded commander-shortlist result.
+ *
+ * Suggestions fail differently from builds — the wrong colours, a padded list, a card that
+ * cannot legally head a deck, a reason that gestures instead of explaining — so they get
+ * their own checks rather than being forced through the deck ones.
+ */
+function scoreSuggestions(record) {
+  const { case: kase, result, facts } = record;
+  if (record.error) {
+    return { id: kase.id, kind: 'suggestions', error: `request failed (${record.error.status})`, checks: [] };
+  }
+
+  const list = result.commanders || [];
+  const checks = [];
+
+  // Fewer than asked for is correct when the pool cannot honestly fill the list; more is
+  // never correct, and padding is what the prompt is told not to do.
+  checks.push(hard(
+    'count-honest',
+    list.length <= kase.count,
+    `${list.length} returned of ${kase.count} asked for, ${result.discarded ?? 0} discarded`,
+    '§9.6',
+  ));
+
+  const wanted = [...(kase.colors || [])].sort().join('');
+  const wrongColour = list.filter(
+    (c) => wanted && [...(c.colorIdentity || [])].sort().join('') !== wanted,
+  );
+  checks.push(hard(
+    'colour-match',
+    wrongColour.length === 0,
+    wanted
+      ? wrongColour.length
+        ? wrongColour.slice(0, 4).map((c) => `${c.name} (${c.colorIdentity.join('')})`).join(', ')
+        : `all exactly ${wanted}`
+      : 'no colour constraint',
+    '§1.2',
+  ));
+
+  // Anything returned has to be able to head a deck at all.
+  const notCommander = list.filter((c) => {
+    const f = facts[c.oracleId];
+    if (!f) return true;
+    const legendaryCreature =
+      (f.supertypes || []).includes('Legendary') && (f.cardTypes || []).includes('Creature');
+    return !legendaryCreature && !/can be your commander/i.test(f.oracleText || '');
+  });
+  checks.push(hard(
+    'is-a-commander',
+    notCommander.length === 0,
+    notCommander.length ? notCommander.map((c) => c.name).join(', ') : 'all can head a deck',
+    '§1.1',
+  ));
+
+  const gcs = list.filter((c) => (facts[c.oracleId] || {}).gameChanger).map((c) => c.name);
+  checks.push(hard(
+    'bracket-gate',
+    kase.bracket >= 4 || gcs.length === 0,
+    gcs.length ? gcs.join(', ') : 'none',
+    '§1.4',
+  ));
+
+  // §9.11, measured: filler is only a defect when nothing checkable sits beside it.
+  const hollow = list.filter((c) => FILLER.test(c.reason || '') && !MECHANISM.test(c.reason || ''));
+  checks.push(hard(
+    'reasons-name-a-mechanism',
+    hollow.length === 0,
+    hollow.length ? hollow.slice(0, 3).map((c) => `${c.name}: "${c.reason}"`).join(' | ') : 'every reason names one',
+    '§9.11',
+  ));
+
+  // The prompt asks for variety, so a shortlist of ten decks that build the same way is a
+  // worse answer than a shorter one.
+  const archetypes = new Set(list.map((c) => (c.archetype || '').toLowerCase().trim()));
+  checks.push(band('archetype-variety', archetypes.size, [Math.min(3, list.length), 99], 'prompt'));
+
+  return {
+    id: kase.id,
+    kind: 'suggestions',
+    seconds: record.seconds,
+    checks,
+  };
+}
+
+module.exports = { score, scoreSuggestions, landBand, PRICE_CEILING };
+

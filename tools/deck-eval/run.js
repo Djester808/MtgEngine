@@ -89,6 +89,53 @@ function cardFacts(detail, printings) {
   };
 }
 
+/**
+ * Records one commander shortlist.
+ *
+ * One call rather than two, and no deck is created — the endpoint reads the card corpus
+ * and the player's collection, and writes nothing.
+ */
+async function recordSuggestions(c, token, outDir, started) {
+  const res = await json('POST', `${API}/api/decks/commander-suggestions`, {
+    token,
+    body: {
+      brief: c.brief ?? null,
+      colors: c.colors ?? [],
+      bracket: c.bracket,
+      ownedOnly: !!c.ownedOnly,
+      count: c.count,
+    },
+  });
+
+  if (res.status !== 200 || !res.body) {
+    console.log(`FAILED (${res.status}) ${String(res.raw).slice(0, 120)}`);
+    fs.writeFileSync(
+      path.join(outDir, `${c.id}.json`),
+      JSON.stringify({ case: c, error: { status: res.status, body: res.raw } }, null, 2),
+    );
+    return;
+  }
+
+  const facts = {};
+  for (const s of res.body.commanders || []) {
+    const [detail, printings] = await Promise.all([
+      json('GET', `${API}/api/cards/${s.oracleId}`, { token, timeout: 60_000 }),
+      json('GET', `${API}/api/cards/${s.oracleId}/printings`, { token, timeout: 60_000 }),
+    ]);
+    if (detail.body) facts[s.oracleId] = cardFacts(detail.body, printings.body);
+  }
+
+  const seconds = Math.round((Date.now() - started) / 1000);
+  fs.writeFileSync(
+    path.join(outDir, `${c.id}.json`),
+    JSON.stringify({ case: c, seconds, result: res.body, facts }, null, 2),
+  );
+  console.log(
+    `${(res.body.commanders || []).length} of ${c.count} asked, ` +
+      `${res.body.discarded ?? 0} discarded, ${seconds}s`,
+  );
+}
+
 (async () => {
   const label = arg('label');
   if (!label) {
@@ -129,7 +176,14 @@ function cardFacts(detail, printings) {
   }
   // Said out loud, because the number is the whole reason this script is separate from
   // the scorer: builds are two Opus calls each and are not free.
-  console.log(`This is ${todo.length * 2} live Opus calls, roughly ${Math.round((todo.length * 125) / 60)} minutes.\n`);
+  const builds = todo.filter((c) => c.kind !== 'suggestions').length;
+  const shortlists = todo.length - builds;
+  const calls = builds * 2 + shortlists;
+  const mins = Math.round((builds * 125 + shortlists * 35) / 60);
+  console.log(
+    `This is ${calls} live Opus call(s) - ${builds} build(s), ${shortlists} shortlist(s) - ` +
+      `roughly ${mins} minute(s).\n`,
+  );
 
   const login = await json('POST', `${API}/api/auth/login`, { body: { username, password } });
   const token = login.body && login.body.token;
@@ -141,6 +195,11 @@ function cardFacts(detail, printings) {
   for (const c of todo) {
     const started = Date.now();
     process.stdout.write(`${c.id.padEnd(20)} `);
+
+    if (c.kind === 'suggestions') {
+      await recordSuggestions(c, token, outDir, started);
+      continue;
+    }
 
     const deck = await json('POST', `${API}/api/decks`, {
       token,

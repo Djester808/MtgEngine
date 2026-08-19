@@ -6,7 +6,9 @@
     "",
     "Axes covered: colour count (1, 2, 4), whether the commander has a tribe, bracket",
     "(casual / default / optimized), and price tier. `tribe` is stated rather than derived",
-    "so the density check has something honest to measure against."
+    "so the density check has something honest to measure against.",
+    "",
+    "Suggestion cases are one call rather than two and cost far less than a build, so the shortlist is cheaper to cover than the deck. They fail differently — wrong colours, a padded list, a reason that gestures instead of explaining — and get their own checks."
   ],
   "cases": [
     {
@@ -83,6 +85,41 @@
       "priceRange": "budget",
       "strategy": "graveyard recursion",
       "why": "The price ceiling, on the commander whose unconstrained build put five cards over $13."
+    },
+    {
+      "id": "suggest-gb",
+      "kind": "suggestions",
+      "brief": "wolves and graveyard value",
+      "colors": [
+        "G",
+        "B"
+      ],
+      "bracket": 3,
+      "ownedOnly": false,
+      "count": 10,
+      "why": "Two colours, exactly. The complaint that started this was picking green and black and being offered a mono-green commander."
+    },
+    {
+      "id": "suggest-mono-r",
+      "kind": "suggestions",
+      "brief": "goblins, fast and wide",
+      "colors": [
+        "R"
+      ],
+      "bracket": 2,
+      "ownedOnly": false,
+      "count": 10,
+      "why": "A single colour, where a subset rule and an exact-match rule would disagree."
+    },
+    {
+      "id": "suggest-nocolour",
+      "kind": "suggestions",
+      "brief": "artifacts that make tokens",
+      "colors": [],
+      "bracket": 4,
+      "ownedOnly": false,
+      "count": 6,
+      "why": "No colour constraint at bracket 4, so the colour check stands down and the Game Changer gate opens."
     }
   ]
 }

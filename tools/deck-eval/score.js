@@ -10,7 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { score } = require('./checks');
+const { score, scoreSuggestions } = require('./checks');
+
+/** A recorded case is either a build or a shortlist; they fail differently. */
+const scoreRecord = (r) => (r.case.kind === 'suggestions' ? scoreSuggestions(r) : score(r));
 
 const RESULTS = path.join(__dirname, 'results');
 
@@ -30,7 +33,7 @@ function loadRun(label) {
     .readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .sort()
-    .map((f) => score(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))));
+    .map((f) => scoreRecord(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))));
 }
 
 function listRuns() {
@@ -50,12 +53,18 @@ function render(results) {
       continue;
     }
 
-    const a = r.assessment || {};
+    const a = r.assessment;
+    if (!a) {
+      // A shortlist has no assessment; it is one call and its own checks say everything.
+      console.log(`
+${r.id}   (${r.seconds}s, commander shortlist)`);
+    } else {
     console.log(
       `\n${r.id}   (${r.seconds}s, interaction ${r.interactionSplit})` +
         `\n   assessment: ${a.findings} finding(s), ${a.withFix} with a fix, ` +
         `${a.doctrineCitations} doctrine citation(s)`,
-    );
+      );
+    }
     for (const c of r.checks) {
       if (c.kind === 'hard') {
         if (!c.ok) hardFails++;

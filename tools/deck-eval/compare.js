@@ -10,7 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { score } = require('./checks');
+const { score, scoreSuggestions } = require('./checks');
+
+/** A recorded case is either a build or a shortlist; they fail differently. */
+const scoreRecord = (r) => (r.case.kind === 'suggestions' ? scoreSuggestions(r) : score(r));
 
 const RESULTS = path.join(__dirname, 'results');
 
@@ -27,7 +30,7 @@ function load(label) {
   }
   const out = new Map();
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
-    const r = score(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
+    const r = scoreRecord(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
     out.set(r.id, r);
   }
   return out;
