@@ -1,0 +1,88 @@
+{
+  "comment": [
+    "The evaluation matrix. Each case is one build; a build is two Opus calls and about",
+    "two minutes, so this list is deliberately short and every entry earns its place by",
+    "varying an axis the checks actually read.",
+    "",
+    "Axes covered: colour count (1, 2, 4), whether the commander has a tribe, bracket",
+    "(casual / default / optimized), and price tier. `tribe` is stated rather than derived",
+    "so the density check has something honest to measure against."
+  ],
+  "cases": [
+    {
+      "id": "ezuri-b3-any",
+      "commander": "Ezuri, Renegade Leader",
+      "oracleId": "6734497c-16f0-4c4b-ba24-337333511fc6",
+      "bracket": 3,
+      "priceRange": "any",
+      "strategy": "elf tribal",
+      "tribe": "Elf",
+      "why": "Mono-colour and tribal: the simplest mana base, so a colour-source failure here is the code's fault, not the commander's."
+    },
+    {
+      "id": "krenko-b3-any",
+      "commander": "Krenko, Mob Boss",
+      "oracleId": "68418069-f615-40ef-ae0d-764192acae00",
+      "bracket": 3,
+      "priceRange": "any",
+      "strategy": "goblin tribal, go wide",
+      "tribe": "Goblin",
+      "why": "Go-wide tokens: the archetype §6.4 inverts, so symmetrical mass removal here should be near zero."
+    },
+    {
+      "id": "chief-b3-any",
+      "commander": "Chief of the Wilds",
+      "oracleId": "bf06d873-08be-4a45-b8fb-fe1dfadc3a39",
+      "bracket": 3,
+      "priceRange": "any",
+      "strategy": "wolf tribal",
+      "tribe": "Wolf",
+      "why": "The case that exposed the tribe-hint bug. Kept as the regression watch."
+    },
+    {
+      "id": "meren-b3-any",
+      "commander": "Meren of Clan Nel Toth",
+      "oracleId": "0310dfdb-0498-488d-9f1a-279f8239e024",
+      "bracket": 3,
+      "priceRange": "any",
+      "strategy": "graveyard recursion",
+      "why": "No tribe: the deck has to be balanced on roles alone, with no theme to lean on."
+    },
+    {
+      "id": "atraxa-b3-any",
+      "commander": "Atraxa, Praetors' Voice",
+      "oracleId": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb",
+      "bracket": 3,
+      "priceRange": "any",
+      "strategy": "+1/+1 counters",
+      "why": "Four colours: the hardest mana base, and where §3.2's source counts bite hardest."
+    },
+    {
+      "id": "meren-b1-any",
+      "commander": "Meren of Clan Nel Toth",
+      "oracleId": "0310dfdb-0498-488d-9f1a-279f8239e024",
+      "bracket": 1,
+      "priceRange": "any",
+      "strategy": "graveyard recursion",
+      "why": "Casual floor. No tutors and no Game Changers, against the same commander as the default case."
+    },
+    {
+      "id": "meren-b4-any",
+      "commander": "Meren of Clan Nel Toth",
+      "oracleId": "0310dfdb-0498-488d-9f1a-279f8239e024",
+      "bracket": 4,
+      "priceRange": "any",
+      "strategy": "graveyard recursion",
+      "why": "Optimized ceiling. Game Changers are permitted here and nowhere below, so this pairs with meren-b1 to show the bracket moves anything at all."
+    },
+    {
+      "id": "meren-b2-budget",
+      "commander": "Meren of Clan Nel Toth",
+      "oracleId": "0310dfdb-0498-488d-9f1a-279f8239e024",
+      "bracket": 2,
+      "priceRange": "budget",
+      "strategy": "graveyard recursion",
+      "why": "The price ceiling, on the commander whose unconstrained build put five cards over $13."
+    }
+  ]
+}
