@@ -644,9 +644,18 @@ public sealed class AiBuildService : IAiBuildService
     /// pool the model chose from, so the counts are measured on the terms the prompt asked in.
     /// </para>
     /// </remarks>
-    private static DeckFactsDto MeasureFacts(IReadOnlyList<PlannedCard> cards)
+    private static DeckFactsDto MeasureFacts(IReadOnlyList<PlannedCard> cards) =>
+        MeasureFacts([.. cards.Where(c => c.Board == "main").Select(c => c.Def)]);
+
+    /// <summary>
+    /// The same measurement, over card definitions, so a saved deck can be profiled too.
+    /// </summary>
+    /// <remarks>
+    /// One copy per entry: a deck row carrying four of something must be passed in four
+    /// times, or the land count is wrong in exactly the way the profile exists to catch.
+    /// </remarks>
+    private static DeckFactsDto MeasureFacts(CardDefinition[] main)
     {
-        var main = cards.Where(c => c.Board == "main").Select(c => c.Def).ToArray();
         if (main.Length == 0)
             return new DeckFactsDto();
 
@@ -918,6 +927,25 @@ public sealed class AiBuildService : IAiBuildService
 
         var cmdColors = cmdDef.ColorIdentity.ToHashSet();
 
+        // What the deck currently measures.
+        //
+        // Refine was given a flat list of card names and asked which were weakest, while
+        // the doctrine it reasons from spends §2 and §3 on counts — lands, ramp, draw,
+        // interaction, mana sources, creature density. It was being told to check numbers
+        // it could not see, which is the same shape as the Game Changer and price defects:
+        // we hold the fact and ask the model to recall it. Computed here, so it costs a
+        // dictionary lookup per card and no judgement.
+        var mainDefs = new List<CardDefinition>();
+        foreach (var row in deck.Cards.Where(c => (c.Board ?? "main") == "main"))
+        {
+            var def = await _scryfall.GetByOracleIdAsync(row.OracleId);
+            if (def is null)
+                continue;
+            for (int i = 0; i < Math.Max(1, row.Quantity + row.QuantityFoil); i++)
+                mainDefs.Add(def);
+        }
+        var deckFacts = MeasureFacts([.. mainDefs]);
+
         // Basics are excluded from swapping: they are the mana base, and trading them
         // away silently changes the land count the build deliberately set.
         var swappable = deck.Cards
@@ -939,7 +967,7 @@ public sealed class AiBuildService : IAiBuildService
         var proposed = await CallRefineAsync(
             cmdDef.Name, cmdDef.OracleText ?? string.Empty, FormatColors(cmdColors),
             swappable.Select(c => c.CardDetails!.Name).ToArray(),
-            request, pool);
+            request, pool, deckFacts);
 
         var inDeck = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in swappable)
@@ -1027,7 +1055,8 @@ public sealed class AiBuildService : IAiBuildService
 
     private async Task<ProposedSwap[]> CallRefineAsync(
         string commanderName, string commanderText, string colors,
-        string[] deckCards, AiRefineRequest request, CandidatePool pool)
+        string[] deckCards, AiRefineRequest request, CandidatePool pool,
+        DeckFactsDto deckFacts)
     {
         var bracketDesc = DescribeBracket(request.Bracket);
         var priceDesc = DescribePrice(request.PriceRange);
@@ -1051,6 +1080,9 @@ public sealed class AiBuildService : IAiBuildService
             ── PRICE ────────────────────────────────────────────────────
             {{priceDesc}}
             {{poolBlock}}
+
+            ── DECK PROFILE (computed, not estimated) ───────────────────
+            {{DescribeFacts(deckFacts)}}
 
             ── CURRENT DECK ({{deckCards.Length}} non-basic cards) ──────
             {{string.Join(", ", deckCards)}}
@@ -1740,6 +1772,23 @@ public sealed class AiBuildService : IAiBuildService
         }
         return false;
     }
+
+    /// <summary>
+    /// The deck profile as prompt text: facts only, no targets.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately carries no quotas. The doctrine's bands move with the deck — the land
+    /// count follows the curve (§2.2) and the value of mass removal inverts with creature
+    /// density (§6.4) — so restating a fixed table here would tell the model a correctly
+    /// built deck was wrong. It is given the measurements and the doctrine, and does the
+    /// judging.
+    /// </remarks>
+    private static string DescribeFacts(DeckFactsDto f) =>
+        $"Lands {f.Lands}, ramp {f.Ramp}, card advantage {f.Draw}, interaction {f.Interaction} "
+        + $"(of which {f.InteractionOnCreatures} are creatures), other {f.Other}. "
+        + $"Creatures {f.Creatures} ({f.CreaturePercentOfNonland}% of nonland cards). "
+        + $"Mana sources {f.ManaSources}. Average mana value {f.AverageManaValue}. "
+        + $"Coloured sources: {(f.ColorSources.Length == 0 ? "none" : string.Join(", ", f.ColorSources.Select(c => $"{c.Color} {c.Count}")))}.";
 
     /// <summary>Short SHA-256 prefix of the prompt, for cache-stability diagnostics.</summary>
     private static string PromptFingerprint(string prompt)
