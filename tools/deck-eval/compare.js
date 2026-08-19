@@ -47,7 +47,13 @@ const shared = [...after.keys()].filter((id) => before.has(id));
 const onlyAfter = [...after.keys()].filter((id) => !before.has(id));
 const onlyBefore = [...before.keys()].filter((id) => !after.has(id));
 
-console.log(`${beforeLabel} -> ${afterLabel}   (${shared.length} case(s) in both)\n`);
+console.log(`${beforeLabel} -> ${afterLabel}   (${shared.length} case(s) in both)`);
+// Said every time, because it is the easiest mistake to make with this output: the build
+// is its own model call and re-runs non-deterministically, so deck checks move between any
+// two runs whether or not the change under test could reach them. Attribute a difference
+// only to a change that could plausibly have caused it, and trust several cases moving the
+// same way over one moving a lot.
+console.log('Deck checks carry build-to-build variance. Read them as a trend, not a verdict.\n');
 
 let better = 0;
 let worse = 0;
@@ -75,6 +81,18 @@ for (const id of shared) {
     } else if (ac.kind === 'hard' && ac.ok !== bc.ok) {
       (ac.ok ? better++ : worse++);
       lines.push(`${ac.ok ? '  +' : '  -'} ${ac.name.padEnd(17)} ${bc.ok ? 'was ok' : 'was FAIL'} -> ${ac.ok ? 'ok' : 'FAIL'}   ${ac.detail}`);
+    }
+  }
+
+  const ab = b.assessment || {};
+  const aa = a.assessment || {};
+  for (const [k, label] of [
+    ['findings', 'assess:findings'],
+    ['withFix', 'assess:with-fix'],
+    ['doctrineCitations', 'assess:citations'],
+  ]) {
+    if ((ab[k] ?? 0) !== (aa[k] ?? 0)) {
+      lines.push(`    ${label.padEnd(17)} ${ab[k] ?? 0} -> ${aa[k] ?? 0}`);
     }
   }
 

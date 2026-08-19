@@ -50,7 +50,12 @@ function render(results) {
       continue;
     }
 
-    console.log(`\n${r.id}   (${r.seconds}s, interaction ${r.interactionSplit})`);
+    const a = r.assessment || {};
+    console.log(
+      `\n${r.id}   (${r.seconds}s, interaction ${r.interactionSplit})` +
+        `\n   assessment: ${a.findings} finding(s), ${a.withFix} with a fix, ` +
+        `${a.doctrineCitations} doctrine citation(s)`,
+    );
     for (const c of r.checks) {
       if (c.kind === 'hard') {
         if (!c.ok) hardFails++;

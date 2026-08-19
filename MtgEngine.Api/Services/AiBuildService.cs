@@ -113,7 +113,43 @@ public sealed class AiBuildService : IAiBuildService
     private const int AssessMaxTokens = 24000;
 
     /// <summary>Reasoning effort for the assessment.</summary>
+    /// <remarks>
+    /// Low was tried and reverted. It cut the call from 57.6s to 23.5s, and cost 42% of the
+    /// findings that came with an actionable fix — 12 across three cases down to 7, in every
+    /// case, which is too consistent to be run-to-run noise. The fix is the half of a
+    /// finding worth having, and the player is not waiting on this call: the deck is
+    /// streamed before it runs. Buying 34 seconds nobody is blocked on with 42% of the
+    /// useful output is the wrong way round. Measured by tools/deck-eval.
+    /// </remarks>
     private const string AssessEffort = "medium";
+
+    /// <summary>
+    /// Model for the assessment. Deliberately the same one that built the deck.
+    /// </summary>
+    /// <remarks>
+    /// Named rather than inlined because two attempts to make this call cheaper were
+    /// measured and neither held up, and the next person to have the idea should find the
+    /// numbers here rather than pay for them again. Both were run through tools/deck-eval
+    /// over the same three cases; the assessment is 46% of a build's wall clock (57.6s of
+    /// 125s) so the idea is a reasonable one.
+    /// <para>
+    /// <b>Opus at low effort</b> — 57.6s to 23.5s, and findings carrying an actionable fix
+    /// went 12 to 7 across the three cases, down in every one. Too consistent to be noise.
+    /// </para>
+    /// <para>
+    /// <b>Sonnet at medium effort</b> — 57.6s to about 36s, and actionable fixes held in
+    /// aggregate (12 to 11) but collapsed on one case, whose findings fell from 10 to 4.
+    /// A second sample of that case would have settled whether it was variance; it was not
+    /// obtainable, so the call stays where it is rather than ship on one bad data point.
+    /// </para>
+    /// <para>
+    /// Both experiments are cheap to redo — see tools/deck-eval/README.md — and the thing
+    /// they buy is worth little: the plan is streamed to the player before this call runs,
+    /// so nobody is waiting on it. It is the critique that would get worse, and the
+    /// critique's whole value is the part that says what to change.
+    /// </para>
+    /// </remarks>
+    private const string AssessModelId = ModelId;
 
     /// <summary>
     /// Spare candidates requested alongside the main deck, used to backfill slots lost
@@ -772,7 +808,7 @@ public sealed class AiBuildService : IAiBuildService
                 """;
 
             var respJson = await _anthropic.SendAsync(new AnthropicRequest(
-                ModelId,
+                AssessModelId,
                 MaxTokens: AssessMaxTokens,
                 Messages: [new { role = "user", content = prompt }])
             {

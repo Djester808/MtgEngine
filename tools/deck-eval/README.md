@@ -68,6 +68,34 @@ table does.
 **Nothing here asks a model whether a deck is good.** That would be circular, expensive,
 and unstable between runs. The measurement has to be the one thing that does not move.
 
+## What it found the first time it was used
+
+Two attempts to make the assessment cheaper — it is 46% of a build's wall clock, on a call
+that reads a finished list rather than building anything.
+
+| config | assessment call | findings with a fix (3 cases) |
+| --- | --- | --- |
+| Opus, medium effort | 57.6 s | **12** (4, 3, 5) |
+| Opus, low effort | 23.5 s | 7 (2, 2, 3) |
+| Sonnet, medium effort | ~36 s | 11 (5, 4, **2**) |
+
+Low effort lost 42% of the actionable findings, in every case. Sonnet held the total but
+collapsed on one case, whose findings fell from 10 to 4; a second sample would have settled
+whether that was variance, and it was not obtainable. Both were reverted, and the numbers
+live in `AiBuildService.AssessModelId` so nobody pays for them twice.
+
+It also found a flaw in itself, which is worth knowing before reading any comparison:
+
+**Deck checks cannot judge a change to the assessment.** The assessment runs after the deck
+is built and cannot influence which cards were chosen — yet dropping its effort appeared to
+move five deck bands, including one that went out of band. That was the build call's own
+variance, a separate model call that was not the thing under test. The assessment metrics
+(`assess:findings`, `assess:with-fix`, `assess:citations`) exist because they are the
+numbers that actually respond, and `compare.js` prints the warning on every run.
+
+The general rule: attribute a difference only to a change that could plausibly have caused
+it, and trust several cases moving the same way over one moving a lot.
+
 ## Cases
 
 `cases.json`. Eight builds, each varying an axis the checks read: colour count (1, 2, 4),

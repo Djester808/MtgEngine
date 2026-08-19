@@ -154,9 +154,27 @@ function score(record) {
     ));
   }
 
+  // ---- the assessment, measured on its own terms --------------------------
+  //
+  // Deck checks cannot judge a change to the assessment. It runs after the deck is built
+  // and cannot influence which cards were chosen, so any movement in lands or ramp between
+  // two runs is the build call's own variance — a separate model call that was not the
+  // thing under test. Measured: dropping assessment effort moved five deck bands it cannot
+  // reach. These numbers are the ones that respond.
+  const findings = (plan.assessment && plan.assessment.findings) || [];
+  const prose = findings.map((x) => `${x.finding || ''} ${x.fix || ''}`).join(' ');
+  const assessment = {
+    findings: findings.length,
+    // The actionable half. A finding without a fix names a problem and stops there.
+    withFix: findings.filter((x) => (x.fix || '').length > 5).length,
+    doctrineCitations: (prose.match(/§\s?\d+(\.\d+)?/g) || []).length,
+    verdictChars: ((plan.assessment && plan.assessment.verdict) || '').length,
+  };
+
   return {
     id: kase.id,
     seconds: record.seconds,
+    assessment,
     interactionSplit: `${f.interaction ?? 0} (${f.interactionOnCreatures ?? 0} on creatures)`,
     checks,
   };
