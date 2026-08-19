@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
@@ -1321,7 +1320,7 @@ public sealed class AiBuildService : IAiBuildService
             if (tribes.Length > 0)
             {
                 var wanted = new HashSet<string>(tribes, StringComparer.OrdinalIgnoreCase);
-                var namers = TribeMentionPatterns(tribes);
+                var namers = TribeText.MentionPatterns(tribes);
                 var byType = new List<string>();
                 var byText = new List<string>();
 
@@ -1335,7 +1334,7 @@ public sealed class AiBuildService : IAiBuildService
                     {
                         byType.Add(def.Name);
                     }
-                    else if (def.OracleText is { Length: > 0 } text && MentionsTribe(namers, text))
+                    else if (def.OracleText is { Length: > 0 } text && TribeText.Mentions(namers, text))
                     {
                         byText.Add(def.Name);
                     }
@@ -1816,69 +1815,6 @@ public sealed class AiBuildService : IAiBuildService
     }
 
     // ---- Helpers ---------------------------------------------------
-
-    /// <summary>
-    /// One whole-word pattern per tribe, for spotting a card that names the tribe in its text.
-    /// </summary>
-    /// <remarks>
-    /// Whole-word, because a plain substring test is wrong in a way that is easy to miss and
-    /// expensive when missed. The tribe <c>Battle</c> — a real card type, and one a Wolf
-    /// commander genuinely referenced — matched every card whose text says "enters the
-    /// battlefield", which is most of Magic: 1,406 of one commander's 1,475 hits were text
-    /// matches, and 1,349 of those said nothing but "battlefield".
-    /// </remarks>
-    internal static Regex[] TribeMentionPatterns(IEnumerable<string> tribes)
-    {
-        var patterns = new List<Regex>();
-
-        foreach (var tribe in tribes)
-        {
-            if (string.IsNullOrWhiteSpace(tribe))
-                continue;
-
-            // Singular, regular plural, and the -f/-ves plural that several creature types
-            // take. Rules text says "Wolves" far more often than "Wolf", so a pattern that
-            // only knew the singular would miss most of the cards it exists to find.
-            var forms = new List<string> { Regex.Escape(tribe) + "s?" };
-            if (tribe.EndsWith("fe", StringComparison.OrdinalIgnoreCase))
-                forms.Insert(0, Regex.Escape(tribe[..^2]) + "ves");
-            else if (tribe.EndsWith("f", StringComparison.OrdinalIgnoreCase))
-                forms.Insert(0, Regex.Escape(tribe[..^1]) + "ves");
-
-            try
-            {
-                patterns.Add(new Regex(
-                    $@"\b(?:{string.Join("|", forms)})\b",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-                    TribeMatchTimeout));
-            }
-            catch (ArgumentException)
-            {
-                // A tribe name that will not compile is simply not searched for by text;
-                // the creature-type match still finds the real members.
-            }
-        }
-
-        return [.. patterns];
-    }
-
-    /// <summary>True when the rules text names one of the tribes as a word.</summary>
-    internal static bool MentionsTribe(Regex[] patterns, string text)
-    {
-        foreach (var pattern in patterns)
-        {
-            try
-            {
-                if (pattern.IsMatch(text))
-                    return true;
-            }
-            catch (RegexMatchTimeoutException)
-            {
-                // Treated as no match, per the house rule for timed patterns.
-            }
-        }
-        return false;
-    }
 
     /// <summary>
     /// The deck profile as prompt text: facts only, no targets.

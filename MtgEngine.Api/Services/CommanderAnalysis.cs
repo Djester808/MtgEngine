@@ -103,12 +103,36 @@ public sealed class CommanderAnalysis : ICommanderAnalysis
                 t.Attribute.ToLowerInvariant(), t.Value, t.OrGreater));
         }
 
-        // The commander's own subtypes are a tribe by definition; anything the model spotted
-        // in the text is added to them.
-        var tribes = new List<string>(commander.Subtypes);
+        // Only types the text actually names.
+        //
+        // The prompt above already says it — "not the commander's own types unless the text
+        // names them too" — and this code used to override it, prepending every subtype on
+        // the grounds that a commander's own types are "a tribe by definition". They are
+        // not. Varis, Silverymoon Ranger is a Human Elf Ranger whose text mentions none of
+        // those and whose only tribal line creates a Wolf token; the override handed a
+        // "wolf tribal" build an 806-name Elf and Human list, and it dutifully built a
+        // mono-green elf deck. Its own assessment said so: "a well-built mono-green
+        // creature-value deck that happens to run Varis, rather than a deck built to break
+        // him."
+        //
+        // A genuine lord loses nothing. Its text names its own type — "other Wolves you
+        // control" — so the model returns it either way.
+        var tribes = new List<string>();
         foreach (var tribe in extractedTribes)
+        {
+            // Grounded against the text rather than taken on trust, the same way the build
+            // checks the model's card names before adding them (doctrine §9.7).
+            if (!TribeText.Mentions(tribe, commander.OracleText))
+            {
+                _logger.LogInformation(
+                    "Commander {Commander}: tribe '{Tribe}' is not named in the text; dropped",
+                    commander.Name, tribe);
+                continue;
+            }
+
             if (!tribes.Contains(tribe, StringComparer.OrdinalIgnoreCase))
                 tribes.Add(tribe);
+        }
 
         _logger.LogInformation(
             "Commander {Commander} requires: {Thresholds}; tribes {Tribes}; keywords {Keywords}",

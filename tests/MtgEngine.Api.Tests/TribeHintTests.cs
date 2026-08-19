@@ -21,7 +21,7 @@ namespace MtgEngine.Api.Tests;
 public sealed class TribeHintTests
 {
     private static bool Mentions(string text, params string[] tribes) =>
-        AiBuildService.MentionsTribe(AiBuildService.TribeMentionPatterns(tribes), text);
+        TribeText.Mentions(TribeText.MentionPatterns(tribes), text);
 
     [Fact]
     public void Battlefield_is_not_a_battle()
@@ -70,9 +70,9 @@ public sealed class TribeHintTests
     {
         // Tribe names come from the analysis pass, which is model output. A pattern that
         // will not build must not take the build down with it.
-        var patterns = AiBuildService.TribeMentionPatterns(["", "   ", "Wolf"]);
+        var patterns = TribeText.MentionPatterns(["", "   ", "Wolf"]);
 
         Assert.Single(patterns);
-        Assert.True(AiBuildService.MentionsTribe(patterns, "Create a Wolf token."));
+        Assert.True(TribeText.Mentions(patterns, "Create a Wolf token."));
     }
 }
