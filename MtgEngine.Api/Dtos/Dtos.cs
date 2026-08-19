@@ -488,6 +488,19 @@ public sealed record AiBuildRequest
     public string PriceRange { get; init; } = "any";       // "budget" | "mid" | "any"
     public bool IncludeSideboard { get; init; } = false;
     public bool IncludeMaybeboard { get; init; } = false;
+
+    /// <summary>
+    /// The deck the player asked for, in their own words.
+    /// </summary>
+    /// <remarks>
+    /// The build had no such field. The brief picked the commander and then vanished, so a
+    /// player typing "wolf tribal" got a wolf-ish commander and a deck built knowing nothing
+    /// about wolves — the tribe hint came from the commander's own analysis and nothing
+    /// else. It is the same free text the shortlist takes, capped and fenced the same way:
+    /// attacker-controlled, never a cache key, never concatenated into the instructions.
+    /// </remarks>
+    [System.ComponentModel.DataAnnotations.StringLength(600)]
+    public string? Brief { get; init; }
 }
 
 public sealed record AiRefineRequest
