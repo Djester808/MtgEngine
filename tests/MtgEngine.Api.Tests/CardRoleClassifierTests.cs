@@ -28,6 +28,47 @@ public class CardRoleClassifierTests
     public void ManaProducers_AndLandFetch_AreRamp(string name, string text, CardType type) =>
         Assert.Equal(CardRole.Ramp, CardRoleClassifier.Classify(Card(name, text, type)));
 
+    /// <remarks>
+    /// The shapes the brace-only pattern missed. MeasureFacts derives the ramp count and
+    /// the mana-source total from this classifier, so a miss here is a wrong number on the
+    /// review screen and in the assessment prompt — a four-colour deck reported 3 ramp and
+    /// 41 sources while its own assessment counted 11 and 49.
+    /// </remarks>
+    [Theory]
+    [InlineData("Birds of Paradise", "Flying. {T}: Add one mana of any color.", CardType.Creature)]
+    [InlineData("Arcane Signet", "{T}: Add one mana of any color in your commander's color identity.", CardType.Artifact)]
+    [InlineData("Fellwar Stone", "{T}: Add one mana of any color that a land an opponent controls could produce.", CardType.Artifact)]
+    [InlineData("Chromatic Lantern", "{T}: Add one mana of any color.", CardType.Artifact)]
+    [InlineData("Three Visits", "Search your library for a Forest card and put it onto the battlefield tapped.", CardType.Sorcery)]
+    [InlineData("Nature's Lore", "Search your library for a Forest card, put it onto the battlefield.", CardType.Sorcery)]
+    [InlineData("Wood Elves", "When this creature enters, search your library for a Forest card and put it onto the battlefield.", CardType.Creature)]
+    [InlineData("Farseek", "Search your library for a Plains, Island, Swamp, or Mountain card and put it onto the battlefield tapped.", CardType.Sorcery)]
+    public void WordyManaAndTypedLandFetch_AreAlsoRamp(string name, string text, CardType type) =>
+        Assert.Equal(CardRole.Ramp, CardRoleClassifier.Classify(Card(name, text, type)));
+
+    /// <remarks>
+    /// The widened pattern must not swallow the format's other use of "add". Counters are
+    /// added constantly, and a +1/+1 counter is not a mana source.
+    /// </remarks>
+    [Theory]
+    [InlineData("Counter Adder", "Put a +1/+1 counter on target creature. Add a counter to it each upkeep.")]
+    [InlineData("Loyalty Gainer", "Adds a loyalty counter to target planeswalker.")]
+    public void AddingSomethingThatIsNotMana_IsNotRamp(string name, string text) =>
+        Assert.NotEqual(CardRole.Ramp, CardRoleClassifier.Classify(Card(name, text, CardType.Sorcery)));
+
+    [Fact]
+    public void A_typed_land_fetch_on_a_land_is_still_a_land()
+    {
+        // Same reasoning as Cabal Coffers: it belongs in the land count whatever its text
+        // does, or the land total and the ramp total both go wrong at once.
+        var card = Card(
+            "Krosan Verge",
+            "{T}: Add {C}. {2}, {T}, Sacrifice: Search your library for a Forest and a Plains card.",
+            CardType.Land);
+
+        Assert.Equal(CardRole.Land, CardRoleClassifier.Classify(card));
+    }
+
     [Theory]
     [InlineData("Murder", "Destroy target creature.")]
     [InlineData("Damnation", "Destroy all creatures. They can't be regenerated.")]

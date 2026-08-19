@@ -33,12 +33,23 @@ public enum CardRole
 /// </remarks>
 internal static class CardRoleClassifier
 {
-    // "Add {B}", "adds {C}{C}" -- mana production.
-    private static readonly Regex AddsMana = new(@"\badds?\s+\{", RegexOptions.Compiled);
+    // "Add {B}", "adds {C}{C}", and the wordier half the format actually prints:
+    // "Add one mana of any color" — Birds of Paradise, Arcane Signet, Fellwar Stone.
+    //
+    // The brace-only version missed every one of those, and it mattered more than a
+    // misfiled card usually does: MeasureFacts derives the ramp count and the mana-source
+    // total from this classifier. A four-colour deck reported 3 ramp and 41 sources while
+    // its own assessment counted 11 and 49, and the model had been correcting the number
+    // in prose all along — "Arcane Signet, Three Visits, Nature's Lore, Wolfwillow Haven
+    // and Birds of Paradise sit in the 'other' bucket".
+    private static readonly Regex AddsMana = new(
+        @"\badds?\s+(\{|\w+\s+mana\b|mana\b)",
+        RegexOptions.Compiled);
 
-    // "Search your library for a basic land card" / "...for a Forest card".
+    // "Search your library for a basic land card", and the form that names the type
+    // instead: "...for a Forest card" — Three Visits, Nature's Lore, Wood Elves, Farseek.
     private static readonly Regex LandFetch = new(
-        @"search your library for (a|up to \w+)[^.]*\bland\b",
+        @"search your library for (a|up to \w+)[^.]*\b(land|plains|island|swamp|mountain|forest)\b",
         RegexOptions.Compiled);
 
     // "Draw a card", "draw two cards", "draws three cards".
