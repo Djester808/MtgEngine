@@ -259,6 +259,119 @@ public sealed class DecksController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Computes the deck a build would produce, without writing it.
+    /// </summary>
+    /// <remarks>
+    /// The preview half of the build. Same pipeline, stopped one step before the insert, so
+    /// the player can see all 99 cards — and what was rejected — before committing a write
+    /// they would otherwise have to undo by hand.
+    /// </remarks>
+    [EnableRateLimiting("ai")]
+    [HttpPost("{deckId:guid}/ai-build/plan")]
+    public async Task<ActionResult<AiBuildPlanDto>> PlanBuild(
+        Guid deckId,
+        [FromBody] AiBuildRequest request,
+        [FromServices] IAiBuildService aiBuildService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+            return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
+
+        var plan = await aiBuildService.PlanDeckAsync(deckId, UserId, request);
+        return Ok(plan);
+    }
+
+    /// <summary>
+    /// The same plan, streamed, so a build that takes minutes reports what it is doing.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors <c>suggestions/stream</c>: validation failures are ordinary HTTP errors, and
+    /// only a valid request becomes an event stream. Events are <c>stage</c>, then
+    /// <c>plan</c> (the deck, before it has been judged), then <c>final</c>.
+    /// </remarks>
+    [EnableRateLimiting("ai")]
+    [HttpPost("{deckId:guid}/ai-build/plan/stream")]
+    public async Task PlanBuildStream(
+        Guid deckId,
+        [FromBody] AiBuildRequest request,
+        [FromServices] IAiBuildService aiBuildService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(
+                new ProblemDetails
+                {
+                    Detail = "CommanderOracleId is required",
+                    Status = StatusCodes.Status400BadRequest,
+                },
+                ct);
+            return;
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+
+        async Task Emit(string @event, object payload)
+        {
+            var json = JsonSerializer.Serialize(payload, SseJson);
+            await Response.WriteAsync($"event: {@event}\ndata: {json}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
+        }
+
+        try
+        {
+            var plan = await aiBuildService.PlanDeckStreamAsync(deckId, UserId, request, Emit, ct);
+            await Emit("final", plan);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client went away mid-build; nothing to report.
+        }
+        catch (Exception)
+        {
+            try
+            { await Emit("error", new { message = "Failed to build the deck." }); }
+            catch { /* client already gone */ }
+        }
+    }
+
+    /// <summary>Writes a plan the player accepted. Every card is re-validated on the way in.</summary>
+    [HttpPost("{deckId:guid}/ai-build/apply")]
+    public async Task<ActionResult<AiBuildResultDto>> ApplyBuildPlan(
+        Guid deckId,
+        [FromBody] AiApplyPlanRequest request,
+        [FromServices] IAiBuildService aiBuildService)
+    {
+        if (string.IsNullOrWhiteSpace(request.CommanderOracleId))
+            return Problem(detail: "CommanderOracleId is required", statusCode: StatusCodes.Status400BadRequest);
+        if (request.Cards.Length == 0)
+            return Problem(detail: "The plan contains no cards", statusCode: StatusCodes.Status400BadRequest);
+
+        var result = await aiBuildService.ApplyPlanAsync(deckId, UserId, request);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Proposes commanders for a deck the player has described but not started.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not under a deck id: this runs before there is a deck to speak of, and
+    /// its answer feeds the plan endpoint above.
+    /// </remarks>
+    [EnableRateLimiting("ai")]
+    [HttpPost("commander-suggestions")]
+    public async Task<ActionResult<CommanderSuggestionsDto>> SuggestCommanders(
+        [FromBody] CommanderSuggestionRequest request,
+        [FromServices] ICommanderSuggestionService suggestions,
+        CancellationToken ct)
+    {
+        var result = await suggestions.SuggestAsync(UserId, request, ct);
+        return Ok(result);
+    }
+
     /// <summary>Scores every card in a built deck against its commander, in one call.</summary>
     [EnableRateLimiting("ai")]
     [HttpPost("{deckId:guid}/ai-score")]

@@ -123,6 +123,7 @@ builder.Services.AddScoped<ISynergyService, SynergyService>();
 builder.Services.AddScoped<IDeckSuggestionsService, DeckSuggestionsService>();
 builder.Services.AddScoped<IManaFineTuneService, ManaFineTuneService>();
 builder.Services.AddScoped<IAiBuildService, AiBuildService>();
+builder.Services.AddScoped<ICommanderSuggestionService, CommanderSuggestionService>();
 
 // EDHREC JSON — community deck card recommendations
 builder.Services.AddHttpClient("EdhrecApi", client =>

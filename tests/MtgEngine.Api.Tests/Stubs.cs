@@ -61,7 +61,7 @@ public abstract class StubScryfallService : IScryfallService
         NotStubbed<Task<(CardDefinition[], int)>>(nameof(GetCandidatePoolAsync));
 
     public virtual Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
-        IReadOnlySet<ManaColor> commanderColors, int perRoleLimit) =>
+        IReadOnlySet<ManaColor> commanderColors, int perRoleLimit, decimal? maxUsd = null) =>
         NotStubbed<Task<IReadOnlyDictionary<CardRole, string[]>>>(nameof(GetLegalCardsByRoleAsync));
 
     public virtual Task<CardDefinition[]> SearchCommandersAsync(
@@ -86,4 +86,72 @@ public abstract class StubSynergyService : ISynergyService
         ScoringMode mode = ScoringMode.Ideal, DeckProfile? profile = null,
         IReadOnlyList<string>? focus = null) =>
         NotStubbed<Task<ScoredCardDto[]>>(nameof(ScoreCardsAsync));
+}
+
+/// <inheritdoc cref="StubScryfallService"/>
+public abstract class StubCollectionService : ICollectionService
+{
+    private static T NotStubbed<T>(string member) =>
+        throw new NotSupportedException($"{member} was called but this test did not stub it.");
+
+    public virtual Task<CollectionDto[]> GetUserCollectionsAsync(string userId) =>
+        NotStubbed<Task<CollectionDto[]>>(nameof(GetUserCollectionsAsync));
+
+    public virtual Task<CollectionDetailDto?> GetCollectionAsync(Guid collectionId, string userId) =>
+        NotStubbed<Task<CollectionDetailDto?>>(nameof(GetCollectionAsync));
+
+    public virtual Task<string[]> GetOwnedOracleIdsAsync(string userId, CancellationToken ct = default) =>
+        NotStubbed<Task<string[]>>(nameof(GetOwnedOracleIdsAsync));
+
+    public virtual Task<CollectionDetailDto> CreateCollectionAsync(string userId, CreateCollectionRequest request) =>
+        NotStubbed<Task<CollectionDetailDto>>(nameof(CreateCollectionAsync));
+
+    public virtual Task<CollectionDetailDto> UpdateCollectionAsync(
+        Guid collectionId, string userId, UpdateCollectionRequest request) =>
+        NotStubbed<Task<CollectionDetailDto>>(nameof(UpdateCollectionAsync));
+
+    public virtual Task<bool> DeleteCollectionAsync(Guid collectionId, string userId) =>
+        NotStubbed<Task<bool>>(nameof(DeleteCollectionAsync));
+
+    public virtual Task<(CollectionCardDto Card, bool Created)> AddCardToCollectionAsync(
+        Guid collectionId, string userId, AddCardToCollectionRequest request) =>
+        NotStubbed<Task<(CollectionCardDto, bool)>>(nameof(AddCardToCollectionAsync));
+
+    public virtual Task<CollectionCardDto> UpdateCollectionCardAsync(
+        Guid collectionId, Guid cardId, string userId, UpdateCollectionCardRequest request) =>
+        NotStubbed<Task<CollectionCardDto>>(nameof(UpdateCollectionCardAsync));
+
+    public virtual Task<bool> RemoveCardFromCollectionAsync(Guid collectionId, Guid cardId, string userId) =>
+        NotStubbed<Task<bool>>(nameof(RemoveCardFromCollectionAsync));
+
+    public virtual Task<bool> RemoveCardByOracleAsync(
+        Guid collectionId, string oracleId, string userId, string? board = null) =>
+        NotStubbed<Task<bool>>(nameof(RemoveCardByOracleAsync));
+
+    public virtual Task<MoveCardResultDto> MoveCardAsync(
+        Guid collectionId, Guid cardId, string userId, MoveCardRequest request, CancellationToken ct = default) =>
+        NotStubbed<Task<MoveCardResultDto>>(nameof(MoveCardAsync));
+
+    public virtual Task<MoveCardsResultDto> MoveCardsAsync(
+        Guid collectionId, string userId, MoveCardsRequest request, CancellationToken ct = default) =>
+        NotStubbed<Task<MoveCardsResultDto>>(nameof(MoveCardsAsync));
+
+    public virtual Task<MergeCollectionsResultDto> MergeCollectionsAsync(
+        Guid targetCollectionId, string userId, MergeCollectionsRequest request, CancellationToken ct = default) =>
+        NotStubbed<Task<MergeCollectionsResultDto>>(nameof(MergeCollectionsAsync));
+
+    public virtual Task<DeckDto[]> GetUserDecksAsync(string userId) =>
+        NotStubbed<Task<DeckDto[]>>(nameof(GetUserDecksAsync));
+
+    public virtual Task<DeckDetailDto?> GetDeckAsync(Guid deckId, string userId) =>
+        NotStubbed<Task<DeckDetailDto?>>(nameof(GetDeckAsync));
+
+    public virtual Task<DeckDetailDto> CreateDeckAsync(string userId, CreateDeckRequest request) =>
+        NotStubbed<Task<DeckDetailDto>>(nameof(CreateDeckAsync));
+
+    public virtual Task<DeckDetailDto> UpdateDeckAsync(Guid deckId, string userId, UpdateDeckRequest request) =>
+        NotStubbed<Task<DeckDetailDto>>(nameof(UpdateDeckAsync));
+
+    public virtual Task<bool> DeleteDeckAsync(Guid deckId, string userId) =>
+        NotStubbed<Task<bool>>(nameof(DeleteDeckAsync));
 }

@@ -35,6 +35,8 @@ public sealed class BulkDataService : IScryfallService, IDisposable
     private Dictionary<string, string> _byName = new(32_000, StringComparer.OrdinalIgnoreCase);
     // oracle_id → ordered array of all printings
     private Dictionary<string, PrintingDto[]> _printingsByOracleId = new(32_000);
+    // oracle_id → cheapest USD price across every printing, where any printing has one
+    private Dictionary<string, decimal> _minUsdByOracleId = new(32_000);
     // scryfall_id → (oracleId, imgNormal, imgSmall, imgArtCrop, setCode) – lightweight
     private Dictionary<string, PrintingEntry> _byScryfallId = new(250_000);
     // set code → oracle IDs that have a printing in that set
@@ -424,7 +426,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
         CommanderRules.IsCommanderEligible(d);
 
     public async Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
-        IReadOnlySet<ManaColor> commanderColors, int bracket)
+        IReadOnlySet<ManaColor> commanderColors, int bracket, decimal? maxUsd = null)
     {
         await WaitReadyAsync();
 
@@ -437,7 +439,8 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                 && !d.Supertypes.Contains("Basic")
                 && (commanderColors.Count == 0
                     || d.ColorIdentity.All(c => c == ManaColor.Colorless || commanderColors.Contains(c)))
-                && !(d.GameChanger && bracket < 4))
+                && !(d.GameChanger && bracket < 4)
+                && WithinBudget(d.OracleId, maxUsd))
             .ToArray();
 
         // Enum order for sections, alphabetical within them: the prompt prefix must be
@@ -454,12 +457,35 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                       .ToArray());
 
         _logger.LogInformation(
-            "Legal pool: {Count} cards for colours [{Colors}] at bracket {Bracket} -- {Breakdown}",
+            "Legal pool: {Count} cards for colours [{Colors}] at bracket {Bracket}, "
+            + "price ceiling {Ceiling} -- {Breakdown}",
             byRole.Sum(kv => kv.Value.Length), string.Join(",", commanderColors), bracket,
+            maxUsd is null ? "none" : $"${maxUsd}",
             string.Join(", ", byRole.Select(kv => $"{kv.Key}={kv.Value.Length}")));
 
         return byRole;
     }
+
+    /// <summary>
+    /// Whether a card's cheapest printing is inside the ceiling, if there is one.
+    /// </summary>
+    /// <remarks>
+    /// A price cap has to be a filter, not a request. Asking the model to keep cards under
+    /// three dollars while sending it a pool that contains everything, and never telling it
+    /// a single price, asks it to recall a market it cannot see — which the doctrine warns
+    /// against directly (§0.3: a name is a lookup, not a reason). Measured on a budget
+    /// build before this existed: 13 of 99 cards over the ceiling, five of them between
+    /// thirteen and sixteen dollars.
+    /// <para>
+    /// A card with no price anywhere is kept. Missing market data is not evidence of
+    /// expense, and dropping those would quietly remove everything too new or too obscure
+    /// to be priced.
+    /// </para>
+    /// </remarks>
+    private bool WithinBudget(string oracleId, decimal? maxUsd) =>
+        maxUsd is not { } ceiling
+        || !_minUsdByOracleId.TryGetValue(oracleId, out var usd)
+        || usd <= ceiling;
 
     /// <summary>
     /// Every card that could legally go in this commander's deck, narrowed by a free-text
@@ -1096,6 +1122,47 @@ public sealed class BulkDataService : IScryfallService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Scryfall layouts that are not cards anyone can put in a deck.
+    /// </summary>
+    /// <remarks>
+    /// The oracle file is not a list of playable cards: a tenth of it is art cards, tokens,
+    /// emblems and format-specific supplements. Indexing them made them real everywhere at
+    /// once -- search returned them, the card modal opened them, and the AI candidate pool
+    /// counted them as legal.
+    /// <para>
+    /// It also produced commanders that cannot work. An art card carries the front-face name
+    /// twice, a <c>type_line</c> of "Card // Card", and an <b>empty colour identity</b> -- so
+    /// choosing one as a commander made every card in Magic colour-legal, and the candidate
+    /// pool went from 12,063 cards to 30,727 with no creature types in it for the build to
+    /// find a tribe in.
+    /// </para>
+    /// <para>
+    /// Measured against the current file: 2,243 art_series, 910 token, 291 front_card, 207
+    /// planar, 102 scheme, 87 emblem, 80 double_faced_token and 33 vanguard -- 3,953 of
+    /// 36,494 entries. Layouts for real cards that merely happen to be illegal in a format
+    /// are deliberately absent: legality is a separate question from whether the thing is a
+    /// card at all, and is decided per format elsewhere.
+    /// </para>
+    /// </remarks>
+    private static readonly HashSet<string> NonCardLayouts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "art_series",
+        "front_card",
+        "token",
+        "double_faced_token",
+        "emblem",
+        "planar",
+        "scheme",
+        "vanguard",
+    };
+
+    /// <summary>True when this bulk entry is not a card — see <see cref="NonCardLayouts"/>.</summary>
+    internal static bool IsNonCard(JsonElement card) =>
+        card.TryGetProperty("layout", out var layout)
+        && layout.GetString() is { } name
+        && NonCardLayouts.Contains(name);
+
     private void LoadOracleCards(string path)
     {
         var byOracleId = new Dictionary<string, CardDefinition>(32_000);
@@ -1104,6 +1171,7 @@ public sealed class BulkDataService : IScryfallService, IDisposable
         _logger.LogInformation("Parsing oracle_cards.json…");
 
         var rarityMap = new Dictionary<string, string>(32_000, StringComparer.OrdinalIgnoreCase);
+        int skippedByLayout = 0;
 
         foreach (var card in EnumerateCards(path))
         {
@@ -1112,6 +1180,12 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                 continue;
             if (card.TryGetProperty("lang", out var lang) && lang.GetString() != "en")
                 continue;
+
+            if (IsNonCard(card))
+            {
+                skippedByLayout++;
+                continue;
+            }
 
             var def = CardParser.Parse(card);
             if (def is null)
@@ -1124,6 +1198,11 @@ public sealed class BulkDataService : IScryfallService, IDisposable
             if (rarity.Length > 0)
                 rarityMap[def.OracleId] = rarity;
         }
+
+        _logger.LogInformation(
+            "Oracle index: {Cards} cards, {Skipped} non-card entries skipped "
+            + "(art, tokens, emblems, format supplements)",
+            byOracleId.Count, skippedByLayout);
 
         _byOracleId = byOracleId;
         _byName = byName;
@@ -1209,6 +1288,18 @@ public sealed class BulkDataService : IScryfallService, IDisposable
                         ? d
                         : DateOnly.MinValue)
                 .ToArray());
+        // What the card actually costs to acquire: the cheapest printing, not the newest.
+        // A staple reprinted at bulk rates is a budget card however much its first printing
+        // goes for, and a price filter that read the newest printing would say otherwise.
+        _minUsdByOracleId = _printingsByOracleId
+            .Select(kv => (kv.Key, Min: kv.Value
+                .Select(p => p.Prices?.Usd)
+                .Where(v => v is > 0)
+                .DefaultIfEmpty(null)
+                .Min()))
+            .Where(x => x.Min is not null)
+            .ToDictionary(x => x.Key, x => x.Min!.Value);
+
         _byScryfallId = scryfallIdx;
         _bySetCode = setIdx;
         _setNames = setNames;

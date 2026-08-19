@@ -89,12 +89,17 @@ public interface IScryfallService : ICardLookup
 
     /// <summary>
     /// Every card that could legally go in this deck: Commander-legal, inside the
-    /// colour identity, and allowed at this bracket. Excludes basic lands and tokens.
-    /// This is a legality filter only -- it does not rank or judge playability.
+    /// colour identity, allowed at this bracket, and inside the price ceiling if one is
+    /// given. Excludes basic lands and tokens. This does not rank or judge playability.
     /// Grouped by deck-building role, names sorted, so the result is deterministic.
     /// </summary>
+    /// <param name="maxUsd">
+    /// Ceiling on a card's cheapest printing, or null for no limit. A budget is enforced
+    /// here rather than asked for in the prompt: prices are not among the facts the model
+    /// is given, so a cap it cannot see is a cap it cannot keep.
+    /// </param>
     Task<IReadOnlyDictionary<CardRole, string[]>> GetLegalCardsByRoleAsync(
-        IReadOnlySet<ManaColor> commanderColors, int bracket);
+        IReadOnlySet<ManaColor> commanderColors, int bracket, decimal? maxUsd = null);
 
     /// <summary>
     /// Cards that can legally head a Commander deck, optionally filtered by name.

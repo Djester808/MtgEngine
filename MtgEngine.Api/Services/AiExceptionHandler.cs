@@ -35,6 +35,14 @@ public sealed class AiExceptionHandler(ILogger<AiExceptionHandler> logger) : IEx
                  "The AI provider could not be reached or returned an error. Please retry."),
 
             // The resilience pipeline exhausted its retries or the total timeout.
+            // Polly.Timeout.TimeoutRejectedException is matched by name rather than by type:
+            // it does not derive from TimeoutException, so it fell through this arm and
+            // surfaced as a bare framework 500 — the exact outcome CLAUDE.md forbids. The
+            // name check avoids taking a Polly reference into this file for one arm.
+            { } ex when ex.GetType().Name == "TimeoutRejectedException" =>
+                (StatusCodes.Status504GatewayTimeout, "AI provider timed out",
+                 "The AI provider did not respond in time. Please retry."),
+
             TaskCanceledException or TimeoutException =>
                 (StatusCodes.Status504GatewayTimeout, "AI provider timed out",
                  "The AI provider did not respond in time. Please retry."),

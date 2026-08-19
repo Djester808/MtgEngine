@@ -36,7 +36,7 @@ const RULES = [
     why: "The client's standards are not auto-loaded when you work from the API repo.",
   },
   {
-    test: /(aibuildservice|synergyservice|decksuggestionsservice|candidateranking)\.cs$/,
+    test: /(aibuildservice|synergyservice|decksuggestionsservice|candidateranking|commandersuggestionservice)\.cs$/,
     docs: ['MtgEngine.Api/Knowledge/commander-doctrine.md'],
     why: 'This code reasons from the doctrine, which is injected verbatim into prompts.',
   },

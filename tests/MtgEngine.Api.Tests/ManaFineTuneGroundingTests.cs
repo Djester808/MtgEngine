@@ -45,6 +45,17 @@ public class ManaFineTuneGroundingTests
     {
         public Task<string> SendAsync(AnthropicRequest request, CancellationToken ct = default) =>
             throw new NotSupportedException("Grounding tests must not reach the model.");
+
+        public Task<string> StreamTextAsync(
+            AnthropicRequest request, Func<string, string, Task> onText,
+            Func<int, Task>? onThinking = null, CancellationToken ct = default) =>
+            throw new NotSupportedException("Grounding tests must not reach the model.");
+    }
+
+    private sealed class StubDoctrine : ICommanderDoctrine
+    {
+        public string Text => "DOCTRINE";
+        public int ApproximateTokens => 1;
     }
 
     private sealed class ThrowingCacheService : IAiCacheService
@@ -72,6 +83,7 @@ public class ManaFineTuneGroundingTests
         var cards = new FakeCardLookup();
         var service = new ManaFineTuneService(
             new ThrowingAnthropicClient(),
+            new StubDoctrine(),
             new ThrowingCacheService(),
             cards,
             NullLogger<ManaFineTuneService>.Instance);

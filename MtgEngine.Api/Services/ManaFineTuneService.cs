@@ -12,6 +12,7 @@ public interface IManaFineTuneService
 public sealed class ManaFineTuneService : IManaFineTuneService
 {
     private readonly IAnthropicClient _anthropic;
+    private readonly ICommanderDoctrine _doctrine;
     private readonly IAiCacheService _cache;
     private readonly ICardLookup _cards;
     private readonly ILogger<ManaFineTuneService> _logger;
@@ -19,15 +20,17 @@ public sealed class ManaFineTuneService : IManaFineTuneService
     private const string ModelId = "claude-haiku-4-5-20251001";
 
     /// <summary>Bump when the model, the prompt, or the response shape changes.</summary>
-    private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v3";
+    private const string CacheVersion = "claude-haiku-4-5-20251001-manatune-v4";
 
     public ManaFineTuneService(
         IAnthropicClient anthropic,
+        ICommanderDoctrine doctrine,
         IAiCacheService cache,
         ICardLookup cards,
         ILogger<ManaFineTuneService> logger)
     {
         _anthropic = anthropic;
+        _doctrine = doctrine;
         _cache = cache;
         _cards = cards;
         _logger = logger;
@@ -107,6 +110,19 @@ public sealed class ManaFineTuneService : IManaFineTuneService
             MaxTokens: 800,
             Messages: [new { role = "user", content = prompt }])
         {
+            // §3 IS the mana-base doctrine — land count against curve, coloured sources per
+            // pip, the ceiling on lands entering tapped. This service tuned mana bases
+            // without ever being given it, because the doctrine arrived with the card
+            // suggestions work and was only wired into the services that commit touched.
+            System =
+            [
+                new
+                {
+                    type = "text",
+                    text = _doctrine.Text,
+                    cache_control = new { type = "ephemeral" },
+                },
+            ],
             Operation = "mana-tune",
         });
 
