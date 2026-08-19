@@ -43,6 +43,17 @@ public interface IAiBuildService
     /// legal pool, leaving the deck the same size.
     /// </summary>
     Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request);
+
+    /// <summary>
+    /// Applies swaps a player accepted from a preview, without asking the model again.
+    /// </summary>
+    /// <remarks>
+    /// Every swap goes through the same validation ladder the model's own proposals face —
+    /// colour identity, commander legality, bracket, already-in-deck. Nothing is trusted
+    /// because we proposed it a moment ago; the request arrives from the caller like any
+    /// other.
+    /// </remarks>
+    Task<AiRefineResultDto> ApplySwapsAsync(Guid deckId, string userId, AiApplySwapsRequest request);
 }
 
 public sealed class AiBuildService : IAiBuildService
@@ -914,6 +925,39 @@ public sealed class AiBuildService : IAiBuildService
     public Task<AiRefineResultDto> RefineDeckAsync(Guid deckId, string userId, AiRefineRequest request) =>
         WithDeckLockAsync(deckId, () => RefineDeckCoreAsync(deckId, userId, request));
 
+    public Task<AiRefineResultDto> ApplySwapsAsync(
+        Guid deckId, string userId, AiApplySwapsRequest request) =>
+        WithDeckLockAsync(deckId, () => ApplySwapsCoreAsync(deckId, userId, request));
+
+    private async Task<AiRefineResultDto> ApplySwapsCoreAsync(
+        Guid deckId, string userId, AiApplySwapsRequest request)
+    {
+        var deck = await _collection.GetDeckAsync(deckId, userId)
+            ?? throw new ResourceNotFoundException($"Deck not found: {deckId}");
+
+        if (string.IsNullOrWhiteSpace(deck.CommanderOracleId))
+            throw new InvalidResourceStateException("Deck has no commander to refine against.");
+
+        var cmdDef = await _scryfall.GetByOracleIdAsync(deck.CommanderOracleId)
+            ?? throw new ResourceNotFoundException($"Commander not found: {deck.CommanderOracleId}");
+
+        var proposals = request.Swaps
+            .Select(x => new ProposedSwap(x.Out ?? string.Empty, x.In ?? string.Empty, x.Why ?? string.Empty))
+            .ToArray();
+
+        var outcome = await ApplyProposedSwapsAsync(
+            deckId, userId, deck, cmdDef, proposals, request.Bracket, preview: false);
+
+        _logger.LogInformation(
+            "Accepted swaps for {Commander}: {Applied}/{Proposed} applied{Rejected}",
+            cmdDef.Name, outcome.Swaps.Length, proposals.Length,
+            outcome.RejectedByReason.Count == 0
+                ? ""
+                : $", rejected {string.Join(", ", outcome.RejectedByReason.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        return outcome;
+    }
+
     private async Task<AiRefineResultDto> RefineDeckCoreAsync(Guid deckId, string userId, AiRefineRequest request)
     {
         var deck = await _collection.GetDeckAsync(deckId, userId)
@@ -969,6 +1013,52 @@ public sealed class AiBuildService : IAiBuildService
             swappable.Select(c => c.CardDetails!.Name).ToArray(),
             request, pool, deckFacts);
 
+        var outcome = await ApplyProposedSwapsAsync(
+            deckId, userId, deck, cmdDef, [.. proposed.Take(Math.Max(0, request.MaxSwaps))],
+            request.Bracket, request.Preview);
+
+        var applied = outcome.Swaps;
+        var rejected = outcome.RejectedByReason;
+        int sizeAfter = outcome.DeckSizeAfter;
+
+        _logger.LogInformation(
+            "Refined {Commander}: {Applied}/{Proposed} swaps {Verb}{Rejected}",
+            cmdDef.Name, applied.Length, proposed.Length,
+            request.Preview ? "previewed" : "applied",
+            rejected.Count == 0 ? "" : $", rejected {string.Join(", ", rejected.Select(kv => $"{kv.Key}={kv.Value}"))}");
+
+        return outcome with
+        {
+            DeckSizeBefore = sizeBefore,
+        };
+    }
+
+    /// <summary>
+    /// Validates swaps and, unless previewing, applies them.
+    /// </summary>
+    /// <remarks>
+    /// One ladder for both callers. The model's own proposals and a player's accepted
+    /// preview reach the deck through exactly these checks — colour identity, commander
+    /// legality, bracket, unknown card, already-in-deck — because two copies of a
+    /// validation ladder is two ladders that drift.
+    /// </remarks>
+    private async Task<AiRefineResultDto> ApplyProposedSwapsAsync(
+        Guid deckId, string userId, DeckDetailDto deck, CardDefinition cmdDef,
+        ProposedSwap[] proposed, int bracket, bool preview)
+    {
+        var cmdColors = cmdDef.ColorIdentity.ToHashSet();
+
+        var swappable = deck.Cards
+            .Where(c => (c.Board ?? "main") == "main"
+                        && !string.Equals(c.OracleId, deck.CommanderOracleId, StringComparison.OrdinalIgnoreCase)
+                        && c.CardDetails is not null
+                        && !c.CardDetails.Supertypes.Contains("Basic"))
+            .GroupBy(c => c.OracleId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+
+        int sizeBefore = deck.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity);
+
         var inDeck = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in swappable)
             inDeck[c.CardDetails!.Name] = c.OracleId;
@@ -981,7 +1071,7 @@ public sealed class AiBuildService : IAiBuildService
             deck.Cards.Where(c => c.CardDetails is not null).Select(c => c.CardDetails!.Name),
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var swap in proposed.Take(Math.Max(0, request.MaxSwaps)))
+        foreach (var swap in proposed)
         {
             if (string.IsNullOrWhiteSpace(swap.Out) || string.IsNullOrWhiteSpace(swap.In))
             { Reject("incomplete-swap"); continue; }
@@ -997,8 +1087,18 @@ public sealed class AiBuildService : IAiBuildService
             { Reject(Rejection.UnknownCard); continue; }
 
             // Shared ladder with AddCards — color identity, commander legality, bracket.
-            if (CardGrounding.ValidateForCommanderDeck(inDef, cmdColors, request.Bracket) is string rejection)
+            if (CardGrounding.ValidateForCommanderDeck(inDef, cmdColors, bracket) is string rejection)
             { Reject(rejection); continue; }
+
+            // Everything above this point is validation and runs the same either way, so a
+            // preview reports exactly what would land rather than what was proposed.
+            if (preview)
+            {
+                addedNames.Add(inDef.Name);
+                inDeck.Remove(swap.Out);
+                applied.Add(new CardSwapDto { Out = swap.Out, In = inDef.Name, Why = swap.Why });
+                continue;
+            }
 
             try
             {
@@ -1027,8 +1127,19 @@ public sealed class AiBuildService : IAiBuildService
             }
         }
 
-        var after = await _collection.GetDeckAsync(deckId, userId);
-        int sizeAfter = after?.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity) ?? sizeBefore;
+        // A preview wrote nothing, so re-reading the deck would only report the size it
+        // already had. A swap is one out for one in, so the size it *would* be is the size
+        // it is.
+        int sizeAfter;
+        if (preview)
+        {
+            sizeAfter = sizeBefore;
+        }
+        else
+        {
+            var after = await _collection.GetDeckAsync(deckId, userId);
+            sizeAfter = after?.Cards.Where(c => (c.Board ?? "main") == "main").Sum(c => c.Quantity) ?? sizeBefore;
+        }
 
         if (sizeAfter != sizeBefore)
         {
@@ -1037,10 +1148,6 @@ public sealed class AiBuildService : IAiBuildService
                 cmdDef.Name, sizeBefore, sizeAfter);
         }
 
-        _logger.LogInformation(
-            "Refined {Commander}: {Applied}/{Proposed} swaps applied{Rejected}",
-            cmdDef.Name, applied.Count, proposed.Length,
-            rejected.Count == 0 ? "" : $", rejected {string.Join(", ", rejected.Select(kv => $"{kv.Key}={kv.Value}"))}");
 
         return new AiRefineResultDto
         {

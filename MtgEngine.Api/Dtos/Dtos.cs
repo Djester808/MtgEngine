@@ -501,9 +501,42 @@ public sealed record AiRefineRequest
     /// <summary>Upper bound on swaps, so a refine cannot quietly rebuild the whole deck.</summary>
     [System.ComponentModel.DataAnnotations.Range(0, 30)]
     public int MaxSwaps { get; init; } = 10;
+
+    /// <summary>
+    /// Propose the swaps and validate them, but write nothing.
+    /// </summary>
+    /// <remarks>
+    /// Refine rewrites a saved deck in place, and there is no undo. The builder tells the
+    /// player on screen that nothing is saved until they accept it, and an "improve this
+    /// deck" button that quietly swapped ten cards would be the opposite of that promise.
+    /// <para>
+    /// A preview runs the identical validation ladder — colour identity, legality, bracket,
+    /// already-in-deck — so what comes back is what would actually land, not a wish list.
+    /// Accepting it goes to the apply endpoint with those swaps and costs no model call.
+    /// </para>
+    /// </remarks>
+    public bool Preview { get; init; }
 }
 
 /// <summary>One card exchanged for another during a refine.</summary>
+/// <summary>
+/// Swaps a player accepted from a preview, to be applied without asking the model again.
+/// </summary>
+/// <remarks>
+/// The names arrive from the caller, so every one goes back through the same validation
+/// ladder the model's own proposals face. Nothing here is trusted because it was proposed
+/// by us a moment ago.
+/// </remarks>
+public sealed record AiApplySwapsRequest
+{
+    [Required]
+    [MaxLength(25)]
+    public CardSwapDto[] Swaps { get; init; } = [];
+
+    [Range(1, 5)]
+    public int Bracket { get; init; } = 3;
+}
+
 public sealed record CardSwapDto
 {
     public string Out { get; init; } = string.Empty;

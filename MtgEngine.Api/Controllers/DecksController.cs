@@ -395,6 +395,23 @@ public sealed class DecksController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Applies swaps the player accepted from a refine preview.
+    /// </summary>
+    /// <remarks>
+    /// Not rate-limited as an AI route because it asks the model nothing — it is the accept
+    /// half of a preview that already ran. Every swap is still validated server-side.
+    /// </remarks>
+    [HttpPost("{deckId:guid}/ai-refine/apply")]
+    public async Task<ActionResult<AiRefineResultDto>> ApplyRefineSwaps(
+        Guid deckId,
+        [FromBody] AiApplySwapsRequest request,
+        [FromServices] IAiBuildService aiBuildService)
+    {
+        var result = await aiBuildService.ApplySwapsAsync(deckId, UserId, request);
+        return Ok(result);
+    }
+
     // ---- Synergy scoring -------------------------------------------
 
     [EnableRateLimiting("ai")]
