@@ -122,6 +122,7 @@ public sealed class AnthropicClient : IAnthropicClient
 
     public async Task<string> SendAsync(AnthropicRequest request, CancellationToken ct = default)
     {
+        var callWatch = System.Diagnostics.Stopwatch.StartNew();
         var payload = BuildPayload(request);
 
         var http = _httpFactory.CreateClient("AnthropicApi");
@@ -143,6 +144,9 @@ public sealed class AnthropicClient : IAnthropicClient
             throw new AiUpstreamException("Anthropic", resp.StatusCode, body);
         }
 
+        _logger.LogInformation(
+            "Anthropic {Operation} completed in {Elapsed}ms", request.Operation,
+            callWatch.ElapsedMilliseconds);
         LogCacheUsage(request.Operation, body);
         WarnIfTruncated(request, body);
         return body;
@@ -186,6 +190,7 @@ public sealed class AnthropicClient : IAnthropicClient
         CancellationToken ct = default)
     {
         int thinkingChars = 0;
+        var callWatch = System.Diagnostics.Stopwatch.StartNew();
         var payload = BuildPayload(request);
         payload["stream"] = true;
 
@@ -317,10 +322,11 @@ public sealed class AnthropicClient : IAnthropicClient
         else
         {
             _logger.LogInformation(
-                "Anthropic {Operation} stream complete: stop={Stop}, {Output} output tokens "
-                + "(budget {Budget}), {Chars} chars of text, {Thinking} chars of thinking",
-                request.Operation, stopReason, outputTokens, request.MaxTokens,
-                full.Length, thinkingChars);
+                "Anthropic {Operation} stream complete in {Elapsed}ms: stop={Stop}, {Output} "
+                + "output tokens (budget {Budget}), {Chars} chars of text, {Thinking} chars "
+                + "of thinking",
+                request.Operation, callWatch.ElapsedMilliseconds, stopReason, outputTokens,
+                request.MaxTokens, full.Length, thinkingChars);
         }
 
         // Re-shaped into the same envelope a buffered call returns, so every existing

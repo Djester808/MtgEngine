@@ -1105,6 +1105,10 @@ public sealed class AiBuildService : IAiBuildService
     private async Task<CandidatePool> BuildCandidatePoolAsync(
         CardDefinition commander, HashSet<ManaColor> cmdColors, int bracket, decimal? maxUsd)
     {
+        // Timed because it is the one stage of a build invisible from outside: the stream's
+        // stage frames bracket the model call and the card resolution, but everything
+        // before the first frame is this, and it scans the whole legal pool.
+        var poolWatch = System.Diagnostics.Stopwatch.StartNew();
         var commanderName = commander.Name;
         var legalByRole = await _scryfall.GetLegalCardsByRoleAsync(cmdColors, bracket, maxUsd);
         var legal = legalByRole.SelectMany(kv => kv.Value).ToArray();
@@ -1195,9 +1199,10 @@ public sealed class AiBuildService : IAiBuildService
         }
 
         _logger.LogInformation(
-            "Candidate pool for {Commander}: {Legal} legal cards, {Hint} commonly played, "
+            "Candidate pool for {Commander} built in {Elapsed}ms: {Legal} legal cards, "
+            + "{Hint} commonly played, "
             + "tribes [{Tribes}] with {TribeCards} members",
-            commanderName, legal.Length, commonlyPlayed.Length,
+            commanderName, poolWatch.ElapsedMilliseconds, legal.Length, commonlyPlayed.Length,
             string.Join("/", tribes), tribeCards.Length);
 
         // Which of these are Game Changers, named as such — but only where the bracket
