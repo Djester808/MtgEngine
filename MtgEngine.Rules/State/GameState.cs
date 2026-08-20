@@ -1,0 +1,165 @@
+using System.Collections.Immutable;
+
+namespace MtgEngine.Rules.State;
+
+/// <summary>
+/// The whole game at one instant. Immutable: every event folds into a new one.
+/// </summary>
+/// <remarks>
+/// This type is never sent to a client. It contains every library and every hand, and a player
+/// is entitled to see neither (CR 400.2). <see cref="Views.PlayerViewProjector"/> builds the
+/// per-player payload; the previous engine skipped that step and broadcast state to the whole
+/// SignalR group.
+/// </remarks>
+public sealed record GameState
+{
+    public required Guid GameId { get; init; }
+
+    /// <summary>Every object in the game, in every zone, by its current identity.</summary>
+    public ImmutableDictionary<ObjectId, GameObject> Objects { get; init; } =
+        ImmutableDictionary<ObjectId, GameObject>.Empty;
+
+    /// <summary>
+    /// Seating order (CR 103.5), which fixes turn order and therefore APNAP order (CR 101.4).
+    /// </summary>
+    /// <remarks>
+    /// Every "who is next" question in the engine is answered from this list, so that none of
+    /// them assume two players. The previous engine asked <c>OpponentOf(playerId)</c>, which is
+    /// only meaningful in a duel and cannot be corrected without rewriting priority.
+    /// </remarks>
+    public ImmutableList<Guid> TurnOrder { get; init; } = [];
+
+    public ImmutableDictionary<Guid, PlayerState> Players { get; init; } =
+        ImmutableDictionary<Guid, PlayerState>.Empty;
+
+    /// <summary>Shared, and unordered — permanents may be arranged however players like (CR 400.5).</summary>
+    public ImmutableList<ObjectId> Battlefield { get; init; } = [];
+
+    /// <summary>Shared. Top of the stack is index 0 (CR 405.2).</summary>
+    public ImmutableList<ObjectId> Stack { get; init; } = [];
+
+    /// <summary>Shared (CR 406).</summary>
+    public ImmutableList<ObjectId> Exile { get; init; } = [];
+
+    /// <summary>Shared (CR 408).</summary>
+    public ImmutableList<ObjectId> Command { get; init; } = [];
+
+    /// <summary>
+    /// The next timestamp to hand out (CR 613.7). Monotonic, and never derived from a clock —
+    /// see <see cref="GameObject.Timestamp"/>.
+    /// </summary>
+    public long NextTimestamp { get; init; } = 1;
+
+    /// <summary>CR 102.1. The first turn is turn 1.</summary>
+    public int TurnNumber { get; init; }
+
+    /// <summary>Whose turn it is (CR 102.1).</summary>
+    public Guid ActivePlayerId { get; init; }
+
+    // ---- Lookups ------------------------------------------------------------------------
+
+    public GameObject GetObject(ObjectId id) =>
+        Objects.TryGetValue(id, out var obj)
+            ? obj
+            : throw new InvalidOperationException($"No object {id} in the game.");
+
+    public bool TryGetObject(ObjectId id, out GameObject obj) => Objects.TryGetValue(id, out obj!);
+
+    public PlayerState GetPlayer(Guid playerId) =>
+        Players.TryGetValue(playerId, out var player)
+            ? player
+            : throw new InvalidOperationException($"No player {playerId} in the game.");
+
+    /// <summary>
+    /// The contents of a zone, in order. Per-player zones need an owner; shared zones ignore it.
+    /// </summary>
+    public ImmutableList<ObjectId> Contents(Zone zone, Guid? playerId = null)
+    {
+        if (zone.IsPerPlayer())
+        {
+            if (playerId is null)
+                throw new ArgumentNullException(
+                    nameof(playerId), $"{zone} belongs to a player; say which one.");
+
+            var player = GetPlayer(playerId.Value);
+            return zone switch
+            {
+                Zone.Library => player.Library,
+                Zone.Hand => player.Hand,
+                Zone.Graveyard => player.Graveyard,
+                _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+            };
+        }
+
+        return zone switch
+        {
+            Zone.Battlefield => Battlefield,
+            Zone.Stack => Stack,
+            Zone.Exile => Exile,
+            Zone.Command => Command,
+            _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+        };
+    }
+
+    /// <summary>
+    /// Every player, starting with the given one and following turn order — the order priority
+    /// passes in (CR 117.3d) and the order simultaneous objects go on the stack in (CR 101.4).
+    /// </summary>
+    public IEnumerable<Guid> PlayersFrom(Guid first)
+    {
+        var start = TurnOrder.IndexOf(first);
+        if (start < 0)
+            throw new InvalidOperationException($"Player {first} is not seated in this game.");
+
+        for (var i = 0; i < TurnOrder.Count; i++)
+            yield return TurnOrder[(start + i) % TurnOrder.Count];
+    }
+
+    /// <summary>
+    /// Turn order starting from the active player: APNAP, the order the rules resolve nearly
+    /// every simultaneous choice in (CR 101.4).
+    /// </summary>
+    public IEnumerable<Guid> ApnapOrder() => PlayersFrom(ActivePlayerId);
+
+    /// <summary>Players still in the game (CR 104.2 losers are out but stay seated for the log).</summary>
+    public IEnumerable<Guid> ActivePlayers() => TurnOrder.Where(id => !GetPlayer(id).HasLost);
+
+    // ---- Small edits used by the reducer ------------------------------------------------
+
+    public GameState WithObject(GameObject obj) =>
+        this with { Objects = Objects.SetItem(obj.Id, obj) };
+
+    public GameState WithPlayer(PlayerState player) =>
+        this with { Players = Players.SetItem(player.PlayerId, player) };
+
+    // ---- Equality ------------------------------------------------------------------------
+
+    /// <summary>
+    /// Value equality over every zone and object, not the reference comparison a record would
+    /// generate for its collections (see <see cref="Structural"/>).
+    /// </summary>
+    /// <remarks>
+    /// Two states are equal when they describe the same game position. This is what
+    /// <c>Replay(log) == state</c> asserts, so it has to mean what it appears to mean.
+    /// </remarks>
+    public bool Equals(GameState? other) =>
+        other is not null &&
+        GameId == other.GameId &&
+        TurnNumber == other.TurnNumber &&
+        ActivePlayerId == other.ActivePlayerId &&
+        NextTimestamp == other.NextTimestamp &&
+        Structural.Same(TurnOrder, other.TurnOrder) &&
+        Structural.Same(Battlefield, other.Battlefield) &&
+        Structural.Same(Stack, other.Stack) &&
+        Structural.Same(Exile, other.Exile) &&
+        Structural.Same(Command, other.Command) &&
+        Structural.Same(Players, other.Players) &&
+        Structural.Same(Objects, other.Objects);
+
+    public override int GetHashCode() =>
+        HashCode.Combine(GameId, TurnNumber, ActivePlayerId, NextTimestamp, Objects.Count, Battlefield.Count, Stack.Count);
+
+    /// <summary>Takes the next timestamp (CR 613.7) and advances the counter.</summary>
+    public (GameState State, long Timestamp) TakeTimestamp() =>
+        (this with { NextTimestamp = NextTimestamp + 1 }, NextTimestamp);
+}

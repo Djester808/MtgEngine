@@ -41,6 +41,11 @@ const RULES = [
     why: 'This code reasons from the doctrine, which is injected verbatim into prompts.',
   },
   {
+    test: /(^|\/)mtgengine\.rules\//,
+    docs: ['MtgEngine.Api/Knowledge/comprehensive-rules.txt'],
+    why: 'The engine implements this document. The previous engine was written from memory of the rules rather than from the rules, and its priority, layer and SBA models were each wrong in a way the text would have caught — read the sections you are implementing.',
+  },
+  {
     test: /(collectionservice|collectioncard|collectionscontroller|pricehistoryservice|pricesnapshotworker)\.cs$/,
     docs: ['CARD_COLLECTION_FEATURE.md'],
     why: 'The collection/price domain and its DTO shapes are defined there.',

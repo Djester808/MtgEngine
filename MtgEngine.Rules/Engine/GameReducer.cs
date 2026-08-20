@@ -1,0 +1,233 @@
+using System.Collections.Immutable;
+using MtgEngine.Rules.Events;
+using MtgEngine.Rules.State;
+
+namespace MtgEngine.Rules.Engine;
+
+/// <summary>
+/// Folds events into state. The only place a <see cref="GameState"/> is ever built.
+/// </summary>
+/// <remarks>
+/// Everything that changes the game does so by emitting an event and letting this apply it, so
+/// there is exactly one description of what any change does. The rule that keeps it honest:
+/// <b>the reducer decides nothing.</b> It contains no legality checks, no dice, and no choices —
+/// those all happen before an event is emitted. Give it the same events and it gives back the
+/// same state, which is what makes <see cref="Replay"/> exact.
+/// </remarks>
+public static class GameReducer
+{
+    /// <summary>Rebuilds a game from its log. The first event must be <see cref="GameStarted"/>.</summary>
+    public static GameState Replay(IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        GameState? state = null;
+        foreach (var e in events)
+        {
+            if (state is null)
+            {
+                if (e is not GameStarted started)
+                    throw new InvalidOperationException(
+                        $"A log has to begin with {nameof(GameStarted)}, not {e.GetType().Name}.");
+
+                state = Start(started);
+                continue;
+            }
+
+            state = Apply(state, e);
+        }
+
+        return state ?? throw new InvalidOperationException("An empty log is not a game.");
+    }
+
+    /// <summary>Applies one event to a game already under way.</summary>
+    public static GameState Apply(GameState state, GameEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(e);
+
+        return e switch
+        {
+            GameStarted => throw new InvalidOperationException("A game can only start once."),
+            LibraryShuffled shuffled => Shuffle(state, shuffled),
+            ObjectMoved moved => Move(state, moved),
+            LifeChanged life => Life(state, life),
+            DrawFromEmptyLibraryAttempted drawn => EmptyDraw(state, drawn),
+            _ => throw new InvalidOperationException($"No reducer for {e.GetType().Name}."),
+        };
+    }
+
+    // ---- One method per event ------------------------------------------------------------
+
+    private static GameState Start(GameStarted e)
+    {
+        var objects = ImmutableDictionary.CreateBuilder<ObjectId, GameObject>();
+        var players = ImmutableDictionary.CreateBuilder<Guid, PlayerState>();
+        var turnOrder = ImmutableList.CreateBuilder<Guid>();
+        var timestamp = 1L;
+
+        foreach (var seat in e.Seats)
+        {
+            turnOrder.Add(seat.PlayerId);
+
+            var library = ImmutableList.CreateBuilder<ObjectId>();
+            foreach (var dealt in seat.Deck)
+            {
+                objects.Add(dealt.Id, new GameObject
+                {
+                    Id = dealt.Id,
+                    Card = dealt.Card,
+                    OwnerId = seat.PlayerId,
+                    ControllerId = seat.PlayerId,
+                    Zone = Zone.Library,
+                    Timestamp = timestamp++,
+                });
+                library.Add(dealt.Id);
+            }
+
+            players.Add(seat.PlayerId, new PlayerState
+            {
+                PlayerId = seat.PlayerId,
+                Name = seat.Name,
+                Life = seat.StartingLife,
+                Library = library.ToImmutable(),
+            });
+        }
+
+        return new GameState
+        {
+            GameId = e.GameId,
+            Objects = objects.ToImmutable(),
+            Players = players.ToImmutable(),
+            TurnOrder = turnOrder.ToImmutable(),
+            ActivePlayerId = e.StartingPlayerId,
+            // Turn 1 begins when the first turn does, which is slice 2's business. A game that
+            // has been dealt but not begun is not on turn 1 yet.
+            TurnNumber = 0,
+            NextTimestamp = timestamp,
+        };
+    }
+
+    private static GameState Shuffle(GameState state, LibraryShuffled e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+
+        if (e.Order.Count != player.Library.Count)
+            throw new InvalidOperationException(
+                $"Shuffle of {e.PlayerId:N} lists {e.Order.Count} cards for a library of {player.Library.Count}.");
+
+        return state.WithPlayer(player with { Library = e.Order });
+    }
+
+    private static GameState Move(GameState state, ObjectMoved e)
+    {
+        var moving = state.GetObject(e.OldId);
+
+        if (moving.Zone != e.From)
+            throw new InvalidOperationException(
+                $"{e.OldId} is in {moving.Zone}, but the move says it is leaving {e.From}.");
+
+        state = RemoveFrom(state, moving.Zone, moving.OwnerId, e.OldId);
+
+        // CR 400.7. The object that arrives is a new one; the old identity stops existing, so a
+        // stale reference fails to resolve instead of quietly finding something that came back.
+        state = state with { Objects = state.Objects.Remove(e.OldId) };
+
+        var (withTimestamp, timestamp) = state.TakeTimestamp();
+        state = withTimestamp;
+
+        state = state.WithObject(new GameObject
+        {
+            Id = e.NewId,
+            Card = moving.Card,
+            // CR 108.3: ownership never changes, whatever happens to control.
+            OwnerId = moving.OwnerId,
+            // A card in a library, hand, or graveyard is its owner's (CR 108.4); elsewhere the
+            // mover says who controls it.
+            ControllerId = e.To.IsPerPlayer() ? moving.OwnerId : e.ControllerId,
+            Zone = e.To,
+            Timestamp = timestamp,
+            // CR 403.3: every object on the battlefield is a permanent, and only there.
+            Permanent = e.To == Zone.Battlefield ? new PermanentState() : null,
+        });
+
+        // CR 400.3: an object headed for a library, graveyard, or hand goes to its owner's.
+        return AddTo(state, e.To, moving.OwnerId, e.NewId, e.Position);
+    }
+
+    private static GameState Life(GameState state, LifeChanged e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        return state.WithPlayer(player with { Life = e.NewTotal });
+    }
+
+    private static GameState EmptyDraw(GameState state, DrawFromEmptyLibraryAttempted e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        return state.WithPlayer(player with { HasAttemptedDrawFromEmptyLibrary = true });
+    }
+
+    // ---- Zone list plumbing ---------------------------------------------------------------
+
+    private static GameState RemoveFrom(GameState state, Zone zone, Guid ownerId, ObjectId id)
+    {
+        if (zone.IsPerPlayer())
+        {
+            var player = state.GetPlayer(ownerId);
+            return state.WithPlayer(zone switch
+            {
+                Zone.Library => player with { Library = Without(player.Library, id) },
+                Zone.Hand => player with { Hand = Without(player.Hand, id) },
+                Zone.Graveyard => player with { Graveyard = Without(player.Graveyard, id) },
+                _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+            });
+        }
+
+        return zone switch
+        {
+            Zone.Battlefield => state with { Battlefield = Without(state.Battlefield, id) },
+            Zone.Stack => state with { Stack = Without(state.Stack, id) },
+            Zone.Exile => state with { Exile = Without(state.Exile, id) },
+            Zone.Command => state with { Command = Without(state.Command, id) },
+            _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+        };
+    }
+
+    private static GameState AddTo(
+        GameState state, Zone zone, Guid ownerId, ObjectId id, ZonePosition position)
+    {
+        if (zone.IsPerPlayer())
+        {
+            var player = state.GetPlayer(ownerId);
+            return state.WithPlayer(zone switch
+            {
+                Zone.Library => player with { Library = With(player.Library, id, position) },
+                Zone.Hand => player with { Hand = With(player.Hand, id, position) },
+                Zone.Graveyard => player with { Graveyard = With(player.Graveyard, id, position) },
+                _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+            });
+        }
+
+        return zone switch
+        {
+            Zone.Battlefield => state with { Battlefield = With(state.Battlefield, id, position) },
+            Zone.Stack => state with { Stack = With(state.Stack, id, position) },
+            Zone.Exile => state with { Exile = With(state.Exile, id, position) },
+            Zone.Command => state with { Command = With(state.Command, id, position) },
+            _ => throw new ArgumentOutOfRangeException(nameof(zone), zone, null),
+        };
+    }
+
+    private static ImmutableList<ObjectId> Without(ImmutableList<ObjectId> zone, ObjectId id)
+    {
+        var index = zone.IndexOf(id);
+        return index < 0
+            ? throw new InvalidOperationException($"{id} is not in the zone it is leaving.")
+            : zone.RemoveAt(index);
+    }
+
+    /// <summary>Index 0 is the top of every ordered zone; see <see cref="PlayerState"/>.</summary>
+    private static ImmutableList<ObjectId> With(
+        ImmutableList<ObjectId> zone, ObjectId id, ZonePosition position) =>
+        position == ZonePosition.Top ? zone.Insert(0, id) : zone.Add(id);
+}
