@@ -70,7 +70,21 @@ public static class StateBasedActions
 
             // CR 704.5c.
             if (player.PoisonCounters >= 10)
+            {
                 events.Add(new PlayerLost(playerId, "ten or more poison counters", "704.5c"));
+                continue;
+            }
+
+            // CR 903.10a: twenty-one combat damage from the same commander over the game.
+            foreach (var (commander, taken) in player.CommanderDamage)
+            {
+                if (taken >= 21)
+                {
+                    events.Add(new PlayerLost(
+                        playerId, "21 combat damage from one commander", "903.10a"));
+                    break;
+                }
+            }
         }
     }
 

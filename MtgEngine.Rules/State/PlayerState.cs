@@ -60,6 +60,37 @@ public sealed record PlayerState
     public bool HasLost { get; init; }
 
     /// <summary>
+    /// This player's commander, in whichever zone it currently is (CR 903.3).
+    /// </summary>
+    /// <remarks>
+    /// Held as the card's oracle id rather than an object id, because being a commander is an
+    /// attribute of the <em>card</em> and survives every zone change (CR 903.3) — while an
+    /// object id deliberately does not (CR 400.7). Null outside a Commander game.
+    /// </remarks>
+    public string? CommanderOracleId { get; init; }
+
+    /// <summary>
+    /// How many times this player has cast their commander from the command zone (CR 903.8).
+    /// </summary>
+    /// <remarks>
+    /// Each previous cast adds {2}, informally the commander tax. Counted rather than derived,
+    /// because it counts casts from the command zone specifically — a commander cast from hand
+    /// after being bounced there does not add to it.
+    /// </remarks>
+    public int CommanderCastsFromCommandZone { get; init; }
+
+    /// <summary>
+    /// Combat damage this player has been dealt by each commander over the game (CR 903.10a).
+    /// </summary>
+    /// <remarks>
+    /// Keyed by the commander's oracle id, because the rule is about "the same commander" across
+    /// the whole game and a commander that dies and returns is a new object each time.
+    /// Twenty-one from one of them is a loss, checked as a state-based action.
+    /// </remarks>
+    public ImmutableDictionary<string, int> CommanderDamage { get; init; } =
+        ImmutableDictionary<string, int>.Empty;
+
+    /// <summary>
     /// Damage dealt by a source with deathtouch since the last state-based action check
     /// (CR 704.5h) is tracked on the permanent, not here; this records why the player lost so a
     /// client can say so.
@@ -82,6 +113,9 @@ public sealed record PlayerState
         ManaPool == other.ManaPool &&
         HasAttemptedDrawFromEmptyLibrary == other.HasAttemptedDrawFromEmptyLibrary &&
         HasLost == other.HasLost &&
+        string.Equals(CommanderOracleId, other.CommanderOracleId, StringComparison.Ordinal) &&
+        CommanderCastsFromCommandZone == other.CommanderCastsFromCommandZone &&
+        Structural.Same(CommanderDamage, other.CommanderDamage) &&
         string.Equals(LossReason, other.LossReason, StringComparison.Ordinal) &&
         LandsPlayedThisTurn == other.LandsPlayedThisTurn &&
         Structural.Same(Library, other.Library) &&

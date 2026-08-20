@@ -590,3 +590,36 @@ public sealed record MulligansFinished : GameEvent
 
     public override string Describe() => "Opening hands are settled.";
 }
+
+// ---- Commander (CR 903) ---------------------------------------------------------------------
+
+/// <summary>A player's commander was designated as the game began (CR 903.3, 903.6).</summary>
+public sealed record CommanderDesignated(Guid PlayerId, string OracleId, ObjectId CardId) : GameEvent
+{
+    public override string Rule => "903.6";
+
+    public override string Describe() => $"{PlayerId:N}'s commander is set.";
+}
+
+/// <summary>
+/// A commander was cast from the command zone, so the next one costs {2} more (CR 903.8).
+/// </summary>
+public sealed record CommanderCastFromCommandZone(Guid PlayerId, int TimesCast) : GameEvent
+{
+    public override string Rule => "903.8";
+
+    public override string Describe() =>
+        $"{PlayerId:N} cast their commander from the command zone ({TimesCast} time(s)).";
+}
+
+/// <summary>
+/// Combat damage from a commander, tracked over the whole game (CR 903.10a).
+/// </summary>
+public sealed record CommanderDamageDealt(
+    Guid PlayerId, string CommanderOracleId, int Amount, int Total) : GameEvent
+{
+    public override string Rule => "903.10a";
+
+    public override string Describe() =>
+        $"{PlayerId:N} has taken {Total} damage from that commander.";
+}

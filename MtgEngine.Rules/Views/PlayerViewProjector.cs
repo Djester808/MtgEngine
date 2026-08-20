@@ -44,6 +44,25 @@ public static class PlayerViewProjector
         };
     }
 
+    /// <summary>
+    /// The name of a commander, found wherever it currently is.
+    /// </summary>
+    /// <remarks>
+    /// Being a commander belongs to the card and survives every zone change (CR 903.3), so the
+    /// search covers every object rather than one zone. Falls back to the oracle id, which is
+    /// worse to read but never wrong.
+    /// </remarks>
+    private static string NameOfCommander(GameState state, string oracleId)
+    {
+        foreach (var (_, obj) in state.Objects)
+        {
+            if (string.Equals(obj.Card.OracleId, oracleId, StringComparison.Ordinal))
+                return obj.Card.Name;
+        }
+
+        return oracleId;
+    }
+
     private static ChoiceView? ProjectChoice(GameState state, Guid viewer)
     {
         if (state.Choice is not { } choice)
@@ -83,6 +102,9 @@ public static class PlayerViewProjector
             Hand = isViewer ? ProjectZone(state, player.Hand) : null,
             Graveyard = ProjectZone(state, player.Graveyard),
             HasLost = player.HasLost,
+            CommanderDamage = player.CommanderDamage.ToImmutableDictionary(
+                kv => NameOfCommander(state, kv.Key), kv => kv.Value, StringComparer.Ordinal),
+            CommanderName = player.CommanderOracleId is { } id ? NameOfCommander(state, id) : null,
             LandsPlayedThisTurn = player.LandsPlayedThisTurn,
         };
     }

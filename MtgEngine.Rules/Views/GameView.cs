@@ -127,6 +127,21 @@ public sealed record PlayerView
 
     public bool HasLost { get; init; }
 
+    /// <summary>
+    /// Combat damage this player has taken from each commander, by the commander's name
+    /// (CR 903.10a).
+    /// </summary>
+    /// <remarks>
+    /// Public: everyone at the table needs to know how close a commander is to twenty-one,
+    /// because it changes every block. Keyed by name rather than oracle id so a client can show
+    /// it without another lookup.
+    /// </remarks>
+    public ImmutableDictionary<string, int> CommanderDamage { get; init; } =
+        ImmutableDictionary<string, int>.Empty;
+
+    /// <summary>The name of this player's commander, if they have one (CR 903.3).</summary>
+    public string? CommanderName { get; init; }
+
     /// <summary>Against the one-per-turn allowance (CR 305.2), so the client can grey the drop.</summary>
     public int LandsPlayedThisTurn { get; init; }
 }

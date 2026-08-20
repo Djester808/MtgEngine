@@ -105,6 +105,22 @@ public static class GameReducer
                 MulligansTaken = state.MulligansTaken.SetItem(taken.PlayerId, taken.MulligansTaken),
             },
             MulligansBegan => state with { IsMulliganing = true },
+            CommanderDesignated designated => state.WithPlayer(
+                state.GetPlayer(designated.PlayerId) with
+                {
+                    CommanderOracleId = designated.OracleId,
+                }),
+            CommanderCastFromCommandZone cast => state.WithPlayer(
+                state.GetPlayer(cast.PlayerId) with
+                {
+                    CommanderCastsFromCommandZone = cast.TimesCast,
+                }),
+            CommanderDamageDealt damage => state.WithPlayer(
+                state.GetPlayer(damage.PlayerId) with
+                {
+                    CommanderDamage = state.GetPlayer(damage.PlayerId).CommanderDamage
+                        .SetItem(damage.CommanderOracleId, damage.Total),
+                }),
             MulliganKept => state,
             MulligansFinished => state with { IsMulliganing = false },
             AttackersDeclared attackers => state with

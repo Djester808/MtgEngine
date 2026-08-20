@@ -51,10 +51,20 @@ public sealed class GameTableService
         var first = await LoadAsync(firstDeckId, firstUserId, ct).ConfigureAwait(false);
         var second = await LoadAsync(secondDeckId, secondUserId, ct).ConfigureAwait(false);
 
+        // A deck that names a commander plays as Commander: the card goes to the command zone
+        // before the shuffle (CR 903.6), casting it from there is taxed (CR 903.8), and
+        // twenty-one damage from it is a loss (CR 903.10a). The builder already records which
+        // card that is, so a Commander deck plays as one without anybody choosing a format.
         var setups = new List<PlayerSetup>
         {
-            new(firstUserId, first.Name, startingLife, first.Cards),
-            new(secondUserId, second.Name, startingLife, second.Cards),
+            new(firstUserId, first.Name, startingLife, first.Cards)
+            {
+                CommanderOracleId = first.CommanderOracleId,
+            },
+            new(secondUserId, second.Name, startingLife, second.Cards)
+            {
+                CommanderOracleId = second.CommanderOracleId,
+            },
         };
 
         return _sessions.Create(setups);
@@ -113,7 +123,7 @@ public sealed class GameTableService
             || _abilities.ReplacementsOf(card).Count > 0;
     }
 
-    private async Task<(string Name, List<CardDefinition> Cards)> LoadAsync(
+    private async Task<(string Name, List<CardDefinition> Cards, string? CommanderOracleId)> LoadAsync(
         Guid deckId, Guid ownerId, CancellationToken ct)
     {
         var deck = await _db.Collections
@@ -163,6 +173,16 @@ public sealed class GameTableService
         if (cards.Count < 2)
             throw new InvalidResourceStateException($"{deck.Name} has too few cards to play.");
 
-        return (deck.Name, cards);
+        // Only a commander that is actually in the deck counts: a deck carrying a stale
+        // commanderOracleId whose card has been removed is not a Commander deck, and starting
+        // one would fail at the command zone rather than here.
+        var commander = deck.CommanderOracleId;
+        if (!string.IsNullOrEmpty(commander)
+            && !cards.Any(c => string.Equals(c.OracleId, commander, StringComparison.Ordinal)))
+        {
+            commander = null;
+        }
+
+        return (deck.Name, cards, commander);
     }
 }

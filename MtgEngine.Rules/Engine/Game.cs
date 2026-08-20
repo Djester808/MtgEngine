@@ -14,7 +14,17 @@ public sealed record PlayerSetup(
     Guid PlayerId,
     string Name,
     int StartingLife,
-    IReadOnlyList<CardDefinition> Deck);
+    IReadOnlyList<CardDefinition> Deck)
+{
+    /// <summary>
+    /// The oracle id of this player's commander, for a Commander game (CR 903.3).
+    /// </summary>
+    /// <remarks>
+    /// Null for every other format. When set, the card is taken out of the deck and put into the
+    /// command zone before the game begins (CR 903.6) rather than shuffled into the library.
+    /// </remarks>
+    public string? CommanderOracleId { get; init; }
+}
 
 /// <summary>
 /// A game in progress: its log, the state folded from it, and the actions that append to it.
@@ -87,6 +97,31 @@ public sealed class Game
         var started = new GameStarted(gameId, seats, first);
         var game = new Game(GameReducer.Replay([started]), abilities ?? NoAbilities.Instance, random);
         game._log.Add(started);
+
+        // CR 903.6: each player puts their commander from their deck face up into the command
+        // zone, before anything is shuffled — a commander shuffled into the library first is a
+        // commander that can be drawn.
+        foreach (var setup in setups)
+        {
+            if (string.IsNullOrEmpty(setup.CommanderOracleId))
+                continue;
+
+            var inLibrary = game.State.GetPlayer(setup.PlayerId).Library
+                .FirstOrDefault(id => string.Equals(
+                    game.State.GetObject(id).Card.OracleId,
+                    setup.CommanderOracleId,
+                    StringComparison.Ordinal));
+
+            if (inLibrary == default)
+            {
+                throw new InvalidOperationException(
+                    $"{setup.Name}'s commander is not in their deck.");
+            }
+
+            var inCommandZone = game.Move(inLibrary, Zone.Command, MoveCause.Other, setup.PlayerId);
+            game.Emit(new CommanderDesignated(
+                setup.PlayerId, setup.CommanderOracleId, inCommandZone));
+        }
 
         foreach (var seat in seats)
             game.Shuffle(seat.PlayerId, random);
@@ -471,7 +506,10 @@ public sealed class Game
         RequirePriority(playerId);
 
         var card = State.GetObject(cardId);
-        if (card.Zone != Zone.Hand)
+
+        // CR 903.8: a commander may also be cast from the command zone.
+        var fromCommandZone = card.Zone == Zone.Command && IsCommanderOf(playerId, card);
+        if (card.Zone != Zone.Hand && !fromCommandZone)
             throw new InvalidOperationException("A spell is cast from hand.");
 
         if (card.Card.CardTypes.HasFlag(CardType.Land))
@@ -493,11 +531,28 @@ public sealed class Game
         // CR 601.2h: the cost is paid last, and a spell whose cost cannot be paid is not cast at
         // all — the game rewinds rather than leaving it half-cast (CR 601.2i, 733).
         var cost = definition?.AlternateCost ?? ManaCostSpec.Parse(card.Card.ManaCostRaw);
+
+        // CR 903.8: {2} more for each previous cast from the command zone — the commander tax.
+        // It counts casts from that zone specifically, so a commander cast from hand after being
+        // bounced there is not taxed and does not add to the count.
+        if (fromCommandZone)
+        {
+            var taxed = State.GetPlayer(playerId).CommanderCastsFromCommandZone * 2;
+            if (taxed > 0)
+                cost = cost with { Symbols = cost.Symbols.Add(ManaSymbol.Generic0(taxed)) };
+        }
+
         PayMana(playerId, cost, variableValue);
 
         var stackId = Move(cardId, Zone.Stack, MoveCause.Cast, playerId);
         if (!chosen.IsEmpty || variableValue > 0)
             Emit(new TargetsChosen(stackId, chosen, variableValue));
+
+        if (fromCommandZone)
+        {
+            Emit(new CommanderCastFromCommandZone(
+                playerId, State.GetPlayer(playerId).CommanderCastsFromCommandZone + 1));
+        }
 
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name));
         // CR 117.3c: the caster receives priority again.
@@ -935,6 +990,38 @@ public sealed class Game
     /// <summary>What one object's characteristics currently are, after the layers (CR 613).</summary>
     public ComputedCharacteristics CharacteristicsOf(ObjectId id) =>
         Characteristics.Of(State, _abilities, State.GetObject(id));
+
+    /// <summary>
+    /// Adds mana to a player's pool (CR 106.1).
+    /// </summary>
+    /// <remarks>
+    /// Mana normally arrives from a mana ability, which goes through
+    /// <see cref="ActivateAbility"/>. This is for the effects that add it directly — a ritual,
+    /// or a triggered ability — and for a test that needs a pool without a board to make one.
+    /// </remarks>
+    public void AddMana(Guid playerId, ManaColor? color, int amount = 1)
+    {
+        if (amount <= 0)
+            return;
+
+        Emit(new ManaAdded(playerId, color, amount));
+    }
+
+    /// <summary>
+    /// Deals damage to a player (CR 119.3, 120.3).
+    /// </summary>
+    /// <remarks>
+    /// Combat damage is flagged because a great deal turns on it, including whether it counts
+    /// toward the twenty-one from a single commander (CR 903.10a).
+    /// </remarks>
+    public void MarkDamageToPlayer(
+        Guid playerId, ObjectId sourceId, int amount, bool isCombat = true)
+    {
+        if (amount <= 0)
+            return;
+
+        Emit(new PlayerDamaged(playerId, sourceId, amount, isCombat));
+    }
 
     /// <summary>Puts counters on a permanent, or takes them off with a negative delta (CR 122).</summary>
     public void ChangeCounters(ObjectId permanentId, string kind, int delta)
@@ -1755,6 +1842,40 @@ public sealed class Game
         }
     }
 
+    /// <summary>Whether this object is the given player's commander (CR 903.3).</summary>
+    /// <remarks>
+    /// Compared by oracle id, because being a commander belongs to the card and survives every
+    /// zone change (CR 903.3) while an object's identity deliberately does not (CR 400.7).
+    /// </remarks>
+    private bool IsCommanderOf(Guid playerId, GameObject obj) =>
+        State.GetPlayer(playerId).CommanderOracleId is { } oracleId
+        && string.Equals(obj.Card.OracleId, oracleId, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Records combat damage a commander dealt to a player (CR 903.10a).
+    /// </summary>
+    /// <remarks>
+    /// Twenty-one from the same commander over the whole game is a loss, so the running total is
+    /// kept per commander rather than per creature — a commander that dies and comes back is a
+    /// new object each time, and the damage still accumulates.
+    /// </remarks>
+    private void TrackCommanderDamage(PlayerDamaged damage)
+    {
+        if (!damage.IsCombat || !State.TryGetObject(damage.SourceId, out var source))
+            return;
+
+        var owner = source.OwnerId;
+        if (State.GetPlayer(owner).CommanderOracleId is not { } oracleId)
+            return;
+
+        if (!string.Equals(source.Card.OracleId, oracleId, StringComparison.Ordinal))
+            return;
+
+        var already = State.GetPlayer(damage.PlayerId).CommanderDamage.GetValueOrDefault(oracleId);
+        Emit(new CommanderDamageDealt(
+            damage.PlayerId, oracleId, damage.Amount, already + damage.Amount));
+    }
+
     /// <summary>Card types that exist on the battlefield (CR 110.4, 205.2a).</summary>
     private static bool IsPermanentCard(CardDefinition card) =>
         (card.CardTypes & (CardType.Creature | CardType.Artifact | CardType.Enchantment
@@ -1841,6 +1962,11 @@ public sealed class Game
         var before = State;
         State = GameReducer.Apply(State, e);
         _log.Add(e);
+
+        // CR 903.10a: commander damage accumulates over the whole game, so it is noted as the
+        // damage lands rather than reconstructed later from the log.
+        if (e is PlayerDamaged damaged)
+            TrackCommanderDamage(damaged);
 
         // CR 603.2: an ability triggers the moment its event happens, even mid-resolution.
         // Nothing happens yet — the trigger waits (CR 117.2a) — so this only records them.
