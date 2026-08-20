@@ -16,6 +16,7 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<ForumComment> ForumComments => Set<ForumComment>();
     public DbSet<CardPriceSnapshot> CardPriceSnapshots => Set<CardPriceSnapshot>();
     public DbSet<CollectionCardEvent> CollectionCardEvents => Set<CollectionCardEvent>();
+    public DbSet<PersistedGame> PersistedGames => Set<PersistedGame>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -189,6 +190,22 @@ public sealed class MtgEngineDbContext : DbContext
         });
 
         // CollectionCardEvent — append-only audit trail behind the card modal's History tab
+        modelBuilder.Entity<PersistedGame>(entity =>
+        {
+            entity.HasKey(e => e.GameId);
+            entity.Property(e => e.Log).IsRequired();
+            entity.Property(e => e.LastActivityUtc).IsRequired();
+
+            // The sweep asks what nobody has touched since a cutoff, over every stored game, on
+            // a timer. Without this it is a scan that reads every log on disk to answer a
+            // question about one column.
+            //
+            // On this column alone, deliberately: nothing queries by IsOver, and putting it
+            // first in a composite would make the index unusable for the one query there is —
+            // SQLite cannot seek a composite without its leading column.
+            entity.HasIndex(e => e.LastActivityUtc);
+        });
+
         modelBuilder.Entity<CollectionCardEvent>(entity =>
         {
             entity.HasKey(e => e.Id);

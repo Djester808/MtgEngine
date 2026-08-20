@@ -31,26 +31,30 @@ public sealed class GameSessionTests
         Toughness = 1,
     };
 
-    private static (GameSessionService Sessions, Guid GameId, Guid Alice, Guid Bob) Started()
+    private sealed record Table(
+        GameSessionService Sessions, InMemoryGameStore Store, Guid GameId, Guid Alice, Guid Bob);
+
+    private static async Task<Table> StartedAsync()
     {
-        var sessions = new GameSessionService(NoAbilities.Instance);
+        var store = new InMemoryGameStore();
+        var sessions = new GameSessionService(NoAbilities.Instance, store);
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
 
-        var gameId = sessions.Create(
+        var gameId = await sessions.CreateAsync(
         [
             new PlayerSetup(alice, "Alice", 20, [.. Enumerable.Range(1, 30).Select(i => Card($"A{i}"))]),
             new PlayerSetup(bob, "Bob", 20, [.. Enumerable.Range(1, 30).Select(i => Card($"B{i}"))]),
         ],
             seed: 42);
 
-        return (sessions, gameId, alice, bob);
+        return new Table(sessions, store, gameId, alice, bob);
     }
 
     [Fact]
     public async Task A_session_gives_each_player_their_own_view()
     {
-        var (sessions, gameId, alice, bob) = Started();
+        var (sessions, _, gameId, alice, bob) = await StartedAsync();
         var session = sessions.Find(gameId)!;
 
         var forAlice = await session.ReadAsync(alice);
@@ -67,7 +71,7 @@ public sealed class GameSessionTests
     {
         // The assertion that matters is about the bytes on the wire, not the record shape: a
         // future field, or a serializer that starts including private state, has to fail here.
-        var (sessions, gameId, alice, bob) = Started();
+        var (sessions, _, gameId, alice, _) = await StartedAsync();
         var session = sessions.Find(gameId)!;
 
         var json = JsonSerializer.Serialize(await session.ReadAsync(alice));
@@ -79,12 +83,12 @@ public sealed class GameSessionTests
     }
 
     [Fact]
-    public void A_player_who_is_not_seated_is_not_authorised()
+    public async Task A_player_who_is_not_seated_is_not_authorised()
     {
-        var (sessions, gameId, alice, _) = Started();
+        var (sessions, _, gameId, alice, _) = await StartedAsync();
 
-        Assert.True(sessions.IsSeated(gameId, alice));
-        Assert.False(sessions.IsSeated(gameId, Guid.NewGuid()));
+        Assert.True(await sessions.IsSeatedAsync(gameId, alice));
+        Assert.False(await sessions.IsSeatedAsync(gameId, Guid.NewGuid()));
     }
 
     [Fact]
@@ -92,7 +96,7 @@ public sealed class GameSessionTests
     {
         // One game is one critical section: Game is not thread-safe on purpose, so the session
         // is what makes it safe to share between two players' connections.
-        var (sessions, gameId, alice, bob) = Started();
+        var (sessions, _, gameId, _, _) = await StartedAsync();
         var session = sessions.Find(gameId)!;
 
         // A real game opens on the mulligan question (CR 103.5), so it is answered first —
@@ -128,7 +132,7 @@ public sealed class GameSessionTests
     [Fact]
     public async Task A_session_reports_the_log_as_readable_lines()
     {
-        var (sessions, gameId, _, _) = Started();
+        var (sessions, _, gameId, _, _) = await StartedAsync();
 
         var log = await sessions.Find(gameId)!.LogAsync();
 
@@ -137,15 +141,146 @@ public sealed class GameSessionTests
     }
 
     [Fact]
-    public void Idle_games_are_swept_and_live_ones_are_not()
+    public async Task Idle_games_are_evicted_and_live_ones_are_not()
     {
-        var (sessions, gameId, _, _) = Started();
+        var (sessions, store, gameId, _, _) = await StartedAsync();
 
         Assert.Empty(sessions.Stale(DateTimeOffset.UtcNow));
         Assert.Equal([gameId], sessions.Stale(DateTimeOffset.UtcNow + GameSessionService.Idle * 2));
 
-        Assert.True(sessions.Remove(gameId));
+        // Evicting frees the memory and nothing else. The game is still on disk, which is the
+        // difference between a player who left a tab open for four hours losing their place and
+        // losing their game.
+        Assert.True(sessions.Evict(gameId));
         Assert.Null(sessions.Find(gameId));
+        Assert.NotNull(await store.LoadAsync(gameId));
+        Assert.NotNull(await sessions.FindAsync(gameId));
+    }
+
+    [Fact]
+    public async Task A_game_survives_the_process_that_was_running_it()
+    {
+        // The point of the whole store. A second GameSessionService over the same data is what a
+        // restart is: nothing is shared but the bytes.
+        var (sessions, store, gameId, alice, bob) = await StartedAsync();
+        var before = await sessions.Find(gameId)!.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 10 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return game.State;
+        });
+
+        var restarted = new GameSessionService(NoAbilities.Instance, store);
+        var resumed = await restarted.FindAsync(gameId);
+
+        Assert.NotNull(resumed);
+        Assert.Equal(before, await resumed.MutateAsync(game => game.State));
+
+        // Including who is sitting where — seats come back off the log, so authorisation
+        // survives the restart rather than being rebuilt from somewhere else.
+        Assert.True(await restarted.IsSeatedAsync(gameId, alice));
+        Assert.True(await restarted.IsSeatedAsync(gameId, bob));
+        Assert.False(await restarted.IsSeatedAsync(gameId, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task A_resumed_game_can_be_played_on()
+    {
+        // A restored position that cannot be acted on is a screenshot, not a game.
+        var (sessions, store, gameId, _, _) = await StartedAsync();
+        await sessions.Find(gameId)!.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 10 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return true;
+        });
+
+        var resumed = await new GameSessionService(NoAbilities.Instance, store).FindAsync(gameId);
+        var passed = await resumed!.MutateAsync(game =>
+        {
+            if (game.State.Priority.Holder is not { } holder)
+                return false;
+
+            game.PassPriority(holder);
+            return true;
+        });
+
+        Assert.True(passed);
+        // And the play was stored in turn, so the next restart starts from here.
+        var stored = await store.LoadAsync(gameId);
+        Assert.Contains("PriorityPassed", stored!.Log, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Removing_a_game_takes_it_off_disk_as_well()
+    {
+        var (sessions, store, gameId, _, _) = await StartedAsync();
+
+        Assert.True(await sessions.RemoveAsync(gameId));
+
+        Assert.Null(sessions.Find(gameId));
+        Assert.Null(await store.LoadAsync(gameId));
+        Assert.Null(await sessions.FindAsync(gameId));
+    }
+
+    [Fact]
+    public async Task A_game_is_stored_before_anybody_has_played_it()
+    {
+        // Opening hands are dealt during creation, so a game that was only stored on its first
+        // action would come back from a restart with different hands than the players saw.
+        var (_, store, gameId, _, _) = await StartedAsync();
+
+        Assert.NotNull(await store.LoadAsync(gameId));
+    }
+
+    [Fact]
+    public async Task A_store_that_fails_does_not_reject_a_legal_play()
+    {
+        // The move has already happened in a game both players are watching. Throwing here would
+        // tell them a legal play was refused, and they would have no way to tell that the game
+        // they can see and the answer they got disagree.
+        var store = new BrokenStore();
+        var sessions = new GameSessionService(NoAbilities.Instance, store);
+        var alice = Guid.NewGuid();
+        var bob = Guid.NewGuid();
+
+        var gameId = await sessions.CreateAsync(
+        [
+            new PlayerSetup(alice, "Alice", 20, [.. Enumerable.Range(1, 30).Select(i => Card($"A{i}"))]),
+            new PlayerSetup(bob, "Bob", 20, [.. Enumerable.Range(1, 30).Select(i => Card($"B{i}"))]),
+        ]);
+
+        var session = sessions.Find(gameId)!;
+        var answered = await session.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 10 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return true;
+        });
+
+        Assert.True(answered);
+        // But it is not silent: the sweeper reads this on every tick and logs it, so a store
+        // that has gone away is loud rather than being a game that quietly stops being saved.
+        Assert.NotNull(session.SaveFailure);
+        Assert.Equal([gameId], sessions.NotSaving().Select(s => s.GameId));
+    }
+
+    private sealed class BrokenStore : IGameStore
+    {
+        public Task SaveAsync(StoredGameLog game, CancellationToken ct = default) =>
+            Task.FromException(new IOException("The disk is gone."));
+
+        public Task<StoredGameLog?> LoadAsync(Guid gameId, CancellationToken ct = default) =>
+            Task.FromResult<StoredGameLog?>(null);
+
+        public Task DeleteAsync(Guid gameId, CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<Guid>> ExpiredAsync(
+            DateTimeOffset before, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<Guid>>([]);
     }
 
     [Fact]

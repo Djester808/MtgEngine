@@ -37,7 +37,9 @@ public sealed class GamesController : ControllerBase
     [HttpGet("{gameId:guid}")]
     public async Task<ActionResult<GameView>> Get(Guid gameId, CancellationToken ct)
     {
-        var session = _sessions.Find(gameId);
+        // Through the store, not just memory: a refresh after a restart is the case this
+        // endpoint exists for, and it is exactly when the game is not in memory yet.
+        var session = await _sessions.FindAsync(gameId, ct).ConfigureAwait(false);
         if (session is null)
             return NotFound();
 
@@ -123,7 +125,7 @@ public sealed class GamesController : ControllerBase
     [HttpGet("{gameId:guid}/log")]
     public async Task<ActionResult<IReadOnlyList<string>>> Log(Guid gameId, CancellationToken ct)
     {
-        var session = _sessions.Find(gameId);
+        var session = await _sessions.FindAsync(gameId, ct).ConfigureAwait(false);
         if (session is null)
             return NotFound();
 

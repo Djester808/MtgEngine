@@ -68,7 +68,7 @@ public sealed class GameTableService
             },
         };
 
-        return _sessions.Create(setups);
+        return await _sessions.CreateAsync(setups, ct: ct).ConfigureAwait(false);
     }
 
     /// <summary>The caller's decks, for the lobby to offer.</summary>

@@ -186,6 +186,29 @@ public sealed record ObjectView
 
     public string? TypeLine { get; init; }
 
+    /// <summary>
+    /// Whether this is a planeswalker, so a client can offer it as something to attack
+    /// (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Sent as its own flag rather than left for the client to find in
+    /// <see cref="TypeLine"/>. That string is assembled for a person to read, and a client
+    /// searching it for the word would be making a rules judgement out of display text — which
+    /// breaks the first time the line is localised or reworded.
+    /// </remarks>
+    public bool IsPlaneswalker { get; init; }
+
+    /// <summary>
+    /// Whether this is a creature, and so something that could be declared as an attacker or
+    /// blocker (CR 508.1a).
+    /// </summary>
+    /// <remarks>
+    /// Not a claim that it <em>can</em> attack — that is a question about tapped status,
+    /// summoning sickness and any restriction on the card (CR 508.1a), which the engine answers
+    /// when the declaration arrives. This is only enough for a client to stop offering a land.
+    /// </remarks>
+    public bool IsCreature { get; init; }
+
     public int? PrintedPower { get; init; }
 
     public int? PrintedToughness { get; init; }

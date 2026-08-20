@@ -130,6 +130,8 @@ public static class PlayerViewProjector
             ControllerId = obj.ControllerId,
             ManaCost = string.IsNullOrEmpty(card.ManaCostRaw) ? null : card.ManaCostRaw,
             TypeLine = TypeLine(card.Supertypes, card.CardTypes, card.Subtypes),
+            IsPlaneswalker = card.CardTypes.HasFlag(CardType.Planeswalker),
+            IsCreature = card.CardTypes.HasFlag(CardType.Creature),
             PrintedPower = card.Power,
             PrintedToughness = card.Toughness,
             IsTapped = obj.Permanent?.IsTapped,

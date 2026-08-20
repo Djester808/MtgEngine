@@ -65,6 +65,37 @@ public sealed class Game
     public IReadOnlyList<GameEvent> Log => _log;
 
     /// <summary>
+    /// Rebuilds a game in progress from its log.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole of loading a saved game. State is a fold of the log, so replaying the
+    /// events <em>is</em> restoring the position — there is nothing else to restore, and no way
+    /// for the rebuilt game to be in a state the engine could not have reached.
+    /// <para>
+    /// The randomness is new. It is not a fresh <em>game</em> — the log has every shuffle's
+    /// resulting order written into it, so replaying reproduces the board exactly — but the
+    /// sequence a resumed game draws from afterwards should not repeat the one it drew from
+    /// before, which is what continuing from the original seed would do.
+    /// </para>
+    /// </remarks>
+    /// <param name="log">The events, in order, as they were emitted.</param>
+    public static Game Resume(
+        IReadOnlyList<GameEvent> log,
+        GameRandom random,
+        IAbilitySource? abilities = null)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+        ArgumentNullException.ThrowIfNull(random);
+
+        if (log.Count == 0 || log[0] is not GameStarted)
+            throw new ArgumentException("A game log starts with the game starting.", nameof(log));
+
+        var game = new Game(GameReducer.Replay(log), abilities ?? NoAbilities.Instance, random);
+        game._log.AddRange(log);
+        return game;
+    }
+
+    /// <summary>
     /// Seats the players, turns each deck into a library (CR 401.1), and shuffles them
     /// (CR 103.2). Opening hands are not drawn here — that is part of the mulligan procedure
     /// (CR 103.5), which needs the priority machinery slice 2 brings.

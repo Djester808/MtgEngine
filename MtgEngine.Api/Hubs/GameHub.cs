@@ -52,7 +52,7 @@ public sealed class GameHub : Hub
     /// <summary>Joins a game the caller is seated at, and receives their view.</summary>
     public async Task Join(Guid gameId)
     {
-        var session = Require(gameId);
+        var session = await RequireAsync(gameId).ConfigureAwait(false);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, Group(gameId)).ConfigureAwait(false);
         await SendViewAsync(session, PlayerId).ConfigureAwait(false);
@@ -116,9 +116,9 @@ public sealed class GameHub : Hub
 
     // ---- Plumbing --------------------------------------------------------------------------
 
-    private GameSession Require(Guid gameId)
+    private async Task<GameSession> RequireAsync(Guid gameId)
     {
-        var session = _sessions.Find(gameId)
+        var session = await _sessions.FindAsync(gameId, Context.ConnectionAborted).ConfigureAwait(false)
             ?? throw new HubException("That game is not running.");
 
         // Seat membership is the authorisation. Being signed in is not enough to act at a table
@@ -138,7 +138,7 @@ public sealed class GameHub : Hub
     /// </remarks>
     private async Task ActAsync(Guid gameId, Action<Rules.Engine.Game, Guid> action)
     {
-        var session = Require(gameId);
+        var session = await RequireAsync(gameId).ConfigureAwait(false);
         var me = PlayerId;
 
         try

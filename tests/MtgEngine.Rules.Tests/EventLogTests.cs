@@ -1,3 +1,4 @@
+using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -98,6 +99,100 @@ public sealed class EventLogTests
         Assert.Equal(10, game.State.GetPlayer(bob).Library.Count);
         // CR 103.5: opening hands are part of the mulligan procedure, which needs priority.
         Assert.Empty(game.State.GetPlayer(alice).Hand);
+    }
+
+    [Fact]
+    public void Every_event_type_is_registered_for_storage()
+    {
+        // The negative control for persistence. An event that is not registered cannot be
+        // written, so a game containing it becomes unsavable — and the failure would show up as
+        // a lost game rather than as a build error. Adding an event without registering it
+        // fails here instead.
+        var declared = typeof(GameEvent).Assembly
+            .GetTypes()
+            .Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract)
+            .ToList();
+
+        var missing = declared
+            .Where(t => !EventLogSerializer.KnownEvents.Values.Contains(t))
+            .Select(t => t.Name)
+            .ToList();
+
+        Assert.True(missing.Count == 0, "Unregistered events: " + string.Join(", ", missing));
+        Assert.Equal(declared.Count, EventLogSerializer.KnownEvents.Count);
+    }
+
+    [Fact]
+    public void A_stored_log_replays_to_the_same_game()
+    {
+        // This is what persistence is. The log is the game, so storing a game is storing its
+        // events — there is no schema for state to design and no way for a stored game to
+        // disagree with the engine that wrote it.
+        var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        game.PlayLand(alice, TestCards.PutInHand(game, alice, TestCards.BasicLand()));
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, TestCards.Creature("Ox")));
+        game.PassPriority(alice);
+        game.PassPriority(bob);
+        TestCards.PassToTurn(game, 3);
+
+        var stored = EventLogSerializer.Write(game.Log);
+        var reloaded = GameReducer.Replay(EventLogSerializer.Read(stored));
+
+        Assert.Equal(game.State, reloaded);
+    }
+
+    [Fact]
+    public void A_reloaded_card_keeps_the_characteristics_the_engine_reads()
+    {
+        // The negative control for the card table. GameObject equality compares cards by oracle
+        // id, so the round-trip test above would still pass if the table had dropped power,
+        // toughness or keywords — and the game would then play differently on reload, which is
+        // the one thing persistence must not do.
+        var (game, alice, _) = TestCards.TwoPlayer(deckSize: 40);
+        game.BeginPlay(withMulligans: false);
+        var flier = game.Create(
+            alice, TestCards.WithKeyword("Drake", KeywordAbility.Flying, 2, 3), Zone.Battlefield);
+
+        var reloaded = GameReducer.Replay(
+            EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
+        var card = reloaded.GetObject(flier).Card;
+
+        Assert.Equal("Drake", card.Name);
+        Assert.Equal(2, card.Power);
+        Assert.Equal(3, card.Toughness);
+        Assert.True(card.HasKeyword(KeywordAbility.Flying));
+        Assert.Equal(CardType.Creature, card.CardTypes);
+    }
+
+    [Fact]
+    public void A_game_log_does_not_record_what_a_card_was_worth()
+    {
+        // A price is not part of a game. Storing one in a game log records something that
+        // changes without the game changing, and puts a card's market value in a document whose
+        // reason to exist is replaying a match.
+        var (game, alice, _) = TestCards.TwoPlayer(deckSize: 40);
+        game.BeginPlay(withMulligans: false);
+        game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        var stored = EventLogSerializer.Write(game.Log);
+
+        Assert.DoesNotContain("Prices", stored, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ImageUri", stored, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Legalities", stored, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_log_with_an_event_this_build_cannot_read_is_refused()
+    {
+        // Dropping the line would produce a game that folds to a subtly different position,
+        // which is worse than refusing to load it.
+        var (game, _, _) = TestCards.TwoPlayer();
+        var stored = EventLogSerializer.Write(game.Log)
+            .Replace("\"LibraryShuffled\"", "\"SomethingFromTheFuture\"", StringComparison.Ordinal);
+
+        Assert.ThrowsAny<Exception>(() => EventLogSerializer.Read(stored));
     }
 
     [Fact]
