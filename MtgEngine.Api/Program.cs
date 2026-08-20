@@ -157,6 +157,7 @@ builder.Services.AddSingleton<CardPool>();
 builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<CardPool>());
 builder.Services.AddSingleton<GameSessionService>();
 builder.Services.AddScoped<GameTableService>();
+builder.Services.AddSingleton<GameInviteService>();
 builder.Services.AddHostedService<IdleGameSweeper>();
 builder.Services.AddSignalR();
 

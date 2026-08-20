@@ -95,6 +95,16 @@ public sealed class GameHub : Hub
     public Task Discard(Guid gameId, Guid cardId) =>
         ActAsync(gameId, (game, me) => game.Discard(me, new ObjectId(cardId)));
 
+    /// <summary>
+    /// Answers the decision the game is waiting on (CR 103.5, 603.3b, 616.1, 704.5j).
+    /// </summary>
+    /// <remarks>
+    /// The engine checks that the caller is the player being asked; the hub only has to say who
+    /// is calling, which it takes from the token rather than the message.
+    /// </remarks>
+    public Task Choose(Guid gameId, IReadOnlyList<string> picks) =>
+        ActAsync(gameId, (game, me) => game.Choose(me, picks ?? []));
+
     // ---- Plumbing --------------------------------------------------------------------------
 
     private GameSession Require(Guid gameId)

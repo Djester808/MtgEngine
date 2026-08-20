@@ -121,6 +121,55 @@ public sealed class HiddenInformationTests
         Assert.False(shown.IsTapped);
     }
 
+    [Fact]
+    public void Everyone_is_told_the_game_is_waiting_and_on_whom()
+    {
+        // A board that simply stops with no explanation is the worst thing a client can show,
+        // so the fact of the question and who owns it are public.
+        var (game, alice, bob) = TestCards.TwoPlayer();
+        game.BeginPlay();
+
+        var theirs = game.ViewFor(bob).Choice;
+        Assert.NotNull(theirs);
+        Assert.Equal(alice, theirs.PlayerId);
+        Assert.Equal("Mulligan", theirs.Kind);
+    }
+
+    [Fact]
+    public void Only_the_player_being_asked_sees_the_options()
+    {
+        // The options can be hidden information: bottoming after a mulligan lists that player's
+        // hand, so sending it to the table would hand the opponent seven cards.
+        var (game, alice, bob) = TestCards.TwoPlayer();
+        game.BeginPlay();
+        game.Choose(alice, ["mulligan"]);
+        game.Choose(bob, ["keep"]);
+        game.Choose(alice, ["keep"]);
+
+        var mine = game.ViewFor(alice).Choice;
+        var theirs = game.ViewFor(bob).Choice;
+
+        Assert.Equal("BottomAfterMulligan", mine!.Kind);
+        Assert.NotNull(mine.Options);
+        Assert.Equal(7, mine.Options.Count);
+        Assert.Null(theirs!.Options);
+    }
+
+    [Fact]
+    public void The_serialised_view_of_a_bottoming_choice_names_no_card_to_the_opponent()
+    {
+        var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 12);
+        game.BeginPlay();
+        game.Choose(alice, ["mulligan"]);
+        game.Choose(bob, ["keep"]);
+        game.Choose(alice, ["keep"]);
+
+        var json = JsonSerializer.Serialize(game.ViewFor(bob));
+
+        foreach (var id in game.State.GetPlayer(alice).Hand)
+            Assert.DoesNotContain(game.State.GetObject(id).Card.Name, json, StringComparison.Ordinal);
+    }
+
     private static IEnumerable<string> PropertyNames(Type type) =>
         type.GetProperties().Select(p => p.Name);
 }

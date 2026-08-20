@@ -36,22 +36,45 @@ public sealed class GameTableService
     }
 
     /// <summary>Starts a game, or explains why these decks cannot play one.</summary>
+    /// <remarks>
+    /// Each deck is loaded against its own owner, so a caller cannot start a game with somebody
+    /// else's deck by naming its id.
+    /// </remarks>
     public async Task<Guid> StartAsync(
-        Guid userId, CreateGameRequest request, CancellationToken ct = default)
+        Guid firstUserId,
+        Guid firstDeckId,
+        Guid secondUserId,
+        Guid secondDeckId,
+        int startingLife,
+        CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var mine = await LoadAsync(request.DeckId, userId, ct).ConfigureAwait(false);
-        var theirs = await LoadAsync(request.OpponentDeckId, request.OpponentUserId, ct)
-            .ConfigureAwait(false);
+        var first = await LoadAsync(firstDeckId, firstUserId, ct).ConfigureAwait(false);
+        var second = await LoadAsync(secondDeckId, secondUserId, ct).ConfigureAwait(false);
 
         var setups = new List<PlayerSetup>
         {
-            new(userId, mine.Name, request.StartingLife, mine.Cards),
-            new(request.OpponentUserId, theirs.Name, request.StartingLife, theirs.Cards),
+            new(firstUserId, first.Name, startingLife, first.Cards),
+            new(secondUserId, second.Name, startingLife, second.Cards),
         };
 
         return _sessions.Create(setups);
+    }
+
+    /// <summary>The caller's decks, for the lobby to offer.</summary>
+    public async Task<PlayableDeckDto[]> PlayableDecksAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var decks = await _db.Collections
+            .AsNoTracking()
+            .Where(c => c.IsDeck && c.UserId == userId.ToString())
+            .Select(c => new PlayableDeckDto(
+                c.Id,
+                c.Name,
+                c.Cards.Where(card => card.Board == "main").Sum(card => card.Quantity + card.QuantityFoil)))
+            .ToArrayAsync(ct)
+            .ConfigureAwait(false);
+
+        return decks;
     }
 
     /// <summary>

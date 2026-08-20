@@ -27,6 +27,24 @@ public sealed record GameView
 
     public required Guid ActivePlayerId { get; init; }
 
+    /// <summary>
+    /// Where in the turn the game is (CR 500.1), as the step's name.
+    /// </summary>
+    /// <remarks>
+    /// A client needs this to know when to offer an attack: declaring attackers is a turn-based
+    /// action that happens before anyone has priority (CR 508.1), so "is it my turn and do I
+    /// have priority" does not identify the moment.
+    /// </remarks>
+    public required string CurrentStep { get; init; }
+
+    /// <summary>Attacking creature to the player it is attacking (CR 508.1b).</summary>
+    public ImmutableDictionary<Guid, Guid> Attackers { get; init; } =
+        ImmutableDictionary<Guid, Guid>.Empty;
+
+    /// <summary>Each attacker and the creatures blocking it (CR 509.1g).</summary>
+    public ImmutableDictionary<Guid, ImmutableList<Guid>> Blockers { get; init; } =
+        ImmutableDictionary<Guid, ImmutableList<Guid>>.Empty;
+
     /// <summary>In seating order, so the client can lay the table out consistently (CR 103.5).</summary>
     public ImmutableList<PlayerView> Players { get; init; } = [];
 
@@ -41,7 +59,43 @@ public sealed record GameView
 
     /// <summary>Public zone (CR 400.2).</summary>
     public ImmutableList<ObjectView> Command { get; init; } = [];
+
+    /// <summary>
+    /// The decision the game is waiting on, or null.
+    /// </summary>
+    /// <remarks>
+    /// Every player is told the game is waiting and on whom — a board that simply stops with no
+    /// explanation is the worst thing a client can show. Only the player being asked is sent the
+    /// options, because those can be hidden information: the list of cards to put on the bottom
+    /// after a mulligan is that player's hand.
+    /// </remarks>
+    public ChoiceView? Choice { get; init; }
 }
+
+/// <summary>A decision the game is waiting on, as one player may see it.</summary>
+public sealed record ChoiceView
+{
+    public required string Id { get; init; }
+
+    /// <summary>Who has to answer. Everyone is told this much.</summary>
+    public required Guid PlayerId { get; init; }
+
+    public required string Kind { get; init; }
+
+    public required string Prompt { get; init; }
+
+    public int MinPicks { get; init; }
+
+    public int MaxPicks { get; init; }
+
+    /// <summary>True when the order of the picks is the answer (CR 603.3b, 616.1).</summary>
+    public bool IsOrdering { get; init; }
+
+    /// <summary>Populated only for the player being asked; null for everyone else.</summary>
+    public ImmutableList<ChoiceOptionView>? Options { get; init; }
+}
+
+public sealed record ChoiceOptionView(string Id, string Label);
 
 /// <summary>One player as the viewer sees them.</summary>
 public sealed record PlayerView

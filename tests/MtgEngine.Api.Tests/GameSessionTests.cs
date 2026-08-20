@@ -95,6 +95,16 @@ public sealed class GameSessionTests
         var (sessions, gameId, alice, bob) = Started();
         var session = sessions.Find(gameId)!;
 
+        // A real game opens on the mulligan question (CR 103.5), so it is answered first —
+        // through the same MutateAsync path a player's answer would take.
+        await session.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 10 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return true;
+        });
+
         var passes = 0;
         await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(async () =>
             await session.MutateAsync(game =>

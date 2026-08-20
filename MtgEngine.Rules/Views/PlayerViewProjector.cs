@@ -28,11 +28,41 @@ public static class PlayerViewProjector
             Viewer = viewer,
             TurnNumber = state.TurnNumber,
             ActivePlayerId = state.ActivePlayerId,
+            CurrentStep = state.CurrentStep.ToString(),
+            // Combat is public: who is attacking and who is blocking is visible to everyone at
+            // the table (CR 506.1 happens in the open).
+            Attackers = state.Combat.Attackers.ToImmutableDictionary(
+                kv => kv.Key.Value, kv => kv.Value),
+            Blockers = state.Combat.Blockers.ToImmutableDictionary(
+                kv => kv.Key.Value, kv => kv.Value.Select(b => b.Value).ToImmutableList()),
             Players = [.. state.TurnOrder.Select(id => ProjectPlayer(state, id, viewer))],
             Battlefield = ProjectZone(state, state.Battlefield),
             Stack = ProjectZone(state, state.Stack),
             Exile = ProjectZone(state, state.Exile),
             Command = ProjectZone(state, state.Command),
+            Choice = ProjectChoice(state, viewer),
+        };
+    }
+
+    private static ChoiceView? ProjectChoice(GameState state, Guid viewer)
+    {
+        if (state.Choice is not { } choice)
+            return null;
+
+        return new ChoiceView
+        {
+            Id = choice.Id,
+            PlayerId = choice.PlayerId,
+            Kind = choice.Kind.ToString(),
+            Prompt = choice.Prompt,
+            MinPicks = choice.MinPicks,
+            MaxPicks = choice.MaxPicks,
+            IsOrdering = choice.IsOrdering,
+            // The options can be hidden information — bottoming after a mulligan lists the
+            // asked player's hand — so only they are sent them.
+            Options = choice.PlayerId == viewer
+                ? [.. choice.Options.Select(o => new ChoiceOptionView(o.Id, o.Label))]
+                : null,
         };
     }
 
