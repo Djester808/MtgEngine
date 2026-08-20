@@ -43,6 +43,20 @@ public sealed record GameView
     public ImmutableDictionary<Guid, AttackTargetView> Attackers { get; init; } =
         ImmutableDictionary<Guid, AttackTargetView>.Empty;
 
+    /// <summary>
+    /// Whether attackers have been declared for this combat (CR 508.1).
+    /// </summary>
+    /// <remarks>
+    /// Not derivable from <see cref="Attackers"/>: declaring no attackers is a declaration, and
+    /// leaves that dictionary as empty as never having declared at all. A client without this
+    /// cannot tell the two apart, and the board that guessed showed its attack button for the
+    /// whole step — with no way to pass, because it believed the declaration was still to come.
+    /// </remarks>
+    public bool AttackersDeclared { get; init; }
+
+    /// <summary>Whether blockers have been declared for this combat (CR 509.1).</summary>
+    public bool BlockersDeclared { get; init; }
+
     /// <summary>Each attacker and the creatures blocking it (CR 509.1g).</summary>
     public ImmutableDictionary<Guid, ImmutableList<Guid>> Blockers { get; init; } =
         ImmutableDictionary<Guid, ImmutableList<Guid>>.Empty;

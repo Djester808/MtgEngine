@@ -31,6 +31,8 @@ public static class PlayerViewProjector
             CurrentStep = state.CurrentStep.ToString(),
             // Combat is public: who is attacking and who is blocking is visible to everyone at
             // the table (CR 506.1 happens in the open).
+            AttackersDeclared = state.Combat.AttackersDeclared,
+            BlockersDeclared = state.Combat.BlockersDeclared,
             Attackers = state.Combat.Attackers.ToImmutableDictionary(
                 kv => kv.Key.Value,
                 kv => new AttackTargetView(

@@ -209,6 +209,27 @@ public sealed class PlaneswalkerTests
     }
 
     [Fact]
+    public void The_view_says_whether_attackers_have_been_declared()
+    {
+        // Not derivable from the attacker list: declaring no attackers is a declaration, and
+        // leaves that list as empty as never having declared. A client that had to guess showed
+        // its attack button for the whole step and hid Pass behind it, so the player was left
+        // holding priority (CR 508.2) with nothing to press.
+        var (game, alice, bob) = BeforeCombat();
+        game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        Ready(game);
+
+        Assert.False(game.ViewFor(alice).AttackersDeclared);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>());
+
+        // Declared nothing, and it still counts as declared.
+        Assert.True(game.ViewFor(alice).AttackersDeclared);
+        Assert.Empty(game.ViewFor(alice).Attackers);
+        Assert.True(game.ViewFor(bob).AttackersDeclared);
+    }
+
+    [Fact]
     public void A_game_with_a_planeswalker_still_replays()
     {
         var (game, alice, bob) = BeforeCombat();
