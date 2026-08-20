@@ -91,6 +91,19 @@ public sealed record ChoiceView
     /// <summary>True when the order of the picks is the answer (CR 603.3b, 616.1).</summary>
     public bool IsOrdering { get; init; }
 
+    /// <summary>
+    /// True when the answer is an amount per option rather than a selection (CR 510.1c).
+    /// </summary>
+    /// <remarks>
+    /// A division is answered by picking an option once per point, so the same option repeats —
+    /// which is a mistake everywhere else and the whole mechanism here. A client that did not
+    /// know the difference would stop the player after one pick.
+    /// </remarks>
+    public bool IsDivision { get; init; }
+
+    /// <summary>How much is being divided, for a division.</summary>
+    public int TotalToDivide { get; init; }
+
     /// <summary>Populated only for the player being asked; null for everyone else.</summary>
     public ImmutableList<ChoiceOptionView>? Options { get; init; }
 }

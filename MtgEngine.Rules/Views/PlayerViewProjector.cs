@@ -77,6 +77,8 @@ public static class PlayerViewProjector
             MinPicks = choice.MinPicks,
             MaxPicks = choice.MaxPicks,
             IsOrdering = choice.IsOrdering,
+            IsDivision = choice.IsDivision,
+            TotalToDivide = choice.TotalToDivide,
             // The options can be hidden information — bottoming after a mulligan lists the
             // asked player's hand — so only they are sent them.
             Options = choice.PlayerId == viewer
