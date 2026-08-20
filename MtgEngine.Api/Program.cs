@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MtgEngine.Api.Data;
+using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
+using MtgEngine.Rules.Abilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -144,6 +146,16 @@ builder.Services.AddHttpClient("DeckImport", client =>
 builder.Services.AddScoped<DeckImportService>();
 builder.Services.AddScoped<CommanderDeckSeeder>();
 
+// ---- The game ---------------------------------------------
+// One session service for the process: games live in memory, keyed by id, each with its own
+// lock. The card pool is empty until slice 8 fills it, and a deck containing anything the
+// engine does not implement is refused rather than played wrong.
+builder.Services.AddSingleton<IAbilitySource>(_ => NoAbilities.Instance);
+builder.Services.AddSingleton<GameSessionService>();
+builder.Services.AddScoped<GameTableService>();
+builder.Services.AddHostedService<IdleGameSweeper>();
+builder.Services.AddSignalR();
+
 // ---- Auth ------------------------------------------------
 builder.Services.AddScoped<TokenService>();
 
@@ -161,6 +173,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             // Pin the algorithm: without this, any signature scheme the key can satisfy
             // is accepted, which is more surface than a symmetric-key setup needs.
             ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+        };
+
+        // A browser cannot set an Authorization header on a WebSocket handshake, so SignalR
+        // sends the token as a query parameter instead. Accepted only for the hub path, so a
+        // token cannot arrive in a URL — and therefore in access logs and referrers — anywhere
+        // else in the API.
+        opts.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token)
+                    && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs/game"))
+                {
+                    ctx.Token = token;
+                }
+
+                return Task.CompletedTask;
+            },
         };
     });
 
@@ -244,5 +275,6 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<GameHub>("/hubs/game");
 
 app.Run();
