@@ -338,6 +338,32 @@ public sealed class Game
         Emit(new DamageMarked(permanentId, amount, fromDeathtouch));
     }
 
+    /// <summary>
+    /// Creates a continuous effect from a resolved spell or ability (CR 611.2, 613.7b).
+    /// </summary>
+    /// <param name="untilEndOfTurn">
+    /// True for the common duration, which ends during cleanup (CR 514.2) — not at the start of
+    /// the end step, a difference that decides whether a pumped creature survives combat.
+    /// </param>
+    public Guid CreateContinuousEffect(
+        string definitionId,
+        IReadOnlyList<ObjectId> affected,
+        bool untilEndOfTurn = true)
+    {
+        var id = Guid.NewGuid();
+        Emit(new ContinuousEffectCreated(
+            id,
+            definitionId,
+            [.. affected],
+            untilEndOfTurn ? State.TurnNumber : null));
+
+        return id;
+    }
+
+    /// <summary>What one object's characteristics currently are, after the layers (CR 613).</summary>
+    public ComputedCharacteristics CharacteristicsOf(ObjectId id) =>
+        Characteristics.Of(State, _abilities, State.GetObject(id));
+
     /// <summary>Puts counters on a permanent, or takes them off with a negative delta (CR 122).</summary>
     public void ChangeCounters(ObjectId permanentId, string kind, int delta)
     {
@@ -394,7 +420,7 @@ public sealed class Game
             if (State.IsOver)
                 return didSomething;
 
-            var actions = StateBasedActions.Check(State);
+            var actions = StateBasedActions.Check(State, _abilities);
             if (actions.Count > 0)
             {
                 // CR 704.3: performed simultaneously as a single event, then check again.
@@ -516,6 +542,45 @@ public sealed class Game
 
     private readonly List<AbilityTriggered> _triggersFound = [];
 
+    /// <summary>Replacement effects that apply to this event, at most one per event (CR 614.5).</summary>
+    /// <remarks>
+    /// Returns at most one, because applying one produces new events that go through this again —
+    /// which is how CR 614.5 works: each replacement effect applies only once to a given event,
+    /// and the result is re-examined for others.
+    /// <para>
+    /// When several apply at once, the affected player chooses the order (CR 616.1). Until there
+    /// is a way to ask them, this takes them in timestamp order and says so rather than pretending
+    /// the question does not arise.
+    /// </para>
+    /// </remarks>
+    private IEnumerable<(string Id, GameObject Source, Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>> Replace)> Replacements(
+        GameEvent e, HashSet<(ObjectId, string)> applied)
+    {
+        if (e is EventReplaced)
+            yield break;
+
+        // Every object, not only the battlefield: "as this enters" functions from the stack
+        // while the card is still a spell (CR 614.6, 614.1c), and that is the commonest
+        // replacement effect there is. FunctionsFrom is what decides, so it has to be asked.
+        foreach (var (id, source) in State.Objects)
+        {
+            foreach (var effect in _abilities.ReplacementsOf(source.Card))
+            {
+                if (applied.Contains((id, effect.Id)))
+                    continue;
+
+                if (source.Zone != effect.FunctionsFrom || !effect.Applies(e, State, source))
+                    continue;
+
+                applied.Add((id, effect.Id));
+                yield return (effect.Id, source, effect.Replace);
+                yield break;
+            }
+        }
+    }
+
+
+
     private void BeginTurn()
     {
         var next = State.HasBegun
@@ -571,7 +636,16 @@ public sealed class Game
 
             case TurnStep.Cleanup:
                 Emit(new PriorityWithdrawn());
+                // CR 514.2: damage is removed and "until end of turn" effects end, at the same
+                // time, as a turn-based action.
                 Emit(new DamageCleared());
+                foreach (var expiring in State.FloatingEffects
+                    .Where(f => f.UntilEndOfTurn is not null && f.UntilEndOfTurn <= State.TurnNumber)
+                    .ToList())
+                {
+                    Emit(new ContinuousEffectEnded(expiring.Id));
+                }
+
                 if (PendingDiscards.Count == 0)
                     FinishCleanup();
                 return;
@@ -668,8 +742,26 @@ public sealed class Game
     /// <summary>What the given player may see (CR 400.2).</summary>
     public GameView ViewFor(Guid playerId) => PlayerViewProjector.Project(State, playerId);
 
-    private void Emit(GameEvent e)
+    private void Emit(GameEvent e) => Emit(e, []);
+
+    /// <param name="applied">
+    /// Replacement effects already used on this event. CR 614.5: each applies only once to a
+    /// given event, and that carries down to whatever replaced it — otherwise an effect that
+    /// replaces damage with damage would replace its own output forever.
+    /// </param>
+    private void Emit(GameEvent e, HashSet<(ObjectId, string)> applied)
     {
+        foreach (var replacement in Replacements(e, applied))
+        {
+            // CR 614.1: the event never happens. What happens instead is emitted in its place,
+            // and because the original did not occur, nothing triggers off it (CR 603.2g).
+            _log.Add(new EventReplaced(replacement.Id, e.Describe()));
+            foreach (var instead in replacement.Replace(e, State, replacement.Source))
+                Emit(instead, applied);
+
+            return;
+        }
+
         var before = State;
         State = GameReducer.Apply(State, e);
         _log.Add(e);

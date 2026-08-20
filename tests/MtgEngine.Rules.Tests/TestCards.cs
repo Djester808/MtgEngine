@@ -95,6 +95,55 @@ internal static class TestCards
         Toughness = 3,
     };
 
+    /// <summary>A creature whose static ability the layer tests hang a lord effect on.</summary>
+    public static CardDefinition Lord(string name = "Lord") => new()
+    {
+        OracleId = "oracle-lord-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = "{2}{G}",
+        Cmc = 3,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Elf"],
+        OracleText = "Other creatures you control get +1/+1.",
+        Power = 2,
+        Toughness = 2,
+    };
+
+    /// <summary>A noncreature permanent whose static ability pumps, for layer ordering.</summary>
+    public static CardDefinition Anthem(string name = "Anthem") => new()
+    {
+        OracleId = "oracle-anthem-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = "{1}{W}",
+        Cmc = 2,
+        CardTypes = CardType.Enchantment,
+        OracleText = "Creatures you control get +0/+2.",
+    };
+
+    /// <summary>A permanent the replacement-effect tests hang an effect on.</summary>
+    public static CardDefinition Shield(string name = "Shield") => new()
+    {
+        OracleId = "oracle-shield-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = "{1}{W}",
+        Cmc = 2,
+        CardTypes = CardType.Enchantment,
+    };
+
+    /// <summary>A creature that enters with counters, for CR 614.1c.</summary>
+    public static CardDefinition Grower(string name = "Grower") => new()
+    {
+        OracleId = "oracle-grower-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = "{1}{G}",
+        Cmc = 2,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Beast"],
+        OracleText = "This creature enters with two +1/+1 counters on it.",
+        Power = 1,
+        Toughness = 1,
+    };
+
     /// <summary>An instant, for timing and stack tests.</summary>
     public static CardDefinition Instant(string name = "Shock") => new()
     {

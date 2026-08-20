@@ -79,6 +79,12 @@ public static class GameReducer
             ObjectCreated created => Create(state, created),
             PlayerLost lost => Lose(state, lost),
             GameEnded ended => state with { IsOver = true, WinnerId = ended.WinnerId },
+            ContinuousEffectCreated created => CreateEffect(state, created),
+            ContinuousEffectEnded ended2 => state with
+            {
+                FloatingEffects = state.FloatingEffects.RemoveAll(f => f.Id == ended2.EffectId),
+            },
+            EventReplaced => state,
             DamageMarked damage => MarkDamage(state, damage),
             CountersChanged counters => ChangeCounters(state, counters),
             ObjectCeasedToExist gone => CeaseToExist(state, gone),
@@ -205,6 +211,23 @@ public static class GameReducer
     {
         var player = state.GetPlayer(e.PlayerId);
         return state.WithPlayer(player with { HasAttemptedDrawFromEmptyLibrary = true });
+    }
+
+    private static GameState CreateEffect(GameState state, ContinuousEffectCreated e)
+    {
+        var (withTimestamp, timestamp) = state.TakeTimestamp();
+
+        return withTimestamp with
+        {
+            FloatingEffects = withTimestamp.FloatingEffects.Add(new FloatingEffect
+            {
+                Id = e.EffectId,
+                DefinitionId = e.DefinitionId,
+                AffectedIds = e.AffectedIds,
+                Timestamp = timestamp,
+                UntilEndOfTurn = e.UntilEndOfTurn,
+            }),
+        };
     }
 
     private static GameState Lose(GameState state, PlayerLost e)

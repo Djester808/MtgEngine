@@ -1,3 +1,4 @@
+using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -94,7 +95,7 @@ public sealed class StateBasedActionTests
         // check, not the source of the counters.
         var poisoned = game.State.WithPlayer(player with { PoisonCounters = 10 });
 
-        var actions = StateBasedActions.Check(poisoned);
+        var actions = StateBasedActions.Check(poisoned, NoAbilities.Instance);
 
         Assert.Contains(actions, e => e is PlayerLost { LosingRule: "704.5c" });
     }
@@ -278,6 +279,6 @@ public sealed class StateBasedActionTests
     {
         var (game, _, _) = InMainPhase();
 
-        Assert.Empty(StateBasedActions.Check(game.State));
+        Assert.Empty(StateBasedActions.Check(game.State, NoAbilities.Instance));
     }
 }

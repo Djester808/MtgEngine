@@ -72,3 +72,43 @@ public sealed record PendingTrigger
     /// </summary>
     public required Guid ControllerId { get; init; }
 }
+
+/// <summary>
+/// A continuous effect created by a resolved spell or ability (CR 611.2, 613.7b).
+/// </summary>
+/// <remarks>
+/// Unlike a static ability's effect, this one outlives whatever made it — "target creature gets
+/// +3/+3 until end of turn" keeps applying after the spell is in the graveyard — so it has to be
+/// recorded. What is recorded is only which effect, on what, since when, and until when; what it
+/// actually does is looked up from <see cref="Abilities.IAbilitySource"/>, because a delegate
+/// cannot be folded from a log or compared by value.
+/// </remarks>
+public sealed record FloatingEffect
+{
+    public required Guid Id { get; init; }
+
+    /// <summary>Names the definition to look up.</summary>
+    public required string DefinitionId { get; init; }
+
+    /// <summary>What it applies to. Fixed when the effect was created (CR 611.2c).</summary>
+    public required ImmutableList<ObjectId> AffectedIds { get; init; }
+
+    /// <summary>Its place in layer order (CR 613.7b).</summary>
+    public required long Timestamp { get; init; }
+
+    /// <summary>
+    /// The turn it expires at the end of, or null for an effect with no duration.
+    /// </summary>
+    public int? UntilEndOfTurn { get; init; }
+
+    public bool Equals(FloatingEffect? other) =>
+        other is not null &&
+        Id == other.Id &&
+        string.Equals(DefinitionId, other.DefinitionId, StringComparison.Ordinal) &&
+        Timestamp == other.Timestamp &&
+        UntilEndOfTurn == other.UntilEndOfTurn &&
+        Structural.Same(AffectedIds, other.AffectedIds);
+
+    public override int GetHashCode() =>
+        HashCode.Combine(Id, DefinitionId, Timestamp, UntilEndOfTurn, AffectedIds.Count);
+}

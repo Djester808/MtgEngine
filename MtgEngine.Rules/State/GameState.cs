@@ -74,6 +74,15 @@ public sealed record GameState
     public ImmutableList<PendingTrigger> PendingTriggers { get; init; } = [];
 
     /// <summary>
+    /// Continuous effects created by resolved spells and abilities (CR 611.2, 613.7b).
+    /// </summary>
+    /// <remarks>
+    /// Static abilities are deliberately absent: their effects are recomputed from the
+    /// battlefield every time, so that one leaving takes its effect with it.
+    /// </remarks>
+    public ImmutableList<FloatingEffect> FloatingEffects { get; init; } = [];
+
+    /// <summary>
     /// Set once the game has been dealt and the first turn has begun. Until then there is no
     /// turn and no priority, only seats and libraries.
     /// </summary>
@@ -199,6 +208,7 @@ public sealed record GameState
         Structural.Same(Command, other.Command) &&
         Structural.Same(Players, other.Players) &&
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
+        Structural.Same(FloatingEffects, other.FloatingEffects) &&
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>

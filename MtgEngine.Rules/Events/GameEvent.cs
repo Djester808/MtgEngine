@@ -374,3 +374,48 @@ public sealed record GameEnded(Guid? WinnerId) : GameEvent
     public override string Describe() =>
         WinnerId is null ? "The game ended in a draw." : $"{WinnerId:N} won the game.";
 }
+
+// ---- Continuous and replacement effects (slice 4) -----------------------------------------
+
+/// <summary>A resolved spell or ability created a continuous effect (CR 611.2).</summary>
+public sealed record ContinuousEffectCreated(
+    Guid EffectId,
+    string DefinitionId,
+    ImmutableList<ObjectId> AffectedIds,
+    int? UntilEndOfTurn) : GameEvent
+{
+    public override string Rule => "611.2";
+
+    public override string Describe() =>
+        $"{DefinitionId} began applying to {AffectedIds.Count} object(s).";
+}
+
+/// <summary>
+/// A continuous effect ended (CR 514.2 for "until end of turn").
+/// </summary>
+/// <remarks>
+/// "Until end of turn" effects end during the cleanup step, at the same time damage is removed —
+/// not at the beginning of the end step, which is a distinction that decides whether a creature
+/// pumped this turn survives being blocked.
+/// </remarks>
+public sealed record ContinuousEffectEnded(Guid EffectId) : GameEvent
+{
+    public override string Rule => "514.2";
+
+    public override string Describe() => $"Effect {EffectId:N} ended.";
+}
+
+/// <summary>
+/// An event was replaced by others before it happened (CR 614.1).
+/// </summary>
+/// <remarks>
+/// Recorded for the log's sake: the original event never happened, so nothing triggered off it
+/// (CR 603.2g), and without this line the log would show the replacement with no sign of what it
+/// replaced.
+/// </remarks>
+public sealed record EventReplaced(string ReplacedBy, string OriginalDescription) : GameEvent
+{
+    public override string Rule => "614.1";
+
+    public override string Describe() => $"{OriginalDescription} was replaced by {ReplacedBy}.";
+}

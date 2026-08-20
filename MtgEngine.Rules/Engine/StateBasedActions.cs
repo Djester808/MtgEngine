@@ -1,4 +1,5 @@
 using MtgEngine.Domain.Enums;
+using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -30,14 +31,15 @@ public static class StateBasedActions
     /// Pure: it reads the state and reports what should happen. The caller applies the batch and
     /// asks again, until it comes back empty (CR 704.3).
     /// </remarks>
-    public static IReadOnlyList<GameEvent> Check(GameState state)
+    public static IReadOnlyList<GameEvent> Check(GameState state, IAbilitySource abilities)
     {
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
 
         var events = new List<GameEvent>();
 
         CheckPlayers(state, events);
-        CheckCreatures(state, events);
+        CheckCreatures(state, abilities, events);
         CheckTokens(state, events);
         CheckCounters(state, events);
         CheckLegendRule(state, events);
@@ -72,15 +74,15 @@ public static class StateBasedActions
         }
     }
 
-    private static void CheckCreatures(GameState state, List<GameEvent> events)
+    private static void CheckCreatures(GameState state, IAbilitySource abilities, List<GameEvent> events)
     {
         foreach (var id in state.Battlefield)
         {
             var obj = state.GetObject(id);
-            if (!Characteristics.IsCreature(state, obj))
+            if (!Characteristics.IsCreature(state, abilities, obj))
                 continue;
 
-            var toughness = Characteristics.ToughnessOf(state, obj);
+            var toughness = Characteristics.ToughnessOf(state, abilities, obj);
             if (toughness is null)
                 continue;
 
@@ -98,7 +100,7 @@ public static class StateBasedActions
             // lets a creature survive damage that was lethal a moment ago.
             var damage = obj.Permanent?.DamageMarked ?? 0;
             if (damage >= toughness
-                && !Characteristics.HasKeyword(state, obj, KeywordAbility.Indestructible))
+                && !Characteristics.HasKeyword(state, abilities, obj, KeywordAbility.Indestructible))
             {
                 events.Add(new ObjectMoved(
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,

@@ -46,6 +46,28 @@ public interface IAbilitySource
 {
     /// <summary>The triggered abilities of a card, or an empty list if it has none.</summary>
     IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card);
+
+    /// <summary>
+    /// The continuous effects a card's static abilities produce (CR 604.2).
+    /// </summary>
+    /// <remarks>
+    /// Asked of every permanent on the battlefield each time characteristics are computed, which
+    /// is what makes a lord's bonus vanish the moment the lord does.
+    /// </remarks>
+    IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) => [];
+
+    /// <summary>The replacement effects a card produces (CR 614).</summary>
+    IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) => [];
+
+    /// <summary>
+    /// Looks up an effect created by a resolved spell or ability, by the id the game recorded.
+    /// </summary>
+    /// <remarks>
+    /// These outlive their source (CR 613.7b) — "target creature gets +3/+3 until end of turn"
+    /// keeps working after the spell is in the graveyard — so the game records that the effect
+    /// exists and finds out what it does again from here.
+    /// </remarks>
+    ContinuousEffectDefinition? FloatingEffect(string definitionId) => null;
 }
 
 /// <summary>A card pool with no abilities at all — the default while cards do nothing.</summary>
