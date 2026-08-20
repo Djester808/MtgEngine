@@ -59,12 +59,25 @@ public sealed record PermanentState
     public ImmutableDictionary<string, int> Counters { get; init; } =
         ImmutableDictionary<string, int>.Empty;
 
+    /// <summary>
+    /// Whether a source with deathtouch has dealt this permanent damage since the last
+    /// state-based action check (CR 704.5h).
+    /// </summary>
+    /// <remarks>
+    /// Deathtouch does not destroy on its own and does not set damage equal to toughness. It is
+    /// a separate state-based action, which is why one damage from a deathtouch source kills a
+    /// 6/6 without ever marking six damage on it — and why marking the damage is not enough for
+    /// the engine to remember what killed it.
+    /// </remarks>
+    public bool DealtDeathtouchDamage { get; init; }
+
     // Records compare collections by reference; see Structural.
     public bool Equals(PermanentState? other) =>
         other is not null &&
         IsTapped == other.IsTapped &&
         HasSummoningSickness == other.HasSummoningSickness &&
         DamageMarked == other.DamageMarked &&
+        DealtDeathtouchDamage == other.DealtDeathtouchDamage &&
         Structural.Same(Counters, other.Counters);
 
     public override int GetHashCode() =>

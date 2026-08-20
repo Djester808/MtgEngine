@@ -18,20 +18,21 @@ public sealed class TurnStructureTests
         game.BeginPlay();
 
         var seen = new List<TurnStep>();
-        for (var guard = 0; guard < 200 && game.State.TurnNumber == 1; guard++)
+        TestCards.PassUntil(game, () =>
         {
             if (!seen.Contains(game.State.CurrentStep))
                 seen.Add(game.State.CurrentStep);
 
-            game.PassPriority(game.State.Priority.Holder!.Value);
-        }
+            return game.State.TurnNumber > 1;
+        });
 
+        // No creature attacked, so CR 506.1 skips the declare blockers and combat damage steps
+        // entirely — they are not steps that happen and do nothing, they do not happen.
         Assert.Equal(
             [
                 TurnStep.Upkeep, TurnStep.Draw, TurnStep.PrecombatMain,
-                TurnStep.BeginningOfCombat, TurnStep.DeclareAttackers, TurnStep.DeclareBlockers,
-                TurnStep.CombatDamage, TurnStep.EndOfCombat, TurnStep.PostcombatMain,
-                TurnStep.End,
+                TurnStep.BeginningOfCombat, TurnStep.DeclareAttackers,
+                TurnStep.EndOfCombat, TurnStep.PostcombatMain, TurnStep.End,
             ],
             seen);
         Assert.Equal(2, game.State.TurnNumber);

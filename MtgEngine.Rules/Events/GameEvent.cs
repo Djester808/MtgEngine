@@ -419,3 +419,54 @@ public sealed record EventReplaced(string ReplacedBy, string OriginalDescription
 
     public override string Describe() => $"{OriginalDescription} was replaced by {ReplacedBy}.";
 }
+
+// ---- Combat (slice 5) ----------------------------------------------------------------------
+
+/// <summary>
+/// The active player declared attackers (CR 508.1). Declaring none is a declaration.
+/// </summary>
+public sealed record AttackersDeclared(
+    ImmutableDictionary<ObjectId, Guid> Attackers) : GameEvent
+{
+    public override string Rule => "508.1";
+
+    public override string Describe() => $"{Attackers.Count} creature(s) attack.";
+}
+
+/// <summary>The defending player declared blockers (CR 509.1).</summary>
+public sealed record BlockersDeclared(
+    ImmutableDictionary<ObjectId, ImmutableList<ObjectId>> Blockers) : GameEvent
+{
+    public override string Rule => "509.1";
+
+    public override string Describe() => $"{Blockers.Count} attacker(s) were blocked.";
+}
+
+/// <summary>
+/// Damage was dealt to a player (CR 120.3). Combat damage is flagged because a great many
+/// abilities care specifically about it.
+/// </summary>
+public sealed record PlayerDamaged(
+    Guid PlayerId, ObjectId SourceId, int Amount, bool IsCombat) : GameEvent
+{
+    public override string Rule => "120.3";
+
+    public override string Describe() =>
+        $"{PlayerId:N} was dealt {Amount} {(IsCombat ? "combat " : string.Empty)}damage.";
+}
+
+/// <summary>A combat damage step finished (CR 510.2). Recorded so the second one can be found.</summary>
+public sealed record CombatDamageStepDone : GameEvent
+{
+    public override string Rule => "510.2";
+
+    public override string Describe() => "Combat damage was dealt.";
+}
+
+/// <summary>Combat ended and everything left it (CR 511.3).</summary>
+public sealed record CombatEnded : GameEvent
+{
+    public override string Rule => "511.3";
+
+    public override string Describe() => "Combat ended.";
+}

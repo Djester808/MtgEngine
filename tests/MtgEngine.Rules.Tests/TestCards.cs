@@ -144,6 +144,21 @@ internal static class TestCards
         Toughness = 1,
     };
 
+    /// <summary>A creature with a given keyword, for the combat rules that turn on one.</summary>
+    public static CardDefinition WithKeyword(
+        string name, KeywordAbility keywords, int power = 2, int toughness = 2) => new()
+        {
+            OracleId = "oracle-kw-" + name.ToLowerInvariant(),
+            Name = name,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+            CardTypes = CardType.Creature,
+            Subtypes = ["Soldier"],
+            Power = power,
+            Toughness = toughness,
+            Keywords = keywords,
+        };
+
     /// <summary>An instant, for timing and stack tests.</summary>
     public static CardDefinition Instant(string name = "Shock") => new()
     {
@@ -239,6 +254,24 @@ internal static class TestCards
 
             foreach (var playerId in game.PendingDiscards.ToList())
                 game.Discard(playerId, game.State.GetPlayer(playerId).Hand[0]);
+
+            // Combat steps wait for a declaration before anyone gets priority (CR 508.1,
+            // 509.1). A test that is not about combat still has to answer, and the answer that
+            // changes nothing is "nothing attacks".
+            if (game.State.CurrentStep == TurnStep.DeclareAttackers
+                && !game.State.Combat.AttackersDeclared)
+            {
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                continue;
+            }
+
+            if (game.State.CurrentStep == TurnStep.DeclareBlockers
+                && !game.State.Combat.BlockersDeclared)
+            {
+                var defender = game.State.Combat.Attackers.Values.First();
+                game.DeclareBlockers(defender, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+                continue;
+            }
 
             if (until())
                 return;

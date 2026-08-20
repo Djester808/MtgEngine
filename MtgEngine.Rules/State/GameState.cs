@@ -82,6 +82,9 @@ public sealed record GameState
     /// </remarks>
     public ImmutableList<FloatingEffect> FloatingEffects { get; init; } = [];
 
+    /// <summary>Who is attacking whom (CR 506–511). Reset when the combat phase ends.</summary>
+    public CombatState Combat { get; init; } = new();
+
     /// <summary>
     /// Set once the game has been dealt and the first turn has begun. Until then there is no
     /// turn and no priority, only seats and libraries.
@@ -209,6 +212,7 @@ public sealed record GameState
         Structural.Same(Players, other.Players) &&
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
+        Combat == other.Combat &&
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>

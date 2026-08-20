@@ -37,6 +37,9 @@ public enum KeywordAbility
     Shroud = 1 << 13,
     Protection = 1 << 14,
     Ward = 1 << 15,
+
+    // CR 702.3. Added for the rules engine, which has to ask whether a creature may attack.
+    Defender = 1 << 16,
 }
 
 public enum ManaColor

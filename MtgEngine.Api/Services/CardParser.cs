@@ -356,6 +356,7 @@ internal static class CardParser
                 "Menace" => KeywordAbility.Menace,
                 "Flash" => KeywordAbility.Flash,
                 "Shroud" => KeywordAbility.Shroud,
+                "Defender" => KeywordAbility.Defender,
                 _ => KeywordAbility.None,
             };
         }

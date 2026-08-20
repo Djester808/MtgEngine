@@ -297,6 +297,102 @@ public sealed class Game
         return onBattlefield;
     }
 
+    /// <summary>
+    /// Declares attackers (CR 508.1). Declaring none is a declaration and moves the step along.
+    /// </summary>
+    /// <param name="attackers">Each attacking creature, and the player it is attacking.</param>
+    public void DeclareAttackers(Guid playerId, IReadOnlyDictionary<ObjectId, Guid> attackers)
+    {
+        ArgumentNullException.ThrowIfNull(attackers);
+
+        if (State.CurrentStep != TurnStep.DeclareAttackers)
+            throw new InvalidOperationException("Attackers are declared in the declare attackers step.");
+
+        if (playerId != State.ActivePlayerId)
+            throw new InvalidOperationException("Only the active player declares attackers (CR 508.1).");
+
+        if (State.Combat.AttackersDeclared)
+            throw new InvalidOperationException("Attackers have already been declared this combat.");
+
+        foreach (var (attackerId, defender) in attackers)
+        {
+            var reason = CombatRules.CannotAttack(State, _abilities, State.GetObject(attackerId), playerId);
+            if (reason is not null)
+                throw new InvalidOperationException($"That creature cannot attack: {reason}.");
+
+            if (defender == playerId || State.GetPlayer(defender).HasLost)
+                throw new InvalidOperationException("That player cannot be attacked.");
+        }
+
+        Emit(new AttackersDeclared(attackers.ToImmutableDictionary()));
+
+        // CR 508.1f: attacking taps the creatures. It is not a cost, so vigilance simply skips
+        // it (CR 702.20b) rather than the attack being paid for differently.
+        foreach (var attackerId in attackers.Keys)
+        {
+            var computed = Characteristics.Of(State, _abilities, State.GetObject(attackerId));
+            if (!computed.Has(KeywordAbility.Vigilance) && State.GetObject(attackerId).Permanent?.IsTapped == false)
+                Emit(new PermanentTapped(attackerId));
+        }
+
+        SettleBeforePriority();
+        if (State.IsOver)
+            return;
+
+        // CR 508.2: then the active player gets priority.
+        Emit(new PriorityGranted(State.ActivePlayerId));
+    }
+
+    /// <summary>
+    /// Declares blockers (CR 509.1), each attacker mapped to the creatures blocking it in the
+    /// order their damage will be assigned (CR 510.1c).
+    /// </summary>
+    public void DeclareBlockers(
+        Guid playerId, IReadOnlyDictionary<ObjectId, IReadOnlyList<ObjectId>> blocks)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        if (State.CurrentStep != TurnStep.DeclareBlockers)
+            throw new InvalidOperationException("Blockers are declared in the declare blockers step.");
+
+        if (State.Combat.BlockersDeclared)
+            throw new InvalidOperationException("Blockers have already been declared this combat.");
+
+        foreach (var (attackerId, blockers) in blocks)
+        {
+            if (!State.Combat.Attackers.TryGetValue(attackerId, out var defender))
+                throw new InvalidOperationException("That creature is not attacking.");
+
+            if (defender != playerId)
+                throw new InvalidOperationException("Only the defending player declares blockers (CR 509.1).");
+
+            foreach (var blockerId in blockers)
+            {
+                var reason = CombatRules.CannotBlock(
+                    State, _abilities, State.GetObject(blockerId), State.GetObject(attackerId), playerId);
+                if (reason is not null)
+                    throw new InvalidOperationException($"That creature cannot block: {reason}.");
+            }
+        }
+
+        var illegal = CombatRules.IllegalBlockSet(
+            State,
+            _abilities,
+            blocks.ToDictionary(kv => kv.Key, kv => new ImmutableListOfBlockers(kv.Value)));
+        if (illegal is not null)
+            throw new InvalidOperationException($"Illegal blocks: {illegal}.");
+
+        Emit(new BlockersDeclared(
+            blocks.ToImmutableDictionary(kv => kv.Key, kv => kv.Value.ToImmutableList())));
+
+        SettleBeforePriority();
+        if (State.IsOver)
+            return;
+
+        // CR 509.2: then the active player gets priority.
+        Emit(new PriorityGranted(State.ActivePlayerId));
+    }
+
     /// <summary>Discards a card from hand (CR 701.8), which is how cleanup is satisfied.</summary>
     public void Discard(Guid playerId, ObjectId cardId)
     {
@@ -604,12 +700,35 @@ public sealed class Game
         if (State.IsOver)
             return;
 
+        // CR 510.4: first strike gives the phase a second combat damage step. It is the same
+        // step again, not a new one in the enum.
+        if (State.CurrentStep == TurnStep.CombatDamage
+            && State.Combat.DamageStepsDone == 1
+            && CombatRules.NeedsFirstStrikeStep(State, _abilities))
+        {
+            EnterStep(TurnStep.CombatDamage);
+            return;
+        }
+
         var next = State.CurrentStep.Next();
         if (next is null)
         {
             BeginTurn();
             return;
         }
+
+        // CR 506.1: the declare blockers and combat damage steps are skipped if no creatures
+        // were declared as attackers.
+        if (next is TurnStep.DeclareBlockers or TurnStep.CombatDamage
+            && !State.Combat.AnyAttackers)
+        {
+            EnterStep(TurnStep.EndOfCombat);
+            return;
+        }
+
+        // CR 511.3: combat ends and everything leaves it when the phase does.
+        if (next == TurnStep.PostcombatMain && State.Combat.AttackersDeclared)
+            Emit(new CombatEnded());
 
         EnterStep(next.Value);
     }
@@ -632,6 +751,27 @@ public sealed class Game
 
             case TurnStep.Draw:
                 DrawForTurn();
+                break;
+
+            case TurnStep.DeclareAttackers:
+                // CR 508.1: declaring attackers is a turn-based action that happens before
+                // anyone gets priority, so the game waits here for the active player's
+                // declaration rather than granting priority first.
+                SettleBeforePriority();
+                return;
+
+            case TurnStep.DeclareBlockers:
+                SettleBeforePriority();
+                return;
+
+            case TurnStep.CombatDamage:
+                DealCombatDamage();
+                break;
+
+            case TurnStep.EndOfCombat:
+                // CR 511.3: everything is removed from combat as the step ends. Doing it as the
+                // step begins would be wrong for "at end of combat" triggers, but nothing in the
+                // engine reads combat after this point, and the phase is over either way.
                 break;
 
             case TurnStep.Cleanup:
@@ -699,6 +839,28 @@ public sealed class Game
 
         if (!skips)
             Draw(State.ActivePlayerId);
+    }
+
+    /// <summary>
+    /// Assigns and deals combat damage as one simultaneous event (CR 510.1, 510.2).
+    /// </summary>
+    /// <remarks>
+    /// Nobody gets priority between assignment and dealing (CR 510.2), which is what makes two
+    /// creatures that kill each other both die: neither is destroyed before the other assigns.
+    /// </remarks>
+    private void DealCombatDamage()
+    {
+        Emit(new PriorityWithdrawn());
+
+        // CR 510.4: if anything has first or double strike, this step is for those only, and the
+        // phase gets a second damage step for everything else.
+        var firstStrikeStep = State.Combat.DamageStepsDone == 0
+            && CombatRules.NeedsFirstStrikeStep(State, _abilities);
+
+        foreach (var damage in CombatRules.AssignCombatDamage(State, _abilities, firstStrikeStep))
+            Emit(damage);
+
+        Emit(new CombatDamageStepDone());
     }
 
     private void FinishCleanup()

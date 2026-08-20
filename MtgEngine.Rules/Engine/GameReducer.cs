@@ -85,6 +85,31 @@ public static class GameReducer
                 FloatingEffects = state.FloatingEffects.RemoveAll(f => f.Id == ended2.EffectId),
             },
             EventReplaced => state,
+            AttackersDeclared attackers => state with
+            {
+                Combat = state.Combat with
+                {
+                    Attackers = attackers.Attackers,
+                    AttackersDeclared = true,
+                },
+            },
+            BlockersDeclared blockers => state with
+            {
+                Combat = state.Combat with
+                {
+                    Blockers = blockers.Blockers,
+                    // CR 509.1h: blocked-ness is decided here and does not change when the
+                    // blockers leave.
+                    Blocked = [.. blockers.Blockers.Where(kv => !kv.Value.IsEmpty).Select(kv => kv.Key)],
+                    BlockersDeclared = true,
+                },
+            },
+            PlayerDamaged damaged => DamagePlayer(state, damaged),
+            CombatDamageStepDone => state with
+            {
+                Combat = state.Combat with { DamageStepsDone = state.Combat.DamageStepsDone + 1 },
+            },
+            CombatEnded => state with { Combat = new CombatState() },
             DamageMarked damage => MarkDamage(state, damage),
             CountersChanged counters => ChangeCounters(state, counters),
             ObjectCeasedToExist gone => CeaseToExist(state, gone),
@@ -230,6 +255,13 @@ public static class GameReducer
         };
     }
 
+    private static GameState DamagePlayer(GameState state, PlayerDamaged e)
+    {
+        // CR 120.3c: damage dealt to a player causes them to lose that much life.
+        var player = state.GetPlayer(e.PlayerId);
+        return state.WithPlayer(player with { Life = player.Life - e.Amount });
+    }
+
     private static GameState Lose(GameState state, PlayerLost e)
     {
         var player = state.GetPlayer(e.PlayerId);
@@ -244,7 +276,13 @@ public static class GameReducer
 
         return state.WithObject(obj with
         {
-            Permanent = permanent with { DamageMarked = permanent.DamageMarked + e.Amount },
+            Permanent = permanent with
+            {
+                DamageMarked = permanent.DamageMarked + e.Amount,
+                // CR 704.5h: remembered separately from the damage, because deathtouch destroys
+                // regardless of how much was dealt.
+                DealtDeathtouchDamage = permanent.DealtDeathtouchDamage || e.FromDeathtouch,
+            },
         });
     }
 
@@ -376,11 +414,16 @@ public static class GameReducer
         foreach (var id in state.Battlefield)
         {
             var obj = state.GetObject(id);
-            if (obj.Permanent is null || obj.Permanent.DamageMarked == 0)
+            if (obj.Permanent is null
+                || (obj.Permanent.DamageMarked == 0 && !obj.Permanent.DealtDeathtouchDamage))
+            {
                 continue;
+            }
 
-            state = state.WithObject(
-                obj with { Permanent = obj.Permanent with { DamageMarked = 0 } });
+            state = state.WithObject(obj with
+            {
+                Permanent = obj.Permanent with { DamageMarked = 0, DealtDeathtouchDamage = false },
+            });
         }
 
         return state;

@@ -96,11 +96,23 @@ public static class StateBasedActions
                 continue;
             }
 
+            var indestructible =
+                Characteristics.HasKeyword(state, abilities, obj, KeywordAbility.Indestructible);
+
             // CR 704.5g. Damage is compared with toughness here and nowhere else, which is what
             // lets a creature survive damage that was lethal a moment ago.
             var damage = obj.Permanent?.DamageMarked ?? 0;
-            if (damage >= toughness
-                && !Characteristics.HasKeyword(state, abilities, obj, KeywordAbility.Indestructible))
+            if (damage >= toughness && !indestructible)
+            {
+                events.Add(new ObjectMoved(
+                    id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                    obj.ControllerId, MoveCause.StateBasedAction));
+                continue;
+            }
+
+            // CR 704.5h. A separate action from lethal damage, and the reason one damage from a
+            // deathtouch source kills a 6/6 without six damage ever being marked on it.
+            if (obj.Permanent?.DealtDeathtouchDamage == true && !indestructible)
             {
                 events.Add(new ObjectMoved(
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
