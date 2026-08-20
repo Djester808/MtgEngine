@@ -535,3 +535,58 @@ public sealed record AbilityActivated(
 
     public override string Describe() => $"{PlayerId:N} activated: {Text}";
 }
+
+// ---- Player choices ------------------------------------------------------------------------
+
+/// <summary>
+/// The game asked a player to decide something and stopped until they do.
+/// </summary>
+/// <remarks>
+/// Recorded rather than held in a field so a replayed log rebuilds a game that is mid-question
+/// exactly as it was — including which player is being asked and what they may pick.
+/// </remarks>
+public sealed record ChoiceRequested(PendingChoice Choice) : GameEvent
+{
+    public override string Rule => "103.5";
+
+    public override string Describe() => $"{Choice.PlayerId:N} must choose: {Choice.Prompt}";
+}
+
+/// <summary>A player answered (CR 103.5, 603.3b, 616.1, 704.5j).</summary>
+public sealed record ChoiceMade(string ChoiceId, ImmutableList<string> Picks) : GameEvent
+{
+    public override string Describe() => $"Chose {string.Join(", ", Picks)}.";
+}
+
+/// <summary>Opening hands are dealt and the mulligan procedure has started (CR 103.5).</summary>
+public sealed record MulligansBegan : GameEvent
+{
+    public override string Rule => "103.5";
+
+    public override string Describe() => "Opening hands dealt; mulligans begin.";
+}
+
+/// <summary>A player kept their opening hand (CR 103.5).</summary>
+public sealed record MulliganKept(Guid PlayerId, int MulligansTaken) : GameEvent
+{
+    public override string Rule => "103.5";
+
+    public override string Describe() =>
+        $"{PlayerId:N} kept a hand after {MulligansTaken} mulligan(s).";
+}
+
+/// <summary>A player took a mulligan: hand shuffled back, new hand drawn (CR 103.5).</summary>
+public sealed record MulliganTaken(Guid PlayerId, int MulligansTaken) : GameEvent
+{
+    public override string Rule => "103.5";
+
+    public override string Describe() => $"{PlayerId:N} took a mulligan.";
+}
+
+/// <summary>The opening hands are settled and the first turn may begin (CR 103.5, 103.8).</summary>
+public sealed record MulligansFinished : GameEvent
+{
+    public override string Rule => "103.5";
+
+    public override string Describe() => "Opening hands are settled.";
+}

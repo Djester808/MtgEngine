@@ -11,7 +11,7 @@ public sealed class CastingTimingTests
     private static (Game Game, Guid Alice, Guid Bob) InMainPhase()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PriorityTests.PassTo(game, [alice, bob], TurnStep.PrecombatMain);
         return (game, alice, bob);
     }
@@ -33,7 +33,7 @@ public sealed class CastingTimingTests
     {
         // CR 117.1a: a noninstant spell needs a main phase.
         var (game, alice, _) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         Assert.Equal(TurnStep.Upkeep, game.State.CurrentStep);
         var creature = TestCards.PutInHand(game, alice, TestCards.Creature());
 
@@ -77,7 +77,7 @@ public sealed class CastingTimingTests
     public void An_instant_can_be_cast_on_another_players_turn()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         var instant = TestCards.PutInHand(game, bob, TestCards.Instant());
 
         game.PassPriority(alice);

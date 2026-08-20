@@ -41,7 +41,7 @@ public sealed class ReplacementEffectTests
             new GameRandom(1),
             startingPlayerId: alice,
             abilities: abilities);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
         return (game, alice, bob);
     }
@@ -204,6 +204,71 @@ public sealed class ReplacementEffectTests
         game.MarkDamage(bear, 3);
 
         Assert.Equal(3, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void When_two_replacements_apply_the_affected_player_chooses()
+    {
+        // CR 616.1, and the rules' own example: one effect exiles what would go to a graveyard,
+        // another shuffles it into its library. Which applies decides where the card ends up,
+        // so it is the controller's decision — the engine used to take timestamp order, which
+        // is a legal order and silently picks a different game.
+        var exileInstead = new ReplacementEffectDefinition
+        {
+            Id = "exile-instead",
+            Applies = (e, state, source) =>
+                e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
+            Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Exile }],
+        };
+        var libraryInstead = new ReplacementEffectDefinition
+        {
+            Id = "library-instead",
+            Applies = (e, state, source) =>
+                e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
+            Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Library }],
+        };
+
+        var (game, alice, _) = InMainPhase(
+            new Abilities(("shield", exileInstead), ("grower", libraryInstead)));
+        game.Create(alice, TestCards.Shield(), Zone.Battlefield);
+        game.Create(alice, TestCards.Grower(), Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.OrderReplacements, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+        Assert.Equal(2, choice.Options.Count);
+
+        // Pick the library one; the card must end up there and not in exile.
+        var library = choice.Options.First(o => o.Id.EndsWith("library-instead", StringComparison.Ordinal));
+        game.Choose(alice, [library.Id]);
+
+        Assert.Empty(game.State.Exile);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+        Assert.Contains(game.Log, e => e is EventReplaced);
+    }
+
+    [Fact]
+    public void One_applicable_replacement_is_not_a_choice()
+    {
+        // Nothing to decide, so nothing is asked — a prompt with one option is a worse game.
+        var shield = new ReplacementEffectDefinition
+        {
+            Id = "prevent-all",
+            Applies = (e, state, source) => e is DamageMarked,
+            Replace = (e, state, source) => [],
+        };
+        var (game, alice, _) = InMainPhase(new Abilities(("shield", shield)));
+        game.Create(alice, TestCards.Shield(), Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.MarkDamage(bear, 5);
+
+        Assert.Null(game.State.Choice);
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
     }
 
     [Fact]

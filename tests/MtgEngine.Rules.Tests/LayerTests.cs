@@ -67,7 +67,7 @@ public sealed class LayerTests
             new GameRandom(1),
             startingPlayerId: alice,
             abilities: abilities);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
         return (game, alice, bob);
     }

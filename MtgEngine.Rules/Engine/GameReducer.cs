@@ -98,6 +98,15 @@ public static class GameReducer
                 }),
             FizzledForIllegalTargets => state,
             AbilityActivated => state,
+            ChoiceRequested asked => state with { Choice = asked.Choice },
+            ChoiceMade => state with { Choice = null },
+            MulliganTaken taken => state with
+            {
+                MulligansTaken = state.MulligansTaken.SetItem(taken.PlayerId, taken.MulligansTaken),
+            },
+            MulligansBegan => state with { IsMulliganing = true },
+            MulliganKept => state,
+            MulligansFinished => state with { IsMulliganing = false },
             AttackersDeclared attackers => state with
             {
                 Combat = state.Combat with

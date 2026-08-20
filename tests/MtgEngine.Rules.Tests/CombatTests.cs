@@ -19,7 +19,7 @@ public sealed class CombatTests
     private static (Game Game, Guid Alice, Guid Bob) BeforeCombat()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
         return (game, alice, bob);
     }
@@ -44,7 +44,7 @@ public sealed class CombatTests
     private static (Game Game, Guid Alice, Guid Bob) AtDeclareAttackers()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.DeclareAttackers);
         return (game, alice, bob);
     }
@@ -249,11 +249,21 @@ public sealed class CombatTests
         {
             [attacker] = [first, second],
         });
+
+        // CR 510.1c: the attacking player divides, and is asked. The engine used to take the
+        // order the blocks were declared in — the defending player's order, which is precisely
+        // the player who should not get to decide which of their creatures dies.
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        var choice = game.State.Choice!;
+        Assert.Equal(ChoiceKind.DivideCombatDamage, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+
+        // Assign to the second blocker first, which the declaration order would never produce.
+        game.Choose(alice, [second.Value.ToString("N"), first.Value.ToString("N")]);
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
-        // First blocker takes lethal 3, second takes the remaining 1 and survives.
-        Assert.False(game.State.TryGetObject(first, out _));
-        Assert.Equal(1, game.State.GetObject(second).Permanent!.DamageMarked);
+        Assert.False(game.State.TryGetObject(second, out _));
+        Assert.Equal(1, game.State.GetObject(first).Permanent!.DamageMarked);
     }
 
     [Fact]

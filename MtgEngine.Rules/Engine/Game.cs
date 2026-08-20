@@ -33,13 +33,20 @@ public sealed class Game
 {
     private readonly List<GameEvent> _log = [];
 
-    private Game(GameState state, IAbilitySource abilities)
+    private Game(GameState state, IAbilitySource abilities, GameRandom random)
     {
         State = state;
         _abilities = abilities;
+        _random = random;
     }
 
     private readonly IAbilitySource _abilities;
+
+    /// <summary>
+    /// The game's randomness, kept so a mulligan's shuffle is part of the same sequence the
+    /// opening shuffle came from (CR 103.5).
+    /// </summary>
+    private readonly GameRandom _random;
 
     /// <summary>The current state. Never sent anywhere — see <see cref="ViewFor"/>.</summary>
     public GameState State { get; private set; }
@@ -78,7 +85,7 @@ public sealed class Game
         var first = startingPlayerId ?? random.Choose([.. setups.Select(s => s.PlayerId)]);
 
         var started = new GameStarted(gameId, seats, first);
-        var game = new Game(GameReducer.Replay([started]), abilities ?? NoAbilities.Instance);
+        var game = new Game(GameReducer.Replay([started]), abilities ?? NoAbilities.Instance, random);
         game._log.Add(started);
 
         foreach (var seat in seats)
@@ -171,10 +178,12 @@ public sealed class Game
     /// turn order, which needs the choice machinery that arrives with the effect system; until
     /// then a game opens on the hands it was dealt.
     /// </remarks>
-    public void BeginPlay(int openingHandSize = MaxHandSize)
+    public void BeginPlay(int openingHandSize = MaxHandSize, bool withMulligans = true)
     {
-        if (State.HasBegun)
+        if (State.HasBegun || State.IsMulliganing)
             throw new InvalidOperationException("Play has already begun.");
+
+        _openingHandSize = openingHandSize;
 
         foreach (var playerId in State.TurnOrder)
         {
@@ -182,8 +191,166 @@ public sealed class Game
                 Draw(playerId);
         }
 
+        if (!withMulligans)
+        {
+            BeginTurn();
+            return;
+        }
+
+        // CR 103.5: the starting player declares first, then each other player in turn order.
+        Emit(new MulligansBegan());
+        AskNextMulligan();
+    }
+
+    /// <summary>
+    /// Asks the next player who has not yet declared whether they will mulligan (CR 103.5).
+    /// </summary>
+    /// <remarks>
+    /// Declarations go round in turn order, and only once everyone has declared do the
+    /// mulligans happen — which is why this collects answers rather than acting on each one.
+    /// </remarks>
+    private void AskNextMulligan()
+    {
+        foreach (var playerId in State.PlayersFrom(FirstPlayerId))
+        {
+            // CR 103.5: "Once a player chooses not to take a mulligan... that player may not
+            // take any further mulligans." They are out of the procedure, not merely done with
+            // this round, so a later round must not ask them again.
+            if (_keptHand.Contains(playerId) || _mulliganDeclared.ContainsKey(playerId))
+                continue;
+
+            // CR 103.5: a player may take mulligans until their opening hand would be zero
+            // cards. With N mulligans taken they would bottom N, so at N == hand size there is
+            // nothing left to keep.
+            var taken = State.MulligansTaken.GetValueOrDefault(playerId);
+            if (taken >= _openingHandSize)
+            {
+                _keptHand.Add(playerId);
+                continue;
+            }
+
+            Ask(new PendingChoice
+            {
+                Id = "mulligan:" + playerId.ToString("N") + ":" + taken,
+                PlayerId = playerId,
+                Kind = ChoiceKind.Mulligan,
+                Prompt = taken == 0
+                    ? "Keep this hand, or take a mulligan?"
+                    : $"Keep this hand and put {taken} card(s) on the bottom, or mulligan again?",
+                Options = [new ChoiceOption("keep", "Keep"), new ChoiceOption("mulligan", "Mulligan")],
+            });
+            return;
+        }
+
+        TakeDeclaredMulligans();
+    }
+
+    private void ResolveMulliganDeclaration(Guid playerId, string pick)
+    {
+        var mulliganing = string.Equals(pick, "mulligan", StringComparison.Ordinal);
+        _mulliganDeclared[playerId] = mulliganing;
+
+        if (!mulliganing)
+            _keptHand.Add(playerId);
+
+        AskNextMulligan();
+    }
+
+    /// <summary>
+    /// Everyone who declared a mulligan takes one, at the same time (CR 103.5).
+    /// </summary>
+    private void TakeDeclaredMulligans()
+    {
+        var mulliganing = _mulliganDeclared.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+
+        if (mulliganing.Count == 0)
+        {
+            FinishMulligans();
+            return;
+        }
+
+        foreach (var playerId in mulliganing)
+        {
+            // Hand back into the library, shuffle, draw a fresh hand of the full size.
+            foreach (var cardId in State.GetPlayer(playerId).Hand)
+                Move(cardId, Zone.Library, MoveCause.Other, position: ZonePosition.Bottom);
+
+            Shuffle(playerId, _random);
+
+            for (var i = 0; i < _openingHandSize; i++)
+                Draw(playerId);
+
+            Emit(new MulliganTaken(
+                playerId, State.MulligansTaken.GetValueOrDefault(playerId) + 1));
+        }
+
+        // The round is over. Only the players who mulliganed declare again — the rest have
+        // kept and are finished (CR 103.5).
+        _mulliganDeclared.Clear();
+        AskNextMulligan();
+    }
+
+    /// <summary>
+    /// Asks each player who kept after mulliganing which cards go on the bottom (CR 103.5).
+    /// </summary>
+    private void FinishMulligans()
+    {
+        foreach (var playerId in State.PlayersFrom(FirstPlayerId))
+        {
+            var taken = State.MulligansTaken.GetValueOrDefault(playerId);
+            if (taken == 0 || _bottomed.Contains(playerId))
+                continue;
+
+            var hand = State.GetPlayer(playerId).Hand;
+            var bottom = Math.Min(taken, hand.Count);
+            if (bottom == 0)
+            {
+                _bottomed.Add(playerId);
+                continue;
+            }
+
+            Ask(new PendingChoice
+            {
+                Id = "bottom:" + playerId.ToString("N"),
+                PlayerId = playerId,
+                Kind = ChoiceKind.BottomAfterMulligan,
+                Prompt = $"Put {bottom} card(s) from your hand on the bottom of your library.",
+                Options = [.. hand.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+                MinPicks = bottom,
+                MaxPicks = bottom,
+            });
+            return;
+        }
+
+        foreach (var playerId in State.TurnOrder)
+        {
+            Emit(new MulliganKept(playerId, State.MulligansTaken.GetValueOrDefault(playerId)));
+        }
+
+        Emit(new MulligansFinished());
         BeginTurn();
     }
+
+    private void BottomAfterMulligan(Guid playerId, IReadOnlyList<string> picks)
+    {
+        foreach (var pick in picks)
+        {
+            var id = State.GetPlayer(playerId).Hand
+                .First(h => string.Equals(h.Value.ToString("N"), pick, StringComparison.Ordinal));
+            Move(id, Zone.Library, MoveCause.Other, position: ZonePosition.Bottom);
+        }
+
+        _bottomed.Add(playerId);
+        FinishMulligans();
+    }
+
+    private readonly Dictionary<Guid, bool> _mulliganDeclared = [];
+
+    /// <summary>Players who have kept and are out of the procedure for good (CR 103.5).</summary>
+    private readonly HashSet<Guid> _keptHand = [];
+    private readonly HashSet<Guid> _bottomed = [];
+    private int _openingHandSize = MaxHandSize;
 
     /// <summary>
     /// Players who must discard before the turn can end (CR 514.1).
@@ -525,6 +692,101 @@ public sealed class Game
         Emit(new PriorityGranted(State.ActivePlayerId));
     }
 
+    /// <summary>
+    /// Answers the decision the game is waiting on (CR 103.5, 603.3b, 616.1, 704.5j).
+    /// </summary>
+    /// <param name="picks">
+    /// The option ids chosen. For an ordering choice the order of this list is the answer.
+    /// </param>
+    public void Choose(Guid playerId, IReadOnlyList<string> picks)
+    {
+        ArgumentNullException.ThrowIfNull(picks);
+
+        var choice = State.Choice
+            ?? throw new InvalidOperationException("The game is not waiting on a decision.");
+
+        if (choice.PlayerId != playerId)
+            throw new InvalidOperationException("That decision is not yours to make.");
+
+        if (picks.Count < choice.MinPicks || picks.Count > choice.MaxPicks)
+        {
+            throw new InvalidOperationException(
+                $"Pick between {choice.MinPicks} and {choice.MaxPicks}; got {picks.Count}.");
+        }
+
+        var legal = choice.Options.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var pick in picks)
+        {
+            if (!legal.Contains(pick))
+                throw new InvalidOperationException($"'{pick}' is not one of the options.");
+        }
+
+        if (picks.Distinct(StringComparer.Ordinal).Count() != picks.Count)
+            throw new InvalidOperationException("The same option was picked twice.");
+
+        Emit(new ChoiceMade(choice.Id, [.. picks]));
+        Resume(choice, picks);
+    }
+
+    /// <summary>Stops the game and asks (CR 103.5 and friends).</summary>
+    private void Ask(PendingChoice choice) => Emit(new ChoiceRequested(choice));
+
+    /// <summary>
+    /// Picks up whatever was interrupted by the question.
+    /// </summary>
+    /// <remarks>
+    /// One explicit branch per kind rather than a captured continuation, because a continuation
+    /// cannot be folded from a log — and a game that is mid-question has to replay as a game
+    /// that is mid-question.
+    /// </remarks>
+    private void Resume(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        switch (choice.Kind)
+        {
+            case ChoiceKind.Mulligan:
+                ResolveMulliganDeclaration(choice.PlayerId, picks[0]);
+                break;
+
+            case ChoiceKind.BottomAfterMulligan:
+                BottomAfterMulligan(choice.PlayerId, picks);
+                break;
+
+            case ChoiceKind.LegendRule:
+                KeepLegend(choice, picks[0]);
+                break;
+
+            case ChoiceKind.OrderTriggers:
+                _triggerOrder[choice.PlayerId] = [.. picks];
+                SettleBeforePriority();
+                GrantPriorityAfterSettle();
+                break;
+
+            case ChoiceKind.OrderReplacements:
+                _replacementOrder = picks[0];
+                ReplayHeldEvent();
+                break;
+
+            case ChoiceKind.DivideCombatDamage:
+                RecordDamageDivision(choice, picks);
+                break;
+
+            default:
+                throw new InvalidOperationException($"No resumption for {choice.Kind}.");
+        }
+    }
+
+    /// <summary>Gives priority back once a settle that was interrupted has finished.</summary>
+    private void GrantPriorityAfterSettle()
+    {
+        if (State.IsOver || State.IsWaitingForChoice)
+            return;
+
+        Emit(new PriorityGranted(State.ActivePlayerId));
+    }
+
+    /// <summary>Orders a player's triggers, until they have answered (CR 603.3b).</summary>
+    private readonly Dictionary<Guid, List<string>> _triggerOrder = [];
+
     /// <summary>Discards a card from hand (CR 701.8), which is how cleanup is satisfied.</summary>
     public void Discard(Guid playerId, ObjectId cardId)
     {
@@ -620,6 +882,10 @@ public sealed class Game
         if (State.IsOver)
             throw new InvalidOperationException("The game is over (CR 104.2).");
 
+        if (State.IsWaitingForChoice)
+            throw new InvalidOperationException(
+                $"The game is waiting on a decision: {State.Choice!.Prompt}");
+
         if (State.Priority.Holder != playerId)
             throw new InvalidOperationException("You do not have priority (CR 117.1).");
     }
@@ -645,8 +911,13 @@ public sealed class Game
 
         for (var guard = 0; guard < 100; guard++)
         {
-            if (State.IsOver)
+            if (State.IsOver || State.IsWaitingForChoice)
                 return didSomething;
+
+            // CR 704.5j: the legend rule is a choice, not a rule the engine may answer. Asked
+            // before the rest of the batch, because the answer changes what the batch is.
+            if (AskLegendRuleIfNeeded())
+                return true;
 
             var actions = StateBasedActions.Check(State, _abilities);
             if (actions.Count > 0)
@@ -670,6 +941,68 @@ public sealed class Game
         throw new InvalidOperationException(
             "State-based actions and triggers did not settle (CR 704.3).");
     }
+
+    /// <summary>
+    /// Asks a player which duplicate legendary permanent to keep, if they have any (CR 704.5j).
+    /// </summary>
+    /// <returns>True when a question was asked and the settle has to stop.</returns>
+    private bool AskLegendRuleIfNeeded()
+    {
+        var groups = State.Battlefield
+            .Select(State.GetObject)
+            .Where(o => o.Card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase))
+            .GroupBy(o => (o.ControllerId, o.Card.Name))
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        if (groups.Count == 0)
+            return false;
+
+        var group = groups[0];
+        Ask(new PendingChoice
+        {
+            Id = "legend:" + group.Key.ControllerId.ToString("N") + ":" + group.Key.Name,
+            PlayerId = group.Key.ControllerId,
+            Kind = ChoiceKind.LegendRule,
+            Prompt = $"You control more than one {group.Key.Name}. Choose the one to keep; "
+                + "the rest go to the graveyard.",
+            Options = [.. group.Select(o => new ChoiceOption(
+                o.Id.Value.ToString("N"), $"{o.Card.Name} ({o.Card.Power}/{o.Card.Toughness})"))],
+            Context = [group.Key.Name],
+        });
+
+        return true;
+    }
+
+    private void KeepLegend(PendingChoice choice, string keptId)
+    {
+        foreach (var option in choice.Options)
+        {
+            if (string.Equals(option.Id, keptId, StringComparison.Ordinal))
+                continue;
+
+            var doomed = State.Objects.Keys.First(
+                id => string.Equals(id.Value.ToString("N"), option.Id, StringComparison.Ordinal));
+
+            Move(doomed, Zone.Graveyard, MoveCause.StateBasedAction);
+        }
+
+        SettleBeforePriority();
+        GrantPriorityAfterSettle();
+    }
+
+    /// <summary>
+    /// Whose decision a replacement order is (CR 616.1: the affected object's controller, or
+    /// the affected player).
+    /// </summary>
+    private Guid AffectedPlayer(GameEvent e) => e switch
+    {
+        DamageMarked damage when State.TryGetObject(damage.Id, out var obj) => obj.ControllerId,
+        PlayerDamaged damaged => damaged.PlayerId,
+        ObjectMoved moved when State.TryGetObject(moved.OldId, out var obj) => obj.ControllerId,
+        LifeChanged life => life.PlayerId,
+        _ => State.ActivePlayerId,
+    };
 
     /// <summary>Ends the game when one player is left, or none (CR 104.2a, 104.4).</summary>
     private void CheckForEnd()
@@ -699,7 +1032,39 @@ public sealed class Game
 
         foreach (var playerId in State.ApnapOrder())
         {
-            foreach (var trigger in waiting.Where(t => t.ControllerId == playerId))
+            var mine = waiting.Where(t => t.ControllerId == playerId).ToList();
+
+            // CR 603.3b: a player with more than one waiting trigger chooses the order theirs
+            // go on the stack in. The engine kept the order they happened to trigger in, which
+            // is a legal order and not necessarily the one they wanted — with two triggers it
+            // decides which resolves first.
+            if (mine.Count > 1 && !_triggerOrder.TryGetValue(playerId, out _))
+            {
+                Ask(new PendingChoice
+                {
+                    Id = "triggers:" + playerId.ToString("N"),
+                    PlayerId = playerId,
+                    Kind = ChoiceKind.OrderTriggers,
+                    Prompt = "Choose the order your triggered abilities go on the stack. "
+                        + "The last one you pick resolves first.",
+                    Options = [.. mine.Select(t => new ChoiceOption(t.AbilityId, t.Text))],
+                    MinPicks = mine.Count,
+                    MaxPicks = mine.Count,
+                });
+                return;
+            }
+
+            if (_triggerOrder.TryGetValue(playerId, out var order))
+            {
+                mine = [.. order
+                    .Select(id => mine.FirstOrDefault(t =>
+                        string.Equals(t.AbilityId, id, StringComparison.Ordinal)))
+                    .Where(t => t is not null)
+                    .Select(t => t!)];
+                _triggerOrder.Remove(playerId);
+            }
+
+            foreach (var trigger in mine)
             {
                 // CR 603.6: the source may already have left the battlefield. The ability still
                 // goes on the stack — it triggered, and that is enough.
@@ -815,9 +1180,7 @@ public sealed class Game
                 if (source.Zone != effect.FunctionsFrom || !effect.Applies(e, State, source))
                     continue;
 
-                applied.Add((id, effect.Id));
                 yield return (effect.Id, source, effect.Replace);
-                yield break;
             }
         }
     }
@@ -1004,16 +1367,97 @@ public sealed class Game
     {
         Emit(new PriorityWithdrawn());
 
-        // CR 510.4: if anything has first or double strike, this step is for those only, and the
-        // phase gets a second damage step for everything else.
+        // CR 510.1c: an attacker blocked by more than one creature has its damage divided as
+        // its controller chooses. The engine used the order the blocks were declared in, which
+        // is the defending player's order — the wrong player's — so it is asked for.
+        if (AskDamageDivisionIfNeeded())
+            return;
+
+        DealCombatDamageNow();
+    }
+
+    private void DealCombatDamageNow()
+    {
         var firstStrikeStep = State.Combat.DamageStepsDone == 0
             && CombatRules.NeedsFirstStrikeStep(State, _abilities);
 
-        foreach (var damage in CombatRules.AssignCombatDamage(State, _abilities, firstStrikeStep))
+        foreach (var damage in CombatRules.AssignCombatDamage(
+            State, _abilities, firstStrikeStep, _damageOrder))
+        {
             Emit(damage);
+        }
 
+        _damageOrder.Clear();
+        _damageDivided.Clear();
         Emit(new CombatDamageStepDone());
     }
+
+    /// <summary>
+    /// Asks an attacking player how to divide damage among multiple blockers (CR 510.1c).
+    /// </summary>
+    /// <remarks>
+    /// The answer is the blockers in the order damage is assigned to them, each taking lethal
+    /// before the next takes any — which is the division the rules require of a trampler
+    /// (CR 702.19b) and the one that decides which chump blocker dies. An arbitrary split (two
+    /// damage each to two three-toughness blockers, killing neither) is legal and is <em>not</em>
+    /// expressible here; that needs an amount per option, and is called out rather than quietly
+    /// missing.
+    /// </remarks>
+    private bool AskDamageDivisionIfNeeded()
+    {
+        foreach (var (attackerId, _) in State.Combat.Attackers)
+        {
+            var blockers = State.Combat.BlockersOf(attackerId);
+            if (blockers.Count < 2 || _damageDivided.Contains(attackerId))
+                continue;
+
+            if (!State.TryGetObject(attackerId, out var attacker))
+                continue;
+
+            Ask(new PendingChoice
+            {
+                Id = "divide:" + attackerId,
+                PlayerId = attacker.ControllerId,
+                Kind = ChoiceKind.DivideCombatDamage,
+                Prompt = $"{attacker.Card.Name} is blocked by {blockers.Count} creatures. "
+                    + "Choose the order to assign its damage; each takes lethal before the next.",
+                Options = [.. blockers
+                    .Where(id => State.TryGetObject(id, out _))
+                    .Select(id => new ChoiceOption(
+                        id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+                MinPicks = blockers.Count(id => State.TryGetObject(id, out _)),
+                MaxPicks = blockers.Count(id => State.TryGetObject(id, out _)),
+                Context = [attackerId.Value.ToString("N")],
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void RecordDamageDivision(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        var attackerId = State.Combat.Attackers.Keys.First(
+            id => string.Equals(id.Value.ToString("N"), choice.Context[0], StringComparison.Ordinal));
+
+        _damageOrder[attackerId] =
+        [
+            .. picks.Select(p => State.Combat.BlockersOf(attackerId).First(
+                b => string.Equals(b.Value.ToString("N"), p, StringComparison.Ordinal))),
+        ];
+        _damageDivided.Add(attackerId);
+
+        if (AskDamageDivisionIfNeeded())
+            return;
+
+        DealCombatDamageNow();
+        SettleBeforePriority();
+        GrantPriorityAfterSettle();
+    }
+
+    private readonly Dictionary<ObjectId, List<ObjectId>> _damageOrder = [];
+    private readonly HashSet<ObjectId> _damageDivided = [];
 
     private void FinishCleanup()
     {
@@ -1154,6 +1598,25 @@ public sealed class Game
 
     private void Emit(GameEvent e) => Emit(e, []);
 
+    /// <summary>The event held while its controller decides which replacement applies first.</summary>
+    private GameEvent? _heldEvent;
+    private HashSet<(ObjectId, string)> _heldApplied = [];
+    private string? _replacementOrder;
+
+    /// <summary>
+    /// Re-emits the event that was held while a replacement-order question was outstanding.
+    /// </summary>
+    private void ReplayHeldEvent()
+    {
+        var held = _heldEvent;
+        var applied = _heldApplied;
+        _heldEvent = null;
+        _heldApplied = [];
+
+        if (held is not null)
+            Emit(held, applied);
+    }
+
     /// <param name="applied">
     /// Replacement effects already used on this event. CR 614.5: each applies only once to a
     /// given event, and that carries down to whatever replaced it — otherwise an effect that
@@ -1161,11 +1624,44 @@ public sealed class Game
     /// </param>
     private void Emit(GameEvent e, HashSet<(ObjectId, string)> applied)
     {
-        foreach (var replacement in Replacements(e, applied))
+        var candidates = Replacements(e, applied).ToList();
+
+        // CR 616.1: when more than one replacement effect applies, the affected object's
+        // controller chooses which to apply first, and the rest are re-examined afterwards.
+        // The engine used to take them in timestamp order, which is a legal order and the
+        // wrong one whenever the two effects do different things — the rules' own example is
+        // "exile it instead" against "shuffle it into its library instead", where the choice
+        // decides where the card ends up.
+        if (candidates.Count > 1 && _replacementOrder is null)
+        {
+            _heldEvent = e;
+            _heldApplied = applied;
+            Ask(new PendingChoice
+            {
+                Id = "replace:" + candidates.Count + ":" + e.GetType().Name,
+                PlayerId = AffectedPlayer(e),
+                Kind = ChoiceKind.OrderReplacements,
+                Prompt = "More than one replacement effect applies. Choose which to apply first.",
+                Options = [.. candidates.Select(c => new ChoiceOption(
+                    c.Source.Id.Value.ToString("N") + "|" + c.Id, c.Source.Card.Name + ": " + c.Id))],
+            });
+            return;
+        }
+
+        if (_replacementOrder is not null)
+        {
+            var wanted = _replacementOrder;
+            _replacementOrder = null;
+            candidates = [.. candidates.Where(c =>
+                string.Equals(c.Source.Id.Value.ToString("N") + "|" + c.Id, wanted, StringComparison.Ordinal))];
+        }
+
+        foreach (var replacement in candidates.Take(1))
         {
             // CR 614.1: the event never happens. What happens instead is emitted in its place,
             // and because the original did not occur, nothing triggers off it (CR 603.2g).
             _log.Add(new EventReplaced(replacement.Id, e.Describe()));
+            applied.Add((replacement.Source.Id, replacement.Id));
             foreach (var instead in replacement.Replace(e, State, replacement.Source))
                 Emit(instead, applied);
 

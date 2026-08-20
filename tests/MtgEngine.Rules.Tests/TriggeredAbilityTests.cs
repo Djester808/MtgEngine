@@ -54,7 +54,7 @@ public sealed class TriggeredAbilityTests
             startingPlayerId: alice,
             abilities: abilities);
 
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
         return (game, alice, bob);
     }
@@ -165,7 +165,7 @@ public sealed class TriggeredAbilityTests
             new GameRandom(2),
             startingPlayerId: seats[0],
             abilities: abilities);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
 
         foreach (var seat in seats)

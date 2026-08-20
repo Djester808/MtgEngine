@@ -19,7 +19,7 @@ public sealed class StateBasedActionTests
     private static (Game Game, Guid Alice, Guid Bob) InMainPhase()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
         return (game, alice, bob);
     }
@@ -69,7 +69,7 @@ public sealed class StateBasedActionTests
         // with a comment saying the real check was elsewhere. It was nowhere, and a player could
         // deck out and keep playing.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 8);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
 
         while (!game.State.GetPlayer(alice).Library.IsEmpty)
@@ -203,21 +203,54 @@ public sealed class StateBasedActionTests
     }
 
     [Fact]
-    public void The_legend_rule_keeps_only_one()
+    public void The_legend_rule_asks_which_one_to_keep()
     {
-        // CR 704.5j.
+        // CR 704.5j: "that player chooses one of them". The engine used to keep the oldest,
+        // which is a legal outcome and not necessarily the one the player wanted — with two
+        // copies carrying different counters or auras it is the whole decision.
         var (game, alice, _) = InMainPhase();
         var first = game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
         var second = game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
 
         Settle(game);
 
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.LegendRule, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+        Assert.Equal(2, choice.Options.Count);
+
+        // Keeping the newer one is a choice the old engine could not produce.
+        game.Choose(alice, [second.Value.ToString("N")]);
+
         Assert.Single(game.State.Battlefield);
-        // The older one stays: the rules let the controller choose, and until there is a way to
-        // ask them, timestamp order is the only choice that is not arbitrary.
-        Assert.Equal(first, game.State.Battlefield[0]);
-        Assert.Equal(second.Value, ((ObjectMoved)game.Log.Last(e =>
-            e is ObjectMoved { Cause: MoveCause.StateBasedAction })).OldId.Value);
+        Assert.Equal(second, game.State.Battlefield[0]);
+        Assert.False(game.State.TryGetObject(first, out _));
+    }
+
+    [Fact]
+    public void Nothing_else_may_happen_while_a_choice_is_outstanding()
+    {
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
+        game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.IsWaitingForChoice);
+        var ex = Assert.Throws<InvalidOperationException>(() => game.PassPriority(bob));
+        Assert.Contains("waiting", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Only_the_player_being_asked_may_answer()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var kept = game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
+        game.Create(alice, TestCards.Legend("Karn"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.Choose(bob, [kept.Value.ToString("N")]));
     }
 
     [Fact]

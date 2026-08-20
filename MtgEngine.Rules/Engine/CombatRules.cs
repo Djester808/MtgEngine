@@ -124,7 +124,10 @@ public static class CombatRules
     /// </para>
     /// </remarks>
     public static IReadOnlyList<GameEvent> AssignCombatDamage(
-        GameState state, IAbilitySource abilities, bool firstStrikeOnly)
+        GameState state,
+        IAbilitySource abilities,
+        bool firstStrikeOnly,
+        IReadOnlyDictionary<ObjectId, List<ObjectId>>? damageOrder = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -146,7 +149,9 @@ public static class CombatRules
 
             // CR 509.1h: still blocked even if every blocker has gone, so it deals nothing.
             if (combat.Blocked.Contains(attackerId))
-                AssignToBlockers(state, abilities, attackerId, attacker, computed, power, defendingPlayer, events);
+                AssignToBlockers(
+                    state, abilities, attackerId, computed, power, defendingPlayer,
+                    damageOrder?.GetValueOrDefault(attackerId), events);
             else
                 events.Add(new PlayerDamaged(defendingPlayer, attackerId, power, IsCombat: true));
         }
@@ -179,19 +184,21 @@ public static class CombatRules
         GameState state,
         IAbilitySource abilities,
         ObjectId attackerId,
-        GameObject attacker,
         ComputedCharacteristics computed,
         int power,
         Guid defendingPlayer,
+        IReadOnlyList<ObjectId>? chosenOrder,
         List<GameEvent> events)
     {
         var remaining = power;
         var deathtouch = computed.Has(KeywordAbility.Deathtouch);
 
-        // CR 510.1c: damage is divided among the blockers as the attacker's controller chooses,
-        // in the recorded damage assignment order. Lethal has to be assigned to each before the
-        // next gets any (CR 510.1c with trample, CR 702.19b).
-        foreach (var blockerId in state.Combat.BlockersOf(attackerId))
+        // CR 510.1c: divided as the attacker's controller chooses. That order is asked for when
+        // there is more than one blocker; with one there is nothing to choose, and the
+        // declaration order is the only order there is.
+        var order = chosenOrder ?? state.Combat.BlockersOf(attackerId);
+
+        foreach (var blockerId in order)
         {
             if (remaining <= 0)
                 break;

@@ -86,6 +86,20 @@ public sealed record GameState
     public CombatState Combat { get; init; } = new();
 
     /// <summary>
+    /// A decision the game is waiting on, or null. Nothing may happen while one is outstanding.
+    /// </summary>
+    public PendingChoice? Choice { get; init; }
+
+    /// <summary>
+    /// Mulligans taken so far, per player (CR 103.5). Decides how many cards go on the bottom.
+    /// </summary>
+    public ImmutableDictionary<Guid, int> MulligansTaken { get; init; } =
+        ImmutableDictionary<Guid, int>.Empty;
+
+    /// <summary>True while the opening hands are still being settled (CR 103.5).</summary>
+    public bool IsMulliganing { get; init; }
+
+    /// <summary>
     /// Set once the game has been dealt and the first turn has begun. Until then there is no
     /// turn and no priority, only seats and libraries.
     /// </summary>
@@ -165,6 +179,9 @@ public sealed record GameState
     public Guid NextInTurnOrderAfter(Guid playerId) =>
         PlayersFrom(playerId).Skip(1).FirstOrDefault(id => !GetPlayer(id).HasLost, playerId);
 
+    /// <summary>Whether the game is waiting on somebody to decide something.</summary>
+    public bool IsWaitingForChoice => Choice is not null;
+
     /// <summary>
     /// Whether the given player could cast a sorcery right now: their main phase, an empty
     /// stack, and priority (CR 117.1a, 505.6a).
@@ -213,6 +230,9 @@ public sealed record GameState
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
         Combat == other.Combat &&
+        Choice == other.Choice &&
+        IsMulliganing == other.IsMulliganing &&
+        Structural.Same(MulligansTaken, other.MulligansTaken) &&
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>

@@ -15,7 +15,7 @@ public sealed class TurnStructureTests
         // CR 500.1. Walking the whole turn also proves the untap and cleanup steps do not
         // deadlock: neither grants priority, so neither is a place the game can rest.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         var seen = new List<TurnStep>();
         TestCards.PassUntil(game, () =>
@@ -56,7 +56,7 @@ public sealed class TurnStructureTests
     {
         // CR 103.8a, in a two-player game only.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         Assert.Equal(7, game.State.GetPlayer(alice).Hand.Count);
         PriorityTests.PassTo(game, [alice, bob], TurnStep.PrecombatMain);
@@ -68,7 +68,7 @@ public sealed class TurnStructureTests
     public void The_second_player_draws_on_their_first_turn()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         while (game.State.TurnNumber == 1)
             game.PassPriority(game.State.Priority.Holder!.Value);
@@ -82,7 +82,7 @@ public sealed class TurnStructureTests
     {
         // CR 103.8c: in all other multiplayer games, no player skips their first draw step.
         var (game, seats) = TestCards.MultiPlayer(4, deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PriorityTests.PassTo(game, seats, TurnStep.PrecombatMain);
 
         Assert.Equal(8, game.State.GetPlayer(seats[0]).Hand.Count);
@@ -93,7 +93,7 @@ public sealed class TurnStructureTests
     {
         // CR 502.3, and only theirs.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         var mine = game.Create(alice, TestCards.Creature("Mine"), Zone.Battlefield);
         var theirs = game.Create(bob, TestCards.Creature("Theirs"), Zone.Battlefield);
@@ -113,7 +113,7 @@ public sealed class TurnStructureTests
     {
         // CR 302.6.
         var (game, alice, _) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         var creature = game.Create(alice, TestCards.Creature(), Zone.Battlefield);
 
         Assert.True(game.State.GetObject(creature).Permanent!.HasSummoningSickness);
@@ -128,7 +128,7 @@ public sealed class TurnStructureTests
     {
         // CR 514.2.
         var (game, alice, _) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         var creature = game.Create(alice, TestCards.Creature(), Zone.Battlefield);
 
         var damaged = game.State.GetObject(creature);
@@ -146,7 +146,7 @@ public sealed class TurnStructureTests
     {
         // CR 514.1. The engine will not choose the discard — that is the player's decision.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         for (var i = 0; i < 4; i++)
             TestCards.PutInHand(game, alice, TestCards.Creature($"Extra {i}"));
 
@@ -163,7 +163,7 @@ public sealed class TurnStructureTests
     public void Discarding_to_hand_size_lets_the_turn_end()
     {
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         for (var i = 0; i < 4; i++)
             TestCards.PutInHand(game, alice, TestCards.Creature($"Extra {i}"));
 
@@ -183,7 +183,7 @@ public sealed class TurnStructureTests
     {
         // The property from slice 1, now over the turn machinery: the log is still the game.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PriorityTests.PassTo(game, [alice, bob], TurnStep.PrecombatMain);
         game.PlayLand(alice, TestCards.PutInHand(game, alice, TestCards.BasicLand()));
         var creature = TestCards.PutInHand(game, alice, TestCards.Creature());

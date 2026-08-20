@@ -65,7 +65,7 @@ public sealed class CardPoolTests
             startingPlayerId: alice,
             abilities: Pool);
 
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PassToMain(game);
         return (game, alice, bob);
     }

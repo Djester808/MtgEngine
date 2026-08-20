@@ -16,6 +16,11 @@ namespace MtgEngine.Rules.Tests;
 /// </remarks>
 internal static class TestCards
 {
+    // Games here begin with `withMulligans: false`. Mulligans are a real part of starting a
+    // game (CR 103.5) and have their own tests; asking every test about priority or combat to
+    // answer two mulligan questions first would put a preamble in front of each one that has
+    // nothing to do with what it is checking.
+    //
     // These fixtures cost nothing to cast, deliberately. The tests using them are about timing,
     // priority, the stack, layers and combat; giving each one a mana cost would add a subplot
     // about paying it to every single test, and the cost rules have their own file.
@@ -282,6 +287,14 @@ internal static class TestCards
 
             if (until())
                 return;
+
+            // A pending decision stops the game dead, by design. Saying which one beats a test
+            // that reports "nobody has priority" and leaves you to guess why.
+            if (game.State.Choice is { } choice)
+            {
+                throw new InvalidOperationException(
+                    $"The game is waiting on {choice.PlayerId:N} to answer: {choice.Prompt}");
+            }
 
             var holder = game.State.Priority.Holder
                 ?? throw new InvalidOperationException(

@@ -20,7 +20,7 @@ public sealed class PriorityTests
     {
         // CR 117.3a.
         var (game, alice, _) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         Assert.Equal(alice, game.State.Priority.Holder);
         Assert.Equal(TurnStep.Upkeep, game.State.CurrentStep);
@@ -32,7 +32,7 @@ public sealed class PriorityTests
         // CR 502.4. The game never rests there — it is walked through — so the assertion is
         // that the game is past it, having granted nobody priority on the way.
         var (game, _, _) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         Assert.NotEqual(TurnStep.Untap, game.State.CurrentStep);
         Assert.Contains(game.Log, e => e is Events.PriorityWithdrawn);
@@ -43,7 +43,7 @@ public sealed class PriorityTests
     {
         // CR 117.3d.
         var (game, alice, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         game.PassPriority(alice);
 
@@ -54,7 +54,7 @@ public sealed class PriorityTests
     public void A_player_without_priority_cannot_pass()
     {
         var (game, _, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         Assert.Throws<InvalidOperationException>(() => game.PassPriority(bob));
     }
@@ -64,7 +64,7 @@ public sealed class PriorityTests
     {
         // CR 117.4 and 500.2.
         var (game, alice, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         Assert.Equal(TurnStep.Upkeep, game.State.CurrentStep);
 
         game.PassPriority(alice);
@@ -80,7 +80,7 @@ public sealed class PriorityTests
         // The test the old model could not pass. Three passes out of four is not "all players
         // pass in succession", and with OpponentOf there was no fourth player to ask.
         var (game, seats) = TestCards.MultiPlayer(4);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         var start = game.State.CurrentStep;
 
         game.PassPriority(seats[0]);
@@ -96,7 +96,7 @@ public sealed class PriorityTests
     public void Priority_passes_around_the_table_in_seating_order()
     {
         var (game, seats) = TestCards.MultiPlayer(4);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
 
         Assert.Equal(seats[0], game.State.Priority.Holder);
         game.PassPriority(seats[0]);
@@ -112,7 +112,7 @@ public sealed class PriorityTests
         // then one casting a spell, means everyone must be given the chance again. An engine
         // counting passes rather than tracking them would resolve here.
         var (game, seats) = TestCards.MultiPlayer(4);
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PassTo(game, seats, TurnStep.PrecombatMain);
 
         var instant = TestCards.PutInHand(game, seats[1], TestCards.Instant());
@@ -130,7 +130,7 @@ public sealed class PriorityTests
     {
         // CR 117.4. And CR 117.3b: the active player gets priority afterwards, not the caster.
         var (game, alice, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PassTo(game, [alice, bob], TurnStep.PrecombatMain);
 
         var creature = TestCards.PutInHand(game, alice, TestCards.Creature("Ox"));
@@ -150,7 +150,7 @@ public sealed class PriorityTests
     {
         // CR 608.1: only the top object resolves, and everyone gets priority again after it.
         var (game, alice, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PassTo(game, [alice, bob], TurnStep.PrecombatMain);
 
         var first = TestCards.PutInHand(game, alice, TestCards.Instant("Bolt"));
@@ -171,7 +171,7 @@ public sealed class PriorityTests
     public void A_spell_goes_on_top_of_the_stack()
     {
         var (game, alice, bob) = TestCards.TwoPlayer();
-        game.BeginPlay();
+        game.BeginPlay(withMulligans: false);
         PassTo(game, [alice, bob], TurnStep.PrecombatMain);
 
         var first = TestCards.PutInHand(game, alice, TestCards.Instant("Bolt"));
