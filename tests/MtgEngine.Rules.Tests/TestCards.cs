@@ -42,6 +42,59 @@ internal static class TestCards
         ColorIdentity = [ManaColor.Green],
     };
 
+    /// <summary>A creature that cannot be destroyed (CR 702.12).</summary>
+    public static CardDefinition Indestructible(string name = "Stone Wall") => new()
+    {
+        OracleId = $"oracle-{name.ToLowerInvariant()}",
+        Name = name,
+        ManaCostRaw = "{2}",
+        Cmc = 2,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Wall"],
+        Power = 0,
+        Toughness = 4,
+        Keywords = KeywordAbility.Indestructible,
+    };
+
+    /// <summary>A legendary creature, for the legend rule (CR 704.5j).</summary>
+    public static CardDefinition Legend(string name) => new()
+    {
+        OracleId = $"oracle-{name.ToLowerInvariant()}",
+        Name = name,
+        ManaCostRaw = "{3}",
+        Cmc = 3,
+        CardTypes = CardType.Creature,
+        Supertypes = ["Legendary"],
+        Subtypes = ["Human"],
+        Power = 3,
+        Toughness = 3,
+    };
+
+    /// <summary>A token, which ceases to exist anywhere but the battlefield (CR 704.5d).</summary>
+    public static CardDefinition Token(string name = "Wolf", int power = 2, int toughness = 2) => new()
+    {
+        OracleId = $"oracle-token-{name.ToLowerInvariant()}",
+        Name = name,
+        Cmc = 0,
+        CardTypes = CardType.Creature | CardType.Token,
+        Subtypes = [name],
+        Power = power,
+        Toughness = toughness,
+    };
+
+    /// <summary>A creature whose oracle id the trigger tests hang an ability on.</summary>
+    public static CardDefinition Watcher(string name = "Watcher") => new()
+    {
+        OracleId = "oracle-watcher-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = "{2}",
+        Cmc = 2,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Human"],
+        Power = 1,
+        Toughness = 3,
+    };
+
     /// <summary>An instant, for timing and stack tests.</summary>
     public static CardDefinition Instant(string name = "Shock") => new()
     {

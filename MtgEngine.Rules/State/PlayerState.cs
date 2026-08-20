@@ -53,7 +53,14 @@ public sealed record PlayerState
     public bool HasLost { get; init; }
 
     /// <summary>
-    /// Lands played this turn, against the one-per-turn allowance (CR 305.2, 505.5b). A count
+    /// Damage dealt by a source with deathtouch since the last state-based action check
+    /// (CR 704.5h) is tracked on the permanent, not here; this records why the player lost so a
+    /// client can say so.
+    /// </summary>
+    public string? LossReason { get; init; }
+
+    /// <summary>
+    /// Lands played this turn, against the one-per-turn allowance (CR 305.2, 505.6b). A count
     /// rather than a bool because effects raise the allowance.
     /// </summary>
     public int LandsPlayedThisTurn { get; init; }
@@ -67,6 +74,7 @@ public sealed record PlayerState
         PoisonCounters == other.PoisonCounters &&
         HasAttemptedDrawFromEmptyLibrary == other.HasAttemptedDrawFromEmptyLibrary &&
         HasLost == other.HasLost &&
+        string.Equals(LossReason, other.LossReason, StringComparison.Ordinal) &&
         LandsPlayedThisTurn == other.LandsPlayedThisTurn &&
         Structural.Same(Library, other.Library) &&
         Structural.Same(Hand, other.Hand) &&

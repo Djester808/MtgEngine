@@ -85,7 +85,7 @@ public sealed record GameStarted(
 }
 
 /// <summary>
-/// A library was shuffled, and this is the order it came out in (CR 103.2, 701.20).
+/// A library was shuffled, and this is the order it came out in (CR 103.2, 701.24).
 /// </summary>
 /// <remarks>
 /// The resulting order is recorded, not the seed. A seed only reproduces the shuffle if the
@@ -93,7 +93,7 @@ public sealed record GameStarted(
 /// </remarks>
 public sealed record LibraryShuffled(Guid PlayerId, ImmutableList<ObjectId> Order) : GameEvent
 {
-    public override string Rule => "701.20";
+    public override string Rule => "701.24";
 
     public override string Describe() => $"{PlayerId:N} shuffled ({Order.Count} cards).";
 }
@@ -200,10 +200,10 @@ public sealed record PermanentsUntapped(ImmutableList<ObjectId> Ids) : GameEvent
     public override string Describe() => $"{Ids.Count} permanent(s) untapped.";
 }
 
-/// <summary>A permanent became tapped (CR 701.21a).</summary>
+/// <summary>A permanent became tapped (CR 701.26a).</summary>
 public sealed record PermanentTapped(ObjectId Id) : GameEvent
 {
-    public override string Rule => "701.21a";
+    public override string Rule => "701.26a";
 
     public override string Describe() => $"{Id} tapped.";
 }
@@ -283,4 +283,94 @@ public sealed record ObjectCreated(
     public override string Rule => "111.1";
 
     public override string Describe() => $"{Card.Name} created in {Zone}.";
+}
+
+// ---- State-based actions and triggers (slice 3) -------------------------------------------
+
+/// <summary>A player lost the game (CR 104.2). The rule that did it is on the event.</summary>
+public sealed record PlayerLost(Guid PlayerId, string Reason, string LosingRule) : GameEvent
+{
+    public override string Rule => LosingRule;
+
+    public override string Describe() => $"{PlayerId:N} lost: {Reason}.";
+}
+
+/// <summary>Damage was marked on a permanent (CR 120.3).</summary>
+/// <remarks>
+/// Marking is not destroying. Damage sits on the permanent until state-based actions compare it
+/// with toughness (CR 704.5g) or cleanup removes it (CR 514.2), which is what lets a creature
+/// survive lethal damage if its toughness rises in between.
+/// </remarks>
+public sealed record DamageMarked(ObjectId Id, int Amount, bool FromDeathtouch = false) : GameEvent
+{
+    public override string Rule => "120.3";
+
+    public override string Describe() => $"{Amount} damage marked on {Id}.";
+}
+
+/// <summary>Counters were put on or taken off a permanent (CR 122.1).</summary>
+public sealed record CountersChanged(ObjectId Id, string Kind, int Delta) : GameEvent
+{
+    public override string Rule => "122.1";
+
+    public override string Describe() =>
+        $"{(Delta >= 0 ? "Put" : "Removed")} {Math.Abs(Delta)} {Kind} counter(s) on {Id}.";
+}
+
+/// <summary>
+/// An object stopped existing without going anywhere (CR 704.5d, 608.2m for abilities).
+/// </summary>
+/// <remarks>
+/// Distinct from a move, because there is no destination. A token that leaves the battlefield
+/// ceases to exist, and an ability that finishes resolving was never a card and has no graveyard
+/// to go to.
+/// </remarks>
+public sealed record ObjectCeasedToExist(ObjectId Id, Zone From) : GameEvent
+{
+    public override string Rule => "704.5d";
+
+    public override string Describe() => $"{Id} ceased to exist.";
+}
+
+/// <summary>An ability triggered and is waiting to be put on the stack (CR 603.2).</summary>
+public sealed record AbilityTriggered(
+    ObjectId SourceId,
+    string AbilityId,
+    string Text,
+    Guid ControllerId) : GameEvent
+{
+    public override string Rule => "603.2";
+
+    public override string Describe() => $"Triggered: {Text}";
+}
+
+/// <summary>
+/// A waiting trigger went on the stack (CR 603.3), topmost, in APNAP order (CR 603.3b).
+/// </summary>
+public sealed record TriggerPutOnStack(
+    ObjectId Id,
+    ObjectId SourceId,
+    CardDefinition SourceCard,
+    string AbilityId,
+    string Text,
+    Guid ControllerId) : GameEvent
+{
+    public override string Rule => "603.3";
+
+    public override string Describe() => $"{Text} went on the stack.";
+}
+
+/// <summary>
+/// The game is over (CR 104.2a): one player is left, or everyone has lost.
+/// </summary>
+/// <remarks>
+/// <see cref="WinnerId"/> is null for a draw, which is a real outcome — the last two players can
+/// lose simultaneously to a state-based action check.
+/// </remarks>
+public sealed record GameEnded(Guid? WinnerId) : GameEvent
+{
+    public override string Rule => "104.2a";
+
+    public override string Describe() =>
+        WinnerId is null ? "The game ended in a draw." : $"{WinnerId:N} won the game.";
 }

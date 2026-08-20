@@ -77,6 +77,22 @@ public static class GameReducer
             StackObjectResolved => state,
             DamageCleared => ClearDamage(state),
             ObjectCreated created => Create(state, created),
+            PlayerLost lost => Lose(state, lost),
+            GameEnded ended => state with { IsOver = true, WinnerId = ended.WinnerId },
+            DamageMarked damage => MarkDamage(state, damage),
+            CountersChanged counters => ChangeCounters(state, counters),
+            ObjectCeasedToExist gone => CeaseToExist(state, gone),
+            AbilityTriggered triggered => state with
+            {
+                PendingTriggers = state.PendingTriggers.Add(new PendingTrigger
+                {
+                    SourceId = triggered.SourceId,
+                    AbilityId = triggered.AbilityId,
+                    Text = triggered.Text,
+                    ControllerId = triggered.ControllerId,
+                }),
+            },
+            TriggerPutOnStack put => PutTriggerOnStack(state, put),
             _ => throw new InvalidOperationException($"No reducer for {e.GetType().Name}."),
         };
     }
@@ -191,6 +207,78 @@ public static class GameReducer
         return state.WithPlayer(player with { HasAttemptedDrawFromEmptyLibrary = true });
     }
 
+    private static GameState Lose(GameState state, PlayerLost e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        return state.WithPlayer(player with { HasLost = true, LossReason = e.Reason });
+    }
+
+    private static GameState MarkDamage(GameState state, DamageMarked e)
+    {
+        var obj = state.GetObject(e.Id);
+        var permanent = obj.Permanent
+            ?? throw new InvalidOperationException($"{e.Id} is not on the battlefield.");
+
+        return state.WithObject(obj with
+        {
+            Permanent = permanent with { DamageMarked = permanent.DamageMarked + e.Amount },
+        });
+    }
+
+    private static GameState ChangeCounters(GameState state, CountersChanged e)
+    {
+        var obj = state.GetObject(e.Id);
+        var permanent = obj.Permanent
+            ?? throw new InvalidOperationException($"{e.Id} is not on the battlefield.");
+
+        var count = permanent.Counters.GetValueOrDefault(e.Kind) + e.Delta;
+        var counters = count <= 0
+            ? permanent.Counters.Remove(e.Kind)
+            : permanent.Counters.SetItem(e.Kind, count);
+
+        return state.WithObject(obj with { Permanent = permanent with { Counters = counters } });
+    }
+
+    private static GameState CeaseToExist(GameState state, ObjectCeasedToExist e)
+    {
+        var obj = state.GetObject(e.Id);
+        state = RemoveFrom(state, obj.Zone, obj.OwnerId, e.Id);
+        return state with { Objects = state.Objects.Remove(e.Id) };
+    }
+
+    private static GameState PutTriggerOnStack(GameState state, TriggerPutOnStack e)
+    {
+        var (withTimestamp, timestamp) = state.TakeTimestamp();
+        state = withTimestamp;
+
+        state = state.WithObject(new GameObject
+        {
+            Id = e.Id,
+            Card = e.SourceCard,
+            OwnerId = e.ControllerId,
+            ControllerId = e.ControllerId,
+            Zone = Zone.Stack,
+            Timestamp = timestamp,
+            Ability = new AbilityOnStack
+            {
+                SourceId = e.SourceId,
+                AbilityId = e.AbilityId,
+                Text = e.Text,
+            },
+        });
+
+        // CR 603.3: it becomes the topmost object on the stack, and stops being pending.
+        return (state with
+        {
+            PendingTriggers = state.PendingTriggers.RemoveAll(
+                t => t.SourceId == e.SourceId && string.Equals(t.AbilityId, e.AbilityId, StringComparison.Ordinal)),
+        }).With(Zone.Stack, e.Id);
+    }
+
+    /// <summary>Adds to a shared zone at the top. Per-player zones go through AddTo.</summary>
+    private static GameState With(this GameState state, Zone zone, ObjectId id) =>
+        AddTo(state, zone, Guid.Empty, id, ZonePosition.Top);
+
     private static GameState Create(GameState state, ObjectCreated e)
     {
         var (withTimestamp, timestamp) = state.TakeTimestamp();
@@ -212,7 +300,7 @@ public static class GameReducer
 
     private static GameState BeginTurn(GameState state, TurnBegan e)
     {
-        // CR 505.5b's allowance is per turn, so it resets for everyone, not only the new active
+        // CR 505.6b's allowance is per turn, so it resets for everyone, not only the new active
         // player: an effect can let a player play a land on someone else's turn.
         var players = state.Players;
         foreach (var (id, player) in players)

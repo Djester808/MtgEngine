@@ -59,8 +59,19 @@ public sealed record GameState
     /// <summary>Where in the turn the game is (CR 500.1).</summary>
     public TurnStep CurrentStep { get; init; } = TurnStep.Untap;
 
+    /// <summary>Set once the game has ended (CR 104.2). Nothing more may happen.</summary>
+    public bool IsOver { get; init; }
+
+    /// <summary>Who won, if anyone. Null while the game runs, and null for a draw.</summary>
+    public Guid? WinnerId { get; init; }
+
     /// <summary>Who may act, and who has passed since anything last happened (CR 117).</summary>
     public PriorityState Priority { get; init; } = new();
+
+    /// <summary>
+    /// Abilities that have triggered and are waiting to go on the stack (CR 603.3).
+    /// </summary>
+    public ImmutableList<PendingTrigger> PendingTriggers { get; init; } = [];
 
     /// <summary>
     /// Set once the game has been dealt and the first turn has begun. Until then there is no
@@ -177,6 +188,8 @@ public sealed record GameState
         TurnNumber == other.TurnNumber &&
         ActivePlayerId == other.ActivePlayerId &&
         CurrentStep == other.CurrentStep &&
+        IsOver == other.IsOver &&
+        WinnerId == other.WinnerId &&
         Priority == other.Priority &&
         NextTimestamp == other.NextTimestamp &&
         Structural.Same(TurnOrder, other.TurnOrder) &&
@@ -185,6 +198,7 @@ public sealed record GameState
         Structural.Same(Exile, other.Exile) &&
         Structural.Same(Command, other.Command) &&
         Structural.Same(Players, other.Players) &&
+        Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>

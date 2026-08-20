@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
+using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Views;
@@ -31,7 +32,13 @@ public sealed class Game
 {
     private readonly List<GameEvent> _log = [];
 
-    private Game(GameState state) => State = state;
+    private Game(GameState state, IAbilitySource abilities)
+    {
+        State = state;
+        _abilities = abilities;
+    }
+
+    private readonly IAbilitySource _abilities;
 
     /// <summary>The current state. Never sent anywhere — see <see cref="ViewFor"/>.</summary>
     public GameState State { get; private set; }
@@ -48,7 +55,8 @@ public sealed class Game
         Guid gameId,
         IReadOnlyList<PlayerSetup> setups,
         GameRandom random,
-        Guid? startingPlayerId = null)
+        Guid? startingPlayerId = null,
+        IAbilitySource? abilities = null)
     {
         ArgumentNullException.ThrowIfNull(setups);
         ArgumentNullException.ThrowIfNull(random);
@@ -69,7 +77,7 @@ public sealed class Game
         var first = startingPlayerId ?? random.Choose([.. setups.Select(s => s.PlayerId)]);
 
         var started = new GameStarted(gameId, seats, first);
-        var game = new Game(GameReducer.Replay([started]));
+        var game = new Game(GameReducer.Replay([started]), abilities ?? NoAbilities.Instance);
         game._log.Add(started);
 
         foreach (var seat in seats)
@@ -78,7 +86,7 @@ public sealed class Game
         return game;
     }
 
-    /// <summary>Shuffles a player's library and records the order it came out in (CR 701.20).</summary>
+    /// <summary>Shuffles a player's library and records the order it came out in (CR 701.24).</summary>
     public void Shuffle(Guid playerId, GameRandom random)
     {
         ArgumentNullException.ThrowIfNull(random);
@@ -155,7 +163,7 @@ public sealed class Game
     public const int MaxHandSize = 7;
 
     /// <summary>
-    /// Draws opening hands and begins the first turn (CR 103.4, 103.6).
+    /// Draws opening hands and begins the first turn (CR 103.5, 103.8).
     /// </summary>
     /// <remarks>
     /// Mulligans (CR 103.5) are not here. Every mulligan decision is a player choice made in
@@ -197,10 +205,20 @@ public sealed class Game
     {
         RequirePriority(playerId);
 
-        Emit(new PriorityPassed(playerId, State.NextInTurnOrderAfter(playerId)));
+        var next = State.NextInTurnOrderAfter(playerId);
+        Emit(new PriorityPassed(playerId, next));
 
         if (!State.Priority.AllPassed(State.ActivePlayers()))
+        {
+            // CR 117.5: state-based actions and triggers are dealt with each time a player
+            // would receive priority — which includes receiving it from a pass, not only at the
+            // start of a step. Anything they do changes the game under the players who already
+            // passed, so those passes no longer count as "in succession" (CR 117.4).
+            if (SettleBeforePriority() && !State.IsOver)
+                Emit(new PriorityGranted(next));
+
             return;
+        }
 
         if (State.Stack.IsEmpty)
         {
@@ -210,6 +228,10 @@ public sealed class Game
         else
         {
             ResolveTop();
+            SettleBeforePriority();
+            if (State.IsOver)
+                return;
+
             // CR 117.3b: the active player receives priority after a spell or ability resolves.
             Emit(new PriorityGranted(State.ActivePlayerId));
         }
@@ -238,6 +260,7 @@ public sealed class Game
 
         var stackId = Move(cardId, Zone.Stack, MoveCause.Cast, playerId);
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name));
+        SettleBeforePriority();
         // CR 117.3c: the caster receives priority again, and the run of passes is broken.
         Emit(new PriorityGranted(playerId));
 
@@ -268,6 +291,7 @@ public sealed class Game
 
         var onBattlefield = Move(cardId, Zone.Battlefield, MoveCause.Play, playerId);
         Emit(new LandDropUsed(playerId));
+        SettleBeforePriority();
         Emit(new PriorityGranted(playerId));
 
         return onBattlefield;
@@ -302,7 +326,28 @@ public sealed class Game
         return id;
     }
 
-    /// <summary>Taps a permanent (CR 701.21a).</summary>
+    /// <summary>
+    /// Marks damage on a permanent (CR 120.3). It is not destroyed here — state-based actions
+    /// compare the damage with its toughness the next time anyone would get priority (CR 704.5g).
+    /// </summary>
+    public void MarkDamage(ObjectId permanentId, int amount, bool fromDeathtouch = false)
+    {
+        if (amount <= 0)
+            return;
+
+        Emit(new DamageMarked(permanentId, amount, fromDeathtouch));
+    }
+
+    /// <summary>Puts counters on a permanent, or takes them off with a negative delta (CR 122).</summary>
+    public void ChangeCounters(ObjectId permanentId, string kind, int delta)
+    {
+        if (delta == 0)
+            return;
+
+        Emit(new CountersChanged(permanentId, kind, delta));
+    }
+
+    /// <summary>Taps a permanent (CR 701.26a).</summary>
     public void Tap(ObjectId permanentId)
     {
         var permanent = State.GetObject(permanentId).Permanent
@@ -318,9 +363,158 @@ public sealed class Game
 
     private void RequirePriority(Guid playerId)
     {
+        if (State.IsOver)
+            throw new InvalidOperationException("The game is over (CR 104.2).");
+
         if (State.Priority.Holder != playerId)
             throw new InvalidOperationException("You do not have priority (CR 117.1).");
     }
+
+    /// <summary>
+    /// Everything that happens before a player actually receives priority (CR 117.5, 704.3).
+    /// </summary>
+    /// <remarks>
+    /// The order is the rules' order and it matters: state-based actions run as one batch and
+    /// repeat until nothing more applies, <em>then</em> waiting triggers go on the stack, and then
+    /// the whole thing repeats — because a trigger going on the stack can itself cause a
+    /// state-based action, and a state-based action can cause something to trigger.
+    /// <para>
+    /// The previous engine ran state-based actions after every individual mutation and never
+    /// collected triggers at all. Getting this loop right, in one place, is most of what slice 3
+    /// is.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether anything happened, which means the game changed under the players.</returns>
+    private bool SettleBeforePriority()
+    {
+        var didSomething = false;
+
+        for (var guard = 0; guard < 100; guard++)
+        {
+            if (State.IsOver)
+                return didSomething;
+
+            var actions = StateBasedActions.Check(State);
+            if (actions.Count > 0)
+            {
+                // CR 704.3: performed simultaneously as a single event, then check again.
+                foreach (var action in actions)
+                    Emit(action);
+
+                didSomething = true;
+                CheckForEnd();
+                continue;
+            }
+
+            if (State.PendingTriggers.IsEmpty)
+                return didSomething;
+
+            PutTriggersOnStack();
+            didSomething = true;
+        }
+
+        throw new InvalidOperationException(
+            "State-based actions and triggers did not settle (CR 704.3).");
+    }
+
+    /// <summary>Ends the game when one player is left, or none (CR 104.2a, 104.4).</summary>
+    private void CheckForEnd()
+    {
+        if (State.IsOver)
+            return;
+
+        var remaining = State.ActivePlayers().ToList();
+        if (remaining.Count > 1)
+            return;
+
+        Emit(new GameEnded(remaining.Count == 1 ? remaining[0] : null));
+    }
+
+    /// <summary>
+    /// Puts every waiting trigger on the stack in APNAP order (CR 603.3, 603.3b).
+    /// </summary>
+    /// <remarks>
+    /// The active player's triggers go on lowest, then each other player's in turn order, so the
+    /// last player's resolve first. With one player's several triggers the rules let that player
+    /// choose the order; the engine keeps the order they triggered in until there is a choice
+    /// system to ask with.
+    /// </remarks>
+    private void PutTriggersOnStack()
+    {
+        var waiting = State.PendingTriggers;
+
+        foreach (var playerId in State.ApnapOrder())
+        {
+            foreach (var trigger in waiting.Where(t => t.ControllerId == playerId))
+            {
+                // CR 603.6: the source may already have left the battlefield. The ability still
+                // goes on the stack — it triggered, and that is enough.
+                var sourceCard = State.TryGetObject(trigger.SourceId, out var source)
+                    ? source.Card
+                    : LastKnownCard(trigger.SourceId);
+
+                Emit(new TriggerPutOnStack(
+                    ObjectId.New(),
+                    trigger.SourceId,
+                    sourceCard,
+                    trigger.AbilityId,
+                    trigger.Text,
+                    trigger.ControllerId));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The card an object had, for a source that has since left the battlefield (CR 603.10).
+    /// </summary>
+    private CardDefinition LastKnownCard(ObjectId sourceId)
+    {
+        foreach (var e in _log.OfType<ObjectMoved>().Reverse())
+        {
+            if (e.OldId == sourceId && State.TryGetObject(e.NewId, out var moved))
+                return moved.Card;
+        }
+
+        foreach (var e in _log.OfType<ObjectCreated>().Reverse())
+        {
+            if (e.Id == sourceId)
+                return e.Card;
+        }
+
+        throw new InvalidOperationException($"No card is known for {sourceId}.");
+    }
+
+    /// <summary>
+    /// Collects abilities that this event triggers (CR 603.2), to go on the stack later.
+    /// </summary>
+    /// <remarks>
+    /// Runs on every event, because a trigger condition can be anything — and it reads the state
+    /// as it was <em>before</em> the event applied, which is the state the trigger condition is
+    /// about. "Whenever a creature dies" has to see the creature.
+    /// </remarks>
+    private void CollectTriggers(GameEvent e, GameState before)
+    {
+        // Triggers never trigger off other triggers being noticed; that would not terminate.
+        if (e is AbilityTriggered or TriggerPutOnStack)
+            return;
+
+        foreach (var (id, obj) in before.Objects)
+        {
+            foreach (var ability in _abilities.TriggersOf(obj.Card))
+            {
+                if (obj.Zone != ability.FunctionsFrom)
+                    continue;
+
+                if (ability.Triggers(e, before, obj))
+                {
+                    _triggersFound.Add(new AbilityTriggered(
+                        id, ability.Id, ability.Text, obj.ControllerId));
+                }
+            }
+        }
+    }
+
+    private readonly List<AbilityTriggered> _triggersFound = [];
 
     private void BeginTurn()
     {
@@ -342,6 +536,9 @@ public sealed class Game
     /// </remarks>
     private void AdvanceStep()
     {
+        if (State.IsOver)
+            return;
+
         var next = State.CurrentStep.Next();
         if (next is null)
         {
@@ -354,6 +551,9 @@ public sealed class Game
 
     private void EnterStep(TurnStep step)
     {
+        if (State.IsOver)
+            return;
+
         Emit(new StepBegan(step));
 
         switch (step)
@@ -379,6 +579,13 @@ public sealed class Game
             default:
                 break;
         }
+
+        // CR 117.5: state-based actions and triggers are dealt with before anyone actually
+        // receives priority.
+        SettleBeforePriority();
+
+        if (State.IsOver)
+            return;
 
         // CR 117.3a: the active player receives priority at the beginning of most steps.
         Emit(new PriorityGranted(State.ActivePlayerId));
@@ -410,7 +617,7 @@ public sealed class Game
 
     private void DrawForTurn()
     {
-        // CR 103.7a: in a two-player game, the player who plays first skips the draw step of
+        // CR 103.8a: in a two-player game, the player who plays first skips the draw step of
         // their first turn. With more players everyone draws every turn.
         var skips = State.TurnOrder.Count == 2
             && State.TurnNumber == 1
@@ -433,6 +640,15 @@ public sealed class Game
 
         Emit(new PriorityWithdrawn());
 
+        if (spell.Ability is not null)
+        {
+            // CR 608.2m applies to cards. An ability was never a card and has no graveyard to go
+            // to: it simply leaves the stack and stops existing.
+            Emit(new StackObjectResolved(stackId, spell.Ability.Text));
+            Emit(new ObjectCeasedToExist(stackId, Zone.Stack));
+            return;
+        }
+
         // CR 608.3: a permanent spell becomes a permanent. CR 608.2m: an instant or sorcery is
         // put into its owner's graveyard as the final part of its resolution.
         var destination = IsPermanentCard(spell.Card) ? Zone.Battlefield : Zone.Graveyard;
@@ -446,7 +662,7 @@ public sealed class Game
         (card.CardTypes & (CardType.Creature | CardType.Artifact | CardType.Enchantment
             | CardType.Land | CardType.Planeswalker | CardType.Battle)) != 0;
 
-    /// <summary>Who started the game, for CR 103.7a. Read from the log, which cannot drift.</summary>
+    /// <summary>Who started the game, for CR 103.8a. Read from the log, which cannot drift.</summary>
     private Guid FirstPlayerId => ((GameStarted)_log[0]).StartingPlayerId;
 
     /// <summary>What the given player may see (CR 400.2).</summary>
@@ -454,7 +670,22 @@ public sealed class Game
 
     private void Emit(GameEvent e)
     {
+        var before = State;
         State = GameReducer.Apply(State, e);
         _log.Add(e);
+
+        // CR 603.2: an ability triggers the moment its event happens, even mid-resolution.
+        // Nothing happens yet — the trigger waits (CR 117.2a) — so this only records them.
+        CollectTriggers(e, before);
+        if (_triggersFound.Count == 0)
+            return;
+
+        var found = _triggersFound.ToList();
+        _triggersFound.Clear();
+        foreach (var trigger in found)
+        {
+            State = GameReducer.Apply(State, trigger);
+            _log.Add(trigger);
+        }
     }
 }

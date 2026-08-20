@@ -44,3 +44,31 @@ public sealed record PriorityState
 
     public override int GetHashCode() => HashCode.Combine(Holder, Passed.Count);
 }
+
+/// <summary>
+/// An ability that has triggered but is not on the stack yet (CR 603.2, 603.3).
+/// </summary>
+/// <remarks>
+/// "Nothing actually happens at the time an ability triggers" (CR 117.2a). It waits here until
+/// the next time a player would receive priority, and only then goes on the stack — which is why
+/// a creature can trigger something and die before that trigger resolves, and why the trigger
+/// still happens.
+/// <para>
+/// It holds an id rather than a delegate so that state stays foldable from a log and comparable
+/// by value. The definition is found again through <see cref="Abilities.IAbilitySource"/>.
+/// </para>
+/// </remarks>
+public sealed record PendingTrigger
+{
+    public required ObjectId SourceId { get; init; }
+
+    public required string AbilityId { get; init; }
+
+    public required string Text { get; init; }
+
+    /// <summary>
+    /// Who controls the trigger: whoever controlled its source when it triggered (CR 603.3).
+    /// Recorded now because the source may be gone by the time it goes on the stack.
+    /// </summary>
+    public required Guid ControllerId { get; init; }
+}

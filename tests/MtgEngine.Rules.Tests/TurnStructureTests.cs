@@ -53,7 +53,7 @@ public sealed class TurnStructureTests
     [Fact]
     public void The_player_who_goes_first_skips_their_first_draw_step()
     {
-        // CR 103.7a, in a two-player game only.
+        // CR 103.8a, in a two-player game only.
         var (game, alice, bob) = TestCards.TwoPlayer(deckSize: 40);
         game.BeginPlay();
 
@@ -79,7 +79,7 @@ public sealed class TurnStructureTests
     [Fact]
     public void Everyone_draws_on_their_first_turn_in_a_multiplayer_game()
     {
-        // CR 103.7a is a two-player rule; it does not apply at four.
+        // CR 103.8c: in all other multiplayer games, no player skips their first draw step.
         var (game, seats) = TestCards.MultiPlayer(4, deckSize: 40);
         game.BeginPlay();
         PriorityTests.PassTo(game, seats, TurnStep.PrecombatMain);

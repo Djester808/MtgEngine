@@ -23,7 +23,7 @@ public sealed class GameRandom(int seed)
     public int Seed { get; } = seed;
 
     /// <summary>
-    /// A uniformly random permutation, by Fisher-Yates (CR 701.20a asks only that the result be
+    /// A uniformly random permutation, by Fisher-Yates (CR 701.24a asks only that the result be
     /// randomised; the algorithm is written out rather than delegated so the bias is inspectable).
     /// </summary>
     public ImmutableList<T> Shuffle<T>(IReadOnlyList<T> items)

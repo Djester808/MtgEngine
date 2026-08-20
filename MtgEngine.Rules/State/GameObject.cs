@@ -36,7 +36,7 @@ public readonly record struct ObjectId(Guid Value)
 /// </remarks>
 public sealed record PermanentState
 {
-    /// <summary>CR 701.21a. Untapped is the default; nothing enters tapped without an effect.</summary>
+    /// <summary>CR 701.26a. Untapped is the default; nothing enters tapped without an effect.</summary>
     public bool IsTapped { get; init; }
 
     /// <summary>
@@ -72,7 +72,23 @@ public sealed record PermanentState
 }
 
 /// <summary>
-/// One object in the game: a card in a zone, or a permanent on the battlefield.
+/// An ability waiting on the stack, which is an object but not a card (CR 113.7a, 603.3).
+/// </summary>
+public sealed record AbilityOnStack
+{
+    /// <summary>The object whose ability this is. It may already have left the battlefield.</summary>
+    public required ObjectId SourceId { get; init; }
+
+    /// <summary>Which of the source's abilities, by the id its definition carries.</summary>
+    public required string AbilityId { get; init; }
+
+    /// <summary>The ability's text — everything it has (CR 405.4).</summary>
+    public required string Text { get; init; }
+}
+
+/// <summary>
+/// One object in the game: a card in a zone, a permanent on the battlefield, or an ability on
+/// the stack.
 /// </summary>
 public sealed record GameObject
 {
@@ -115,6 +131,17 @@ public sealed record GameObject
     /// <summary>Non-null exactly while <see cref="Zone"/> is <see cref="Zone.Battlefield"/>.</summary>
     public PermanentState? Permanent { get; init; }
 
+    /// <summary>
+    /// Non-null when this object is an ability on the stack rather than a card (CR 113.7a).
+    /// </summary>
+    /// <remarks>
+    /// An ability on the stack "has the text of the ability that created it and no other
+    /// characteristics" (CR 405.4). It keeps its source's card here only so a client can show
+    /// what produced it; nothing in the rules reads those characteristics. When it finishes
+    /// resolving it ceases to exist rather than going to a graveyard — it was never a card.
+    /// </remarks>
+    public AbilityOnStack? Ability { get; init; }
+
     /// <summary>Convenience for the common check; see <see cref="Permanent"/>.</summary>
     public bool IsPermanent => Permanent is not null;
 
@@ -131,7 +158,8 @@ public sealed record GameObject
         Zone == other.Zone &&
         Timestamp == other.Timestamp &&
         string.Equals(Card.OracleId, other.Card.OracleId, StringComparison.Ordinal) &&
-        Equals(Permanent, other.Permanent);
+        Equals(Permanent, other.Permanent) &&
+        Equals(Ability, other.Ability);
 
     public override int GetHashCode() =>
         HashCode.Combine(Id, OwnerId, ControllerId, Zone, Timestamp, Card.OracleId, Permanent);
