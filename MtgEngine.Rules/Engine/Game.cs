@@ -752,18 +752,33 @@ public sealed class Game
         if (e is AbilityTriggered or TriggerPutOnStack)
             return;
 
+        // Which state an ability looks at depends on which side of the event its source is on
+        // (CR 603.6). An enters-the-battlefield ability triggers on the game as it is *after* the
+        // permanent arrived — the object it is on did not exist a moment earlier — while a
+        // leaves-the-battlefield ability triggers on the game as it was *before*, because by the
+        // time the event has happened the permanent is gone. Looking only at the state before the
+        // event, as this did at first, silently loses every ETB trigger there is.
         foreach (var (id, obj) in before.Objects)
-        {
-            foreach (var ability in _abilities.TriggersOf(obj.Card))
-            {
-                if (obj.Zone != ability.FunctionsFrom)
-                    continue;
+            Consider(e, before, id, obj);
 
-                if (ability.Triggers(e, before, obj))
-                {
-                    _triggersFound.Add(new AbilityTriggered(
-                        id, ability.Id, ability.Text, obj.ControllerId));
-                }
+        foreach (var (id, obj) in State.Objects)
+        {
+            if (!before.Objects.ContainsKey(id))
+                Consider(e, State, id, obj);
+        }
+    }
+
+    private void Consider(GameEvent e, GameState state, ObjectId id, GameObject obj)
+    {
+        foreach (var ability in _abilities.TriggersOf(obj.Card))
+        {
+            if (obj.Zone != ability.FunctionsFrom)
+                continue;
+
+            if (ability.Triggers(e, state, obj))
+            {
+                _triggersFound.Add(new AbilityTriggered(
+                    id, ability.Id, ability.Text, obj.ControllerId));
             }
         }
     }
@@ -1030,11 +1045,7 @@ public sealed class Game
 
         if (spell.Ability is not null)
         {
-            RunEffects(
-                _abilities.ActivatedOf(spell.Card)
-                    .FirstOrDefault(a => string.Equals(a.Id, spell.Ability.AbilityId, StringComparison.Ordinal))
-                    ?.Effects ?? [],
-                spell);
+            RunEffects(EffectsOfAbility(spell.Card, spell.Ability.AbilityId), spell);
 
             // CR 608.2m applies to cards. An ability was never a card and has no graveyard to go
             // to: it simply leaves the stack and stops existing.
@@ -1066,9 +1077,7 @@ public sealed class Game
             return true;
 
         var specs = spell.Ability is not null
-            ? _abilities.ActivatedOf(spell.Card)
-                .FirstOrDefault(a => string.Equals(a.Id, spell.Ability.AbilityId, StringComparison.Ordinal))
-                ?.Targets
+            ? TargetsOfAbility(spell.Card, spell.Ability.AbilityId)
             : _abilities.SpellOf(spell.Card)?.Targets;
 
         if (specs is null || specs.Count == 0)
@@ -1082,6 +1091,30 @@ public sealed class Game
 
         return false;
     }
+
+    /// <summary>
+    /// An ability's effects, whether it was activated or triggered (CR 602, 603).
+    /// </summary>
+    /// <remarks>
+    /// Both kinds sit on the stack as the same thing (CR 113.7a), so resolution asks one question
+    /// and looks in both places rather than caring which it was.
+    /// </remarks>
+    private ImmutableList<IEffect> EffectsOfAbility(CardDefinition card, string abilityId) =>
+        _abilities.ActivatedOf(card)
+            .FirstOrDefault(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal))
+            ?.Effects
+        ?? _abilities.TriggersOf(card)
+            .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal))
+            ?.Effects
+        ?? [];
+
+    private ImmutableList<TargetSpec>? TargetsOfAbility(CardDefinition card, string abilityId) =>
+        _abilities.ActivatedOf(card)
+            .FirstOrDefault(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal))
+            ?.Targets
+        ?? _abilities.TriggersOf(card)
+            .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal))
+            ?.Targets;
 
     /// <summary>Runs a resolving object's effects in order (CR 608.2c).</summary>
     private void RunEffects(ImmutableList<IEffect> effects, GameObject source)

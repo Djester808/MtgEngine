@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MtgEngine.Api.Cards;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
@@ -150,7 +151,10 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 // One session service for the process: games live in memory, keyed by id, each with its own
 // lock. The card pool is empty until slice 8 fills it, and a deck containing anything the
 // engine does not implement is refused rather than played wrong.
-builder.Services.AddSingleton<IAbilitySource>(_ => NoAbilities.Instance);
+// The card pool is what the engine knows how to play; a deck holding anything outside it is
+// refused by GameTableService rather than played wrong.
+builder.Services.AddSingleton<CardPool>();
+builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<CardPool>());
 builder.Services.AddSingleton<GameSessionService>();
 builder.Services.AddScoped<GameTableService>();
 builder.Services.AddHostedService<IdleGameSweeper>();

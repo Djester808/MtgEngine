@@ -32,6 +32,12 @@ public sealed record TriggeredAbilityDefinition
     /// battlefield (CR 603.6); "when this dies" and "when you discard this" do not.
     /// </summary>
     public Zone FunctionsFrom { get; init; } = Zone.Battlefield;
+
+    /// <summary>What it does when it resolves (CR 608.2c).</summary>
+    public System.Collections.Immutable.ImmutableList<IEffect> Effects { get; init; } = [];
+
+    /// <summary>What it targets, chosen as it goes on the stack (CR 603.3d).</summary>
+    public System.Collections.Immutable.ImmutableList<TargetSpec> Targets { get; init; } = [];
 }
 
 /// <summary>

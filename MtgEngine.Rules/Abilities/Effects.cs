@@ -11,6 +11,16 @@ public enum TargetKind
     Player,
     SpellOnStack,
     CardInGraveyard,
+
+    /// <summary>
+    /// "Any target": a creature, a planeswalker, a battle, or a player (CR 115.4).
+    /// </summary>
+    /// <remarks>
+    /// Its own kind rather than a union of the others, because it is what the cards actually say
+    /// and it is the commonest targeting line there is. A spec that could only name one kind
+    /// would force every burn spell to be written twice.
+    /// </remarks>
+    Any,
 }
 
 /// <summary>One chosen target (CR 115.1).</summary>
@@ -52,10 +62,18 @@ public sealed record TargetSpec
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (target.Kind != Kind)
+        // A spec that takes any target accepts both shapes; anything else has to match exactly.
+        if (Kind == TargetKind.Any)
+        {
+            if (target.Kind is not (TargetKind.Player or TargetKind.Permanent))
+                return false;
+        }
+        else if (target.Kind != Kind)
+        {
             return false;
+        }
 
-        if (Kind == TargetKind.Player)
+        if (target.Kind == TargetKind.Player)
         {
             return state.Players.ContainsKey(target.Player)
                 && !state.GetPlayer(target.Player).HasLost
@@ -67,7 +85,6 @@ public sealed record TargetSpec
 
         var expectedZone = Kind switch
         {
-            TargetKind.Permanent => Zone.Battlefield,
             TargetKind.SpellOnStack => Zone.Stack,
             TargetKind.CardInGraveyard => Zone.Graveyard,
             _ => Zone.Battlefield,
