@@ -144,10 +144,10 @@ public static class StarterCards
                     // CR 613.4c, and "other" means not itself.
                     Applies = (state, source, target) =>
                         source is not null
-                        && target.Id != source.Id
-                        && target.Zone == Zone.Battlefield
+                        && target.Subject.Id != source.Id
+                        && target.Subject.Zone == Zone.Battlefield
                         && target.ControllerId == source.ControllerId
-                        && target.Card.Subtypes.Contains("Elf", StringComparer.OrdinalIgnoreCase),
+                        && target.Subject.Card.Subtypes.Contains("Elf", StringComparer.OrdinalIgnoreCase),
                     Apply = builder => builder.Modify(1, 1),
                 },
             ],

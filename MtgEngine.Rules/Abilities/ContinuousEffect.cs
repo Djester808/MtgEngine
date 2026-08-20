@@ -107,6 +107,41 @@ public sealed class CharacteristicsBuilder
     /// <summary>Swaps power and toughness, the layer 7d operation (CR 613.4d).</summary>
     public void Switch() => (Power, Toughness) = (Toughness, Power);
 
+    /// <summary>Whether the object currently has a subtype, after any type-changing effect.</summary>
+    public bool HasSubtype(string subtype) =>
+        Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether it is currently a creature (CR 302.1), after layer 4.</summary>
+    public bool IsCreature => CardTypes.HasFlag(CardType.Creature);
+
+    /// <summary>Whether it currently has a colour, after layer 5.</summary>
+    public bool IsColor(ManaColor color) => Colors.Contains(color);
+
+    /// <summary>
+    /// A copy, for testing what an effect would do without committing to it.
+    /// </summary>
+    /// <remarks>
+    /// Dependency (CR 613.8) is decided by asking whether applying one effect would change what
+    /// another applies to. Answering that needs a throwaway copy — the real one is mid-flight.
+    /// </remarks>
+    internal CharacteristicsBuilder Copy()
+    {
+        var copy = new CharacteristicsBuilder(Subject)
+        {
+            Power = Power,
+            Toughness = Toughness,
+            CardTypes = CardTypes,
+            Keywords = Keywords,
+            ControllerId = ControllerId,
+        };
+
+        copy.Subtypes.Clear();
+        copy.Subtypes.AddRange(Subtypes);
+        copy.Colors.Clear();
+        copy.Colors.AddRange(Colors);
+        return copy;
+    }
+
     internal ComputedCharacteristics Build() => new()
     {
         Power = Power,
@@ -136,10 +171,19 @@ public sealed record ContinuousEffectDefinition
     public required EffectLayer Layer { get; init; }
 
     /// <summary>
-    /// Whether this effect applies to the given object. <c>source</c> is the permanent whose
-    /// static ability this is, or null for an effect floating free of its source.
+    /// Whether this effect applies to the object whose characteristics are being computed.
     /// </summary>
-    public required Func<GameState, GameObject?, GameObject, bool> Applies { get; init; }
+    /// <remarks>
+    /// The third argument is the target's characteristics <em>as computed so far</em>, not its
+    /// printed card. That is the whole point of the layer system: an anthem that pumps white
+    /// creatures has to see a creature that layer 5 turned white a moment ago, and an effect
+    /// reading the printed card would miss it (CR 613.1, and the worked example under 613.5).
+    /// <para>
+    /// <c>source</c> is the permanent whose static ability this is, or null for an effect
+    /// floating free of its source.
+    /// </para>
+    /// </remarks>
+    public required Func<GameState, GameObject?, CharacteristicsBuilder, bool> Applies { get; init; }
 
     /// <summary>What it does, applied to the characteristics as they stand at its layer.</summary>
     public required Action<CharacteristicsBuilder> Apply { get; init; }

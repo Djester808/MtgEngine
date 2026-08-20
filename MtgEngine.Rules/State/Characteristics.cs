@@ -58,10 +58,21 @@ public static class Characteristics
 
         var builder = new CharacteristicsBuilder(obj);
 
-        // CR 613.1: start with the printed values, then apply each applicable effect in layer
-        // order, and within a layer in timestamp order (CR 613.7).
-        foreach (var (effect, source) in Applicable(state, abilities, obj))
-            effect.Apply(builder);
+        // CR 613.1: start with the printed values, then apply the effects layer by layer. Within
+        // a layer the order is by timestamp (CR 613.7) unless one effect depends on another, in
+        // which case dependency wins (CR 613.8).
+        foreach (var layer in Candidates(state, abilities, obj)
+            .GroupBy(c => c.Effect.Layer)
+            .OrderBy(g => (int)g.Key))
+        {
+            foreach (var candidate in InDependencyOrder(state, [.. layer], builder))
+            {
+                // Applicability is asked again here rather than reused: an effect earlier in the
+                // same layer may have just brought this one into range.
+                if (candidate.Effect.Applies(state, candidate.Source, builder))
+                    candidate.Effect.Apply(builder);
+            }
+        }
 
         return builder.Build();
     }
@@ -83,39 +94,34 @@ public static class Characteristics
         GameState state, IAbilitySource abilities, GameObject obj, KeywordAbility keyword) =>
         Of(state, abilities, obj).Has(keyword);
 
+    /// <summary>One continuous effect that might apply to the object being computed.</summary>
+    private readonly record struct Candidate(
+        ContinuousEffectDefinition Effect, GameObject? Source, long Timestamp);
+
     /// <summary>
-    /// Every continuous effect that applies to this object, in the order the rules apply them.
+    /// Every continuous effect that could apply to this object.
     /// </summary>
     /// <remarks>
-    /// Ordered by layer, then timestamp (CR 613.7). Dependency (CR 613.8) can reorder effects
-    /// within a layer; it is rare enough, and subtle enough, that guessing at it would be worse
-    /// than not doing it — this applies straight timestamp order and will need revisiting when a
-    /// card that actually depends on another is implemented.
+    /// Gathered without asking whether each one applies: that question is answered as its layer
+    /// is reached, because an effect in an earlier layer can bring a later one into range —
+    /// turning a creature white makes an anthem that pumps white creatures start applying to it.
     /// </remarks>
-    private static IEnumerable<(ContinuousEffectDefinition Effect, GameObject? Source)> Applicable(
+    private static IEnumerable<Candidate> Candidates(
         GameState state, IAbilitySource abilities, GameObject target)
     {
-        var found = new List<(ContinuousEffectDefinition Effect, GameObject? Source, long Timestamp)>();
-
         // Static abilities of permanents on the battlefield (CR 604.2): their effects exist for
         // exactly as long as the permanent does.
         foreach (var id in state.Battlefield)
         {
             var source = state.GetObject(id);
             foreach (var effect in abilities.StaticsOf(source.Card))
-            {
-                if (effect.Applies(state, source, target))
-                    found.Add((effect, source, source.Timestamp));
-            }
+                yield return new Candidate(effect, source, source.Timestamp);
         }
 
         // Counters modify power and toughness in layer 7c (CR 613.4c, 122.1c). They are not a
         // static ability of anything, so they are added here rather than found on a permanent.
         if (target.Permanent is not null && CounterDelta(target) != 0)
-        {
-            var delta = CounterDelta(target);
-            found.Add((CounterEffect(delta), null, target.Timestamp));
-        }
+            yield return new Candidate(CounterEffect(CounterDelta(target)), null, target.Timestamp);
 
         // Effects created by a resolved spell or ability, which outlive their source (CR 613.7b).
         foreach (var floating in state.FloatingEffects)
@@ -125,13 +131,63 @@ public static class Characteristics
 
             var definition = abilities.FloatingEffect(floating.DefinitionId);
             if (definition is not null)
-                found.Add((definition, null, floating.Timestamp));
+                yield return new Candidate(definition, null, floating.Timestamp);
+        }
+    }
+
+    /// <summary>
+    /// Orders one layer's effects, letting dependency override timestamp (CR 613.8).
+    /// </summary>
+    /// <remarks>
+    /// CR 613.8a: an effect depends on another when applying that other would change what the
+    /// first applies to, or what it does. That is answered by asking — applying the other to a
+    /// throwaway copy and seeing whether the first's answer changes — rather than by a table of
+    /// special cases, which would only ever cover the cards somebody thought of.
+    /// <para>
+    /// CR 613.8b: dependents wait until everything they depend on has been applied, and a
+    /// dependency loop falls back to timestamp order. The loop case is why this is written as
+    /// "take whatever is ready, and if nothing is, take the earliest" rather than as a topological
+    /// sort that can fail.
+    /// </para>
+    /// </remarks>
+    private static List<Candidate> InDependencyOrder(
+        GameState state, List<Candidate> layer, CharacteristicsBuilder builder)
+    {
+        var remaining = layer.OrderBy(c => c.Timestamp).ToList();
+        if (remaining.Count < 2)
+            return remaining;
+
+        var ordered = new List<Candidate>(remaining.Count);
+
+        while (remaining.Count > 0)
+        {
+            // The earliest effect that nothing else still to come would change.
+            var next = remaining.FirstOrDefault(
+                c => !remaining.Any(other => !Equals(other, c) && DependsOn(state, c, other, builder)));
+
+            // A dependency loop: CR 613.8b says ignore the rule and use timestamp order.
+            if (next == default)
+                next = remaining[0];
+
+            ordered.Add(next);
+            remaining.Remove(next);
         }
 
-        return found
-            .OrderBy(f => (int)f.Effect.Layer)
-            .ThenBy(f => f.Timestamp)
-            .Select(f => (f.Effect, f.Source));
+        return ordered;
+    }
+
+    /// <summary>Whether applying <paramref name="other"/> would change what this one does.</summary>
+    private static bool DependsOn(
+        GameState state, Candidate effect, Candidate other, CharacteristicsBuilder builder)
+    {
+        var before = effect.Effect.Applies(state, effect.Source, builder);
+
+        var probe = builder.Copy();
+        if (!other.Effect.Applies(state, other.Source, probe))
+            return false;
+
+        other.Effect.Apply(probe);
+        return effect.Effect.Applies(state, effect.Source, probe) != before;
     }
 
     /// <summary>The +1/+1 and -1/-1 counters on a permanent, netted (CR 122.1c).</summary>

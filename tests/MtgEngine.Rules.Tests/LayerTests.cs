@@ -47,10 +47,10 @@ public sealed class LayerTests
         Layer = EffectLayer.PowerToughnessModify,
         Applies = (state, source, target) =>
             source is not null
-            && target.Id != source.Id
-            && target.Zone == Zone.Battlefield
+            && target.Subject.Id != source.Id
+            && target.Subject.Zone == Zone.Battlefield
             && target.ControllerId == source.ControllerId
-            && target.Card.CardTypes.HasFlag(CardType.Creature),
+            && target.Subject.Card.CardTypes.HasFlag(CardType.Creature),
         Apply = builder => builder.Modify(power, toughness),
     };
 
@@ -166,9 +166,9 @@ public sealed class LayerTests
             Id = "anthem",
             Layer = EffectLayer.PowerToughnessModify,
             Applies = (state, source, target) =>
-                source is not null && target.Zone == Zone.Battlefield
+                source is not null && target.Subject.Zone == Zone.Battlefield
                 && target.ControllerId == source.ControllerId
-                && target.Card.CardTypes.HasFlag(CardType.Creature),
+                && target.Subject.Card.CardTypes.HasFlag(CardType.Creature),
             Apply = builder => builder.Modify(0, 2),
         }))
             .WithFloating(new ContinuousEffectDefinition
@@ -242,7 +242,7 @@ public sealed class LayerTests
             // Reads the printed type, which is what makes the ordering observable: the anthem
             // is written against creatures and the land only became one in layer 4.
             Applies = (state, source, target) =>
-                source is not null && target.Zone == Zone.Battlefield && target.Id != source.Id,
+                source is not null && target.Subject.Zone == Zone.Battlefield && target.Subject.Id != source.Id,
             Apply = builder =>
             {
                 if (builder.CardTypes.HasFlag(CardType.Creature))
@@ -338,6 +338,179 @@ public sealed class LayerTests
         game.PassPriority(game.State.Priority.Holder!.Value);
 
         Assert.Empty(game.State.Battlefield);
+    }
+
+    [Fact]
+    public void An_effect_sees_a_colour_another_effect_gave_in_an_earlier_layer()
+    {
+        // CR 613.5's own example: a black 2/2 turned white in layer 5 then gets +1/+1 from an
+        // anthem that pumps white creatures in layer 7c. It only works if the anthem is asked
+        // about the creature's *current* colour rather than its printed one.
+        var abilities = new Abilities(("anthem", new ContinuousEffectDefinition
+        {
+            Id = "white-anthem",
+            Layer = EffectLayer.PowerToughnessModify,
+            Applies = (state, source, target) =>
+                source is not null
+                && target.Subject.Zone == Zone.Battlefield
+                && target.IsCreature
+                && target.IsColor(ManaColor.White),
+            Apply = builder => builder.Modify(1, 1),
+        }))
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "make-white",
+                Layer = EffectLayer.Color,
+                Applies = (_, _, _) => true,
+                Apply = builder =>
+                {
+                    builder.Colors.Clear();
+                    builder.Colors.Add(ManaColor.White);
+                },
+            });
+
+        var (game, alice, _) = InMainPhase(abilities);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Anthem(), Zone.Battlefield);
+
+        // Green to start with, so the anthem does not apply.
+        Assert.Equal(2, game.CharacteristicsOf(bear).Power);
+
+        game.CreateContinuousEffect("make-white", [bear]);
+
+        Assert.Equal(3, game.CharacteristicsOf(bear).Power);
+    }
+
+    [Fact]
+    public void Granting_and_removing_the_same_ability_is_timestamp_not_dependency()
+    {
+        // CR 613.9's own example: "Enchanted creature has flying" against "Enchanted creature
+        // loses flying" — neither depends on the other, "since nothing changes what they affect
+        // or what they're doing to it", so the later one simply wins. A dependency check that
+        // fired here would reorder effects the rules say to leave alone.
+        var abilities = new Abilities()
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "grant-flying",
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = builder => builder.Keywords |= KeywordAbility.Flying,
+            })
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "lose-flying",
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = builder => builder.Keywords &= ~KeywordAbility.Flying,
+            });
+
+        var (game, alice, _) = InMainPhase(abilities);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.CreateContinuousEffect("grant-flying", [bear]);
+        game.CreateContinuousEffect("lose-flying", [bear]);
+
+        Assert.False(game.CharacteristicsOf(bear).Has(KeywordAbility.Flying));
+    }
+
+    [Fact]
+    public void Dependency_beats_timestamp_within_a_layer()
+    {
+        // CR 613.8. Two type-changing effects in layer 4:
+        //   older  — "All Zombies are also Elves"
+        //   newer  — "All Bears are also Zombies"
+        // In timestamp order the older runs while nothing is a Zombie yet, so a Bear ends up a
+        // Zombie and never an Elf. But applying the newer changes what the older applies to, so
+        // the older depends on it (CR 613.8a) and waits — and the Bear ends up all three.
+        var abilities = new Abilities()
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "zombies-are-elves",
+                Layer = EffectLayer.Type,
+                Applies = (_, _, target) => target.HasSubtype("Zombie"),
+                Apply = builder => builder.Subtypes.Add("Elf"),
+            })
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "bears-are-zombies",
+                Layer = EffectLayer.Type,
+                Applies = (_, _, target) => target.HasSubtype("Bear"),
+                Apply = builder => builder.Subtypes.Add("Zombie"),
+            });
+
+        var (game, alice, _) = InMainPhase(abilities);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.CreateContinuousEffect("zombies-are-elves", [bear]);
+        game.CreateContinuousEffect("bears-are-zombies", [bear]);
+
+        var subtypes = game.CharacteristicsOf(bear).Subtypes;
+        Assert.Contains("Zombie", subtypes);
+        Assert.Contains("Elf", subtypes);
+    }
+
+    [Fact]
+    public void Independent_effects_keep_timestamp_order()
+    {
+        // CR 613.7: dependency only overrides timestamp when there is a dependency. Two setting
+        // effects that do not affect each other apply oldest first, so the later one wins.
+        var abilities = new Abilities()
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "becomes-1-1",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, _, _) => true,
+                Apply = builder => builder.Set(1, 1),
+            })
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "becomes-5-5",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, _, _) => true,
+                Apply = builder => builder.Set(5, 5),
+            });
+
+        var (game, alice, _) = InMainPhase(abilities);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.CreateContinuousEffect("becomes-1-1", [bear]);
+        game.CreateContinuousEffect("becomes-5-5", [bear]);
+
+        Assert.Equal(5, game.CharacteristicsOf(bear).Power);
+    }
+
+    [Fact]
+    public void A_dependency_loop_falls_back_to_timestamp_order()
+    {
+        // CR 613.8b: if effects form a loop the rule is ignored and timestamp order is used.
+        // Two effects that each stop the other applying depend on each other both ways, and the
+        // computation has to terminate rather than deadlock looking for one that is ready.
+        var abilities = new Abilities()
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "flying-unless-reach",
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, target) => !target.Keywords.HasFlag(KeywordAbility.Reach),
+                Apply = builder => builder.Keywords |= KeywordAbility.Flying,
+            })
+            .WithFloating(new ContinuousEffectDefinition
+            {
+                Id = "reach-unless-flying",
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, target) => !target.Keywords.HasFlag(KeywordAbility.Flying),
+                Apply = builder => builder.Keywords |= KeywordAbility.Reach,
+            });
+
+        var (game, alice, _) = InMainPhase(abilities);
+        var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+
+        game.CreateContinuousEffect("flying-unless-reach", [bear]);
+        game.CreateContinuousEffect("reach-unless-flying", [bear]);
+
+        // Timestamp order: the older one applies, and the younger then finds itself excluded.
+        var computed = game.CharacteristicsOf(bear);
+        Assert.True(computed.Has(KeywordAbility.Flying));
+        Assert.False(computed.Has(KeywordAbility.Reach));
     }
 
     [Fact]
