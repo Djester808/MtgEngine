@@ -53,6 +53,30 @@ public static class GameReducer
             ObjectMoved moved => Move(state, moved),
             LifeChanged life => Life(state, life),
             DrawFromEmptyLibraryAttempted drawn => EmptyDraw(state, drawn),
+            TurnBegan turn => BeginTurn(state, turn),
+            StepBegan step => state with { CurrentStep = step.Step },
+            PriorityGranted granted => state with
+            {
+                // CR 117.3c and 117.4: anything happening breaks the run of passes.
+                Priority = new PriorityState { Holder = granted.PlayerId },
+            },
+            PriorityPassed passed => state with
+            {
+                Priority = state.Priority with
+                {
+                    Holder = passed.NextPlayerId,
+                    Passed = state.Priority.Passed.Add(passed.PlayerId),
+                },
+            },
+            PriorityWithdrawn => state with { Priority = new PriorityState() },
+            PermanentsUntapped untapped => SetTapped(state, untapped.Ids, false),
+            PermanentTapped tapped => SetTapped(state, [tapped.Id], true),
+            SummoningSicknessCleared cleared => ClearSickness(state, cleared.Ids),
+            LandDropUsed land => LandDrop(state, land),
+            SpellCastEvent => state,
+            StackObjectResolved => state,
+            DamageCleared => ClearDamage(state),
+            ObjectCreated created => Create(state, created),
             _ => throw new InvalidOperationException($"No reducer for {e.GetType().Name}."),
         };
     }
@@ -165,6 +189,90 @@ public static class GameReducer
     {
         var player = state.GetPlayer(e.PlayerId);
         return state.WithPlayer(player with { HasAttemptedDrawFromEmptyLibrary = true });
+    }
+
+    private static GameState Create(GameState state, ObjectCreated e)
+    {
+        var (withTimestamp, timestamp) = state.TakeTimestamp();
+        state = withTimestamp;
+
+        state = state.WithObject(new GameObject
+        {
+            Id = e.Id,
+            Card = e.Card,
+            OwnerId = e.OwnerId,
+            ControllerId = e.Zone.IsPerPlayer() ? e.OwnerId : e.ControllerId,
+            Zone = e.Zone,
+            Timestamp = timestamp,
+            Permanent = e.Zone == Zone.Battlefield ? new PermanentState() : null,
+        });
+
+        return AddTo(state, e.Zone, e.OwnerId, e.Id, e.Position);
+    }
+
+    private static GameState BeginTurn(GameState state, TurnBegan e)
+    {
+        // CR 505.5b's allowance is per turn, so it resets for everyone, not only the new active
+        // player: an effect can let a player play a land on someone else's turn.
+        var players = state.Players;
+        foreach (var (id, player) in players)
+            players = players.SetItem(id, player with { LandsPlayedThisTurn = 0 });
+
+        return state with
+        {
+            TurnNumber = e.TurnNumber,
+            ActivePlayerId = e.ActivePlayerId,
+            Players = players,
+        };
+    }
+
+    private static GameState SetTapped(GameState state, IReadOnlyList<ObjectId> ids, bool tapped)
+    {
+        foreach (var id in ids)
+        {
+            var obj = state.GetObject(id);
+            var permanent = obj.Permanent
+                ?? throw new InvalidOperationException($"{id} is not on the battlefield.");
+            state = state.WithObject(obj with { Permanent = permanent with { IsTapped = tapped } });
+        }
+
+        return state;
+    }
+
+    private static GameState ClearSickness(GameState state, IReadOnlyList<ObjectId> ids)
+    {
+        foreach (var id in ids)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is null)
+                continue;
+
+            state = state.WithObject(
+                obj with { Permanent = obj.Permanent with { HasSummoningSickness = false } });
+        }
+
+        return state;
+    }
+
+    private static GameState LandDrop(GameState state, LandDropUsed e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        return state.WithPlayer(player with { LandsPlayedThisTurn = player.LandsPlayedThisTurn + 1 });
+    }
+
+    private static GameState ClearDamage(GameState state)
+    {
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is null || obj.Permanent.DamageMarked == 0)
+                continue;
+
+            state = state.WithObject(
+                obj with { Permanent = obj.Permanent with { DamageMarked = 0 } });
+        }
+
+        return state;
     }
 
     // ---- Zone list plumbing ---------------------------------------------------------------

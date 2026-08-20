@@ -56,6 +56,18 @@ public sealed record GameState
     /// <summary>Whose turn it is (CR 102.1).</summary>
     public Guid ActivePlayerId { get; init; }
 
+    /// <summary>Where in the turn the game is (CR 500.1).</summary>
+    public TurnStep CurrentStep { get; init; } = TurnStep.Untap;
+
+    /// <summary>Who may act, and who has passed since anything last happened (CR 117).</summary>
+    public PriorityState Priority { get; init; } = new();
+
+    /// <summary>
+    /// Set once the game has been dealt and the first turn has begun. Until then there is no
+    /// turn and no priority, only seats and libraries.
+    /// </summary>
+    public bool HasBegun => TurnNumber > 0;
+
     // ---- Lookups ------------------------------------------------------------------------
 
     public GameObject GetObject(ObjectId id) =>
@@ -124,6 +136,23 @@ public sealed record GameState
     /// <summary>Players still in the game (CR 104.2 losers are out but stay seated for the log).</summary>
     public IEnumerable<Guid> ActivePlayers() => TurnOrder.Where(id => !GetPlayer(id).HasLost);
 
+    /// <summary>
+    /// The next player in turn order who is still in the game, skipping anyone who has lost.
+    /// </summary>
+    public Guid NextInTurnOrderAfter(Guid playerId) =>
+        PlayersFrom(playerId).Skip(1).FirstOrDefault(id => !GetPlayer(id).HasLost, playerId);
+
+    /// <summary>
+    /// Whether the given player could cast a sorcery right now: their main phase, an empty
+    /// stack, and priority (CR 117.1a, 505.6a).
+    /// </summary>
+    public bool IsSorcerySpeedFor(Guid playerId) =>
+        HasBegun &&
+        Priority.Holder == playerId &&
+        ActivePlayerId == playerId &&
+        CurrentStep.IsMainPhase() &&
+        Stack.IsEmpty;
+
     // ---- Small edits used by the reducer ------------------------------------------------
 
     public GameState WithObject(GameObject obj) =>
@@ -147,6 +176,8 @@ public sealed record GameState
         GameId == other.GameId &&
         TurnNumber == other.TurnNumber &&
         ActivePlayerId == other.ActivePlayerId &&
+        CurrentStep == other.CurrentStep &&
+        Priority == other.Priority &&
         NextTimestamp == other.NextTimestamp &&
         Structural.Same(TurnOrder, other.TurnOrder) &&
         Structural.Same(Battlefield, other.Battlefield) &&
@@ -157,7 +188,7 @@ public sealed record GameState
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>
-        HashCode.Combine(GameId, TurnNumber, ActivePlayerId, NextTimestamp, Objects.Count, Battlefield.Count, Stack.Count);
+        HashCode.Combine(GameId, TurnNumber, ActivePlayerId, CurrentStep, NextTimestamp, Objects.Count, Battlefield.Count, Stack.Count);
 
     /// <summary>Takes the next timestamp (CR 613.7) and advances the counter.</summary>
     public (GameState State, long Timestamp) TakeTimestamp() =>

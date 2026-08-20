@@ -143,3 +143,144 @@ public sealed record DrawFromEmptyLibraryAttempted(Guid PlayerId) : GameEvent
 
     public override string Describe() => $"{PlayerId:N} tried to draw from an empty library.";
 }
+
+// ---- Turn structure and priority (slice 2) ----------------------------------------------
+
+/// <summary>A new turn began (CR 500.1). Resets what is once-per-turn.</summary>
+public sealed record TurnBegan(int TurnNumber, Guid ActivePlayerId) : GameEvent
+{
+    public override string Rule => "500.1";
+
+    public override string Describe() => $"Turn {TurnNumber} began ({ActivePlayerId:N} active).";
+}
+
+/// <summary>A step began (CR 500.1). The previous one is over by definition (CR 500.12).</summary>
+public sealed record StepBegan(TurnStep Step) : GameEvent
+{
+    public override string Rule => "500.1";
+
+    public override string Describe() => $"{Step} began.";
+}
+
+/// <summary>
+/// A player received priority, and the run of passes was broken (CR 117.3a-c).
+/// </summary>
+/// <remarks>
+/// Emitted at the start of a step, after a resolution, and after any action — all the cases
+/// where CR 117.4's "in succession" starts over.
+/// </remarks>
+public sealed record PriorityGranted(Guid PlayerId) : GameEvent
+{
+    public override string Rule => "117.3";
+
+    public override string Describe() => $"{PlayerId:N} has priority.";
+}
+
+/// <summary>A player passed; the next player in turn order receives priority (CR 117.3d).</summary>
+public sealed record PriorityPassed(Guid PlayerId, Guid NextPlayerId) : GameEvent
+{
+    public override string Rule => "117.3d";
+
+    public override string Describe() => $"{PlayerId:N} passed to {NextPlayerId:N}.";
+}
+
+/// <summary>Nobody has priority: the untap step, cleanup, or a resolution in progress.</summary>
+public sealed record PriorityWithdrawn : GameEvent
+{
+    public override string Rule => "117.2e";
+
+    public override string Describe() => "No player has priority.";
+}
+
+/// <summary>The active player's permanents untapped (CR 502.3). One event, one simultaneous act.</summary>
+public sealed record PermanentsUntapped(ImmutableList<ObjectId> Ids) : GameEvent
+{
+    public override string Rule => "502.3";
+
+    public override string Describe() => $"{Ids.Count} permanent(s) untapped.";
+}
+
+/// <summary>A permanent became tapped (CR 701.21a).</summary>
+public sealed record PermanentTapped(ObjectId Id) : GameEvent
+{
+    public override string Rule => "701.21a";
+
+    public override string Describe() => $"{Id} tapped.";
+}
+
+/// <summary>
+/// Permanents stopped being summoning sick, having been controlled since the turn began
+/// (CR 302.6).
+/// </summary>
+public sealed record SummoningSicknessCleared(ImmutableList<ObjectId> Ids) : GameEvent
+{
+    public override string Rule => "302.6";
+
+    public override string Describe() => $"{Ids.Count} permanent(s) can attack and tap.";
+}
+
+/// <summary>
+/// A player used their land drop for the turn (CR 505.6b). Separate from the move that put the
+/// land onto the battlefield, because a land can reach the battlefield without being played.
+/// </summary>
+public sealed record LandDropUsed(Guid PlayerId) : GameEvent
+{
+    public override string Rule => "505.6b";
+
+    public override string Describe() => $"{PlayerId:N} played a land.";
+}
+
+/// <summary>
+/// A spell was cast (CR 601.2i): it is on the stack and the casting is complete.
+/// </summary>
+/// <remarks>
+/// The card's move to the stack is a separate <see cref="ObjectMoved"/>. This event is what
+/// "whenever a player casts a spell" watches, and it is emitted only once casting has finished —
+/// a spell that is still being cast has not been cast.
+/// </remarks>
+public sealed record SpellCastEvent(Guid PlayerId, ObjectId StackId, string CardName) : GameEvent
+{
+    public override string Rule => "601.2i";
+
+    public override string Describe() => $"{PlayerId:N} cast {CardName}.";
+}
+
+/// <summary>
+/// The top object of the stack finished resolving (CR 608.2m, 608.3).
+/// </summary>
+public sealed record StackObjectResolved(ObjectId StackId, string Description) : GameEvent
+{
+    public override string Rule => "608.2";
+
+    public override string Describe() => $"{Description} resolved.";
+}
+
+/// <summary>Marked damage was removed from every permanent (CR 514.2).</summary>
+public sealed record DamageCleared : GameEvent
+{
+    public override string Rule => "514.2";
+
+    public override string Describe() => "Damage removed from all permanents.";
+}
+
+/// <summary>
+/// An object came into existence in a zone rather than moving there from another one.
+/// </summary>
+/// <remarks>
+/// Tokens are the reason this exists (CR 111.1): a token is created on the battlefield and was
+/// never anywhere else. Cards conjured or brought in from outside the game (CR 400.11b) arrive
+/// the same way. It carries the full card definition so that a log replays without needing
+/// anything the log does not contain.
+/// </remarks>
+public sealed record ObjectCreated(
+    ObjectId Id,
+    CardDefinition Card,
+    Guid OwnerId,
+    Guid ControllerId,
+    Zone Zone,
+    ZonePosition Position = ZonePosition.Top) : GameEvent
+{
+    public override string Rule => "111.1";
+
+    public override string Describe() => $"{Card.Name} created in {Zone}.";
+}

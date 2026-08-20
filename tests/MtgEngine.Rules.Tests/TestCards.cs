@@ -1,6 +1,7 @@
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -77,4 +78,84 @@ internal static class TestCards
 
         return (game, alice, bob);
     }
+
+    /// <summary>
+    /// A game of any size, seated in the order returned, with the first seat active.
+    /// </summary>
+    /// <remarks>
+    /// Priority, APNAP and the stack are all written against the seating list rather than
+    /// against "the opponent", so the four-player case is worth running everywhere the
+    /// two-player one is — it is the case the previous engine could not represent at all.
+    /// </remarks>
+    public static (Game Game, IReadOnlyList<Guid> Seats) MultiPlayer(
+        int players, int deckSize = 30, int seed = 5)
+    {
+        var seats = Enumerable.Range(1, players)
+            .Select(i => new Guid($"{i:D8}-0000-0000-0000-000000000000"))
+            .ToList();
+
+        var setups = seats
+            .Select((id, i) => new PlayerSetup(id, $"P{i + 1}", 40, Deck(deckSize, $"P{i + 1}")))
+            .ToList();
+
+        var game = Game.Start(Guid.NewGuid(), setups, new GameRandom(seed), startingPlayerId: seats[0]);
+        return (game, seats);
+    }
+
+    /// <summary>
+    /// Puts a specific card into a player's hand, so a test can name the card it is about.
+    /// </summary>
+    /// <remarks>
+    /// Emits <c>ObjectCreated</c> rather than editing state, so the log stays a complete account
+    /// of the game and the replay tests keep meaning something. The card arrives in hand the way
+    /// a conjured card would (CR 400.11b) rather than by being drawn, which keeps the test's
+    /// setup out of the library order it is not about.
+    /// </remarks>
+    public static ObjectId PutInHand(Game game, Guid playerId, CardDefinition card)
+    {
+        var onTop = game.Create(playerId, card, Zone.Hand);
+        return onTop;
+    }
+
+    /// <summary>
+    /// Passes priority until the condition holds, discarding down to hand size when cleanup
+    /// asks (CR 514.1).
+    /// </summary>
+    /// <remarks>
+    /// The discard is why this exists. A game left to run passes through cleanup every turn, and
+    /// cleanup stops dead while anyone holds eight cards — correctly, because which card to pitch
+    /// is a decision the engine must not make. A test walking several turns has to answer that
+    /// question, and answering it with "the first card" keeps the choice out of the engine while
+    /// still letting the turn end.
+    /// </remarks>
+    public static void PassUntil(Game game, Func<bool> until, int guard = 1000)
+    {
+        for (var i = 0; i < guard; i++)
+        {
+            if (until())
+                return;
+
+            foreach (var playerId in game.PendingDiscards.ToList())
+                game.Discard(playerId, game.State.GetPlayer(playerId).Hand[0]);
+
+            if (until())
+                return;
+
+            var holder = game.State.Priority.Holder
+                ?? throw new InvalidOperationException(
+                    $"Nobody has priority in {game.State.CurrentStep} and nothing is pending.");
+
+            game.PassPriority(holder);
+        }
+
+        throw new InvalidOperationException("Gave up passing priority; the condition never held.");
+    }
+
+    /// <summary>Plays on until the given turn begins.</summary>
+    public static void PassToTurn(Game game, int turnNumber) =>
+        PassUntil(game, () => game.State.TurnNumber >= turnNumber);
+
+    /// <summary>Plays on until the game is in the given step.</summary>
+    public static void PassToStep(Game game, TurnStep step) =>
+        PassUntil(game, () => game.State.CurrentStep == step);
 }
