@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using MtgEngine.Rules.Mana;
 
 namespace MtgEngine.Rules.State;
 
@@ -26,6 +27,12 @@ public sealed record PlayerState
 
     /// <summary>CR 122.1a. Ten or more is a loss, checked as a state-based action (CR 704.5c).</summary>
     public int PoisonCounters { get; init; }
+
+    /// <summary>
+    /// Unspent mana (CR 106.4). Empties as each step and phase ends (CR 500.5), which is a
+    /// turn-based action rather than anything the player does.
+    /// </summary>
+    public ManaPool ManaPool { get; init; } = ManaPool.Empty;
 
     /// <summary>Face-down, order fixed, top at index 0 (CR 401.1, 401.2).</summary>
     public ImmutableList<ObjectId> Library { get; init; } = [];
@@ -72,6 +79,7 @@ public sealed record PlayerState
         string.Equals(Name, other.Name, StringComparison.Ordinal) &&
         Life == other.Life &&
         PoisonCounters == other.PoisonCounters &&
+        ManaPool == other.ManaPool &&
         HasAttemptedDrawFromEmptyLibrary == other.HasAttemptedDrawFromEmptyLibrary &&
         HasLost == other.HasLost &&
         string.Equals(LossReason, other.LossReason, StringComparison.Ordinal) &&

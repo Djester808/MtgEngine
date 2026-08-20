@@ -3,6 +3,7 @@ using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 using MtgEngine.Rules.Views;
 
@@ -241,7 +242,11 @@ public sealed class Game
     /// Casts a spell from hand (CR 601). Timing only: costs and targets arrive with the effect
     /// system, so for now casting is legality plus the move to the stack.
     /// </summary>
-    public ObjectId CastSpell(Guid playerId, ObjectId cardId)
+    public ObjectId CastSpell(
+        Guid playerId,
+        ObjectId cardId,
+        IReadOnlyList<Target>? targets = null,
+        int variableValue = 0)
     {
         RequirePriority(playerId);
 
@@ -253,18 +258,145 @@ public sealed class Game
             throw new InvalidOperationException("A land is played, not cast (CR 305.1).");
 
         // CR 117.1a: an instant any time you have priority; anything else only at sorcery speed.
-        var isInstant = card.Card.CardTypes.HasFlag(CardType.Instant);
+        var isInstant = card.Card.CardTypes.HasFlag(CardType.Instant)
+            || Characteristics.Of(State, _abilities, card).Has(KeywordAbility.Flash);
         if (!isInstant && !State.IsSorcerySpeedFor(playerId))
             throw new InvalidOperationException(
                 $"{card.Card.Name} can only be cast during your main phase with an empty stack (CR 505.6a).");
 
+        var definition = _abilities.SpellOf(card.Card);
+        var chosen = (targets ?? []).ToImmutableList();
+
+        // CR 601.2c: targets are chosen as the spell is cast, and they have to be legal now.
+        RequireLegalTargets(definition?.Targets ?? [], chosen, playerId, card.Card.Name);
+
+        // CR 601.2h: the cost is paid last, and a spell whose cost cannot be paid is not cast at
+        // all — the game rewinds rather than leaving it half-cast (CR 601.2i, 733).
+        var cost = definition?.AlternateCost ?? ManaCostSpec.Parse(card.Card.ManaCostRaw);
+        PayMana(playerId, cost, variableValue);
+
         var stackId = Move(cardId, Zone.Stack, MoveCause.Cast, playerId);
+        if (!chosen.IsEmpty || variableValue > 0)
+            Emit(new TargetsChosen(stackId, chosen, variableValue));
+
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name));
         SettleBeforePriority();
         // CR 117.3c: the caster receives priority again, and the run of passes is broken.
         Emit(new PriorityGranted(playerId));
 
         return stackId;
+    }
+
+    /// <summary>
+    /// Activates an ability (CR 602.2). A mana ability resolves immediately and does not use the
+    /// stack (CR 605.3b); everything else goes on the stack like a spell.
+    /// </summary>
+    public ObjectId? ActivateAbility(
+        Guid playerId,
+        ObjectId sourceId,
+        string abilityId,
+        IReadOnlyList<Target>? targets = null)
+    {
+        var source = State.GetObject(sourceId);
+        var ability = _abilities.ActivatedOf(source.Card)
+            .FirstOrDefault(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException($"{source.Card.Name} has no ability {abilityId}.");
+
+        // CR 117.1d: a mana ability may be activated whenever a player has priority, and also
+        // while they are paying a cost — which is the only reason mana is ever available.
+        if (!ability.IsManaAbility)
+            RequirePriority(playerId);
+        else if (State.IsOver)
+            throw new InvalidOperationException("The game is over (CR 104.2).");
+
+        if (source.ControllerId != playerId)
+            throw new InvalidOperationException("You do not control that permanent.");
+
+        if (source.Zone != ability.FunctionsFrom)
+            throw new InvalidOperationException("That ability does not function from there (CR 602.5).");
+
+        if (ability.RequiresTap)
+        {
+            var permanent = source.Permanent
+                ?? throw new InvalidOperationException("Only a permanent can be tapped for a cost.");
+
+            if (permanent.IsTapped)
+                throw new InvalidOperationException("It is already tapped (CR 602.5b).");
+
+            // CR 302.6: a creature's {T} ability needs it to have been around since the turn
+            // began. A noncreature permanent has no such restriction.
+            if (permanent.HasSummoningSickness
+                && Characteristics.Of(State, _abilities, source).IsCreature)
+            {
+                throw new InvalidOperationException("It has summoning sickness (CR 302.6).");
+            }
+        }
+
+        var chosen = (targets ?? []).ToImmutableList();
+        RequireLegalTargets(ability.Targets, chosen, playerId, ability.Text);
+
+        PayMana(playerId, ability.ManaCost);
+        if (ability.RequiresTap)
+            Emit(new PermanentTapped(sourceId));
+
+        Emit(new AbilityActivated(playerId, sourceId, ability.Id, ability.Text));
+
+        if (ability.IsManaAbility)
+        {
+            // CR 605.3b: it resolves immediately, and nobody gets a chance to respond.
+            foreach (var production in ability.Produces)
+                Emit(new ManaAdded(playerId, production.Color, production.Amount));
+
+            return null;
+        }
+
+        var stackId = ObjectId.New();
+        Emit(new TriggerPutOnStack(
+            stackId, sourceId, source.Card, ability.Id, ability.Text, playerId));
+
+        if (!chosen.IsEmpty)
+            Emit(new TargetsChosen(stackId, chosen, 0));
+
+        SettleBeforePriority();
+        Emit(new PriorityGranted(playerId));
+
+        return stackId;
+    }
+
+    /// <summary>Checks that targets match the specs and are legal right now (CR 601.2c).</summary>
+    private void RequireLegalTargets(
+        ImmutableList<TargetSpec> specs,
+        ImmutableList<Target> chosen,
+        Guid playerId,
+        string what)
+    {
+        if (chosen.Count != specs.Count)
+        {
+            throw new InvalidOperationException(
+                $"{what} needs {specs.Count} target(s) and was given {chosen.Count} (CR 601.2c).");
+        }
+
+        for (var i = 0; i < specs.Count; i++)
+        {
+            if (!specs[i].IsLegal(State, _abilities, chosen[i], playerId))
+                throw new InvalidOperationException($"Illegal target: {specs[i].Description}.");
+        }
+    }
+
+    /// <summary>
+    /// Pays a mana cost from the player's pool (CR 601.2h), or refuses if it cannot be paid.
+    /// </summary>
+    private void PayMana(Guid playerId, ManaCostSpec cost, int variableValue = 0)
+    {
+        if (cost.Symbols.IsEmpty && variableValue == 0)
+            return;
+
+        var pool = State.GetPlayer(playerId).ManaPool;
+        var remaining = ManaPayment.Pay(pool, cost, variableValue)
+            ?? throw new InvalidOperationException(
+                $"Not enough mana: {cost} needs more than {pool} (CR 601.2h).");
+
+        Emit(new ManaSpent(playerId, remaining));
     }
 
     /// <summary>
@@ -738,6 +870,11 @@ public sealed class Game
         if (State.IsOver)
             return;
 
+        // CR 500.5: unspent mana empties as a step or phase ends. Emitted on entering the next
+        // one, which is the same moment and the only one the engine has a hook for.
+        if (State.TurnOrder.Any(id => !State.GetPlayer(id).ManaPool.IsEmpty))
+            Emit(new ManaPoolsEmptied());
+
         Emit(new StepBegan(step));
 
         switch (step)
@@ -876,8 +1013,29 @@ public sealed class Game
 
         Emit(new PriorityWithdrawn());
 
+        // CR 608.2b: if every target is now illegal, it does not resolve at all — none of its
+        // effects happen, including the ones that had nothing to do with the target.
+        if (!TargetsStillLegal(spell))
+        {
+            var description = spell.Ability?.Text ?? spell.Card.Name;
+            Emit(new FizzledForIllegalTargets(stackId, description));
+
+            if (spell.Ability is not null)
+                Emit(new ObjectCeasedToExist(stackId, Zone.Stack));
+            else
+                Move(stackId, Zone.Graveyard, MoveCause.Other, spell.ControllerId);
+
+            return;
+        }
+
         if (spell.Ability is not null)
         {
+            RunEffects(
+                _abilities.ActivatedOf(spell.Card)
+                    .FirstOrDefault(a => string.Equals(a.Id, spell.Ability.AbilityId, StringComparison.Ordinal))
+                    ?.Effects ?? [],
+                spell);
+
             // CR 608.2m applies to cards. An ability was never a card and has no graveyard to go
             // to: it simply leaves the stack and stops existing.
             Emit(new StackObjectResolved(stackId, spell.Ability.Text));
@@ -885,12 +1043,69 @@ public sealed class Game
             return;
         }
 
+        RunEffects(_abilities.SpellOf(spell.Card)?.Effects ?? [], spell);
+
         // CR 608.3: a permanent spell becomes a permanent. CR 608.2m: an instant or sorcery is
         // put into its owner's graveyard as the final part of its resolution.
         var destination = IsPermanentCard(spell.Card) ? Zone.Battlefield : Zone.Graveyard;
         Move(stackId, destination, MoveCause.Resolve, spell.ControllerId);
 
         Emit(new StackObjectResolved(stackId, spell.Card.Name));
+    }
+
+    /// <summary>
+    /// Whether at least one of the object's targets is still legal (CR 608.2b).
+    /// </summary>
+    /// <remarks>
+    /// One legal target is enough: a spell with several targets resolves and does as much as it
+    /// can, and only one with <em>no</em> legal targets left does nothing at all.
+    /// </remarks>
+    private bool TargetsStillLegal(GameObject spell)
+    {
+        if (spell.Targets.IsEmpty)
+            return true;
+
+        var specs = spell.Ability is not null
+            ? _abilities.ActivatedOf(spell.Card)
+                .FirstOrDefault(a => string.Equals(a.Id, spell.Ability.AbilityId, StringComparison.Ordinal))
+                ?.Targets
+            : _abilities.SpellOf(spell.Card)?.Targets;
+
+        if (specs is null || specs.Count == 0)
+            return true;
+
+        for (var i = 0; i < spell.Targets.Count && i < specs.Count; i++)
+        {
+            if (specs[i].IsLegal(State, _abilities, spell.Targets[i], spell.ControllerId))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Runs a resolving object's effects in order (CR 608.2c).</summary>
+    private void RunEffects(ImmutableList<IEffect> effects, GameObject source)
+    {
+        if (effects.Count == 0)
+            return;
+
+        var context = new ResolutionContext
+        {
+            State = State,
+            Abilities = _abilities,
+            ControllerId = source.ControllerId,
+            SourceId = source.Id,
+            Targets = source.Targets,
+            VariableValue = source.VariableValue,
+        };
+
+        foreach (var effect in effects)
+        {
+            // Each effect sees the state the previous one left behind (CR 608.2c), so the
+            // context is rebuilt rather than captured once.
+            foreach (var e in effect.Resolve(context with { State = State }))
+                Emit(e);
+        }
     }
 
     /// <summary>Card types that exist on the battlefield (CR 110.4, 205.2a).</summary>

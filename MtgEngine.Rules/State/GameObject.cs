@@ -155,6 +155,18 @@ public sealed record GameObject
     /// </remarks>
     public AbilityOnStack? Ability { get; init; }
 
+    /// <summary>
+    /// Targets chosen as this spell or ability was put on the stack (CR 601.2c, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// Chosen once, on announcement, and never re-chosen — but re-checked on resolution
+    /// (CR 608.2b), because a spell all of whose targets have become illegal does not resolve.
+    /// </remarks>
+    public ImmutableList<Abilities.Target> Targets { get; init; } = [];
+
+    /// <summary>The value chosen for X as this was cast (CR 601.2b).</summary>
+    public int VariableValue { get; init; }
+
     /// <summary>Convenience for the common check; see <see cref="Permanent"/>.</summary>
     public bool IsPermanent => Permanent is not null;
 
@@ -172,7 +184,9 @@ public sealed record GameObject
         Timestamp == other.Timestamp &&
         string.Equals(Card.OracleId, other.Card.OracleId, StringComparison.Ordinal) &&
         Equals(Permanent, other.Permanent) &&
-        Equals(Ability, other.Ability);
+        Equals(Ability, other.Ability) &&
+        VariableValue == other.VariableValue &&
+        Structural.Same(Targets, other.Targets);
 
     public override int GetHashCode() =>
         HashCode.Combine(Id, OwnerId, ControllerId, Zone, Timestamp, Card.OracleId, Permanent);

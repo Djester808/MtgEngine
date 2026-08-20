@@ -16,13 +16,16 @@ namespace MtgEngine.Rules.Tests;
 /// </remarks>
 internal static class TestCards
 {
+    // These fixtures cost nothing to cast, deliberately. The tests using them are about timing,
+    // priority, the stack, layers and combat; giving each one a mana cost would add a subplot
+    // about paying it to every single test, and the cost rules have their own file.
+
     /// <summary>A creature with no abilities — enough to be a permanent and to attack.</summary>
     public static CardDefinition Creature(string name = "Bear", int power = 2, int toughness = 2) => new()
     {
         OracleId = $"oracle-{name.ToLowerInvariant()}",
         Name = name,
-        ManaCostRaw = "{1}{G}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Subtypes = ["Bear"],
         Power = power,
@@ -47,8 +50,7 @@ internal static class TestCards
     {
         OracleId = $"oracle-{name.ToLowerInvariant()}",
         Name = name,
-        ManaCostRaw = "{2}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Subtypes = ["Wall"],
         Power = 0,
@@ -61,8 +63,7 @@ internal static class TestCards
     {
         OracleId = $"oracle-{name.ToLowerInvariant()}",
         Name = name,
-        ManaCostRaw = "{3}",
-        Cmc = 3,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Supertypes = ["Legendary"],
         Subtypes = ["Human"],
@@ -87,8 +88,7 @@ internal static class TestCards
     {
         OracleId = "oracle-watcher-" + name.ToLowerInvariant(),
         Name = name,
-        ManaCostRaw = "{2}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Subtypes = ["Human"],
         Power = 1,
@@ -100,8 +100,7 @@ internal static class TestCards
     {
         OracleId = "oracle-lord-" + name.ToLowerInvariant(),
         Name = name,
-        ManaCostRaw = "{2}{G}",
-        Cmc = 3,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Subtypes = ["Elf"],
         OracleText = "Other creatures you control get +1/+1.",
@@ -114,8 +113,7 @@ internal static class TestCards
     {
         OracleId = "oracle-anthem-" + name.ToLowerInvariant(),
         Name = name,
-        ManaCostRaw = "{1}{W}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Enchantment,
         OracleText = "Creatures you control get +0/+2.",
     };
@@ -125,8 +123,7 @@ internal static class TestCards
     {
         OracleId = "oracle-shield-" + name.ToLowerInvariant(),
         Name = name,
-        ManaCostRaw = "{1}{W}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Enchantment,
     };
 
@@ -135,8 +132,7 @@ internal static class TestCards
     {
         OracleId = "oracle-grower-" + name.ToLowerInvariant(),
         Name = name,
-        ManaCostRaw = "{1}{G}",
-        Cmc = 2,
+        Cmc = 0,
         CardTypes = CardType.Creature,
         Subtypes = ["Beast"],
         OracleText = "This creature enters with two +1/+1 counters on it.",
@@ -150,8 +146,7 @@ internal static class TestCards
         {
             OracleId = "oracle-kw-" + name.ToLowerInvariant(),
             Name = name,
-            ManaCostRaw = "{2}",
-            Cmc = 2,
+            Cmc = 0,
             CardTypes = CardType.Creature,
             Subtypes = ["Soldier"],
             Power = power,
@@ -159,13 +154,25 @@ internal static class TestCards
             Keywords = keywords,
         };
 
+    /// <summary>A card with a real mana cost, for the cost rules (CR 601.2h).</summary>
+    public static CardDefinition Costed(string name, string manaCost, int cmc) => new()
+    {
+        OracleId = "oracle-costed-" + name.ToLowerInvariant(),
+        Name = name,
+        ManaCostRaw = manaCost,
+        Cmc = cmc,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Human"],
+        Power = 1,
+        Toughness = 1,
+    };
+
     /// <summary>An instant, for timing and stack tests.</summary>
     public static CardDefinition Instant(string name = "Shock") => new()
     {
         OracleId = $"oracle-{name.ToLowerInvariant()}",
         Name = name,
-        ManaCostRaw = "{R}",
-        Cmc = 1,
+        Cmc = 0,
         CardTypes = CardType.Instant,
         OracleText = "Shock deals 2 damage to any target.",
         ColorIdentity = [ManaColor.Red],

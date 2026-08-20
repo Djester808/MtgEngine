@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Engine;
@@ -85,6 +86,18 @@ public static class GameReducer
                 FloatingEffects = state.FloatingEffects.RemoveAll(f => f.Id == ended2.EffectId),
             },
             EventReplaced => state,
+            ManaAdded added => AddMana(state, added),
+            ManaSpent spent => state.WithPlayer(
+                state.GetPlayer(spent.PlayerId) with { ManaPool = spent.Remaining }),
+            ManaPoolsEmptied => EmptyPools(state),
+            TargetsChosen chosen => state.WithObject(
+                state.GetObject(chosen.StackId) with
+                {
+                    Targets = chosen.Targets,
+                    VariableValue = chosen.VariableValue,
+                }),
+            FizzledForIllegalTargets => state,
+            AbilityActivated => state,
             AttackersDeclared attackers => state with
             {
                 Combat = state.Combat with
@@ -253,6 +266,28 @@ public static class GameReducer
                 UntilEndOfTurn = e.UntilEndOfTurn,
             }),
         };
+    }
+
+    private static GameState AddMana(GameState state, ManaAdded e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        var pool = e.Color is null
+            ? player.ManaPool.AddColorless(e.Amount)
+            : player.ManaPool.Add(e.Color.Value, e.Amount);
+
+        return state.WithPlayer(player with { ManaPool = pool });
+    }
+
+    private static GameState EmptyPools(GameState state)
+    {
+        foreach (var id in state.TurnOrder)
+        {
+            var player = state.GetPlayer(id);
+            if (!player.ManaPool.IsEmpty)
+                state = state.WithPlayer(player with { ManaPool = ManaPool.Empty });
+        }
+
+        return state;
     }
 
     private static GameState DamagePlayer(GameState state, PlayerDamaged e)

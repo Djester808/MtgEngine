@@ -42,7 +42,7 @@ public sealed record TriggeredAbilityDefinition
 /// settled before card behaviour exists, and this is the shape the card definitions of slice 8
 /// will plug into.
 /// </remarks>
-public interface IAbilitySource
+public interface IAbilitySource : ISpellSource
 {
     /// <summary>The triggered abilities of a card, or an empty list if it has none.</summary>
     IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card);

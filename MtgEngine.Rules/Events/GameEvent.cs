@@ -1,5 +1,8 @@
 using System.Collections.Immutable;
+using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
+using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Events;
@@ -469,4 +472,66 @@ public sealed record CombatEnded : GameEvent
     public override string Rule => "511.3";
 
     public override string Describe() => "Combat ended.";
+}
+
+// ---- Costs, targets and abilities (slice 6) -------------------------------------------------
+
+/// <summary>Mana was added to a player's pool (CR 106.1).</summary>
+public sealed record ManaAdded(Guid PlayerId, ManaColor? Color, int Amount) : GameEvent
+{
+    public override string Rule => "106.1";
+
+    public override string Describe() =>
+        $"{PlayerId:N} added {Amount} {(Color?.ToString() ?? "colourless")} mana.";
+}
+
+/// <summary>Mana was spent paying a cost (CR 601.2h).</summary>
+public sealed record ManaSpent(Guid PlayerId, ManaPool Remaining) : GameEvent
+{
+    public override string Rule => "601.2h";
+
+    public override string Describe() => $"{PlayerId:N} paid mana; pool is now {Remaining}.";
+}
+
+/// <summary>
+/// Unspent mana emptied as a step or phase ended (CR 500.5).
+/// </summary>
+public sealed record ManaPoolsEmptied : GameEvent
+{
+    public override string Rule => "500.5";
+
+    public override string Describe() => "Mana pools emptied.";
+}
+
+/// <summary>Targets were chosen for a spell or ability on the stack (CR 601.2c).</summary>
+public sealed record TargetsChosen(
+    ObjectId StackId, ImmutableList<Target> Targets, int VariableValue) : GameEvent
+{
+    public override string Rule => "601.2c";
+
+    public override string Describe() => $"{Targets.Count} target(s) chosen.";
+}
+
+/// <summary>
+/// A spell or ability did not resolve because every target it had was illegal (CR 608.2b).
+/// </summary>
+/// <remarks>
+/// Not the same as being countered by a spell, though the rules call it "countered by game
+/// rules" — nothing it would have done happens, including the parts that had nothing to do with
+/// the target.
+/// </remarks>
+public sealed record FizzledForIllegalTargets(ObjectId StackId, string Description) : GameEvent
+{
+    public override string Rule => "608.2b";
+
+    public override string Describe() => $"{Description} did nothing: every target was illegal.";
+}
+
+/// <summary>An activated ability was activated (CR 602.2).</summary>
+public sealed record AbilityActivated(
+    Guid PlayerId, ObjectId SourceId, string AbilityId, string Text) : GameEvent
+{
+    public override string Rule => "602.2";
+
+    public override string Describe() => $"{PlayerId:N} activated: {Text}";
 }
