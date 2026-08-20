@@ -264,8 +264,16 @@ internal static class TestCards
             if (until())
                 return;
 
-            foreach (var playerId in game.PendingDiscards.ToList())
-                game.Discard(playerId, game.State.GetPlayer(playerId).Hand[0]);
+            // Discarding to hand size is a choice like any other (CR 514.1). A test that is not
+            // about which card to pitch still has to answer, and the first card is the answer
+            // that changes nothing.
+            if (game.State.Choice is { Kind: ChoiceKind.DiscardToHandSize } discard)
+            {
+                game.Choose(
+                    discard.PlayerId,
+                    [.. discard.Options.Take(discard.MinPicks).Select(o => o.Id)]);
+                continue;
+            }
 
             // Combat steps wait for a declaration before anyone gets priority (CR 508.1,
             // 509.1). A test that is not about combat still has to answer, and the answer that

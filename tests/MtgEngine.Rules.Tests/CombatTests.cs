@@ -257,13 +257,84 @@ public sealed class CombatTests
         var choice = game.State.Choice!;
         Assert.Equal(ChoiceKind.DivideCombatDamage, choice.Kind);
         Assert.Equal(alice, choice.PlayerId);
+        // One pick per point of damage, which is what makes any legal division sayable.
+        Assert.Equal(4, choice.MinPicks);
 
-        // Assign to the second blocker first, which the declaration order would never produce.
-        game.Choose(alice, [second.Value.ToString("N"), first.Value.ToString("N")]);
+        // Three to the second blocker and one to the first: lethal to one, and the remaining
+        // point somewhere the declaration order would never have put it.
+        game.Choose(alice, [
+            second.Value.ToString("N"),
+            second.Value.ToString("N"),
+            second.Value.ToString("N"),
+            first.Value.ToString("N"),
+        ]);
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.False(game.State.TryGetObject(second, out _));
         Assert.Equal(1, game.State.GetObject(first).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void Damage_can_be_split_so_that_neither_blocker_dies()
+    {
+        // The division an ordering cannot express, and the reason the answer is an amount per
+        // blocker rather than a sequence: two each to two 3-toughness blockers is legal
+        // (CR 510.1c) and kills neither.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(alice, TestCards.Creature("Attacker", 4, 4), Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("First", 1, 3), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [first, second],
+        });
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        game.Choose(alice, [
+            first.Value.ToString("N"),
+            first.Value.ToString("N"),
+            second.Value.ToString("N"),
+            second.Value.ToString("N"),
+        ]);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(2, game.State.GetObject(first).Permanent!.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(second).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void Damage_beyond_lethal_is_refused_while_a_blocker_has_none()
+    {
+        // CR 510.1c: a creature may only be assigned damage beyond lethal once every other
+        // blocker has lethal. Four to one 3-toughness blocker and none to the other puts the
+        // fourth point past lethal while a blocker still had nothing.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(alice, TestCards.Creature("Attacker", 4, 4), Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("First", 1, 3), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [first, second],
+        });
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => game.Choose(alice, [
+            first.Value.ToString("N"),
+            first.Value.ToString("N"),
+            first.Value.ToString("N"),
+            first.Value.ToString("N"),
+        ]));
+
+        Assert.Contains("510.1c", ex.Message, StringComparison.Ordinal);
+        Assert.NotNull(game.State.Choice);
     }
 
     [Fact]

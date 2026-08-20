@@ -14,9 +14,20 @@ namespace MtgEngine.Api.Cards;
 /// ones that share a shape share it rather than each having its own copy of "deal N damage to any
 /// target".
 /// <para>
-/// Keyed by card name; see <see cref="StarterCards"/> for why that rather than oracle id. A card
-/// not in here is not playable, and <c>GameTableService</c> refuses the deck rather than letting
-/// it play wrong — see the note there on why that is the least bad of the three options.
+/// Written against card names, because a name is checkable by eye and a GUID is not — a pool of
+/// plausible-looking wrong oracle ids would bind real cards to the wrong behaviour and look
+/// entirely correct doing it. The ids are then resolved from the card database at startup, so a
+/// lookup at play time is by oracle id, which is what a deck actually stores and what survives
+/// a card being renamed.
+/// </para>
+/// <para>
+/// The name remains a fallback for anything the resolve could not find, so the pool still works
+/// with a card database that is missing or still downloading rather than silently playing
+/// nothing.
+/// </para>
+/// <para>
+/// A card not in here is not playable, and <c>GameTableService</c> refuses the deck rather than
+/// letting it play wrong — see the note there on why that is the least bad of the three options.
 /// </para>
 /// <para>
 /// Basic lands are the exception that proves the pattern: every one of them is "{T}: Add {C}" for
@@ -26,6 +37,7 @@ namespace MtgEngine.Api.Cards;
 public sealed class CardPool : IAbilitySource
 {
     private readonly Dictionary<string, CardScript> _byName = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CardScript> _byOracleId = new(StringComparer.Ordinal);
 
     public CardPool()
     {
@@ -36,8 +48,36 @@ public sealed class CardPool : IAbilitySource
     /// <summary>How many cards the engine implements.</summary>
     public int Count => _byName.Count;
 
-    /// <summary>Whether a specific card can be played.</summary>
+    /// <summary>The names of every card the engine implements.</summary>
+    public IReadOnlyCollection<string> Names => _byName.Keys;
+
+    /// <summary>Whether a specific card can be played, by name.</summary>
     public bool Knows(string name) => _byName.ContainsKey(name);
+
+    /// <summary>How many of them have been tied to an oracle id.</summary>
+    public int ResolvedCount => _byOracleId.Count;
+
+    /// <summary>
+    /// Ties each script to the oracle id of the card it names.
+    /// </summary>
+    /// <remarks>
+    /// Called once at startup with a name-to-oracle-id lookup from the card database. Until it
+    /// runs the pool still works by name, so a missing or half-downloaded card database costs
+    /// accuracy across renames rather than the ability to play at all.
+    /// </remarks>
+    public void ResolveOracleIds(IReadOnlyDictionary<string, string> oracleIdsByName)
+    {
+        ArgumentNullException.ThrowIfNull(oracleIdsByName);
+
+        foreach (var (name, script) in _byName)
+        {
+            if (oracleIdsByName.TryGetValue(name, out var oracleId)
+                && !string.IsNullOrEmpty(oracleId))
+            {
+                _byOracleId[oracleId] = script;
+            }
+        }
+    }
 
     public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) =>
         Find(card)?.Triggers ?? [];
@@ -60,7 +100,10 @@ public sealed class CardPool : IAbilitySource
     {
         ArgumentNullException.ThrowIfNull(card);
 
-        return _byName.GetValueOrDefault(card.Name);
+        // Oracle id first: it is what a deck stores, and it survives a card being renamed. The
+        // name is the fallback for anything that was never resolved.
+        return _byOracleId.GetValueOrDefault(card.OracleId ?? string.Empty)
+            ?? _byName.GetValueOrDefault(card.Name);
     }
 
     /// <summary>The five basic lands, generated rather than written out (CR 305.6).</summary>

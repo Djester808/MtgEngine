@@ -171,11 +171,25 @@ public sealed class TurnStructureTests
         game.PassPriority(alice);
         game.PassPriority(bob);
 
-        while (game.PendingDiscards.Count > 0)
-            game.Discard(alice, game.State.GetPlayer(alice).Hand[0]);
+        // CR 514.1: which cards to discard is the player's choice, asked for like any other.
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.DiscardToHandSize, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+        Assert.Equal(4, choice.MinPicks);
+
+        var pitched = choice.Options.Take(4).ToList();
+        game.Choose(alice, [.. pitched.Select(o => o.Id)]);
 
         Assert.Equal(2, game.State.TurnNumber);
         Assert.Equal(Game.MaxHandSize, game.State.GetPlayer(alice).Hand.Count);
+        // The cards that went are the ones chosen, not whichever the engine reached first.
+        foreach (var option in pitched)
+        {
+            Assert.Contains(
+                game.State.GetPlayer(alice).Graveyard,
+                id => game.State.GetObject(id).Card.Name == option.Label);
+        }
     }
 
     [Fact]

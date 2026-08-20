@@ -74,8 +74,8 @@ public sealed class CardPoolTests
     {
         for (var guard = 0; guard < 200 && game.State.CurrentStep != TurnStep.PrecombatMain; guard++)
         {
-            foreach (var playerId in game.PendingDiscards.ToList())
-                game.Discard(playerId, game.State.GetPlayer(playerId).Hand[0]);
+            if (AnswerAnything(game))
+                continue;
 
             if (game.State.CurrentStep == TurnStep.DeclareAttackers && !game.State.Combat.AttackersDeclared)
             {
@@ -95,6 +95,23 @@ public sealed class CardPoolTests
     /// a player would receive priority — so stopping at "the stack is empty" stops one step too
     /// early and misses everything a trigger was going to do.
     /// </remarks>
+    /// <summary>
+    /// Answers whatever the game is waiting on, the way that changes nothing.
+    /// </summary>
+    /// <remarks>
+    /// Discarding to hand size is a decision like any other (CR 514.1), so a test walking
+    /// several turns has to answer it. Taking the first options keeps the test about the card it
+    /// is testing rather than about which card to pitch.
+    /// </remarks>
+    private static bool AnswerAnything(Game game)
+    {
+        if (game.State.Choice is not { } choice)
+            return false;
+
+        game.Choose(choice.PlayerId, [.. choice.Options.Take(choice.MinPicks).Select(o => o.Id)]);
+        return true;
+    }
+
     private static void ResolveTop(Game game)
     {
         for (var guard = 0; guard < 100; guard++)
@@ -314,6 +331,42 @@ public sealed class CardPoolTests
     }
 
     [Fact]
+    public void Resolving_ties_a_card_to_its_oracle_id()
+    {
+        // The pool is written against names because a name can be checked by eye and a GUID
+        // cannot. Once resolved it matches on oracle id, which is what a deck stores and what
+        // survives a card being renamed.
+        var pool = new CardPool();
+        // CardDefinition is a class, not a record, so the renamed copy is built rather than
+        // `with`-ed.
+        var renamed = new CardDefinition
+        {
+            OracleId = "real-bolt-id",
+            Name = "Renamed",
+            CardTypes = CardType.Instant,
+            OracleText = "deals 3 damage to any target",
+        };
+
+        Assert.Null(pool.SpellOf(renamed));
+
+        pool.ResolveOracleIds(new Dictionary<string, string> { ["Lightning Bolt"] = "real-bolt-id" });
+
+        Assert.NotNull(pool.SpellOf(renamed));
+        Assert.Equal(1, pool.ResolvedCount);
+    }
+
+    [Fact]
+    public void An_unresolved_pool_still_plays_by_name()
+    {
+        // A card database that is missing or still downloading costs accuracy across renames,
+        // not the ability to start a game.
+        var pool = new CardPool();
+
+        Assert.NotNull(pool.SpellOf(Card("Lightning Bolt")));
+        Assert.Equal(0, pool.ResolvedCount);
+    }
+
+    [Fact]
     public void A_card_the_pool_does_not_know_is_not_known()
     {
         Assert.True(Pool.Knows("Lightning Bolt"));
@@ -340,8 +393,8 @@ public sealed class CardPoolTests
         var turn = game.State.TurnNumber;
         for (var guard = 0; guard < 400 && game.State.TurnNumber == turn; guard++)
         {
-            foreach (var playerId in game.PendingDiscards.ToList())
-                game.Discard(playerId, game.State.GetPlayer(playerId).Hand[0]);
+            if (AnswerAnything(game))
+                continue;
 
             if (game.State.TurnNumber != turn)
                 return;

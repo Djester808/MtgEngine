@@ -356,14 +356,61 @@ public sealed class Game
     /// Players who must discard before the turn can end (CR 514.1).
     /// </summary>
     /// <remarks>
-    /// Cleanup stalls here rather than discarding for them. Which card to discard is the
-    /// player's choice, and an engine that picks is an engine that is wrong.
+    /// Kept for a caller that wants to know without inspecting the choice. The discard itself is
+    /// asked for like every other decision — it used to be a list the caller had to poll and
+    /// answer through a separate method, which meant a client that did not know to look simply
+    /// hung at cleanup with nothing on screen saying why.
     /// </remarks>
     public IReadOnlyList<Guid> PendingDiscards =>
         State.CurrentStep != TurnStep.Cleanup
             ? []
             : [.. State.ActivePlayers()
                 .Where(id => State.GetPlayer(id).Hand.Count > MaxHandSize)];
+
+    /// <summary>
+    /// Asks a player over their maximum hand size which cards to discard (CR 514.1).
+    /// </summary>
+    /// <returns>True when a question was asked and cleanup has to wait.</returns>
+    private bool AskDiscardIfNeeded()
+    {
+        foreach (var playerId in State.ActivePlayers())
+        {
+            var hand = State.GetPlayer(playerId).Hand;
+            var excess = hand.Count - MaxHandSize;
+            if (excess <= 0)
+                continue;
+
+            Ask(new PendingChoice
+            {
+                Id = "discard:" + playerId.ToString("N") + ":" + State.TurnNumber,
+                PlayerId = playerId,
+                Kind = ChoiceKind.DiscardToHandSize,
+                Prompt = $"Discard {excess} card(s) down to {MaxHandSize}.",
+                Options = [.. hand.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+                MinPicks = excess,
+                MaxPicks = excess,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DiscardChosen(Guid playerId, IReadOnlyList<string> picks)
+    {
+        foreach (var pick in picks)
+        {
+            var id = State.GetPlayer(playerId).Hand.First(
+                h => string.Equals(h.Value.ToString("N"), pick, StringComparison.Ordinal));
+            Move(id, Zone.Graveyard, MoveCause.Discard);
+        }
+
+        // Another player may still be over; cleanup only ends when nobody is (CR 514.1).
+        if (!AskDiscardIfNeeded())
+            FinishCleanup();
+    }
 
     /// <summary>
     /// Passes priority (CR 117.3d). When everyone has passed in succession, the top of the stack
@@ -378,15 +425,21 @@ public sealed class Game
 
         if (!State.Priority.AllPassed(State.ActivePlayers()))
         {
+            // Whoever the pass went to is the player who would receive priority (CR 117.3d), so
+            // a question raised by the settle has to hand it back to them and not to the active
+            // player.
+            _priorityRecipient = next;
             // CR 117.5: state-based actions and triggers are dealt with each time a player
             // would receive priority — which includes receiving it from a pass, not only at the
             // start of a step. Anything they do changes the game under the players who already
             // passed, so those passes no longer count as "in succession" (CR 117.4).
-            if (SettleBeforePriority() && !State.IsOver)
+            if (SettleBeforePriority() && !State.IsOver && !State.IsWaitingForChoice)
                 Emit(new PriorityGranted(next));
 
             return;
         }
+
+        _priorityRecipient = State.ActivePlayerId;
 
         if (State.Stack.IsEmpty)
         {
@@ -447,6 +500,8 @@ public sealed class Game
             Emit(new TargetsChosen(stackId, chosen, variableValue));
 
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name));
+        // CR 117.3c: the caster receives priority again.
+        _priorityRecipient = playerId;
         SettleBeforePriority();
         // CR 117.3c: the caster receives priority again, and the run of passes is broken.
         Emit(new PriorityGranted(playerId));
@@ -507,6 +562,7 @@ public sealed class Game
             Emit(new PermanentTapped(sourceId));
 
         Emit(new AbilityActivated(playerId, sourceId, ability.Id, ability.Text));
+        _priorityRecipient = playerId;
 
         if (ability.IsManaAbility)
         {
@@ -590,6 +646,7 @@ public sealed class Game
 
         var onBattlefield = Move(cardId, Zone.Battlefield, MoveCause.Play, playerId);
         Emit(new LandDropUsed(playerId));
+        _priorityRecipient = playerId;
         SettleBeforePriority();
         Emit(new PriorityGranted(playerId));
 
@@ -721,15 +778,33 @@ public sealed class Game
                 throw new InvalidOperationException($"'{pick}' is not one of the options.");
         }
 
-        if (picks.Distinct(StringComparer.Ordinal).Count() != picks.Count)
+        // A division answers with one pick per point of damage, so the same blocker appearing
+        // three times is how "three damage to it" is said. Everywhere else a repeat is a
+        // mistake — an ordering cannot put the same trigger in two places.
+        if (!choice.IsDivision && picks.Distinct(StringComparer.Ordinal).Count() != picks.Count)
             throw new InvalidOperationException("The same option was picked twice.");
+
+        // Everything the answer has to satisfy is checked before the event is emitted. Emitting
+        // first and validating during the resumption clears the pending choice and *then*
+        // throws, which leaves the game with no question outstanding and no way to move — the
+        // one failure worse than refusing the answer.
+        if (choice.IsDivision)
+            RequireLegalDivision(DivisionAttacker(choice), DivisionAmounts(choice, picks));
 
         Emit(new ChoiceMade(choice.Id, [.. picks]));
         Resume(choice, picks);
     }
 
     /// <summary>Stops the game and asks (CR 103.5 and friends).</summary>
-    private void Ask(PendingChoice choice) => Emit(new ChoiceRequested(choice));
+    /// <remarks>
+    /// Stamps the choice with whoever was about to receive priority, so answering it hands the
+    /// game back to the right player rather than to whoever usually acts.
+    /// </remarks>
+    private void Ask(PendingChoice choice) =>
+        Emit(new ChoiceRequested(choice with { ResumePriorityTo = _priorityRecipient }));
+
+    /// <summary>Who would receive priority once the current settle finishes (CR 117.5).</summary>
+    private Guid? _priorityRecipient;
 
     /// <summary>
     /// Picks up whatever was interrupted by the question.
@@ -757,8 +832,9 @@ public sealed class Game
 
             case ChoiceKind.OrderTriggers:
                 _triggerOrder[choice.PlayerId] = [.. picks];
+                _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
-                GrantPriorityAfterSettle();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
             case ChoiceKind.OrderReplacements:
@@ -770,19 +846,29 @@ public sealed class Game
                 RecordDamageDivision(choice, picks);
                 break;
 
+            case ChoiceKind.DiscardToHandSize:
+                DiscardChosen(choice.PlayerId, picks);
+                break;
+
             default:
                 throw new InvalidOperationException($"No resumption for {choice.Kind}.");
         }
     }
 
-    /// <summary>Gives priority back once a settle that was interrupted has finished.</summary>
-    private void GrantPriorityAfterSettle()
+    /// <summary>
+    /// Gives priority back once a settle that was interrupted has finished (CR 117.5).
+    /// </summary>
+    private void GrantPriorityAfterSettle(Guid? recipient)
     {
         if (State.IsOver || State.IsWaitingForChoice)
             return;
 
-        Emit(new PriorityGranted(State.ActivePlayerId));
+        Emit(new PriorityGranted(recipient ?? State.ActivePlayerId));
     }
+
+    /// <summary>Identifies one waiting trigger: which object, and which of its abilities.</summary>
+    private static string TriggerKey(PendingTrigger trigger) =>
+        trigger.SourceId.Value.ToString("N") + "|" + trigger.AbilityId;
 
     /// <summary>Orders a player's triggers, until they have answered (CR 603.3b).</summary>
     private readonly Dictionary<Guid, List<string>> _triggerOrder = [];
@@ -795,10 +881,6 @@ public sealed class Game
             throw new InvalidOperationException("That card is not in that player's hand.");
 
         Move(cardId, Zone.Graveyard, MoveCause.Discard);
-
-        // A cleanup step that was waiting on this can now finish (CR 514.1).
-        if (State.CurrentStep == TurnStep.Cleanup && PendingDiscards.Count == 0)
-            FinishCleanup();
     }
 
     /// <summary>
@@ -987,8 +1069,9 @@ public sealed class Game
             Move(doomed, Zone.Graveyard, MoveCause.StateBasedAction);
         }
 
+        _priorityRecipient = choice.ResumePriorityTo;
         SettleBeforePriority();
-        GrantPriorityAfterSettle();
+        GrantPriorityAfterSettle(choice.ResumePriorityTo);
     }
 
     /// <summary>
@@ -1047,7 +1130,12 @@ public sealed class Game
                     Kind = ChoiceKind.OrderTriggers,
                     Prompt = "Choose the order your triggered abilities go on the stack. "
                         + "The last one you pick resolves first.",
-                    Options = [.. mine.Select(t => new ChoiceOption(t.AbilityId, t.Text))],
+                    // Keyed by source *and* ability: two copies of the same card share an
+                    // ability id, so keying on that alone gives two options that cannot be told
+                    // apart — and an ordering whose picks are indistinguishable is not an
+                    // ordering.
+                    Options = [.. mine.Select(t =>
+                        new ChoiceOption(TriggerKey(t), t.Text))],
                     MinPicks = mine.Count,
                     MaxPicks = mine.Count,
                 });
@@ -1057,8 +1145,8 @@ public sealed class Game
             if (_triggerOrder.TryGetValue(playerId, out var order))
             {
                 mine = [.. order
-                    .Select(id => mine.FirstOrDefault(t =>
-                        string.Equals(t.AbilityId, id, StringComparison.Ordinal)))
+                    .Select(key => mine.FirstOrDefault(t =>
+                        string.Equals(TriggerKey(t), key, StringComparison.Ordinal)))
                     .Where(t => t is not null)
                     .Select(t => t!)];
                 _triggerOrder.Remove(playerId);
@@ -1248,6 +1336,10 @@ public sealed class Game
         if (State.IsOver)
             return;
 
+        // CR 117.3a: the active player receives priority at the beginning of a step, so that is
+        // who a question raised on the way in hands it back to.
+        _priorityRecipient = State.ActivePlayerId;
+
         // CR 500.5: unspent mana empties as a step or phase ends. Emitted on entering the next
         // one, which is the same moment and the only one the engine has a hook for.
         if (State.TurnOrder.Any(id => !State.GetPlayer(id).ManaPool.IsEmpty))
@@ -1301,8 +1393,9 @@ public sealed class Game
                     Emit(new ContinuousEffectEnded(expiring.Id));
                 }
 
-                if (PendingDiscards.Count == 0)
+                if (!AskDiscardIfNeeded())
                     FinishCleanup();
+
                 return;
 
             default:
@@ -1382,12 +1475,12 @@ public sealed class Game
             && CombatRules.NeedsFirstStrikeStep(State, _abilities);
 
         foreach (var damage in CombatRules.AssignCombatDamage(
-            State, _abilities, firstStrikeStep, _damageOrder))
+            State, _abilities, firstStrikeStep, _damageDivision))
         {
             Emit(damage);
         }
 
-        _damageOrder.Clear();
+        _damageDivision.Clear();
         _damageDivided.Clear();
         Emit(new CombatDamageStepDone());
     }
@@ -1396,12 +1489,15 @@ public sealed class Game
     /// Asks an attacking player how to divide damage among multiple blockers (CR 510.1c).
     /// </summary>
     /// <remarks>
-    /// The answer is the blockers in the order damage is assigned to them, each taking lethal
-    /// before the next takes any — which is the division the rules require of a trampler
-    /// (CR 702.19b) and the one that decides which chump blocker dies. An arbitrary split (two
-    /// damage each to two three-toughness blockers, killing neither) is legal and is <em>not</em>
-    /// expressible here; that needs an amount per option, and is called out rather than quietly
-    /// missing.
+    /// The answer is an amount per blocker, given as one pick per point of damage — pick a
+    /// blocker three times and it takes three. That expresses any legal division, including the
+    /// one an ordering cannot: two damage to each of two three-toughness blockers, killing
+    /// neither.
+    /// <para>
+    /// The rules constrain it (CR 510.1c with CR 702.19b): a creature may only be assigned
+    /// damage beyond lethal, or damage trampling through to the player, once every blocker
+    /// ahead of it has lethal. That is checked when the answer comes back rather than trusted.
+    /// </para>
     /// </remarks>
     private bool AskDamageDivisionIfNeeded()
     {
@@ -1414,19 +1510,28 @@ public sealed class Game
             if (!State.TryGetObject(attackerId, out var attacker))
                 continue;
 
+            var power = Characteristics.Of(State, _abilities, attacker).Power ?? 0;
+            if (power <= 0)
+                continue;
+
+            var living = blockers.Where(id => State.TryGetObject(id, out _)).ToList();
+            if (living.Count < 2)
+                continue;
+
             Ask(new PendingChoice
             {
                 Id = "divide:" + attackerId,
                 PlayerId = attacker.ControllerId,
                 Kind = ChoiceKind.DivideCombatDamage,
-                Prompt = $"{attacker.Card.Name} is blocked by {blockers.Count} creatures. "
-                    + "Choose the order to assign its damage; each takes lethal before the next.",
-                Options = [.. blockers
-                    .Where(id => State.TryGetObject(id, out _))
-                    .Select(id => new ChoiceOption(
-                        id.Value.ToString("N"), State.GetObject(id).Card.Name))],
-                MinPicks = blockers.Count(id => State.TryGetObject(id, out _)),
-                MaxPicks = blockers.Count(id => State.TryGetObject(id, out _)),
+                Prompt = $"Divide {attacker.Card.Name}'s {power} damage among the "
+                    + $"{living.Count} creatures blocking it. Pick a creature once per point; "
+                    + "a creature can only take more than lethal once the others have lethal.",
+                Options = [.. living.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+                // One pick per point of damage, which is what makes any legal division sayable.
+                MinPicks = power,
+                MaxPicks = power,
+                TotalToDivide = power,
                 Context = [attackerId.Value.ToString("N")],
             });
 
@@ -1436,27 +1541,92 @@ public sealed class Game
         return false;
     }
 
-    private void RecordDamageDivision(PendingChoice choice, IReadOnlyList<string> picks)
-    {
-        var attackerId = State.Combat.Attackers.Keys.First(
+    /// <summary>The attacker a division choice is about.</summary>
+    private ObjectId DivisionAttacker(PendingChoice choice) =>
+        State.Combat.Attackers.Keys.First(
             id => string.Equals(id.Value.ToString("N"), choice.Context[0], StringComparison.Ordinal));
 
-        _damageOrder[attackerId] =
-        [
-            .. picks.Select(p => State.Combat.BlockersOf(attackerId).First(
-                b => string.Equals(b.Value.ToString("N"), p, StringComparison.Ordinal))),
-        ];
+    /// <summary>Turns one-pick-per-point into an amount per blocker.</summary>
+    private Dictionary<ObjectId, int> DivisionAmounts(
+        PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        var attackerId = DivisionAttacker(choice);
+        var amounts = new Dictionary<ObjectId, int>();
+
+        foreach (var pick in picks)
+        {
+            var blocker = State.Combat.BlockersOf(attackerId).First(
+                b => string.Equals(b.Value.ToString("N"), pick, StringComparison.Ordinal));
+            amounts[blocker] = amounts.GetValueOrDefault(blocker) + 1;
+        }
+
+        return amounts;
+    }
+
+    private void RecordDamageDivision(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        var attackerId = DivisionAttacker(choice);
+        var amounts = DivisionAmounts(choice, picks);
+
+        _damageDivision[attackerId] = amounts;
         _damageDivided.Add(attackerId);
 
         if (AskDamageDivisionIfNeeded())
             return;
 
         DealCombatDamageNow();
+        _priorityRecipient = choice.ResumePriorityTo;
         SettleBeforePriority();
-        GrantPriorityAfterSettle();
+        GrantPriorityAfterSettle(choice.ResumePriorityTo);
     }
 
-    private readonly Dictionary<ObjectId, List<ObjectId>> _damageOrder = [];
+    /// <summary>
+    /// Refuses a division the rules do not allow (CR 510.1c).
+    /// </summary>
+    /// <remarks>
+    /// The constraint is not "lethal to everything": it is that a creature may only be assigned
+    /// damage <em>beyond</em> lethal once every other blocker already has lethal. Assigning two
+    /// each to two 3/3s is legal; assigning four to one and none to the other is not, because
+    /// the fourth point went past lethal while a blocker still had none.
+    /// </remarks>
+    private void RequireLegalDivision(ObjectId attackerId, Dictionary<ObjectId, int> amounts)
+    {
+        var deathtouch = Characteristics
+            .Of(State, _abilities, State.GetObject(attackerId))
+            .Has(KeywordAbility.Deathtouch);
+
+        var anyBelowLethal = false;
+        var anyAboveLethal = false;
+
+        foreach (var blockerId in State.Combat.BlockersOf(attackerId))
+        {
+            if (!State.TryGetObject(blockerId, out var blocker))
+                continue;
+
+            var lethal = deathtouch
+                ? 1
+                : Math.Max(
+                    0,
+                    (Characteristics.ToughnessOf(State, _abilities, blocker) ?? 0)
+                        - (blocker.Permanent?.DamageMarked ?? 0));
+
+            var assigned = amounts.GetValueOrDefault(blockerId);
+            if (assigned < lethal)
+                anyBelowLethal = true;
+
+            if (assigned > lethal)
+                anyAboveLethal = true;
+        }
+
+        if (anyAboveLethal && anyBelowLethal)
+        {
+            throw new InvalidOperationException(
+                "A blocker can only be assigned more than lethal damage once every other "
+                + "blocker has lethal (CR 510.1c).");
+        }
+    }
+
+    private readonly Dictionary<ObjectId, Dictionary<ObjectId, int>> _damageDivision = [];
     private readonly HashSet<ObjectId> _damageDivided = [];
 
     private void FinishCleanup()

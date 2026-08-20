@@ -28,6 +28,9 @@ public enum ChoiceKind
 
     /// <summary>How to divide an attacker's damage among its blockers (CR 510.1c).</summary>
     DivideCombatDamage,
+
+    /// <summary>Which cards to discard down to maximum hand size (CR 514.1).</summary>
+    DiscardToHandSize,
 }
 
 /// <summary>One thing a player may pick.</summary>
@@ -83,6 +86,34 @@ public sealed record PendingChoice
     /// </summary>
     public bool IsOrdering => Kind is ChoiceKind.OrderTriggers or ChoiceKind.OrderReplacements;
 
+    /// <summary>
+    /// True when the answer is an amount per option rather than a selection (CR 510.1c).
+    /// </summary>
+    /// <remarks>
+    /// Dividing damage is not a choice of which blockers, nor an order: it is "how much to
+    /// each". Two damage to each of two three-toughness blockers, killing neither, is a legal
+    /// division that no ordering can express.
+    /// </remarks>
+    public bool IsDivision => Kind is ChoiceKind.DivideCombatDamage;
+
+    /// <summary>How much is being divided, for a division choice (CR 510.1a).</summary>
+    public int TotalToDivide { get; init; }
+
+    /// <summary>
+    /// Who receives priority once this is answered (CR 117.5).
+    /// </summary>
+    /// <remarks>
+    /// "The player who would have received priority does so" — which is not always the active
+    /// player. A question raised while priority was passing to an opponent has to hand it back
+    /// to that opponent; granting it to the active player instead silently skips the window the
+    /// opponent was about to get, and does it in a way nobody would ever see.
+    /// <para>
+    /// On the choice rather than in a field on the game, because a log has to replay a game that
+    /// is mid-question and then answer it correctly.
+    /// </para>
+    /// </remarks>
+    public Guid? ResumePriorityTo { get; init; }
+
     /// <summary>Extra state the resumption needs, opaque to everyone else.</summary>
     /// <remarks>
     /// Only ever ids the engine put there itself — the attacker whose damage is being divided,
@@ -99,6 +130,8 @@ public sealed record PendingChoice
         Kind == other.Kind &&
         MinPicks == other.MinPicks &&
         MaxPicks == other.MaxPicks &&
+        ResumePriorityTo == other.ResumePriorityTo &&
+        TotalToDivide == other.TotalToDivide &&
         Structural.Same(Options, other.Options) &&
         Structural.Same(Context, other.Context);
 

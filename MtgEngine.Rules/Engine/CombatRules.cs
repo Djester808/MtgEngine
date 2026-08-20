@@ -127,7 +127,7 @@ public static class CombatRules
         GameState state,
         IAbilitySource abilities,
         bool firstStrikeOnly,
-        IReadOnlyDictionary<ObjectId, List<ObjectId>>? damageOrder = null)
+        IReadOnlyDictionary<ObjectId, Dictionary<ObjectId, int>>? division = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -151,7 +151,7 @@ public static class CombatRules
             if (combat.Blocked.Contains(attackerId))
                 AssignToBlockers(
                     state, abilities, attackerId, computed, power, defendingPlayer,
-                    damageOrder?.GetValueOrDefault(attackerId), events);
+                    division?.GetValueOrDefault(attackerId), events);
             else
                 events.Add(new PlayerDamaged(defendingPlayer, attackerId, power, IsCombat: true));
         }
@@ -187,32 +187,44 @@ public static class CombatRules
         ComputedCharacteristics computed,
         int power,
         Guid defendingPlayer,
-        IReadOnlyList<ObjectId>? chosenOrder,
+        IReadOnlyDictionary<ObjectId, int>? chosenDivision,
         List<GameEvent> events)
     {
         var remaining = power;
         var deathtouch = computed.Has(KeywordAbility.Deathtouch);
 
-        // CR 510.1c: divided as the attacker's controller chooses. That order is asked for when
-        // there is more than one blocker; with one there is nothing to choose, and the
-        // declaration order is the only order there is.
-        var order = chosenOrder ?? state.Combat.BlockersOf(attackerId);
-
-        foreach (var blockerId in order)
+        // CR 510.1c: divided as the attacker's controller chooses. With more than one blocker
+        // the division is asked for; with one there is nothing to divide and all of it goes
+        // there.
+        if (chosenDivision is not null)
         {
-            if (remaining <= 0)
-                break;
+            foreach (var (blockerId, amount) in chosenDivision)
+            {
+                if (amount <= 0 || !state.TryGetObject(blockerId, out _))
+                    continue;
 
-            if (!state.TryGetObject(blockerId, out var blocker))
-                continue;
+                events.Add(new DamageMarked(blockerId, amount, deathtouch));
+                remaining -= amount;
+            }
+        }
+        else
+        {
+            foreach (var blockerId in state.Combat.BlockersOf(attackerId))
+            {
+                if (remaining <= 0)
+                    break;
 
-            var lethal = LethalDamage(state, abilities, blocker, deathtouch);
-            var assigned = Math.Min(remaining, lethal);
-            if (assigned <= 0)
-                continue;
+                if (!state.TryGetObject(blockerId, out var blocker))
+                    continue;
 
-            events.Add(new DamageMarked(blockerId, assigned, deathtouch));
-            remaining -= assigned;
+                var lethal = LethalDamage(state, abilities, blocker, deathtouch);
+                var assigned = Math.Min(remaining, lethal);
+                if (assigned <= 0)
+                    continue;
+
+                events.Add(new DamageMarked(blockerId, assigned, deathtouch));
+                remaining -= assigned;
+            }
         }
 
         // CR 702.19b: trample assigns whatever is left to the player, once every blocker has

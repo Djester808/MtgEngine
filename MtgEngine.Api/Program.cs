@@ -155,6 +155,7 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 // refused by GameTableService rather than played wrong.
 builder.Services.AddSingleton<CardPool>();
 builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<CardPool>());
+builder.Services.AddHostedService<CardPoolResolver>();
 builder.Services.AddSingleton<GameSessionService>();
 builder.Services.AddScoped<GameTableService>();
 builder.Services.AddSingleton<GameInviteService>();
