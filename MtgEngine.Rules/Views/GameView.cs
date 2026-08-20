@@ -37,9 +37,11 @@ public sealed record GameView
     /// </remarks>
     public required string CurrentStep { get; init; }
 
-    /// <summary>Attacking creature to the player it is attacking (CR 508.1b).</summary>
-    public ImmutableDictionary<Guid, Guid> Attackers { get; init; } =
-        ImmutableDictionary<Guid, Guid>.Empty;
+    /// <summary>
+    /// Attacking creature to what it is attacking — a player, or a planeswalker (CR 508.1b).
+    /// </summary>
+    public ImmutableDictionary<Guid, AttackTargetView> Attackers { get; init; } =
+        ImmutableDictionary<Guid, AttackTargetView>.Empty;
 
     /// <summary>Each attacker and the creatures blocking it (CR 509.1g).</summary>
     public ImmutableDictionary<Guid, ImmutableList<Guid>> Blockers { get; init; } =
@@ -198,3 +200,6 @@ public sealed record ObjectView
 
     public IReadOnlyDictionary<string, int>? Counters { get; init; }
 }
+
+/// <summary>What a creature is attacking, as a client sees it (CR 508.1b).</summary>
+public sealed record AttackTargetView(Guid DefendingPlayer, Guid? Planeswalker);

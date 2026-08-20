@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -90,8 +91,24 @@ public sealed record TargetSpec
             _ => Zone.Battlefield,
         };
 
-        return obj.Zone == expectedZone
-            && (ObjectFilter?.Invoke(state, abilities, obj, controllerId) ?? true);
+        if (obj.Zone != expectedZone)
+            return false;
+
+        // CR 702.11b: hexproof means it cannot be the target of spells or abilities an opponent
+        // controls. CR 702.18b: shroud means nobody may target it, including its controller.
+        // Both are checked here, where every target passes, rather than at each spell.
+        if (Kind is TargetKind.Permanent or TargetKind.Any && obj.Zone == Zone.Battlefield)
+        {
+            var computed = Characteristics.Of(state, abilities, obj);
+
+            if (computed.Has(KeywordAbility.Shroud))
+                return false;
+
+            if (computed.Has(KeywordAbility.Hexproof) && obj.ControllerId != controllerId)
+                return false;
+        }
+
+        return ObjectFilter?.Invoke(state, abilities, obj, controllerId) ?? true;
     }
 }
 
@@ -145,7 +162,7 @@ public sealed record DealDamage(int Amount, int TargetIndex = 0, bool Deathtouch
             TargetKind.Player =>
                 [new PlayerDamaged(target.Player, context.SourceId, Amount, IsCombat: false)],
             TargetKind.Permanent =>
-                [new DamageMarked(target.Subject, Amount, Deathtouch)],
+                [new DamageMarked(target.Subject, Amount, Deathtouch, context.SourceId)],
             _ => [],
         };
     }

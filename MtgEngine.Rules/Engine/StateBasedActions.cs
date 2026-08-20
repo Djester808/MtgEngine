@@ -40,6 +40,7 @@ public static class StateBasedActions
 
         CheckPlayers(state, events);
         CheckCreatures(state, abilities, events);
+        CheckPlaneswalkers(state, events);
         CheckTokens(state, events);
         CheckCounters(state, events);
         CheckLegendRule(state, events);
@@ -132,6 +133,26 @@ public static class StateBasedActions
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
                     obj.ControllerId, MoveCause.StateBasedAction));
             }
+        }
+    }
+
+    private static void CheckPlaneswalkers(GameState state, List<GameEvent> events)
+    {
+        // CR 704.5i: a planeswalker with loyalty 0 is put into its owner's graveyard. It is not
+        // destroyed, so indestructible does not save it — the same shape as a creature at zero
+        // toughness (CR 704.5f).
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (!obj.Card.CardTypes.HasFlag(CardType.Planeswalker) || obj.Permanent is null)
+                continue;
+
+            if (obj.Permanent.Counters.GetValueOrDefault(CounterKinds.Loyalty) > 0)
+                continue;
+
+            events.Add(new ObjectMoved(
+                id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                obj.ControllerId, MoveCause.StateBasedAction));
         }
     }
 

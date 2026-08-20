@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
@@ -86,6 +88,7 @@ public static class GameReducer
                 FloatingEffects = state.FloatingEffects.RemoveAll(f => f.Id == ended2.EffectId),
             },
             EventReplaced => state,
+            NothingHappened => state,
             ManaAdded added => AddMana(state, added),
             ManaSpent spent => state.WithPlayer(
                 state.GetPlayer(spent.PlayerId) with { ManaPool = spent.Remaining }),
@@ -257,7 +260,7 @@ public static class GameReducer
             Zone = e.To,
             Timestamp = timestamp,
             // CR 403.3: every object on the battlefield is a permanent, and only there.
-            Permanent = e.To == Zone.Battlefield ? new PermanentState() : null,
+            Permanent = e.To == Zone.Battlefield ? EnteringPermanent(moving.Card) : null,
         });
 
         // CR 400.3: an object headed for a library, graveyard, or hand goes to its owner's.
@@ -322,6 +325,26 @@ public static class GameReducer
         return state.WithPlayer(player with { Life = player.Life - e.Amount });
     }
 
+    /// <summary>
+    /// The status a permanent arrives with (CR 306.5b).
+    /// </summary>
+    /// <remarks>
+    /// A planeswalker enters with loyalty counters equal to its printed loyalty. That is not a
+    /// replacement effect a card carries — it is what the rules do for every planeswalker — so
+    /// it happens here rather than needing a definition per card.
+    /// </remarks>
+    private static PermanentState EnteringPermanent(CardDefinition card)
+    {
+        if (!card.CardTypes.HasFlag(CardType.Planeswalker) || card.StartingLoyalty is not { } loyalty)
+            return new PermanentState();
+
+        return new PermanentState
+        {
+            Counters = ImmutableDictionary<string, int>.Empty
+                .Add(CounterKinds.Loyalty, loyalty),
+        };
+    }
+
     private static GameState Lose(GameState state, PlayerLost e)
     {
         var player = state.GetPlayer(e.PlayerId);
@@ -333,6 +356,24 @@ public static class GameReducer
         var obj = state.GetObject(e.Id);
         var permanent = obj.Permanent
             ?? throw new InvalidOperationException($"{e.Id} is not on the battlefield.");
+
+        // CR 306.7: damage dealt to a planeswalker removes that many loyalty counters rather
+        // than being marked on it — it has no toughness for damage to be compared against.
+        if (obj.Card.CardTypes.HasFlag(CardType.Planeswalker))
+        {
+            var loyalty = permanent.Counters.GetValueOrDefault(CounterKinds.Loyalty);
+            var left = Math.Max(0, loyalty - e.Amount);
+
+            return state.WithObject(obj with
+            {
+                Permanent = permanent with
+                {
+                    Counters = left == 0
+                        ? permanent.Counters.Remove(CounterKinds.Loyalty)
+                        : permanent.Counters.SetItem(CounterKinds.Loyalty, left),
+                },
+            });
+        }
 
         return state.WithObject(obj with
         {
@@ -413,7 +454,7 @@ public static class GameReducer
             ControllerId = e.Zone.IsPerPlayer() ? e.OwnerId : e.ControllerId,
             Zone = e.Zone,
             Timestamp = timestamp,
-            Permanent = e.Zone == Zone.Battlefield ? new PermanentState() : null,
+            Permanent = e.Zone == Zone.Battlefield ? EnteringPermanent(e.Card) : null,
         });
 
         return AddTo(state, e.Zone, e.OwnerId, e.Id, e.Position);

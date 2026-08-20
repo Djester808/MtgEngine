@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MtgEngine.Api.Cards;
 using MtgEngine.Api.Data;
 using MtgEngine.Api.Dtos;
 using MtgEngine.Domain.Models;
@@ -112,8 +113,11 @@ public sealed class GameTableService
 
     private bool IsPlayable(CardDefinition card)
     {
-        // Nothing to implement: the rules already handle a body with no text on it.
-        if (string.IsNullOrWhiteSpace(card.OracleText))
+        // Nothing to implement: a vanilla creature, or one whose entire text is keywords the
+        // engine reads, is already played correctly by the rules themselves. The line is drawn
+        // narrowly on purpose — see CardCoverage for why a keyword that is parsed but never read
+        // is worse than an unimplemented card.
+        if (CardCoverage.IsFullyCovered(card))
             return true;
 
         return _abilities.SpellOf(card) is not null

@@ -281,14 +281,14 @@ internal static class TestCards
             if (game.State.CurrentStep == TurnStep.DeclareAttackers
                 && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 
             if (game.State.CurrentStep == TurnStep.DeclareBlockers
                 && !game.State.Combat.BlockersDeclared)
             {
-                var defender = game.State.Combat.Attackers.Values.First();
+                var defender = game.State.Combat.Attackers.Values.First().DefendingPlayer;
                 game.DeclareBlockers(defender, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
                 continue;
             }

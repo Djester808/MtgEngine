@@ -134,8 +134,9 @@ public static class CombatRules
         var combat = state.Combat;
         var events = new List<GameEvent>();
 
-        foreach (var (attackerId, defendingPlayer) in combat.Attackers)
+        foreach (var (attackerId, target) in combat.Attackers)
         {
+            var defendingPlayer = target.DefendingPlayer;
             if (!state.TryGetObject(attackerId, out var attacker))
                 continue;
 
@@ -149,11 +150,15 @@ public static class CombatRules
 
             // CR 509.1h: still blocked even if every blocker has gone, so it deals nothing.
             if (combat.Blocked.Contains(attackerId))
+            {
                 AssignToBlockers(
-                    state, abilities, attackerId, computed, power, defendingPlayer,
+                    state, abilities, attackerId, computed, power, target,
                     division?.GetValueOrDefault(attackerId), events);
+            }
             else
-                events.Add(new PlayerDamaged(defendingPlayer, attackerId, power, IsCombat: true));
+            {
+                events.Add(Unblocked(state, target, attackerId, power, computed));
+            }
         }
 
         foreach (var (attackerId, blockers) in combat.Blockers)
@@ -173,7 +178,7 @@ public static class CombatRules
 
                 // CR 510.1d: a blocker assigns its damage to the creature it is blocking.
                 events.Add(new DamageMarked(
-                    attackerId, power, computed.Has(KeywordAbility.Deathtouch)));
+                    attackerId, power, computed.Has(KeywordAbility.Deathtouch), blockerId));
             }
         }
 
@@ -186,7 +191,7 @@ public static class CombatRules
         ObjectId attackerId,
         ComputedCharacteristics computed,
         int power,
-        Guid defendingPlayer,
+        AttackTarget target,
         IReadOnlyDictionary<ObjectId, int>? chosenDivision,
         List<GameEvent> events)
     {
@@ -203,7 +208,7 @@ public static class CombatRules
                 if (amount <= 0 || !state.TryGetObject(blockerId, out _))
                     continue;
 
-                events.Add(new DamageMarked(blockerId, amount, deathtouch));
+                events.Add(new DamageMarked(blockerId, amount, deathtouch, attackerId));
                 remaining -= amount;
             }
         }
@@ -222,15 +227,42 @@ public static class CombatRules
                 if (assigned <= 0)
                     continue;
 
-                events.Add(new DamageMarked(blockerId, assigned, deathtouch));
+                events.Add(new DamageMarked(blockerId, assigned, deathtouch, attackerId));
                 remaining -= assigned;
             }
         }
 
-        // CR 702.19b: trample assigns whatever is left to the player, once every blocker has
-        // lethal damage. Without trample the excess is simply not assigned.
+        // CR 702.19b: trample assigns whatever is left to what the creature was attacking, once
+        // every blocker has lethal damage. Without trample the excess is simply not assigned.
         if (remaining > 0 && computed.Has(KeywordAbility.Trample))
-            events.Add(new PlayerDamaged(defendingPlayer, attackerId, remaining, IsCombat: true));
+            events.Add(Unblocked(state, target, attackerId, remaining, computed));
+    }
+
+    /// <summary>
+    /// Damage from a creature nothing is standing in the way of (CR 510.1b).
+    /// </summary>
+    /// <remarks>
+    /// A planeswalker takes it as loyalty counters removed rather than as life lost (CR 306.7),
+    /// which is why the target is carried rather than just the defending player.
+    /// </remarks>
+    private static GameEvent Unblocked(
+        GameState state,
+        AttackTarget target,
+        ObjectId attackerId,
+        int amount,
+        ComputedCharacteristics computed)
+    {
+        if (target.IsPlaneswalker && state.TryGetObject(target.Planeswalker, out _))
+        {
+            return new DamageMarked(
+                target.Planeswalker, amount, computed.Has(KeywordAbility.Deathtouch), attackerId);
+        }
+
+        // CR 508.1b: a creature attacking a planeswalker that has left the battlefield assigns
+        // no combat damage at all — it does not fall through to the player.
+        return target.IsPlaneswalker
+            ? new NothingHappened()
+            : new PlayerDamaged(target.DefendingPlayer, attackerId, amount, IsCombat: true);
     }
 
     /// <summary>

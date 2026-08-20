@@ -303,8 +303,17 @@ public sealed record PlayerLost(Guid PlayerId, string Reason, string LosingRule)
 /// Marking is not destroying. Damage sits on the permanent until state-based actions compare it
 /// with toughness (CR 704.5g) or cleanup removes it (CR 514.2), which is what lets a creature
 /// survive lethal damage if its toughness rises in between.
+/// <para>
+/// The source is carried because several abilities are about who dealt it rather than how much:
+/// lifelink gains its controller that much life (CR 702.15b), and deathtouch is already flagged
+/// for the same reason.
+/// </para>
 /// </remarks>
-public sealed record DamageMarked(ObjectId Id, int Amount, bool FromDeathtouch = false) : GameEvent
+public sealed record DamageMarked(
+    ObjectId Id,
+    int Amount,
+    bool FromDeathtouch = false,
+    ObjectId SourceId = default) : GameEvent
 {
     public override string Rule => "120.3";
 
@@ -429,7 +438,7 @@ public sealed record EventReplaced(string ReplacedBy, string OriginalDescription
 /// The active player declared attackers (CR 508.1). Declaring none is a declaration.
 /// </summary>
 public sealed record AttackersDeclared(
-    ImmutableDictionary<ObjectId, Guid> Attackers) : GameEvent
+    ImmutableDictionary<ObjectId, AttackTarget> Attackers) : GameEvent
 {
     public override string Rule => "508.1";
 
@@ -622,4 +631,19 @@ public sealed record CommanderDamageDealt(
 
     public override string Describe() =>
         $"{PlayerId:N} has taken {Total} damage from that commander.";
+}
+
+/// <summary>
+/// Nothing happened, where something might have (CR 508.1b).
+/// </summary>
+/// <remarks>
+/// A creature attacking a planeswalker that has left the battlefield assigns no combat damage —
+/// it does not fall through to the player. Saying so as an event keeps the assignment code
+/// total, and leaves a line in the log explaining why a hit landed nowhere.
+/// </remarks>
+public sealed record NothingHappened : GameEvent
+{
+    public override string Rule => "508.1b";
+
+    public override string Describe() => "No damage was assigned.";
 }

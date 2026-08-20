@@ -81,9 +81,18 @@ public sealed class GameHub : Hub
         ActAsync(gameId, (game, me) =>
             game.ActivateAbility(me, new ObjectId(sourceId), abilityId, ToTargets(targets)));
 
-    public Task DeclareAttackers(Guid gameId, IReadOnlyDictionary<Guid, Guid> attackers) =>
+    /// <param name="attackers">
+    /// Attacking creature id to what it attacks: the defending player, and optionally one of
+    /// their planeswalkers (CR 508.1b).
+    /// </param>
+    public Task DeclareAttackers(Guid gameId, IReadOnlyDictionary<Guid, AttackDto> attackers) =>
         ActAsync(gameId, (game, me) => game.DeclareAttackers(
-            me, attackers.ToDictionary(kv => new ObjectId(kv.Key), kv => kv.Value)));
+            me,
+            attackers.ToDictionary(
+                kv => new ObjectId(kv.Key),
+                kv => kv.Value.Planeswalker is { } walker
+                    ? AttackTarget.At(kv.Value.DefendingPlayer, new ObjectId(walker))
+                    : AttackTarget.Player(kv.Value.DefendingPlayer))));
 
     public Task DeclareBlockers(Guid gameId, IReadOnlyDictionary<Guid, Guid[]> blocks) =>
         ActAsync(gameId, (game, me) => game.DeclareBlockers(
@@ -172,6 +181,9 @@ public sealed class GameHub : Hub
     private static List<Target>? ToTargets(IReadOnlyList<TargetDto>? targets) =>
         targets is null ? null : [.. targets.Select(t => t.ToTarget())];
 }
+
+/// <summary>What a creature is attacking, as a client names it (CR 508.1b).</summary>
+public sealed record AttackDto(Guid DefendingPlayer, Guid? Planeswalker);
 
 /// <summary>A target as a client names it (CR 115.1).</summary>
 /// <remarks>

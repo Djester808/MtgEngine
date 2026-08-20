@@ -386,6 +386,45 @@ public sealed class SpellEffectTests
     }
 
     [Fact]
+    public void Hexproof_stops_an_opponent_targeting_it_but_not_its_controller()
+    {
+        // CR 702.11b: hexproof is about spells and abilities an *opponent* controls, so its own
+        // controller can still target it — which is what makes it different from shroud.
+        var bolt = TestCards.Instant("Bolt");
+        var pool = new Pool().WithSpell(bolt, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DealDamage(3)],
+        });
+        var (game, alice, bob) = InMainPhase(pool);
+        var theirs = game.Create(bob, TestCards.WithKeyword("Ranger", KeywordAbility.Hexproof), Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.WithKeyword("Ranger", KeywordAbility.Hexproof), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(theirs)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(mine)]);
+        Assert.Single(game.State.Stack);
+    }
+
+    [Fact]
+    public void Shroud_stops_everyone_including_its_controller()
+    {
+        // CR 702.18b.
+        var bolt = TestCards.Instant("Bolt");
+        var pool = new Pool().WithSpell(bolt, new SpellDefinition
+        {
+            Targets = [AnyCreature],
+            Effects = [new DealDamage(3)],
+        });
+        var (game, alice, _) = InMainPhase(pool);
+        var mine = game.Create(alice, TestCards.WithKeyword("Hermit", KeywordAbility.Shroud), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(mine)]));
+    }
+
+    [Fact]
     public void A_game_with_spells_and_abilities_still_replays()
     {
         var bolt = TestCards.Instant("Bolt");

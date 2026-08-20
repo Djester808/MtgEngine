@@ -3,6 +3,24 @@ using System.Collections.Immutable;
 namespace MtgEngine.Rules.State;
 
 /// <summary>
+/// What a creature is attacking: a player, or a planeswalker they control (CR 508.1b).
+/// </summary>
+/// <remarks>
+/// The defending player is carried either way, because damage that gets past a planeswalker —
+/// trample over it, or the planeswalker leaving combat — has to know whose it was.
+/// </remarks>
+public readonly record struct AttackTarget(Guid DefendingPlayer, ObjectId Planeswalker)
+{
+    public static AttackTarget Player(Guid playerId) => new(playerId, default);
+
+    public static AttackTarget At(Guid defendingPlayer, ObjectId planeswalker) =>
+        new(defendingPlayer, planeswalker);
+
+    /// <summary>True when a planeswalker is being attacked rather than its controller.</summary>
+    public bool IsPlaneswalker => Planeswalker != default;
+}
+
+/// <summary>
 /// Who is attacking whom, and who is blocking what (CR 506–511).
 /// </summary>
 /// <remarks>
@@ -14,9 +32,15 @@ namespace MtgEngine.Rules.State;
 /// </remarks>
 public sealed record CombatState
 {
-    /// <summary>Each attacking creature and the player it is attacking (CR 508.1b).</summary>
-    public ImmutableDictionary<ObjectId, Guid> Attackers { get; init; } =
-        ImmutableDictionary<ObjectId, Guid>.Empty;
+    /// <summary>
+    /// Each attacking creature and what it is attacking (CR 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// A creature attacks a player <em>or</em> a planeswalker they control, chosen per creature
+    /// as attackers are declared — which is why this is a target rather than a player id.
+    /// </remarks>
+    public ImmutableDictionary<ObjectId, AttackTarget> Attackers { get; init; } =
+        ImmutableDictionary<ObjectId, AttackTarget>.Empty;
 
     /// <summary>
     /// Each attacker and the creatures blocking it, in the order its controller assigns damage

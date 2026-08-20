@@ -711,8 +711,12 @@ public sealed class Game
     /// <summary>
     /// Declares attackers (CR 508.1). Declaring none is a declaration and moves the step along.
     /// </summary>
-    /// <param name="attackers">Each attacking creature, and the player it is attacking.</param>
-    public void DeclareAttackers(Guid playerId, IReadOnlyDictionary<ObjectId, Guid> attackers)
+    /// <param name="attackers">
+    /// Each attacking creature, and what it is attacking — a player, or a planeswalker that
+    /// player controls (CR 508.1b).
+    /// </param>
+    public void DeclareAttackers(
+        Guid playerId, IReadOnlyDictionary<ObjectId, AttackTarget> attackers)
     {
         ArgumentNullException.ThrowIfNull(attackers);
 
@@ -725,14 +729,33 @@ public sealed class Game
         if (State.Combat.AttackersDeclared)
             throw new InvalidOperationException("Attackers have already been declared this combat.");
 
-        foreach (var (attackerId, defender) in attackers)
+        foreach (var (attackerId, target) in attackers)
         {
             var reason = CombatRules.CannotAttack(State, _abilities, State.GetObject(attackerId), playerId);
             if (reason is not null)
                 throw new InvalidOperationException($"That creature cannot attack: {reason}.");
 
-            if (defender == playerId || State.GetPlayer(defender).HasLost)
+            if (target.DefendingPlayer == playerId || State.GetPlayer(target.DefendingPlayer).HasLost)
                 throw new InvalidOperationException("That player cannot be attacked.");
+
+            if (!target.IsPlaneswalker)
+                continue;
+
+            // CR 508.1b: a planeswalker may be attacked, and only one the defending player
+            // controls — attacking your own is not a thing, and neither is attacking one that
+            // belongs to a third player you are not attacking.
+            if (!State.TryGetObject(target.Planeswalker, out var walker)
+                || !walker.Card.CardTypes.HasFlag(CardType.Planeswalker)
+                || walker.Zone != Zone.Battlefield)
+            {
+                throw new InvalidOperationException("That is not a planeswalker on the battlefield.");
+            }
+
+            if (walker.ControllerId != target.DefendingPlayer)
+            {
+                throw new InvalidOperationException(
+                    "A planeswalker can only be attacked through the player who controls it (CR 508.1b).");
+            }
         }
 
         Emit(new AttackersDeclared(attackers.ToImmutableDictionary()));
@@ -771,10 +794,12 @@ public sealed class Game
 
         foreach (var (attackerId, blockers) in blocks)
         {
-            if (!State.Combat.Attackers.TryGetValue(attackerId, out var defender))
+            if (!State.Combat.Attackers.TryGetValue(attackerId, out var target))
                 throw new InvalidOperationException("That creature is not attacking.");
 
-            if (defender != playerId)
+            // A creature attacking a planeswalker is blocked by that planeswalker's controller
+            // (CR 509.1a), which is the same player either way.
+            if (target.DefendingPlayer != playerId)
                 throw new InvalidOperationException("Only the defending player declares blockers (CR 509.1).");
 
             foreach (var blockerId in blockers)
@@ -957,12 +982,13 @@ public sealed class Game
     /// Marks damage on a permanent (CR 120.3). It is not destroyed here — state-based actions
     /// compare the damage with its toughness the next time anyone would get priority (CR 704.5g).
     /// </summary>
-    public void MarkDamage(ObjectId permanentId, int amount, bool fromDeathtouch = false)
+    public void MarkDamage(
+        ObjectId permanentId, int amount, bool fromDeathtouch = false, ObjectId sourceId = default)
     {
         if (amount <= 0)
             return;
 
-        Emit(new DamageMarked(permanentId, amount, fromDeathtouch));
+        Emit(new DamageMarked(permanentId, amount, fromDeathtouch, sourceId));
     }
 
     /// <summary>
@@ -1842,6 +1868,30 @@ public sealed class Game
         }
     }
 
+    /// <summary>
+    /// Gains life for the controller of a source with lifelink (CR 702.15b).
+    /// </summary>
+    /// <remarks>
+    /// Lifelink is not a trigger and does not use the stack: the life gain happens at the same
+    /// time as the damage, as part of the same event. So it is done here, as the damage lands,
+    /// rather than by watching for it afterwards.
+    /// <para>
+    /// It applies to damage of every kind, not only combat — a lifelinked creature that pings
+    /// gains life too.
+    /// </para>
+    /// </remarks>
+    private void GainForLifelink(ObjectId sourceId, int amount)
+    {
+        if (amount <= 0 || sourceId == default || !State.TryGetObject(sourceId, out var source))
+            return;
+
+        if (!Characteristics.Of(State, _abilities, source).Has(KeywordAbility.Lifelink))
+            return;
+
+        var controller = source.ControllerId;
+        Emit(new LifeChanged(controller, amount, State.GetPlayer(controller).Life + amount));
+    }
+
     /// <summary>Whether this object is the given player's commander (CR 903.3).</summary>
     /// <remarks>
     /// Compared by oracle id, because being a commander belongs to the card and survives every
@@ -1966,7 +2016,13 @@ public sealed class Game
         // CR 903.10a: commander damage accumulates over the whole game, so it is noted as the
         // damage lands rather than reconstructed later from the log.
         if (e is PlayerDamaged damaged)
+        {
             TrackCommanderDamage(damaged);
+            GainForLifelink(damaged.SourceId, damaged.Amount);
+        }
+
+        if (e is DamageMarked marked)
+            GainForLifelink(marked.SourceId, marked.Amount);
 
         // CR 603.2: an ability triggers the moment its event happens, even mid-resolution.
         // Nothing happens yet — the trigger waits (CR 117.2a) — so this only records them.

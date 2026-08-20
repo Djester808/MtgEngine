@@ -32,7 +32,10 @@ public static class PlayerViewProjector
             // Combat is public: who is attacking and who is blocking is visible to everyone at
             // the table (CR 506.1 happens in the open).
             Attackers = state.Combat.Attackers.ToImmutableDictionary(
-                kv => kv.Key.Value, kv => kv.Value),
+                kv => kv.Key.Value,
+                kv => new AttackTargetView(
+                    kv.Value.DefendingPlayer,
+                    kv.Value.IsPlaneswalker ? kv.Value.Planeswalker.Value : null)),
             Blockers = state.Combat.Blockers.ToImmutableDictionary(
                 kv => kv.Key.Value, kv => kv.Value.Select(b => b.Value).ToImmutableList()),
             Players = [.. state.TurnOrder.Select(id => ProjectPlayer(state, id, viewer))],

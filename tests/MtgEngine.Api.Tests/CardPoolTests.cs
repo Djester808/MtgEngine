@@ -79,7 +79,7 @@ public sealed class CardPoolTests
 
             if (game.State.CurrentStep == TurnStep.DeclareAttackers && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 
@@ -401,7 +401,7 @@ public sealed class CardPoolTests
 
             if (game.State.CurrentStep == TurnStep.DeclareAttackers && !game.State.Combat.AttackersDeclared)
             {
-                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, Guid>());
+                game.DeclareAttackers(game.State.ActivePlayerId, new Dictionary<ObjectId, AttackTarget>());
                 continue;
             }
 

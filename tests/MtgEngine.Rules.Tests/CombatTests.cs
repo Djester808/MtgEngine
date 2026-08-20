@@ -57,7 +57,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
 
         Assert.True(game.State.GetObject(bear).Permanent!.IsTapped);
         Assert.Single(game.State.Combat.Attackers);
@@ -71,7 +71,7 @@ public sealed class CombatTests
         var knight = game.Create(alice, TestCards.WithKeyword("Knight", KeywordAbility.Vigilance), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [knight] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [knight] = AttackTarget.Player(bob) });
 
         Assert.False(game.State.GetObject(knight).Permanent!.IsTapped);
     }
@@ -84,7 +84,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob }));
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) }));
 
         Assert.Contains("302.6", ex.Message, StringComparison.Ordinal);
     }
@@ -96,7 +96,7 @@ public sealed class CombatTests
         var (game, alice, bob) = AtDeclareAttackers();
         var hasty = game.Create(alice, TestCards.WithKeyword("Raider", KeywordAbility.Haste), Zone.Battlefield);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [hasty] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [hasty] = AttackTarget.Player(bob) });
 
         Assert.Single(game.State.Combat.Attackers);
     }
@@ -110,7 +110,7 @@ public sealed class CombatTests
         Ready(game);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [wall] = bob }));
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [wall] = AttackTarget.Player(bob) }));
 
         Assert.Contains("702.3b", ex.Message, StringComparison.Ordinal);
     }
@@ -122,7 +122,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(18, game.State.GetPlayer(bob).Life);
@@ -136,7 +136,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -159,7 +159,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -179,7 +179,7 @@ public sealed class CombatTests
         var chump = game.Create(bob, TestCards.Creature("Chump", 1, 1), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -199,7 +199,7 @@ public sealed class CombatTests
         var chump = game.Create(bob, TestCards.Creature("Chump", 1, 1), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -221,7 +221,7 @@ public sealed class CombatTests
         var wall = game.Create(bob, TestCards.Creature("Wall", 0, 4), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -243,7 +243,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -286,7 +286,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -318,7 +318,7 @@ public sealed class CombatTests
         var second = game.Create(bob, TestCards.Creature("Second", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -346,7 +346,7 @@ public sealed class CombatTests
         var ground = game.Create(bob, TestCards.Creature("Ground", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [flyer] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [flyer] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -366,7 +366,7 @@ public sealed class CombatTests
         var spider = game.Create(bob, TestCards.WithKeyword("Spider", KeywordAbility.Reach, 1, 4), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [flyer] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [flyer] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -385,7 +385,7 @@ public sealed class CombatTests
         var one = game.Create(bob, TestCards.Creature("One", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [brute] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [brute] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -407,7 +407,7 @@ public sealed class CombatTests
         var ordinary = game.Create(bob, TestCards.Creature("Ordinary", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [striker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [striker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
@@ -427,7 +427,7 @@ public sealed class CombatTests
         var hero = game.Create(alice, TestCards.WithKeyword("Hero", KeywordAbility.DoubleStrike, 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [hero] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [hero] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
@@ -442,7 +442,7 @@ public sealed class CombatTests
         Ready(game);
         game.ChangeCounters(bear, CounterKinds.PlusOnePlusOne, 2);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
@@ -456,7 +456,7 @@ public sealed class CombatTests
         var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [bear] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
 
         Assert.Empty(game.State.Combat.Attackers);
@@ -471,11 +471,56 @@ public sealed class CombatTests
         var giant = game.Create(alice, TestCards.Creature("Giant", 20, 20), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [giant] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [giant] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.IsOver);
 
         Assert.True(game.State.GetPlayer(bob).HasLost);
         Assert.Equal(alice, game.State.WinnerId);
+    }
+
+    [Fact]
+    public void Lifelink_gains_life_when_the_damage_lands()
+    {
+        // CR 702.15b. Not a trigger and not on the stack: the life gain happens at the same time
+        // as the damage, as part of the same event.
+        var (game, alice, bob) = BeforeCombat();
+        var vampire = game.Create(
+            alice, TestCards.WithKeyword("Vampire", KeywordAbility.Lifelink, 3, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [vampire] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void Lifelink_also_gains_from_damage_dealt_to_a_creature()
+    {
+        // The rule is about damage, not about combat damage to players.
+        var (game, alice, bob) = BeforeCombat();
+        var vampire = game.Create(
+            alice, TestCards.WithKeyword("Vampire", KeywordAbility.Lifelink, 3, 3), Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Wall", 0, 5), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [vampire] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [vampire] = [blocker],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
     }
 
     [Fact]
@@ -486,7 +531,7 @@ public sealed class CombatTests
         var blocker = game.Create(bob, TestCards.Creature("Blocker", 1, 3), Zone.Battlefield);
         Ready(game);
 
-        game.DeclareAttackers(alice, new Dictionary<ObjectId, Guid> { [attacker] = bob });
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
         game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
         {
