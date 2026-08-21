@@ -89,6 +89,27 @@ public sealed class GameTableService
     }
 
     /// <summary>
+    /// Players the caller could invite: everyone but themselves.
+    /// </summary>
+    /// <remarks>
+    /// The game's own list rather than the public community directory. That one is anonymous and
+    /// carries no user id on purpose (see USER_PROFILE_FEATURE.md), and an invitation needs one
+    /// to address — so reading it left the lobby's picker binding a field that was not there.
+    /// </remarks>
+    public async Task<OpponentDto[]> OpponentsAsync(
+        Guid userId, int limit = 100, CancellationToken ct = default)
+    {
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id != userId)
+            .OrderBy(u => u.Username)
+            .Take(Math.Clamp(limit, 1, 200))
+            .Select(u => new OpponentDto(u.Id, u.Username))
+            .ToArrayAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Which cards in a deck the engine cannot play yet.
     /// </summary>
     /// <remarks>

@@ -61,6 +61,15 @@ public sealed class GamesController : ControllerBase
     public async Task<ActionResult<PlayableDeckDto[]>> Decks(CancellationToken ct) =>
         Ok(await _tables.PlayableDecksAsync(CurrentUserId, ct).ConfigureAwait(false));
 
+    /// <summary>The players the caller could invite.</summary>
+    /// <remarks>
+    /// Not the public directory at <c>/api/users</c>: that one is anonymous and carries no user
+    /// id, which is deliberate, and an invitation needs one to address.
+    /// </remarks>
+    [HttpGet("opponents")]
+    public async Task<ActionResult<OpponentDto[]>> Opponents(CancellationToken ct) =>
+        Ok(await _tables.OpponentsAsync(CurrentUserId, ct: ct).ConfigureAwait(false));
+
     /// <summary>Invites another player to a game.</summary>
     [HttpPost("invites")]
     public ActionResult<GameInviteDto> Invite([FromBody] CreateInviteRequest request)
