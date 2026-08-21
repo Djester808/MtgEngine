@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging.Abstractions;
+using MtgEngine.Api.Dtos;
 using MtgEngine.Api.Hubs;
 using MtgEngine.Api.Services;
 using MtgEngine.Domain.Enums;
@@ -24,6 +25,37 @@ namespace MtgEngine.Api.Tests;
 /// </remarks>
 public sealed class GameHubTests
 {
+    /// <summary>
+    /// A card lookup with nothing in it.
+    /// </summary>
+    /// <remarks>
+    /// The hub decorates the views it pushes with card art, which is a screen concern and
+    /// nothing to do with what these tests assert. An empty lookup leaves the view exactly as
+    /// the engine projected it.
+    /// </remarks>
+    private static GameCardArt NoArt => new(new NoCards());
+
+    private sealed class NoCards : ICardLookup
+    {
+        public Task<CardDefinition?> GetByOracleIdAsync(string oracleId) =>
+            Task.FromResult<CardDefinition?>(null);
+
+        public Task<CardDefinition?> GetByNameAsync(string name) =>
+            Task.FromResult<CardDefinition?>(null);
+
+        public Task<CardDefinition?> GetByScryfallIdAsync(string scryfallId) =>
+            Task.FromResult<CardDefinition?>(null);
+
+        public Task<PrintingDto[]> GetPrintingsAsync(string oracleId) => Task.FromResult<PrintingDto[]>([]);
+
+        public Task<RulingDto[]> GetRulingsAsync(string oracleId) => Task.FromResult<RulingDto[]>([]);
+
+        public Task<CardDefinition[]> SearchAsync(
+            string query, int limit = 20, int offset = 0, string sortBy = "name",
+            string sortDir = "asc", bool matchCase = false, bool matchWord = false,
+            bool useRegex = false) => Task.FromResult<CardDefinition[]>([]);
+    }
+
     private static CardDefinition Card(string name) => new()
     {
         OracleId = "oracle-" + name.ToLowerInvariant(),
@@ -68,7 +100,7 @@ public sealed class GameHubTests
             seed: 42);
 
         var clients = new RecordingClients();
-        var hub = new GameHub(sessions, NullLogger<GameHub>.Instance)
+        var hub = new GameHub(sessions, NoArt, NullLogger<GameHub>.Instance)
         {
             Context = new FakeCaller(actingAs ?? alice),
             Clients = clients,
@@ -227,7 +259,7 @@ public sealed class GameHubTests
             return id;
         });
 
-        var bobsHub = new GameHub(table.Sessions, NullLogger<GameHub>.Instance)
+        var bobsHub = new GameHub(table.Sessions, NoArt, NullLogger<GameHub>.Instance)
         {
             Context = new FakeCaller(table.Bob),
             Clients = table.Clients,
@@ -304,7 +336,7 @@ public sealed class GameHubTests
         var choice = await sessions.Find(gameId)!.MutateAsync(game => game.State.Choice);
         Assert.NotNull(choice);
 
-        var hub = new GameHub(sessions, NullLogger<GameHub>.Instance)
+        var hub = new GameHub(sessions, NoArt, NullLogger<GameHub>.Instance)
         {
             Context = new FakeCaller(choice.PlayerId),
             Clients = new RecordingClients(),

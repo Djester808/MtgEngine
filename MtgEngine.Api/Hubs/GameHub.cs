@@ -26,11 +26,13 @@ namespace MtgEngine.Api.Hubs;
 public sealed class GameHub : Hub
 {
     private readonly GameSessionService _sessions;
+    private readonly GameCardArt _art;
     private readonly ILogger<GameHub> _logger;
 
-    public GameHub(GameSessionService sessions, ILogger<GameHub> logger)
+    public GameHub(GameSessionService sessions, GameCardArt art, ILogger<GameHub> logger)
     {
         _sessions = sessions;
+        _art = art;
         _logger = logger;
     }
 
@@ -175,6 +177,10 @@ public sealed class GameHub : Hub
     private async Task SendViewAsync(GameSession session, Guid playerId)
     {
         var view = await session.ReadAsync(playerId).ConfigureAwait(false);
+
+        // The log stores no art on purpose, so a resumed game has none until it is put back.
+        view = await _art.FillAsync(view, Context.ConnectionAborted).ConfigureAwait(false);
+
         await Clients.User(playerId.ToString()).SendAsync("State", view).ConfigureAwait(false);
     }
 

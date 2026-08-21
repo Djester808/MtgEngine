@@ -200,6 +200,27 @@ public sealed record ObjectView
 
     public string? TypeLine { get; init; }
 
+    /// <summary>The card's oracle text, so a player can read what it does.</summary>
+    /// <remarks>
+    /// A board that names cards and never says what they do is a board you cannot play from
+    /// unless you already know every card on it. The engine never reads this — it is here for
+    /// the person holding the phone.
+    /// </remarks>
+    public string? OracleText { get; init; }
+
+    /// <summary>Cropped art, for the card as it sits on the battlefield.</summary>
+    /// <remarks>
+    /// Presentation belongs in the view and nowhere else. It is deliberately absent from the
+    /// event log, which records a game and not what a printing looked like — see
+    /// <c>EventLogSerializer</c> — but a client rendering a board needs it, and making it look
+    /// the card up by oracle id would be a request per permanent for something the server has
+    /// in hand.
+    /// </remarks>
+    public string? ArtUri { get; init; }
+
+    /// <summary>The whole card, for reading it.</summary>
+    public string? ImageUri { get; init; }
+
     /// <summary>
     /// Whether this is a planeswalker, so a client can offer it as something to attack
     /// (CR 508.1b).

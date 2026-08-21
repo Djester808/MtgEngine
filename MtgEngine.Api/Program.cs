@@ -156,6 +156,7 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 builder.Services.AddSingleton<CardPool>();
 builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<CardPool>());
 builder.Services.AddHostedService<CardPoolResolver>();
+builder.Services.AddScoped<GameCardArt>();
 builder.Services.AddSingleton<IGameStore, SqliteGameStore>();
 builder.Services.AddSingleton<GameSessionService>();
 builder.Services.AddScoped<GameTableService>();

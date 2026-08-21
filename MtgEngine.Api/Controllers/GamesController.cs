@@ -14,13 +14,18 @@ public sealed class GamesController : ControllerBase
     private readonly GameSessionService _sessions;
     private readonly GameTableService _tables;
     private readonly GameInviteService _invites;
+    private readonly GameCardArt _art;
 
     public GamesController(
-        GameSessionService sessions, GameTableService tables, GameInviteService invites)
+        GameSessionService sessions,
+        GameTableService tables,
+        GameInviteService invites,
+        GameCardArt art)
     {
         _sessions = sessions;
         _tables = tables;
         _invites = invites;
+        _art = art;
     }
 
     private Guid CurrentUserId =>
@@ -46,7 +51,8 @@ public sealed class GamesController : ControllerBase
         if (!session.SeatNames.ContainsKey(CurrentUserId))
             return Forbid();
 
-        return Ok(await session.ReadAsync(CurrentUserId, ct).ConfigureAwait(false));
+        var view = await session.ReadAsync(CurrentUserId, ct).ConfigureAwait(false);
+        return Ok(await _art.FillAsync(view, ct).ConfigureAwait(false));
     }
 
     // ---- Invitations ---------------------------------------------------------------------
