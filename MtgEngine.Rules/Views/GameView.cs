@@ -38,6 +38,19 @@ public sealed record GameView
     public required string CurrentStep { get; init; }
 
     /// <summary>
+    /// The player who may act right now, or null when nobody has priority (CR 117.1).
+    /// </summary>
+    /// <remarks>
+    /// Public, and it has to be: "may I do something, or am I waiting on them" is the question
+    /// a player asks between every pair of actions. Absent from the view until now, so the
+    /// board offered Pass Priority to whoever was looking at it and the server refused it with
+    /// CR 117.1 — a refusal that reads as a broken button rather than as "not your turn to act".
+    /// Null during untap (CR 502.4), during cleanup (CR 514.3), and while something resolves
+    /// (CR 117.2e).
+    /// </remarks>
+    public Guid? PriorityPlayerId { get; init; }
+
+    /// <summary>
     /// Attacking creature to what it is attacking — a player, or a planeswalker (CR 508.1b).
     /// </summary>
     public ImmutableDictionary<Guid, AttackTargetView> Attackers { get; init; } =
@@ -173,6 +186,19 @@ public sealed record PlayerView
 
     /// <summary>Against the one-per-turn allowance (CR 305.2), so the client can grey the drop.</summary>
     public int LandsPlayedThisTurn { get; init; }
+
+    /// <summary>
+    /// The mana this player has available, by symbol — "W", "U", "B", "R", "G", "C" (CR 106.4).
+    /// </summary>
+    /// <remarks>
+    /// Public information: a mana pool is not hidden from anyone, and it has to be, because
+    /// whether an opponent can pay for a response is a decision every player at the table makes
+    /// out loud. Absent from the view until now, which left a player tapping lands with no way
+    /// to see what they had floating — and it empties as each step ends (CR 500.5), so guessing
+    /// from what you tapped is not reliable either.
+    /// </remarks>
+    public ImmutableDictionary<string, int> ManaPool { get; init; } =
+        ImmutableDictionary<string, int>.Empty;
 }
 
 /// <summary>
@@ -243,6 +269,12 @@ public sealed record ObjectView
     /// when the declaration arrives. This is only enough for a client to stop offering a land.
     /// </remarks>
     public bool IsCreature { get; init; }
+
+    /// <summary>Whether it is a land, which is what a card face is coloured by first.</summary>
+    public bool IsLand { get; init; }
+
+    /// <summary>The card's colours, for the frame it is drawn in.</summary>
+    public IReadOnlyList<string> Colors { get; init; } = [];
 
     public int? PrintedPower { get; init; }
 

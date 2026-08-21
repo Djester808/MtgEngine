@@ -56,19 +56,47 @@ public sealed class GameTableService
         // before the shuffle (CR 903.6), casting it from there is taxed (CR 903.8), and
         // twenty-one damage from it is a loss (CR 903.10a). The builder already records which
         // card that is, so a Commander deck plays as one without anybody choosing a format.
+        // Players are named after themselves, not after their decks. This read `first.Name`,
+        // which is the *deck's* name, so a board showed "Played Game Green" facing "Played Game
+        // Red" and neither player could tell who they were playing.
+        var names = await NamesOfAsync([firstUserId, secondUserId], ct).ConfigureAwait(false);
+
         var setups = new List<PlayerSetup>
         {
-            new(firstUserId, first.Name, startingLife, first.Cards)
+            new(firstUserId, names[firstUserId], startingLife, first.Cards)
             {
                 CommanderOracleId = first.CommanderOracleId,
             },
-            new(secondUserId, second.Name, startingLife, second.Cards)
+            new(secondUserId, names[secondUserId], startingLife, second.Cards)
             {
                 CommanderOracleId = second.CommanderOracleId,
             },
         };
 
         return await _sessions.CreateAsync(setups, ct: ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The username of each of these players, for the names on the board.
+    /// </summary>
+    /// <remarks>
+    /// A user with no row falls back to a short form of their id rather than to their deck's
+    /// name or to an empty string: a seat with no name at all is worse to look at than an
+    /// unfamiliar one, and it should never happen, so it should look like it never happens.
+    /// </remarks>
+    private async Task<Dictionary<Guid, string>> NamesOfAsync(
+        IReadOnlyList<Guid> userIds, CancellationToken ct)
+    {
+        var found = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.Username })
+            .ToDictionaryAsync(u => u.Id, u => u.Username, ct)
+            .ConfigureAwait(false);
+
+        return userIds.ToDictionary(
+            id => id,
+            id => found.GetValueOrDefault(id) ?? $"Player {id.ToString()[..8]}");
     }
 
     /// <summary>The caller's decks, for the lobby to offer.</summary>

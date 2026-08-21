@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Views;
@@ -29,6 +30,7 @@ public static class PlayerViewProjector
             TurnNumber = state.TurnNumber,
             ActivePlayerId = state.ActivePlayerId,
             CurrentStep = state.CurrentStep.ToString(),
+            PriorityPlayerId = state.Priority.Holder,
             // Combat is public: who is attacking and who is blocking is visible to everyone at
             // the table (CR 506.1 happens in the open).
             AttackersDeclared = state.Combat.AttackersDeclared,
@@ -113,8 +115,45 @@ public static class PlayerViewProjector
                 kv => NameOfCommander(state, kv.Key), kv => kv.Value, StringComparer.Ordinal),
             CommanderName = player.CommanderOracleId is { } id ? NameOfCommander(state, id) : null,
             LandsPlayedThisTurn = player.LandsPlayedThisTurn,
+            ManaPool = ProjectManaPool(player.ManaPool),
         };
     }
+
+    /// <summary>
+    /// The pool as symbols, dropping the kinds a player has none of (CR 106.4).
+    /// </summary>
+    /// <remarks>
+    /// Colourless is its own kind rather than an absence of colour (CR 106.1b), so it gets its
+    /// own "C" entry rather than being folded into a total.
+    /// </remarks>
+    private static ImmutableDictionary<string, int> ProjectManaPool(ManaPool pool)
+    {
+        var symbols = ImmutableDictionary.CreateBuilder<string, int>(StringComparer.Ordinal);
+        foreach (var (color, amount) in pool.Colored)
+        {
+            if (amount > 0)
+            {
+                symbols[SymbolOf(color)] = amount;
+            }
+        }
+
+        if (pool.Colorless > 0)
+        {
+            symbols["C"] = pool.Colorless;
+        }
+
+        return symbols.ToImmutable();
+    }
+
+    private static string SymbolOf(ManaColor color) => color switch
+    {
+        ManaColor.White => "W",
+        ManaColor.Blue => "U",
+        ManaColor.Black => "B",
+        ManaColor.Red => "R",
+        ManaColor.Green => "G",
+        _ => "C",
+    };
 
     private static ImmutableList<ObjectView> ProjectZone(
         GameState state, ImmutableList<ObjectId> zone) =>
@@ -137,6 +176,8 @@ public static class PlayerViewProjector
             ImageUri = card.ImageUriNormal ?? card.ImageUriLarge,
             IsPlaneswalker = card.CardTypes.HasFlag(CardType.Planeswalker),
             IsCreature = card.CardTypes.HasFlag(CardType.Creature),
+            IsLand = card.CardTypes.HasFlag(CardType.Land),
+            Colors = [.. card.ColorIdentity.Select(c => c.ToString())],
             PrintedPower = card.Power,
             PrintedToughness = card.Toughness,
             IsTapped = obj.Permanent?.IsTapped,
