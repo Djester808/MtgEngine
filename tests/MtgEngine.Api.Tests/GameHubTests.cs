@@ -197,6 +197,81 @@ public sealed class GameHubTests
     }
 
     [Fact]
+    public async Task A_blocker_named_by_a_client_reaches_the_engine()
+    {
+        // The other half of combat, and the half the browser harness could not pin down: it
+        // could never reliably occupy the declare-blockers window before something moved the
+        // game on. The board's own logic is covered by a component spec; this covers the wire.
+        var table = await TableAsync();
+        var (attacker, _) = await ToCombatAsync(table);
+
+        // Alice attacks; Bob is the one who blocks (CR 509.1).
+        await table.Hub.DeclareAttackers(
+            table.GameId,
+            new Dictionary<Guid, AttackDto> { [attacker.Value] = new(table.Bob, null) });
+
+        var blocker = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            var id = game.Create(table.Bob, Card("Wall"), Zone.Battlefield);
+
+            // Straight to the blockers step: the declaration is a turn-based action taken
+            // before anyone has priority (CR 509.1), so there is nothing to pass here.
+            for (var guard = 0; guard < 50 && game.State.CurrentStep != TurnStep.DeclareBlockers; guard++)
+            {
+                if (game.State.Priority.Holder is { } holder)
+                    game.PassPriority(holder);
+                else
+                    break;
+            }
+
+            return id;
+        });
+
+        var bobsHub = new GameHub(table.Sessions, NullLogger<GameHub>.Instance)
+        {
+            Context = new FakeCaller(table.Bob),
+            Clients = table.Clients,
+        };
+
+        await bobsHub.DeclareBlockers(
+            table.GameId,
+            new Dictionary<Guid, Guid[]> { [attacker.Value] = [blocker.Value] });
+
+        var combat = await table.Sessions.Find(table.GameId)!.MutateAsync(game => game.State.Combat);
+
+        Assert.True(combat.BlockersDeclared);
+        Assert.Contains(blocker, combat.BlockersOf(attacker));
+        Assert.Contains(attacker, combat.Blocked);
+        Assert.Empty(table.Clients.Refusals);
+    }
+
+    [Fact]
+    public async Task Only_the_defending_player_declares_blockers()
+    {
+        // CR 509.1. The attacking player naming their opponent's blocks would be choosing how
+        // their own attack is answered.
+        var table = await TableAsync();
+        var (attacker, _) = await ToCombatAsync(table);
+
+        await table.Hub.DeclareAttackers(
+            table.GameId,
+            new Dictionary<Guid, AttackDto> { [attacker.Value] = new(table.Bob, null) });
+
+        var blocker = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+            game.Create(table.Bob, Card("Wall"), Zone.Battlefield));
+
+        // Alice, the attacker, tries to declare Bob's blocks.
+        await table.Hub.DeclareBlockers(
+            table.GameId,
+            new Dictionary<Guid, Guid[]> { [attacker.Value] = [blocker.Value] });
+
+        var combat = await table.Sessions.Find(table.GameId)!.MutateAsync(game => game.State.Combat);
+
+        Assert.False(combat.BlockersDeclared);
+        Assert.Single(table.Clients.Refusals);
+    }
+
+    [Fact]
     public async Task A_player_who_is_not_seated_cannot_act_at_the_table()
     {
         // Seat membership is the authorisation, and it is taken from the token rather than the
