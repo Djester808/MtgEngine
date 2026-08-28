@@ -9704,6 +9704,243 @@ public sealed class CompiledCardBehaviourTests
             Assert.DoesNotContain(id, game.State.Battlefield);
     }
 
+    // ---- Offers whose cost is not mana ---------------------------------------
+
+    /// <summary>
+    /// A pool serving a definition built by hand rather than compiled from rules text.
+    /// </summary>
+    /// <remarks>
+    /// Every other test in this file plays a card the compiler read, which is the whole point of
+    /// the file. The four below cannot yet: the effect they exercise is engine machinery whose
+    /// reader is being written separately, and a test that waited for the reader would be a test
+    /// of two things that fails for either. It answers about spells only — nothing else in these
+    /// games has an ability at all.
+    /// </remarks>
+    private sealed class HandBuilt : IAbilitySource
+    {
+        private readonly Dictionary<string, SpellDefinition> _spells = [];
+
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) => [];
+
+        public SpellDefinition? SpellOf(CardDefinition card) =>
+            _spells.GetValueOrDefault(card.OracleId);
+
+        public HandBuilt WithSpell(CardDefinition card, SpellDefinition spell)
+        {
+            _spells[card.OracleId] = spell;
+            return this;
+        }
+    }
+
+    private static (Game Game, Guid Alice, Guid Bob) InMainPhaseWith(IAbilitySource abilities)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: abilities);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice, bob);
+    }
+
+    /// <summary>
+    /// A sorcery offering one chosen cost, with a different life total behind each answer.
+    /// </summary>
+    /// <remarks>
+    /// The two branches are told apart by the number they leave rather than by whether anything
+    /// happened, so a test cannot pass on an engine that simply ran neither. Gaining is paying
+    /// and losing is declining, and no other card in these games touches life.
+    /// <para>
+    /// The offer sits on a <em>sorcery</em> deliberately. A spell does not survive its own
+    /// resolution (CR 400.7), so the locator that finds the branch again has to be resolved when
+    /// the offer is made rather than when it is answered — the failure that hid until the first
+    /// spell-sourced offer, and one a permanent's ability cannot reproduce.
+    /// </para>
+    /// </remarks>
+    private static (HandBuilt Pool, CardDefinition Card) OfferPaidBy(
+        string name, string text, ChosenCostKind kind, string filterId)
+    {
+        var card = Card(name, text, CardType.Sorcery);
+
+        var pool = new HandBuilt().WithSpell(card, new SpellDefinition
+        {
+            Effects =
+            [
+                new MayPay(
+                    Mana.ManaCostSpec.Parse(string.Empty),
+                    IfYouDo: [new ChangeLife(3)],
+                    IfYouDont: [new ChangeLife(-2)],
+                    ChosenKind: kind,
+                    ChosenCount: 1,
+                    ChosenFilterId: filterId),
+            ],
+        });
+
+        return (pool, card);
+    }
+
+    /// <summary>
+    /// "You may sacrifice a creature. If you do, ..." — an offer priced in permanents
+    /// (CR 118.12a).
+    /// </summary>
+    /// <remarks>
+    /// The assertion that earns its place is the creature's absence. An engine that ran "if you
+    /// do" without ever taking the payment passes every life-total check in this test and plays
+    /// a card strictly cheaper than the one printed, which is exactly the failure this project
+    /// refuses to ship — so the board is asserted before the life total is.
+    /// </remarks>
+    [Fact]
+    public void An_offer_can_charge_a_sacrifice_and_the_creature_really_goes()
+    {
+        var (pool, pact) = OfferPaidBy(
+            "Chosen Sacrifice Offer Test",
+            "You may sacrifice a creature. If you do, you gain 3 life. If you don't, you lose "
+                + "2 life.",
+            ChosenCostKind.SacrificePermanents,
+            "creature");
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var goat = game.Create(
+            alice, TestCards.Creature("Chosen Cost Goat Test", 1, 1), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, pact);
+
+        game.CastSpell(alice, card);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // The question is the objects themselves rather than yes and no, and picking none of
+        // them is the decline — which is why it has no floor and a ceiling of the whole cost.
+        var offer = game.State.Choice!;
+        Assert.Equal(0, offer.MinPicks);
+        Assert.Equal(1, offer.MaxPicks);
+        Assert.Contains(offer.Options, o => o.Id == goat.Value.ToString("N"));
+
+        game.Choose(alice, [goat.Value.ToString("N")]);
+        Settle(game);
+
+        // Paid: the creature left the battlefield, and went to the graveyard rather than
+        // vanishing — a sacrifice is a move, and something has to be there afterwards.
+        Assert.DoesNotContain(goat, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Chosen Cost Goat Test");
+
+        // And the branch behind the payment ran.
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same offer turned down: picking nothing is how a player says no.
+    /// </summary>
+    /// <remarks>
+    /// The half that is easy to get wrong. An empty answer reaching the paying arm would spend
+    /// nothing and run "if you do" anyway, which is the same free card the test above guards
+    /// against, approached from the other side — so this asserts both that the creature is still
+    /// there and that the <em>other</em> branch is what ran.
+    /// </remarks>
+    [Fact]
+    public void Picking_nothing_declines_a_chosen_cost_and_runs_the_other_branch()
+    {
+        var (pool, pact) = OfferPaidBy(
+            "Chosen Decline Offer Test",
+            "You may sacrifice a creature. If you do, you gain 3 life. If you don't, you lose "
+                + "2 life.",
+            ChosenCostKind.SacrificePermanents,
+            "creature");
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var goat = game.Create(
+            alice, TestCards.Creature("Chosen Decline Goat Test", 1, 1), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, pact);
+
+        game.CastSpell(alice, card);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        game.Choose(alice, []);
+        Settle(game);
+
+        Assert.Contains(goat, game.State.Battlefield);
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A player with nothing legal to pay with is not asked at all (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// A cost cannot be paid in part, so a board holding fewer than the cost names is not a
+    /// decision — and stopping the game to put a question with one possible answer is how a
+    /// game stalls in front of a player who has nothing to click. The mana arm has skipped the
+    /// question for the same reason since it was written; this asserts the selection arm does,
+    /// by looking for the offer in the log rather than for its absence right now.
+    /// </remarks>
+    [Fact]
+    public void An_offer_nobody_can_pay_is_never_put_to_them()
+    {
+        var (pool, pact) = OfferPaidBy(
+            "Chosen Unpayable Offer Test",
+            "You may sacrifice a creature. If you do, you gain 3 life. If you don't, you lose "
+                + "2 life.",
+            ChosenCostKind.SacrificePermanents,
+            "creature");
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var card = TestCards.PutInHand(game, alice, pact);
+
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log, e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same offer priced in cards: "unless that player discards a card" (CR 701.9a).
+    /// </summary>
+    /// <remarks>
+    /// The kind ward was refused for. It is worth its own test rather than trusting the
+    /// sacrifice one, because where the payment comes from and where it goes are the only things
+    /// that differ between the kinds: a discard that read the battlefield would offer nothing
+    /// and quietly decline for a player holding seven cards.
+    /// </remarks>
+    [Fact]
+    public void A_chosen_cost_can_take_a_card_out_of_a_hand()
+    {
+        var (pool, ransom) = OfferPaidBy(
+            "Chosen Discard Offer Test",
+            "You may discard a card. If you do, you gain 3 life. If you don't, you lose 2 life.",
+            ChosenCostKind.DiscardCards,
+            SearchFilters.AnyCard);
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var card = TestCards.PutInHand(game, alice, ransom);
+
+        game.CastSpell(alice, card);
+
+        // Counted with the spell already on the stack, so the one card missing at the end is the
+        // one that was pitched rather than the one that was cast.
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        var pitched = game.State.Choice!.Options[0];
+
+        game.Choose(alice, [pitched.Id]);
+        Settle(game);
+
+        Assert.Equal(held - 1, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == pitched.Label);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
     /// <summary>
     /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
     /// </summary>

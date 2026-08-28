@@ -3508,11 +3508,36 @@ public sealed record PumpBlockersOfSource(string DefinitionId, KeywordAbility Ex
 /// is read from the card a second time. That is also why the branches are data on the record
 /// rather than something captured: they have to survive being looked up rather than remembered.
 /// </para>
+/// <para>
+/// The cost is mana, life, energy — or a selection, when <see cref="ChosenKind"/> is set. That
+/// last one turns the question from a yes/no into a pick, because "unless that player discards a
+/// card" cannot be answered without naming the card. It stays <em>one</em> question: asking
+/// "will you pay?" and then "with what?" lets a player answer yes and then have nothing legal to
+/// name, and gives the log two answers to keep in step where the rules have one decision. A
+/// chosen cost does <em>not</em> scale with <see cref="TimesCounter"/> — that repeats the printed
+/// mana text and nothing repeats the count — so cumulative upkeep's non-mana form would ask for
+/// one of something on its fourth turn as readily as on its first, and is not built on this yet.
+/// </para>
 /// </remarks>
 /// <param name="AskTargetController">
 /// When set, the offer goes to the controller of that target rather than to this spell's
 /// controller — "counter target spell unless its controller pays {2}". The branches still belong
 /// to this spell, so "if you don't" is what happens when <em>they</em> decline.
+/// </param>
+/// <param name="ChosenKind">
+/// When set, the cost is a selection rather than a price: sacrifice a permanent, discard a card,
+/// return a permanent to its owner's hand (CR 118.12a). The kinds that may be asked for are the
+/// ones <c>Game.PayableFor</c> can offer and <c>Game.TakeChosenPayment</c> can move; a kind
+/// neither knows is declined rather than charged, which is the safe direction — a cost that
+/// cannot be paid is not paid (CR 118.3).
+/// </param>
+/// <param name="ChosenCount">
+/// How many objects the chosen cost takes. Partial payments are not payments (CR 601.2h), so
+/// fewer picks than this is a decline and not a discount.
+/// </param>
+/// <param name="ChosenFilterId">
+/// Which objects qualify, as a <see cref="SearchFilters"/> id — "creature" for "sacrifice a
+/// creature". The default accepts anything, which is what "discard a card" means.
 /// </param>
 public sealed record MayPay(
     Mana.ManaCostSpec Cost,
@@ -3525,7 +3550,10 @@ public sealed record MayPay(
     string? NoLabel = null,
     string? TimesCounter = null,
     int EnergyCost = 0,
-    int LifeCost = 0) : IEffect
+    int LifeCost = 0,
+    ChosenCostKind? ChosenKind = null,
+    int ChosenCount = 1,
+    string ChosenFilterId = SearchFilters.AnyCard) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -5104,9 +5132,13 @@ public sealed record PutFromHandOntoBattlefield(string FilterId, bool Tapped = f
 /// "When ~ enters, sacrifice it unless you [pay a cost that is not mana]."
 /// </summary>
 /// <remarks>
-/// Its own effect rather than a non-mana arm of <see cref="MayPay"/>, because that one is what
-/// ward, cumulative upkeep and "counter unless its controller pays" all run through, and a cost
-/// that needs a second selection does not fit the shape those share.
+/// The same offer <see cref="MayPay"/> makes, with the "if you don't" branch fixed: this
+/// permanent goes. It was its own effect because the offer could only charge mana, life and
+/// energy; now that the offer can charge a selection too, the two ask the same question and
+/// share the answering — <c>Game.PayableFor</c> lists what may be given up and
+/// <c>Game.TakeChosenPayment</c> moves it, for both. What stays separate is only what the two
+/// requests carry: this one names the permanent at stake, so the question can say what declining
+/// costs, and that is a thing to say rather than a branch to run.
 /// </remarks>
 public sealed record SacrificeSourceUnlessPaid(
     ChosenCostKind Kind, int Count, string FilterId) : IEffect

@@ -3289,6 +3289,46 @@ public sealed class Game
     private static ManaCostSpec CostOwed(OptionalPaymentRequested owed, MayPay offer) =>
         string.IsNullOrEmpty(owed.CostText) ? offer.Cost : ManaCostSpec.Parse(owed.CostText);
 
+    /// <summary>
+    /// How many objects a chosen cost takes, floored at one.
+    /// </summary>
+    /// <remarks>
+    /// A cost of nothing would be paid by picking nothing, which is the same answer as declining
+    /// — so a miscompiled offer would hand the player the "if you do" branch for free, and read
+    /// as a card strictly better than the one printed. Asked in one place so the ask and the
+    /// answer cannot come to different conclusions about what was owed.
+    /// </remarks>
+    private static int ChosenCountOf(MayPay offer) => Math.Max(1, offer.ChosenCount);
+
+    /// <summary>
+    /// How to say a chosen cost out loud.
+    /// </summary>
+    /// <remarks>
+    /// The prompt is all the board shows about the price, so a wording that dropped the number
+    /// would price two very different offers identically — "discard a card" and "discard three
+    /// cards" are not the same decision, and the options alone do not say which is being asked.
+    /// The filter names the qualifying cards the way the compiler spells it, and "creature|land"
+    /// is two of them, so the separator is read back out as the word it stands for.
+    /// </remarks>
+    private static string ChosenCostPrompt(ChosenCostKind kind, int count, string filterId)
+    {
+        var what = string.Equals(filterId, SearchFilters.AnyCard, StringComparison.Ordinal)
+            ? kind == ChosenCostKind.DiscardCards ? "card" : "permanent"
+            : filterId.Replace("|", " or ", StringComparison.Ordinal);
+
+        var many = count == 1 ? what : what + "s";
+
+        var asking = kind switch
+        {
+            ChosenCostKind.DiscardCards => $"Discard {count} {many}",
+            ChosenCostKind.ReturnToHand => $"Return {count} {many} to its owner's hand",
+            ChosenCostKind.SacrificePermanents => $"Sacrifice {count} {many}",
+            _ => $"Pay with {count} {many}",
+        };
+
+        return $"{asking}, or pick nothing to decline.";
+    }
+
     private bool AskOwedPayment()
     {
         if (_paymentsOwed.Count == 0 || State.IsWaitingForChoice)
@@ -3309,6 +3349,45 @@ public sealed class Game
             RunDeferredBranch(
                 owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
             return false;
+        }
+
+        // A cost that is not a currency is a selection, and the question changes shape with it:
+        // "unless that player discards a card" cannot be answered yes, only with a card. The
+        // offer is otherwise the same offer — same branches, same locator, same player asked —
+        // so it stays one question, with objects for options and nothing picked as the decline.
+        if (offer.ChosenKind is { } chosen)
+        {
+            var payable = PayableFor(owed.PlayerId, chosen, offer.ChosenFilterId);
+
+            // CR 118.3: a cost cannot be paid without the resources to pay it in full, so a
+            // player holding fewer than it names is not offered it at all. The currencies above
+            // skip the question for the same reason — a question with one possible answer is not
+            // a question, and stopping the game to ask it is how a game stalls.
+            if (payable.Count < ChosenCountOf(offer))
+            {
+                RunDeferredBranch(
+                    owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
+                return false;
+            }
+
+            Ask(new PendingChoice
+            {
+                Id = $"pay:{owed.PlayerId:N}:{owed.EffectIndex}",
+                PlayerId = owed.PlayerId,
+                Kind = ChoiceKind.OptionalPayment,
+                Prompt = ChosenCostPrompt(chosen, ChosenCountOf(offer), offer.ChosenFilterId),
+                Options = [.. payable.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+
+                // Nothing picked is how the offer is turned down, which is why there is no
+                // floor. The ceiling is the whole cost: picking part of one buys nothing
+                // (CR 601.2h), so offering to take part of it would only mislead.
+                MinPicks = 0,
+                MaxPicks = ChosenCountOf(offer),
+            });
+
+            _paymentBeingAsked = (owed, offer, aimedAt);
+            return true;
         }
 
         Ask(new PendingChoice
@@ -3443,8 +3522,13 @@ public sealed class Game
 
         _paymentBeingAsked = null;
 
-        var paying = picks.Count > 0
-            && string.Equals(picks[0], "yes", StringComparison.Ordinal);
+        // Two shapes of answer, one question. A price is answered yes or no; a cost that is a
+        // selection is answered with the objects themselves, and picking fewer than it named is
+        // how that player declines — there is no partial payment (CR 601.2h), so there is no
+        // third outcome to read out of a short answer.
+        var paying = offer.ChosenKind is null
+            ? picks.Count > 0 && string.Equals(picks[0], "yes", StringComparison.Ordinal)
+            : picks.Count >= ChosenCountOf(offer);
 
         var due = CostOwed(owed, offer);
 
@@ -3465,6 +3549,15 @@ public sealed class Game
             }
 
             PayMana(owed.PlayerId, due);
+
+            // The objects go before the branch runs, because instructions are followed in the
+            // order written (CR 608.2c) and the branch can look at the board: "you may sacrifice
+            // a creature. If you do, draw a card for each creature you control" counts what is
+            // there when that clause applies (CR 608.2h), which is a board the sacrificed
+            // creature has already left. Paying afterwards would let the card count itself.
+            if (offer.ChosenKind is { } chosen)
+                TakeChosenPayment(owed.PlayerId, chosen, picks);
+
             RunDeferredBranch(
                 owed.SourceId, offer.IfYouDo, aimedAt, owed.SubjectObject, owed.AbilityId);
             return;
@@ -5273,7 +5366,7 @@ public sealed class Game
             return false;
         }
 
-        var payable = PayableFor(owed);
+        var payable = PayableFor(owed.PlayerId, owed.Kind, owed.FilterId);
 
         if (payable.Count < owed.Count)
         {
@@ -5298,28 +5391,79 @@ public sealed class Game
         return true;
     }
 
-    /// <summary>What a player could give up to meet one of these costs.</summary>
-    private IReadOnlyList<ObjectId> PayableFor(SacrificeUnlessPaidRequested owed) =>
-        owed.Kind switch
+    /// <summary>
+    /// What a player could give up to meet a chosen cost (CR 118.1).
+    /// </summary>
+    /// <remarks>
+    /// Asked of a player and a cost rather than of one of the two requests that carry one,
+    /// because the rules write the same offer both ways (CR 118.12a): "sacrifice this unless you
+    /// sacrifice a creature" and "you may sacrifice a creature; if you do, ...". A second copy
+    /// of this list is how the two would come to disagree about which permanents "a creature you
+    /// control" means — and only one of the two has a test that would notice.
+    /// <para>
+    /// Control is the computed one, not the one stored on the object (CR 613.1b): a permanent
+    /// somebody stole cannot be sacrificed by the player it started under, and can be by the one
+    /// holding it now.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<ObjectId> PayableFor(
+        Guid payerId, ChosenCostKind kind, string filterId) =>
+        kind switch
         {
             ChosenCostKind.SacrificePermanents =>
                 [.. State.Battlefield
-                    .Where(id => ControllerOf(State.GetObject(id)) == owed.PlayerId
-                        && SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card))],
+                    .Where(id => ControllerOf(State.GetObject(id)) == payerId
+                        && SearchFilters.Matches(filterId, State.GetObject(id).Card))],
 
             ChosenCostKind.DiscardCards =>
-                [.. State.GetPlayer(owed.PlayerId).Hand
-                    .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card))],
+                [.. State.GetPlayer(payerId).Hand
+                    .Where(id => SearchFilters.Matches(filterId, State.GetObject(id).Card))],
 
             // The same permanents a sacrifice could take, going somewhere kinder. Only the
             // destination differs, which is why it is a kind rather than an effect of its own.
             ChosenCostKind.ReturnToHand =>
                 [.. State.Battlefield
-                    .Where(id => ControllerOf(State.GetObject(id)) == owed.PlayerId
-                        && SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card))],
+                    .Where(id => ControllerOf(State.GetObject(id)) == payerId
+                        && SearchFilters.Matches(filterId, State.GetObject(id).Card))],
 
             _ => [],
         };
+
+    /// <summary>
+    /// Moves what a player picked to pay a chosen cost (CR 118.1).
+    /// </summary>
+    /// <remarks>
+    /// Where the cards go is the only thing that differs between the kinds, which is why they
+    /// are one method: a return is a sacrifice with a kinder destination, and a discard is the
+    /// same move out of a different zone. A pick that names something no longer there is skipped
+    /// rather than throwing — the cost has still been paid, because paying is what the player
+    /// chose and not what the events turned out to be (CR 118.12).
+    /// </remarks>
+    private void TakeChosenPayment(Guid payerId, ChosenCostKind kind, IReadOnlyList<string> picks)
+    {
+        foreach (var pick in picks)
+        {
+            var id = new ObjectId(Guid.ParseExact(pick, "N"));
+            if (!State.TryGetObject(id, out var spent))
+                continue;
+
+            // Home to its owner, not to whoever is paying: control of a permanent says nothing
+            // about whose hand its card belongs in (CR 108.3).
+            if (kind == ChosenCostKind.ReturnToHand)
+            {
+                Move(id, Zone.Hand, MoveCause.Return, spent.OwnerId);
+                continue;
+            }
+
+            Move(
+                id,
+                Zone.Graveyard,
+                kind == ChosenCostKind.DiscardCards
+                    ? MoveCause.Discard
+                    : MoveCause.Sacrifice,
+                payerId);
+        }
+    }
 
     private SacrificeUnlessPaidRequested? _sacrificeUnlessBeingAsked;
 
@@ -5342,26 +5486,7 @@ public sealed class Game
             return;
         }
 
-        foreach (var pick in picks)
-        {
-            var id = new ObjectId(Guid.ParseExact(pick, "N"));
-            if (!State.TryGetObject(id, out _))
-                continue;
-
-            if (owed.Kind == ChosenCostKind.ReturnToHand)
-            {
-                Move(id, Zone.Hand, MoveCause.Return, State.GetObject(id).OwnerId);
-                continue;
-            }
-
-            Move(
-                id,
-                Zone.Graveyard,
-                owed.Kind == ChosenCostKind.DiscardCards
-                    ? MoveCause.Discard
-                    : MoveCause.Sacrifice,
-                owed.PlayerId);
-        }
+        TakeChosenPayment(owed.PlayerId, owed.Kind, picks);
     }
 
     private bool AskOwedSearch()
