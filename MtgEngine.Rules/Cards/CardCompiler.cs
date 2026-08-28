@@ -1835,6 +1835,19 @@ public static partial class CardCompiler
             // else - "each of your opponents", "each of the exiled cards" - is left alone.
             cleaned = EachOfTargets().Replace(cleaned, "$1");
 
+            // CR 700.4 defines "dies" as exactly "is put into a graveyard from the battlefield",
+            // so the two are one event written two ways and the long form is normalised to the
+            // short one. Every trigger template here is written against "dies", so a card saying
+            // it the long way was not read at all while the same card saying "dies" was - the
+            // same asymmetry the enters-the-battlefield rewrite above exists to remove. 130 lines
+            // use the long spelling.
+            //
+            // Anchored on "from the battlefield" and nowhere else: "put into a graveyard from
+            // anywhere" is a different event that also catches a card being milled or discarded,
+            // and rewriting that one to "dies" would narrow it to permanents.
+            cleaned = DiesTheLongWay().Replace(
+                cleaned, m => m.Groups["are"].Success ? "die" : "dies");
+
             // "Enters the battlefield" and "enters" are the same event written two ways.
             // Wizards' 2024 templating shortened the first to the second and the comprehensive
             // rules still use both interchangeably, but the corpus carries two hundred lines in
@@ -9371,6 +9384,13 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"\s*Any player may activate this ability\.?\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex AnyPlayerLine();
+
+    /// <summary>"Is put into a graveyard from the battlefield" — the long spelling of dies (CR 700.4).</summary>
+    [GeneratedRegex(
+        @"\b(is|(?<are>are)) put into (a|their owner's|its owner's) graveyard "
+            + @"from the battlefield\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DiesTheLongWay();
 
     /// <summary>"Disturb {1}{W}" (CR 702.146a).</summary>
     [GeneratedRegex(@"^Disturb (?<cost>(\{[^}]+\})+)$", RegexOptions.IgnoreCase)]

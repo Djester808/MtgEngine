@@ -10147,6 +10147,80 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(tribute, game.State.Battlefield);
     }
 
+    /// <summary>
+    /// "When ~ is put into a graveyard from the battlefield, draw a card." (CR 700.4)
+    /// </summary>
+    /// <remarks>
+    /// CR 700.4 defines "dies" as exactly that phrase, so the two are one event written two ways.
+    /// Every trigger template here is written against "dies", so a card saying it the long way
+    /// was not read at all while the same card saying "dies" was — the same asymmetry the
+    /// enters-the-battlefield rewrite exists to remove, and 130 corpus lines use the long
+    /// spelling.
+    /// <para>
+    /// The rewrite is anchored on "from the battlefield" and nothing else. "Put into a graveyard
+    /// from <em>anywhere</em>" is a different event that also catches a card being milled or
+    /// discarded, and rewriting that one to "dies" would quietly narrow it to permanents.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_death_trigger_can_be_spelled_the_long_way()
+    {
+        var martyr = Card(
+            "Long Death Test",
+            "When ~ is put into a graveyard from the battlefield, draw a card.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(martyr);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var saint = game.Create(alice, martyr, Zone.Battlefield);
+        Settle(game);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.Move(saint, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The rewrite leaves "put into a graveyard from anywhere" alone.
+    /// </summary>
+    /// <remarks>
+    /// The guard on the test above. "From anywhere" catches a card milled or discarded as well as
+    /// one that died, so rewriting it to "dies" would narrow the card to permanents — a different,
+    /// smaller card than the one printed. Asserted by milling the card straight out of the
+    /// library, where a death trigger must not fire but this one must.
+    /// </remarks>
+    [Fact]
+    public void The_long_spelling_is_not_applied_to_from_anywhere()
+    {
+        var haunt = Card(
+            "Anywhere Graveyard Test",
+            "If ~ would be put into a graveyard from anywhere, exile it instead.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(haunt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Straight from the library to the graveyard: never on the battlefield, so nothing that
+        // reads "dies" could apply, and the replacement still has to.
+        var milled = game.Create(alice, haunt, Zone.Library);
+        game.Move(milled, Zone.Graveyard, MoveCause.Mill);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+        Assert.Single(game.State.Exile);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {
