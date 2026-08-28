@@ -446,7 +446,91 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **37.7% of playable cards fully read** (12,349 of 32,765), 57.2% of all lines (35,378 of 61,822 lines of rules text).
+Coverage is **44.7% of playable cards fully read** (14,630 of 32,765), 62.4% of all lines (38,608 of 61,846 lines of rules text).
+
+### What is actually left, measured rather than estimated
+
+The remaining work has no head to attack. There are **9,705 distinct blocking sentences across
+10,659 blocked lines** — 1.1 lines each — and the thousand most common templates between them
+would complete 1,889 cards, 5.8% of the corpus. The queue as a whole reaches 44.1%, so
+implementing *every* template in it lands near 88%, not 100%: the rest needs capabilities that do
+not exist, not readers.
+
+That number is the reason the search method changed. Ranking sentences by how often they appear
+finds nothing, and twice it found worse than nothing:
+
+- `MTG_SENTENCE_DUMP` splits each unread line into sentences and counts *those*, so its top entry —
+  "Activate only as a sorcery", 238 — is a fragment of lines that already read. A line-fold was
+  built for it and reverted: **0 of 1,096** corpus cards print that sentence on its own line.
+- Ranking blocker rows by their leading clause attributes a whole line to `when ~ enters` (647
+  rows), a trigger that is fully supported. The gap is always in the tail.
+
+What does pay is a **compositional** gap: a complete grammar reachable through only one door.
+Three of those, found by probing a sentence the compiler reads and then saying it another way:
+
+- The animation grammar — power, toughness, subtype, keywords, the "it's still a land" tail — could
+  only be entered through a *target* phrase, so every permanent that animates **itself** went
+  unread. One sibling pattern, 56 cards. The artifact half of "becomes a 3/3 Soldier artifact
+  creature" is read rather than assumed, because an animated land that is quietly not an artifact
+  dodges artifact removal.
+- `BoardConditions` is the shared condition vocabulary for statics, activation restrictions,
+  enters-with-counters and the intervening-if on triggers — and nothing could call it from a plain
+  sentence. `If you control an artifact, draw a card.` did not read while
+  `When ~ enters, if you control an artifact, draw a card.` did. **242 cards.** It refuses when
+  `Parse` returns null: on 651 sentences, defaulting the condition to true would ship an
+  unconditional card where a conditional one is printed. It cites CR 608.2c and not CR 603.4,
+  because the double check belongs to an "if" immediately after a trigger condition and this is
+  not one.
+- Disturb is flashback's permission plus a turn-over, and the turn-over is *derived* at resolution
+  from the zone the spell was cast from — the object already records that and the card already says
+  which zone transforms it — rather than carried on an event whose only job would be to hold a flag.
+
+Two synonyms were worth more than most mechanics. CR 700.4 defines "dies" as exactly "is put into a
+graveyard from the battlefield", and every trigger template here is written against the short form,
+so 130 cards saying it the long way were not read while the same card saying "dies" was. The
+rewrite is anchored on "from the battlefield" and nothing else — "from *anywhere*" also catches a
+card milled or discarded, and rewriting that would quietly narrow it to permanents.
+
+Three findings worth keeping because they are about the instruments, not the cards:
+
+- **The corpus is not in git.** `oracle_cards.json` lives only in `MtgEngine.Api/bin/`, and every
+  coverage, invariant and dump test prints "skipping" and **passes** without it. Any fresh clone,
+  CI job or worktree measures nothing and reports success.
+- **A reader that never fires looks exactly like a reader that works.** The monarch condition had
+  been present all along behind a pattern demanding `you 're the monarch` with a space; no card
+  prints that. It compiled, it played, and the bonus was simply never on.
+- **`RuleCitationTests` checks that a rule exists, not that it is the right one.** Four wrong
+  citations passed it: cipher as 702.98 (Unleash), scavenge as 702.98a, transform as 701.28
+  (Convert), and a chosen cost as 701.20a (Reveal).
+
+### Declined here, with the measurement behind each
+
+Recorded so the next pass does not re-spend the cycle. Each was probed or swept, not guessed.
+
+- **`~ remains tapped` / `it remains exiled` / `you control ~`** (~170 lines). The four biggest
+  condition misses are **durations on one-shot effects** — "gain control of target creature *for as
+  long as* you control this creature" — not board questions. A condition reader would answer the
+  wrong question on all of them.
+- **`unless its controller pays {N}`** (123 lines) and its siblings. An unless-*cost* is a decision,
+  not a state; unreadable by a condition parser by construction.
+- **`your first enchantment spell each turn`** (~15 lines). `PlayerState` counts total and
+  noncreature spells only. Reading it through `OncePerTurn` is wrong in the direction that matters:
+  that flag is per (permanent, ability), so a permanent arriving after an enchantment had already
+  been cast would still trigger on the second one.
+- **`Whenever one or more X you control attack`** (28 lines). Caught by `CardCompilerInvariantTests`:
+  six of them say "that many", and `AttackersDeclared` carries no batch size, so the trigger fired
+  and added nothing. Lifting it wants the count on the event.
+- **`Living metal`** (13 faces) — *built*, and worth zero. All 13 are backs of the same 13
+  Transformers cards, whose fronts carry `More Than Meets the Eye` plus bespoke unread `convert`
+  sentences. "Faces blocked by this line" is an upper bound, never a card count.
+- **`More Than Meets the Eye`** (15 cards). It compiles today as an alternative cost from hand — and
+  that is wrong: the cast path takes an alternative cost unconditionally whenever the card is in
+  that zone, so the card could never be cast for its printed cost as its front face. Cheaper and a
+  mode short of printed, so left unread.
+- **`Craft with artifact`** (24 cards), **`Convert ~`** (39 lines across 22 cards, nearly all unique
+  long sentences), **perpetual effects** (6 of 74).
+
+
 
 ### Every line shape the compiler reads is now played by a test
 
