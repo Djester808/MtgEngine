@@ -10362,6 +10362,314 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(23, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Batched attacks, and spells counted by kind -------------------------
+
+    /// <summary>
+    /// A pool serving triggers written by hand rather than compiled from rules text.
+    /// </summary>
+    /// <remarks>
+    /// The sibling of <see cref="HandBuilt"/>, one ability kind along, and here for the same
+    /// reason: the six tests below exercise engine machinery whose reader is being written
+    /// separately, and a test that waited for the reader would be a test of two things that fails
+    /// for either. The printed wording is on the card and on the ability text, so what the
+    /// machinery is <em>for</em> is legible even while the compiler still refuses the line.
+    /// </remarks>
+    private sealed class HandBuiltTriggers : IAbilitySource
+    {
+        private readonly Dictionary<string, TriggeredAbilityDefinition> _triggers = [];
+
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) =>
+            _triggers.TryGetValue(card.OracleId, out var trigger) ? [trigger] : [];
+
+        public HandBuiltTriggers WithTrigger(
+            CardDefinition card, TriggeredAbilityDefinition trigger)
+        {
+            _triggers[card.OracleId] = trigger;
+            return this;
+        }
+    }
+
+    /// <summary>"Draw that many cards", for a trigger about a batch (CR 603.2).</summary>
+    private static DrawCards DrawThatMany() =>
+        new(new Amount(1) { Counter = context => context.SubjectAmount ?? 0 });
+
+    /// <summary>
+    /// "Whenever one or more creatures you control attack, draw that many cards" (CR 508.1).
+    /// </summary>
+    /// <remarks>
+    /// Twenty-eight corpus lines are shaped this way and six of them go on to say "that many" —
+    /// "add that much mana", "create that many Treasure tokens". The whole family was refused
+    /// rather than shipped because the declaration reached the trigger carrying no number, so
+    /// every one of them fired and then did nothing at all: a card that compiles, counts as
+    /// covered, and is blank on the table.
+    /// <para>
+    /// Three attackers and not one, because a batch of one is the number every wrong
+    /// implementation also produces.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attack_declaration_says_how_many_creatures_were_in_it()
+    {
+        var horn = Card(
+            "Batch Horn Test",
+            "Whenever one or more creatures you control attack, draw that many cards.",
+            CardType.Artifact);
+
+        var pool = new HandBuiltTriggers().WithTrigger(horn, new TriggeredAbilityDefinition
+        {
+            Id = "batch-draw",
+            Text = horn.OracleText,
+            Triggers = static (e, state, source) =>
+                e is AttackersDeclared declared
+                && declared.Attackers.Keys.Any(id =>
+                    state.TryGetObject(id, out var attacker)
+                    && attacker.ControllerId == source.ControllerId),
+            Effects = [DrawThatMany()],
+        });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        game.Create(alice, horn, Zone.Battlefield);
+
+        var attackers = Enumerable.Range(0, 3)
+            .Select(i => game.Create(
+                alice, TestCards.Creature($"Batch Attacker {i} Test", 2, 2), Zone.Battlefield))
+            .ToList();
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        var drawn = game.State.GetPlayer(alice).CardsDrawnThisTurn;
+
+        game.DeclareAttackers(
+            alice,
+            attackers.ToDictionary(id => id, _ => AttackTarget.Player(bob)));
+
+        Settle(game);
+
+        Assert.Equal(drawn + 3, game.State.GetPlayer(alice).CardsDrawnThisTurn);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "Whenever one or more Dragons you control attack, draw that many cards" (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// The number the sentence wants is the number of <em>Dragons</em>, and answering with the
+    /// size of the whole declaration prints a strictly better card than the one on the table —
+    /// four of the six corpus lines that say "that many" about an attack name a narrower group
+    /// than "creatures you control": Dragons, Dinosaurs, Birds, Treefolk.
+    /// <para>
+    /// So the attack is deliberately mixed. Two Dragons and a Bear draw two, and every reading
+    /// that takes the batch size instead draws three — which is the failure this asserts against
+    /// rather than the one it asserts for.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_narrower_attack_trigger_counts_only_the_creatures_it_names()
+    {
+        var lord = Card(
+            "Batch Dragon Test",
+            "Whenever one or more Dragons you control attack, draw that many cards.",
+            CardType.Artifact);
+
+        var pool = new HandBuiltTriggers().WithTrigger(lord, new TriggeredAbilityDefinition
+        {
+            Id = "batch-dragons",
+            Text = lord.OracleText,
+            Triggers = static (e, state, source) =>
+                e is AttackersDeclared declared
+                && declared.Attackers.Keys.Any(id =>
+                    state.TryGetObject(id, out var attacker)
+                    && attacker.ControllerId == source.ControllerId
+                    && attacker.Card.Subtypes.Contains("Dragon", StringComparer.Ordinal)),
+            Effects = [DrawThatMany()],
+        });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        game.Create(alice, lord, Zone.Battlefield);
+
+        var first = game.Create(
+            alice,
+            Card("Batch Dragon One Test", string.Empty, CardType.Creature, 2, 2, subtypes: "Dragon"),
+            Zone.Battlefield);
+
+        var second = game.Create(
+            alice,
+            Card("Batch Dragon Two Test", string.Empty, CardType.Creature, 2, 2, subtypes: "Dragon"),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Batch Bear Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        var drawn = game.State.GetPlayer(alice).CardsDrawnThisTurn;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+                [bear] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        Assert.Equal(drawn + 2, game.State.GetPlayer(alice).CardsDrawnThisTurn);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>A permanent that watches for the first spell of one card type each turn.</summary>
+    private static (HandBuiltTriggers Pool, CardDefinition Card) FirstOfKindWatcher(
+        string name, CardType kind)
+    {
+        var watcher = Card(
+            name,
+            $"Whenever you cast your first {kind.ToString().ToLowerInvariant()} spell each turn, "
+                + "you gain 2 life.",
+            CardType.Artifact);
+
+        var pool = new HandBuiltTriggers().WithTrigger(watcher, new TriggeredAbilityDefinition
+        {
+            Id = "first-of-kind",
+            Text = watcher.OracleText,
+
+            // The state a trigger is offered is the one *before* its event (CR 603.2), so the
+            // spell being cast has not been counted yet and "first" is a count of nought. Reading
+            // it after the event would need a state the predicate is never given, and the
+            // off-by-one is the difference between a card that never fires and one that fires on
+            // the second spell.
+            Triggers = (e, state, source) =>
+                e is SpellCastEvent cast
+                && cast.PlayerId == source.ControllerId
+                && state.TryGetObject(cast.StackId, out var spell)
+                && spell.Card.CardTypes.HasFlag(kind)
+                && state.GetPlayer(cast.PlayerId).SpellsCastThisTurnOfKind(kind) == 0,
+            Effects = [new ChangeLife(2)],
+        });
+
+        return (pool, watcher);
+    }
+
+    /// <summary>
+    /// "Whenever you cast your first enchantment spell each turn" fires once, for that kind.
+    /// </summary>
+    /// <remarks>
+    /// Fifteen corpus lines ask this, and <c>PlayerState</c> kept two counts — every spell and
+    /// every noncreature spell — neither of which can answer it. The instant cast first is the
+    /// half that catches a reading taken from the total: it is a spell, it is not an enchantment,
+    /// and the enchantment after it is still the first of its kind.
+    /// </remarks>
+    [Fact]
+    public void A_first_spell_of_a_kind_trigger_ignores_the_other_kinds()
+    {
+        var (pool, watcher) = FirstOfKindWatcher(
+            "First Enchantment Test", CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        game.Create(alice, watcher, Zone.Battlefield);
+
+        var bolt = Card("First Kind Instant Test", string.Empty);
+        var charm = Card("First Kind Charm Test", string.Empty, CardType.Enchantment);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt));
+        Settle(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, charm));
+        Settle(game);
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, charm));
+        Settle(game);
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A permanent that arrives after the first of its kind has been cast waits for next turn.
+    /// </summary>
+    /// <remarks>
+    /// This is the case that decides the whole design, and the reason the tempting shortcut was
+    /// refused. <c>TriggeredAbilityDefinition.OncePerTurn</c> is kept per (permanent, ability),
+    /// so a permanent put onto the battlefield <em>after</em> an enchantment had already been
+    /// cast this turn still has its one firing in hand and takes it on the second enchantment —
+    /// a card strictly better than the one printed, and one nothing else in the suite can see.
+    /// <para>
+    /// The turn afterwards is asserted as well, because "it never fires" passes the first half of
+    /// this test just as cleanly as "it fires when it should not" fails it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_that_arrives_after_the_first_of_its_kind_does_not_fire()
+    {
+        var (pool, watcher) = FirstOfKindWatcher(
+            "Late Enchantment Test", CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var charm = Card("Late Kind Charm Test", string.Empty, CardType.Enchantment);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, charm));
+        Settle(game);
+
+        // Onto the battlefield without a settle, which would hand priority on and leave nobody
+        // able to cast the second enchantment - the arrival is what this test is about, and it
+        // needs no state-based action to have happened.
+        game.Create(alice, watcher, Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, charm));
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // Its own turn round again, and the count it reads has been cleared with the rest.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber >= 3
+                && game.State.CurrentStep >= TurnStep.PrecombatMain
+                && game.State.Priority.Holder == alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, charm));
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A spell answering to two of the named subtypes at once is counted once (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// "Your first outlaw spell each turn" is five creature types asked as one question — an
+    /// outlaw is an Assassin, Mercenary, Pirate, Rogue or Warlock — and a tally kept per subtype
+    /// would have to be summed to answer it, which counts a Pirate Rogue twice and makes its
+    /// second spell the third. Keeping the cards and asking them is what avoids the sum.
+    /// </remarks>
+    [Fact]
+    public void A_spell_answering_to_two_named_subtypes_is_counted_once()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        var brigand = Card(
+            "Outlaw Count Test", string.Empty, CardType.Creature, 2, 2,
+            subtypes: ["Pirate", "Rogue"]);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, brigand));
+        Settle(game);
+
+        var outlaws = new[] { "Assassin", "Mercenary", "Pirate", "Rogue", "Warlock" };
+        var player = game.State.GetPlayer(alice);
+
+        Assert.Equal(1, player.SpellsCastThisTurnOfKind(CardType.Creature, outlaws));
+
+        // The type has to agree as well as the subtype: an outlaw is a creature that is one of
+        // those, and the same words on an enchantment are not an outlaw spell.
+        Assert.Equal(0, player.SpellsCastThisTurnOfKind(CardType.Enchantment, outlaws));
+
+        // And the mask is an alternation, so "instant or sorcery" is one question rather than
+        // two counts added - which is only safe while nothing can be both.
+        Assert.Equal(0, player.SpellsCastThisTurnOfKind(CardType.Instant | CardType.Sorcery));
+        Assert.Equal(1, player.SpellsCastThisTurnOfKind(CardType.None));
+    }
+
     /// <summary>
     /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
     /// </summary>

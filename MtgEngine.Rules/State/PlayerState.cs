@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Mana;
 
 namespace MtgEngine.Rules.State;
@@ -277,6 +279,53 @@ public sealed record PlayerState
     /// </remarks>
     public int NoncreatureSpellsCastThisTurn { get; init; }
 
+    /// <summary>
+    /// The cards this player has cast as spells this turn, oldest first (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// "Whenever you cast your first enchantment spell each turn" cannot be answered by the two
+    /// counts above, and the tempting substitute is worse than no answer: a trigger's
+    /// <c>OncePerTurn</c> flag is per (permanent, ability), so an enchantment arriving <em>after</em>
+    /// one had already been cast this turn would still fire on the next one — a strictly better
+    /// card than the one printed, and one nothing in the suite would notice.
+    /// <para>
+    /// A per-type tally would answer the enchantment and instant halves of the family and then
+    /// stop: "your first outlaw spell" is five creature types at once and "your first Human
+    /// creature spell" is a type and a subtype together, and neither can be summed out of
+    /// separate counters without double-counting a Pirate Rogue. What the whole family needs is
+    /// the cards, so that is what is kept — the same list of shared definitions the objects
+    /// already hold, cleared with the rest of the per-turn counts.
+    /// </para>
+    /// <para>
+    /// One entry per cast rather than per spell that resolved, so it stays the same length as
+    /// <see cref="SpellsCastThisTurn"/>: a countered spell was still cast, and the cards that ask
+    /// are about the casting.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<CardDefinition> SpellCardsCastThisTurn { get; init; } = [];
+
+    /// <summary>
+    /// How many spells of a kind this player has already cast this turn (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// The types are a mask, so "instant or sorcery" is one question rather than two additions —
+    /// which matters because adding two counts is only safe while no card can be both, and that
+    /// is a fact about today's type rules rather than about this method. Naming no type asks
+    /// about the subtypes alone.
+    /// <para>
+    /// Subtypes narrow rather than widen: an outlaw is a Creature that is any of five, and a
+    /// Human creature spell is a Creature that is a Human — so a card has to answer the type
+    /// question <em>and</em> one of the subtypes, and a Pirate Rogue is counted once.
+    /// </para>
+    /// </remarks>
+    /// <param name="types">Any of these card types, or <c>None</c> to ask about every spell.</param>
+    /// <param name="subtypes">Any of these subtypes, or none to ask about every subtype.</param>
+    public int SpellsCastThisTurnOfKind(CardType types, params string[] subtypes) =>
+        SpellCardsCastThisTurn.Count(card =>
+            (types == CardType.None || (card.CardTypes & types) != CardType.None)
+            && (subtypes is null or { Length: 0 }
+                || card.Subtypes.Any(had => subtypes.Contains(had, StringComparer.OrdinalIgnoreCase))));
+
     // Records compare collections by reference; see Structural.
     public bool Equals(PlayerState? other) =>
         other is not null &&
@@ -312,6 +361,13 @@ public sealed record PlayerState
         HasCitysBlessing == other.HasCitysBlessing &&
         LifeGainedThisTurn == other.LifeGainedThisTurn &&
         NoncreatureSpellsCastThisTurn == other.NoncreatureSpellsCastThisTurn &&
+
+        // By name, the way an object's spliced cards are compared: a CardDefinition is a class
+        // with reference equality, and two runs of the same log hand out the same definitions
+        // only for as long as nothing has been round-tripped through the serializer.
+        Structural.Same(
+            SpellCardsCastThisTurn.ConvertAll(c => c.Name),
+            other.SpellCardsCastThisTurn.ConvertAll(c => c.Name)) &&
         Structural.Same(Library, other.Library) &&
         Structural.Same(Hand, other.Hand) &&
         Structural.Same(Graveyard, other.Graveyard);

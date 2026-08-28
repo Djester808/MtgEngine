@@ -7124,6 +7124,7 @@ public sealed class Game
     private void Consider(GameEvent e, GameState state, ObjectId id, GameObject obj)
     {
         var hidden = obj.Permanent is { IsFaceDown: true };
+        var source = new TriggerSource(obj, _abilities);
 
         foreach (var ability in TriggersWatching(state, obj))
         {
@@ -7138,7 +7139,7 @@ public sealed class Game
             if (obj.Zone != ability.FunctionsFrom)
                 continue;
 
-            if (!ability.Triggers(e, state, new TriggerSource(obj, _abilities)))
+            if (!ability.Triggers(e, state, source))
                 continue;
 
             // CR 603.1: a "only once each turn" ability stops watching once it has fired. Kept
@@ -7152,9 +7153,49 @@ public sealed class Game
             {
                 SubjectPlayer = SubjectOf(e, state),
                 SubjectObject = SubjectObjectOf(e),
-                SubjectAmount = AmountOf(e),
+                SubjectAmount = AmountFor(e, state, ability, source),
             });
         }
+    }
+
+    /// <summary>
+    /// How much of a batched event <em>this</em> ability was about, for "that many" (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// A declaration of attackers is one event carrying every attacker (CR 508.1), and the
+    /// number the card wants is rarely the size of that batch: "whenever one or more Dragons you
+    /// control attack, draw that many cards" means the Dragons, and an attack of two Dragons and
+    /// a Goblin draws two. Four of the six corpus lines that say "that many" about an attack
+    /// name a narrower group than "creatures you control" — Dragons, Dinosaurs, Birds, Treefolk
+    /// — so answering with <see cref="AmountOf(GameEvent)"/> alone would print a strictly better
+    /// card than the one on the table.
+    /// <para>
+    /// The description lives in the ability's own predicate and nowhere else, so the count is
+    /// taken by asking that predicate about each attacker on its own: a declaration of one is
+    /// exactly the question "does this creature answer the description". A predicate cannot be
+    /// asked how many; it can be asked once per candidate.
+    /// </para>
+    /// <para>
+    /// A predicate that needs two attackers at once to be true — training's "with another
+    /// creature with greater power" — accepts no singleton and would come back with nothing, so
+    /// a count of zero falls back to the whole batch rather than reporting that the event this
+    /// ability just fired on was about nothing. None of those cards says "that many"; the
+    /// fallback is there so that a later one cannot silently do nothing.
+    /// </para>
+    /// </remarks>
+    private static int? AmountFor(
+        GameEvent e, GameState state, TriggeredAbilityDefinition ability, TriggerSource source)
+    {
+        if (e is not AttackersDeclared { Attackers.Count: > 1 } batch)
+            return AmountOf(e);
+
+        var mine = batch.Attackers.Count(one => ability.Triggers(
+            new AttackersDeclared(
+                ImmutableDictionary<ObjectId, AttackTarget>.Empty.Add(one.Key, one.Value)),
+            state,
+            source));
+
+        return mine > 0 ? mine : AmountOf(e);
     }
 
     private readonly List<AbilityTriggered> _triggersFound = [];
@@ -7183,6 +7224,21 @@ public sealed class Game
         DamageMarked marked => marked.Amount,
         LifeChanged life => Math.Abs(life.Delta),
         CountersChanged counters => Math.Abs(counters.Delta),
+
+        // How many creatures were declared. Nothing new is written down for it: attackers are
+        // declared as one batch (CR 508.1) and the batch is already the event, so the size the
+        // sentence asks for was there all along and only this switch could not see it. Until it
+        // could, "whenever one or more creatures you control attack, add that much mana" fired
+        // and added nothing, which is why the trigger family was refused rather than shipped.
+        // An empty declaration is still a declaration and answers zero, not nothing.
+        //
+        // It also switches off the running total in RunEffects for every attack trigger, which
+        // is the same trade the damage arms above already make: an ability that says how much it
+        // was about says so for all of its clauses. That would matter to "whenever ~ attacks,
+        // each opponent loses 2 life and you gain that much life" - and no corpus card is shaped
+        // that way, checked rather than assumed.
+        AttackersDeclared declared => declared.Attackers.Count,
+
         _ => null,
     };
 
