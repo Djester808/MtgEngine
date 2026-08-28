@@ -22,11 +22,27 @@ namespace MtgEngine.Rules.Cards;
 public static partial class BoardConditions
 {
     /// <summary>The question a printed condition asks, or null if it is not one we read.</summary>
+    /// <remarks>
+    /// A clause no single reader recognises is offered to <see cref="Joined"/> before it is given
+    /// up on, and the fall-through has to be here rather than at the bottom of the reader chain.
+    /// Several readers claim a clause on its opening words and then return null on the part they
+    /// cannot read - "you control a Desert or there is a Desert card in your graveyard" is taken
+    /// by the controls-a-noun reader, which then cannot name that noun - so a combinator sitting
+    /// after them would never be reached by the clauses it exists for.
+    /// </remarks>
     public static Func<GameState, IAbilitySource, GameObject, bool>? Parse(string condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
 
         var text = condition.Trim().TrimEnd('.');
+
+        return Single(text) ?? Joined(text);
+    }
+
+    /// <summary>One condition, with no "and" or "or" holding two of them together.</summary>
+    private static Func<GameState, IAbilitySource, GameObject, bool>? Single(string condition)
+    {
+        var text = condition;
 
         // "You control no Islands" is "you control 0 or fewer Islands" in the words a card
         // actually uses. Rewritten rather than given its own reader, so the noun goes through
@@ -51,6 +67,20 @@ public static partial class BoardConditions
             text = "there are one or more "
                 + oneInGraveyard.Groups["what"].Value.Trim()
                 + " cards in your graveyard";
+        }
+
+        // "Seven or more cards are in your graveyard" is the counting reader's own question with
+        // the pile moved to the back of the sentence, and nine lines print it that way -
+        // threshold, mostly. Rewritten rather than given a reader, so the count and the card
+        // filter have one place to live and cannot disagree about what a Land card is.
+        var pileFirst = GraveyardCountReversedLine().Match(text);
+        if (pileFirst.Success)
+        {
+            text = "there are "
+                + pileFirst.Groups["n"].Value
+                + " or more "
+                + pileFirst.Groups["what"].Value
+                + "cards in your graveyard";
         }
 
         // "Creatures you control have total power 8 or greater" - a sum rather than a tally, so
@@ -139,11 +169,18 @@ public static partial class BoardConditions
         {
             var wantedHeld = held.Groups["none"].Success ? 0 : Number(held.Groups["n"].Value);
 
+            // "Fewer than seven" is a strict comparison and "seven or fewer" is not, and the
+            // cards that ask are the ones the difference decides: Kozilek draws up to seven,
+            // so reading "fewer than seven" as "seven or fewer" draws a card off a full hand.
             var compare = held.Groups["none"].Success ? "exactly"
                 : held.Groups["exactly"].Success ? "exactly"
-                : held.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase)
-                    ? "more"
-                    : "fewer";
+                : held.Groups["under"].Success
+                    ? held.Groups["under"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase)
+                        ? "over"
+                        : "under"
+                    : held.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase)
+                        ? "more"
+                        : "fewer";
 
             var mine = !held.Groups["who"].Value
                 .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
@@ -152,6 +189,8 @@ public static partial class BoardConditions
             {
                 "exactly" => count == wantedHeld,
                 "more" => count >= wantedHeld,
+                "over" => count > wantedHeld,
+                "under" => count < wantedHeld,
                 _ => count <= wantedHeld,
             };
 
@@ -160,6 +199,23 @@ public static partial class BoardConditions
                 : state.TurnOrder
                     .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
                     .Any(id => Holds(state.GetPlayer(id).Hand.Count));
+        }
+
+        // "If you have more cards in hand than each opponent" - two counts compared rather than
+        // one count against a number, so it cannot go through the reader above however the
+        // words look. "Each" is the whole of it: at more than two seats this is true only when
+        // you are ahead of every one of them, and reading it as "any" would fire on the table's
+        // second-largest hand.
+        if (LargestHandLine().IsMatch(text))
+        {
+            return (state, _, source) =>
+            {
+                var mine = state.GetPlayer(source.ControllerId).Hand.Count;
+
+                return state.TurnOrder
+                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                    .All(id => mine > state.GetPlayer(id).Hand.Count);
+            };
         }
 
         var counted = CountLine().Match(text);
@@ -277,6 +333,11 @@ public static partial class BoardConditions
         {
             var wanted = Number(life.Groups["n"].Value);
             var orMore = life.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            // "Exactly 1 life" is a window, the way the hand count already reads one, and both
+            // thresholds are wrong for it in a way that plays: at or above leaves the reward on
+            // for a healthy player, at or below leaves it on for a dying one.
+            var exactly = life.Groups["exactly"].Success;
             var who = life.Groups["who"].Value.ToLowerInvariant();
 
             return (state, abilities, source) =>
@@ -297,7 +358,78 @@ public static partial class BoardConditions
                         .ToList(),
                 };
 
-                return totals.Any(total => orMore ? total >= wanted : total <= wanted);
+                return totals.Any(total => exactly
+                    ? total == wanted
+                    : orMore ? total >= wanted : total <= wanted);
+            };
+        }
+
+        // "As long as your devotion to black is less than five, ~ isn't a creature" - CR 700.5,
+        // and the whole God cycle turns on it. A count of *symbols* rather than of permanents,
+        // which is why it cannot go through the counting reader: one permanent costing {B}{B}{B}
+        // is three devotion and three permanents costing {1} are none.
+        var devoted = DevotionLine().Match(text);
+        if (devoted.Success)
+        {
+            var wantedColours = new List<Domain.Enums.ManaColor>();
+
+            foreach (var word in new[] { devoted.Groups["c1"].Value, devoted.Groups["c2"].Value })
+            {
+                if (word.Length == 0)
+                    continue;
+
+                // Written out rather than shared with the filter vocabulary, for the reason the
+                // mana-spent reader gives: that vocabulary reads colour words attached to a
+                // noun, and this reads a colour standing on its own.
+                var colour = word.ToLowerInvariant() switch
+                {
+                    "white" => Domain.Enums.ManaColor.White,
+                    "blue" => Domain.Enums.ManaColor.Blue,
+                    "black" => Domain.Enums.ManaColor.Black,
+                    "red" => Domain.Enums.ManaColor.Red,
+                    "green" => Domain.Enums.ManaColor.Green,
+                    _ => (Domain.Enums.ManaColor?)null,
+                };
+
+                if (colour is not { } named)
+                    return null;
+
+                wantedColours.Add(named);
+            }
+
+            var threshold = Number(devoted.Groups["n"].Value);
+
+            // "Less than five" is strict and "five or greater" is not. Both wordings are in the
+            // corpus and they are each other's complement, so reading one as the other turns
+            // every God in the cycle on and off exactly one permanent early.
+            var below = devoted.Groups["less"].Success;
+
+            return (state, abilities, source) =>
+            {
+                var symbols = 0;
+
+                foreach (var id in state.Battlefield)
+                {
+                    var obj = state.GetObject(id);
+
+                    // Control is computed (CR 613.1b); a permanent an opponent has taken stops
+                    // counting towards your devotion the moment they take it.
+                    if (Characteristics.Of(state, abilities, obj).ControllerId != source.ControllerId)
+                        continue;
+
+                    foreach (var symbol in Mana.ManaCostSpec.Parse(obj.Card.ManaCostRaw).Symbols)
+                    {
+                        // A hybrid symbol is each of its colours (CR 202.2b), so {W/U} counts
+                        // towards white, towards blue, and once towards white-and-black's
+                        // sibling - never twice, which is why this counts symbols and not
+                        // colours. CR 700.5 asks for symbols that *are* one of the named
+                        // colours, so a two-colour devotion is a union rather than a sum.
+                        if (wantedColours.Any(symbol.Colors.Contains))
+                            symbols++;
+                    }
+                }
+
+                return below ? symbols < threshold : symbols >= threshold;
             };
         }
 
@@ -768,6 +900,36 @@ public static partial class BoardConditions
                 && (self.Permanent?.IsTapped ?? false) == wantsTapped;
         }
 
+        // "Activate only if ~'s power is 3 or greater", "as long as its power is 2 or less" -
+        // one permanent's power rather than a search of the board, which is why it is not the
+        // controls-with-power reader with the subject changed: that one answers "is there such a
+        // creature", and with two copies of this card in play it would find the wrong one.
+        var mighty = SelfPowerLine().Match(text);
+        if (mighty.Success)
+        {
+            var threshold = Number(mighty.Groups["n"].Value);
+            var atLeast = mighty.Groups["dir"].Value
+                    .StartsWith("greater", StringComparison.OrdinalIgnoreCase)
+                || mighty.Groups["dir"].Value
+                    .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            // "Its power" on an Aura is the host's - an Aura has no power at all - and the
+            // possessive on "enchanted creature's power" says the same thing in full.
+            var elsewhere = mighty.Groups["it"].Success || mighty.Groups["host"].Success;
+
+            return (state, abilities, source) =>
+            {
+                if (Subject(state, source, elsewhere) is not { } self)
+                    return false;
+
+                // Computed rather than printed (CR 613.4): a card asking about its own power is
+                // one whose power something else is expected to have changed.
+                var power = Characteristics.Of(state, abilities, self).Power ?? 0;
+
+                return atLeast ? power >= threshold : power <= threshold;
+            };
+        }
+
         // "As long as ~ is monstrous", "as long as ~ is attacking", "as long as ~ is equipped"
         // - three more questions a permanent asks about itself, each answered somewhere the
         // tapped question is not: a designation, the combat state, and what is attached to it.
@@ -795,6 +957,9 @@ public static partial class BoardConditions
                 {
                     "monstrous" => self.Permanent?.IsMonstrous ?? false,
                     "saddled" => self.Permanent?.IsSaddled ?? false,
+
+                    // A designation, not a count of what put it there (CR 702.112b).
+                    "renowned" => self.Permanent?.IsRenowned ?? false,
 
                     // Asked of the permanent rather than of the computed card, because a
                     // face-down permanent has no abilities and no printed characteristics to
@@ -981,6 +1146,90 @@ public static partial class BoardConditions
         return null;
     }
 
+    /// <summary>Two conditions joined by "and" or "or", each read by everything above.</summary>
+    /// <remarks>
+    /// This is the only reader here that multiplies rather than adds, so it is also the only one
+    /// that could quietly invent a condition. Three things stop it, and all three are refusals:
+    /// <list type="bullet">
+    /// <item>Both halves must parse. That single rule disposes of every false split - "you
+    /// control three <em>or</em> more lands" splits into "you control three" and "more lands",
+    /// neither of which is a condition, so the clause stays unread rather than becoming a
+    /// question about nothing.</item>
+    /// <item>If splits on <em>both</em> words are viable the clause is refused, because "A or B
+    /// and C" has two readings and nothing here can tell which was printed. Same-word splits are
+    /// safe to pick between: and/or are associative, so every grouping means the same thing.</item>
+    /// <item>It runs only on a clause every specific reader has already refused, so the worst it
+    /// can do to a card is what was already happening to it.</item>
+    /// </list>
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, bool>? Joined(string text)
+    {
+        var viable = new List<(bool All, Func<GameState, IAbilitySource, GameObject, bool> Left,
+            Func<GameState, IAbilitySource, GameObject, bool> Right)>();
+
+        foreach (Match join in JoinWord().Matches(text))
+        {
+            var leftText = text[..join.Index];
+            if (Parse(leftText) is not { } left)
+                continue;
+
+            var rightText = text[(join.Index + join.Length)..];
+            if ((Parse(rightText) ?? Elided(leftText, rightText)) is not { } right)
+                continue;
+
+            viable.Add((join.Groups["and"].Success, left, right));
+        }
+
+        if (viable.Count == 0 || viable.Any(one => one.All != viable[0].All))
+            return null;
+
+        var (all, first, second) = viable[0];
+
+        return all
+            ? (state, abilities, source) =>
+                first(state, abilities, source) && second(state, abilities, source)
+            : (state, abilities, source) =>
+                first(state, abilities, source) || second(state, abilities, source);
+    }
+
+    /// <summary>
+    /// "You control an artifact and an enchantment" — the half that leaves its subject out.
+    /// </summary>
+    /// <remarks>
+    /// English drops a repeated subject and a parser cannot, so the second half is re-read with
+    /// the first half's subject put back. It is deliberately narrow in both directions: the tail
+    /// must begin with a determiner, so "you control a creature and it's your turn" is never
+    /// mangled into a question about controlling a turn, and the subject must be one of the
+    /// phrases that can carry a bare noun after it.
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, bool>? Elided(
+        string left, string right)
+    {
+        if (!ElidedTail().IsMatch(right))
+            return null;
+
+        var subject = SubjectPrefix().Match(left);
+
+        return subject.Success ? Parse(subject.Value + right) : null;
+    }
+
+    /// <remarks>
+    /// Both words are one pattern so that the split points arrive in the order they are printed
+    /// and the ambiguity check above can see that two different words matched.
+    /// </remarks>
+    [GeneratedRegex(@" (?:(?<and>and)|or) ", RegexOptions.IgnoreCase)]
+    private static partial Regex JoinWord();
+
+    [GeneratedRegex(
+        @"^(an?|no|another|\d+|one|two|three|four|five|six|seven|eight|nine|ten) ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ElidedTail();
+
+    [GeneratedRegex(
+        @"^(you control|an opponent controls|a player controls|you have|an opponent has) ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SubjectPrefix();
+
     /// <summary>
     /// "You control two or more other lands" — a count of permanents you control (CR 109.5).
     /// </summary>
@@ -1102,11 +1351,36 @@ public static partial class BoardConditions
     /// <remarks>
     /// "There's a Lesson card in your graveyard" is "there are one or more" in the words a card
     /// happens to use, so it is rewritten onto the counting reader rather than given its own.
+    /// <para>
+    /// The contraction is optional because five cards print it out in full — "there is a Desert
+    /// card in your graveyard" — and one apostrophe was the whole of the difference. It is worth
+    /// more than those five: the disjunction reader at the bottom of this file can only join two
+    /// halves it can each read, so a wording missed here silently costs every clause containing
+    /// it as well.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^there's an? (?<what>[A-Za-z][A-Za-z ]*?) card in your graveyard$",
+        @"^there(?:'s| is) an? (?<what>[A-Za-z][A-Za-z ]*?) card in your graveyard$",
         RegexOptions.IgnoreCase)]
     private static partial Regex OneInGraveyardLine();
+
+    /// <summary>"Seven or more cards are in your graveyard" — the count, said backwards.</summary>
+    /// <remarks>
+    /// "Or fewer" is deliberately not admitted. No card prints it in this word order, and the
+    /// rewrite it feeds builds an "or more" clause unconditionally — so accepting the word here
+    /// would silently invert every card that used it.
+    /// <para>
+    /// The number class is the one the reader it rewrites onto accepts, and no wider. "Twenty or
+    /// more creature cards are in your graveyard" is one card and is left unread, because a
+    /// rewrite that produced a clause nothing downstream matches would look like a reader and
+    /// behave like a refusal — the worst of both.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more "
+            + @"(?<what>[A-Za-z]+ )?cards are in your graveyard$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GraveyardCountReversedLine();
 
     /// <remarks>
     /// "Exactly one creature" is a third comparison rather than a third reader, the way the hand
@@ -1150,9 +1424,34 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfStateLine();
 
+    /// <summary>"~'s power is 3 or greater" — one permanent's power, not a search for one.</summary>
+    /// <remarks>
+    /// The three subjects are one pattern because they differ only in where the permanent is
+    /// found: the source names itself, the pronoun and the possessive both name whatever the
+    /// source is attached to. Splitting them would put the comparison in three places, and the
+    /// comparison is the half that plays wrong when it drifts.
+    /// <para>
+    /// The pronoun is spelled "its" and not "it's". A possessive pronoun takes no apostrophe,
+    /// which is the whole difference between this and every other pronoun clause in this file -
+    /// and matching the contraction here reads nothing, because no card prints it.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+)'s|(?<it>its)|(?<host>(enchanted|equipped) [a-z]+)'s) power is "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>greater|more|less|fewer)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfPowerLine();
+
+    /// <remarks>
+    /// Renowned joins the designations rather than the counters, and the distinction is the
+    /// point of CR 702.112b: it is a marker that survives every counter being removed, so a
+    /// reader that answered it by looking for +1/+1 counters would turn the card off the moment
+    /// something shrank the creature it had rewarded.
+    /// </remarks>
     [GeneratedRegex(
         @"^((~|(this|the) [a-z]+) is|(?<it>it)('s| is)) "
-            + @"(?<how>monstrous|saddled|attacking|blocking|equipped|enchanted|face down)$",
+            + @"(?<how>monstrous|saddled|renowned|attacking|blocking|equipped|enchanted|face down)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfConditionLine();
 
@@ -1176,9 +1475,23 @@ public static partial class BoardConditions
         var least = m.Groups["n"].Success ? Number(m.Groups["n"].Value) : 1;
         var pronoun = m.Groups["it"].Success;
 
+        // "No counters" is the opposite comparison rather than a threshold of zero, and the two
+        // are only distinguishable here: every other clause this reads asks for "at least".
+        var none = m.Groups["none"].Success;
+
         return (state, _, source) =>
-            Subject(state, source, pronoun) is { } self
-            && self.Permanent?.Counters.GetValueOrDefault(kind) >= least;
+        {
+            // No subject is no answer, in both directions. Reading a permanent that has left
+            // the battlefield as one carrying no counters would make "there are no depletion
+            // counters on ~" true of a land that is not there, which is the fail-open half of
+            // this pair and the only one that plays.
+            if (Subject(state, source, pronoun) is not { } self)
+                return false;
+
+            var held = self.Permanent?.Counters.GetValueOrDefault(kind) ?? 0;
+
+            return none ? held == 0 : held >= least;
+        };
     }
 
     /// <remarks>
@@ -1200,9 +1513,16 @@ public static partial class BoardConditions
     private static partial Regex SelfCounterLine();
 
     /// <summary>"There are three or more brick counters on ~" — the other word order.</summary>
+    /// <remarks>
+    /// "There are no depletion counters on ~" is the same clause with the count at zero, and
+    /// eleven lines ask it — every land that pays itself out in counters and sacrifices itself
+    /// when they run out. It cannot be folded into "one or more" with the count set to zero:
+    /// that comparison is <em>at least</em>, which is true of every permanent on the board, so
+    /// the land would sacrifice itself the moment it arrived.
+    /// </remarks>
     [GeneratedRegex(
         @"^there are "
-            + @"(an?|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+            + @"(an?|(?<none>no)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
             + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on (~|(?<it>it))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ThereAreCountersLine();
@@ -1370,8 +1690,9 @@ public static partial class BoardConditions
     /// </remarks>
     [GeneratedRegex(
         @"^(?<who>you|an opponent|a player) ha(s|ve) "
-            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir>more|less|fewer) life$",
+            + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|less|fewer)) life$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LifeLine();
 
@@ -1530,10 +1851,31 @@ public static partial class BoardConditions
         @"^(?<who>you|an opponent) (has|have) "
             + @"((?<none>no)"
             + @"|(?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<under>fewer|more) than (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir>more|fewer)) cards? in (your |their )?hand$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HandCountLine();
+
+    /// <summary>"Your devotion to white and black is less than seven" (CR 700.5).</summary>
+    /// <remarks>
+    /// Only your own devotion is read, because only your own is printed: no card in the corpus
+    /// asks about an opponent's, and admitting a subject the cards never use would be a second
+    /// branch nothing could ever exercise.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^your devotion to (?<c1>white|blue|black|red|green)"
+            + @"( and (?<c2>white|blue|black|red|green))? is "
+            + @"((?<less>less than) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or "
+            + @"(?<dir>greater|more))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DevotionLine();
+
+    /// <summary>"If you have more cards in hand than each opponent" — a comparison, not a count.</summary>
+    [GeneratedRegex(
+        @"^you have more cards in hand than each opponent$", RegexOptions.IgnoreCase)]
+    private static partial Regex LargestHandLine();
 
     /// <summary>A small number written as a word, or as digits.</summary>
     private static int NumberWord(string word) => word.ToLowerInvariant() switch
