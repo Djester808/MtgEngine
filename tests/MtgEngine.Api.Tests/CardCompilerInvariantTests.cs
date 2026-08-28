@@ -1500,6 +1500,84 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>
+    /// A mass static may not name a creature type no card has (CR 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// The twin of <see cref="Every_subtype_a_filter_names_is_a_subtype_some_card_has"/>, for the
+    /// half it could not see. That one walks the <c>*Filter</c> string properties of spell,
+    /// trigger and activated-ability effects; a continuous effect carries its filter as a compiled
+    /// predicate instead, so the only handle on what it selects is the description baked into its
+    /// id — and nothing was checking it.
+    /// <para>
+    /// What went through the gap is the reason this exists. The mass-static pattern read any
+    /// capitalised plural as a creature subtype, and every printed sentence starts with a capital,
+    /// so <c>"Artifact creatures you control get +1/+1"</c> compiled into a lord for the creature
+    /// type "Artifact". No card has that type. The line therefore read as <em>complete</em> and
+    /// buffed nothing — 150 lines across 129 cards. That is strictly worse than an unread card:
+    /// an unread card is refused by the legality gate, while this one is legal, playable, and
+    /// quietly does nothing, with no test failing and nothing on the board to say so.
+    /// </para>
+    /// <para>
+    /// Only the group description is inspected. The card's own name is in the id too and is full
+    /// of capitalised words that are not subtypes, which is why the id is split rather than
+    /// scanned whole.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_subtype_a_mass_static_names_is_a_subtype_some_card_has()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        // Every subtype printed on any card, which is the only definition of the word there is.
+        var known = new HashSet<string>(
+            corpus.SelectMany(c => c.Subtypes ?? []), StringComparer.OrdinalIgnoreCase);
+
+        var faults = new List<string>();
+        var inspected = 0;
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            foreach (var stat in compiled.Statics)
+            {
+                // "mass:<group>:<card name>:<what it does>" — the group is the only segment that
+                // names what the effect selects.
+                var parts = stat.Id.Split(':');
+                if (parts.Length < 2 || !string.Equals(parts[0], "mass", StringComparison.Ordinal))
+                    continue;
+
+                inspected++;
+
+                foreach (var word in parts[1].Split(
+                    [' ', '|', '&'], StringSplitOptions.RemoveEmptyEntries))
+                {
+                    // Lower-case words are card types, adjectives and keywords; only a capital
+                    // claims to be a creature type.
+                    if (word.Length == 0 || !char.IsUpper(word[0]) || known.Contains(word))
+                        continue;
+
+                    faults.Add($"{card.Name}: \"{word}\" is not a subtype any card has ({stat.Id})");
+                }
+            }
+        }
+
+        output.WriteLine($"mass statics inspected: {inspected}");
+
+        Assert.True(
+            faults.Count == 0,
+            "these mass statics select a creature type no card has, so they read as complete "
+                + "and do nothing:\n  " + string.Join("\n  ", faults.Take(40)));
+    }
+
     [Fact]
     public void Every_targeting_effect_is_listed_in_EffectTargets()
     {
