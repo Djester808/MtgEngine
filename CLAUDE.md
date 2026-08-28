@@ -92,6 +92,12 @@ distinct.
   describes an implementation: it had entries badged "implemented"/"partial"/"stub" and
   mechanics documenting C# types back when it was a window onto a rules engine, and that
   engine is gone. Keep it a reference to the game's rules.
+- **`GAME_ENGINE_FEATURE.md`** — the playable game: the rules engine, the live session, the card
+  pool and the board. How a card gets behaviour, what the per-player view has to tell the client,
+  and the rule the feature turns on — **the engine is the authority, and the board's legality
+  checks may never permit what the engine forbids**. Read before changing `MtgEngine.Rules`,
+  `GameHub`, `StarterCards`/`CardPool`, or the client's `board/` and `game/` folders. The rules
+  themselves are in `comprehensive-rules.txt`; that stays the authority on what the game does.
 - **`CARD_COLLECTION_FEATURE.md`** — collection/deck domain: models, endpoints, price
   tracking. Read before changing `CollectionService`, `CollectionCard`, or the
   collection/price endpoints, and **update it in the same commit** when you add surface.
@@ -100,6 +106,12 @@ distinct.
   `ProfileService`, `ProfileController`, `UsersController` or `AvatarImage`. The rule it
   exists to protect: **counts are public, money is not** — a public profile never carries
   what a collection is worth, and the DTO has nowhere to put it.
+- **`LIFE_COUNTER_FEATURE.md`** — the life counter at `/tools/life-counter` and the games it
+  files: which numbers a table has to keep and the rule behind each, and the attribution rule
+  the whole feature turns on — **a seat counts towards an account only when that account
+  signed in at that seat**, proved by that player's own token and never by a user id in the
+  request. Read before changing `LifeMatchService`, `MatchesController`, `TokenService`, or
+  the client's `tools/life-counter` components.
 - **`CARD_COLLECTION_QUICKSTART.md`** — how to exercise the API by hand.
 
 ⚠️ The two `CARD_COLLECTION_*` docs predate later work and have drifted: they still
@@ -135,6 +147,19 @@ Trust the code for those specifics; fix the doc when you touch the area.
   request content, upstream response bodies, API keys, or config paths. Log the
   detail; return a fixed, safe `Detail` string (see the AiUpstream/Configuration
   arms for the pattern).
+
+## Hub methods are a wire contract, not a C# signature
+
+- **A hub method may not have optional parameters.** SignalR binds arguments by position and does
+  **not** apply a C# default for one the caller left off, so adding `CastOptionsDto? options = null`
+  to `GameHub.CastSpell` did not keep four-argument clients working — it stopped every cast in the
+  app, with `Failed to invoke 'CastSpell' due to an error on the server`. No refusal was sent, no
+  line reached the game log, and the board simply kept the card in hand.
+- **The in-process hub tests cannot see this.** `GameHubTests` calls the method in C#, where the
+  default *does* apply, so the suite stayed green through all of it. When you change a hub
+  method's parameter list, change every client call in the same commit and add the argument on
+  the client even when its value is null — `mtg-client`'s `SignalRService` has a spec that counts
+  the arguments for exactly this reason.
 
 ## Request validation
 

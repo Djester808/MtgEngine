@@ -59,3 +59,32 @@ internal static class Structural
         return true;
     }
 }
+
+/// <summary>
+/// A delayed triggered ability waiting for its moment (CR 603.7).
+/// </summary>
+/// <remarks>
+/// It names what it will do by <see cref="EffectId"/> rather than holding an effect, for the same
+/// reason <c>GenerativeEffects</c> names a pump: the name is what lands in the log, and a log has
+/// to rebuild the whole game without holding a closure.
+/// </remarks>
+public sealed record DelayedTrigger
+{
+    public required Guid Id { get; init; }
+
+    public required Guid ControllerId { get; init; }
+
+    /// <summary>What it will act on. CR 603.7c: gone from its zone means it does nothing.</summary>
+    public required ObjectId SubjectId { get; init; }
+
+    /// <summary>The step it waits for.</summary>
+    public required TurnStep Step { get; init; }
+
+    /// <summary>What it does, by name: "sacrifice" or "exile".</summary>
+    public required string EffectId { get; init; }
+
+    /// <summary>
+    /// The turn it was created on, so "the next end step" is not the one already in progress.
+    /// </summary>
+    public required int TurnCreated { get; init; }
+}

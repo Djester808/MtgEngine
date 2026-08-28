@@ -116,6 +116,41 @@ public sealed class CombatTests
     }
 
     [Fact]
+    public void One_creature_cannot_block_two_attackers()
+    {
+        var (game, alice, bob) = BeforeCombat();
+        var first = game.Create(alice, TestCards.Creature("First Attacker", 2, 2), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Second Attacker", 2, 2), Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Lone Blocker", 1, 5), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [first] = AttackTarget.Player(bob),
+            [second] = AttackTarget.Player(bob),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        // CR 509.1a: it blocks one of them, and which one is the defender's whole decision.
+        var twice = Assert.Throws<InvalidOperationException>(
+            () => game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+            {
+                [first] = [blocker],
+                [second] = [blocker],
+            }));
+        Assert.Contains("509.1a", twice.Message, StringComparison.Ordinal);
+
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [first] = [blocker],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The other one got through, which is the point of the limit.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
     public void An_unblocked_creature_damages_the_player()
     {
         var (game, alice, bob) = BeforeCombat();
@@ -211,6 +246,60 @@ public sealed class CombatTests
     }
 
     [Fact]
+    public void Lethal_for_assignment_counts_damage_already_marked()
+    {
+        // CR 510.1c: "lethal damage" is what it would take to kill the blocker *now*, so damage
+        // already marked on it this turn counts. With trample the difference is visible, because
+        // whatever is not needed for the blocker goes to the player - and the test above cannot
+        // see it, since an undamaged chump blocker needs its full toughness either way.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(
+            alice, TestCards.WithKeyword("Trampler", KeywordAbility.Trample, 5, 5), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Scarred Wall", 0, 3), Zone.Battlefield);
+        Ready(game);
+
+        // Wounded before blocks, which is what makes lethal two rather than three.
+        game.MarkDamage(wall, 1);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [wall],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // Two finishes the wall, three tramples over. Counting from full toughness would send one
+        // less, and the wall would die just the same - so only the life total tells them apart.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_creature_with_both_first_and_double_strike_still_hits_twice()
+    {
+        // CR 702.4b. A double striker that also has first strike is the case the second half of
+        // the assignment rule exists for: in the regular step it is not "everything without first
+        // strike", it is "everything without first strike, plus double strikers". Every other
+        // double strike test uses a creature that has double strike alone, where the first term
+        // already answers - so dropping the second breaks none of them. Granting double strike to
+        // a first striker is an ordinary thing for a card to do.
+        var (game, alice, bob) = BeforeCombat();
+        var hero = game.Create(
+            alice,
+            TestCards.WithKeyword(
+                "Twinblade", KeywordAbility.FirstStrike | KeywordAbility.DoubleStrike, 2, 2),
+            Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [hero] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
     public void Deathtouch_makes_one_damage_lethal_for_assignment()
     {
         // CR 702.2b with CR 510.1c: one damage is lethal, so a deathtouch trampler only has to
@@ -231,6 +320,30 @@ public sealed class CombatTests
 
         Assert.Equal(16, game.State.GetPlayer(bob).Life);
         Assert.DoesNotContain(game.State.Battlefield, id => game.State.GetObject(id).Card.Name == "Wall");
+    }
+
+    [Fact]
+    public void A_deathtouch_blocker_kills_what_it_blocks()
+    {
+        // CR 702.2b from the other side. Every deathtouch test in the suite puts the keyword on
+        // the attacker, and a blocker's damage is built by a different line - so nothing was
+        // watching the case a small deathtouch creature exists for.
+        var (game, alice, bob) = BeforeCombat();
+        var giant = game.Create(alice, TestCards.Creature("Charging Giant", 6, 6), Zone.Battlefield);
+        var assassin = game.Create(
+            bob, TestCards.WithKeyword("Assassin", KeywordAbility.Deathtouch, 1, 1), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [giant] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [giant] = [assassin],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.DoesNotContain(giant, game.State.Battlefield);
     }
 
     [Fact]
@@ -374,6 +487,34 @@ public sealed class CombatTests
         });
 
         Assert.Single(game.State.Combat.Blocked);
+    }
+
+    [Fact]
+    public void A_flyer_can_block_a_flyer()
+    {
+        // CR 702.9b: flying can be blocked by creatures with flying *or* reach, and reach is the
+        // half that had a test. Dropping the flying half refuses a flier blocking a flier, which
+        // is the commoner board by far - two fliers staring at each other is most of what flying
+        // does in a game - and nothing in the suite noticed.
+        var (game, alice, bob) = BeforeCombat();
+        var attacker = game.Create(alice, TestCards.WithKeyword("Drake", KeywordAbility.Flying), Zone.Battlefield);
+        var defender = game.Create(bob, TestCards.WithKeyword("Griffin", KeywordAbility.Flying, 2, 3), Zone.Battlefield);
+        Ready(game);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [defender],
+        });
+
+        Assert.Single(game.State.Combat.Blocked);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // Blocked means the player takes nothing, and both fliers trade damage.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(defender).Permanent!.DamageMarked);
     }
 
     [Fact]

@@ -66,8 +66,9 @@ public sealed class CharacteristicsBuilder
         CardTypes = obj.Card.CardTypes;
         Keywords = obj.Card.Keywords;
         ControllerId = obj.ControllerId;
+        IsLegendary = obj.Card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase);
         Subtypes = [.. obj.Card.Subtypes];
-        Colors = [.. obj.Card.ColorIdentity];
+        Colors = [.. obj.Card.Colors];
     }
 
     /// <summary>The permanent being computed, with its printed card and its counters.</summary>
@@ -80,6 +81,102 @@ public sealed class CharacteristicsBuilder
     public CardType CardTypes { get; set; }
 
     public KeywordAbility Keywords { get; set; }
+
+    /// <summary>CR 702.73a: whether this is every creature type (changeling).</summary>
+    public bool IsEveryCreatureType { get; set; }
+
+    /// <summary>
+    /// Whether this permanent skips its controller's untap step (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// A restriction rather than an ability, so it is not a keyword and cannot be granted by
+    /// flag. It is computed with everything else because the commonest way to get it is from
+    /// somewhere other than the card — an Aura that says "enchanted creature doesn't untap" is
+    /// one permanent putting the restriction on another, and only the layers know that.
+    /// </remarks>
+    public bool DoesNotUntap { get; set; }
+
+    /// <summary>Activated abilities added in layer 6 (CR 613.1f).</summary>
+    public List<ActivatedAbilityDefinition> GrantedActivated { get; } = [];
+
+    /// <summary>Triggered abilities added in layer 6 (CR 613.1f).</summary>
+    /// <remarks>
+    /// Kept apart from the activated ones because everything that reads them is different: an
+    /// activated ability is offered to its controller and a triggered one is watching every
+    /// event in the game, so the two are asked for in different places and would only have been
+    /// separated again at every call site.
+    /// </remarks>
+    public List<TriggeredAbilityDefinition> GrantedTriggers { get; } = [];
+
+    /// <summary>
+    /// Which creatures may not block this one (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Each entry is asked (attacker, blocker) and answers whether that block is allowed. It is a
+    /// list rather than one predicate because a creature can collect restrictions from several
+    /// places at once — its own text, an Aura, a lord — and they all apply together.
+    /// <para>
+    /// Computed rather than read off the card, because the commonest source of one is somewhere
+    /// else: "enchanted creature can't be blocked by creatures with flying" is a restriction on a
+    /// permanent whose own text says nothing about blocking.
+    /// </para>
+    /// </remarks>
+    public List<State.BlockRestriction> BlockRestrictions { get; } = [];
+
+    /// <summary>
+    /// How many creatures beyond the first this one may block (CR 509.1a).
+    /// </summary>
+    public int ExtraBlocks { get; set; }
+
+    /// <summary>
+    /// The fewest creatures that may block this one at once, as menace generalises (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Menace is this with a minimum of two, and is kept as its own keyword because the printed
+    /// word is what most cards carry. The count exists for the cards that name a bigger number -
+    /// "can't be blocked except by three or more creatures" - which menace has no way to say.
+    /// </remarks>
+    public int MinBlockers { get; set; }
+
+    /// <summary>Whether every creature able to block this one has to (CR 509.1c).</summary>
+    public bool MustBeBlockedByAll { get; set; }
+
+    /// <summary>
+    /// Whether at least one creature able to block this one has to (CR 509.1c).
+    /// </summary>
+    /// <remarks>
+    /// The weaker of the two requirements, and a different rule rather than a smaller lure: a
+    /// lure compels *every* creature that can and this compels *one*. Two flags because a
+    /// creature can carry both and the check for each is different.
+    /// </remarks>
+    public bool MustBeBlocked { get; set; }
+
+    /// <summary>Whether this creature has to block something if it can (CR 509.1a).</summary>
+    public bool MustBlock { get; set; }
+
+    /// <summary>Whether this permanent's activated abilities can be activated (CR 602.5c).</summary>
+    public bool AbilitiesCantBeActivated { get; set; }
+
+    /// <summary>Which attacker this creature has to block if it can (CR 509.1a).</summary>
+    public ObjectId? MustBlockAttacker { get; set; }
+
+    /// <summary>Which attacker this creature may not block (CR 509.1b).</summary>
+    public ObjectId? CantBlockAttacker { get; set; }
+
+    /// <summary>The players who have goaded this creature (CR 701.15b).</summary>
+    public HashSet<Guid> GoadedBy { get; } = [];
+
+    /// <summary>The player this creature must attack if it can (CR 702.141a).</summary>
+    public Guid? MustAttackPlayer { get; set; }
+
+    /// <summary>Whether bigger creatures cannot block this one (CR 701.54c).</summary>
+    public bool CantBeBlockedByGreaterPower { get; set; }
+
+    /// <summary>CR 510.1a: damage may be assigned as though nothing were blocking.</summary>
+    public bool MayAssignAsThoughUnblocked { get; set; }
+
+    /// <summary>Whether this permanent is legendary (CR 205.4a).</summary>
+    public bool IsLegendary { get; set; }
 
     public Guid ControllerId { get; set; }
 
@@ -132,9 +229,27 @@ public sealed class CharacteristicsBuilder
             Toughness = Toughness,
             CardTypes = CardTypes,
             Keywords = Keywords,
+            IsEveryCreatureType = IsEveryCreatureType,
+            DoesNotUntap = DoesNotUntap,
             ControllerId = ControllerId,
+            ExtraBlocks = ExtraBlocks,
+            MinBlockers = MinBlockers,
+            MustBeBlockedByAll = MustBeBlockedByAll,
+            MustBeBlocked = MustBeBlocked,
+            MustBlock = MustBlock,
+            MustBlockAttacker = MustBlockAttacker,
+            CantBlockAttacker = CantBlockAttacker,
+            AbilitiesCantBeActivated = AbilitiesCantBeActivated,
+            MustAttackPlayer = MustAttackPlayer,
+            CantBeBlockedByGreaterPower = CantBeBlockedByGreaterPower,
+            MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
+            IsLegendary = IsLegendary,
         };
 
+        copy.GoadedBy.UnionWith(GoadedBy);
+        copy.GrantedActivated.AddRange(GrantedActivated);
+        copy.GrantedTriggers.AddRange(GrantedTriggers);
+        copy.BlockRestrictions.AddRange(BlockRestrictions);
         copy.Subtypes.Clear();
         copy.Subtypes.AddRange(Subtypes);
         copy.Colors.Clear();
@@ -148,9 +263,27 @@ public sealed class CharacteristicsBuilder
         Toughness = Toughness,
         CardTypes = CardTypes,
         Keywords = Keywords,
+        IsEveryCreatureType = IsEveryCreatureType,
+        DoesNotUntap = DoesNotUntap,
         ControllerId = ControllerId,
         Subtypes = [.. Subtypes],
         Colors = [.. Colors],
+        GoadedBy = [.. GoadedBy],
+        MustAttackPlayer = MustAttackPlayer,
+        CantBeBlockedByGreaterPower = CantBeBlockedByGreaterPower,
+        MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
+        IsLegendary = IsLegendary,
+        GrantedActivated = [.. GrantedActivated],
+        GrantedTriggers = [.. GrantedTriggers],
+        BlockRestrictions = [.. BlockRestrictions],
+        ExtraBlocks = ExtraBlocks,
+        MinBlockers = MinBlockers,
+        MustBeBlockedByAll = MustBeBlockedByAll,
+        MustBeBlocked = MustBeBlocked,
+        MustBlock = MustBlock,
+        MustBlockAttacker = MustBlockAttacker,
+        CantBlockAttacker = CantBlockAttacker,
+        AbilitiesCantBeActivated = AbilitiesCantBeActivated,
     };
 }
 
@@ -186,7 +319,37 @@ public sealed record ContinuousEffectDefinition
     public required Func<GameState, GameObject?, CharacteristicsBuilder, bool> Applies { get; init; }
 
     /// <summary>What it does, applied to the characteristics as they stand at its layer.</summary>
-    public required Action<CharacteristicsBuilder> Apply { get; init; }
+    /// <remarks>
+    /// Handed the state as well as the builder, because some effects have to count something to
+    /// know how much they do — "gets +1/+1 for each creature you control" cannot be a fixed pair
+    /// of numbers. <see cref="Applies"/> has always been given the state for the same reason;
+    /// this half was the one that could not ask.
+    /// <para>
+    /// And handed the <em>source</em>, for the same reason and one step further: "you" in "for
+    /// each artifact you control" is whoever controls the ability, which is not always whoever
+    /// controls the thing it changes. An Aura on an opponent's creature is the case that
+    /// separates them, and reading the affected object's controller there counts the wrong
+    /// player's board. <see cref="Applies"/> was given the source from the start; this half being
+    /// without it was an asymmetry, not a design.
+    /// </para>
+    /// </remarks>
+    public required Action<State.GameState, GameObject?, CharacteristicsBuilder> Apply { get; init; }
+
+    /// <summary>
+    /// While this has to stay true, for an effect that lasts "for as long as ..." (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// Deliberately separate from <see cref="Applies"/>, and the difference is the rule: an
+    /// effect whose condition stops being true **ends**, and does not start again if the
+    /// condition becomes true once more. Folded into `Applies` it would simply stop applying and
+    /// resume later, which is a different card - a creature stolen "for as long as you control
+    /// this creature" would come back to you every time you regained the thief.
+    /// <para>
+    /// Null for the effects that have no such condition, which is nearly all of them: an
+    /// until-end-of-turn effect is ended by its turn number and a permanent one never ends.
+    /// </para>
+    /// </remarks>
+    public Func<State.GameState, IAbilitySource, bool>? While { get; init; }
 }
 
 /// <summary>
@@ -210,6 +373,44 @@ public sealed record ReplacementEffectDefinition
     /// </summary>
     public required Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>> Replace { get; init; }
 
-    /// <summary>Where the source has to be for the effect to apply (CR 614.6).</summary>
-    public Zone FunctionsFrom { get; init; } = Zone.Battlefield;
+    /// <summary>
+    /// Where the source has to be for the effect to apply, or null for anywhere (CR 614.6).
+    /// </summary>
+    /// <remarks>
+    /// Null is what "enters tapped" needs, and the reason is CR 305.1: a land is *played*, never
+    /// cast, so it goes from hand straight to the battlefield and is never on the stack — while a
+    /// permanent *spell* with the same words is on the stack when it resolves. Pinning the
+    /// replacement to the stack meant every enters-tapped land in the game arrived untapped, and
+    /// no test noticed because none of them played one.
+    /// </remarks>
+    public Zone? FunctionsFrom { get; init; } = Zone.Battlefield;
+
+    /// <summary>
+    /// Whether its controller may decline it (CR 614.1b) - "you may" rather than "instead".
+    /// </summary>
+    /// <remarks>
+    /// The engine asks before applying an optional replacement, which is the one thing a
+    /// replacement effect could not do until dredge needed it: the question comes up in the
+    /// middle of applying an event rather than at the end of a resolution, so the event is held
+    /// and re-emitted once the answer arrives - the same machinery that already asked which of
+    /// two replacements to apply first.
+    /// </remarks>
+    public bool IsOptional { get; init; }
+
+    /// <summary>
+    /// What happens instead when an optional replacement is declined, or null for "the event".
+    /// </summary>
+    /// <remarks>
+    /// Almost every optional replacement has two outcomes and one of them is "nothing happens
+    /// differently", which is what null means. A shockland has two outcomes that are both
+    /// different from the event: **"as this enters, you may pay 2 life. If you don't, it enters
+    /// tapped."** Applying is paying and entering untapped; declining is entering tapped; and
+    /// letting the event happen unchanged - entering untapped for free - is the one thing the
+    /// card never does.
+    /// <para>
+    /// Only consulted when the declined question had exactly one candidate. With several, what
+    /// "declining" means is a question about all of them (CR 616.1) and this cannot answer it.
+    /// </para>
+    /// </remarks>
+    public Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>>? Decline { get; init; }
 }

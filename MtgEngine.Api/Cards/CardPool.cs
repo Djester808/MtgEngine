@@ -192,6 +192,13 @@ public static class Targets
             Characteristics.Of(state, abilities, obj).IsCreature,
     };
 
+    /// <summary>Any permanent, whatever its type (CR 115.1).</summary>
+    public static readonly TargetSpec TargetPermanent = new()
+    {
+        Kind = TargetKind.Permanent,
+        Description = "target permanent",
+    };
+
     public static readonly TargetSpec TargetSpell = new()
     {
         Kind = TargetKind.SpellOnStack,

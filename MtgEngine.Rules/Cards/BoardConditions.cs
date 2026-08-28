@@ -1,0 +1,1328 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.State;
+
+namespace MtgEngine.Rules.Cards;
+
+/// <summary>
+/// Reads a printed condition about the board into a question the engine can ask.
+/// </summary>
+/// <remarks>
+/// A third small grammar beside the target phrase and the trigger clause, and it exists for the
+/// same reason: the conditions recur far more than the sentences containing them do. "Unless you
+/// control two or more other lands" is one condition across a whole cycle of lands, and the same
+/// counting question turns up again in intervening-if clauses and in cost reductions.
+/// <para>
+/// It is deliberately narrow. A condition read too loosely produces a land that comes in untapped
+/// when it should not, which is a strictly better card and one nothing downstream would notice —
+/// so anything not understood returns null and leaves the whole line unread.
+/// </para>
+/// </remarks>
+public static partial class BoardConditions
+{
+    /// <summary>The question a printed condition asks, or null if it is not one we read.</summary>
+    public static Func<GameState, IAbilitySource, GameObject, bool>? Parse(string condition)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        var text = condition.Trim().TrimEnd('.');
+
+        // "You control no Islands" is "you control 0 or fewer Islands" in the words a card
+        // actually uses. Rewritten rather than given its own reader, so the noun goes through
+        // exactly the same filter vocabulary and the two can never disagree about what an
+        // Island is.
+        // "There are no creatures on the battlefield" asks about everybody's board at once, which
+        // is the same question the controls-reader answers once it is allowed to ignore whose
+        // permanent it is. Rewritten rather than given a reader, so the noun keeps going through
+        // one filter vocabulary.
+        var emptyEverywhere = NoneOnBattlefieldLine().Match(text);
+        if (emptyEverywhere.Success)
+            text = $"a player controls no {emptyEverywhere.Groups["what"].Value}";
+
+        var emptyBoard = NoneLine().Match(text);
+        if (emptyBoard.Success)
+            text = $"you control 0 or fewer {emptyBoard.Groups["what"].Value}";
+
+        // Rewritten for the same reason: one reader for a count, whatever words ask for it.
+        var oneInGraveyard = OneInGraveyardLine().Match(text);
+        if (oneInGraveyard.Success)
+        {
+            text = "there are one or more "
+                + oneInGraveyard.Groups["what"].Value.Trim()
+                + " cards in your graveyard";
+        }
+
+        // "Creatures you control have total power 8 or greater" - a sum rather than a tally, so
+        // it cannot go through the counting reader above: eight 1/1s and one 8/8 both pass, and
+        // counting creatures would tell them apart when the card does not.
+        var totalPower = TotalPowerLine().Match(text);
+        if (totalPower.Success
+            && EffectPhrase.Specs.ParseGroup(totalPower.Groups["what"].Value.Trim()) is
+            { Kind: Abilities.TargetKind.Permanent } summed)
+        {
+            var wantedPower = Number(totalPower.Groups["n"].Value);
+            var atLeast = !totalPower.Groups["dir"].Value.StartsWith(
+                "less", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) =>
+            {
+                // Power as it is now, not as printed: a lord's creatures have the power the lord
+                // gives them, which is the whole reason a card asks this rather than a count.
+                var total = state.Battlefield
+                    .Select(state.GetObject)
+                    .Where(o => summed.ObjectFilter?.Invoke(
+                        state, abilities, o, source.ControllerId) != false)
+                    .Sum(o => State.Characteristics.Of(state, abilities, o).Power ?? 0);
+
+                return atLeast ? total >= wantedPower : total <= wantedPower;
+            };
+        }
+
+        // "If you cast it from your hand" - a fact about how the permanent got here, which only
+        // the move to the stack knew and which travels with the card from there.
+        if (CastFromLine().Match(text) is { Success: true } from)
+        {
+            var wanted = from.Groups["zone"].Value.ToLowerInvariant() switch
+            {
+                "hand" => Zone.Hand,
+                "graveyard" => Zone.Graveyard,
+                "exile" => Zone.Exile,
+                _ => (Zone?)null,
+            };
+
+            if (wanted is not { } zone)
+                return null;
+
+            return (_, _, source) => source.CastFromZone == zone;
+        }
+
+        // "You control three or more creatures with different powers" — how many *distinct*
+        // powers are on the board, not how many creatures. Three 2/2s are one power and fail it;
+        // a 1/1, a 2/2 and a 3/3 pass. Power is computed rather than printed, so a lord's bonus
+        // counts and two creatures a lord has pulled level stop being different (CR 613.4).
+        if (DistinctPowersLine().Match(text) is { Success: true } spread
+            && EffectPhrase.Specs.ParseGroup("each " + spread.Groups["what"].Value.Trim()) is
+            { Kind: Abilities.TargetKind.Permanent } varied)
+        {
+            var leastDistinct = Number(spread.Groups["n"].Value);
+
+            return (state, abilities, source) =>
+            {
+                var powers = new HashSet<int>();
+
+                foreach (var id in state.Battlefield)
+                {
+                    var permanent = state.GetObject(id);
+                    var now = Characteristics.Of(state, abilities, permanent);
+
+                    if (now.ControllerId != source.ControllerId)
+                        continue;
+
+                    if (varied.ObjectFilter?.Invoke(
+                            state, abilities, permanent, source.ControllerId) == false)
+                    {
+                        continue;
+                    }
+
+                    powers.Add(now.Power ?? 0);
+                }
+
+                return powers.Count >= leastDistinct;
+            };
+        }
+
+        // "You have no cards in hand", "you have seven or more cards in hand". The hand is a
+        // hidden zone, so this counts rather than looks: how many a player holds is public
+        // (CR 400.2), which is exactly why a card may ask.
+        if (HandCountLine().Match(text) is { Success: true } held)
+        {
+            var wantedHeld = held.Groups["none"].Success ? 0 : Number(held.Groups["n"].Value);
+
+            var compare = held.Groups["none"].Success ? "exactly"
+                : held.Groups["exactly"].Success ? "exactly"
+                : held.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase)
+                    ? "more"
+                    : "fewer";
+
+            var mine = !held.Groups["who"].Value
+                .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+
+            bool Holds(int count) => compare switch
+            {
+                "exactly" => count == wantedHeld,
+                "more" => count >= wantedHeld,
+                _ => count <= wantedHeld,
+            };
+
+            return (state, _, source) => mine
+                ? Holds(state.GetPlayer(source.ControllerId).Hand.Count)
+                : state.TurnOrder
+                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                    .Any(id => Holds(state.GetPlayer(id).Hand.Count));
+        }
+
+        var counted = CountLine().Match(text);
+        if (counted.Success)
+            return Counting(counted);
+
+        var graveyard = GraveyardCountLine().Match(text);
+        if (graveyard.Success)
+        {
+            // "An opponent has eight or more cards in their graveyard" is the same count asked
+            // about somebody else, and at more than two players "an opponent" means *any* of
+            // them - so it is a search rather than a lookup, which is the only part that differs.
+            var theirs = graveyard.Groups["who"].Success;
+            var wanted = Number(
+                theirs ? graveyard.Groups["n2"].Value : graveyard.Groups["n"].Value);
+            var orMore = (theirs ? graveyard.Groups["dir2"].Value : graveyard.Groups["dir"].Value)
+                .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+            var anyOpponent = theirs
+                && graveyard.Groups["who"].Value.StartsWith("an", StringComparison.OrdinalIgnoreCase);
+
+            // "Four or more creature cards in your graveyard" - the same count over a filtered
+            // pile. The noun goes through the shared card-filter vocabulary, so a word that
+            // vocabulary cannot name leaves the condition unread rather than counting the whole
+            // graveyard and answering a question the card did not ask.
+            var noun = (theirs
+                ? graveyard.Groups["what2"].Value
+                : graveyard.Groups["what"].Value).Trim();
+
+            string? filter = null;
+
+            if (noun.Length > 0)
+            {
+                filter = EffectPhrase.CardFilterNamed(noun);
+                if (filter is null)
+                    return null;
+            }
+
+            bool Counts(GameState state, ObjectId id) =>
+                filter is null
+                || (state.TryGetObject(id, out var card)
+                    && Abilities.SearchFilters.Matches(filter, card.Card));
+
+            return (state, abilities, source) =>
+            {
+                if (!anyOpponent)
+                {
+                    var mine = state.GetPlayer(source.ControllerId).Graveyard
+                        .Count(id => Counts(state, id));
+
+                    return orMore ? mine >= wanted : mine <= wanted;
+                }
+
+                return state.TurnOrder
+                    .Where(id => id != source.ControllerId)
+                    .Select(id => state.GetPlayer(id).Graveyard.Count(card => Counts(state, card)))
+                    .Any(count => orMore ? count >= wanted : count <= wanted);
+            };
+        }
+
+        // "Four or more card types among cards in your graveyard" counts distinct *types*, not
+        // cards, which is a different question from the count above and the reason delirium is
+        // hard to reach with two cards and easy with four. Token and Other are not card types a
+        // card can be printed with (CR 205.2a), so they are not counted even if one appears.
+        var kinds = GraveyardTypeCountLine().Match(text);
+        if (kinds.Success)
+        {
+            var wantedKinds = Number(kinds.Groups["n"].Value);
+            var orMoreKinds = kinds.Groups["dir"].Value
+                .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) =>
+            {
+                var seen = CardTypesForDelirium.Count(
+                    type => state.GetPlayer(source.ControllerId).Graveyard.Any(
+                        id => state.GetObject(id).Card.CardTypes.HasFlag(type)));
+
+                return orMoreKinds ? seen >= wantedKinds : seen <= wantedKinds;
+            };
+        }
+
+        var turn = YourTurnLine().Match(text);
+        if (turn.Success)
+        {
+            var negated = turn.Groups["not"].Success;
+            return (state, abilities, source) =>
+                (state.ActivePlayerId == source.ControllerId) != negated;
+        }
+
+        var life = LifeLine().Match(text);
+        if (life.Success)
+        {
+            var wanted = Number(life.Groups["n"].Value);
+            var orMore = life.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
+            var who = life.Groups["who"].Value.ToLowerInvariant();
+
+            return (state, abilities, source) =>
+            {
+                // "An opponent has ..." is true if any one of them does, and "a player has ..."
+                // is true if anyone at all does — including the controller, which is the whole
+                // difference between the two and the reason they cannot share a branch (CR 109.5).
+                var totals = who switch
+                {
+                    "you" => [state.GetPlayer(source.ControllerId).Life],
+                    "a player" => state.TurnOrder
+                        .Where(id => !state.GetPlayer(id).HasLost)
+                        .Select(id => state.GetPlayer(id).Life)
+                        .ToList(),
+                    _ => state.TurnOrder
+                        .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                        .Select(id => state.GetPlayer(id).Life)
+                        .ToList(),
+                };
+
+                return totals.Any(total => orMore ? total >= wanted : total <= wanted);
+            };
+        }
+
+        // "You have no cards in hand", "an opponent has no cards in hand". Whose hand it is was
+        // the only thing missing, and it is the same question either way - "an opponent" means
+        // any one of them (CR 102.1), which in a two-player game is the other player and in a
+        // larger one is a real disjunction rather than a synonym for "the opponent".
+        var emptyHand = EmptyHandLine().Match(text);
+        if (emptyHand.Success)
+        {
+            var mine = emptyHand.Groups["who"].Value.StartsWith(
+                "you", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => mine
+                ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
+                : state.TurnOrder.Any(
+                    other => other != source.ControllerId
+                        && state.GetPlayer(other).Hand.IsEmpty);
+        }
+
+        // "If this permanent is an enchantment" — a question about the source's own computed
+        // types, which is why it is not simply read off the card: something may have made it one.
+        var isType = SourceIsTypeLine().Match(text);
+        if (isType.Success)
+        {
+            if (EffectPhrase.Specs.Parse("target " + isType.Groups["what"].Value.Trim()) is not
+                { Kind: Abilities.TargetKind.Permanent } wanted)
+            {
+                return null;
+            }
+
+            return (state, abilities, source) =>
+                wanted.ObjectFilter?.Invoke(
+                    state, abilities, source, source.ControllerId) != false;
+        }
+
+        var strong = ControlsWithPowerLine().Match(text);
+        if (strong.Success)
+        {
+            var threshold = Number(strong.Groups["n"].Value);
+            var direction = strong.Groups["dir"].Value;
+            var orMore = direction.Equals("greater", StringComparison.OrdinalIgnoreCase)
+                || direction.Equals("more", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => state.Battlefield.Any(id =>
+            {
+                var computed = Characteristics.Of(state, abilities, state.GetObject(id));
+                if (!computed.IsCreature || computed.ControllerId != source.ControllerId)
+                    return false;
+
+                var power = computed.Power ?? 0;
+                return orMore ? power >= threshold : power <= threshold;
+            });
+        }
+
+        // "If an opponent was dealt damage this turn" — bloodthirst's condition, and a dozen
+        // others printed the long way round.
+        var bloodied = DamagedThisTurnLine().Match(text);
+        if (bloodied.Success)
+        {
+            var theirs = bloodied.Groups["who"].Value.Contains(
+                "opponent", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => state.TurnOrder.Any(id =>
+                (theirs ? id != source.ControllerId : id == source.ControllerId)
+                && state.GetPlayer(id).WasDealtDamageThisTurn);
+        }
+
+        if (DiedThisTurnLine().IsMatch(text))
+            return (state, _, _) => state.CreatureDiedThisTurn;
+
+        // "If {U} was spent to cast this spell", "if {R}{R} was spent to cast it", "if at least
+        // four mana was spent", "if no mana was spent". Four questions about one record - the
+        // mana that actually paid, kept on the object since it was cast (CR 202.2) - so they are
+        // read as one shape with the symbols counted rather than as four readers.
+        var spending = ManaSpentLine().Match(text);
+        if (spending.Success)
+        {
+            var wanted = new Dictionary<Domain.Enums.ManaColor, int>();
+
+            foreach (Match symbol in ManaSymbolsIn().Matches(spending.Groups["symbols"].Value))
+            {
+                // One letter, one colour (CR 105.1). Written out rather than shared with the
+                // filter vocabulary's table, which reads words: this reads the symbols a cost is
+                // printed in, and the two are different alphabets for the same five things.
+                var colour = symbol.Groups["c"].Value.ToUpperInvariant() switch
+                {
+                    "W" => Domain.Enums.ManaColor.White,
+                    "U" => Domain.Enums.ManaColor.Blue,
+                    "B" => Domain.Enums.ManaColor.Black,
+                    "R" => Domain.Enums.ManaColor.Red,
+                    "G" => Domain.Enums.ManaColor.Green,
+                    _ => (Domain.Enums.ManaColor?)null,
+                };
+
+                if (colour is not { } named)
+                    return null;
+
+                wanted[named] = wanted.GetValueOrDefault(named) + 1;
+            }
+
+            var least = spending.Groups["n"].Success ? Number(spending.Groups["n"].Value) : 0;
+            var none = spending.Groups["none"].Success;
+            var noColour = spending.Groups["nocolour"].Success;
+
+            return (state, abilities, source) =>
+            {
+                if (!state.TryGetObject(source.Id, out var self))
+                    return false;
+
+                var spent = self.ManaSpent;
+                var total = spent.Colorless + spent.Colored.Sum(each => each.Value);
+                var coloured = spent.Colored.Sum(each => each.Value);
+
+                if (none)
+                    return total == 0;
+
+                if (noColour)
+                    return coloured == 0;
+
+                if (least > 0)
+                    return total >= least;
+
+                return wanted.All(each => spent.Colored.GetValueOrDefault(each.Key) >= each.Value);
+            };
+        }
+
+        // "It has a depletion counter on it" - a question about this permanent's own counters,
+        // which is not the same as a count of anything on the board and so has nowhere else to
+        // go. Any kind, because the kinds are open-ended: a card names whichever it puts on.
+        var bearing = HasCounterLine().Match(text);
+        if (bearing.Success)
+        {
+            var kind = bearing.Groups["kind"].Value.Trim().ToLowerInvariant();
+            var least = bearing.Groups["n"].Success ? Number(bearing.Groups["n"].Value) : 1;
+
+            return (_, _, source) =>
+                source.Permanent?.Counters.GetValueOrDefault(kind) >= least;
+        }
+
+        // "As long as it's attacking alone" - a question about the declaration this permanent is
+        // part of. The engine reads "~ attacks alone" as a trigger already; this is the same fact
+        // asked continuously rather than at the moment of declaring, so it cannot reuse that.
+        if (AttackingAloneLine().IsMatch(text))
+        {
+            return (state, _, source) =>
+                state.Combat.Attackers.Count == 1
+                && state.Combat.Attackers.ContainsKey(source.Id);
+        }
+
+        // "An opponent has three or more poison counters" - the tally is in the state for the
+        // rule that ends the game at ten (CR 704.5c); nothing could ask it short of that.
+        var poisoned = PoisonCountLine().Match(text);
+        if (poisoned.Success)
+        {
+            var wantedPoison = Number(poisoned.Groups["n"].Value);
+            var theirs = poisoned.Groups["who"].Value
+                .StartsWith("an", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) => theirs
+                ? state.TurnOrder.Any(id => id != source.ControllerId
+                    && state.GetPlayer(id).PoisonCounters >= wantedPoison)
+                : state.GetPlayer(source.ControllerId).PoisonCounters >= wantedPoison;
+        }
+
+        // "You've drawn your second card this turn" as the cards usually spell it: a count of
+        // draws, which the state has kept all along for the cards that care. Sits beside the
+        // spell count because it is the same question about a different tally.
+        var drawnThisTurn = CardsDrawnThisTurnLine().Match(text);
+        if (drawnThisTurn.Success)
+        {
+            var least = drawnThisTurn.Groups["n"].Success
+                ? Number(drawnThisTurn.Groups["n"].Value)
+                : 1;
+
+            return (state, _, source) =>
+                state.GetPlayer(source.ControllerId).CardsDrawnThisTurn >= least;
+        }
+
+        // "You've cast a noncreature spell this turn", "you've cast two or more spells this
+        // turn" - how many and of what kind are the two things these vary by, so they are read
+        // as two groups rather than as a reader each.
+        var castThisTurn = SpellsCastThisTurnLine().Match(text);
+        if (castThisTurn.Success)
+        {
+            var least = castThisTurn.Groups["n"].Success ? Number(castThisTurn.Groups["n"].Value) : 1;
+            var kind = castThisTurn.Groups["kind"].Value.Trim().ToLowerInvariant();
+
+            return (state, abilities, source) =>
+            {
+                var player = state.GetPlayer(source.ControllerId);
+
+                // Creature spells are the difference between the two counts rather than a third
+                // one. Naming the kind and then counting every spell would answer a narrower
+                // question with a wider number, which is worse than leaving the line unread.
+                var count = kind switch
+                {
+                    "noncreature" => player.NoncreatureSpellsCastThisTurn,
+                    "creature" => player.SpellsCastThisTurn - player.NoncreatureSpellsCastThisTurn,
+                    _ => player.SpellsCastThisTurn,
+                };
+
+                return count >= least;
+            };
+        }
+
+        // "If this card is in your graveyard" - asked by cards that trigger from there, and the
+        // answer is where the source is now rather than anything the event said.
+        var where = InZoneLine().Match(text);
+        if (where.Success)
+        {
+            var zone = where.Groups["zone"].Value.ToLowerInvariant() switch
+            {
+                "graveyard" => Zone.Graveyard,
+                "hand" => Zone.Hand,
+                "exile" => Zone.Exile,
+                "the battlefield" => Zone.Battlefield,
+                _ => (Zone?)null,
+            };
+
+            if (zone is not { } wanted)
+                return null;
+
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self)
+                && self.Zone == wanted
+                && (wanted == Zone.Battlefield || self.OwnerId == source.ControllerId);
+        }
+
+        // "If an opponent controls more lands than you" - two counts compared rather than one
+        // count against a number, which is why it cannot go through the counting reader. The
+        // noun is read by the same grammar either way.
+        var contest = MoreThanLine().Match(text);
+        if (contest.Success)
+        {
+            var singular = EffectPhrase.SingularWord(contest.Groups["what"].Value.Trim());
+            if (EffectPhrase.Specs.Parse("target " + singular) is not
+                { Kind: Abilities.TargetKind.Permanent } spec)
+            {
+                return null;
+            }
+
+            var challenger = contest.Groups["who"].Value
+                .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+
+            var strictly = !contest.Groups["dir"].Value
+                .StartsWith("fewer", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) =>
+            {
+                int CountFor(Guid id) => state.Battlefield.Count(objectId =>
+                {
+                    var obj = state.GetObject(objectId);
+
+                    return Characteristics.Of(state, abilities, obj).ControllerId == id
+                        && spec.ObjectFilter?.Invoke(
+                            state, abilities, obj, id) != false;
+                });
+
+                var mine = CountFor(source.ControllerId);
+
+                // "An opponent" is any one of them, so the comparison is asked of each and
+                // answered by the first that beats it (CR 102.1).
+                var others = state.TurnOrder
+                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                    .Select(CountFor);
+
+                if (!challenger)
+                    return others.All(theirs => strictly ? mine > theirs : mine < theirs);
+
+                return others.Any(theirs => strictly ? theirs > mine : theirs < mine);
+            };
+        }
+
+        // "If it was kicked" - CR 702.33d, and the flag survives resolution for exactly this
+        // reason. Read from the source rather than from the state, because the question is
+        // about this permanent and no other, however many copies of it are in play.
+        if (WasKickedLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self) && self.WasKicked;
+        }
+
+        // "If you cast it" - not every permanent was cast, and the ones that were reached the
+        // battlefield the long way (CR 601). Who cast it is compared against whoever controls
+        // the ability asking, so a permanent taken from the player who cast it stops paying.
+        if (WasCastLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self)
+                && self.CastBy == source.ControllerId;
+        }
+
+        // "As long as you have the city's blessing" (CR 702.131a). A designation rather than a
+        // count: a player who had ten permanents and lost nine still has it, so this asks the
+        // player and never re-counts the board.
+        var blessed = CitysBlessingLine().Match(text);
+        if (blessed.Success)
+        {
+            var mine = blessed.Groups["who"].Value.Equals(
+                "you", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => mine
+                ? state.GetPlayer(source.ControllerId).HasCitysBlessing
+                : state.TurnOrder.Any(
+                    other => other != source.ControllerId
+                        && state.GetPlayer(other).HasCitysBlessing);
+        }
+
+        // "If no spells were cast last turn" and "if a player cast two or more spells last turn"
+        // - the two halves of the day-night cycle as a werewolf prints it, and the only two
+        // questions in the corpus about the turn before this one. Asked of every player, because
+        // "no spells" means nobody's and "a player" means anybody's.
+        var lastTurn = SpellsLastTurnLine().Match(text);
+        if (lastTurn.Success)
+        {
+            var none = lastTurn.Groups["none"].Success;
+            var wanted = none ? 0 : NumberWord(lastTurn.Groups["n"].Value);
+
+            return (state, _, _) => none
+                ? state.TurnOrder.All(who => state.GetPlayer(who).SpellsCastLastTurn == 0)
+                : state.TurnOrder.Any(who => state.GetPlayer(who).SpellsCastLastTurn >= wanted);
+        }
+
+        // "If you're the monarch" (CR 725.1). One designation held by at most one player, so
+        // this is a comparison against a single field rather than a question asked of each.
+        var crowned = MonarchLine().Match(text);
+        if (crowned.Success)
+        {
+            var mine = crowned.Groups["who"].Value.Equals(
+                "you", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => mine
+                ? state.MonarchId == source.ControllerId
+                : state.MonarchId is { } held && held != source.ControllerId;
+        }
+
+        // "If you dealt combat damage to a player this turn" - twenty-four cards ask it and
+        // none of them could be read, in any of the three places a condition is asked from: a
+        // static's "as long as", a trigger's intervening if, and an activation restriction. One
+        // reader here answers all three, which is the whole reason conditions live in one place.
+        var connected = DealtCombatDamageLine().Match(text);
+        if (connected.Success)
+        {
+            var mine = connected.Groups["who"].Value.Equals(
+                "you", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => mine
+                ? state.GetPlayer(source.ControllerId).DealtCombatDamageToPlayerThisTurn
+                : state.TurnOrder.Any(
+                    other => other != source.ControllerId
+                        && state.GetPlayer(other).DealtCombatDamageToPlayerThisTurn);
+        }
+
+        // "If you attacked this turn" - a fact about the player, not about any creature that
+        // did the attacking. Asked by eighty-odd lines, and answered from the flag the reducer
+        // sets when attackers are declared, so it stays true after every one of them has died.
+        var attacked = AttackedThisTurnLine().Match(text);
+        if (attacked.Success)
+        {
+            var theirs = attacked.Groups["who"].Value
+                .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) => state.TurnOrder
+                .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
+                .Any(id => state.GetPlayer(id).AttackedThisTurn);
+        }
+
+        // "If you gained 3 or more life this turn", "if an opponent lost life this turn" - one
+        // shape covering both directions and both depths. Whose life it is, which way it went,
+        // and how much of it are three independent choices, so they are read as three groups
+        // rather than as a reader each.
+        var moved = LifeMovedThisTurnLine().Match(text);
+        if (moved.Success)
+        {
+            var least = moved.Groups["n"].Success ? Number(moved.Groups["n"].Value) : 1;
+            var gained = !moved.Groups["dir"].Value.StartsWith("lost", StringComparison.OrdinalIgnoreCase);
+            var either = moved.Groups["dir"].Value.Contains(" or ", StringComparison.OrdinalIgnoreCase);
+            var theirs = moved.Groups["who"].Value.StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) => state.TurnOrder
+                .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
+                .Any(id =>
+                {
+                    var player = state.GetPlayer(id);
+
+                    // Losing life is tracked as a flag rather than a total, so "lost N or more"
+                    // cannot be asked - and no card asks it. A card that did would go unread
+                    // here rather than be answered with the wrong number.
+                    var lost = player.LostLifeThisTurn;
+
+                    if (either)
+                        return player.LifeGainedThisTurn >= least || lost;
+
+                    return gained ? player.LifeGainedThisTurn >= least : lost;
+                });
+        }
+
+        // "If this land is tapped", "if this permanent is an enchantment" - the source asking
+        // about itself. Worth its own reader rather than a filter over the battlefield: the
+        // question is about one known object, and phrasing it as a search would find the wrong
+        // one whenever a second copy is in play.
+        var itself = SelfStateLine().Match(text);
+        if (itself.Success)
+        {
+            var wantsTapped = itself.Groups["tapped"].Value
+                .Equals("tapped", StringComparison.OrdinalIgnoreCase);
+
+            var pronoun = itself.Groups["it"].Success;
+
+            return (state, abilities, source) =>
+                Subject(state, source, pronoun) is { } self
+                && (self.Permanent?.IsTapped ?? false) == wantsTapped;
+        }
+
+        // "As long as ~ is monstrous", "as long as ~ is attacking", "as long as ~ is equipped"
+        // - three more questions a permanent asks about itself, each answered somewhere the
+        // tapped question is not: a designation, the combat state, and what is attached to it.
+        // "As long as it has a +1/+1 counter on it", "as long as ~ has a divinity counter on
+        // it". A separate reader from the adjectives beside it because it is a different sentence
+        // - "is monstrous" against "has a counter" - and because the counter has a name that has
+        // to be carried through rather than matched against a list.
+        var carrying = SelfCounterLine().Match(text);
+        if (carrying.Success)
+        {
+            // Normalised the way the counter is stored when it is put on: a named counter is
+            // lowercase, and the two that are written as numbers are written as they print. A
+            // reader that lowercased "+1/+1" would look for a counter nothing ever adds.
+            var kind = carrying.Groups["kind"].Value is "+1/+1" or "-1/-1"
+                ? carrying.Groups["kind"].Value
+                : carrying.Groups["kind"].Value.ToLowerInvariant();
+
+            var pronoun = carrying.Groups["it"].Success;
+
+            return (state, abilities, source) =>
+                Subject(state, source, pronoun) is { } self
+                && self.Permanent?.Counters.GetValueOrDefault(kind) > 0;
+        }
+
+        var standing = SelfConditionLine().Match(text);
+        if (standing.Success)
+        {
+            var asked = standing.Groups["how"].Value.ToLowerInvariant();
+
+            var pronoun = standing.Groups["it"].Success;
+
+            return (state, abilities, source) =>
+            {
+                if (Subject(state, source, pronoun) is not { } self)
+                    return false;
+
+                return asked switch
+                {
+                    "monstrous" => self.Permanent?.IsMonstrous ?? false,
+                    "saddled" => self.Permanent?.IsSaddled ?? false,
+
+                    // Asked of the permanent rather than of the computed card, because a
+                    // face-down permanent has no abilities and no printed characteristics to
+                    // compute from (CR 707.2) - being face down is a fact about the object.
+                    "face down" => self.Permanent?.IsFaceDown ?? false,
+                    "attacking" => state.Combat.Attackers.ContainsKey(self.Id),
+                    "blocking" => state.Combat.Blockers.Values.Any(list => list.Contains(self.Id)),
+
+                    // CR 301.5c: equipped means a piece of Equipment is attached to it, which is
+                    // a fact about the Equipment rather than about this permanent - so it is
+                    // asked of the battlefield rather than of the creature.
+                    "equipped" => state.Battlefield
+                        .Select(state.GetObject)
+                        .Any(other => other.Permanent?.AttachedTo == self.Id
+                            && other.Card.Subtypes.Contains(
+                                "Equipment", StringComparer.OrdinalIgnoreCase)),
+
+                    "enchanted" => state.Battlefield
+                        .Select(state.GetObject)
+                        .Any(other => other.Permanent?.AttachedTo == self.Id
+                            && other.Card.Subtypes.Contains(
+                                "Aura", StringComparer.OrdinalIgnoreCase)),
+
+                    _ => false,
+                };
+            };
+        }
+
+        // "As long as enchanted permanent is a creature", "as long as equipped creature is a
+        // Human", "as long as enchanted creature is red". The subject is the Aura's host rather
+        // than the Aura, which is the only difference from the question below - and the whole
+        // difference in effect, because an Aura is never the creature it is asking about.
+        var hostIs = HostTypeLine().Match(text);
+        if (hostIs.Success)
+        {
+            var described = hostIs.Groups["what"].Value.Trim();
+
+            // A type or a subtype is a noun and stands alone; a colour or a supertype is an
+            // adjective and needs one. Tried in that order rather than guessed at, so "red"
+            // becomes "red permanent" and "creature" is left as it is.
+            var spec = EffectPhrase.Specs.Parse("target " + described)
+                ?? EffectPhrase.Specs.Parse("target " + described + " permanent");
+
+            if (spec is not { Kind: Abilities.TargetKind.Permanent } filter)
+                return null;
+
+            return (state, abilities, source) =>
+            {
+                if (source.Permanent?.AttachedTo is not { } host
+                    || !state.TryGetObject(host, out var wearing))
+                {
+                    return false;
+                }
+
+                return filter.ObjectFilter?.Invoke(
+                    state, abilities, wearing, source.ControllerId) != false;
+            };
+        }
+
+        var isA = SelfTypeLine().Match(text);
+        if (isA.Success)
+        {
+            // Read from the computed characteristics rather than the printed card, because what
+            // a permanent is can be changed (CR 613 layer 4) and the cards that ask this - a
+            // land that is sometimes also a creature, most of them - are exactly the ones it
+            // changes for.
+            if (EffectPhrase.Specs.Parse("target " + isA.Groups["what"].Value.Trim()) is not
+                { Kind: Abilities.TargetKind.Permanent } spec)
+            {
+                return null;
+            }
+
+            var negated = isA.Groups["not"].Success;
+
+            return (state, abilities, source) =>
+            {
+                if (!state.TryGetObject(source.Id, out var self) || self.Zone != Zone.Battlefield)
+                    return false;
+
+                var matches = spec.ObjectFilter?.Invoke(
+                    state, abilities, self, source.ControllerId) != false;
+
+                return matches != negated;
+            };
+        }
+
+        var controls = ControlsAnyLine().Match(text);
+        if (controls.Success)
+        {
+            var none = controls.Groups["none"].Success;
+
+            // "Another" excludes the permanent asking (CR 109.5). Every adjective in this slot
+            // already worked and this one word did not, which is the difference between a card
+            // that turns itself on and one that needs a friend.
+            var excludesSelf = controls.Groups["another"].Success;
+            var noun = PluralNoun().Replace(controls.Groups["what"].Value.Trim(), "$1");
+            var theirBoard = !controls.Groups["who"].Value
+                .StartsWith("you", StringComparison.OrdinalIgnoreCase);
+
+            // "A player controls" and "there are ... on the battlefield" name no side at all, so
+            // the ownership test is skipped rather than answered — asking whose it is would make
+            // a global question into a one-sided one, which is how a board wipe reads as a board
+            // check.
+            var anyone = controls.Groups["anyone"].Success;
+
+            // "Defending player" is one particular opponent rather than any of them, and which
+            // one is only knowable from combat: it is whoever the permanent asking is attacking.
+            // Outside combat it names nobody, and the condition is simply false - which is the
+            // right answer for an evasion ability that only matters while blockers are declared.
+            var defending = controls.Groups["who"].Value
+                .StartsWith("defending", StringComparison.OrdinalIgnoreCase);
+
+            // "A Plains or a Swamp" is one condition over two nouns, and the dual lands that
+            // print it would otherwise all go unread. Each side is parsed as a noun in its own
+            // right, so anything one side accepts the other does too.
+            var specs = new List<Abilities.TargetSpec>();
+
+            foreach (var alternative in EitherNoun().Split(noun))
+            {
+                if (EffectPhrase.Specs.Parse("target " + alternative.Trim()) is not
+                    { Kind: Abilities.TargetKind.Permanent } one)
+                {
+                    return null;
+                }
+
+                specs.Add(one);
+            }
+
+            if (specs.Count == 0)
+                return null;
+
+            var spec = specs[0];
+
+            return (state, abilities, source) =>
+            {
+                Guid? defender = null;
+
+                if (defending)
+                {
+                    if (!state.Combat.Attackers.TryGetValue(source.Id, out var attacking))
+                        return none;
+
+                    defender = attacking.DefendingPlayer;
+                }
+
+                var any = state.Battlefield.Any(id =>
+                {
+                    var obj = state.GetObject(id);
+                    var controller =
+                        Characteristics.Of(state, abilities, obj).ControllerId;
+
+                    if (excludesSelf && id == source.Id)
+                        return false;
+
+                    var whoseBoard = anyone
+                        || (defender is { } named
+                            ? controller == named
+                            : (controller == source.ControllerId) != theirBoard);
+
+                    return whoseBoard
+                        && specs.Any(one => one.ObjectFilter?.Invoke(
+                            state, abilities, obj, source.ControllerId) != false);
+                });
+
+                return any != none;
+            };
+        }
+
+        var opponents = OpponentsLine().Match(text);
+        if (opponents.Success)
+        {
+            var wanted = Number(opponents.Groups["n"].Value);
+            var orMore = opponents.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            return (state, abilities, source) =>
+            {
+                var count = state.TurnOrder.Count(
+                    id => id != source.ControllerId && !state.GetPlayer(id).HasLost);
+
+                return orMore ? count >= wanted : count <= wanted;
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// "You control two or more other lands" — a count of permanents you control (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// "Other" excludes the permanent asking the question, which matters exactly here: a land
+    /// checking how many lands you control is not yet on the battlefield when the replacement is
+    /// applied, so "other" and "any" would give the same answer today — but they will not once
+    /// something else asks the same question, and reading the word is free.
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, bool>? Counting(Match m)
+    {
+        var wanted = Number(m.Groups["n"].Value);
+        var orMore = m.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
+        var excludesSelf = m.Groups["other"].Success;
+        var basicOnly = m.Groups["basic"].Success;
+
+        // "Your opponents control three or more lands" counts across all of them together, which
+        // is what the plural says - unlike "an opponent has ...", which asks about each in turn.
+        // The two read alike and mean different things at more than two seats.
+        var theirs = m.Groups["who"].Value.StartsWith("your opponents", StringComparison.OrdinalIgnoreCase);
+
+        // The noun goes through the target grammar, so every filter that grammar understands —
+        // types, subtypes, ownership — works here without a second vocabulary.
+        // The target grammar is written around a singular noun, and a count is always plural.
+        // "Tapped creatures" is an adjective and a noun, and only the noun is plural. The
+        // adjective goes through untouched to the target grammar, which is where the vocabulary
+        // for it already lives - so this does not need to know what "tapped" means.
+        var words = PluralNoun().Replace(m.Groups["what"].Value.Trim(), "$1").Split(' ');
+        words[^1] = EffectPhrase.SingularWord(words[^1]);
+        var noun = string.Join(' ', words);
+        var spec = EffectPhrase.Specs.Parse("target " + noun);
+        if (spec is null || spec.Kind != Abilities.TargetKind.Permanent)
+            return null;
+
+        return (state, abilities, source) => state.Battlefield.Count(id =>
+        {
+            if (excludesSelf && id == source.Id)
+                return false;
+
+            var obj = state.GetObject(id);
+
+            // Computed, like every other "do you control this" question — a land you have taken
+            // counts towards the lands you control (CR 613.1b).
+            var controller = Characteristics.Of(state, abilities, obj).ControllerId;
+
+            if (theirs ? controller == source.ControllerId : controller != source.ControllerId)
+                return false;
+
+            if (basicOnly && !obj.Card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase))
+                return false;
+
+            // The filter is asked without an ability source, so it sees printed characteristics.
+            // That is right for a replacement applied as a permanent arrives: nothing has had a
+            // chance to change it yet.
+            return spec.ObjectFilter?.Invoke(state, abilities, obj, source.ControllerId)
+                != false;
+        }) is var count && (orMore ? count >= wanted : count <= wanted);
+    }
+
+    private static int Number(string word) =>
+        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+            ? n
+            : word.ToLowerInvariant() switch
+            {
+                "one" or "a" or "an" => 1,
+                "six" => 6,
+                "seven" => 7,
+                "eight" => 8,
+                "nine" => 9,
+                "ten" => 10,
+                "two" => 2,
+                "three" => 3,
+                "four" => 4,
+                "five" => 5,
+                _ => 1,
+            };
+
+    /// <summary>An ability source that knows nothing, for filters asked outside a resolution.</summary>
+    [GeneratedRegex(
+        @"^(creature|permanent|artifact|enchantment|land|planeswalker)s$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PluralNoun();
+
+    /// <remarks>
+    /// The noun may be several words - "no untapped lands", "no other creatures" - and a single
+    /// word was all this accepted, so every adjective in that slot lost the whole condition.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you control no (?<what>[A-Za-z]+( [A-Za-z]+)*)$", RegexOptions.IgnoreCase)]
+    private static partial Regex NoneLine();
+
+    /// <summary>The same emptiness asked of the whole board rather than of one player.</summary>
+    [GeneratedRegex(
+        @"^there are no (?<what>[A-Za-z]+( [A-Za-z]+)*) on the battlefield$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex NoneOnBattlefieldLine();
+
+    /// <summary>"Three or more creatures with different powers" — distinct values, not a tally.</summary>
+    [GeneratedRegex(
+        @"^you control (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*?) with different powers$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DistinctPowersLine();
+
+    /// <remarks>
+    /// "There's a Lesson card in your graveyard" is "there are one or more" in the words a card
+    /// happens to use, so it is rewritten onto the counting reader rather than given its own.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^there's an? (?<what>[A-Za-z][A-Za-z ]*?) card in your graveyard$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OneInGraveyardLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you|your opponents) control "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer) "
+            + @"(?<other>other )?(?<basic>basic )?(?<what>[a-z]+( [a-z]+)*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CountLine();
+
+    [GeneratedRegex(@"\s+or\s+an?\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex EitherNoun();
+
+    /// <summary>
+    /// The permanent a self-condition is about: the host when a pronoun is used on something
+    /// attached, and the source otherwise.
+    /// </summary>
+    /// <remarks>
+    /// "Enchanted creature gets +1/+1 as long as it's attacking" is about the creature, not the
+    /// Aura — an Aura is not a creature and never attacks, so a reading that asked about itself
+    /// would never be true. Only the pronoun redirects: "~ is untapped" on an Equipment is about
+    /// the Equipment, which can perfectly well be tapped.
+    /// </remarks>
+    private static GameObject? Subject(GameState state, GameObject source, bool pronoun)
+    {
+        var id = pronoun && source.Permanent?.AttachedTo is { } host ? host : source.Id;
+
+        return state.TryGetObject(id, out var found) && found.Zone == Zone.Battlefield
+            ? found
+            : null;
+    }
+
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+) is|(?<it>it)('s| is)) (?<tapped>tapped|untapped)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfStateLine();
+
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+) is|(?<it>it)('s| is)) "
+            + @"(?<how>monstrous|saddled|attacking|blocking|equipped|enchanted|face down)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfConditionLine();
+
+    /// <remarks>
+    /// The counter name is a single word or one of the two written as numbers. Admitting a phrase
+    /// there would read "a +1/+1 counter on target creature" as a counter called "on target
+    /// creature", which is the mistake the noun-phrase class in the target grammar exists to stop.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+)|(?<it>it)) has an? "
+            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counter on it$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfCounterLine();
+
+    /// <remarks>
+    /// Case-sensitive on the description, because a capital is what separates a subtype from an
+    /// ordinary word here as everywhere else: "an Equipment" is a subtype and "a creature" is a
+    /// card type.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) [a-z]+ is (an? )?(?<what>[A-Za-z][A-Za-z ]*)$",
+        RegexOptions.None)]
+    private static partial Regex HostTypeLine();
+
+    /// <remarks>
+    /// "It" is the source here rather than a target: these clauses hang off the permanent's own
+    /// triggered ability, and the pronoun in that sentence has only one thing it can mean.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(~|this permanent|this card|this creature|it)('s| is|s are| was)"
+            + @"( (?<not>not|n't))? an? (?<what>[a-z ]+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfTypeLine();
+
+    /// <remarks>
+    /// The kicker cost itself is not read here: "kicked with its {2}{R} kicker" names which of a
+    /// multikicker card's two costs was paid, and the engine records one flag rather than which.
+    /// Those cards are left unread instead, which is the rule the rest of this file follows.
+    /// </remarks>
+    [GeneratedRegex(@"^(~|it|this spell) (was|were) kicked$", RegexOptions.IgnoreCase)]
+    private static partial Regex WasKickedLine();
+
+    [GeneratedRegex(@"^you cast (it|~|this spell)$", RegexOptions.IgnoreCase)]
+    private static partial Regex WasCastLine();
+
+    /// <remarks>
+    /// "Mana from a Treasure was spent" is deliberately not admitted: where a mana came from is
+    /// not on this record, and answering it from the colours would be a guess.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((?<none>no) mana|(?<nocolour>no colored) mana"
+            + @"|at least (?<n>[a-z]+|\d+) mana|(?<symbols>(\{[WUBRG]\})+))"
+            + @" was spent to cast (it|~|this spell)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ManaSpentLine();
+
+    [GeneratedRegex(@"\{(?<c>[WUBRG])\}", RegexOptions.IgnoreCase)]
+    private static partial Regex ManaSymbolsIn();
+
+    /// <remarks>
+    /// "From your hand" is deliberately not admitted: where a spell was cast from is on the cast
+    /// event and not on this count, and answering it from the count would be wrong for anything
+    /// flashed back or cast from exile.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you('ve| have) cast (an?|(?<n>\d+|one|two|three|four|five) or more) "
+            + @"(?<kind>noncreature |creature )?spells? this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SpellsCastThisTurnLine();
+
+    /// <summary>"You've drawn two or more cards this turn" (CR 121.1).</summary>
+    [GeneratedRegex(
+        @"^you('ve| have) drawn (an?|(?<n>\d+|one|two|three|four|five) or more) "
+            + @"cards? this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CardsDrawnThisTurnLine();
+
+    /// <summary>"An opponent has three or more poison counters" (CR 122.1).</summary>
+    [GeneratedRegex(
+        @"^(?<who>an opponent|you) (has|have) "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or more poison counters$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PoisonCountLine();
+
+    /// <summary>"It's attacking alone" — the only attacker in this declaration (CR 506.5).</summary>
+    [GeneratedRegex(
+        @"^(~|it|this creature)('s| is) attacking alone$", RegexOptions.IgnoreCase)]
+    private static partial Regex AttackingAloneLine();
+
+
+    /// <summary>"It has a depletion counter on it", and its numbered form.</summary>
+    [GeneratedRegex(
+        @"^(~|it|this [a-z]+) has (an?|(?<n>\d+|one|two|three|four|five) or more) "
+            + @"(?<kind>[a-z+/-]+(?: [a-z+/-]+)?) counters? on it$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HasCounterLine();
+
+    [GeneratedRegex(
+        @"^(~|this card|it) is in (your|the) (?<zone>graveyard|hand|exile|the battlefield)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex InZoneLine();
+
+    [GeneratedRegex(
+        @"^(?<who>an opponent|you) controls? (?<dir>more|fewer) (?<what>[a-z]+( [a-z]+)*)"
+            + @" than (you|they do|each opponent|any opponent)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MoreThanLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) (?<dir>gained or lost|gained|lost|have gained|has gained)"
+            + @"( (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more)?"
+            + @" life this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LifeMovedThisTurnLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) (have |has |'ve )?attacked this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttackedThisTurnLine();
+
+    [GeneratedRegex(
+        @"^a creature (died|was put into a graveyard from the battlefield) this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DiedThisTurnLine();
+
+    [GeneratedRegex(
+        @"^you have (?<n>\d+|one|two|three|four|five) or (?<dir>more|fewer) opponents$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OpponentsLine();
+
+    [GeneratedRegex(
+        @"^(there are (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer) (?<what>[A-Za-z]+ )?cards in your graveyard"
+            + @"|(?<who>an opponent|you) (has|have) "
+            + @"(?<n2>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir2>more|fewer) (?<what2>[A-Za-z]+ )?cards in (their|your) graveyard)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GraveyardCountLine();
+
+    /// <summary>The card types a printed card can have, for counting them (CR 205.2a).</summary>
+    private static readonly Domain.Enums.CardType[] CardTypesForDelirium =
+    [
+        Domain.Enums.CardType.Creature, Domain.Enums.CardType.Instant, Domain.Enums.CardType.Sorcery, Domain.Enums.CardType.Enchantment,
+        Domain.Enums.CardType.Artifact, Domain.Enums.CardType.Land, Domain.Enums.CardType.Planeswalker, Domain.Enums.CardType.Tribal,
+        Domain.Enums.CardType.Battle,
+    ];
+
+    [GeneratedRegex(
+        @"^there are (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer) card types among cards in your graveyard$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GraveyardTypeCountLine();
+
+    /// <remarks>
+    /// The lead-in words are optional because the caller may have stripped them: "During your
+    /// turn, ~ has first strike" is matched by a pattern that captures only the condition itself.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent|a player) ha(s|ve) "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|less|fewer) life$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LifeLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you have|an opponent has) no cards in hand$", RegexOptions.IgnoreCase)]
+    private static partial Regex EmptyHandLine();
+
+    /// <remarks>
+    /// "You control no creatures" is the same question asked backwards, so it shares the pattern
+    /// rather than getting one of its own — and getting the negation wrong is the sort of thing
+    /// that reads correctly and plays inverted.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you control|an opponent controls|another player controls"
+            + @"|defending player controls|(?<anyone>an?y? ?player controls)) "
+            + @"(an?|(?<none>no)|(?<another>another)) (?<what>[A-Za-z][A-Za-z0-9 ]*)$",
+        RegexOptions.None)]
+    private static partial Regex ControlsAnyLine();
+
+    [GeneratedRegex(
+        @"^~ is an? (?<what>[a-z]+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SourceIsTypeLine();
+
+    [GeneratedRegex(
+        @"^(?<who>an opponent|you) (was|were) dealt damage this turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex DamagedThisTurnLine();
+
+    [GeneratedRegex(
+        @"^you control a creature with power "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>greater|more|less|fewer)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ControlsWithPowerLine();
+
+    [GeneratedRegex(
+        @"^((it's|it is|during) )?(?<not>not )?your turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex YourTurnLine();
+
+    /// <remarks>
+    /// "To a player" and not "to a creature": the two are different facts and only the first is
+    /// recorded. A pattern admitting either would compile the wrong half of the corpus silently.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) dealt combat damage to a player this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DealtCombatDamageLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) ha(ve|s) the city's blessing$", RegexOptions.IgnoreCase)]
+    private static partial Regex CitysBlessingLine();
+
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) ?(are|'re|’re|is) the monarch$", RegexOptions.IgnoreCase)]
+    private static partial Regex MonarchLine();
+
+    [GeneratedRegex(
+        @"^((?<none>no spells were cast)"
+            + @"|a player cast (?<n>one|two|three|\d+) or more spells) last turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SpellsLastTurnLine();
+
+    [GeneratedRegex(
+        @"^(?<what>[A-Za-z0-9'’ -]+?) have total power (?<n>\d+|one|two|three) or "
+            + @"(?<dir>greater|more|less|fewer)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TotalPowerLine();
+
+    [GeneratedRegex(
+        @"^you cast (it|~|this spell) from your (?<zone>hand|graveyard|exile)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CastFromLine();
+
+    /// <remarks>
+    /// "In hand" and "in your hand" are the same phrase; the possessive is carried by the subject
+    /// at the front, which is the only place that says whose hand it is.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) (has|have) "
+            + @"((?<none>no)"
+            + @"|(?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer)) cards? in (your |their )?hand$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HandCountLine();
+
+    /// <summary>A small number written as a word, or as digits.</summary>
+    private static int NumberWord(string word) => word.ToLowerInvariant() switch
+    {
+        "one" => 1,
+        "two" => 2,
+        "three" => 3,
+        _ => int.TryParse(
+            word,
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var value) ? value : 1,
+    };
+}

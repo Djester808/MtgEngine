@@ -202,4 +202,42 @@ public sealed class EventLogTests
 
         Assert.Equal(0, game.State.TurnNumber);
     }
+
+    /// <summary>
+    /// Every event the engine can emit has to be one the serializer can read back (CR n/a).
+    /// </summary>
+    /// <remarks>
+    /// A completeness check by reflection rather than a list, because a list is exactly the thing
+    /// that goes stale: an event added without a registry entry serializes fine and throws on the
+    /// way back in, which is to say the game is saved and cannot be loaded. Fifteen events were
+    /// added in one stretch of work on the card compiler, and nothing else would have noticed a
+    /// missing one until a stored game failed to open.
+    /// </remarks>
+    [Fact]
+    public void Every_event_type_can_be_read_back()
+    {
+        var declared = typeof(GameEvent).Assembly.GetTypes()
+            .Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract)
+            .Select(t => t.Name)
+            .ToList();
+
+        Assert.NotEmpty(declared);
+
+        var missing = declared
+            .Where(name => !EventLogSerializer.KnownEvents.ContainsKey(name))
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            "Events the serializer cannot read back: " + string.Join(", ", missing));
+
+        // And nothing registered under a name no event answers to, which would be a rename that
+        // left the old entry behind — silently unreadable for every game stored before it.
+        var stale = EventLogSerializer.KnownEvents
+            .Where(pair => !declared.Contains(pair.Key, StringComparer.Ordinal))
+            .Select(pair => pair.Key)
+            .ToList();
+
+        Assert.True(stale.Count == 0, "Registered names with no event: " + string.Join(", ", stale));
+    }
 }

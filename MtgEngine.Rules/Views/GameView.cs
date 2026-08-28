@@ -156,6 +156,17 @@ public sealed record PlayerView
     /// </summary>
     public required int LibraryCount { get; init; }
 
+    /// <summary>
+    /// The top card of this player's library, when something lets them see it (CR 401.2).
+    /// </summary>
+    /// <remarks>
+    /// Null for everyone else, always. "You may look at the top card of your library any time" is
+    /// a permission given to one player, so it is answered here rather than by sending the card
+    /// and trusting the client to hide it - which is the cheating vector this projection exists
+    /// to close.
+    /// </remarks>
+    public ObjectView? TopOfLibrary { get; init; }
+
     /// <summary>Any player may count any hand (CR 402.3).</summary>
     public required int HandCount { get; init; }
 
@@ -163,6 +174,15 @@ public sealed record PlayerView
     /// Populated only when this player is the viewer; null for everyone else (CR 402.3).
     /// </summary>
     public ImmutableList<ObjectView>? Hand { get; init; }
+
+    /// <summary>
+    /// The cards in this hand that everybody has been shown (CR 701.16a).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Hand"/>, which is null for anyone but its owner. A reveal makes
+    /// particular cards public without making the hand public, and the two are different facts.
+    /// </remarks>
+    public ImmutableList<ObjectView> RevealedHand { get; init; } = [];
 
     /// <summary>Public zone, examinable by anyone at any time (CR 404.2).</summary>
     public ImmutableList<ObjectView> Graveyard { get; init; } = [];
@@ -199,6 +219,31 @@ public sealed record PlayerView
     /// </remarks>
     public ImmutableDictionary<string, int> ManaPool { get; init; } =
         ImmutableDictionary<string, int>.Empty;
+
+    /// <summary>
+    /// Mana that may only be spent on some things, one entry per mana (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// A field of its own rather than more entries in <see cref="ManaPool"/>, because the two
+    /// answer different questions and a client that added them together would tell a player they
+    /// could pay for something they cannot. Public for the same reason the rest of the pool is.
+    /// <para>
+    /// Each entry is the symbol and what the mana may be spent on, in the card's own words, so a
+    /// board can show the restriction without having to know the vocabulary behind it.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<RestrictedManaView> RestrictedMana { get; init; } =
+        ImmutableList<RestrictedManaView>.Empty;
+}
+
+/// <summary>One mana that may only be spent on some things (CR 106.6).</summary>
+public sealed record RestrictedManaView
+{
+    /// <summary>The mana symbol: "W", "U", "B", "R", "G" or "C".</summary>
+    public required string Symbol { get; init; }
+
+    /// <summary>What it may be spent on, e.g. "creature spells".</summary>
+    public required string SpendableOn { get; init; }
 }
 
 /// <summary>
@@ -211,6 +256,61 @@ public sealed record PlayerView
 /// there is nothing to report and a field called <c>Power</c> would be a lie the moment the
 /// first lord is implemented.
 /// </remarks>
+/// <summary>
+/// One activated ability a client can offer on a permanent (CR 602.1).
+/// </summary>
+/// <remarks>
+/// The view has to carry these because the client cannot work them out. Everything a board knew
+/// about activating was the word "mana" hardcoded against lands, which made a Sol Ring
+/// untappable and a Prodigal Pyromancer unplayable — the abilities were implemented and simply
+/// could not be reached.
+/// </remarks>
+public sealed record AbilityView
+{
+    /// <summary>The id to send back when activating it.</summary>
+    public required string Id { get; init; }
+
+    /// <summary>What it says, for the button.</summary>
+    public required string Text { get; init; }
+
+    /// <summary>Whether {T} is part of the cost, so a tapped permanent cannot use it.</summary>
+    public bool RequiresTap { get; init; }
+
+    /// <summary>How many targets it needs, so the client knows to ask before sending.</summary>
+    public int TargetCount { get; init; }
+
+    /// <summary>Whether it produces mana, which a client may want to present differently.</summary>
+    public bool IsManaAbility { get; init; }
+
+    /// <summary>
+    /// A printed timing restriction, as the enum name (CR 602.5d). Absent means any time.
+    /// </summary>
+    /// <remarks>
+    /// The board needs it for the same reason it needs <see cref="TargetCount"/>: an action
+    /// offered and then refused is worse than one never offered. The engine still enforces it —
+    /// this is the courtesy copy, and where the two disagree the board is wrong.
+    /// </remarks>
+    public string? Timing { get; init; }
+
+    /// <summary>
+    /// Costs the player has to pick cards for before activating (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The board has to know, because the payment travels <em>with</em> the activation: an
+    /// ability whose cost is "Sacrifice a creature" cannot be activated by clicking it, and a
+    /// board that offered it as a plain button would send an activation the engine refuses. The
+    /// description reads naturally in a prompt — "target creature you control" — because that is
+    /// what it is going to be shown as.
+    /// </remarks>
+    public ImmutableList<CostChoiceView> CostChoices { get; init; } = [];
+}
+
+/// <summary>One cost the player picks cards for, as the board needs to ask it.</summary>
+/// <param name="Kind">Sacrifice, discard, or discard at random.</param>
+/// <param name="Count">How many cards to pick.</param>
+/// <param name="Description">What qualifies, for the prompt. Null means any card in hand.</param>
+public sealed record CostChoiceView(string Kind, int Count, string? Description);
+
 public sealed record ObjectView
 {
     public required Guid Id { get; init; }
@@ -272,6 +372,9 @@ public sealed record ObjectView
 
     /// <summary>Whether it is a land, which is what a card face is coloured by first.</summary>
     public bool IsLand { get; init; }
+
+    /// <summary>What this permanent can be asked to do (CR 602.1).</summary>
+    public System.Collections.Immutable.ImmutableList<AbilityView> Abilities { get; init; } = [];
 
     /// <summary>The card's colours, for the frame it is drawn in.</summary>
     public IReadOnlyList<string> Colors { get; init; } = [];

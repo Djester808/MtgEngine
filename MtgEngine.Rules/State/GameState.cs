@@ -35,6 +35,19 @@ public sealed record GameState
     /// <summary>Shared, and unordered — permanents may be arranged however players like (CR 400.5).</summary>
     public ImmutableList<ObjectId> Battlefield { get; init; } = [];
 
+    /// <summary>
+    /// State-triggered abilities whose condition is currently true and that have already fired
+    /// for it (CR 603.8).
+    /// </summary>
+    /// <remarks>
+    /// In the state rather than in the engine because the state is a fold of the log and has to
+    /// stay one: an engine-side set would be rebuilt empty on replay, and every state trigger in
+    /// the game would fire a second time. Keyed by source and ability, as a string, so the set is
+    /// something a log can carry and compare.
+    /// </remarks>
+    public ImmutableHashSet<string> ArmedStateTriggers { get; init; } =
+        ImmutableHashSet<string>.Empty;
+
     /// <summary>Shared. Top of the stack is index 0 (CR 405.2).</summary>
     public ImmutableList<ObjectId> Stack { get; init; } = [];
 
@@ -56,6 +69,21 @@ public sealed record GameState
     /// <summary>Whose turn it is (CR 102.1).</summary>
     public Guid ActivePlayerId { get; init; }
 
+    /// <summary>
+    /// Turns waiting to be taken out of turn order, oldest first (CR 500.7).
+    /// </summary>
+    /// <remarks>
+    /// A queue rather than a count, because the extra turns are not always the current player's:
+    /// "target player takes an extra turn after this one" hands one to somebody else, and the
+    /// order matters when several are created before any is taken.
+    /// <para>
+    /// The rule says the last one created is taken first, so this is written to from the front.
+    /// Two extra turns created by two spells are taken in the reverse of the order they were
+    /// made, which is what a player casting the second one is paying for.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<Guid> ExtraTurns { get; init; } = [];
+
     /// <summary>Where in the turn the game is (CR 500.1).</summary>
     public TurnStep CurrentStep { get; init; } = TurnStep.Untap;
 
@@ -74,6 +102,16 @@ public sealed record GameState
     public ImmutableList<PendingTrigger> PendingTriggers { get; init; } = [];
 
     /// <summary>
+    /// Delayed triggered abilities waiting for their moment (CR 603.7).
+    /// </summary>
+    /// <remarks>
+    /// In the state rather than in a field on the game for the usual reason: a game rebuilt from
+    /// its log has to be waiting for the same things. A permanent that is going to be sacrificed
+    /// at end of turn is part of what the game *is*.
+    /// </remarks>
+    public ImmutableList<DelayedTrigger> Delayed { get; init; } = [];
+
+    /// <summary>
     /// Continuous effects created by resolved spells and abilities (CR 611.2, 613.7b).
     /// </summary>
     /// <remarks>
@@ -81,6 +119,45 @@ public sealed record GameState
     /// battlefield every time, so that one leaving takes its effect with it.
     /// </remarks>
     public ImmutableList<FloatingEffect> FloatingEffects { get; init; } = [];
+
+    /// <summary>Whether a creature has gone to a graveyard from the battlefield this turn.</summary>
+    /// <remarks>
+    /// Morbid, and the several later words for the same question. Read off the printed card
+    /// rather than the computed characteristics, because the reducer has no ability source and a
+    /// permanent that stopped being a creature on its way out is a rarity the fold cannot see
+    /// either way.
+    /// </remarks>
+    public bool CreatureDiedThisTurn { get; init; }
+
+    /// <summary>
+    /// Who is the monarch, if anyone (CR 725.1).
+    /// </summary>
+    /// <remarks>
+    /// On the state rather than on a player because only one player can hold it (CR 725.3), and
+    /// a flag per player would let the fold produce two. There is no monarch until an effect
+    /// makes one, which is what the null means.
+    /// </remarks>
+    public Guid? MonarchId { get; init; }
+
+    /// <summary>
+    /// Whether it is day, night, or neither (CR 731.1).
+    /// </summary>
+    /// <remarks>
+    /// Null is "neither", which is where every game starts and where it stays until something
+    /// makes it one or the other - and once it has become one, it is always one of the two from
+    /// then on. A designation the game itself has rather than a player, so it sits beside the
+    /// monarch rather than on a <see cref="PlayerState"/>.
+    /// </remarks>
+    public bool? IsDay { get; init; }
+
+    /// <summary>Who was the active player before this turn, if anyone was (CR 502.2).</summary>
+    /// <remarks>
+    /// The day-night check asks what the *previous* turn's active player did, and by the time it
+    /// is asked the turn has already changed. Recorded as the turn changes rather than worked out
+    /// from the turn order, which would be wrong the moment a player leaves or an extra turn is
+    /// taken.
+    /// </remarks>
+    public Guid? PreviousActivePlayerId { get; init; }
 
     /// <summary>Who is attacking whom (CR 506–511). Reset when the combat phase ends.</summary>
     public CombatState Combat { get; init; } = new();
@@ -222,6 +299,7 @@ public sealed record GameState
         Priority == other.Priority &&
         NextTimestamp == other.NextTimestamp &&
         Structural.Same(TurnOrder, other.TurnOrder) &&
+        Structural.Same(ExtraTurns, other.ExtraTurns) &&
         Structural.Same(Battlefield, other.Battlefield) &&
         Structural.Same(Stack, other.Stack) &&
         Structural.Same(Exile, other.Exile) &&
@@ -229,6 +307,10 @@ public sealed record GameState
         Structural.Same(Players, other.Players) &&
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
+        CreatureDiedThisTurn == other.CreatureDiedThisTurn &&
+        MonarchId == other.MonarchId &&
+        IsDay == other.IsDay &&
+        PreviousActivePlayerId == other.PreviousActivePlayerId &&
         Combat == other.Combat &&
         Choice == other.Choice &&
         IsMulliganing == other.IsMulliganing &&

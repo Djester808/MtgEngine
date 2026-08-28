@@ -17,6 +17,8 @@ public sealed class MtgEngineDbContext : DbContext
     public DbSet<CardPriceSnapshot> CardPriceSnapshots => Set<CardPriceSnapshot>();
     public DbSet<CollectionCardEvent> CollectionCardEvents => Set<CollectionCardEvent>();
     public DbSet<PersistedGame> PersistedGames => Set<PersistedGame>();
+    public DbSet<LifeMatch> LifeMatches => Set<LifeMatch>();
+    public DbSet<LifeMatchSeat> LifeMatchSeats => Set<LifeMatchSeat>();
 
     public MtgEngineDbContext(DbContextOptions<MtgEngineDbContext> options)
         : base(options)
@@ -301,6 +303,51 @@ public sealed class MtgEngineDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => e.ForumPostId);
+        });
+
+        // LifeMatch
+        modelBuilder.Entity<LifeMatch>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RecordedByUserId).IsRequired();
+            entity.Property(e => e.StartedAt).IsRequired();
+            entity.Property(e => e.RecordedAt).IsRequired();
+            entity.Property(e => e.StartingLife).IsRequired();
+
+            entity.HasMany(e => e.Seats)
+                .WithOne(s => s.Match)
+                .HasForeignKey(s => s.MatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.RecordedAt);
+        });
+
+        // LifeMatchSeat
+        modelBuilder.Entity<LifeMatchSeat>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MatchId).IsRequired();
+            entity.Property(e => e.Seat).IsRequired();
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(40);
+            entity.Property(e => e.Won).IsRequired();
+            entity.Property(e => e.FinalLife).IsRequired();
+
+            // Stored as its name, not its ordinal. A row that says "CommanderDamage" stays
+            // readable if the enum is ever reordered, and is legible in a raw db dump.
+            entity.Property(e => e.LossReason)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(32);
+
+            // One seat number per match, and one appearance per account per match. The
+            // second is what stops a record being padded by seating the same player twice.
+            entity.HasIndex(e => new { e.MatchId, e.Seat }).IsUnique();
+            entity.HasIndex(e => new { e.MatchId, e.UserId })
+                .IsUnique()
+                .HasFilter("\"UserId\" IS NOT NULL");
+
+            // The read this table exists for: one player's record.
+            entity.HasIndex(e => e.UserId);
         });
     }
 }

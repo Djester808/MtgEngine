@@ -39,9 +39,28 @@ public static class StarterCards
                 Id = "giant-growth",
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = (_, _, _) => true,
-                Apply = builder => builder.Modify(3, 3),
+                Apply = (_, _, builder) => builder.Modify(3, 3),
             },
         };
+
+    /// <summary>
+    /// The 1/1 white Soldier a few cards make (CR 111.1).
+    /// </summary>
+    /// <remarks>
+    /// A token is a card definition like any other as far as the engine is concerned; the
+    /// <see cref="CardType.Token"/> flag is what stops it existing anywhere but the battlefield
+    /// (CR 111.7).
+    /// </remarks>
+    private static readonly Domain.Models.CardDefinition SoldierToken = new()
+    {
+        OracleId = "token-soldier-1-1-w",
+        Name = "Soldier",
+        Cmc = 0,
+        CardTypes = Domain.Enums.CardType.Creature | Domain.Enums.CardType.Token,
+        Subtypes = ["Soldier"],
+        Power = 1,
+        Toughness = 1,
+    };
 
     public static IReadOnlyList<CardScript> All { get; } =
     [
@@ -148,7 +167,7 @@ public static class StarterCards
                         && target.Subject.Zone == Zone.Battlefield
                         && target.ControllerId == source.ControllerId
                         && target.Subject.Card.Subtypes.Contains("Elf", StringComparer.OrdinalIgnoreCase),
-                    Apply = builder => builder.Modify(1, 1),
+                    Apply = (_, _, builder) => builder.Modify(1, 1),
                 },
             ],
         },
@@ -189,6 +208,90 @@ public static class StarterCards
                     Triggers = (e, state, source) =>
                         e is ObjectMoved { To: Zone.Battlefield } m && m.NewId == source.Id,
                     Effects = [new DrawCards(1)],
+                },
+            ],
+        },
+
+        // ---- Cards added once the backbone held ------------------------------------------
+        //
+        // The first twelve were chosen to cover the machinery. These are chosen to cover the
+        // primitives that machinery left unused — exile, life gain, counters from an effect
+        // rather than a replacement, and tokens — because a primitive with no card behind it
+        // has never been run against a real game.
+
+        new CardScript
+        {
+            Name = "Scour from Existence",
+            Spell = new SpellDefinition
+            {
+                Targets = [Targets.TargetPermanent],
+                // Exile, not destroy: it answers indestructible, regeneration and everything
+                // else that only cares about being destroyed (CR 702.12b).
+                Effects = [new ExileTarget()],
+            },
+        },
+
+        new CardScript
+        {
+            Name = "Revitalize",
+            Spell = new SpellDefinition
+            {
+                // No target. "You gain 3 life" is the caster (CR 109.5), which is what the
+                // effect means by leaving its target index unset.
+                Effects = [new ChangeLife(3), new DrawCards(1)],
+            },
+        },
+
+        new CardScript
+        {
+            Name = "Bond Beetle",
+            Triggers =
+            [
+                new TriggeredAbilityDefinition
+                {
+                    Id = "etb-counter",
+                    Text = "When this creature enters, put a +1/+1 counter on target creature.",
+                    Triggers = (e, state, source) =>
+                        e is ObjectMoved { To: Zone.Battlefield } m && m.NewId == source.Id,
+                    Targets = [Targets.TargetCreature],
+                    Effects = [new PutCounters(CounterKinds.PlusOnePlusOne, 1)],
+                },
+            ],
+        },
+
+        new CardScript
+        {
+            Name = "Raise the Alarm",
+            Spell = new SpellDefinition
+            {
+                Effects = [new CreateToken(SoldierToken, 2)],
+            },
+        },
+
+        new CardScript
+        {
+            Name = "Unsummon",
+            Spell = new SpellDefinition
+            {
+                Targets = [Targets.TargetCreature],
+                // Answers a creature without destroying it, which is the only way past
+                // indestructible and regeneration that does not exile (CR 702.12b).
+                Effects = [new ReturnToHand()],
+            },
+        },
+
+        new CardScript
+        {
+            Name = "Icy Manipulator",
+            Activated =
+            [
+                new ActivatedAbilityDefinition
+                {
+                    Id = "tap",
+                    Text = "{1}, {T}: Tap target artifact, creature, or land.",
+                    RequiresTap = true,
+                    Targets = [Targets.TargetPermanent],
+                    Effects = [new TapTarget()],
                 },
             ],
         },

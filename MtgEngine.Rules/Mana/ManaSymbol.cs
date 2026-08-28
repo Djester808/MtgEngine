@@ -117,6 +117,45 @@ public sealed record ManaCostSpec
 
     public bool HasVariable => Symbols.Any(s => s.IsVariable);
 
+    /// <summary>How much of this cost is plain generic mana (CR 107.4b).</summary>
+    /// <remarks>
+    /// Only the symbols that are nothing but a number. The generic half of a hybrid like
+    /// <c>{2/W}</c> is not counted: which half is being paid is not decided until it is paid, so
+    /// it is not generic mana in the total cost the way <c>{3}</c> is.
+    /// </remarks>
+    public int GenericPart =>
+        Symbols.Where(s => !s.IsVariable && s.Colors.IsEmpty && !s.IsColorless).Sum(s => s.Generic);
+
+    /// <summary>
+    /// This cost with <paramref name="amount"/> of its generic mana already paid by somebody else
+    /// (CR 702.132a).
+    /// </summary>
+    public ManaCostSpec WithoutGeneric(int amount)
+    {
+        if (amount <= 0)
+            return this;
+
+        var left = amount;
+        var kept = ImmutableList.CreateBuilder<ManaSymbol>();
+
+        foreach (var symbol in Symbols)
+        {
+            if (left == 0 || symbol.IsVariable || !symbol.Colors.IsEmpty || symbol.IsColorless)
+            {
+                kept.Add(symbol);
+                continue;
+            }
+
+            var taken = Math.Min(left, symbol.Generic);
+            left -= taken;
+
+            if (symbol.Generic > taken)
+                kept.Add(ManaSymbol.Generic0(symbol.Generic - taken));
+        }
+
+        return this with { Symbols = kept.ToImmutable() };
+    }
+
     /// <summary>
     /// Parses a Scryfall-style cost such as <c>{2}{W/U}{X}</c>.
     /// </summary>

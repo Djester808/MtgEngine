@@ -289,4 +289,56 @@ public sealed class ReplacementEffectTests
 
         Assert.Equal(game.State, GameReducer.Replay(game.Log));
     }
+    /// <summary>
+    /// The choice belongs to the affected object's controller, even when that is not the active
+    /// player (CR 616.1).
+    /// </summary>
+    /// <remarks>
+    /// The test above asks the same question of a creature the <em>active</em> player controls,
+    /// and cannot tell the rule from the fallback: <c>AffectedPlayer</c> answers
+    /// <c>State.ActivePlayerId</c> for any event it does not recognise, which is the same person.
+    /// A permanent belonging to the other player is the case that separates them.
+    /// <para>
+    /// Getting this wrong hands one player a decision the rules give to their opponent - about
+    /// their own permanent - and in a two-player game where the active player is usually the one
+    /// killing things, it would look right nearly all the time.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_opponents_own_permanent_is_the_opponents_choice()
+    {
+        var exileInstead = new ReplacementEffectDefinition
+        {
+            Id = "exile-instead",
+            Applies = (e, state, source) =>
+                e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
+            Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Exile }],
+        };
+
+        var libraryInstead = new ReplacementEffectDefinition
+        {
+            Id = "library-instead",
+            Applies = (e, state, source) =>
+                e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
+            Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Library }],
+        };
+
+        var (game, alice, bob) = InMainPhase(
+            new Abilities(("shield", exileInstead), ("grower", libraryInstead)));
+
+        // Both replacements are Alice's; the dying creature is Bob's.
+        game.Create(alice, TestCards.Shield(), Zone.Battlefield);
+        game.Create(alice, TestCards.Grower(), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Their Bear", 2, 2), Zone.Battlefield);
+
+        game.Move(theirs, Zone.Graveyard, MoveCause.Destroy);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.OrderReplacements, choice.Kind);
+
+        // Bob's permanent, so Bob's decision - not the active player's, and not the controller
+        // of the effects doing the replacing.
+        Assert.Equal(bob, choice.PlayerId);
+    }
 }

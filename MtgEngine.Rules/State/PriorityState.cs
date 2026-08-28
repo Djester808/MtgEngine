@@ -71,6 +71,15 @@ public sealed record PendingTrigger
     /// Recorded now because the source may be gone by the time it goes on the stack.
     /// </summary>
     public required Guid ControllerId { get; init; }
+
+    /// <summary>The player the triggering event was about, if it was about one (CR 603.2).</summary>
+    public Guid? SubjectPlayer { get; init; }
+
+    /// <summary>The object the triggering event was about, if it was about one (CR 603.2).</summary>
+    public ObjectId? SubjectObject { get; init; }
+
+    /// <summary>How much the triggering event was about — "that many" (CR 603.2).</summary>
+    public int? SubjectAmount { get; init; }
 }
 
 /// <summary>

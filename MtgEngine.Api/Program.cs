@@ -79,6 +79,7 @@ builder.Services.AddScoped<ICommanderStatsService, CommanderStatsService>();
 builder.Services.AddScoped<IPriceHistoryService, PriceHistoryService>();
 builder.Services.AddScoped<ICardHistoryService, CardHistoryService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<ILifeMatchService, LifeMatchService>();
 
 // ---- Anthropic API ---------------------------------------
 // The AI services are scoped, so their key guard would not fire until the first

@@ -8,6 +8,7 @@ using MtgEngine.Api.Services;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.State;
 
@@ -86,9 +87,16 @@ public sealed class GameHubTests
         public required RecordingClients Clients { get; init; }
     }
 
-    private static async Task<Harness> TableAsync(Guid? actingAs = null)
+    /// <param name="abilities">
+    /// What the cards in this game can do. Defaults to nothing at all, because most of these
+    /// tests are about the hub's own wiring and a card with no behaviour is the quietest thing to
+    /// send through it — a test about a cost has to pass a real pool.
+    /// </param>
+    private static async Task<Harness> TableAsync(
+        Guid? actingAs = null, IAbilitySource? abilities = null)
     {
-        var sessions = new GameSessionService(NoAbilities.Instance, new InMemoryGameStore());
+        var sessions = new GameSessionService(
+            abilities ?? NoAbilities.Instance, new InMemoryGameStore());
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
 
@@ -160,6 +168,300 @@ public sealed class GameHubTests
 
             return (attacker, walker);
         });
+    }
+
+    [Fact]
+    public async Task A_cost_a_client_chose_reaches_the_engine_as_that_cost()
+    {
+        // The contract this test exists for. Kicker, buyback, dash, morph and delve were all
+        // implemented and tested in the engine while the hub's CastSpell took a card, its targets
+        // and a value for X — so no client could ask for any of them. Nothing until now checked
+        // that the shape a client sends and the shape the engine accepts were the same shape.
+        // Free to cast and free to kick, so that what is under test is the flag arriving and
+        // not anything about paying for it.
+        var kicker = new CardDefinition
+        {
+            OracleId = "oracle-hub-kicker-test",
+            Name = "Hub Kicker Test",
+            OracleText = "Kicker {0}\nIf this spell was kicked, you gain 3 life.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{0}",
+        };
+
+        var table = await TableAsync(abilities: new CompiledPool());
+
+        var cast = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 20 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            // Driven to a window Alice can actually cast a sorcery in: her own main phase, with
+            // an empty stack and priority in her hand (CR 307.1).
+            for (var guard = 0; guard < 400; guard++)
+            {
+                var ready = game.State.ActivePlayerId == table.Alice
+                    && game.State.CurrentStep == TurnStep.PrecombatMain
+                    && game.State.Priority.Holder == table.Alice
+                    && game.State.Stack.IsEmpty;
+
+                if (ready)
+                    break;
+
+                if (game.State.Choice is { } pending)
+                    game.Choose(pending.PlayerId, [pending.Options[0].Id]);
+                else if (game.State.Priority.Holder is { } holder)
+                    game.PassPriority(holder);
+                else
+                    break;
+            }
+
+            return game.Create(table.Alice, kicker, Zone.Hand);
+        });
+
+        await table.Hub.CastSpell(
+            table.GameId, cast.Value, targets: null, variableValue: 0, new CastOptionsDto(Kicked: true));
+
+        var kicked = await table.Sessions.Find(table.GameId)!.MutateAsync(
+            game => game.State.Stack.Select(id => game.State.GetObject(id).WasKicked).ToList());
+
+        Assert.Empty(table.Clients.Refusals);
+        Assert.Equal([true], kicked);
+    }
+
+    /// <summary>
+    /// Every cast option the DTO carries reaches the engine parameter of the same name.
+    /// </summary>
+    /// <remarks>
+    /// The hub hands <c>Game.CastSpell</c> twenty-nine positional arguments. Five of them were
+    /// missing for a long time - bargain, Adventure, split halves, fuse and a prepared permanent's
+    /// spell were all implemented in the engine and unreachable from any client. Adding them at
+    /// the end is safe, but two adjacent booleans are interchangeable to the compiler, so the
+    /// order is asserted here rather than trusted.
+    /// </remarks>
+    [Fact]
+    public void Every_cast_option_the_dto_carries_has_an_engine_parameter_in_the_same_order()
+    {
+        var dto = typeof(CastOptionsDto)
+            .GetConstructors()
+            .OrderByDescending(c => c.GetParameters().Length)
+            .First()
+            .GetParameters()
+            .Select(p => p.Name!)
+            .ToList();
+
+        var engine = typeof(MtgEngine.Rules.Engine.Game)
+            .GetMethod(nameof(MtgEngine.Rules.Engine.Game.CastSpell))!
+            .GetParameters()
+            .Select(p => p.Name!)
+            .ToList();
+
+        // The five that were unreachable, in the order the hub now passes them.
+        string[] added = ["Bargained", "AsAdventure", "Half", "Fused", "Prepared"];
+
+        foreach (var name in added)
+        {
+            Assert.Contains(name, dto);
+            Assert.Contains(
+                engine,
+                p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // And they sit in the same relative order on both sides, which is what a positional call
+        // actually depends on.
+        var dtoOrder = added.Select(n => dto.IndexOf(n)).ToList();
+        var engineOrder = added
+            .Select(n => engine.FindIndex(
+                p => string.Equals(p, n, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        Assert.Equal(dtoOrder.OrderBy(i => i), dtoOrder);
+        Assert.Equal(engineOrder.OrderBy(i => i), engineOrder);
+    }
+
+    [Fact]
+    public async Task Cards_a_client_splices_reach_the_engine_as_added_text()
+    {
+        // Same contract as the kicker test, for the two costs added since. Splice and assist were
+        // implemented in the engine and reachable from nowhere: the hub's options record had no
+        // field for either, so the wire was the whole of what was missing.
+        var ray = new CardDefinition
+        {
+            OracleId = "oracle-hub-splice-test",
+            Name = "Hub Splice Test",
+            OracleText = "Hub Splice Test deals 2 damage to any target.\nSplice onto Arcane {0}",
+            CardTypes = CardType.Instant,
+            Subtypes = ["Arcane"],
+            ManaCostRaw = "{0}",
+        };
+
+        var host = new CardDefinition
+        {
+            OracleId = "oracle-hub-arcane-test",
+            Name = "Hub Arcane Test",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Instant,
+            Subtypes = ["Arcane"],
+            ManaCostRaw = "{0}",
+        };
+
+        var table = await TableAsync(abilities: new CompiledPool());
+
+        var (cast, spliced) = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            DriveToAlicesMainPhase(game, table);
+            return (game.Create(table.Alice, host, Zone.Hand),
+                game.Create(table.Alice, ray, Zone.Hand));
+        });
+
+        await table.Hub.CastSpell(
+            table.GameId,
+            cast.Value,
+            targets: [new TargetDto("player", null, table.Bob)],
+            variableValue: 0,
+            new CastOptionsDto(Spliced: [spliced.Value]));
+
+        var onStack = await table.Sessions.Find(table.GameId)!.MutateAsync(
+            game => game.State.Stack
+                .SelectMany(id => game.State.GetObject(id).Spliced.Select(c => c.Name))
+                .ToList());
+
+        Assert.Empty(table.Clients.Refusals);
+        Assert.Equal(["Hub Splice Test"], onStack);
+    }
+
+    [Fact]
+    public async Task An_assist_a_client_offers_is_paid_by_the_player_it_names()
+    {
+        var spell = new CardDefinition
+        {
+            OracleId = "oracle-hub-assist-test",
+            Name = "Hub Assist Test",
+            OracleText = "You gain 3 life.\nAssist",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{2}",
+        };
+
+        var table = await TableAsync(abilities: new CompiledPool());
+
+        var cast = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            DriveToAlicesMainPhase(game, table);
+
+            // Bob's mana, floating. Alice has none at all, so if the cast succeeds it is because
+            // the other player's pool paid for it.
+            for (var i = 0; i < 2; i++)
+            {
+                var land = game.Create(table.Bob, BasicLand(), Zone.Battlefield);
+                game.ActivateAbility(table.Bob, land, "mana");
+            }
+
+            return game.Create(table.Alice, spell, Zone.Hand);
+        });
+
+        await table.Hub.CastSpell(
+            table.GameId,
+            cast.Value,
+            targets: null,
+            variableValue: 0,
+            new CastOptionsDto(AssistPlayer: table.Bob, AssistAmount: 2));
+
+        var pools = await table.Sessions.Find(table.GameId)!.MutateAsync(
+            game => (Bob: game.State.GetPlayer(table.Bob).ManaPool.IsEmpty,
+                     Stack: game.State.Stack.Count));
+
+        Assert.Empty(table.Clients.Refusals);
+        Assert.True(pools.Bob);
+        Assert.Equal(1, pools.Stack);
+    }
+
+    /// <summary>A Forest, for a test that needs mana rather than a particular land.</summary>
+    private static CardDefinition BasicLand() => new()
+    {
+        OracleId = "oracle-hub-forest",
+        Name = "Forest",
+        CardTypes = CardType.Land,
+        Subtypes = ["Forest"],
+    };
+
+    /// <summary>
+    /// Drives the game to a window Alice can cast in: her main phase, empty stack, her priority.
+    /// </summary>
+    private static void DriveToAlicesMainPhase(Game game, Harness table)
+    {
+        for (var guard = 0; guard < 20 && game.State.Choice is { } choice; guard++)
+            game.Choose(choice.PlayerId, ["keep"]);
+
+        for (var guard = 0; guard < 400; guard++)
+        {
+            var ready = game.State.ActivePlayerId == table.Alice
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == table.Alice
+                && game.State.Stack.IsEmpty;
+
+            if (ready)
+                return;
+
+            if (game.State.Choice is { } pending)
+                game.Choose(pending.PlayerId, [pending.Options[0].Id]);
+            else if (game.State.Priority.Holder is { } holder)
+                game.PassPriority(holder);
+            else
+                return;
+        }
+    }
+
+    [Fact]
+    public async Task A_cast_naming_more_cards_than_any_cost_could_need_is_refused()
+    {
+        // A hub method is not a controller, so DataAnnotations never run on what it is sent. The
+        // cap is checked by hand, and it has to come back as a refusal rather than as a fault.
+        var table = await TableAsync();
+
+        var cast = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 20 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return game.Create(table.Alice, Card("Hub Cap Test"), Zone.Hand);
+        });
+
+        var tooMany = Enumerable
+            .Range(0, CastOptionsDto.MaxChoices + 1)
+            .Select(_ => Guid.NewGuid())
+            .ToList();
+
+        await table.Hub.CastSpell(
+            table.GameId, cast.Value, targets: null, variableValue: 0, new CastOptionsDto(Delve: tooMany));
+
+        Assert.Single(table.Clients.Refusals);
+        Assert.Empty(await table.Sessions.Find(table.GameId)!.MutateAsync(game => game.State.Stack));
+    }
+
+    [Fact]
+    public async Task A_negative_share_of_divided_damage_is_refused_by_the_hub()
+    {
+        // The engine checks the division against what the spell deals (CR 601.2d) and would let
+        // -1 and 4 sum to 3. The hub is where "not an amount of damage" is caught, because a
+        // negative share would heal the target while the total still added up.
+        var table = await TableAsync();
+
+        var cast = await table.Sessions.Find(table.GameId)!.MutateAsync(game =>
+        {
+            for (var guard = 0; guard < 20 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, ["keep"]);
+
+            return game.Create(table.Alice, Card("Hub Division Test"), Zone.Hand);
+        });
+
+        await table.Hub.CastSpell(
+            table.GameId,
+            cast.Value,
+            targets: null,
+            variableValue: 0,
+            new CastOptionsDto(DamageDivision: [-1, 4]));
+
+        Assert.Single(table.Clients.Refusals);
+        Assert.Empty(await table.Sessions.Find(table.GameId)!.MutateAsync(game => game.State.Stack));
     }
 
     [Fact]

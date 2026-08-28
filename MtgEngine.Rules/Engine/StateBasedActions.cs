@@ -41,9 +41,11 @@ public static class StateBasedActions
         CheckPlayers(state, events);
         CheckCreatures(state, abilities, events);
         CheckPlaneswalkers(state, events);
+        CheckAuras(state, abilities, events);
+        CheckEquipment(state, events);
         CheckTokens(state, events);
         CheckCounters(state, events);
-        CheckLegendRule(state, events);
+        CheckSagas(state, abilities, events);
 
         return events;
     }
@@ -119,9 +121,12 @@ public static class StateBasedActions
             var damage = obj.Permanent?.DamageMarked ?? 0;
             if (damage >= toughness && !indestructible)
             {
+                // Destroyed, not merely moved: CR 704.5g destroys, and regeneration replaces
+                // destruction. Zero toughness above is a different rule (CR 704.5f) and is not
+                // destruction, which is why regeneration cannot save a creature from it.
                 events.Add(new ObjectMoved(
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
-                    obj.ControllerId, MoveCause.StateBasedAction));
+                    obj.ControllerId, MoveCause.Destroy));
                 continue;
             }
 
@@ -131,8 +136,83 @@ public static class StateBasedActions
             {
                 events.Add(new ObjectMoved(
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
-                    obj.ControllerId, MoveCause.StateBasedAction));
+                    obj.ControllerId, MoveCause.Destroy));
             }
+        }
+    }
+
+    /// <summary>
+    /// An Aura attached to nothing, or to something illegal, goes to the graveyard (CR 704.5m).
+    /// </summary>
+    /// <remarks>
+    /// Equipment does not: it stays on the battlefield unattached (CR 301.5c), which is why this
+    /// asks about the card's type rather than about whether it is attached. The commonest way to
+    /// reach the state is the creature dying — the Aura is left holding nothing.
+    /// </remarks>
+    private static void CheckAuras(GameState state, IAbilitySource abilities, List<GameEvent> events)
+    {
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is not { } permanent)
+                continue;
+
+            if (!obj.Card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            // An Aura may be attached to a player rather than a permanent (CR 303.4a), and a
+            // player does not leave the battlefield - so the only question for one of those is
+            // whether that player is still in the game.
+            //
+            // "Still in the game" is not "still in the dictionary": a player who loses keeps
+            // their seat in `Players` and is marked `HasLost`, which is how turn order skips
+            // them. Asking `ContainsKey` was therefore always true, and an Aura enchanting an
+            // eliminated player sat on the battlefield for the rest of the game. Only visible
+            // at three seats or more, because at two the game ends with the player.
+            if (permanent.AttachedToPlayer is { } enchanted)
+            {
+                if (state.Players.ContainsKey(enchanted)
+                    && !state.GetPlayer(enchanted).HasLost)
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                var host = permanent.AttachedTo;
+                var attachedToSomething = host is { } h
+                    && state.TryGetObject(h, out var target)
+                    && target.Zone == Zone.Battlefield;
+
+                if (attachedToSomething)
+                    continue;
+            }
+
+            events.Add(new ObjectMoved(
+                id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                obj.ControllerId, MoveCause.StateBasedAction));
+        }
+    }
+
+    /// <summary>
+    /// Equipment whose creature has gone comes loose but stays put (CR 301.5c).
+    /// </summary>
+    private static void CheckEquipment(GameState state, List<GameEvent> events)
+    {
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is not { AttachedTo: { } host })
+                continue;
+
+            if (obj.Card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            var stillThere = state.TryGetObject(host, out var target)
+                && target.Zone == Zone.Battlefield;
+
+            if (!stillThere)
+                events.Add(new PermanentAttached(id, null));
         }
     }
 
@@ -156,12 +236,65 @@ public static class StateBasedActions
         }
     }
 
+    private static void CheckSagas(
+        GameState state, IAbilitySource abilities, List<GameEvent> events)
+    {
+        // CR 714.4: once a Saga's lore counters reach its final chapter number, and it is not
+        // the source of a chapter ability still on the stack, its controller sacrifices it.
+        //
+        // The second half is the whole of why this is not a one-line check. The final chapter
+        // triggers on the same counter that finishes the Saga, so at the moment the count is
+        // reached the ability has not resolved yet - and a Saga sacrificed before its last
+        // chapter resolves is a Saga that never does the thing it was played for.
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is null)
+                continue;
+
+            var chapters = abilities.TriggersOf(obj.Card)
+                .Where(t => t.Chapter is not null)
+                .Select(t => t.Chapter!.Value)
+                .ToList();
+
+            // CR 714.2d: a Saga with no chapter abilities has a final chapter number of 0, and
+            // this rule does not touch it. Reading that as "0 >= 0, sacrifice it" would destroy
+            // every Saga whose chapters went unread the moment it arrived.
+            if (chapters.Count == 0)
+                continue;
+
+            if (obj.Permanent.Counters.GetValueOrDefault(CounterKinds.Lore) < chapters.Max())
+                continue;
+
+            var onStack = state.Stack.Any(stacked =>
+                state.TryGetObject(stacked, out var waiting)
+                && waiting.Ability is { } ability
+                && ability.SourceId == id
+                && abilities.TriggersOf(waiting.Card)
+                    .Any(t => t.Id == ability.AbilityId && t.Chapter is not null));
+
+            if (onStack)
+                continue;
+
+            events.Add(new ObjectMoved(
+                id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                obj.ControllerId, MoveCause.Sacrifice));
+        }
+    }
+
     private static void CheckTokens(GameState state, List<GameEvent> events)
     {
         // CR 704.5d: a token anywhere but the battlefield ceases to exist. It gets there first —
         // it is put into a graveyard and then stops existing — so this runs on the next check.
         foreach (var (id, obj) in state.Objects)
         {
+            // An ability on the stack is not the permanent it came from, even though it carries
+            // that permanent's card so its text can be shown (CR 113.7a). Without this test, a
+            // token's own dies-trigger was destroyed by this rule the instant it went on the
+            // stack — so no token with a triggered ability had ever resolved one.
+            if (obj.Ability is not null)
+                continue;
+
             if (obj.Zone != Zone.Battlefield && obj.Card.CardTypes.HasFlag(CardType.Token))
                 events.Add(new ObjectCeasedToExist(id, obj.Zone));
         }
@@ -185,40 +318,5 @@ public static class StateBasedActions
             events.Add(new CountersChanged(id, CounterKinds.PlusOnePlusOne, -pairs));
             events.Add(new CountersChanged(id, CounterKinds.MinusOneMinusOne, -pairs));
         }
-    }
-
-    private static void CheckLegendRule(GameState state, List<GameEvent> events)
-    {
-        // CR 704.5j. The rules let the controller choose which one to keep; with nothing to
-        // distinguish them the engine keeps the one that has been there longest, which is the
-        // only choice that does not depend on dictionary order. Making it the player's choice
-        // needs the choice machinery that arrives with the effect system.
-        var legends = state.Battlefield
-            .Select(state.GetObject)
-            .Where(o => o.Card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase))
-            .GroupBy(o => (o.ControllerId, o.Card.Name), StringTupleComparer.Instance);
-
-        foreach (var group in legends)
-        {
-            var duplicates = group.OrderBy(o => o.Timestamp).Skip(1).ToList();
-            foreach (var doomed in duplicates)
-            {
-                events.Add(new ObjectMoved(
-                    doomed.Id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
-                    doomed.ControllerId, MoveCause.StateBasedAction));
-            }
-        }
-    }
-
-    /// <summary>Groups legendary permanents by controller and name, comparing names ordinally.</summary>
-    private sealed class StringTupleComparer : IEqualityComparer<(Guid, string)>
-    {
-        public static readonly StringTupleComparer Instance = new();
-
-        public bool Equals((Guid, string) x, (Guid, string) y) =>
-            x.Item1 == y.Item1 && string.Equals(x.Item2, y.Item2, StringComparison.Ordinal);
-
-        public int GetHashCode((Guid, string) obj) =>
-            HashCode.Combine(obj.Item1, obj.Item2);
     }
 }

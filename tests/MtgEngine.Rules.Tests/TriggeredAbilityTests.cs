@@ -59,6 +59,139 @@ public sealed class TriggeredAbilityTests
         return (game, alice, bob);
     }
 
+    /// <summary>A trigger that must be pointed at a creature (CR 603.3d).</summary>
+    private static TriggeredAbilityDefinition OnEnterTargetCreature() => new()
+    {
+        Id = "etb-target",
+        Text = "When this enters, put a +1/+1 counter on target creature.",
+        Triggers = (e, state, source) =>
+            e is ObjectMoved { To: Zone.Battlefield } m && m.NewId == source.Id,
+        Targets =
+        [
+            new TargetSpec
+            {
+                Kind = TargetKind.Permanent,
+                Description = "target creature",
+                ObjectFilter = (state, abilities, obj, controller) =>
+                    Characteristics.Of(state, abilities, obj).IsCreature,
+            },
+        ],
+        Effects = [new PutCounters(CounterKinds.PlusOnePlusOne, 1)],
+    };
+
+    /// <summary>A trigger that can only be pointed across the table (CR 109.5).</summary>
+    private static TriggeredAbilityDefinition OnEnterTargetOpponentCreature() => new()
+    {
+        Id = "etb-target-theirs",
+        Text = "When this enters, put a +1/+1 counter on target creature an opponent controls.",
+        Triggers = (e, state, source) =>
+            e is ObjectMoved { To: Zone.Battlefield } m && m.NewId == source.Id,
+        Targets =
+        [
+            new TargetSpec
+            {
+                Kind = TargetKind.Permanent,
+                Description = "target creature an opponent controls",
+                ObjectFilter = (state, abilities, obj, controller) =>
+                    obj.ControllerId != controller
+                    && Characteristics.Of(state, abilities, obj).IsCreature,
+            },
+        ],
+        Effects = [new PutCounters(CounterKinds.PlusOnePlusOne, 1)],
+    };
+
+    [Fact]
+    public void A_targeting_trigger_asks_its_controller_for_a_target()
+    {
+        // CR 603.3d: the targets are chosen as the ability goes on the stack, which is why an
+        // opponent can respond knowing what it is aimed at.
+        var (game, alice, _) = InMainPhase(new Abilities(("watcher", OnEnterTargetCreature())));
+        game.Create(alice, TestCards.Creature("Bear"), Zone.Battlefield);
+        // Created in hand and moved, because an enters-the-battlefield trigger watches for the
+        // move (CR 603.6a) and a permanent conjured straight onto the battlefield never made one.
+        game.Move(game.Create(alice, TestCards.Watcher(), Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+
+        TestCards.PassUntil(game, () => game.State.IsWaitingForChoice);
+
+        Assert.Equal(ChoiceKind.ChooseTriggerTargets, game.State.Choice!.Kind);
+        Assert.Equal(alice, game.State.Choice.PlayerId);
+    }
+
+    [Fact]
+    public void Two_of_the_same_card_are_offered_as_distinguishable_options()
+    {
+        // A board with the same creature on both sides offers two buttons reading "Bear", and a
+        // player cannot tell which one they are pointing at. Whose it is goes on the label.
+        var (game, alice, bob) = InMainPhase(new Abilities(("watcher", OnEnterTargetCreature())));
+        game.Create(alice, TestCards.Creature("Bear"), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Bear"), Zone.Battlefield);
+        game.Move(game.Create(alice, TestCards.Watcher(), Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+
+        TestCards.PassUntil(game, () => game.State.IsWaitingForChoice);
+
+        var labels = game.State.Choice!.Options.Select(o => o.Label).ToList();
+        Assert.Equal(labels.Count, labels.Distinct(StringComparer.Ordinal).Count());
+        Assert.Contains(labels, l => l.Contains("(yours)", StringComparison.Ordinal));
+        Assert.Contains(labels, l => l.Contains("Bob", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_targeting_trigger_carries_the_chosen_target_onto_the_stack()
+    {
+        var (game, alice, _) = InMainPhase(new Abilities(("watcher", OnEnterTargetCreature())));
+        var bear = game.Create(alice, TestCards.Creature("Bear"), Zone.Battlefield);
+        // Created in hand and moved, because an enters-the-battlefield trigger watches for the
+        // move (CR 603.6a) and a permanent conjured straight onto the battlefield never made one.
+        game.Move(game.Create(alice, TestCards.Watcher(), Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+
+        TestCards.PassUntil(game, () => game.State.IsWaitingForChoice);
+        var choice = game.State.Choice!;
+        var pick = choice.Options.Single(o => o.Id.EndsWith(bear.Value.ToString("N"), StringComparison.Ordinal));
+        game.Choose(alice, [pick.Id]);
+
+        var onStack = game.State.Stack.Select(id => game.State.GetObject(id)).Single();
+        Assert.Equal(Target.ToPermanent(bear), onStack.Targets.Single());
+    }
+
+    [Fact]
+    public void A_targeting_trigger_with_no_legal_target_never_reaches_the_stack()
+    {
+        // CR 603.3d. It must target a creature an opponent controls, and the opponent has none —
+        // the source itself is a creature but is not a legal target for this one. The ability is
+        // removed rather than sitting on the stack waiting to resolve into nothing.
+        var (game, alice, _) = InMainPhase(
+            new Abilities(("watcher", OnEnterTargetOpponentCreature())));
+        // Created in hand and moved, because an enters-the-battlefield trigger watches for the
+        // move (CR 603.6a) and a permanent conjured straight onto the battlefield never made one.
+        game.Move(game.Create(alice, TestCards.Watcher(), Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+
+        TestCards.PassUntil(game, () => game.State.PendingTriggers.IsEmpty, guard: 200);
+
+        Assert.Empty(game.State.Stack);
+        Assert.Empty(game.State.PendingTriggers);
+        Assert.Contains(game.Log, e => e is TriggerRemovedForNoTargets);
+    }
+
+    [Fact]
+    public void A_game_that_answered_a_trigger_target_still_replays_to_the_same_state()
+    {
+        // The property the engine rests on. A choice made mid-settle has to fold back the same
+        // way, which is why the answer is an event rather than a captured continuation.
+        var (game, alice, _) = InMainPhase(new Abilities(("watcher", OnEnterTargetCreature())));
+        var bear = game.Create(alice, TestCards.Creature("Bear"), Zone.Battlefield);
+        // Created in hand and moved, because an enters-the-battlefield trigger watches for the
+        // move (CR 603.6a) and a permanent conjured straight onto the battlefield never made one.
+        game.Move(game.Create(alice, TestCards.Watcher(), Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+
+        TestCards.PassUntil(game, () => game.State.IsWaitingForChoice);
+        var choice = game.State.Choice!;
+        game.Choose(
+            alice,
+            [choice.Options.Single(o => o.Id.EndsWith(bear.Value.ToString("N"), StringComparison.Ordinal)).Id]);
+
+        Assert.Equal(game.State, Engine.GameReducer.Replay(game.Log));
+    }
+
     [Fact]
     public void Nothing_happens_at_the_moment_an_ability_triggers()
     {

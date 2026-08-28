@@ -117,7 +117,8 @@ internal static class CardParser
             var subtypes = ParseSubtypes(typeLine);
             var supertypes = ParseSupertypes(typeLine);
             var keywords = ParseKeywords(json);
-            var colorId = ParseColorIdentity(json);
+            var colorId = ParseColorIdentity(json, "color_identity");
+            var colors = ParseColorIdentity(json, "colors");
             var legalities = ParseLegalities(json);
             var gameChanger = json.TryGetProperty("game_changer", out var gcEl) && gcEl.GetBoolean();
 
@@ -137,6 +138,7 @@ internal static class CardParser
                 StartingLoyalty = loyalty,
                 Keywords = keywords,
                 ColorIdentity = colorId,
+                Colors = colors,
                 ImageUriNormal = imgNormal,
                 ImageUriLarge = imgLarge,
                 ImageUriNormalBack = imgNormalBack,
@@ -179,6 +181,7 @@ internal static class CardParser
             StartingLoyalty = oracle.StartingLoyalty,
             Keywords = oracle.Keywords,
             ColorIdentity = oracle.ColorIdentity,
+            Colors = oracle.Colors,
             FlavorText = oracle.FlavorText,
             Artist = oracle.Artist,
             Rarity = oracle.Rarity,
@@ -318,19 +321,42 @@ internal static class CardParser
         return flags;
     }
 
+    /// <summary>
+    /// The subtypes of a card's front face (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// A double-faced card prints both faces' type lines with "//" between them, and taking
+    /// everything after the first dash swept the whole back face in. "Legendary Creature —
+    /// Human Werewolf // Legendary Creature — Werewolf" gave the front face the subtypes
+    /// "Human", "Werewolf", "//", "Legendary" and "Creature" — so a Human answered to "target
+    /// Werewolf" before it had transformed, and 642 cards carried a subtype named "//".
+    /// <para>
+    /// The card's characteristics are its front face's while it is anywhere but the battlefield
+    /// (CR 712.4a); the back face has its own entry in <c>Faces</c> and is read from there.
+    /// </para>
+    /// </remarks>
     private static IReadOnlyList<string> ParseSubtypes(string typeLine)
     {
-        var idx = typeLine.IndexOf('—');
+        var front = FrontFace(typeLine);
+        var idx = front.IndexOf('—');
         if (idx < 0)
             return [];
-        return typeLine[(idx + 1)..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return front[(idx + 1)..].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
     }
 
     private static IReadOnlyList<string> ParseSupertypes(string typeLine)
     {
+        // Same trap as the subtypes, and quieter: a card whose back face alone is legendary was
+        // legendary on the front too, which is a state-based action away from being sacrificed
+        // next to its own twin (CR 704.5j).
+        var front = FrontFace(typeLine);
         var supers = new[] { "Legendary", "Basic", "Snow", "World" };
-        return supers.Where(typeLine.Contains).ToArray();
+        return supers.Where(front.Contains).ToArray();
     }
+
+    /// <summary>The half of a printed type line that describes the front face.</summary>
+    private static string FrontFace(string typeLine) =>
+        typeLine.Split("//", StringSplitOptions.None)[0].Trim();
 
     private static KeywordAbility ParseKeywords(JsonElement json)
     {
@@ -357,6 +383,24 @@ internal static class CardParser
                 "Flash" => KeywordAbility.Flash,
                 "Shroud" => KeywordAbility.Shroud,
                 "Defender" => KeywordAbility.Defender,
+                "Swampwalk" => KeywordAbility.Swampwalk,
+                "Forestwalk" => KeywordAbility.Forestwalk,
+                "Islandwalk" => KeywordAbility.Islandwalk,
+                "Mountainwalk" => KeywordAbility.Mountainwalk,
+                "Plainswalk" => KeywordAbility.Plainswalk,
+                "Horsemanship" => KeywordAbility.Horsemanship,
+                "Fear" => KeywordAbility.Fear,
+                "Shadow" => KeywordAbility.Shadow,
+                "Intimidate" => KeywordAbility.Intimidate,
+                "Skulk" => KeywordAbility.Skulk,
+                "Flanking" => KeywordAbility.Flanking,
+                "Banding" => KeywordAbility.Banding,
+                "Infect" => KeywordAbility.Infect,
+                "Wither" => KeywordAbility.Wither,
+                "Changeling" => KeywordAbility.Changeling,
+                "Daybound" => KeywordAbility.Daybound,
+                "Nightbound" => KeywordAbility.Nightbound,
+                "Enlist" => KeywordAbility.Enlist,
                 _ => KeywordAbility.None,
             };
         }
@@ -373,10 +417,23 @@ internal static class CardParser
         return result;
     }
 
-    private static IReadOnlyList<ManaColor> ParseColorIdentity(JsonElement json)
+    /// <summary>
+    /// One of Scryfall's two colour lists, by name. "colors" is what the card is (CR 202.2);
+    /// "color_identity" is what it may be played alongside (CR 903.4), and they differ.
+    /// </summary>
+    private static IReadOnlyList<ManaColor> ParseColorIdentity(JsonElement json, string field)
     {
-        if (!json.TryGetProperty("color_identity", out var ci))
+        if (!json.TryGetProperty(field, out var ci) || ci.ValueKind != JsonValueKind.Array)
+        {
+            if (json.TryGetProperty("card_faces", out var faces)
+                && faces.ValueKind == JsonValueKind.Array
+                && faces.EnumerateArray().FirstOrDefault() is { ValueKind: JsonValueKind.Object } front)
+            {
+                return ParseColorIdentity(front, field);
+            }
+
             return [];
+        }
         return ci.EnumerateArray()
             .Select(c => c.GetString() switch
             {

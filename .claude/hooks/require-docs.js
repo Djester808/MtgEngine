@@ -42,13 +42,36 @@ const RULES = [
   },
   {
     test: /(^|\/)mtgengine\.rules\//,
-    docs: ['MtgEngine.Api/Knowledge/comprehensive-rules.txt'],
+    docs: [
+      'MtgEngine.Api/Knowledge/comprehensive-rules.txt',
+      'GAME_ENGINE_FEATURE.md',
+    ],
     why: 'The engine implements this document. The previous engine was written from memory of the rules rather than from the rules, and its priority, layer and SBA models were each wrong in a way the text would have caught — read the sections you are implementing.',
   },
   {
     test: /(collectionservice|collectioncard|collectionscontroller|pricehistoryservice|pricesnapshotworker)\.cs$/,
     docs: ['CARD_COLLECTION_FEATURE.md'],
     why: 'The collection/price domain and its DTO shapes are defined there.',
+  },
+  {
+    test: /(lifematchservice|matchescontroller|tokenservice|lifecounterdtos|lifematch)\.cs$/,
+    docs: ['LIFE_COUNTER_FEATURE.md'],
+    why: 'A seat counts towards an account only when that account signed in at that seat, and the token check is the only thing enforcing it. What that buys and what it does not is decided there.',
+  },
+  {
+    test: /(^|\/)mtg-client\/src\/app\/tools\/life-counter\//,
+    docs: ['LIFE_COUNTER_FEATURE.md'],
+    why: 'Which numbers the counter keeps, the rule behind each, and why the backdrops are stored apart from the table.',
+  },
+  {
+    test: /(^|\/)mtgengine\.api\/cards\/|(gamehub|startercards|cardpool)\.cs$/,
+    docs: ['GAME_ENGINE_FEATURE.md'],
+    why: 'How a card gets behaviour, what the view has to tell the board, and the rule the whole feature turns on: the engine is the authority and the board may never permit what it forbids.',
+  },
+  {
+    test: /(^|\/)mtg-client\/src\/app\/(board|game|components\/(zones|hand|stack|card|player-sidebar))\//,
+    docs: ['GAME_ENGINE_FEATURE.md'],
+    why: 'The board is the engine\'s face. Its legality checks are a deliberate second copy of a few rules, and what that costs is written down there.',
   },
   {
     test: /(profileservice|profilecontroller|userscontroller|avatarimage|profiledtos)\.cs$/,

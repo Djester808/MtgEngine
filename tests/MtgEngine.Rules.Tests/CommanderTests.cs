@@ -220,6 +220,26 @@ public sealed class CommanderTests
     }
 
     [Fact]
+    public void Combat_damage_from_an_ordinary_creature_is_not_commander_damage()
+    {
+        // CR 903.10a counts damage "from a single commander", not damage from its controller's
+        // board. Every other test here puts a commander in front of the damage, so deleting the
+        // check that the source *is* the commander broke none of them - and with it gone any
+        // twenty-one damage from any mixture of creatures ends the game, at forty life, by the
+        // rule that is supposed to be the hard way to win.
+        var (game, alice, bob) = Commander1v1();
+        var soldier = game.Create(
+            alice, TestCards.Creature("Ordinary Soldier", 3, 3), Zone.Battlefield);
+
+        game.MarkDamageToPlayer(bob, soldier, 21);
+        game.PassPriority(alice);
+
+        Assert.Empty(game.State.GetPlayer(bob).CommanderDamage);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+        Assert.False(game.State.GetPlayer(bob).HasLost);
+    }
+
+    [Fact]
     public void A_game_with_no_commander_is_unaffected()
     {
         var (game, alice, bob) = TestCards.TwoPlayer();

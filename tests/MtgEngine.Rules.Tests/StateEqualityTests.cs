@@ -1,6 +1,11 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
+using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
@@ -111,5 +116,237 @@ public sealed class StateEqualityTests
         var replayed = GameReducer.Replay(game.Log);
 
         Assert.Equal(game.State.GetHashCode(), replayed.GetHashCode());
+    }
+    /// <summary>
+    /// Every field of a permanent's state is part of whether two of them are the same.
+    /// </summary>
+    /// <remarks>
+    /// <c>GameReducer.Replay(log) == State</c> is the invariant the whole engine rests on, and
+    /// every behaviour test in the suite asserts it on the way past. A field left out of
+    /// <c>Equals</c> does not break that assertion - it <em>defeats</em> it: the replayed state
+    /// differs from the real one in exactly that field and the comparison says they match.
+    /// <para>
+    /// Three separate vocabulary lists in this engine have gone stale by being written twice, and
+    /// this is the same shape - a hand-written comparison beside a growing record. Four fields
+    /// were added to these two types in one session (a Class's level, a Case's solved flag, a
+    /// Room's open doors, a card on an adventure); nothing but care was stopping the fifth from
+    /// being missed.
+    /// </para>
+    /// <para>
+    /// The test varies one property at a time and asserts the result is no longer equal. A
+    /// property it cannot vary is reported rather than skipped quietly, so a new field of an
+    /// unfamiliar type fails loudly instead of being waved through.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_field_of_a_permanent_is_part_of_its_identity()
+        => AssertEveryFieldCounts(new PermanentState());
+
+    /// <summary>Every field of an object's state is part of its identity, for the same reason.</summary>
+    [Fact]
+    public void Every_field_of_an_object_is_part_of_its_identity()
+        => AssertEveryFieldCounts(new GameObject
+        {
+            Id = ObjectId.New(),
+            Card = TestCards.Creature("Identity Bear"),
+            Zone = Zone.Battlefield,
+            OwnerId = Guid.NewGuid(),
+            ControllerId = Guid.NewGuid(),
+            Timestamp = 1,
+        });
+
+    /// <summary>A player's state is folded from the log too, and compared the same way.</summary>
+    [Fact]
+    public void Every_field_of_a_player_is_part_of_their_identity()
+        => AssertEveryFieldCounts(new PlayerState
+        {
+            PlayerId = Guid.NewGuid(),
+            Name = "Identity",
+            Life = 20,
+        });
+
+    /// <summary>
+    /// Every settable characteristic survives both of the builder's copy paths (CR 613.8).
+    /// </summary>
+    /// <remarks>
+    /// `CharacteristicsBuilder` is copied twice over: once into a throwaway that answers a
+    /// dependency question, and once into the `ComputedCharacteristics` everything downstream
+    /// reads. A field added to one and not the other is silent - the effect works while it is
+    /// being computed and is gone by the time anything looks, or the dependency check answers
+    /// about a characteristic the real computation will not have.
+    /// <para>
+    /// Found the hard way: adding `MinBlockers` landed in one path and not the other and the
+    /// build was perfectly happy. Reached by reflection rather than by opening the type up,
+    /// because the seam is internal on purpose and a test is not a reason to widen it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_characteristic_survives_both_copy_paths()
+    {
+        var builderType = typeof(Characteristics).Assembly
+            .GetType("MtgEngine.Rules.Abilities.CharacteristicsBuilder")!;
+
+        var subject = new GameObject
+        {
+            Id = ObjectId.New(),
+            Card = TestCards.Creature("Copy Path Bear"),
+            Zone = Zone.Battlefield,
+            OwnerId = Guid.NewGuid(),
+            ControllerId = Guid.NewGuid(),
+            Timestamp = 1,
+        };
+
+        var builder = Activator.CreateInstance(
+            builderType,
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            args: [subject],
+            culture: null)!;
+
+        var copyMethod = builderType.GetMethod(
+            "Copy", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var buildMethod = builderType.GetMethod(
+            "Build", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var missed = new List<string>();
+
+        foreach (var property in builderType.GetProperties())
+        {
+            if (property.SetMethod is null || property.GetIndexParameters().Length > 0)
+                continue;
+
+            var varied = Vary(property.GetValue(builder), property.PropertyType);
+            if (varied is null)
+                continue;
+
+            property.SetValue(builder, varied);
+
+            var copy = copyMethod.Invoke(builder, null)!;
+            if (!Equals(builderType.GetProperty(property.Name)!.GetValue(copy), varied))
+                missed.Add($"{property.Name} is lost by Copy()");
+
+            var built = buildMethod.Invoke(builder, null)!;
+            var onComputed = built.GetType().GetProperty(property.Name);
+            if (onComputed is not null && !Equals(onComputed.GetValue(built), varied))
+                missed.Add($"{property.Name} is lost by Build()");
+        }
+
+        Assert.True(missed.Count == 0, string.Join(", ", missed));
+    }
+
+    private static void AssertEveryFieldCounts<T>(T baseline)
+        where T : notnull
+    {
+        var missed = new List<string>();
+        var unvaried = new List<string>();
+
+        foreach (var property in typeof(T).GetProperties())
+        {
+            if (property.SetMethod is null || property.GetIndexParameters().Length > 0)
+                continue;
+
+            var current = property.GetValue(baseline);
+            if (Vary(current, property.PropertyType) is not { } different)
+            {
+                unvaried.Add($"{property.Name} ({property.PropertyType.Name})");
+                continue;
+            }
+
+            var changed = (T)typeof(T)
+                .GetMethod("<Clone>$", BindingFlags.Instance | BindingFlags.Public)!
+                .Invoke(baseline, null)!;
+
+            property.SetValue(changed, different);
+
+            if (baseline.Equals(changed))
+                missed.Add(property.Name);
+        }
+
+        Assert.True(
+            unvaried.Count == 0,
+            $"{typeof(T).Name}: no way to vary these, so they were never checked:\n  "
+                + string.Join("\n  ", unvaried));
+
+        Assert.True(
+            missed.Count == 0,
+            $"{typeof(T).Name}: changing these leaves the state equal, so a replay that got them "
+                + $"wrong would still be reported as matching:\n  " + string.Join("\n  ", missed));
+    }
+
+    /// <summary>A value of this type that is not the one given.</summary>
+    private static object? Vary(object? current, Type type)
+    {
+        var bare = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (bare == typeof(bool))
+            return !(bool)(current ?? false);
+
+        if (bare == typeof(int))
+            return (int)(current ?? 0) + 1;
+
+        if (bare == typeof(long))
+            return (long)(current ?? 0L) + 1L;
+
+        if (bare == typeof(Guid))
+            return Guid.NewGuid();
+
+        if (bare == typeof(ObjectId))
+            return ObjectId.New();
+
+        if (bare == typeof(string))
+            return (current as string ?? string.Empty) + "different";
+
+        if (bare.IsEnum)
+        {
+            return Enum.GetValues(bare)
+                .Cast<object>()
+                .FirstOrDefault(v => !v.Equals(current));
+        }
+
+        // The collections and the records inside the state each have their own shape, so they are
+        // varied by asking them for one more of whatever they hold.
+        if (current is ImmutableHashSet<int> ints)
+            return ints.Add(ints.Count + 1);
+
+        if (current is ImmutableHashSet<ObjectId> ids)
+            return ids.Add(ObjectId.New());
+
+        if (current is ImmutableList<int> list)
+            return list.Add(list.Count + 1);
+
+        if (current is ImmutableList<ObjectId> objects)
+            return objects.Add(ObjectId.New());
+
+        if (current is ImmutableList<Target> targets)
+            return targets.Add(Target.ToPlayer(Guid.NewGuid()));
+
+        if (current is ImmutableList<CardDefinition> cards)
+            return cards.Add(TestCards.Creature("Identity Spliced"));
+
+        if (bare == typeof(AbilityOnStack))
+        {
+            return current is null
+                ? new AbilityOnStack
+                {
+                    SourceId = ObjectId.New(),
+                    AbilityId = "different",
+                    Text = "different",
+                }
+                : null;
+        }
+
+        if (current is ImmutableDictionary<string, int> counters)
+            return counters.SetItem("different", counters.Count + 1);
+
+        if (bare == typeof(PermanentState))
+            return current is null ? new PermanentState() : null;
+
+        if (bare == typeof(CardDefinition))
+            return TestCards.Creature("Identity Other");
+
+        if (bare == typeof(ManaPool))
+            return current is ManaPool pool ? pool.Add(ManaColor.Green, 1) : null;
+
+        return null;
     }
 }
