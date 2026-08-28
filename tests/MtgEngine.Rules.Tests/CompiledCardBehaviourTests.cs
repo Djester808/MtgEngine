@@ -9616,6 +9616,427 @@ public sealed class CompiledCardBehaviourTests
             3, Characteristics.Of(game.State, Pool, game.State.GetObject(measured)).Power);
     }
 
+    // ---- A condition in the middle of an effect (CR 608.2c) -------------------
+
+    /// <summary>"If you control a Swamp, destroy target nonblack creature." — Horobi's Whisper.</summary>
+    /// <remarks>
+    /// Both halves of this sentence had been readable for a long time and there was no way to say
+    /// them together: <c>BoardConditions</c> is the condition vocabulary the statics, the
+    /// activation restrictions and the trigger's intervening "if" all share, and <c>OnlyIf</c> is
+    /// the wrapper that guards effects with one — but nothing let a plain sentence reach either.
+    /// 94 cards were one line short with both halves of that line already understood.
+    /// <para>
+    /// This "if" is <em>not</em> an intervening one and is checked once, as the instruction is
+    /// carried out (CR 608.2c). CR 603.4 gives the double check only to an "if" immediately
+    /// following a trigger condition, and says outright that everywhere else the word has its
+    /// normal English meaning.
+    /// </para>
+    /// <para>
+    /// Both states are asserted, because that is the only thing that separates this reader from
+    /// the mistake it is one line away from: a condition quietly defaulted to true compiles, plays,
+    /// and passes every test that only ever satisfies it. The spell is cast at the same creature
+    /// twice, once with the Swamp and once without.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_condition_inside_an_effect_is_checked_when_the_effect_resolves()
+    {
+        var whisper = Card(
+            "Conditional Destroy Test", "If you control a Swamp, destroy target nonblack creature.");
+
+        var compiled = CardCompiler.Compile(whisper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Conditional Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, whisper), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // No Swamp, so the spell resolved and the condition refused it. The card is in the
+        // graveyard either way, which is why the creature is what this asserts on.
+        Assert.Contains(bear, game.State.Battlefield);
+
+        game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, whisper), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Single(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    /// <summary>"If you control an artifact, draw a card and you gain 2 life."</summary>
+    /// <remarks>
+    /// The guarded half is the <em>whole</em> remainder, and this is what says so. Handing the
+    /// conjunction to the sentence splitter instead would guard the draw and leave the life gain
+    /// unconditional — a card strictly better than the one printed, and one that would look
+    /// right in every test that satisfies the condition. So a remainder the parser cannot read
+    /// leaves the sentence unread rather than falling through to that split.
+    /// </remarks>
+    [Fact]
+    public void A_conditional_sentence_guards_everything_after_the_comma()
+    {
+        var relic = Card(
+            "Conditional Pair Test", "If you control an artifact, draw a card and you gain 2 life.");
+
+        var compiled = CardCompiler.Compile(relic);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, relic), targets: null);
+        Settle(game);
+
+        // The copy that was put in hand to be cast is gone and nothing replaced it, and the life
+        // gain the "and" joined to the draw stayed behind with it.
+        Assert.Equal(held, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.Create(alice, Card("Conditional Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, relic), targets: null);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- A pump that also grants, said about the source ----------------------
+
+    /// <summary>"{2}{U}{U}: ~ gets +2/+2 and gains flying until end of turn." — Mistform Stalker.</summary>
+    /// <remarks>
+    /// The targeted twin of this sentence has worked for a long time and the source form stopped
+    /// at the size, so every card saying it about itself was unread — 34 corpus occurrences, and
+    /// 37 more in the pronoun form below. Both halves are asserted, because a reader that took
+    /// the sentence and dropped the grant would compile perfectly and still be a weaker card.
+    /// <para>
+    /// The refusal is asserted beside it. Phasing is a real keyword the engine cannot grant, and
+    /// a card that got the +2/+2 without the rest of what it said would look implemented; leaving
+    /// the line unread is the honest answer, and it is the one the targeted reader already gives.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_self_pump_grants_its_keyword_in_the_same_sentence()
+    {
+        var stalker = Card(
+            "Self Pump Grant Test",
+            "{2}{U}{U}: ~ gets +2/+2 and gains flying until end of turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(stalker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, stalker, Zone.Battlefield);
+
+        foreach (var name in new[] { "Island", "Island", "Mountain", "Mountain" })
+            game.ActivateAbility(alice, game.Create(alice, TestCards.BasicLand(name), Zone.Battlefield), "mana");
+
+        game.ActivateAbility(alice, creature, "a");
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(4, computed.Power);
+        Assert.True(computed.Has(KeywordAbility.Flying));
+
+        var unreadable = CardCompiler.Compile(Card(
+            "Self Pump Phasing Test",
+            "{2}{U}{U}: ~ gets +2/+2 and gains phasing until end of turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2));
+
+        Assert.False(unreadable.IsComplete);
+    }
+
+    /// <summary>
+    /// "Gain control of target creature until end of turn. Untap that creature. It gets +2/+0 and
+    /// gains haste until end of turn." — Malevolent Whispers.
+    /// </summary>
+    /// <remarks>
+    /// The pronoun carries the grant to whatever the sentences before it named, which on this
+    /// card is a creature the caster does not own. That is what makes it the right test: all
+    /// three clauses have to land on the same permanent, and the haste is the only one of them a
+    /// stolen creature notices — without it the card gains a creature that cannot attack, which
+    /// is the whole point of the spell.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_pump_grants_its_keyword_to_the_creature_it_took()
+    {
+        var whispers = Card(
+            "Pronoun Grant Test",
+            "Gain control of target creature until end of turn. Untap that creature. "
+                + "It gets +2/+0 and gains haste until end of turn.");
+
+        var compiled = CardCompiler.Compile(whispers);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.Creature("Borrowed Ogre Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, whispers);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+        Assert.Equal(alice, computed.ControllerId);
+        Assert.Equal(5, computed.Power);
+        Assert.True(computed.Has(KeywordAbility.Haste));
+    }
+
+    // ---- The trigger subject grammar, applied to attacking and to two nouns ---
+
+    /// <summary>
+    /// "Whenever a Dragon you control attacks, ..." — Utvara Hellkite and twenty-odd others.
+    /// </summary>
+    /// <remarks>
+    /// The attack trigger had one hand-written reader for the plainest form of it, so the tribe,
+    /// the colour, the "another", the opponent's side and the power qualifier were all missing
+    /// from attacking while sitting in the shared subject grammar for entering and dying. Adding
+    /// the verb to that grammar reaches 35 corpus lines at once and deletes the hand-written one.
+    /// <para>
+    /// The Bear attacks first and alone, which is the assertion that matters: a reader that lost
+    /// the tribe would fire here, and the coverage number would not move a point either way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_reads_the_tribe_in_its_subject()
+    {
+        var watcher = Card(
+            "Dragon Watcher Test",
+            "Whenever a Dragon you control attacks, you gain 2 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(watcher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, watcher, Zone.Battlefield);
+
+        var bear = game.Create(alice, TestCards.Creature("Untribal Bear Test"), Zone.Battlefield);
+        var dragon = game.Create(
+            alice,
+            Card("Hellkite Test", string.Empty, CardType.Creature, 4, 4, KeywordAbility.None, "Dragon"),
+            Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) });
+
+        Settle(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        TestCards.PassToTurn(game, 5);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [dragon] = AttackTarget.Player(bob) });
+
+        Settle(game);
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Whenever a Wolf or Werewolf you control deals combat damage to a player, draw a card." —
+    /// Tovolar, Dire Overlord.
+    /// </summary>
+    /// <remarks>
+    /// One noun in the subject was read and two were not, on 36 corpus lines whose every other
+    /// part — the scope, the side, the qualifier, the verb — this grammar already handled. All
+    /// three creatures connect in one combat so that the two halves and the refusal are read off
+    /// the same declaration: a reader that took only the first noun draws one card here, one that
+    /// dropped the filter draws three, and the printed card draws two.
+    /// </remarks>
+    [Fact]
+    public void A_trigger_subject_can_name_either_of_two_types()
+    {
+        var tovolar = Card(
+            "Two Noun Test",
+            "Whenever a Wolf or Werewolf you control deals combat damage to a player, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(tovolar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, tovolar, Zone.Battlefield);
+
+        var wolf = game.Create(
+            alice,
+            Card("Pack Wolf Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Wolf"),
+            Zone.Battlefield);
+
+        var werewolf = game.Create(
+            alice,
+            Card("Moon Howler Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Werewolf"),
+            Zone.Battlefield);
+
+        var bear = game.Create(alice, TestCards.Creature("Untribal Bear Test", 1, 1), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [wolf] = AttackTarget.Player(bob),
+                [werewolf] = AttackTarget.Player(bob),
+                [bear] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(held + 2, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Whenever ~ deals combat damage to a player or planeswalker, ..." — Storrev, Devkarin Lich.
+    /// </summary>
+    /// <remarks>
+    /// The recipient of the damage is a list on 29 corpus lines and the reader took one noun, so
+    /// a creature that hit a planeswalker satisfied nothing. Which permanent took the damage is
+    /// asked of the object rather than of its card, for the same reason the attacking subject is.
+    /// <para>
+    /// A battle is named by the same reader and is not tested, because nothing in this engine can
+    /// attack one yet: <c>AttackTarget</c> holds a player or a planeswalker and has no third
+    /// case. The gap is in combat rather than in this grammar, which is why the noun is read here
+    /// instead of the line being refused.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Combat_damage_to_a_planeswalker_answers_the_or_clause()
+    {
+        var lich = Card(
+            "Damage Recipient Test",
+            "Whenever ~ deals combat damage to a player or planeswalker, you gain 3 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(lich);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, lich, Zone.Battlefield);
+        var walker = game.Create(bob, Walker("Attacked Walker Test", 5, "+1: You gain 1 life."), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.At(bob, walker) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The planeswalker took the damage, so Bob's life is untouched and the trigger still fired.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- Tapping the permanent that says so -----------------------------------
+
+    /// <summary>"Whenever another creature dies, tap ~." — Fleshmad Steed.</summary>
+    /// <remarks>
+    /// The untap half of this pair has been read for a long time and the tap half had no reader
+    /// at all, which is the wrong way round to be missing: every one of the twelve corpus lines
+    /// saying it is a drawback, so leaving it unread made each of those cards strictly better
+    /// than printed. No new effect was needed — <c>TapTarget</c> already asks the shared subject
+    /// resolver which permanent it means, and naming the source is an argument to it.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_can_be_told_to_tap_itself()
+    {
+        var steed = Card(
+            "Self Tap Test",
+            "Whenever another creature dies, tap ~.",
+            CardType.Creature,
+            power: 3,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(steed);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var horse = game.Create(alice, steed, Zone.Battlefield);
+        var doomed = game.Create(alice, TestCards.Creature("Doomed Bear Test"), Zone.Battlefield);
+
+        Assert.False(game.State.GetObject(horse).Permanent!.IsTapped);
+
+        var murder = TestCards.PutInHand(game, alice, Card("Self Tap Murder Test", "Destroy target creature."));
+        game.CastSpell(alice, murder, [Target.ToPermanent(doomed)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(horse).Permanent!.IsTapped);
+    }
+
+    // ---- Counting the first spell of a kind each turn --------------------------
+
+    /// <summary>
+    /// "Whenever you cast your first noncreature spell each turn, ..." — Valeria Richards.
+    /// </summary>
+    /// <remarks>
+    /// The creature spell is cast <em>first</em> on purpose, and it is what the test is for. The
+    /// count has to be the count of noncreature spells and not of spells: reading it as "your
+    /// first spell each turn" would have the Bear use up the trigger and the instant behind it
+    /// would do nothing, which is a card that fires roughly never in a real game.
+    /// <para>
+    /// The third cast is the other half of the same question. Both are answered from
+    /// <c>NoncreatureSpellsCastThisTurn</c>, which the reducer keeps for exactly this shape, so
+    /// the reading is exact rather than an approximation of "once each turn" — see the note on
+    /// <c>NthEachTurn</c> for the ten corpus lines whose type the player does not count and which
+    /// are therefore left unread.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_first_noncreature_spell_each_turn_is_counted_by_type()
+    {
+        var valeria = Card(
+            "First Noncreature Test",
+            "Whenever you cast your first noncreature spell each turn, you gain 2 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(valeria);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, valeria, Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, TestCards.Creature("First Cast Bear Test")),
+            targets: null);
+
+        Settle(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("First Instant Test", "You gain 1 life.")),
+            targets: null);
+
+        Settle(game);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Second Instant Test", "You gain 1 life.")),
+            targets: null);
+
+        Settle(game);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
     /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>

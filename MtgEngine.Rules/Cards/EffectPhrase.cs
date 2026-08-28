@@ -2446,6 +2446,18 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Tap ~" — the other half of the sentence above, and the one that had no reader. Tapping
+        // the source needs no effect of its own: TapTarget already asks the shared subject
+        // resolver which permanent it means, so naming the source is a constructor argument
+        // rather than a new verb. Twelve corpus lines say it, and every one of them is a cost or
+        // a drawback ("at the beginning of your combat step, tap ~"), which is why the pair
+        // reading only the untap half was the wrong way round to be missing.
+        if (TapSelfLine().IsMatch(sentence))
+        {
+            effects.Add(new TapTarget(Subject: EffectSubject.Source));
+            return true;
+        }
+
         // "Add {G}{G}" outside a mana ability — a trigger that makes mana, or an ability that
         // makes mana as well as doing something else. Both use the stack, unlike a mana ability
         // (CR 605.3b), which is why they compile to an effect rather than to Produces.
@@ -2691,8 +2703,13 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Transform ~" (CR 701.28). Only ever about the source: a card that transforms
+        // "Transform ~" (CR 701.27a). Only ever about the source: a card that transforms
         // something else names it, and no card in the corpus does.
+        //
+        // 701.28 is *convert*, which this once cited. The two turn a permanent over by the same
+        // physical action and 701.28a defers to 701.27a for the rules, so nothing about the code
+        // was wrong — but they are different game actions (701.27b, 701.28b) and the citation
+        // guard only checks that a rule exists, not that it is the right one.
         if (TransformSelfLine().IsMatch(sentence))
         {
             effects.Add(new TransformSource());
@@ -3163,12 +3180,30 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "~ gets +N/+N until end of turn" — the same effect aimed at the source instead.
+        // "~ gets +N/+N until end of turn", with or without the keyword half — the same effect
+        // aimed at the source instead. One matcher for both halves, the way the targeted reader
+        // below takes all four of its shapes at once: the card prints the grant inside the same
+        // sentence, and a second matcher for the longer form is a second matcher that has to
+        // agree about the size. Reading only the shorter one is what left "~ gets +1/+0 and
+        // gains trample until end of turn" unread on 34 corpus lines whose targeted twin worked.
         m = PumpSelf().Match(sentence);
         if (m.Success)
         {
+            // A keyword list with a word the engine does not model reads as no keywords at all,
+            // so a card would quietly get the pump and lose the trample. Refused for the same
+            // reason the targeted form refuses it: half a combat trick is worse than none.
+            var selfGranted = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+            if (m.Groups["kw"].Success && selfGranted is null)
+                return false;
+
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
+
+            // Two effects for one sentence, because modifying power is layer 7c and adding an
+            // ability is layer 6 (CR 613.4c, 613.1f) — one continuous effect cannot be in both.
+            if (selfGranted is { } selfKeywords)
+                effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfKeywords)));
+
             return true;
         }
 
@@ -3250,12 +3285,30 @@ public static partial class EffectPhrase
         m = ItPumps().Match(sentence);
         if (m.Success)
         {
+            // The keyword half is refused whole for the same reason it is on the other three
+            // pump readers: a word the engine cannot grant would silently drop out and leave the
+            // pump behind, which is a different card rather than a smaller one.
+            var alsoGains = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+            if (m.Groups["kw"].Success && alsoGains is null)
+                return false;
+
             var pumpId = GenerativeEffects.PumpId(
                 Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value));
 
             effects.Add(targets.Count > 0
                 ? new PumpUntilEndOfTurn(pumpId, targets.Count - 1)
                 : new PumpSourceUntilEndOfTurn(pumpId));
+
+            // Layer 6 beside layer 7c (CR 613.1f, 613.4c), aimed at whichever of the two the
+            // pump was: reading the pronoun twice is what keeps the pair on one permanent.
+            if (alsoGains is { } gained)
+            {
+                var grantId = GenerativeEffects.GrantId(gained);
+
+                effects.Add(targets.Count > 0
+                    ? new PumpUntilEndOfTurn(grantId, targets.Count - 1)
+                    : new PumpSourceUntilEndOfTurn(grantId));
+            }
 
             return true;
         }
@@ -3565,6 +3618,53 @@ public static partial class EffectPhrase
 
                 return true;
             }
+        }
+
+        // "If you control an artifact, draw a card." A condition in the middle of an effect, and
+        // the whole of it was already built: BoardConditions is the shared condition vocabulary
+        // the statics, the activation restrictions and the trigger's intervening "if" all read
+        // through, and OnlyIf is the wrapper that guards a list of effects with one. There was
+        // simply no door into either from a plain sentence, so 94 cards sat one line short with
+        // both halves of that line already understood.
+        //
+        // This is a *new* caller and not a reuse of the intervening "if", which is the thing
+        // worth being careful about. CR 603.4 says an intervening "if" is checked twice - once
+        // when the ability would trigger and again as it resolves - and says in as many words
+        // that the rule applies only to an "if" immediately after a trigger condition; anywhere
+        // else the word has its normal English meaning. So this one is checked once, when the
+        // instruction is carried out in the order written (CR 608.2c). Same predicate, different
+        // schedule, and reading this one twice would refuse cards the rules let through.
+        //
+        // Read last among the whole-sentence forms, so every reader that knows a particular "if"
+        // - "if you do", "if you win the flip", "if ~ was kicked" - still sees it first.
+        var conditional = ConditionalSentence().Match(sentence);
+        if (conditional.Success
+            && BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is { } required)
+        {
+            var guarded = ImmutableList.CreateBuilder<IEffect>();
+
+            // Targets go into the caller's list rather than a scratch one, so an effect inside
+            // the guard records the index it will actually be read at - the same reason the
+            // "where X is the number of" wrapper above does it.
+            //
+            // The whole remainder is handed over as one instruction, and a remainder that cannot
+            // be read leaves the sentence unread rather than falling through to the "and" split.
+            // That split would take "if you control an artifact, draw a card and gain 2 life"
+            // apart at the conjunction, guard the draw and leave the life gain unconditional -
+            // which is a card strictly better than the one printed.
+            if (!TryOne(
+                    conditional.Groups["effect"].Value.Trim(),
+                    targets,
+                    guarded,
+                    objectNamedByTrigger)
+                || guarded.Count == 0
+                || guarded.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIf(required, guarded.ToImmutable()));
+            return true;
         }
 
         return TrySplitOnAnd(sentence, targets, effects);
@@ -6637,8 +6737,21 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedSubjectFirstLine();
 
+    /// <remarks>
+    /// The condition may not contain a comma, which is deliberate and is what the trigger's
+    /// intervening "if" does too: the comma is the only thing separating the condition from the
+    /// instruction, so a condition allowed to swallow one would take the first half of the
+    /// instruction with it and then fail on the rest. Conditions listing several things are lost
+    /// by that, and refusing them is the cheaper mistake.
+    /// </remarks>
+    [GeneratedRegex(@"^if (?<cond>[^,]+), (?<effect>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ConditionalSentence();
+
     [GeneratedRegex(@"^untap ~$", RegexOptions.IgnoreCase)]
     private static partial Regex UntapSelfLine();
+
+    [GeneratedRegex(@"^tap ~$", RegexOptions.IgnoreCase)]
+    private static partial Regex TapSelfLine();
 
     [GeneratedRegex(
         @"^gain control of " + T + @" until end of turn$", RegexOptions.IgnoreCase)]
@@ -7360,8 +7473,16 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex PumpOrGrantLine();
 
+    /// <remarks>
+    /// The keyword half is optional and lazy, so "gets +1/+0 and gains trample" is one sentence
+    /// here rather than two matchers. It is spelled "gains" and not "has": the "has" form is a
+    /// static ability that lasts as long as the permanent does, and reading it here would turn a
+    /// printed anthem into a combat trick that wears off at cleanup.
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$", RegexOptions.IgnoreCase)]
+        @"^~ gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+            + @"( and gains (?<kw>[a-z ,]+?))? until end of turn$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex PumpSelf();
 
     [GeneratedRegex(
@@ -7459,8 +7580,17 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ThatCreaturePumps();
 
+    /// <remarks>
+    /// Carries the same optional keyword tail as <see cref="PumpSelf"/>, and for the same
+    /// measurement: the pronoun form of the pump-and-grant is the commoner of the two at 37
+    /// corpus occurrences against 34. <see cref="ThatCreaturePumps"/> is tried first and has no
+    /// tail, so "that creature gets +1/+1 and gains trample" reaches this reader rather than
+    /// being cut in half by the shorter one.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(it|that creature) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$", RegexOptions.IgnoreCase)]
+        @"^(it|that creature) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+            + @"( and gains (?<kw>[a-z ,]+?))? until end of turn$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex ItPumps();
 
     [GeneratedRegex(
@@ -7566,6 +7696,11 @@ public static partial class TriggerConditions
                 // the pattern later has to be considered here rather than quietly admitted.
                 "blocks" => false,
                 "becomes blocked" => false,
+
+                // Attackers are declared as a batch (CR 508.1), so the event names a set and not
+                // an object - and a set is exactly what "that creature" cannot mean. Refused for
+                // the same reason blocking is, and not because nothing attacked.
+                "attacks" => false,
                 _ => false,
             };
     }
@@ -7976,8 +8111,9 @@ public static partial class TriggerConditions
             };
         }
 
-        // "You cast your second spell each turn", "you draw your second card each turn" — one
-        // shape, and the only two things the corpus counts this way.
+        // "You cast your second spell each turn", "an opponent casts their first noncreature
+        // spell each turn", "you draw your second card each turn" — one shape, and the only two
+        // things the corpus counts this way.
         var nth = NthEachTurn().Match(condition);
         if (nth.Success)
         {
@@ -7985,25 +8121,60 @@ public static partial class TriggerConditions
             var spells = nth.Groups["what"].Value.StartsWith(
                 "spell", StringComparison.OrdinalIgnoreCase);
 
+            var whose = nth.Groups["who"].Value.ToLowerInvariant();
+            var kind = nth.Groups["kind"].Value.Trim().ToLowerInvariant();
+
             if (wanted is null)
                 return null;
 
             // The count is read from the state *before* the event, so this one is added back to
             // ask "is this the Nth". Reading it after would need the state the trigger is not
             // given, and off-by-one here is the difference between a card that never fires and
-            // one that fires a turn early.
+            // one that fires a turn early. The spell itself *is* in that state — it goes on the
+            // stack before the cast event is emitted, which is how the reducer counts its type.
             return (e, state, source) =>
             {
                 if (spells)
                 {
-                    return e is SpellCastEvent cast
-                        && cast.PlayerId == source.ControllerId
-                        && state.GetPlayer(cast.PlayerId).SpellsCastThisTurn + 1 == wanted;
+                    if (e is not SpellCastEvent cast
+                        || !MatchesPlayer(whose, cast.PlayerId, source.ControllerId))
+                    {
+                        return false;
+                    }
+
+                    // What was cast is asked as well as how many came before it. A count alone
+                    // would fire "your first creature spell each turn" on an instant, since the
+                    // instant is the first creature spell's predecessor rather than the spell
+                    // the sentence is about.
+                    if (kind.Length > 0)
+                    {
+                        if (!state.TryGetObject(cast.StackId, out var spell))
+                            return false;
+
+                        var isCreature = spell.Card.CardTypes.HasFlag(Domain.Enums.CardType.Creature);
+                        if (isCreature != kind.Equals("creature", StringComparison.Ordinal))
+                            return false;
+                    }
+
+                    var caster = state.GetPlayer(cast.PlayerId);
+
+                    // Creature spells are the difference between the two counts rather than a
+                    // third one, which is the same derivation the board conditions make — one
+                    // fewer number on the player, and no way for the two to disagree.
+                    var already = kind switch
+                    {
+                        "noncreature" => caster.NoncreatureSpellsCastThisTurn,
+                        "creature" =>
+                            caster.SpellsCastThisTurn - caster.NoncreatureSpellsCastThisTurn,
+                        _ => caster.SpellsCastThisTurn,
+                    };
+
+                    return already + 1 == wanted;
                 }
 
                 return e is ObjectMoved { Cause: MoveCause.Draw, To: Zone.Hand } drawn
                     && state.TryGetObject(drawn.OldId, out var card)
-                    && card.OwnerId == source.ControllerId
+                    && MatchesPlayer(whose, card.OwnerId, source.ControllerId)
                     && state.GetPlayer(card.OwnerId).CardsDrawnThisTurn + 1 == wanted;
             };
         }
@@ -8099,17 +8270,6 @@ public static partial class TriggerConditions
         {
             return (e, _, source) =>
                 e is PermanentTurned { FaceDown: false } turned && turned.Id == source.Id;
-        }
-
-        var attacksWith = CreatureYouControlAttacksLine().Match(condition);
-        if (attacksWith.Success)
-        {
-            return (e, state, source) =>
-                e is AttackersDeclared declared
-                && declared.Attackers.Keys.Any(id =>
-                    state.TryGetObject(id, out var attacker)
-                    && Characteristics.Of(state, EmptyAbilities.Instance, attacker).ControllerId
-                        == source.ControllerId);
         }
 
         var discards = DiscardsACardLine().Match(condition);
@@ -8330,16 +8490,25 @@ public static partial class TriggerConditions
             var mustNotBeCombat = dealing.Groups["combat"].Value
                 .Equals("noncombat", StringComparison.OrdinalIgnoreCase);
 
-            var toPlayer = dealing.Groups["to"].Value.Contains("player", StringComparison.OrdinalIgnoreCase);
-            var toCreature = dealing.Groups["to"].Value.Contains("creature", StringComparison.OrdinalIgnoreCase);
+            // "To a player or planeswalker", "to a player or battle" - the recipient is a list on
+            // 29 corpus lines, and any one of the things named answers it (CR 109.4). Read as a
+            // set of nouns rather than as two more spellings of the whole clause, because the
+            // combat/noncombat choice in front of it already multiplies against every one.
+            //
+            // "Any target" and "a permanent" name nothing in particular and leave the set empty,
+            // which is the same as a sentence with no recipient at all: any damage this source
+            // dealt satisfies it.
+            var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Capture noun in dealing.Groups["who"].Captures)
+                wanted.Add(noun.Value);
 
-            return (e, _, source) =>
+            return (e, state, source) =>
             {
-                var (dealer, wasCombat, hitAPlayer) = e switch
+                var (dealer, wasCombat, hitAPlayer, victim) = e switch
                 {
-                    PlayerDamaged hit => (hit.SourceId, hit.IsCombat, true),
-                    DamageMarked struck => (struck.SourceId, struck.IsCombat, false),
-                    _ => (default, false, false),
+                    PlayerDamaged hit => (hit.SourceId, hit.IsCombat, true, default(ObjectId)),
+                    DamageMarked struck => (struck.SourceId, struck.IsCombat, false, struck.Id),
+                    _ => (default, false, false, default),
                 };
 
                 if (dealer != source.Id)
@@ -8351,10 +8520,25 @@ public static partial class TriggerConditions
                 if (mustNotBeCombat && wasCombat)
                     return false;
 
-                if (toPlayer && !hitAPlayer)
+                if (wanted.Count == 0)
+                    return true;
+
+                if (hitAPlayer)
+                    return wanted.Contains("player");
+
+                // Which permanent took it decides the rest, and it is asked of the object rather
+                // than of its card: a permanent that is a creature only by layer 4 (CR 613.1d)
+                // is still what the damage was dealt to. A battle is named and testable here even
+                // though nothing in the engine can attack one yet - the reader is complete, and
+                // it is combat that has the gap.
+                if (!state.TryGetObject(victim, out var hurt))
                     return false;
 
-                return !toCreature || !hitAPlayer;
+                var types = Characteristics.Of(state, EmptyAbilities.Instance, hurt).CardTypes;
+
+                return (wanted.Contains("creature") && types.HasFlag(CardType.Creature))
+                    || (wanted.Contains("planeswalker") && types.HasFlag(CardType.Planeswalker))
+                    || (wanted.Contains("battle") && types.HasFlag(CardType.Battle));
             };
         }
 
@@ -8746,39 +8930,69 @@ public static partial class TriggerConditions
         var dealing = m.Groups["verb"].Value.StartsWith(
             "deals combat damage", StringComparison.OrdinalIgnoreCase);
 
+        // "A Dragon you control attacks" - one more verb for the same subject grammar, and the
+        // one that had been written out on its own. Only the plainest form of it was read
+        // ("a creature you control attacks"), so the tribe, the colour, the "another", the
+        // opponent's side and the power qualifier were all missing from the attack trigger while
+        // sitting right here for entering and dying - 35 corpus lines, on a family that already
+        // existed.
+        var attacking = m.Groups["verb"].Value.Equals(
+            "attacks", StringComparison.OrdinalIgnoreCase);
+
         // "One or more" has to fire once however many qualified (CR 603.2), and only some of
-        // these verbs have an event that says what happened at once. Attacking and blocking are
-        // declarations and combat damage is now summarised; entering and dying are one event
-        // each, so a plural sentence about them is left unread rather than fired several times.
-        if (oneOrMore && !dealing && blockVerb is null
-            && !m.Groups["verb"].Value.Equals("attacks", StringComparison.OrdinalIgnoreCase))
-        {
+        // these verbs have an event that says what happened at once. Blocking is a declaration
+        // and combat damage is now summarised; entering and dying are one event each, so a
+        // plural sentence about them is left unread rather than fired several times.
+        //
+        // Attacking is a declaration too and is still refused, which is the one case this
+        // reasoning does not settle on its own. Six of the 28 corpus lines shaped "one or more X
+        // you control attack" go on to say "that many" - "add that much {R}", "create that many
+        // Treasure tokens" - and the declaration carries no amount, so each of those compiled
+        // into a trigger that fired and then added nothing. The invariant found it on Grand
+        // Warlord Radha the first time this verb was admitted to the family, and the singular
+        // form the 35 lines above use is unaffected.
+        //
+        // Refused on the trigger rather than on the sentence, because the effect parser cannot
+        // see which trigger it belongs to. Lifting it wants the batch's size recorded on the
+        // event, which is a change to what the game writes down rather than to this grammar.
+        if (oneOrMore && !dealing && blockVerb is null)
             return null;
-        }
 
         // "Ally", "Goblin", "Zombie" — a creature type rather than a card type. The two are
         // told apart by capitalisation, which is how the cards themselves distinguish them, and
         // a tribal trigger is otherwise identical to the general one: same scope, same side,
         // same verb, one extra test. Forty cards hang on "~ or another Ally you control enters"
         // alone.
-        var word = m.Groups["type"].Value.Trim();
-        string? subtype = null;
-        var type = Domain.Enums.CardType.None;
+        //
+        // "A Wolf or Werewolf you control", "an artifact or creature you control" — the noun is
+        // an alternation on 36 corpus lines, and a permanent that is either half answers to the
+        // sentence (CR 109.4). Collected as a list rather than given a second matcher, because
+        // every other choice in this pattern — the scope, the side, the qualifier, the verb —
+        // already multiplies against the noun, and a second matcher would have to repeat all of
+        // them and then agree with this one forever.
+        var alternatives = new List<(Domain.Enums.CardType Type, string? Subtype)>();
 
-        if (TypeNamed(word) is { } named)
+        foreach (Capture named in m.Groups["type"].Captures)
         {
-            type = named;
-        }
-        else if (word.Length > 1 && char.IsUpper(word[0]))
-        {
-            // A named type is always a creature type in this position, so the card type is
-            // implied and does not have to be printed.
-            subtype = word;
-            type = Domain.Enums.CardType.Creature;
-        }
-        else
-        {
-            return null;
+            var word = named.Value.Trim();
+
+            if (TypeNamed(word) is { } known)
+            {
+                alternatives.Add((known, null));
+            }
+            else if (word.Length > 1 && char.IsUpper(word[0]))
+            {
+                // A named type is always a creature type in this position, so the card type is
+                // implied and does not have to be printed.
+                alternatives.Add((Domain.Enums.CardType.Creature, word));
+            }
+            else
+            {
+                // One unreadable half leaves the whole sentence unread. Keeping the half that
+                // parsed would compile a narrower trigger than the card prints, and a trigger
+                // that fires on less than it should is as wrong as one that fires on more.
+                return null;
+            }
         }
 
         // "Another" excludes the source; "~ or another" deliberately includes it, which is why
@@ -8814,6 +9028,34 @@ public static partial class TriggerConditions
 
                 subject = new Arrival(who.Id, who.Card, who.ControllerId);
                 movedFrom = default;
+            }
+            else if (attacking)
+            {
+                // CR 508.1: attackers are declared as one batch, so the trigger fires on the
+                // declaration and asks whether any of them answered the description. Once for
+                // the batch rather than once per attacker, which is the same simplification the
+                // combat-damage and blocking verbs beside it already make.
+                if (e is not AttackersDeclared declared)
+                    return false;
+
+                return declared.Attackers.Keys
+                    .Select(id => state.TryGetObject(id, out var o) ? o : null)
+                    .OfType<GameObject>()
+                    .Any(attacker =>
+                    {
+                        // An attacker is the one subject in this family still on the battlefield
+                        // when the question is asked, so it is asked of the permanent rather than
+                        // of the card. That matters twice over: control is layer 2 (CR 613.1b),
+                        // so a stolen creature attacks for its new controller, and a crewed
+                        // Vehicle is a creature only by layer 4 (CR 613.1d) — nothing on its card
+                        // says so, and reading the card would leave every Vehicle out.
+                        var live = Characteristics.Of(state, EmptyAbilities.Instance, attacker);
+
+                        return Qualifies(
+                            new Arrival(attacker.Id, attacker.Card, live.ControllerId),
+                            default,
+                            live);
+                    });
             }
             else if (dealing && oneOrMore)
             {
@@ -8900,18 +9142,31 @@ public static partial class TriggerConditions
             // Every question after the subject is worked out, in one place: the plural form
             // has several candidates and has to ask all of them, and asking them with a
             // second copy of these checks is how the two would drift apart.
-            bool Qualifies(Arrival subject, ObjectId movedFrom)
+            //
+            // <paramref name="live"/> is supplied only by the attacking branch, where the
+            // subject is still a permanent and its computed characteristics can be read. Every
+            // other verb here is a zone change or a damage event whose subject may already have
+            // left, so those fall back to the printed card - a deviation the family has always
+            // had and which is named where the power qualifier is parsed.
+            bool Qualifies(
+                Arrival subject, ObjectId movedFrom, ComputedCharacteristics? live = null)
             {
                 if (excludesSelf && (subject.Id == source.Id || movedFrom == source.Id))
                     return false;
 
-                if (!subject.Card.CardTypes.HasFlag(type))
-                    return false;
+                var types = live?.CardTypes ?? subject.Card.CardTypes;
 
-                // CR 702.73a: a changeling is every creature type, so it answers to every tribe.
-                if (subtype is not null
-                    && !subject.Card.Keywords.HasFlag(KeywordAbility.Changeling)
-                    && !subject.Card.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
+                // Either half of "a Wolf or Werewolf" satisfies the sentence (CR 109.4), and
+                // CR 702.73a decides the tribe: a changeling is every creature type, so it
+                // answers to all of them.
+                if (!alternatives.Exists(one =>
+                    types.HasFlag(one.Type)
+                    && (one.Subtype is null
+                        || (live is { } computed
+                            ? computed.HasSubtype(one.Subtype)
+                            : subject.Card.Keywords.HasFlag(KeywordAbility.Changeling)
+                                || subject.Card.Subtypes.Contains(
+                                    one.Subtype, StringComparer.OrdinalIgnoreCase)))))
                 {
                     return false;
                 }
@@ -8920,8 +9175,8 @@ public static partial class TriggerConditions
                     return false;
 
                 var stat = onManaValue ? subject.Card.Cmc
-                    : onToughness ? subject.Card.Toughness ?? 0
-                    : subject.Card.Power ?? 0;
+                    : onToughness ? live?.Toughness ?? subject.Card.Toughness ?? 0
+                    : live?.Power ?? subject.Card.Power ?? 0;
 
                 if (statFloor is { } least && stat < least)
                     return false;
@@ -8929,8 +9184,11 @@ public static partial class TriggerConditions
                 if (statCeiling is { } most && stat > most)
                     return false;
 
-                if (needsKeyword is { } wanted && !subject.Card.Keywords.HasFlag(wanted))
+                if (needsKeyword is { } wanted
+                    && !(live?.Keywords ?? subject.Card.Keywords).HasFlag(wanted))
+                {
                     return false;
+                }
 
                 // Counters live on the permanent, and the arrival carries only what the event knew.
                 // Looked up in the state, which is where the permanent is - and a subject that has
@@ -9244,9 +9502,17 @@ public static partial class TriggerConditions
     [GeneratedRegex(@"^you (?<verb>scry|surveil)$", RegexOptions.IgnoreCase)]
     private static partial Regex ScryTriggerLine();
 
+    /// <remarks>
+    /// The recipient nouns are written as a repeatable group under one name, so "a player or
+    /// planeswalker" arrives as two captures of <c>who</c> and the reader takes a set. "Any
+    /// target" and "a permanent" capture nothing on purpose: neither narrows what was hit, and
+    /// an empty set is exactly the reading a sentence with no recipient at all wants.
+    /// </remarks>
     [GeneratedRegex(
         @"^~ deals ((?<combat>combat|noncombat) )?damage"
-            + @"( to (?<to>a player|a creature|any target|a permanent))?$",
+            + @"( to (?:any target|a permanent"
+            + @"|an? (?<who>player|creature|planeswalker|battle)"
+            + @"(?:,? or (?<who>player|creature|planeswalker|battle))*))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SourceDealsDamage();
 
@@ -9267,11 +9533,19 @@ public static partial class TriggerConditions
     /// <remarks>
     /// Not case-insensitive, because capitalisation is the only thing separating "another
     /// creature" from "another Ally" — and the two are different triggers.
+    /// <para>
+    /// The noun group is written twice under one name so that "a Wolf or Werewolf you control"
+    /// arrives as two captures of <c>type</c> rather than needing a second pattern. The
+    /// alternation inside it stays ordered — the two-word compound before the bare word — for
+    /// the same reason it is ordered in the target grammar: with "creature" tried first,
+    /// "artifact creature" reads as "artifact" and leaves a word the pattern has nowhere to put.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^(?<scope>~ or another|[Aa]nother|[Oo]ne or more|[Aa]n?)\s+"
             + @"(?<adj>white|blue|black|red|green|colorless|multicolored|legendary|nontoken)?\s*"
             + @"(?<type>artifact creature|[a-z]+|[A-Z][a-z]+)"
+            + @"(\s+or\s+(?<type>artifact creature|[a-z]+|[A-Z][a-z]+))?"
             + @"(?<side>\s+you control|\s+an opponent controls)?"
             + @"(\s+with (?<stat>power|toughness|mana value) (?<pow>\d+|one|two|three|four|five"
             + @"|six|seven|eight|nine|ten) or (?<cmp>greater|less)"
@@ -9281,7 +9555,7 @@ public static partial class TriggerConditions
             + @"|is put into a graveyard from the battlefield"
             + @"|is put into a graveyard from anywhere"
             + @"|becomes tapped|becomes untapped"
-            + @"|becomes blocked|blocks"
+            + @"|becomes blocked|blocks|attacks"
             + @"|deals combat damage to a player|deals combat damage)$",
         RegexOptions.None)]
     private static partial Regex ZoneChangeLine();
@@ -9456,9 +9730,6 @@ public static partial class TriggerConditions
     [GeneratedRegex(@"^~ becomes monstrous$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomesMonstrousLine();
 
-    [GeneratedRegex(@"^a creature you control attacks$", RegexOptions.IgnoreCase)]
-    private static partial Regex CreatureYouControlAttacksLine();
-
     [GeneratedRegex(
         @"^(?<who>you|a player|an opponent) discards? a card$", RegexOptions.IgnoreCase)]
     private static partial Regex DiscardsACardLine();
@@ -9474,8 +9745,27 @@ public static partial class TriggerConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex PutIntoGraveyardLine();
 
+    /// <summary>"[Who] casts their Nth [kind] spell each turn" — the ordinal cast family.</summary>
+    /// <remarks>
+    /// The kind slot is deliberately only "creature" and "noncreature", and the reason is what
+    /// the player carries rather than what the sentence says. <c>SpellsCastThisTurn</c> and
+    /// <c>NoncreatureSpellsCastThisTurn</c> are the only two counts kept, and creature spells are
+    /// the difference between them — so those three readings can be answered <em>exactly</em>,
+    /// and no other can.
+    /// <para>
+    /// "Your first enchantment spell each turn" and its nine siblings — instant, Omen, outlaw,
+    /// Human creature, "with {X} in its mana cost" — are therefore left unread, on 15 corpus
+    /// lines. The tempting reading is the ability's <c>OncePerTurn</c> flag with a plain
+    /// enchantment-cast condition, and it is wrong in a way that makes the card better than
+    /// printed: that flag is kept per (permanent, ability), so a permanent that arrives after an
+    /// enchantment has already been cast this turn would still trigger on the second one, which
+    /// the printed card never does. Reading those needs a per-type count on the player, which is
+    /// a change to the state rather than to this grammar.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^you (cast|draw) your (?<ord>[a-z]+) (?<what>spell|card) each turn$",
+        @"^(?<who>you|an opponent|a player) (casts?|draws?) (your|their) (?<ord>[a-z]+) "
+            + @"(?<kind>creature |noncreature )?(?<what>spell|card) each turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex NthEachTurn();
 
