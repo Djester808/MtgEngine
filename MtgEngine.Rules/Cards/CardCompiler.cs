@@ -755,6 +755,9 @@ public static partial class CardCompiler
             if (TryCrew(line, activated))
                 continue;
 
+            if (TryLivingMetal(line, statics))
+                continue;
+
             if (TryStation(line, activated))
                 continue;
 
@@ -7468,6 +7471,64 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Living metal" — a Vehicle that is an artifact creature while it is your turn
+    /// (CR 702.161a).
+    /// </summary>
+    /// <remarks>
+    /// Crew's animation with the cost taken off and a condition put in its place: the same layer 4
+    /// type change, granted by whose turn it is rather than bought by tapping creatures.
+    /// <para>
+    /// Written as a conditional static rather than as anything that has to be undone, which is
+    /// what makes the other half of the keyword work for free — the Vehicle stops being a creature
+    /// the moment the turn passes, with nothing to remember it by. A reading that animated it
+    /// "until end of turn" would have played identically all through the controller's own turn and
+    /// then let it block, which is a strictly better card than the one printed and the sort of
+    /// thing coverage cannot see.
+    /// </para>
+    /// <para>
+    /// The condition goes through <see cref="BoardConditions"/> instead of asking the state here,
+    /// so "your turn" means one thing across the whole compiler. If that vocabulary ever stops
+    /// reading the phrase this leaves the line unread rather than animating the Vehicle on
+    /// nobody's terms, because a Vehicle that is a creature on the wrong turn attacks on turns it
+    /// may not.
+    /// </para>
+    /// <para>
+    /// 13 faces carry the line and every one is the back of a two-faced card, so each held back a
+    /// whole card: a card is playable only when every face of it reads.
+    /// </para>
+    /// </remarks>
+    private static bool TryLivingMetal(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        if (!LivingMetalLine().IsMatch(line))
+            return false;
+
+        if (BoardConditions.Parse("during your turn") is not { } yourTurn)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "living-metal",
+
+            // Type-changing is layer 4, and it has to run before the lord in layer 6 and the
+            // pumps in layer 7 so that they see the creature it has just made (CR 613.1d).
+            Layer = EffectLayer.Type,
+            Applies = (state, source, target) =>
+                source is not null
+                && target.Subject.Id == source.Id
+                && yourTurn(state, EmptyAbilities.Instance, source),
+
+            // "An artifact creature in addition to its other types" - both words, even though
+            // every card printing this is already an artifact. The rule says both, and a Vehicle
+            // that had lost its artifact type to something else would otherwise be animated into
+            // a bare creature that no artifact removal could touch.
+            Apply = (_, _, builder) => builder.CardTypes |= CardType.Artifact | CardType.Creature,
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "Saddle N" — tap creatures with total power N to saddle a Mount (CR 702.171a).
     /// </summary>
     /// <remarks>
@@ -9351,6 +9412,10 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^crew (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex CrewLine();
+
+    /// <summary>"Living metal" (CR 702.161a).</summary>
+    [GeneratedRegex(@"^living metal\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex LivingMetalLine();
 
     [GeneratedRegex(@"^saddle (?<n>\d+)$", RegexOptions.IgnoreCase)]
     private static partial Regex SaddleLine();

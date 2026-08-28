@@ -9874,6 +9874,71 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "Living metal" — the Vehicle is an artifact creature while it is your turn (CR 702.161a).
+    /// </summary>
+    /// <remarks>
+    /// A theory over both turns, because the interesting half is the one where nothing happens: a
+    /// test that only played the controller's own turn would pass just as well against a reader
+    /// that animated the Vehicle for good, and that is a strictly better card — it would block.
+    /// So the off-turn half is asserted as a refused block rather than as a characteristic, which
+    /// is the difference a player would actually see.
+    /// <para>
+    /// 13 faces carry the line, every one the back of a two-faced card, so each held back a whole
+    /// card: a card is playable only when every face of it reads.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_vehicle_with_living_metal_is_a_creature_only_on_its_controllers_turn()
+    {
+        var vehicle = Card(
+            "Living Metal Test", "Living metal", CardType.Artifact, 4, 4, subtypes: "Vehicle");
+
+        var compiled = CardCompiler.Compile(vehicle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var truck = game.Create(alice, vehicle, Zone.Battlefield);
+        var raider = game.Create(
+            bob, TestCards.Creature("Living Metal Raider Test", 2, 2), Zone.Battlefield);
+
+        // Alice's turn: an artifact creature, and still a Vehicle. "In addition to its other
+        // types" is the half a reader that overwrote the type line would lose, and nothing about
+        // the Vehicle playing as a creature would show it.
+        var mine = Characteristics.Of(game.State, Pool, game.State.GetObject(truck));
+        Assert.True(mine.IsCreature);
+        Assert.True(mine.CardTypes.HasFlag(CardType.Artifact));
+        Assert.Contains("Vehicle", mine.Subtypes);
+        Assert.Equal(4, mine.Power);
+
+        // Bob's turn, and it is a bare artifact again — so it cannot be declared as a blocker,
+        // which is what a Vehicle animated for good would have been allowed to do (CR 509.1a).
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(truck)).IsCreature);
+
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.DeclareBlockers(
+                alice,
+                new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [raider] = [truck] }));
+
+        // Alice's own turn again, and it attacks under its own power with nothing crewing it,
+        // which is the whole of what the keyword buys.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [truck] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
     /// <remarks>
