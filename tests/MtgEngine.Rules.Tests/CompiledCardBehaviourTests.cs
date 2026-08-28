@@ -11625,6 +11625,660 @@ public sealed class CompiledCardBehaviourTests
         Assert.DoesNotContain(enchantment, game.State.Battlefield);
     }
 
+    /// <summary>
+    /// Devotion counts mana symbols, not permanents (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// The whole God cycle turns on this and nothing else could ask it: the counting reader
+    /// beside it tallies permanents, and one permanent costing {B}{B}{B} is three devotion while
+    /// three permanents costing {1} are none. Both of those are asserted here, because a reader
+    /// that counted permanents would pass a test that only ever put black cards on the board.
+    /// <para>
+    /// The opponent's black permanent is the other half. Devotion is yours, and control is
+    /// computed rather than stored (CR 613.1b) — a reader that counted the whole battlefield
+    /// would let an opponent switch your God off for you.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Devotion_counts_mana_symbols_and_not_permanents()
+    {
+        var god = Card(
+            "Devotion Test God",
+            "As long as your devotion to black is less than five, ~ gets +3/+3.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(god);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var idol = game.Create(alice, god, Zone.Battlefield);
+        Settle(game);
+
+        int PowerOfIdol() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(idol)).Power ?? 0;
+
+        Assert.Equal(5, PowerOfIdol());
+
+        // Three permanents, no black symbols between them: devotion is still zero.
+        foreach (var n in new[] { 1, 2, 3 })
+        {
+            game.Create(
+                alice, TestCards.Costed("Devotion Test Peasant " + n, "{1}", 1), Zone.Battlefield);
+        }
+
+        Settle(game);
+        Assert.Equal(5, PowerOfIdol());
+
+        // One permanent, three black symbols: devotion is three, still short of five.
+        game.Create(
+            alice, TestCards.Costed("Devotion Test Acolyte", "{B}{B}{B}", 3), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(5, PowerOfIdol());
+
+        // Somebody else's black permanent is somebody else's devotion.
+        game.Create(
+            bob, TestCards.Costed("Devotion Test Rival", "{B}{B}{B}", 3), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(5, PowerOfIdol());
+
+        // Five symbols across two permanents: no longer less than five, and the bonus goes.
+        game.Create(
+            alice, TestCards.Costed("Devotion Test Zealot", "{B}{B}", 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, PowerOfIdol());
+    }
+
+    /// <summary>
+    /// A two-colour devotion counts a hybrid symbol once, not once per colour (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// "Devotion to white and black" is the number of symbols that are white, black, or both —
+    /// a union rather than a sum. Six {W/B} symbols are six devotion, and the sum reading would
+    /// make them twelve, so this card would already be switched off in the first assertion
+    /// rather than the last. That is the only difference the two readings ever produce, and it
+    /// is invisible to a test that uses single-coloured costs.
+    /// </remarks>
+    [Fact]
+    public void A_two_colour_devotion_counts_a_hybrid_symbol_once()
+    {
+        var god = Card(
+            "Hybrid Devotion Test God",
+            "As long as your devotion to white and black is less than seven, ~ gets +3/+3.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(god);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var idol = game.Create(alice, god, Zone.Battlefield);
+
+        game.Create(
+            alice,
+            TestCards.Costed("Hybrid Devotion Test Choir", "{W/B}{W/B}{W/B}{W/B}{W/B}{W/B}", 6),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(
+            5, Characteristics.Of(game.State, Pool, game.State.GetObject(idol)).Power);
+
+        // The seventh symbol is the one that reaches the threshold.
+        game.Create(
+            alice, TestCards.Costed("Hybrid Devotion Test Deacon", "{W/B}", 1), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            2, Characteristics.Of(game.State, Pool, game.State.GetObject(idol)).Power);
+    }
+
+    /// <summary>
+    /// "If there are no depletion counters on this land, sacrifice it" — a count at zero.
+    /// </summary>
+    /// <remarks>
+    /// The lands that pay themselves out in counters and then go away all ask this, and it
+    /// cannot share the "one or more" comparison with the count set to zero: that comparison is
+    /// <em>at least</em>, which is true of every permanent on the battlefield, so the land would
+    /// sacrifice itself the turn it arrived. The counter is put on first here for exactly that
+    /// reason — a reader with the comparison the wrong way round passes a test that never has a
+    /// counter to find.
+    /// </remarks>
+    [Fact]
+    public void An_absent_counter_condition_is_false_while_a_counter_remains()
+    {
+        var quarry = Card(
+            "Depleted Test Quarry",
+            "At the beginning of the end step, if there are no charge counters on ~, "
+                + "sacrifice ~.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(quarry);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var mine = game.Create(alice, quarry, Zone.Battlefield);
+        game.ChangeCounters(mine, CounterKinds.Charge, 1);
+
+        PassTo(game, 1, TurnStep.End);
+        Settle(game);
+
+        Assert.Contains(mine, game.State.Battlefield);
+
+        game.ChangeCounters(mine, CounterKinds.Charge, -1);
+
+        PassTo(game, 2, TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(mine, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Activate only if ~'s power is 3 or greater" — one permanent's power, as computed.
+    /// </summary>
+    /// <remarks>
+    /// Read from the computed characteristics and not from the printed card (CR 613.4), because
+    /// a card asking about its own power is always one whose power something else is expected to
+    /// have changed — here a +1/+1 counter, which is what the cards that ask this are printed
+    /// beside. Taking the counter off again is the other half: a condition that latches on is a
+    /// condition nothing would notice was wrong.
+    /// </remarks>
+    [Fact]
+    public void A_self_power_condition_reads_the_power_the_layers_computed()
+    {
+        var otter = Card(
+            "Self Power Test",
+            "~ has flying as long as ~'s power is 3 or greater.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(otter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, otter, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, 1);
+        Settle(game);
+
+        Assert.True(Flies());
+
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, -1);
+        Settle(game);
+
+        Assert.False(Flies());
+    }
+
+    /// <summary>
+    /// "More cards in hand than each opponent" means every one of them, not any of them.
+    /// </summary>
+    /// <remarks>
+    /// The tie is the assertion. "More than" is strict, so level hands leave the card off, and a
+    /// reader that took the comparison as "or equal" would pass every test that only ever looked
+    /// at a player who was clearly ahead. The two hands are levelled by hand rather than assumed
+    /// level, because what the opening draw leaves is not part of what this card asks.
+    /// </remarks>
+    [Fact]
+    public void A_largest_hand_condition_needs_to_beat_every_opponent()
+    {
+        var hoarder = Card(
+            "Largest Hand Test",
+            "~ has flying as long as you have more cards in hand than each opponent.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(hoarder);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, hoarder, Zone.Battlefield);
+
+        void Discard(Guid who) =>
+            game.Move(game.State.GetPlayer(who).Hand[0], Zone.Graveyard, MoveCause.Discard);
+
+        while (game.State.GetPlayer(alice).Hand.Count > game.State.GetPlayer(bob).Hand.Count)
+            Discard(alice);
+
+        while (game.State.GetPlayer(bob).Hand.Count > game.State.GetPlayer(alice).Hand.Count)
+            Discard(bob);
+
+        Settle(game);
+
+        Assert.Equal(
+            game.State.GetPlayer(alice).Hand.Count, game.State.GetPlayer(bob).Hand.Count);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        Discard(bob);
+        Settle(game);
+
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// "Fewer than seven cards in hand" is strict, and "seven or fewer" is not.
+    /// </summary>
+    /// <remarks>
+    /// Kozilek draws up to seven, so the difference between the two readings is a free card off
+    /// a full hand. The assertion is taken <em>at</em> the number the card names, which is the
+    /// only place the two comparisons disagree — every count on either side of it reads the same
+    /// whichever one is wrong.
+    /// </remarks>
+    [Fact]
+    public void A_strict_hand_threshold_is_off_at_the_number_it_names()
+    {
+        var titan = Card(
+            "Strict Hand Test",
+            "~ has flying as long as you have fewer than three cards in hand.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(titan);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, titan, Zone.Battlefield);
+
+        void Discard() =>
+            game.Move(game.State.GetPlayer(alice).Hand[0], Zone.Graveyard, MoveCause.Discard);
+
+        while (game.State.GetPlayer(alice).Hand.Count > 3)
+            Discard();
+
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.Equal(3, game.State.GetPlayer(alice).Hand.Count);
+        Assert.False(Flies());
+
+        Discard();
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).Hand.Count);
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// "As long as ~ is renowned" reads the designation, not what put it there (CR 702.112b).
+    /// </summary>
+    /// <remarks>
+    /// Renowned is a marker with no other rules meaning, and it outlives every counter renown
+    /// gave the creature. So the counters are taken off again here and the card stays on — a
+    /// reader that answered this by looking for +1/+1 counters would pass the first assertion
+    /// and fail the last, and nothing else in the suite would tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void A_renowned_condition_reads_the_designation_and_not_the_counters()
+    {
+        var champion = Card(
+            "Renowned Condition Test",
+            "Renown 1\n~ has flying as long as ~ is renowned.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(champion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, champion, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == alice
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.True(Flies());
+
+        // The counter renown gave it comes off; the designation does not.
+        game.ChangeCounters(attacker, CounterKinds.PlusOnePlusOne, -1);
+        Settle(game);
+
+        Assert.Equal(
+            2, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// "As long as you have exactly 1 life" is a window, not a threshold.
+    /// </summary>
+    /// <remarks>
+    /// Both thresholds are wrong for it in a way that plays: "or more" leaves the reward on for
+    /// a healthy player and "or less" leaves it on for a dying one. So the assertions sit on
+    /// either side of the number, and the second of them is the one a threshold reading fails.
+    /// </remarks>
+    [Fact]
+    public void An_exact_life_total_is_a_window_and_not_a_threshold()
+    {
+        var martyr = Card(
+            "Exact Life Test",
+            "~ has flying as long as you have exactly 1 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(martyr);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, martyr, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        game.ChangeLife(alice, 1 - game.State.GetPlayer(alice).Life);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).Life);
+        Assert.True(Flies());
+
+        // Gaining a life switches it off, which "one or less" would not.
+        game.ChangeLife(alice, 1);
+        Settle(game);
+
+        Assert.False(Flies());
+    }
+
+    /// <summary>
+    /// "There is a Desert card in your graveyard" — the same clause without the contraction.
+    /// </summary>
+    /// <remarks>
+    /// One apostrophe was the whole of what this cost. It is worth more than the five cards that
+    /// print it, because the disjunction reader can only join halves it can each read: a wording
+    /// missed here is missed again in every clause containing it.
+    /// <para>
+    /// The opponent's graveyard is asserted separately. "Your graveyard" is one pile, and a
+    /// reader that searched every graveyard would be turned on by the card an opponent discarded.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_card_condition_reads_the_uncontracted_wording()
+    {
+        var camel = Card(
+            "Uncontracted Graveyard Test",
+            "~ has flying as long as there is a Desert card in your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(camel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var desert = Card(
+            "Buried Desert Test", string.Empty, CardType.Land, subtypes: "Desert");
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, camel, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        game.Create(bob, desert, Zone.Graveyard);
+        Settle(game);
+
+        Assert.False(Flies());
+
+        game.Create(alice, desert, Zone.Graveyard);
+        Settle(game);
+
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// Two conditions joined by "or" are true when either one of them is.
+    /// </summary>
+    /// <remarks>
+    /// Solitary Camel's wording, and neither half is new: the board question and the graveyard
+    /// question were both already read, and only the word between them was missing.
+    /// <para>
+    /// It is the graveyard half that is asserted, and the omission is deliberate rather than an
+    /// oversight. <c>you control a Desert</c> compiles and then never fires — measured, in a
+    /// game, against a Land whose subtype is Desert — because the target grammar does not know
+    /// that word as a permanent noun, while <c>you control a Forest</c> and <c>you control an
+    /// Elf</c> both answer correctly. That is a gap in <c>EffectPhrase.Specs</c> rather than in
+    /// the condition vocabulary, and asserting the dead half here would enshrine it.
+    /// </para>
+    /// <para>
+    /// The card is exiled rather than destroyed on the way back down, because destroying it
+    /// would put it in the graveyard and leave the condition true by the other half — which is a
+    /// test that passes whether the "or" works or not.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Two_conditions_joined_by_or_are_true_when_either_is()
+    {
+        var camel = Card(
+            "Joined Or Test",
+            "~ has flying as long as you control a Desert or there is a Desert card in "
+                + "your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(camel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var desert = Card("Joined Or Desert Test", string.Empty, CardType.Land, subtypes: "Desert");
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, camel, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        var buried = game.Create(alice, desert, Zone.Graveyard);
+        Settle(game);
+
+        Assert.True(Flies());
+
+        game.Move(buried, Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.False(Flies());
+    }
+
+    /// <summary>
+    /// "You control an artifact and an enchantment" — the half that leaves its subject out.
+    /// </summary>
+    /// <remarks>
+    /// English drops a repeated subject and a parser cannot, so the second half is read again
+    /// with the first half's subject put back. Both halves are asserted alone, because an "and"
+    /// read as an "or" — or a second half quietly answered by the first — turns on with one
+    /// permanent out and passes any test that puts both down at once.
+    /// </remarks>
+    [Fact]
+    public void Two_conditions_joined_by_and_share_the_subject_the_second_leaves_out()
+    {
+        var naomi = Card(
+            "Joined And Test",
+            "~ has flying as long as you control an artifact and an enchantment.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(naomi);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, naomi, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies());
+
+        var relic = game.Create(
+            alice, Card("Joined And Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.False(Flies());
+
+        var shrine = game.Create(
+            alice, Card("Joined And Shrine Test", string.Empty, CardType.Enchantment),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.True(Flies());
+
+        // Losing either half loses the card, which an "or" reading would not.
+        game.Move(relic, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Flies());
+        Assert.Contains(shrine, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Seven or more cards are in your graveyard" — threshold's count, said backwards.
+    /// </summary>
+    /// <remarks>
+    /// The same question the counting reader already answers with the pile moved to the back of
+    /// the sentence, so it is rewritten onto that reader rather than given one of its own: two
+    /// copies of a count are two places for it to drift, and the card filter travels with it.
+    /// <para>
+    /// The sixth card is the assertion. A threshold read as "six or more" is on one card early
+    /// and looks identical at every other size of graveyard, which is exactly the kind of
+    /// off-by-one a test that fills a graveyard to ten would never see.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_reversed_graveyard_count_is_off_one_card_short()
+    {
+        var lurker = Card(
+            "Reversed Threshold Test",
+            "~ has flying as long as seven or more cards are in your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(lurker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, lurker, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        // Somebody else's pile is not yours, however deep it gets.
+        foreach (var n in Enumerable.Range(1, 9))
+        {
+            game.Create(
+                bob, TestCards.Creature("Reversed Threshold Rival " + n, 1, 1), Zone.Graveyard);
+        }
+
+        foreach (var n in Enumerable.Range(1, 6))
+        {
+            game.Create(
+                alice, TestCards.Creature("Reversed Threshold Corpse " + n, 1, 1),
+                Zone.Graveyard);
+        }
+
+        Settle(game);
+
+        Assert.Equal(6, game.State.GetPlayer(alice).Graveyard.Count);
+        Assert.False(Flies());
+
+        game.Create(
+            alice, TestCards.Creature("Reversed Threshold Corpse 7", 1, 1), Zone.Graveyard);
+
+        Settle(game);
+
+        Assert.Equal(7, game.State.GetPlayer(alice).Graveyard.Count);
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// A join whose halves are not conditions leaves the whole line unread.
+    /// </summary>
+    /// <remarks>
+    /// The disjunction reader is the only one here that multiplies rather than adds, so it is
+    /// the only one that could invent a condition out of a word it happened to find. Both halves
+    /// having to parse is what stops it, and this is that rule asserted rather than described.
+    /// <para>
+    /// The two cases are the two ways it can go wrong. "A red or white permanent" is one noun
+    /// with a colour choice in it, not two conditions, and splitting it produces "you control a
+    /// red" and "white permanent"; "you win the flip" is a real clause that is simply not a
+    /// board question. Either way the card must stay in <c>Unhandled</c> rather than compile
+    /// with a condition nobody printed — a condition silently true is a conditional card played
+    /// as an unconditional one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_join_whose_halves_are_not_conditions_leaves_the_line_unread()
+    {
+        var colours = Card(
+            "Unjoinable Colour Test",
+            "As long as you control a red or white permanent, ~ gets +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.False(CardCompiler.Compile(colours).IsComplete);
+
+        var chance = Card(
+            "Unjoinable Chance Test",
+            "As long as you control a creature or you win the flip, ~ gets +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.False(CardCompiler.Compile(chance).IsComplete);
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {
