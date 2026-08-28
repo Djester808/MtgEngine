@@ -9953,6 +9953,513 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.GetPlayer(alice).Graveyard);
     }
 
+    // ---- Conditions about the board the vocabulary could not ask ------------
+
+    /// <summary>
+    /// "As long as you control your commander, ~ gets +2/+2" — the lieutenant cycle (CR 903.3).
+    /// </summary>
+    /// <remarks>
+    /// Being a commander is an attribute of the <em>card</em> rather than of the object
+    /// representing it (CR 903.3), so the question is asked by oracle id. A commander that dies
+    /// and is recast is a new object every time (CR 400.7), and a reader that remembered an
+    /// object would answer "no" from the second cast onwards.
+    /// <para>
+    /// Bob's copy of the same card is the assertion that matters. It is pumped by nothing while
+    /// Alice's commander is on the battlefield, because he has no commander at all — and a
+    /// reader that asked "is a commander out" rather than "is <em>yours</em> out" passes every
+    /// other line here and fails only that one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_lieutenant_is_pumped_only_by_its_own_controllers_commander()
+    {
+        const string commanderId = "oracle-lieutenant-test-general";
+
+        var general = new CardDefinition
+        {
+            OracleId = commanderId,
+            Name = "Lieutenant Test General",
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            Power = 3,
+            Toughness = 3,
+        };
+
+        var soldier = Card(
+            "Lieutenant Test",
+            "As long as you control your commander, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(soldier);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(
+                    alice,
+                    "Alice",
+                    40,
+                    TestCards.Deck(40, "Alice").Concat([general]).ToList())
+                {
+                    CommanderOracleId = commanderId,
+                },
+                new PlayerSetup(bob, "Bob", 40, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var hers = game.Create(alice, soldier, Zone.Battlefield);
+        var his = game.Create(bob, soldier, Zone.Battlefield);
+
+        // The commander starts in the command zone, which is not the battlefield (CR 903.6).
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(hers)).Power);
+
+        var onBoard = game.Create(alice, general, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(hers)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(his)).Power);
+
+        // And off again when it leaves. A static re-asks its question continuously, and these
+        // cards are printed to be switched off by removing the commander.
+        game.Move(onBoard, Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(hers)).Power);
+    }
+
+    /// <summary>
+    /// "As long as there are five or more mana values among cards in your graveyard, ~ gets
+    /// +2/+2" — distinct mana values, not a count of cards (CR 202.3).
+    /// </summary>
+    /// <remarks>
+    /// The graveyard is filled with five cards carrying four values first, and the assertion is
+    /// that nothing happens. A reader that counted cards — the count sitting immediately beside
+    /// this one — passes every other line in this test and turns the bonus on a card early. The
+    /// fifth value then arrives as a new cost rather than as a fifth card, which is the same
+    /// distinction taken from the other side.
+    /// </remarks>
+    [Fact]
+    public void A_mana_value_count_counts_the_values_and_not_the_cards()
+    {
+        var scholar = Card(
+            "Mana Value Test",
+            "As long as there are five or more mana values among cards in your graveyard, "
+                + "~ gets +2/+2.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(scholar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, scholar, Zone.Battlefield);
+
+        // Five cards, four values: two of them cost the same, which is the whole difference
+        // between this question and the card count printed one line away from it.
+        (string Name, int Cost)[] buried =
+        [
+            ("Mana Value Filler A", 1),
+            ("Mana Value Filler B", 1),
+            ("Mana Value Filler C", 2),
+            ("Mana Value Filler D", 3),
+            ("Mana Value Filler E", 4),
+        ];
+
+        foreach (var (name, cost) in buried)
+        {
+            game.Create(
+                alice,
+                new CardDefinition
+                {
+                    OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+                    Name = name,
+                    CardTypes = CardType.Instant,
+                    Cmc = cost,
+                },
+                Zone.Graveyard);
+        }
+
+        Settle(game);
+
+        Assert.Equal(5, game.State.GetPlayer(alice).Graveyard.Count);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-mana-value-fifth",
+                Name = "Mana Value Fifth",
+                CardTypes = CardType.Instant,
+                Cmc = 5,
+            },
+            Zone.Graveyard);
+
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+    }
+
+    /// <summary>
+    /// "As long as you have a full party, ~ gets +2/+2" — four roles filled at once (CR 700.8c).
+    /// </summary>
+    /// <remarks>
+    /// CR 700.8b is what this test exists for, and the board is shaped to fail two different
+    /// wrong readings of it. It starts as a Cleric Rogue, a Warrior and a Wizard: three roles
+    /// filled, because that one creature cannot be both of the two it could be — which is where
+    /// a reader that asked "is a Cleric out, is a Rogue out" independently turns the bonus on a
+    /// creature early.
+    /// <para>
+    /// The party is then completed by a plain <em>Cleric</em>, and that is the second reading.
+    /// Filling the roles in order and never revisiting gives the Cleric slot to the Cleric Rogue
+    /// and then has nothing left for the Rogue slot; the count has to be taken the way that
+    /// gives the highest result, which means moving the Cleric slot onto the newcomer and
+    /// handing the Cleric Rogue to the Rogue slot.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_full_party_counts_each_creature_for_only_one_of_its_roles()
+    {
+        var captain = Card(
+            "Party Test",
+            "As long as you have a full party, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(captain);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, captain, Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Test Scout", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Cleric", "Rogue"),
+            Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Test Soldier", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Warrior"),
+            Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Test Mage", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Wizard"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Test Priest", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Cleric"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+    }
+
+    /// <summary>
+    /// "When ~ enters, if it was bargained, ..." — the flag read off the permanent that arrives
+    /// rather than off the spell that was cast (CR 702.166b).
+    /// </summary>
+    /// <remarks>
+    /// The sentence form of this was already read, and it is answered on the stack where the
+    /// spell still exists. Seven cards ask it as an intervening-if on a permanent instead, and
+    /// that is a different object from the spell (CR 400.7) — so the fact has to have ridden the
+    /// zone change, exactly as kicker's does.
+    /// <para>
+    /// The theory drives both halves because the case that matters is the one where nothing
+    /// happens: a wrapper that ignored the condition gains the life either way, and a test that
+    /// only bargained could not tell it from a correct one.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 23)]
+    [InlineData(false, 20)]
+    public void A_bargained_permanent_still_knows_it_after_it_arrives(
+        bool bargained, int expectedLife)
+    {
+        var ouphe = Card(
+            "Bargain Enters Test",
+            "Bargain\nWhen ~ enters, if it was bargained, you gain 3 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(ouphe);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var relic = game.Create(
+            alice,
+            Card("Bargain Enters Relic", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, ouphe),
+            targets: null,
+            costPayment: bargained ? [relic] : null,
+            bargained: bargained);
+
+        Settle(game);
+
+        Assert.Equal(expectedLife, game.State.GetPlayer(alice).Life);
+
+        // And the cost was really paid — a bargain that took nothing would gain the life anyway.
+        Assert.Equal(!bargained, game.State.Battlefield.Contains(relic));
+    }
+
+    /// <summary>
+    /// "When ~ enters, if there is no monarch, you become the monarch" — the third state of a
+    /// field that is usually asked about as two (CR 725.1).
+    /// </summary>
+    /// <remarks>
+    /// There is no monarch in a game until an effect makes one, and the six cards that ask this
+    /// are the ones that hand the crown out. Reading the clause as "somebody else is the
+    /// monarch" — the reading already beside it — would make every one of them fire exactly when
+    /// it must not, and the card would compile and play as a way of <em>taking</em> the crown.
+    /// <para>
+    /// Bob's copy entering while Alice already wears it is that assertion.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_crown_that_asks_for_no_monarch_only_creates_one()
+    {
+        var crown = Card(
+            "No Monarch Test",
+            "When ~ enters, if there is no monarch, you become the monarch.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(crown);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        Assert.Null(game.State.MonarchId);
+
+        game.Create(alice, crown, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.MonarchId);
+
+        game.Create(bob, crown, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.MonarchId);
+    }
+
+    /// <summary>
+    /// "As long as there are two or more ki counters on ~, ~ gets +2/+2" — a threshold of
+    /// counters, asked with the subject at the back (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// The same question the vocabulary already answered with the subject at the front, and
+    /// thirty-nine lines print it this way round: every permanent that collects counters and
+    /// does something once it has enough of them.
+    /// <para>
+    /// One counter is asserted as well as two, because a reader that ignored the number and
+    /// asked "does it have any" passes both of the other assertions. Three counters of a
+    /// different name are asserted too, for the reader that asks "does it have any counter".
+    /// And it goes off again, because a static is not a one-way switch.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counter_threshold_asks_for_the_number_and_the_name()
+    {
+        var shrine = Card(
+            "Ki Counter Test",
+            "As long as there are two or more ki counters on ~, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(shrine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, shrine, Zone.Battlefield);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        // Three of somebody else's counter is not one of these.
+        game.ChangeCounters(creature, "brick", 3);
+        Settle(game);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.ChangeCounters(creature, "ki", 1);
+        Settle(game);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.ChangeCounters(creature, "ki", 1);
+        Settle(game);
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.ChangeCounters(creature, "ki", -1);
+        Settle(game);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+    }
+
+    /// <summary>
+    /// "~ has flying as long as ~ has three or more +1/+1 counters on it" — the counter written
+    /// as a number, with a threshold in front of it.
+    /// </summary>
+    /// <remarks>
+    /// A second sentence off the same reader, and a different word order into it. The counter
+    /// name is the interesting half: it is stored as it prints rather than lowercased, so a
+    /// reader that normalised "+1/+1" the way it normalises "ki" would go looking for a counter
+    /// nothing in the engine ever puts on — and the keyword would simply never be granted.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_counter_keeps_the_name_it_is_stored_under()
+    {
+        var mirror = Card(
+            "Plus Counter Test",
+            "~ has flying as long as ~ has three or more +1/+1 counters on it.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, mirror, Zone.Battlefield);
+
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, 2);
+        Settle(game);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying));
+
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, 1);
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying));
+
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, -1);
+        Settle(game);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// "As long as you control exactly one creature, ~ gets +3/+1" — a window rather than a
+    /// threshold.
+    /// </summary>
+    /// <remarks>
+    /// Both of the comparisons already in the counting reader are wrong for this in a way that
+    /// plays: "one or more" leaves the bonus on once a second creature arrives, and "one or
+    /// fewer" leaves it on with none at all. So the second creature is the assertion — and it is
+    /// somebody else's first, because "you control" is a question about your half of the board
+    /// and a reader that counted the whole battlefield would fail there instead.
+    /// </remarks>
+    [Fact]
+    public void An_exact_count_is_switched_off_by_one_creature_too_many()
+    {
+        var loner = Card(
+            "Exactly One Test",
+            "As long as you control exactly one creature, ~ gets +3/+1.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(loner);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, loner, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.Create(bob, TestCards.Creature("Exactly One Bystander", 1, 1), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+
+        game.Create(alice, TestCards.Creature("Exactly One Friend", 1, 1), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+    }
+
+    /// <summary>
+    /// "At the beginning of the end step, if no creatures are on the battlefield, sacrifice ~" —
+    /// the sweeper enchantments that clear up after themselves.
+    /// </summary>
+    /// <remarks>
+    /// The same emptiness the vocabulary already read as "there are no creatures on the
+    /// battlefield", printed the other way round on the four sweeper enchantments that ask it.
+    /// The two wordings are rewritten onto one reader rather than given one each, so the answer
+    /// has only one place to drift from.
+    /// <para>
+    /// It is asked of the whole battlefield and not of your half of it, so Bob's creature keeps
+    /// the enchantment alive through a whole end step — a reader that counted only Alice's would
+    /// sacrifice it a turn early. The second half is what the existing test of the other wording
+    /// does not have: that one asserts only that nothing happens, and a condition that is never
+    /// true passes it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_empty_board_condition_counts_everybodys_creatures()
+    {
+        var plague = Card(
+            "Empty Board Sweeper Test",
+            "At the beginning of the end step, if no creatures are on the battlefield, "
+                + "sacrifice ~.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(plague);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, plague, Zone.Battlefield);
+        var bystander = game.Create(
+            bob, TestCards.Creature("Empty Board Sweeper Bystander", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 1, TurnStep.End);
+        Settle(game);
+
+        Assert.Contains(enchantment, game.State.Battlefield);
+
+        game.Move(bystander, Zone.Graveyard, MoveCause.Destroy);
+        PassTo(game, 2, TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(enchantment, game.State.Battlefield);
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {

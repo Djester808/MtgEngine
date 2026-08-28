@@ -240,6 +240,30 @@ public static partial class BoardConditions
             };
         }
 
+        // "There are five or more mana values among cards in your graveyard" - delirium's shape
+        // over a different characteristic, and the same distinction from a count: five cards can
+        // be one mana value and two cards can be two. Sits beside the type count rather than
+        // beside the card count for exactly that reason.
+        var values = GraveyardManaValueCountLine().Match(text);
+        if (values.Success)
+        {
+            var wantedValues = Number(values.Groups["n"].Value);
+            var orMoreValues = values.Groups["dir"].Value
+                .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) =>
+            {
+                // The mana value of a card in a graveyard is the one its cost gives it
+                // (CR 202.3); nothing on this side of the stack can be holding an X.
+                var distinct = state.GetPlayer(source.ControllerId).Graveyard
+                    .Select(id => state.GetObject(id).Card.Cmc)
+                    .Distinct()
+                    .Count();
+
+                return orMoreValues ? distinct >= wantedValues : distinct <= wantedValues;
+            };
+        }
+
         var turn = YourTurnLine().Match(text);
         if (turn.Success)
         {
@@ -414,6 +438,15 @@ public static partial class BoardConditions
                 source.Permanent?.Counters.GetValueOrDefault(kind) >= least;
         }
 
+        // "There are three or more brick counters on ~" - the same question as the line above
+        // with the subject moved to the back, and thirty-nine lines print it that way: every
+        // permanent that accumulates counters and then does something at a threshold. Nothing
+        // in front of this claims a clause beginning "there are ... counters", so it is safe
+        // where it sits; the graveyard readers above are anchored on "cards in your graveyard".
+        var accumulated = ThereAreCountersLine().Match(text);
+        if (accumulated.Success)
+            return CountersOn(accumulated);
+
         // "As long as it's attacking alone" - a question about the declaration this permanent is
         // part of. The engine reads "~ attacks alone" as a trigger already; this is the same fact
         // asked continuously rather than at the moment of declaring, so it cannot reuse that.
@@ -557,6 +590,18 @@ public static partial class BoardConditions
                 state.TryGetObject(source.Id, out var self) && self.WasKicked;
         }
 
+        // "When ~ enters, if it was bargained, ..." - CR 702.166b: a spell has been bargained
+        // once its controller declares the intention to pay that cost. The sentence form of this
+        // ("If this spell was bargained, destroy that creature instead") was already read, and
+        // seven cards ask it as an intervening-if on the permanent that arrives instead - which
+        // is a different object from the spell (CR 400.7), so the flag has to have ridden the
+        // zone change, exactly as kicker's does.
+        if (WasBargainedLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self) && self.WasBargained;
+        }
+
         // "If you cast it" - not every permanent was cast, and the ones that were reached the
         // battlefield the long way (CR 601). Who cast it is compared against whoever controls
         // the ability asking, so a permanent taken from the player who cast it stops paying.
@@ -603,6 +648,14 @@ public static partial class BoardConditions
         var crowned = MonarchLine().Match(text);
         if (crowned.Success)
         {
+            // "If there is no monarch" is the third state of the same field, and CR 725.1 is why
+            // it is a state at all: there is no monarch in a game until an effect makes one. The
+            // six cards that ask it are the ones that hand the crown out, so reading it as
+            // "somebody else is the monarch" would make each of them fire exactly when it must
+            // not - and would still compile.
+            if (crowned.Groups["nobody"].Success)
+                return (state, _, _) => state.MonarchId is null;
+
             var mine = crowned.Groups["who"].Value.Equals(
                 "you", StringComparison.OrdinalIgnoreCase);
 
@@ -610,6 +663,32 @@ public static partial class BoardConditions
                 ? state.MonarchId == source.ControllerId
                 : state.MonarchId is { } held && held != source.ControllerId;
         }
+
+        // "As long as you control your commander" - the lieutenant cycle. Being a commander is
+        // an attribute of the card rather than of the object (CR 903.3) and survives every zone
+        // change, so this compares oracle ids: a commander that has died and been recast is a
+        // new object each time and is still the same commander.
+        if (ControlsCommanderLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.GetPlayer(source.ControllerId).CommanderOracleId is { } oracleId
+                && state.Battlefield.Any(id =>
+                {
+                    var obj = state.GetObject(id);
+
+                    // Control is computed, not stored (CR 613.1b): a commander an opponent has
+                    // stolen is one you no longer control, which is exactly the situation these
+                    // cards are printed to reward you for avoiding.
+                    return string.Equals(obj.Card.OracleId, oracleId, StringComparison.Ordinal)
+                        && Characteristics.Of(state, abilities, obj).ControllerId
+                            == source.ControllerId;
+                });
+        }
+
+        // "If you have a full party" (CR 700.8c). A count of four roles rather than of four
+        // creatures, and the rule for taking it is what makes it worth a reader of its own.
+        if (FullPartyLine().IsMatch(text))
+            return (state, abilities, source) => HasFullParty(state, abilities, source.ControllerId);
 
         // "If you dealt combat damage to a player this turn" - twenty-four cards ask it and
         // none of them could be read, in any of the three places a condition is asked from: a
@@ -698,20 +777,7 @@ public static partial class BoardConditions
         // to be carried through rather than matched against a list.
         var carrying = SelfCounterLine().Match(text);
         if (carrying.Success)
-        {
-            // Normalised the way the counter is stored when it is put on: a named counter is
-            // lowercase, and the two that are written as numbers are written as they print. A
-            // reader that lowercased "+1/+1" would look for a counter nothing ever adds.
-            var kind = carrying.Groups["kind"].Value is "+1/+1" or "-1/-1"
-                ? carrying.Groups["kind"].Value
-                : carrying.Groups["kind"].Value.ToLowerInvariant();
-
-            var pronoun = carrying.Groups["it"].Success;
-
-            return (state, abilities, source) =>
-                Subject(state, source, pronoun) is { } self
-                && self.Permanent?.Counters.GetValueOrDefault(kind) > 0;
-        }
+            return CountersOn(carrying);
 
         var standing = SelfConditionLine().Match(text);
         if (standing.Success)
@@ -931,6 +997,12 @@ public static partial class BoardConditions
         var excludesSelf = m.Groups["other"].Success;
         var basicOnly = m.Groups["basic"].Success;
 
+        // "You control exactly one creature" — a window rather than a threshold, and the whole
+        // point of the cards that ask it. Read as its own comparison because both thresholds are
+        // wrong for it in a way that plays: "or more" leaves the bonus on with a second creature
+        // out, "or fewer" leaves it on with none.
+        var exactly = m.Groups["exactly"].Success;
+
         // "Your opponents control three or more lands" counts across all of them together, which
         // is what the plural says - unlike "an opponent has ...", which asks about each in turn.
         // The two read alike and mean different things at more than two seats.
@@ -971,7 +1043,8 @@ public static partial class BoardConditions
             // chance to change it yet.
             return spec.ObjectFilter?.Invoke(state, abilities, obj, source.ControllerId)
                 != false;
-        }) is var count && (orMore ? count >= wanted : count <= wanted);
+        }) is var count
+            && (exactly ? count == wanted : orMore ? count >= wanted : count <= wanted);
     }
 
     private static int Number(string word) =>
@@ -1007,8 +1080,15 @@ public static partial class BoardConditions
     private static partial Regex NoneLine();
 
     /// <summary>The same emptiness asked of the whole board rather than of one player.</summary>
+    /// <remarks>
+    /// Both word orders, because the corpus prints both and they are one question: the four
+    /// sweeper enchantments that sacrifice themselves say "if no creatures are on the
+    /// battlefield" while everything else says "if there are no creatures". A second reader for
+    /// the second wording would be a second place for the answer to drift.
+    /// </remarks>
     [GeneratedRegex(
-        @"^there are no (?<what>[A-Za-z]+( [A-Za-z]+)*) on the battlefield$",
+        @"^(there are no (?<what>[A-Za-z]+( [A-Za-z]+)*)"
+            + @"|no (?<what>[A-Za-z]+( [A-Za-z]+)*) are) on the battlefield$",
         RegexOptions.IgnoreCase)]
     private static partial Regex NoneOnBattlefieldLine();
 
@@ -1028,10 +1108,17 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex OneInGraveyardLine();
 
+    /// <remarks>
+    /// "Exactly one creature" is a third comparison rather than a third reader, the way the hand
+    /// count already reads it. It has to be its own arm and cannot be folded into "or fewer":
+    /// the cards that ask it — the ones that pump your lone creature — are turned <em>off</em> by
+    /// a second creature arriving, and "one or fewer" would leave them on with none at all.
+    /// </remarks>
     [GeneratedRegex(
         @"^(?<who>you|your opponents) control "
-            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir>more|fewer) "
+            + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer)) "
             + @"(?<other>other )?(?<basic>basic )?(?<what>[a-z]+( [a-z]+)*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CountLine();
@@ -1069,16 +1156,56 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfConditionLine();
 
+    /// <summary>
+    /// Whether the permanent a counter clause is about is carrying enough of that counter.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the two word orders — "~ has three or more ki counters on it" and "there are
+    /// three or more ki counters on ~" — because they are one question and a second copy of the
+    /// answer is a second thing to get wrong. The name is normalised the way the engine stores
+    /// it when a counter is put on: lowercase for a named counter, printed as-is for the two
+    /// written as numbers, so a reader that lowercased "+1/+1" cannot go looking for a counter
+    /// nothing ever adds.
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, bool> CountersOn(Match m)
+    {
+        var kind = m.Groups["kind"].Value is "+1/+1" or "-1/-1"
+            ? m.Groups["kind"].Value
+            : m.Groups["kind"].Value.ToLowerInvariant();
+
+        var least = m.Groups["n"].Success ? Number(m.Groups["n"].Value) : 1;
+        var pronoun = m.Groups["it"].Success;
+
+        return (state, _, source) =>
+            Subject(state, source, pronoun) is { } self
+            && self.Permanent?.Counters.GetValueOrDefault(kind) >= least;
+    }
+
     /// <remarks>
     /// The counter name is a single word or one of the two written as numbers. Admitting a phrase
     /// there would read "a +1/+1 counter on target creature" as a counter called "on target
     /// creature", which is the mistake the noun-phrase class in the target grammar exists to stop.
+    /// <para>
+    /// The count is here as well as on <see cref="HasCounterLine"/> above, and the two do not
+    /// overlap: that pattern's name class has no digits in it, so "~ has three or more +1/+1
+    /// counters on it" falls past it and arrives here. Widening its class instead would have made
+    /// it claim every clause this one reads and lose the host redirect below with them.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^((~|(this|the) [a-z]+)|(?<it>it)) has an? "
-            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counter on it$",
+        @"^((~|(this|the) [a-z]+)|(?<it>it)) has "
+            + @"(an?|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on it$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCounterLine();
+
+    /// <summary>"There are three or more brick counters on ~" — the other word order.</summary>
+    [GeneratedRegex(
+        @"^there are "
+            + @"(an?|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on (~|(?<it>it))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ThereAreCountersLine();
 
     /// <remarks>
     /// Case-sensitive on the description, because a capital is what separates a subtype from an
@@ -1107,6 +1234,10 @@ public static partial class BoardConditions
     /// </remarks>
     [GeneratedRegex(@"^(~|it|this spell) (was|were) kicked$", RegexOptions.IgnoreCase)]
     private static partial Regex WasKickedLine();
+
+    /// <summary>"If it was bargained" (CR 702.166b).</summary>
+    [GeneratedRegex(@"^(~|it|this spell) was bargained$", RegexOptions.IgnoreCase)]
+    private static partial Regex WasBargainedLine();
 
     [GeneratedRegex(@"^you cast (it|~|this spell)$", RegexOptions.IgnoreCase)]
     private static partial Regex WasCastLine();
@@ -1220,6 +1351,19 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex GraveyardTypeCountLine();
 
+    /// <summary>"Five or more mana values among cards in your graveyard" (CR 202.3).</summary>
+    /// <remarks>
+    /// Deliberately not shared with the pattern above. The two clauses differ by two words and
+    /// mean different things, and a single pattern with the characteristic as a group would have
+    /// to be trusted to keep counting the right one — the sort of near-identical pair that reads
+    /// correctly and plays wrong.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^there are (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer) (different )?mana values among cards in your graveyard$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GraveyardManaValueCountLine();
+
     /// <remarks>
     /// The lead-in words are optional because the caller may have stripped them: "During your
     /// turn, ~ has first strike" is matched by a pattern that captures only the condition itself.
@@ -1280,8 +1424,86 @@ public static partial class BoardConditions
     private static partial Regex CitysBlessingLine();
 
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) ?(are|'re|’re|is) the monarch$", RegexOptions.IgnoreCase)]
+        @"^((?<who>you|an opponent) ?(are|'re|’re|is) the monarch"
+            + @"|(?<nobody>there is no monarch))$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
+
+    /// <summary>"As long as you control your commander" (CR 903.3).</summary>
+    [GeneratedRegex(@"^you control your commander$", RegexOptions.IgnoreCase)]
+    private static partial Regex ControlsCommanderLine();
+
+    /// <summary>"If you have a full party" (CR 700.8c).</summary>
+    [GeneratedRegex(@"^you have a full party$", RegexOptions.IgnoreCase)]
+    private static partial Regex FullPartyLine();
+
+    /// <summary>The four creature types a party is made of (CR 700.8).</summary>
+    private static readonly string[] PartyRoles = ["Cleric", "Rogue", "Warrior", "Wizard"];
+
+    /// <summary>
+    /// Whether this player controls a creature for each of the four party roles (CR 700.8c).
+    /// </summary>
+    /// <remarks>
+    /// CR 700.8b is the whole of the difficulty: a creature that could fill two of the roles
+    /// fills only one, and the count is taken the way that produces the highest result. So this
+    /// is a matching and not a tally, and a greedy assignment is wrong exactly where it matters
+    /// — a Cleric Rogue beside a plain Rogue is a full half of a party, and a reader that spent
+    /// the Cleric Rogue on the Rogue slot would report neither role filled.
+    /// <para>
+    /// Types are computed rather than printed (CR 613 layer 4), because the cards that make a
+    /// creature "a Cleric in addition to its other types" are printed alongside the ones asking
+    /// this question.
+    /// </para>
+    /// </remarks>
+    private static bool HasFullParty(GameState state, IAbilitySource abilities, Guid playerId)
+    {
+        var candidates = state.Battlefield
+            .Select(state.GetObject)
+            .Select(obj => Characteristics.Of(state, abilities, obj))
+            .Where(now => now.IsCreature && now.ControllerId == playerId)
+            .ToList();
+
+        if (candidates.Count < PartyRoles.Length)
+            return false;
+
+        // Which creature each role has been given, as the search reassigns them.
+        var filled = new int[PartyRoles.Length];
+        Array.Fill(filled, -1);
+
+        bool Fill(int role, bool[] tried)
+        {
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (tried[i]
+                    || !candidates[i].Subtypes.Contains(
+                        PartyRoles[role], StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                tried[i] = true;
+
+                // Free, or the role holding it can be re-housed somewhere else — which is the
+                // step that makes this a maximum rather than a first-come assignment.
+                var heldBy = Array.IndexOf(filled, i);
+                if (heldBy < 0 || Fill(heldBy, tried))
+                {
+                    filled[role] = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        for (var role = 0; role < PartyRoles.Length; role++)
+        {
+            if (!Fill(role, new bool[candidates.Count]))
+                return false;
+        }
+
+        return true;
+    }
 
     [GeneratedRegex(
         @"^((?<none>no spells were cast)"
