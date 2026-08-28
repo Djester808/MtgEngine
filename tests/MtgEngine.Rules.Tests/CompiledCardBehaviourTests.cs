@@ -10307,6 +10307,79 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    /// <summary>
+    /// "Target Nissa planeswalker" — the subtype with its card type printed after it.
+    /// </summary>
+    /// <remarks>
+    /// "Target Nissa" was already read and this was not, on 38 cards, because the word after the
+    /// subtype was consumed and thrown away. It cannot be thrown away: the planeswalker types are
+    /// eighty proper names sharing no list with the creature types, so the subtype table would
+    /// have to hold all of them and go stale every set. The printed word says which type it is.
+    /// <para>
+    /// The Bear is here to prove the type half is doing work. Without it the walker alone would
+    /// pass a reading that had kept the creature default and simply found nothing else.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_named_planeswalker_can_be_targeted_by_its_type()
+    {
+        var hunt = Card(
+            "Walker Hunt Test", "Destroy target Nissa planeswalker.", CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(hunt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, TestCards.Creature("Walker Bear Test", 2, 2), Zone.Battlefield);
+
+        var walker = game.Create(
+            bob,
+            Card("Walker Nissa Test", string.Empty, CardType.Planeswalker, subtypes: "Nissa"),
+            Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, hunt), [Target.ToPermanent(walker)]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(walker, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "For each red or green creature you control" — one adjective naming two colours.
+    /// </summary>
+    /// <remarks>
+    /// The only place in the adjective vocabulary where a word is an alternative rather than one
+    /// more thing that has to be true, and the reason all seventeen were lost is ordering: "red"
+    /// alone matched, leaving " or green creature" for a noun with no room for it.
+    /// <para>
+    /// Three creatures, two of which qualify. The blue one is what separates this from a reading
+    /// that dropped the colours, and having one of each named colour separates it from a reading
+    /// that kept only the first.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_can_name_two_colours_as_alternatives()
+    {
+        var tally = Card(
+            "Colour Pair Test",
+            "You gain 1 life for each red or green creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(tally);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Coloured("Colour Red Test", ManaColor.Red), Zone.Battlefield);
+        game.Create(alice, Coloured("Colour Green Test", ManaColor.Green), Zone.Battlefield);
+        game.Create(alice, Coloured("Colour Blue Test", ManaColor.Blue), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tally), []);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
     // ---- The verbs that can carry a count ------------------------------------
 
     /// <summary>

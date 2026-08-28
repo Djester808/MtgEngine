@@ -5579,9 +5579,18 @@ public static partial class EffectPhrase
                 //
                 // This is the failure that is worse than an unread line, because nothing says so -
                 // the deck builder allows the card and the board plays it wrong in silence.
-                var implied = SubtypeCardType(printed);
+                // The card type printed after the subtype wins over the one the subtype implies.
+                // "Nissa" is a planeswalker type and would otherwise fall to the creature default,
+                // because the planeswalker types are eighty proper names and a table of them
+                // would go stale every set - the word after them does not.
+                var spelled = m.Groups["kind"].Success
+                    ? PermanentTypes(m.Groups["kind"].Value.Trim().ToLowerInvariant())
+                    : null;
+
+                var implied = spelled is [var only] ? only : SubtypeCardType(printed);
+
                 tribal = implied == CardType.Creature;
-                required = [implied];
+                required = spelled is [] ? [] : [implied];
             }
 
             var filters = adjectives.ConvertAll(AdjectiveFilter);
@@ -6034,6 +6043,22 @@ public static partial class EffectPhrase
                         !Characteristics.Of(state, abilities, obj).HasSubtype(excluded);
             }
 
+            // "Red or green creature" - one adjective naming two colours, and the only place in
+            // this vocabulary where a word is an alternative rather than another thing that has
+            // to be true. Answered by splitting it rather than by two dozen table rows, so a pair
+            // the cards have not printed yet works the same as the ones they have.
+            var either = adjective.Split(" or ", StringSplitOptions.TrimEntries);
+            if (either.Length == 2
+                && ColorNamed(either[0]) is { } left
+                && ColorNamed(either[1]) is { } right)
+            {
+                return (state, abilities, obj) =>
+                {
+                    var colors = Characteristics.Of(state, abilities, obj).Colors;
+                    return colors.Contains(left) || colors.Contains(right);
+                };
+            }
+
             return adjective switch
             {
                 "" => (_, _, _) => true,
@@ -6111,6 +6136,17 @@ public static partial class EffectPhrase
                 _ => null,
             };
         }
+
+        /// <summary>One of the five colours by name, or null for any other word (CR 105.1).</summary>
+        private static ManaColor? ColorNamed(string word) => word.ToLowerInvariant() switch
+        {
+            "white" => ManaColor.White,
+            "blue" => ManaColor.Blue,
+            "black" => ManaColor.Black,
+            "red" => ManaColor.Red,
+            "green" => ManaColor.Green,
+            _ => null,
+        };
 
         /// <summary>A printed supertype, which nothing in the engine changes (CR 205.4a).</summary>
         private static bool HasSupertype(GameObject obj, string supertype) =>
@@ -6372,6 +6408,11 @@ public static partial class EffectPhrase
                 // could only ever read one of them. .NET keeps every capture of a repeated
                 // group, so the reader below ands them together rather than taking the last.
                 + @"(?:(?<adj>(?i:attacking or blocking|attacking|blocking|unblocked|blocked"
+                // "A red or green creature you control" - two colours, either of which will do.
+                // First in the alternation because it has to beat the bare colour that starts it:
+                // "red" alone matches, and then " or green creature" is left for a noun that has
+                // no room for it, which is how all 17 of these were lost.
+                + @"|(?:white|blue|black|red|green) or (?:white|blue|black|red|green)"
                 + @"|tapped|untapped|modified|enchanted|snow"
                 + @"|nonland|nonbasic|basic"
                 + @"|nonwhite|nonblue|nonblack|nonred|nongreen"
@@ -6399,7 +6440,12 @@ public static partial class EffectPhrase
                 + @"|artifact creature token|creature token|artifact token|enchantment token"
                 + @"|artifact creature|enchantment creature|creature|permanent|artifact"
                 + @"|enchantment|land|planeswalker|token|player|opponent|spell)|[A-Z][a-z]+)"
-                + @"(\s+creature)?"
+                // "Target Nissa planeswalker", "target Goblin creature" - a subtype with the card
+                // type printed after it. Captured rather than discarded, because the word decides
+                // which type the subtype belongs to and the subtype table can only guess: a
+                // planeswalker type shares no list with a creature type, and 38 cards name one
+                // this way while "target Nissa" alone was already read.
+                + @"(?<kind>\s+(?i:creature|planeswalker|artifact|enchantment|land|permanent))?"
                 + @"(?<own>\s+you control|\s+you don't control|\s+an opponent controls"
                 + @"|\s+your opponents control|\s+another player controls"
                 + @"|\s+that player controls|\s+defending player controls)?$",
