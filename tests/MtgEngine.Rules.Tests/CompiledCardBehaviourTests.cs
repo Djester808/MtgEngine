@@ -10786,6 +10786,259 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "Artifact creatures you control get +1/+1" — a lord whose noun is not a creature type
+    /// (CR 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// The negative assertions are the test. The pattern this replaced picked the tribe reading
+    /// off a capital letter, and every sentence begins with one, so this line compiled to a lord
+    /// for the creature <em>type</em> "Artifact" — which no card in the game has. It read as
+    /// complete, it played without error, and it buffed nothing at all, on 27 corpus lines.
+    /// <para>
+    /// A mass static with too wide a noun passes every positive test there is, so the plain bear
+    /// and the opponent's artifact creature are here to fail one. The noun now comes from the
+    /// shared table every target phrase reads, which is what makes "artifact creature" two card
+    /// types rather than a word to guess at.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_lord_reads_its_noun_from_the_type_table_rather_than_from_a_capital_letter()
+    {
+        var lord = Card(
+            "Etherium Lord Test",
+            "Artifact creatures you control get +1/+1.",
+            CardType.Artifact | CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, lord, Zone.Battlefield);
+
+        var golem = game.Create(
+            alice,
+            Card("Etherium Golem Test", string.Empty, CardType.Artifact | CardType.Creature, 2, 2),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Etherium Bear Test", 2, 2), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob,
+            Card("Etherium Thief Test", string.Empty, CardType.Artifact | CardType.Creature, 2, 2),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(golem)).Power);
+
+        // Flesh is not metal, and a lord that cannot tell the difference is the bug.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        // "You control" is half the sentence, and the half a wide noun would also swallow.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).Power);
+    }
+
+    /// <summary>
+    /// "Creature tokens you control get +1/+1" — a lord over tokens (CR 111.1, 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// 21 corpus lines, and the noun is the whole of what was missing: "creature token" is a card
+    /// type and a fact about where the permanent came from, which the shared table already knew
+    /// and this pattern had no way to ask for. The printed bear is what proves the second half is
+    /// being asked — a lord reading only "creature" pumps it too and passes on the token alone.
+    /// </remarks>
+    [Fact]
+    public void A_lord_over_creature_tokens_leaves_the_printed_creatures_alone()
+    {
+        var general = Card(
+            "Phantom Lord Test",
+            "Creature tokens you control get +1/+1.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(general);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, general, Zone.Battlefield);
+
+        var token = game.Create(
+            alice, TestCards.Token("Phantom Token Test", 1, 1), Zone.Battlefield);
+
+        var printed = game.Create(
+            alice, TestCards.Creature("Phantom Bear Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(token)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(printed)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(token)).Toughness);
+    }
+
+    /// <summary>
+    /// "Other Goblin creatures you control attack each combat if able" — a requirement over a
+    /// group (CR 508.1d).
+    /// </summary>
+    /// <remarks>
+    /// The single-creature form was read years before the group form, and the two now share one
+    /// path: the requirement is a keyword flag, and the attack declaration reads that flag off the
+    /// computed characteristics of every creature the attacking player controls, so a flag granted
+    /// in layer 6 is enforced without a second rule anywhere.
+    /// <para>
+    /// Both negatives matter and both are printed on the card. "Other" is why the source itself
+    /// may sit out, and "Goblin" is why the bear may — a group requirement that compelled either
+    /// would look identical from the Goblin's side.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_combat_requirement_compels_the_group_and_nothing_else()
+    {
+        var rabblemaster = new CardDefinition
+        {
+            OracleId = "oracle-rabble-test",
+            Name = "Rabble Lord Test",
+            OracleText = "Other Goblin creatures you control attack each combat if able.",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Goblin"],
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var compiled = CardCompiler.Compile(rabblemaster);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var lord = game.Create(alice, rabblemaster, Zone.Battlefield);
+
+        var goblin = game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-rabble-goblin-test",
+                Name = "Rabble Goblin Test",
+                CardTypes = CardType.Creature,
+                Subtypes = ["Goblin"],
+                Power = 1,
+                Toughness = 1,
+            },
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Rabble Bear Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        // Turn 3 is Alice's again, so nothing on her side is summoning sick (CR 302.6).
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        // The Goblin is able to attack and is not in the batch, so the declaration is illegal.
+        Assert.Throws<InvalidOperationException>(
+            () => game.DeclareAttackers(
+                alice,
+                new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(bob) }));
+
+        // The Goblin alone is legal: the lord is excluded by "other" and the bear is not a Goblin.
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [goblin] = AttackTarget.Player(bob) });
+
+        Assert.Contains(goblin, game.State.Combat.Attackers.Keys);
+        Assert.DoesNotContain(lord, game.State.Combat.Attackers.Keys);
+    }
+
+    /// <summary>
+    /// "Whenever an enchantment you control enters <em>and whenever</em> you fully unlock a Room"
+    /// — one ability with two trigger conditions (CR 603.1, 709.5i).
+    /// </summary>
+    /// <remarks>
+    /// 17 cards print this and every one of them prints it the same way. Both halves are asserted
+    /// firing and both are asserted <em>not</em> firing for the opponent's copy of the same event,
+    /// because "you control" and "you fully unlock" are the only things separating this ability
+    /// from one that watches the whole table.
+    /// <para>
+    /// The Room half is the more delicate: fully unlocking is getting the <em>last</em> door
+    /// (CR 709.5i), and a trigger reads the state as it was before the event, so a predicate that
+    /// simply counted the open doors would have counted one too few and never fired at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_with_two_trigger_conditions_fires_on_either_of_them()
+    {
+        var eerie = Card(
+            "Eerie Leech Test",
+            "Eerie — Whenever an enchantment you control enters and whenever you fully "
+                + "unlock a Room, each opponent loses 1 life.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(eerie);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, eerie, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        // The first condition: an enchantment you control enters.
+        game.Create(
+            alice, Card("Eerie Shrine Test", string.Empty, CardType.Enchantment), Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        // One an opponent controls is not one you control.
+        game.Create(
+            bob, Card("Eerie Idol Test", string.Empty, CardType.Enchantment), Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        // Bob's turn, and Bob's Room. "You fully unlock" is Alice, so neither the Room arriving
+        // nor its second door opening is anything this ability watches.
+        PassTo(game, 2, TurnStep.PrecombatMain);
+
+        var theirRoom = TestCards.PutInHand(game, bob, Room());
+        for (var i = 0; i < 6; i++)
+            game.AddMana(bob, ManaColor.Red);
+
+        game.CastSpell(bob, theirRoom, [], half: 0);
+        Settle(game);
+
+        var theirs = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).ControllerId == bob
+                && game.State.GetObject(id).Card.Name == "Test Vents // Test Maze");
+
+        game.UnlockDoor(bob, theirs, 1);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        // Alice's own Room. It is an enchantment entering under her control, so the first
+        // condition takes a life on the way in — one life and not two, which is the assertion
+        // that says a Room arriving with one door open is not yet fully unlocked (CR 709.5d).
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var myRoom = TestCards.PutInHand(game, alice, Room());
+        for (var i = 0; i < 6; i++)
+            game.AddMana(alice, ManaColor.Red);
+
+        game.CastSpell(alice, myRoom, [], half: 0);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // ...and the second condition takes another when the last door opens.
+        var mine = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).ControllerId == alice
+                && game.State.GetObject(id).Card.Name == "Test Vents // Test Maze");
+
+        game.UnlockDoor(alice, mine, 1);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
     /// <remarks>

@@ -6011,6 +6011,209 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// The group a lord names — what its members must be, what tribe, and what they must look like.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Types"/> is an intersection: "artifact creature token" is three tests and one
+    /// noun. An empty list is the noun "permanent", which asks nothing of the card types at all.
+    /// </remarks>
+    private sealed record StaticGroup(
+        IReadOnlyList<CardType> Types,
+        string? Subtype,
+        Func<GameState, CharacteristicsBuilder, bool>? Adjective,
+        string Described);
+
+    /// <summary>
+    /// "Creature tokens", "artifact creatures", "White creatures", "Slivers" — the noun phrase a
+    /// mass static names, resolved against the shared vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// The noun goes through <c>EffectPhrase.Specs.PermanentTypes</c>, the same table every
+    /// target phrase reads, so the compiler has one answer to "what is a creature token" rather
+    /// than two. Whatever is left in front of it is an adjective, and the tribe reading is the
+    /// <em>last</em> thing tried rather than the first — which is the whole point of this method.
+    /// Trying it first is what turned "Artifact creatures you control get +1/+1" into a lord for
+    /// the creature type "Artifact" and "White creatures you control get +1/+1" into one for the
+    /// type "White": 27 lines and 60 lines of the corpus respectively, all of which compiled,
+    /// played, and buffed nothing at all.
+    /// <para>
+    /// Returning null leaves the line unread, which is the honest outcome for a group this cannot
+    /// describe and strictly better than the silent no-op it replaces — a card a deck check
+    /// refuses is a card somebody notices.
+    /// </para>
+    /// </remarks>
+    private static StaticGroup? ReadStaticGroup(string printed)
+    {
+        var words = printed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // Four words is "other artifact creature tokens" with the scope already lifted off, and
+        // nothing printed is longer. The pattern is bounded to the same four so that a line the
+        // group reader would reject anyway cannot make it backtrack across a whole sentence
+        // first — this matcher is offered every unread line of 32,765 cards.
+        if (words.Length is 0 or > 4)
+            return null;
+
+        // The longest tail the noun table knows, so "artifact creature tokens" is one noun rather
+        // than an adjective in front of "creature tokens".
+        var noun = -1;
+        IReadOnlyList<CardType> types = [];
+
+        for (var start = 0; start < words.Length; start++)
+        {
+            var tail = string.Join(
+                ' ', words[start..^1].Append(EffectPhrase.SingularWord(words[^1])));
+
+            if (EffectPhrase.Specs.PermanentTypes(tail.ToLowerInvariant()) is { } found)
+            {
+                noun = start;
+                types = found;
+                break;
+            }
+        }
+
+        var described = printed.ToLowerInvariant().Replace(' ', '-');
+
+        // No noun at all is the bare-tribe form: "Slivers you control get +1/+1" never says the
+        // word creature. It has to be printed plural and capitalised, because a creature type is
+        // a proper noun and dropping either test admits every adjective in the language. Through
+        // the shared singulariser, because English is irregular: "other Elves you control" named
+        // the creature type "Elve", found none however many Elves were out, and buffed nothing.
+        if (noun < 0)
+        {
+            if (words.Length != 1 || !char.IsUpper(words[0][0]))
+                return null;
+
+            var one = EffectPhrase.SingularWord(words[0]);
+
+            // Spelled the same in both numbers, and the singulariser leaves it alone, so it would
+            // otherwise fail the plural test that keeps adjectives out.
+            if (string.Equals(one, words[0], StringComparison.Ordinal)
+                && !string.Equals(words[0], "Merfolk", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            return new StaticGroup([CardType.Creature], one, null, described);
+        }
+
+        string? subtype = null;
+        Func<GameState, CharacteristicsBuilder, bool>? adjective = null;
+
+        foreach (var word in words[..noun])
+        {
+            var (isAdjective, filter) = GroupAdjective(word);
+
+            if (isAdjective)
+            {
+                if (filter is null)
+                    return null;
+
+                var earlier = adjective;
+                adjective = earlier is null
+                    ? filter
+                    : (state, target) => earlier(state, target) && filter(state, target);
+
+                continue;
+            }
+
+            // Not an adjective, so it is a tribe — and a tribe is a creature type, so the noun
+            // has to be something that can be a creature. "Zombie tokens" is one; a group whose
+            // noun is only a land or an artifact is not, and reading a tribe onto it would build
+            // another lord that matches nothing.
+            if (subtype is not null
+                || !char.IsUpper(word[0])
+                || (types.Count > 0
+                    && !types.Contains(CardType.Creature)
+                    && !types.Contains(CardType.Token)))
+            {
+                return null;
+            }
+
+            subtype = EffectPhrase.SingularWord(word);
+        }
+
+        return new StaticGroup(types, subtype, adjective, described);
+    }
+
+    /// <summary>
+    /// An adjective in front of a lord's noun — "White creatures", "Attacking creatures".
+    /// </summary>
+    /// <remarks>
+    /// Three answers rather than two, and the third is the one that matters. A filter reads the
+    /// word; "adjective, and not one we can answer" leaves the whole line unread; and a word this
+    /// does not recognise at all is handed on to the tribe reading. Without the middle answer
+    /// "Modified creatures you control get +1/+1" falls through to a lord for the creature type
+    /// "Modified", which is exactly the silent no-op this whole path exists to stop.
+    /// <para>
+    /// The words are the ones the corpus prints in this slot, counted rather than imagined:
+    /// colours lead on 60 lines, "attacking" on 35, "legendary" on 11, "nontoken" on 7.
+    /// </para>
+    /// <para>
+    /// It answers from the <see cref="CharacteristicsBuilder"/> instead of calling the shared
+    /// adjective vocabulary, because it runs <em>inside</em> the layer loop: anything that reads a
+    /// finished <see cref="ComputedCharacteristics"/> would re-enter the computation it is part
+    /// of. That is the same reason the controller, tribe and keyword tests beside it are written
+    /// out here rather than borrowed.
+    /// </para>
+    /// </remarks>
+    private static (bool IsAdjective, Func<GameState, CharacteristicsBuilder, bool>? Filter)
+        GroupAdjective(string printed)
+    {
+        var word = printed.ToLowerInvariant();
+
+        if (ColorNamed(word) is { } colour)
+            return (true, (_, target) => target.IsColor(colour));
+
+        if (word.StartsWith("non", StringComparison.Ordinal))
+        {
+            var rest = word[3..].TrimStart('-');
+
+            if (ColorNamed(rest) is { } without)
+                return (true, (_, target) => !target.IsColor(without));
+
+            // "Nonartifact creatures", "nontoken creatures" — the shared noun table again, read
+            // negated, so the positive and negative readings of a type word cannot drift apart.
+            if (EffectPhrase.Specs.PermanentTypes(rest) is [var excluded])
+                return (true, (_, target) => !target.CardTypes.HasFlag(excluded));
+
+            if (rest is "legendary")
+                return (true, (_, target) => !target.IsLegendary);
+
+            // Recognised as a negation and not answerable, which leaves the line unread rather
+            // than letting "Nonhuman creatures" become a lord for the creature type "Nonhuman".
+            return (true, null);
+        }
+
+        return word switch
+        {
+            // A supertype, so it is read off the printed card (CR 205.4a) — nothing in the engine
+            // changes one, which is why the builder carries it rather than computing it.
+            "legendary" => (true, (_, target) => target.IsLegendary),
+
+            "attacking" => (true, (state, target) =>
+                state.Combat.Attackers.ContainsKey(target.Subject.Id)),
+            "blocking" => (true, (state, target) =>
+                state.Combat.Blockers.Values.Any(blocking => blocking.Contains(target.Subject.Id))),
+            "tapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == true),
+            "untapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == false),
+
+            // Colours after layer 5, counted rather than named (CR 105.2b, 105.2c).
+            "colorless" => (true, (_, target) => target.Colors.Count == 0),
+            "monocolored" => (true, (_, target) => target.Colors.Count == 1),
+            "multicolored" => (true, (_, target) => target.Colors.Count > 1),
+
+            // Named so they are refused rather than left to the tribe reading, which is what each
+            // of them used to get: a lord for a creature type no card has. Every one is a real
+            // description this filter has no way to ask about — "modified" wants counters, Auras
+            // and Equipment (CR 700.9), "enchanted" and "equipped" want an attachment, and
+            // "commander" is a designation made before the game began (CR 903.3).
+            "modified" or "enchanted" or "equipped" or "unblocked" or "commander" or "historic"
+                or "outlaw" or "premium" or "hosted" or "alliterative" => (true, null),
+            _ => (false, null),
+        };
+    }
+
+    /// <summary>
     /// "Creatures you control get +N/+N" and its relatives — a static over a group (CR 613.4c).
     /// </summary>
     /// <remarks>
@@ -6031,12 +6234,16 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        // Through the shared singulariser, because the bare-tribe form is printed plural and
-        // English is irregular: "other Elves you control" named the creature type "Elve", found
-        // none however many Elves were on the battlefield, and buffed nothing.
-        var subtype = m.Groups["subtype"].Success
-            ? EffectPhrase.SingularWord(m.Groups["subtype"].Value.Trim())
-            : null;
+        // The noun is captured whole and resolved here rather than alternated in the pattern,
+        // and a bug is the reason rather than tidiness. The alternation this replaced guessed a
+        // creature *subtype* from a capital letter, and every sentence begins with one: "Artifact
+        // creatures you control get +1/+1" compiled to a lord for the creature type "Artifact",
+        // which no card in the game has. 27 corpus lines buffed nothing while reading as
+        // complete, and a reader that never fires looks exactly like a reader that works.
+        if (ReadStaticGroup(m.Groups["noun"].Value.Trim()) is not { } group)
+            return false;
+
+        var subtype = group.Subtype;
 
         // "Creatures of the chosen type get +1/+1" - the tribe is not printed on the card, it is
         // whatever this permanent named as it entered (CR 614.12). So it is read from the source
@@ -6079,11 +6286,33 @@ public static partial class CardCompiler
         if (m.Groups["kw"].Success && keywords is null)
             return false;
 
+        // "Other Goblin creatures you control attack each combat if able" — the requirement the
+        // single-creature form already reads, applied to a group (CR 508.1d). It joins the
+        // keywords rather than becoming its own effect because the engine models it as a flag,
+        // and the attack declaration reads that flag off the *computed* characteristics of every
+        // creature the attacking player controls — so one granted in layer 6 is enforced exactly
+        // as a printed one is, with no second path to keep in step.
+        if (m.Groups["must"].Success)
+        {
+            keywords = keywords is { } alreadyGranted
+                ? alreadyGranted | KeywordAbility.MustAttack
+                : KeywordAbility.MustAttack;
+        }
+
         // A subtype filter is only meaningful when it names a creature type the card itself is
         // about; anything else is read literally, which is what the rules do too.
         bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
-            if (!target.IsCreature)
+            // The card types the group's noun asks for, read from the *computed* characteristics
+            // for the same reason the tribe is: a land layer 4 animated into a creature is one of
+            // "creatures you control". An empty list is the noun "permanent", which asks nothing.
+            foreach (var required in group.Types)
+            {
+                if (!target.CardTypes.HasFlag(required))
+                    return false;
+            }
+
+            if (group.Adjective is { } describes && !describes(state, target))
                 return false;
 
             if (otherOnly && source is not null && target.Subject.Id == source.Id)
@@ -6127,9 +6356,13 @@ public static partial class CardCompiler
                 : target.ControllerId != controller;
         }
 
+        // The group's own words go into the id, because two lords on one card are told apart by
+        // nothing else: "White creatures you control get +1/+1" and "Black creatures you control
+        // get +1/+1" are the same layer, the same bonus and the same card, and an id built from
+        // the bonus alone would collide — which the invariant suite reads as one ability twice.
         var describedAs = (chosenType || chosenColor
             ? "chosen-" + m.Groups["chosen"].Value.ToLowerInvariant()
-            : subtype ?? "creatures")
+            : group.Described)
             + (needs is { } named ? ":with-" + named : string.Empty)
             + (needsCounter is { } counted ? ":counter-" + counted : string.Empty);
 
@@ -8616,6 +8849,91 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// A trigger's "when" clause, including the two-condition form (CR 603.1).
+    /// </summary>
+    /// <remarks>
+    /// "Whenever an enchantment you control enters <em>and whenever</em> you fully unlock a Room"
+    /// is one ability with two conditions, and an ability with two conditions fires on either of
+    /// them. The join is read here rather than inside the shared condition grammar because it is a
+    /// fact about the <em>line</em> — two whole clauses spliced together — and each half is then
+    /// handed to that grammar unchanged, so nothing about the vocabulary is restated to support it.
+    /// <para>
+    /// Both halves have to read or the line does not. Keeping the half that parsed would build a
+    /// card that triggers on less than it prints, which is quieter than an unread line and no
+    /// more correct.
+    /// </para>
+    /// </remarks>
+    private static Func<GameEvent, GameState, TriggerSource, bool>? ReadTriggerCondition(
+        string when)
+    {
+        var joined = TwoTriggerConditions().Match(when);
+        if (!joined.Success)
+            return ReadOneTriggerCondition(when);
+
+        if (ReadOneTriggerCondition(joined.Groups["first"].Value.Trim()) is not { } first
+            || ReadOneTriggerCondition(joined.Groups["second"].Value.Trim()) is not { } second)
+        {
+            return null;
+        }
+
+        return (e, state, source) => first(e, state, source) || second(e, state, source);
+    }
+
+    /// <summary>One clause of a trigger condition.</summary>
+    /// <remarks>
+    /// The shared grammar answers first and answers almost all of it. What is left is the one
+    /// wording the corpus prints <em>only</em> inside the two-condition join above — 17 lines
+    /// carry it and not one card prints it standing alone — which makes it part of reading that
+    /// line shape rather than a piece of the general vocabulary.
+    /// </remarks>
+    private static Func<GameEvent, GameState, TriggerSource, bool>? ReadOneTriggerCondition(
+        string clause)
+    {
+        if (TriggerConditions.Parse(clause) is { } known)
+            return known;
+
+        // Compared rather than matched, because there is nothing here to parse: every one of the
+        // 17 lines spells it exactly this way and there is no variable part. A pattern would only
+        // add a shape the line-shape audit then has to be told to ignore.
+        if (!clause.Equals("you fully unlock a Room", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return (e, state, source) =>
+        {
+            if (e is not HalfUnlocked opening
+                || !state.TryGetObject(opening.Id, out var room)
+                || room.Permanent is not { } standing)
+            {
+                return false;
+            }
+
+            // "*You* fully unlock a Room": only a permanent's controller may unlock its doors
+            // (CR 709.5e), so the Room's controller is the player who did it and no event records
+            // it separately.
+            if (room.ControllerId != source.ControllerId)
+                return false;
+
+            // A Room and not merely a permanent with halves, which is what the card says. The
+            // test is the compiler's own: every face is a Room (CR 709.5).
+            if (room.Card.Faces.Count == 0
+                || !room.Card.Faces.All(f => f.Subtypes.Contains("Room", StringComparer.Ordinal)))
+            {
+                return false;
+            }
+
+            // CR 709.5i: fully unlocking is getting the *last* designation, not any of them — a
+            // Room with one half already open is fully unlocked by the second, and one with
+            // neither only when it has both. A trigger reads the state as it was *before* the
+            // event (the Room's own door triggers beside this one turn on the same fact), so the
+            // door being opened is added to the set before it is counted rather than found in it.
+            var doors = source.Abilities.HalvesOf(room.Card);
+
+            return doors.Count > 1
+                && standing.UnlockedHalves.Add(opening.Half).Count == doors.Count;
+        };
+    }
+
     /// <summary>A triggered ability: "When/Whenever/At ..., ..." (CR 603.1).</summary>
     private static bool TryTrigger(
         string line,
@@ -8660,7 +8978,7 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        var predicate = TriggerConditions.Parse(m.Groups["when"].Value.Trim());
+        var predicate = ReadTriggerCondition(m.Groups["when"].Value.Trim());
 
         // "This ability triggers only once each turn" is a sentence about the ability rather than
         // part of what it does, so it comes off before the effect is read.
@@ -9241,6 +9559,15 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex CountedThingLine();
 
+    /// <remarks>
+    /// Anchored on the whole conjunction rather than on " and ", because " and " joins parts of
+    /// one clause at least as often as it joins two of them — "whenever this creature enters or
+    /// attacks and you control a Sliver" is one condition. The second "whenever" is what says
+    /// two abilities' worth of condition are being spliced onto one ability.
+    /// </remarks>
+    [GeneratedRegex(@"^(?<first>.+?) and whenever (?<second>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TwoTriggerConditions();
+
     /// <summary>"Creatures in your party", however the card spells the noun (CR 700.9).</summary>
     [GeneratedRegex(@"^(the number of )?creatures? in your party$", RegexOptions.IgnoreCase)]
     private static partial Regex PartyLine();
@@ -9269,22 +9596,27 @@ public static partial class CardCompiler
     private static partial Regex ZoneCountLine();
 
     /// <remarks>
-    /// A lord names its tribe two ways - "Other Goblin creatures you control" and just "Other
-    /// Goblins you control" - and the second is much the commoner. The bare-tribe alternative is
-    /// deliberately case-<em>sensitive</em> inside an otherwise case-insensitive pattern: without
-    /// that, "other artifacts you control" would read "artifact" as a creature subtype and
-    /// compile to a lord that silently buffs nothing, which is worse than not reading the line.
+    /// A lord names its group four ways — "Other Goblin creatures you control", just "Other
+    /// Goblins you control", a noun that is not a tribe at all ("Creature tokens", "Other
+    /// permanents"), and an adjective in front of one ("White creatures", "Attacking creatures").
+    /// The noun phrase is captured whole and handed to <see cref="ReadStaticGroup"/> rather than
+    /// alternated here, because a noun list restated in a pattern is a list that drifts from the
+    /// shared one — and this one had drifted into a bug. The alternation this replaced picked the
+    /// tribe reading off a capital letter, so every sentence-initial type word became a creature
+    /// subtype: "Artifact creatures you control get +1/+1" compiled to a lord for the creature
+    /// type "Artifact", read as complete, and buffed nothing.
     /// </remarks>
     [GeneratedRegex(
         @"^(?<scope>all|other|each)?\s*"
-            + @"(creatures?|(?<subtype>[A-Z][a-z]+)\s+creatures?"
-            + @"|(?-i:(?<subtype>[A-Z][a-z]+(s|es|ves|ies))|(?<subtype>Merfolk)))"
+            + @"(?<noun>[A-Za-z]+(?:\s+[a-z]+){0,3}?)"
             + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls)?"
             + @"(\s+of the chosen (?<chosen>type|color))?"
             + @"(\s+with a (?<counter>[+-]\d/[+-]\d) counter on (it|them)"
             + @"|\s+with (?<needs>[a-z ]+?))?\s+"
-            + @"(gets? (?<p>[+-]\d+)/(?<tough>[+-]\d+)( and (has|have) (?<kw>[a-z ,]+))?"
-            + @"|(has|have) (?<kw>[a-z ,]+))\.?$",
+            + @"(gets? (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+            + @"( and (has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?)?"
+            + @"|(has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?"
+            + @"|(?<must>attacks? each combat if able))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassStaticLine();
 
