@@ -265,15 +265,7 @@ public static class GameReducer
             LandDropUsed land => LandDrop(state, land),
             // Counted as it is cast, not as it resolves: a countered spell was still cast, and
             // the cards that ask about "your second spell each turn" are about the casting.
-            SpellCastEvent cast => state.WithPlayer(
-                state.GetPlayer(cast.PlayerId) with
-                {
-                    SpellsCastThisTurn = state.GetPlayer(cast.PlayerId).SpellsCastThisTurn + 1,
-                    NoncreatureSpellsCastThisTurn =
-                        state.GetPlayer(cast.PlayerId).NoncreatureSpellsCastThisTurn
-                        + (state.TryGetObject(cast.StackId, out var spell)
-                            && !spell.Card.CardTypes.HasFlag(CardType.Creature) ? 1 : 0),
-                }),
+            SpellCastEvent cast => Cast(state, cast),
             StackObjectResolved => state,
             DamageCleared => ClearDamage(state),
             PermanentSaddled saddled => state.TryGetObject(saddled.Id, out var mount)
@@ -1001,6 +993,37 @@ public static class GameReducer
         return AddTo(state, e.Zone, e.OwnerId, e.Id, e.Position);
     }
 
+    /// <summary>
+    /// Notes a spell against the player who cast it (CR 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// Three facts off one event, and all of them read from the object on the stack: the spell is
+    /// already there by the time the casting is complete, which is what lets the reducer see what
+    /// was cast without the event having to carry it.
+    /// <para>
+    /// The card is kept as well as the counts because "your first enchantment spell each turn"
+    /// and its siblings ask about a kind, and a kind is not something two counters can be made to
+    /// answer — see <see cref="PlayerState.SpellCardsCastThisTurn"/>. A spell whose object cannot
+    /// be found is still counted and simply not described, so the counts never disagree about how
+    /// many spells there were.
+    /// </para>
+    /// </remarks>
+    private static GameState Cast(GameState state, SpellCastEvent e)
+    {
+        var player = state.GetPlayer(e.PlayerId);
+        var known = state.TryGetObject(e.StackId, out var spell);
+
+        return state.WithPlayer(player with
+        {
+            SpellsCastThisTurn = player.SpellsCastThisTurn + 1,
+            NoncreatureSpellsCastThisTurn = player.NoncreatureSpellsCastThisTurn
+                + (known && !spell.Card.CardTypes.HasFlag(CardType.Creature) ? 1 : 0),
+            SpellCardsCastThisTurn = known
+                ? player.SpellCardsCastThisTurn.Add(spell.Card)
+                : player.SpellCardsCastThisTurn,
+        });
+    }
+
     private static GameState BeginTurn(GameState state, TurnBegan e)
     {
         // CR 505.6b's allowance is per turn, so it resets for everyone, not only the new active
@@ -1026,6 +1049,7 @@ public static class GameReducer
                     LostLifeThisTurn = false,
                     LifeGainedThisTurn = 0,
                     NoncreatureSpellsCastThisTurn = 0,
+                    SpellCardsCastThisTurn = [],
                 });
 
         return state with
