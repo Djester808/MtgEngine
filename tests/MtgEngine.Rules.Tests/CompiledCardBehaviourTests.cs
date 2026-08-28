@@ -90,6 +90,24 @@ public sealed class CompiledCardBehaviourTests
     /// </remarks>
     private static void Settle(Game game)
     {
+        Run(game);
+
+        // The engine's founding invariant: state is a fold of the log, so a game rebuilt from its
+        // events must equal the game that produced them. Checking it here is what makes each new
+        // event pay for itself - an event the reducer handles differently from the emitter
+        // diverges silently until something replays.
+        //
+        // The loop below is a separate method for one reason: this assertion used to sit after
+        // it, and both of that loop's ordinary exits are `return`s, so it was reached only when
+        // the guard ran out - which is to say almost never. Its own comment claimed every test
+        // asserted the invariant while nearly none of them did, which is the worst state for a
+        // check to be in: present, documented, and not running.
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>Plays on until nothing is waiting, asserting nothing.</summary>
+    private static void Run(Game game)
+    {
         var passedOnce = false;
 
         for (var guard = 0; guard < 80; guard++)
@@ -111,13 +129,6 @@ public sealed class CompiledCardBehaviourTests
             game.PassPriority(holder);
             passedOnce = true;
         }
-
-        // The engine's founding invariant, asserted by every one of these tests rather than by a
-        // few: state is a fold of the log, so a game rebuilt from its events must equal the game
-        // that produced them. Checking it here is what makes each new event pay for itself —
-        // fifteen were added in one stretch, and an event the reducer handles differently from
-        // the emitter diverges silently until something replays.
-        Assert.Equal(game.State, GameReducer.Replay(game.Log));
     }
 
     // ---- Damage --------------------------------------------------------------

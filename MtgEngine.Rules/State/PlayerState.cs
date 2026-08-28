@@ -189,7 +189,7 @@ public sealed record PlayerState
     public int Energy { get; init; }
 
     /// <summary>
-    /// Spells this player has cast this turn (CR 608.2, 700.11).
+    /// Spells this player has cast this turn (CR 601.2).
     /// </summary>
     /// <remarks>
     /// Kept for the "second spell each turn" family, and it counts <em>every</em> spell rather
