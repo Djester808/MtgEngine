@@ -768,7 +768,7 @@ public enum ChosenCostKind
     ExileFromGraveyard,
 
     /// <summary>
-    /// Return permanents you control to their owner's hands (CR 701.20a).
+    /// Return permanents you control to their owner's hands (CR 702.49a).
     /// </summary>
     /// <remarks>
     /// Ninjutsu's cost, and the only one that takes a permanent without destroying it. It has to

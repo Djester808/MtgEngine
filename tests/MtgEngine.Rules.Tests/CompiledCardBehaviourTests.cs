@@ -10032,6 +10032,121 @@ public sealed class CompiledCardBehaviourTests
     /// better card than the one printed.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "Ward — Sacrifice a creature." (CR 702.21a)
+    /// </summary>
+    /// <remarks>
+    /// Ward's cost had been read as mana or life only, and the reader said why: the offer had no
+    /// way to ask a player which card to give up. Now that the engine can charge a chosen cost,
+    /// the third currency is the same ability with the same shape — so this is a wiring change,
+    /// not a new mechanic.
+    /// <para>
+    /// The noun goes through the shared filter vocabulary, so a noun it does not know leaves the
+    /// line unread rather than taxing an opponent a permanent of any kind. That would be a harder
+    /// ward than the one printed, which is the direction this project refuses to be wrong in.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Ward_can_charge_a_creature_rather_than_mana()
+    {
+        var sentinel = Card(
+            "Ward Sacrifice Test",
+            "Ward\u2014Sacrifice a creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(sentinel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, sentinel, Zone.Battlefield);
+
+        // Bob has a creature to give up and a removal spell to aim at the warded one.
+        var tribute = game.Create(
+            bob, TestCards.Creature("Ward Tribute Test", 1, 1), Zone.Battlefield);
+
+        var bolt = Card("Ward Bolt Sacrifice Test", "Destroy target creature.");
+        Assert.True(CardCompiler.Compile(bolt).IsComplete);
+
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(bob, land, "mana");
+        }
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(guarded)]);
+
+        // The ward triggers on Bob's own spell and asks Bob, not Alice: the tax falls on whoever
+        // aimed at it (CR 702.21a).
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+
+        game.Choose(bob, [tribute.Value.ToString("N")]);
+        Settle(game);
+
+        // Paid: the tribute is gone, the ward did not counter the spell, and the bolt resolved.
+        Assert.DoesNotContain(tribute, game.State.Battlefield);
+        Assert.DoesNotContain(guarded, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The same ward, declined: the spell is countered and nothing is paid.
+    /// </summary>
+    /// <remarks>
+    /// The half that proves the tax is real. A ward that always let the spell through would pass
+    /// the test above unchanged, because that one only asserts what happens when the price is met.
+    /// </remarks>
+    [Fact]
+    public void A_ward_that_is_not_paid_counters_the_spell()
+    {
+        var sentinel = Card(
+            "Ward Decline Test",
+            "Ward\u2014Sacrifice a creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        Assert.True(CardCompiler.Compile(sentinel).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, sentinel, Zone.Battlefield);
+        var tribute = game.Create(
+            bob, TestCards.Creature("Ward Decline Tribute Test", 1, 1), Zone.Battlefield);
+
+        var bolt = Card("Ward Bolt Decline Test", "Destroy target creature.");
+
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(bob, land, "mana");
+        }
+
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(guarded)]);
+
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Refusing to pay: an empty answer.
+        game.Choose(bob, []);
+        Settle(game);
+
+        // The spell was countered, so the warded creature lives and the tribute is untouched.
+        Assert.Contains(guarded, game.State.Battlefield);
+        Assert.Contains(tribute, game.State.Battlefield);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {

@@ -1996,13 +1996,43 @@ public static partial class CardCompiler
             return false;
 
         // "Ward-Pay 3 life" is the same ability with a different currency, and the offer already
-        // knows how to charge life. "Ward-Discard a card" is deliberately not read: that needs a
-        // card chosen out of a hand, which this offer has no way to ask for.
+        // knows how to charge life. "Ward-Discard a card" and "Ward-Sacrifice a creature" are
+        // the third currency: a card or a permanent chosen by the player being taxed. The offer
+        // could not ask for one until the engine learned chosen costs, which is why this line
+        // was read as three shapes rather than one.
         var wardLife = m.Groups["life"].Success
             ? int.Parse(m.Groups["life"].Value, CultureInfo.InvariantCulture)
             : 0;
 
-        var cost = wardLife > 0
+        // The noun goes through the shared filter vocabulary, so "a creature" and "a permanent
+        // with mana value 3 or greater" are one question asked of the same table every search and
+        // every other chosen cost asks. A noun it does not know leaves the line unread rather
+        // than taxing the opponent a card of any kind - which would be a harder ward than the one
+        // printed, and on the wrong player's cards.
+        ChosenCostKind? wardKind = null;
+        var wardFilter = SearchFilters.AnyCard;
+
+        if (m.Groups["verb"].Success)
+        {
+            var noun = m.Groups["what"].Value.Trim();
+
+            // "Discard a card" names no type at all, which the noun table reads as a word it does
+            // not know rather than as "any". Answered here, where the difference is visible.
+            if (noun.Length > 0)
+            {
+                if (EffectPhrase.SearchFilterFor(noun) is not { } named)
+                    return false;
+
+                wardFilter = named;
+            }
+
+            wardKind = m.Groups["verb"].Value.StartsWith(
+                "discard", StringComparison.OrdinalIgnoreCase)
+                ? ChosenCostKind.DiscardCards
+                : ChosenCostKind.SacrificePermanents;
+        }
+
+        var cost = wardLife > 0 || wardKind is not null
             ? ManaCostSpec.Parse(string.Empty)
             : ManaCostSpec.Parse(m.Groups["cost"].Value);
 
@@ -2018,10 +2048,12 @@ public static partial class CardCompiler
         {
             Id = "ward",
             Text = $"Whenever {card.Name} becomes the target of a spell or ability an opponent "
-                + "controls, counter it unless that player pays "
-                + (wardLife > 0
-                    ? $"{wardLife} life."
-                    : $"{m.Groups["cost"].Value}."),
+                + "controls, counter it unless that player "
+                + (wardKind is not null
+                    ? $"{m.Groups["verb"].Value.ToLowerInvariant()}s a {wardFilter}."
+                    : wardLife > 0
+                        ? $"pays {wardLife} life."
+                        : $"pays {m.Groups["cost"].Value}."),
             Triggers = Triggers,
             Effects =
             [
@@ -2031,7 +2063,9 @@ public static partial class CardCompiler
                     IfYouDont: [new CounterSubjectSpell()],
                     EffectIndex: 0,
                     AskSubjectPlayer: true,
-                    LifeCost: wardLife),
+                    LifeCost: wardLife,
+                    ChosenKind: wardKind,
+                    ChosenFilterId: wardFilter),
             ],
         });
 
@@ -9520,7 +9554,8 @@ public static partial class CardCompiler
     private static partial Regex ChapterFlavourWord();
 
     [GeneratedRegex(
-        @"^Ward([ —―-]|—)((?<cost>(\{[^}]+\})+)|[Pp]ay (?<life>\d+) life)\.?$",
+        @"^Ward([ —―-]|—)((?<cost>(\{[^}]+\})+)|[Pp]ay (?<life>\d+) life"
+            + @"|(?<verb>[Dd]iscard|[Ss]acrifice) an? (?<what>[A-Za-z' ]*?)\s*(cards?)?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex WardLine();
 
