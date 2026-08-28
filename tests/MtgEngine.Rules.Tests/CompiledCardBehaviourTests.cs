@@ -10048,6 +10048,563 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(24, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- The counted-group vocabulary (CR 107.3) -----------------------------
+
+    /// <summary>
+    /// "For each +1/+1 counter on this creature" — counting what is on the source.
+    /// </summary>
+    /// <remarks>
+    /// Four spellings of one question, and the reason they are a <c>Theory</c> rather than four
+    /// tests is that they are the same count: "this creature" and "it" both name the object the
+    /// ability is printed on (CR 700.7), and the plural is only how the "number of" wording
+    /// declines the noun. Each of the three was a separate refusal — the commonest counted group
+    /// in the corpus, "the number of +1/+1 counters on it", was turned away by one letter.
+    /// <para>
+    /// The last row names no kind at all, which is a different question answered in nearly the
+    /// same words: every counter, of every kind (CR 122.1). Three is the answer that separates
+    /// it from a lookup of a counter called "", which would be nought.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// Each row carries its own card name, and that is not tidiness: the compiled pool is keyed by
+    /// oracle id, two fixtures sharing a name share an id, and the pool then serves one row's
+    /// behaviour for another. It throws here rather than passing quietly, which is the only reason
+    /// this note is short.
+    /// </remarks>
+    [Theory]
+    [InlineData("This", "you gain 1 life for each +1/+1 counter on this creature.")]
+    [InlineData("It", "you gain 1 life for each +1/+1 counter on it.")]
+    [InlineData("Number", "you gain X life, where X is the number of +1/+1 counters on it.")]
+    [InlineData("Untyped", "you gain 1 life for each counter on it.")]
+    public void A_count_of_the_counters_on_the_source_reads_every_spelling(
+        string which, string tail)
+    {
+        var idol = Card(
+            "Counted Counters " + which + " Test",
+            "~ enters with three +1/+1 counters on it.\nWhen ~ enters, " + tail,
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(idol);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, idol, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "For each creature on the battlefield" — a count is already confined to one zone.
+    /// </summary>
+    /// <remarks>
+    /// Bob's creature is what the test is for. The words name no controller, so the count is
+    /// every creature and not the caster's; a reading that quietly kept "you control" would give
+    /// two here and would be a smaller card than the one printed.
+    /// </remarks>
+    [Fact]
+    public void A_count_over_the_battlefield_includes_every_controller()
+    {
+        var congregate = Card(
+            "Congregate Test",
+            "You gain 1 life for each creature on the battlefield.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(congregate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Congregate Bear One Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Congregate Bear Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Congregate Enemy Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, congregate), []);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "For each opponent you have" — the possessive spelled out, and no narrower for it.
+    /// </summary>
+    /// <remarks>
+    /// One, not two. The distinction the number makes is the whole test: a reading that took the
+    /// tail as part of the group would have found nothing and gained nought, and one that counted
+    /// players rather than opponents would gain two at a two-player table.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_opponents_you_have_counts_opponents_and_not_players()
+    {
+        var levy = Card(
+            "Opponents You Have Test",
+            "You gain 1 life for each opponent you have.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(levy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, levy), []);
+        Settle(game);
+
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "For each Aura attached to this creature" — counting a pair, not a permanent.
+    /// </summary>
+    /// <remarks>
+    /// Attachment is a fact about two permanents together, which is why the group grammar cannot
+    /// express it and why this counts by walking the battlefield for what points back at the
+    /// source. Two Auras rather than one, so that a reader answering "is anything attached"
+    /// instead of "how many" fails here.
+    /// <para>
+    /// The trigger is on another creature arriving rather than on this one, because the Auras
+    /// have to be on before the count is taken and an enters trigger resolves before anything
+    /// could enchant it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_of_what_is_attached_reads_the_sources_own_auras()
+    {
+        var knight = Card(
+            "Attached Count Test",
+            "Whenever another creature you control enters, "
+                + "you gain 1 life for each Aura attached to this creature.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(knight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var hero = game.Create(alice, knight, Zone.Battlefield);
+
+        foreach (var name in new[] { "Attached Aura One Test", "Attached Aura Two Test" })
+        {
+            var aura = Card(
+                name,
+                "Enchant creature\nEnchanted creature gets +0/+1.",
+                CardType.Enchantment,
+                subtypes: "Aura");
+
+            game.CastSpell(
+                alice, TestCards.PutInHand(game, alice, aura), [Target.ToPermanent(hero)]);
+
+            Settle(game);
+        }
+
+        var before = game.State.GetPlayer(alice).Life;
+        game.Create(alice, TestCards.Creature("Attached Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "For each artifact and/or enchantment you control" — alternatives, written with a slash.
+    /// </summary>
+    /// <remarks>
+    /// Two, not three and not one. The Bear is there so that a reading which dropped the noun
+    /// and counted permanents fails, and the pair is there so that a reading which took only one
+    /// side of the slash fails.
+    /// </remarks>
+    [Fact]
+    public void A_count_can_name_two_kinds_with_a_slash()
+    {
+        var nettlecyst = Card(
+            "And Or Count Test",
+            "You gain 1 life for each artifact and/or enchantment you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(nettlecyst);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card("And Or Artifact Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card("And Or Enchantment Test", string.Empty, CardType.Enchantment),
+            Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("And Or Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, nettlecyst), []);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "For each card in your library" — the third pile, beside the hand and the graveyard.
+    /// </summary>
+    /// <remarks>
+    /// Asserted against the library as it actually stands rather than against a number written
+    /// here, because the opening draw has already taken from it and a hard-coded total would be
+    /// testing the deck size instead of the count.
+    /// </remarks>
+    [Fact]
+    public void A_count_can_ask_the_library()
+    {
+        var oracle = Card(
+            "Library Count Test",
+            "You gain 1 life for each card in your library.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, oracle), []);
+
+        var left = game.State.GetPlayer(alice).Library.Count;
+        Settle(game);
+
+        Assert.Equal(20 + left, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A subtype that is not a creature type names the card type it belongs to (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// The failure this exists to stop was invisible: reading every capitalised noun as a
+    /// creature type made "for each Equipment you control" ask for a <em>creature</em> with the
+    /// Equipment subtype, of which there are none. The card compiled, reported itself complete,
+    /// resolved, and gained nothing — measured at 20 life where the card says 22. 945 corpus
+    /// cards name a subtype from the artifact, enchantment or land lists.
+    /// </remarks>
+    [Fact]
+    public void A_subtype_that_is_not_a_creature_type_still_counts()
+    {
+        var levy = Card(
+            "Equipment Count Test",
+            "You gain 1 life for each Equipment you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(levy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        foreach (var name in new[] { "Gear One Test", "Gear Two Test" })
+        {
+            game.Create(
+                alice,
+                Card(name, string.Empty, CardType.Artifact, subtypes: "Equipment"),
+                Zone.Battlefield);
+        }
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, levy), []);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- The verbs that can carry a count ------------------------------------
+
+    /// <summary>
+    /// "Create a Treasure token for each creature you control."
+    /// </summary>
+    /// <remarks>
+    /// The creature-token reader has carried a count tail for a long time and the named-token
+    /// reader beside it never did, which is an accident of which was written first rather than
+    /// anything about tokens: how many of a thing to make has nothing to do with whether its
+    /// characteristics are printed or named.
+    /// </remarks>
+    [Fact]
+    public void A_named_token_is_made_once_for_each_thing_counted()
+    {
+        var hoard = Card(
+            "Counted Treasure Test",
+            "Create a Treasure token for each creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(hoard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Treasure Bear One Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Treasure Bear Two Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, hoard), []);
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.Battlefield.Select(game.State.GetObject)
+                .Count(o => o.Card.Name == "Treasure"));
+    }
+
+    /// <summary>
+    /// "Target player discards a card for each creature you control." — Mind Sludge's shape.
+    /// </summary>
+    /// <remarks>
+    /// "Each opponent discards a card for each creature you control" read and this did not, which
+    /// is not a fact about discarding: the imperative form had been given the shared count tail
+    /// and the targeted form had not.
+    /// </remarks>
+    [Fact]
+    public void A_targeted_player_discards_once_for_each_thing_counted()
+    {
+        var sludge = Card(
+            "Counted Sludge Test",
+            "Target player discards a card for each creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(sludge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Sludge Bear One Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Sludge Bear Two Test", 2, 2), Zone.Battlefield);
+
+        var held = game.State.GetPlayer(bob).Hand.Count;
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, sludge), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(held - 2, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Target opponent loses 2 life for each Swamp you control." — Last Stand's shape.
+    /// </summary>
+    /// <remarks>
+    /// Two per creature rather than one, so that a reading which dropped the printed number and
+    /// counted one apiece fails here rather than passing at half strength.
+    /// </remarks>
+    [Fact]
+    public void A_targeted_player_loses_life_once_for_each_thing_counted()
+    {
+        var stand = Card(
+            "Counted Stand Test",
+            "Target opponent loses 2 life for each creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(stand);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Stand Bear One Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Stand Bear Two Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, stand), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    // ---- X measured on a permanent rather than counted (CR 107.3) ------------
+
+    /// <summary>
+    /// "Target creature gets +X/+0 until end of turn, where X is its power." — Onward.
+    /// </summary>
+    /// <remarks>
+    /// "Its" is the creature the head targeted, and the head is the only thing that says so: this
+    /// sentence names one permanent and the pronoun can mean nothing else. A phrase whose head
+    /// targets a player, or two things, is refused rather than guessed — Dying Wish targets a
+    /// player and means the enchanted creature, and reading the player's power would give a card
+    /// that resolves and does nothing.
+    /// </remarks>
+    [Fact]
+    public void X_can_be_the_power_of_the_creature_the_sentence_targeted()
+    {
+        var onward = Card(
+            "Onward Test",
+            "Target creature gets +X/+0 until end of turn, where X is its power.");
+
+        var compiled = CardCompiler.Compile(onward);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Onward Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, onward), [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        // Doubled, not incremented: the bonus is the power it had, so a 2/2 becomes a 4/2.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(2, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    /// <summary>
+    /// The same clause with no target: "its" is what the trigger was about.
+    /// </summary>
+    /// <remarks>
+    /// The other arm, and the one that keeps an Aura honest. An Aura saying "when enchanted
+    /// creature dies, ... where X is its power" means the creature and not itself, and an Aura has
+    /// no power at all — so answering with the source would give nought on every printing of that
+    /// shape. Reading the trigger's subject answers both: here the subject <em>is</em> the source,
+    /// and on the Aura it is not.
+    /// </remarks>
+    [Fact]
+    public void X_can_be_the_power_of_the_creature_the_trigger_was_about()
+    {
+        var giant = Card(
+            "Trigger Power Test",
+            "When ~ enters, you gain X life, where X is its power.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(giant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, giant, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- A pronoun naming what the sentence before it chose ------------------
+
+    /// <summary>
+    /// "Target creature you control gets +1/+2 until end of turn. It fights target creature you
+    /// don't control." — Epic Confrontation.
+    /// </summary>
+    /// <remarks>
+    /// Twenty cards write the fight as its own sentence, so the first fighter is not named there
+    /// at all. The pump is what makes the test mean something: the fight is resolved after it, so
+    /// a 2/2 hits for three and kills a 2/2 while surviving the two coming back — which only
+    /// happens if the creature that fights is the one that was pumped.
+    /// </remarks>
+    [Fact]
+    public void A_fight_can_name_the_creature_the_sentence_before_it_chose()
+    {
+        var confrontation = Card(
+            "Epic Confrontation Test",
+            "Target creature you control gets +1/+2 until end of turn. "
+                + "It fights target creature you don't control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(confrontation);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, TestCards.Creature("Fight Mine Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Fight Theirs Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, confrontation),
+            [Target.ToPermanent(mine), Target.ToPermanent(theirs)]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(theirs, game.State.Battlefield);
+        Assert.Contains(mine, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "~ deals 2 damage to that creature" — the pronoun as the object of a burn.
+    /// </summary>
+    /// <remarks>
+    /// Destroy, exile and tap all took the pronoun through the shared object reader and damage
+    /// never did, on thirty-six cards. Only the reading that resolves to a target the card has
+    /// already chosen is taken: <c>DealDamage</c> carries a target index and nothing else, so a
+    /// pronoun meaning the <em>trigger's</em> subject has nowhere to go, and answering it with
+    /// the last target is the mistake that once made "whenever ~ blocks a creature, destroy that
+    /// creature" destroy the blocker.
+    /// </remarks>
+    [Fact]
+    public void Damage_can_name_the_permanent_the_sentence_before_it_chose()
+    {
+        var jolt = Card(
+            "Pronoun Burn Test",
+            "Tap target creature. ~ deals 2 damage to that creature.");
+
+        var compiled = CardCompiler.Compile(jolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ox = game.Create(bob, TestCards.Creature("Pronoun Burn Ox Test", 3, 3), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, jolt), [Target.ToPermanent(ox)]);
+
+        Settle(game);
+
+        // The same permanent took both halves of the sentence.
+        Assert.True(game.State.GetObject(ox).Permanent!.IsTapped);
+        Assert.Equal(2, game.State.GetObject(ox).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Gain control of that creature until end of turn" — the theft aimed at a pronoun.
+    /// </summary>
+    [Fact]
+    public void A_theft_can_name_the_permanent_the_sentence_before_it_chose()
+    {
+        var press = Card(
+            "Pronoun Theft Test",
+            "Tap target creature. Gain control of that creature until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(press);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ox = game.Create(bob, TestCards.Creature("Pronoun Theft Ox Test", 3, 3), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, press), [Target.ToPermanent(ox)]);
+
+        Settle(game);
+
+        Assert.Equal(
+            alice,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(ox)).ControllerId);
+    }
+
+    /// <summary>
+    /// "Its controller loses 1 life for each creature you control" — the counted form.
+    /// </summary>
+    /// <remarks>
+    /// The clause already read with a printed number; what it could not do was take the count
+    /// tail every other life verb has. Both effects behind it carry an <c>Amount</c>, so asking
+    /// for the tail was the whole of the work.
+    /// </remarks>
+    [Fact]
+    public void A_targets_controller_loses_life_once_for_each_thing_counted()
+    {
+        var downfall = Card(
+            "Counted Downfall Test",
+            "Destroy target creature. Its controller loses 1 life for each creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(downfall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Downfall Bear One Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Downfall Bear Two Test", 2, 2), Zone.Battlefield);
+        var ox = game.Create(bob, TestCards.Creature("Downfall Ox Test", 3, 3), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, downfall), [Target.ToPermanent(ox)]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(ox, game.State.Battlefield);
+
+        // Two, counted off Alice's board rather than off the creature that just died.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
     /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>

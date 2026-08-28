@@ -807,6 +807,66 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target creature gets +X/+0 until end of turn, where X is its power." The same clause
+        // as above measuring one permanent instead of counting a group, and read the same way:
+        // the head keeps X as the variable it always is and the clause says what X comes to.
+        //
+        // What "its" points at is the whole of the difficulty, and it is settled by the shape of
+        // the head rather than by guessing, because the corpus disagrees with itself. Onward says
+        // it of the creature it targets; Yew Spirit says it of the creature whose ability it is;
+        // Murder Investigation is an Aura and says it of the creature that died, which is neither.
+        // So:
+        //
+        //   - one target and it is a permanent  -> that permanent, which is the only thing the
+        //     sentence is about;
+        //   - no target at all -> the object the trigger was about, and the source when there was
+        //     no trigger. That one answer covers both the Aura reading its enchanted creature and
+        //     the creature reading itself, because a trigger's subject *is* the source when the
+        //     card says "when this creature dies";
+        //   - anything else -> unread. Two targets, or a single player target, and the pronoun is
+        //     genuinely ambiguous: Dying Wish targets a player and means the enchanted creature,
+        //     and reading the player's power would give a card that silently does nothing.
+        var byStat = VariableIsStatLine().Match(sentence);
+        if (byStat.Success)
+        {
+            // Only what this head adds. A target left by an earlier sentence on the same line is
+            // not something this clause may claim - "Untap target creature. It gets +X/+X" would
+            // be a different reading of the pronoun, and one this cannot tell apart.
+            if (targets.Count > 0)
+                return false;
+
+            var scratch = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(byStat.Groups["head"].Value.Trim(), targets, scratch, objectNamedByTrigger))
+                return false;
+
+            var stat = byStat.Groups["stat"].Value.ToLowerInvariant();
+
+            Func<ResolutionContext, int> measure;
+
+            if (targets.Count == 0)
+            {
+                measure = context => StatOfObject(context, SubjectOrSource(context), stat);
+            }
+            else if (targets is [{ Kind: TargetKind.Permanent }])
+            {
+                measure = context => StatOfObject(
+                    context,
+                    context.TargetAt(0) is { } aimed
+                    && context.State.TryGetObject(aimed.Subject, out var measured)
+                        ? measured
+                        : null,
+                    stat);
+            }
+            else
+            {
+                return false;
+            }
+
+            effects.Add(new WithCountedVariable(measure, scratch.ToImmutable()));
+            return true;
+        }
+
         // "~ deals damage equal to the number of Elves you control to target creature" - the
         // same effect as the sentence below with the count written the other way round, and the
         // difference is only word order: there the amount comes first and the counting trails,
@@ -857,6 +917,29 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "~ deals 2 damage to that creature" - the pronoun names what the sentence before it
+        // chose, which is the rule <see cref="ObjectOf"/> already applies for destroy, exile and
+        // tap. Damage was the verb that never got it, on thirty-six cards.
+        //
+        // Only the arm that resolves to a target is honoured. DealDamage carries a target index
+        // and nothing else, so a pronoun meaning the *trigger's* subject has nowhere to go here -
+        // and answering it with the last target instead is the exact mistake this codebase
+        // reverted once already, where "whenever ~ blocks a creature, destroy that creature"
+        // destroyed the blocker. Refusing leaves the line unread, which is the safe half.
+        //
+        // Placed after the target form rather than inside it, so that a phrase the target grammar
+        // cannot read still falls through to the readers below as it always did.
+        var burnPronoun = PronounObject(m, targets, objectNamedByTrigger);
+
+        if (burnPronoun is { } already)
+        {
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } dealt)
+                return false;
+
+            effects.Add(new DealDamage(dealt, already));
+            return true;
+        }
+
         // "Destroy all creatures", "All creatures get -2/-2 until end of turn" — a group, not
         // a target. Read before the targeted forms, because "destroy all creatures" would
         // otherwise reach DestroyLine and be rejected there for having no target phrase.
@@ -880,7 +963,12 @@ public static partial class EffectPhrase
         m = TargetControllerLine().Match(sentence);
         if (m.Success && targets.Count > 0)
         {
-            var many = Number(m.Groups["n"].Value);
+            // "Its controller loses 1 life for each creature you control" - the same clause with
+            // the count the other life verbs already read. Both effects take an Amount, so the
+            // tail costs nothing here beyond asking for it.
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } many)
+                return false;
+
             var whose = targets.Count - 1;
 
             effects.Add(m.Groups["draws"].Success
@@ -1370,6 +1458,23 @@ public static partial class EffectPhrase
                 targets.Add(myFighter);
                 mineIndex = targets.Count - 1;
             }
+            else if (brawl.Groups["pronoun"].Success && targets.Count > 0)
+            {
+                // The same order of answers the pumps use for the same word: the target the
+                // sentence before it chose, and the permanent with the ability when there was
+                // none. Left as null in the second case, which is what makes the source fight -
+                // "Whenever ~ attacks, it fights target creature defending player controls" is
+                // one card and "Target creature you control gets +1/+2. It fights ..." is the
+                // other, and both spell the first fighter "it".
+                //
+                // Refused rather than guessed when the earlier target is a player: a fight is
+                // between two creatures (CR 701.14a), and aiming one half at somebody who cannot
+                // fight would compile a card that quietly does half of what it prints.
+                if (targets[^1].Kind is not TargetKind.Permanent)
+                    return false;
+
+                mineIndex = targets.Count - 1;
+            }
 
             if (Specs.Parse(brawl.Groups["theirs"].Value.Trim()) is not
                 { Kind: TargetKind.Permanent } theirFighter)
@@ -1546,9 +1651,11 @@ public static partial class EffectPhrase
         if (m.Success
             && Specs.Parse(m.Groups["t"].Value.Trim()) is { Kind: TargetKind.Player } milled)
         {
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } many)
+                return false;
+
             targets.Add(milled);
-            effects.Add(new MillCards(
-                Number(m.Groups["n"].Value), TargetIndex: targets.Count - 1));
+            effects.Add(new MillCards(many, TargetIndex: targets.Count - 1));
 
             return true;
         }
@@ -1973,12 +2080,19 @@ public static partial class EffectPhrase
         m = NamedTokenLine().Match(sentence);
         if (m.Success && PredefinedTokens.TryGetValue(m.Groups["kind"].Value, out var known))
         {
+            // "Create a Treasure token for each creature that died this turn" - the count tail
+            // the creature-token reader above has had all along. The two readers differ only in
+            // whether the token's characteristics are printed or named, which has nothing to do
+            // with how many of it there are, so a verb that could carry a count and a verb that
+            // could not was an accident of which one was written first.
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } howMany)
+                return false;
+
             // "Target opponent creates a Treasure token" - the same token under somebody else's
             // control, exactly as the creature-token reader beside this one already read it.
             // This one had only the bare "create", so every named token somebody else made was
             // unread on a sentence the other half of the grammar understood perfectly.
-            var minting = new CreateToken(
-                known, Number(m.Groups["n"].Value), m.Groups["tapped"].Success);
+            var minting = new CreateToken(known, howMany, m.Groups["tapped"].Success);
 
             if (m.Groups["who"].Success)
             {
@@ -2312,6 +2426,17 @@ public static partial class EffectPhrase
         {
             targets.Add(stolen);
             effects.Add(new GainControlUntilEndOfTurn(targets.Count - 1));
+            return true;
+        }
+
+        // "Whenever an opponent taps an artifact for mana, gain control of that artifact until
+        // the end of your next turn" - the theft aimed at something the card has already picked
+        // out. Seventeen cards, and the same restriction as the damage reader above: only the
+        // arm that resolves to a target is taken, because GainControlUntilEndOfTurn carries a
+        // target index and a pronoun meaning the trigger's subject has nowhere to go.
+        if (PronounObject(m, targets, objectNamedByTrigger) is { } seized)
+        {
+            effects.Add(new GainControlUntilEndOfTurn(seized));
             return true;
         }
 
@@ -3120,8 +3245,11 @@ public static partial class EffectPhrase
         m = TargetDrawsLine().Match(sentence);
         if (m.Success && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Player } drawer)
         {
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } drawn)
+                return false;
+
             targets.Add(drawer);
-            effects.Add(new DrawCards(Number(m.Groups["n"].Value), targets.Count - 1));
+            effects.Add(new DrawCards(drawn, targets.Count - 1));
             return true;
         }
 
@@ -3129,7 +3257,9 @@ public static partial class EffectPhrase
         if (m.Success && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Player } subject)
         {
             var losing = m.Groups["verb"].Value.StartsWith("lose", StringComparison.OrdinalIgnoreCase);
-            var amount = Number(m.Groups["n"].Value);
+
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } amount)
+                return false;
 
             targets.Add(subject);
             effects.Add(new ChangeLife(losing ? -amount : amount, targets.Count - 1));
@@ -3143,9 +3273,11 @@ public static partial class EffectPhrase
         m = TargetDiscardsLine().Match(sentence);
         if (m.Success && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Player } holder)
         {
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } howMany)
+                return false;
+
             targets.Add(holder);
-            effects.Add(new DiscardCards(
-                Number(m.Groups["n"].Value), TargetIndex: targets.Count - 1));
+            effects.Add(new DiscardCards(howMany, TargetIndex: targets.Count - 1));
 
             return true;
         }
@@ -4582,6 +4714,20 @@ public static partial class EffectPhrase
     {
         var phrase = groupPhrase.Trim();
 
+        // "For each creature on the battlefield" is "for each creature". The count at the bottom
+        // of this method walks the battlefield and nothing else, so those three words say where
+        // to look rather than narrowing what to look for - and the group grammar, which has no
+        // word for a zone, refused all seventy corpus cards that spell it out. Trimmed here and
+        // not in that grammar, because a *target* phrase saying "on the battlefield" is not
+        // redundant in the same way: only a count is already confined to one zone.
+        phrase = OnTheBattlefieldTail().Replace(phrase, string.Empty).Trim();
+
+        // "Artifact and/or enchantment you control" is one group of two kinds, and the slash is
+        // the whole of the difference from "artifact or enchantment", which the group grammar
+        // reads as alternatives already. Spelled back into the wording it knows rather than
+        // taught a second punctuation for the same idea.
+        phrase = AndOrJoin().Replace(phrase, " or ");
+
         // Callers disagree about whether "each" belongs to the phrase: some patterns capture
         // "for each X" and hand over "each X", others strip the words and hand over "X". Both
         // arrive here, so both are answered here - a caller that had to know which spelling this
@@ -4589,6 +4735,12 @@ public static partial class EffectPhrase
         var people = phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase)
             ? phrase[5..].Trim()
             : phrase;
+
+        // "The number of opponents you have" is "opponents" with the possessive spelled out, and
+        // twenty-two cards prefer that spelling. Nothing about it narrows the group - you have
+        // exactly the opponents you have - so it is trimmed off here rather than given a branch
+        // of its own, and every verb that can count reaches the same answer for both wordings.
+        people = OwnedPlayersTail().Replace(people, string.Empty).Trim();
 
         // "For each opponent" counts players, not permanents, and the group grammar beside this
         // only knows how to walk the battlefield. It is the same sentence shape with a different
@@ -4630,11 +4782,58 @@ public static partial class EffectPhrase
             return each with
             {
                 Counter = context =>
-                    context.State.TryGetObject(context.PhysicalSourceId, out var bearing)
-                    && bearing.Permanent is { } onIt
-                    && onIt.Counters.TryGetValue(kind, out var many)
-                        ? many
-                        : 0,
+                {
+                    if (!context.State.TryGetObject(context.PhysicalSourceId, out var bearing)
+                        || bearing.Permanent is not { } onIt)
+                    {
+                        return 0;
+                    }
+
+                    // "The number of counters on it" names no kind and means all of them
+                    // (CR 122.1) - one number over every kind the permanent has, which is why it
+                    // sums rather than looking one up. A card asking this is usually a proliferate
+                    // or a charge payoff, where the counters really are of several kinds.
+                    if (kind.Length == 0)
+                        return onIt.Counters.Values.Sum();
+
+                    return onIt.Counters.TryGetValue(kind, out var many) ? many : 0;
+                },
+            };
+        }
+
+        // "For each Aura attached to it", "for each Aura and Equipment attached to it" - counting
+        // what is attached to the source rather than counting the board. The group grammar cannot
+        // ask this and should not learn to: attachment is a fact about a *pair* of permanents,
+        // and every filter it builds is a question about one.
+        //
+        // "It" is the source for the same reason it is on the counter phrase above - a counting
+        // phrase has no target of its own to point at - and every corpus card saying this is an
+        // Aura or Equipment payoff reading its own attachments.
+        var attached = AttachedToSourceLine().Match(people);
+        if (attached.Success)
+        {
+            var kinds = AndOrSplit()
+                .Split(attached.Groups["kinds"].Value)
+                .Select(word => SingularWord(word.Trim()))
+                .Where(word => word.Length > 0)
+                .ToArray();
+
+            return each with
+            {
+                Counter = context => context.State.Battlefield.Count(id =>
+                {
+                    var onIt = context.State.GetObject(id);
+
+                    if (onIt.Permanent?.AttachedTo != context.PhysicalSourceId)
+                        return false;
+
+                    // Computed subtypes, not printed: an Equipment that has been made an Aura, or
+                    // a permanent given a subtype by a layer, is what it is now (CR 613.1d).
+                    var now = Characteristics.Of(context.State, context.Abilities, onIt);
+
+                    return Array.Exists(
+                        kinds, kind => now.Subtypes.Contains(kind, StringComparer.OrdinalIgnoreCase));
+                }),
             };
         }
 
@@ -4742,8 +4941,7 @@ public static partial class EffectPhrase
             var mine = pile.Groups["whose"].Value.StartsWith(
                 "your", StringComparison.OrdinalIgnoreCase);
 
-            var inHand = pile.Groups["zone"].Value.Equals(
-                "hand", StringComparison.OrdinalIgnoreCase);
+            var named = pile.Groups["zone"].Value.ToLowerInvariant();
 
             return each with
             {
@@ -4752,7 +4950,13 @@ public static partial class EffectPhrase
                     .Sum(who =>
                     {
                         var player = context.State.GetPlayer(who);
-                        var zone = inHand ? player.Hand : player.Graveyard;
+
+                        var zone = named switch
+                        {
+                            "hand" => player.Hand,
+                            "library" => player.Library,
+                            _ => player.Graveyard,
+                        };
 
                         return zone.Count(id =>
                             context.State.TryGetObject(id, out var card)
@@ -4793,6 +4997,28 @@ public static partial class EffectPhrase
         @"^colou?rs among (?<group>[A-Za-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ColorsAmongLine();
 
+    /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
+    [GeneratedRegex(@"\s+on the battlefield$", RegexOptions.IgnoreCase)]
+    private static partial Regex OnTheBattlefieldTail();
+
+    /// <summary>"Artifact and/or enchantment" - alternatives, written with a slash.</summary>
+    [GeneratedRegex(@"\s+and/or\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex AndOrJoin();
+
+    /// <summary>"Opponents you have" - the possessive spelled out, and no narrower for it.</summary>
+    [GeneratedRegex(@"\s+(you|they) (have|has)$", RegexOptions.IgnoreCase)]
+    private static partial Regex OwnedPlayersTail();
+
+    /// <summary>"Aura and Equipment attached to it" - what is on the source (CR 301.5, 303.4).</summary>
+    [GeneratedRegex(
+        @"^(?<kinds>[A-Za-z]+(?: (?:and|or) [A-Za-z]+)*) attached to (it|~|this [A-Za-z]+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedToSourceLine();
+
+    /// <summary>The "and"/"or" joining two kinds of attachment into one count.</summary>
+    [GeneratedRegex(@"\s+(?:and|or)\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex AndOrSplit();
+
     /// <summary>The "and" that joins two card types into alternatives, not one type line.</summary>
     [GeneratedRegex(@"\s+and\s+", RegexOptions.IgnoreCase)]
     private static partial Regex AndSplit();
@@ -4807,34 +5033,63 @@ public static partial class EffectPhrase
 
         return new Amount(1)
         {
-            Counter = context =>
-            {
-                if (context.SubjectObject is not { } id)
-                    return 0;
-
-                var subject = context.State.TryGetObject(id, out var present)
-                    ? present
-                    : context.ObjectBehind?.Invoke(id);
-
-                if (subject is null)
-                    return 0;
-
-                // Mana value is a fact about the card and never about the permanent, so it is
-                // read off the printed cost rather than through the layers (CR 202.3b). Power and
-                // toughness are the opposite: a lord's bonus counts, so those are computed.
-                if (wanted.StartsWith("mana", StringComparison.Ordinal))
-                    return Math.Max(0, subject.Card.Cmc);
-
-                var now = State.Characteristics.Of(context.State, context.Abilities, subject);
-
-                return Math.Max(
-                    0,
-                    (wanted.StartsWith("power", StringComparison.Ordinal)
-                        ? now.Power
-                        : now.Toughness) ?? 0);
-            },
+            Counter = context => StatOfObject(context, TriggerSubject(context), wanted),
         };
     }
+
+    /// <summary>
+    /// One permanent's power, toughness or mana value, as it is when the question is asked.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the trigger-subject amount above and the "where X is its power" clause, because
+    /// they differ only in <em>which</em> permanent they measure. Mana value is a fact about the
+    /// card and never about the permanent, so it is read off the printed cost rather than through
+    /// the layers (CR 202.3b); power and toughness are the opposite, so a lord's bonus counts
+    /// (CR 613.1).
+    /// <para>
+    /// Nothing to measure is zero rather than a refusal: by the time a death trigger resolves the
+    /// permanent it was about has gone, and an amount cannot decline. The reader that built it is
+    /// where a card is refused.
+    /// </para>
+    /// </remarks>
+    private static int StatOfObject(ResolutionContext context, GameObject? subject, string wanted)
+    {
+        if (subject is null)
+            return 0;
+
+        if (wanted.StartsWith("mana", StringComparison.Ordinal))
+            return Math.Max(0, subject.Card.Cmc);
+
+        var now = State.Characteristics.Of(context.State, context.Abilities, subject);
+
+        return Math.Max(
+            0,
+            (wanted.StartsWith("power", StringComparison.Ordinal) ? now.Power : now.Toughness) ?? 0);
+    }
+
+    /// <summary>The object the trigger was about, followed forward if it has gone (CR 608.2g).</summary>
+    private static GameObject? TriggerSubject(ResolutionContext context) =>
+        context.SubjectObject is not { } id
+            ? null
+            : context.State.TryGetObject(id, out var present)
+                ? present
+                : context.ObjectBehind?.Invoke(id);
+
+    /// <summary>
+    /// What "its" names when the sentence points at no target: the trigger's subject, or the
+    /// source when there was no trigger (CR 700.7).
+    /// </summary>
+    /// <remarks>
+    /// One answer for two readings that look unrelated on the card and are the same question
+    /// here. An Aura printing "when enchanted creature dies, ... where X is its power" means the
+    /// creature, which is the trigger's subject and is emphatically not the Aura; a creature
+    /// printing "{2}{G}{G}: this creature gets +X/+X, where X is its power" has no trigger and
+    /// means itself. Reading only the source would give the Aura a power of nothing and a card
+    /// that compiles, resolves and does zero — the failure this whole reader is arranged around.
+    /// </remarks>
+    private static GameObject? SubjectOrSource(ResolutionContext context) =>
+        TriggerSubject(context)
+        ?? (context.State.TryGetObject(context.PhysicalSourceId, out var source) ? source : null);
 
     private static Amount ThatMany() => new(1)
     {
@@ -5297,11 +5552,11 @@ public static partial class EffectPhrase
                         : null;
             }
 
-            // "Target Goblin", "Sacrifice a Goblin" — a creature type standing in for the noun,
-            // told from an ordinary word by its capital letter the same way the tribal triggers
-            // tell them apart. The card type is implied: a named type in this position is always
-            // a creature type.
+            // "Target Goblin", "Sacrifice a Goblin" — a subtype standing in for the noun, told
+            // from an ordinary word by its capital letter the same way the tribal triggers tell
+            // them apart. The card type is implied by which subtype it is (CR 205.3).
             string? subtype = null;
+            var tribal = false;
             var required = PermanentTypes(noun);
             var eitherOf = required is null ? EitherPermanentType(noun) : null;
 
@@ -5316,11 +5571,17 @@ public static partial class EffectPhrase
 
                 subtype = printed;
 
-                // A named type in this position is a creature type almost always, and a land type
-                // for the five that name lands. Reading "a Plains" as a creature made every card
-                // that asks about basic land types ask about creatures instead, and quietly said
-                // no to all of them.
-                required = IsBasicLandType(printed) ? [CardType.Land] : [CardType.Creature];
+                // Which card type a subtype implies is a fact about that subtype, and reading it
+                // as "creature" whatever the word was is a card that compiles and does nothing:
+                // "you gain 1 life for each Equipment you control" asked for a *creature* with the
+                // subtype Equipment, of which there are none, so it gained nothing and reported
+                // itself complete. 945 corpus cards name a subtype that is not a creature type.
+                //
+                // This is the failure that is worse than an unread line, because nothing says so -
+                // the deck builder allows the card and the board plays it wrong in silence.
+                var implied = SubtypeCardType(printed);
+                tribal = implied == CardType.Creature;
+                required = [implied];
             }
 
             var filters = adjectives.ConvertAll(AdjectiveFilter);
@@ -5405,8 +5666,10 @@ public static partial class EffectPhrase
                         return false;
 
                     // CR 702.73a: a changeling is every creature type, so it answers to any tribe.
+                    // Every *creature* type — an artifact creature changeling is not an Equipment,
+                    // so the bypass is offered only where the subtype was read as a tribe.
                     if (subtype is not null
-                        && !computed.IsEveryCreatureType
+                        && !(tribal && computed.IsEveryCreatureType)
                         && !computed.HasSubtype(subtype))
                     {
                         return false;
@@ -5892,6 +6155,59 @@ public static partial class EffectPhrase
         internal static bool IsBasicLandType(string subtype) =>
             subtype is "Plains" or "Island" or "Swamp" or "Mountain" or "Forest";
 
+        /// <summary>The artifact types, verbatim from CR 205.3g.</summary>
+        private static readonly HashSet<string> ArtifactTypes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment",
+                "Food", "Fortification", "Gold", "Incubator", "Infinity", "Junk", "Lander", "Map",
+                "Mutagen", "Powerstone", "Spacecraft", "Stone", "Treasure", "Vehicle", "Vibranium",
+            };
+
+        /// <summary>The enchantment types, verbatim from CR 205.3h.</summary>
+        private static readonly HashSet<string> EnchantmentTypes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "Aura", "Background", "Cartouche", "Case", "Class", "Curse", "Plan", "Role",
+                "Room", "Rune", "Saga", "Shard", "Shrine",
+            };
+
+        /// <summary>The land types, verbatim from CR 205.3i.</summary>
+        private static readonly HashSet<string> LandTypes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "Cave", "Desert", "Forest", "Gate", "Island", "Lair", "Locus", "Mine", "Mountain",
+                "Plains", "Planet", "Power-Plant", "Sphere", "Swamp", "Tower", "Town", "Urza's",
+            };
+
+        /// <summary>
+        /// The card type a subtype implies (CR 205.3).
+        /// </summary>
+        /// <remarks>
+        /// Every card type has its <em>own</em> set of subtypes and the sets do not overlap, so
+        /// the word alone settles it: an Equipment is an artifact, an Aura is an enchantment, a
+        /// Gate is a land, and everything left over is a creature type — those are the long list
+        /// and the ordinary case, which is why they are the fallback rather than a fourth table
+        /// that would have to be kept in step with every new set.
+        /// <para>
+        /// It exists because reading every capitalised noun as a creature type is not a gap, it
+        /// is a card that plays wrong in silence: "for each Equipment you control" asked for a
+        /// creature with the Equipment subtype, found none, gained nothing, and reported itself
+        /// completely understood. An unread line is visible; this was not.
+        /// </para>
+        /// <para>
+        /// The three lists are copied from the rules document rather than derived from the corpus
+        /// deliberately. A subtype the corpus has not printed yet is still a subtype, and a table
+        /// built from what happened to be in a bulk file goes wrong on the next set rather than
+        /// on the next release of the rules.
+        /// </para>
+        /// </remarks>
+        private static CardType SubtypeCardType(string subtype) =>
+            ArtifactTypes.Contains(subtype) ? CardType.Artifact
+            : EnchantmentTypes.Contains(subtype) ? CardType.Enchantment
+            : LandTypes.Contains(subtype) ? CardType.Land
+            : CardType.Creature;
+
         private static bool IsLegendary(GameObject obj) =>
             obj.Card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase);
 
@@ -6106,13 +6422,33 @@ public static partial class EffectPhrase
     /// X rather than a digit.
     /// </remarks>
     /// <summary>
+    /// The characters a counted group may contain (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// Three characters wider than the target class <see cref="T"/> — plus, slash and hyphen —
+    /// because a counter spells its own name with them, and "for each +1/+1 counter on this
+    /// creature" is the single commonest counted group on any card. Widening <see cref="T"/> the
+    /// same way is what broke the pump matcher, so the two classes are deliberately different
+    /// rather than one shared one: a counted group is always anchored after a literal "for each"
+    /// or "the number of" and runs to the end of the sentence, so there is no verb behind it for
+    /// a greedy "+2/+2" to eat. A target phrase has a verb behind it, and that is the difference.
+    /// <para>
+    /// Every position that hands its capture to <see cref="CountingAmount"/> is built from this.
+    /// The group classes on the per-each <em>pumps</em> deliberately are not: those go to
+    /// <c>Specs.ParseGroup</c> and want a group of permanents, so admitting counter names there
+    /// would widen the pattern without widening what can be read.
+    /// </para>
+    /// </remarks>
+    private const string COUNTED = @"[A-Za-z0-9'’~+/ -]";
+
+    /// <summary>
     /// The optional "for each ..." tail that scales an amount by a count of the board.
     /// </summary>
     /// <remarks>
     /// Shared, because it was written into four verbs one at a time and each of the four was a
     /// separate round of work. A verb that reads a number should get this with it.
     /// </remarks>
-    private const string FOREACH = @"( for (?<foreach>each [A-Za-z0-9'’~ ]+))?";
+    private const string FOREACH = @"( for (?<foreach>each " + COUNTED + @"+))?";
 
     private const string N =
         // The larger words come first because alternation is ordered: with "four" in front of
@@ -6143,7 +6479,7 @@ public static partial class EffectPhrase
 
     [GeneratedRegex(
         @"^~ deals " + N + @" damage to (?<t>[A-Za-z0-9'’ ]+?)"
-            + @"( for (?<foreach>each [A-Za-z0-9'’~ ]+))?$",
+            + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DealsDamageLine();
 
@@ -6155,9 +6491,24 @@ public static partial class EffectPhrase
     /// "where X is the number of cards in your hand" as a permanent count and be silently wrong.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<head>.+?), where X is the number of (?<group>[A-Za-z0-9'’ ]+?)$",
+        @"^(?<head>.+?), where X is the number of (?<group>" + COUNTED + @"+?)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsCountLine();
+
+    /// <summary>
+    /// "…, where X is its power" — X measured on one permanent rather than counted (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The stat list is closed on purpose. "Its mana value" and "its toughness" are the same
+    /// question about the same object and cost nothing extra, but "its power minus 1" and "its
+    /// mana value minus 4" are printed too, and an arithmetic tail admitted here would be read as
+    /// the bare stat and give a card a bigger number than it prints — so the pattern ends at the
+    /// word and those stay unread.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is its (?<stat>power|toughness|mana value)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsStatLine();
 
     /// <remarks>
     /// The counted group is written as "the number of X" and handed to the same group grammar as
@@ -6165,7 +6516,7 @@ public static partial class EffectPhrase
     /// spelling. One vocabulary, two ways of saying it on a card.
     /// </remarks>
     [GeneratedRegex(
-        @"^~ deals damage equal to (?<mult>twice |three times )?the number of (?<foreach>[A-Za-z0-9'’ ]+?) "
+        @"^~ deals damage equal to (?<mult>twice |three times )?the number of (?<foreach>" + COUNTED + @"+?) "
             + @"to (?<t>[A-Za-z0-9'’ ]+?)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageEqualToCountLine();
@@ -6173,7 +6524,7 @@ public static partial class EffectPhrase
     /// <summary>The same count with the target named first (CR 107.3).</summary>
     [GeneratedRegex(
         @"^~ deals damage to (?<t>[A-Za-z0-9'’ ]+?) "
-            + @"equal to (?<mult>twice |three times )?the number of (?<foreach>[A-Za-z0-9'’ ]+?)$",
+            + @"equal to (?<mult>twice |three times )?the number of (?<foreach>" + COUNTED + @"+?)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageToTargetEqualToCountLine();
 
@@ -6330,7 +6681,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(its|that spell's|that creature's|that permanent's) controller "
             + @"((?<verb>loses|gains) " + N + @" life"
-            + @"|(?<draws>draws) " + N + @" cards?)$",
+            + @"|(?<draws>draws) " + N + @" cards?)" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetControllerLine();
 
@@ -6447,15 +6798,25 @@ public static partial class EffectPhrase
         @"^" + WOPT + @"draws? " + N + @" (additional )?cards?$", RegexOptions.IgnoreCase)]
     private static partial Regex DrawCardsLine();
 
+    /// <remarks>
+    /// These three carry <see cref="FOREACH"/> for the same reason the imperative forms beside
+    /// them do. "Each opponent discards a card for each creature you control" read and "target
+    /// player discards a card for each Swamp you control" did not, which is not a fact about
+    /// discarding — it is a fact about which of the two readers happened to be written after the
+    /// count tail existed. A verb that takes a number takes a counted one.
+    /// </remarks>
     [GeneratedRegex(
-        @"^" + T + @" draws " + N + @" (additional )?cards?$", RegexOptions.IgnoreCase)]
+        @"^" + T + @" draws " + N + @" (additional )?cards?" + FOREACH + @"$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex TargetDrawsLine();
 
     [GeneratedRegex(
-        @"^" + T + @" (?<verb>gains|loses) " + N + @" life$", RegexOptions.IgnoreCase)]
+        @"^" + T + @" (?<verb>gains|loses) " + N + @" life" + FOREACH + @"$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex TargetLifeLine();
 
-    [GeneratedRegex(@"^" + T + @" discards " + N + @" cards?$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"^" + T + @" discards " + N + @" cards?" + FOREACH + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex TargetDiscardsLine();
 
     /// <summary>
@@ -6510,15 +6871,23 @@ public static partial class EffectPhrase
     private static partial Regex MillLine();
 
     [GeneratedRegex(
-        @"^(?<t>target (player|opponent)) mills " + N + @" cards?$", RegexOptions.IgnoreCase)]
+        @"^(?<t>target (player|opponent)) mills " + N + @" cards?" + FOREACH + @"$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex TargetMillLine();
 
     [GeneratedRegex(
         @"^~ deals damage equal to its power to (?<t>[a-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex DamageByPowerLine();
 
+    /// <remarks>
+    /// The pronoun is a third shape and not a spelling of the first two. Twenty corpus cards
+    /// write the fight as its own sentence — "Target creature you control gets +1/+2 until end of
+    /// turn. It fights target creature you don't control." — so the fighter has already been
+    /// chosen by the sentence in front of it and this one names nobody.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(~|(?<mine>target [a-z0-9'’ ]+)) fights (?<theirs>target [a-z0-9'’ ]+)$",
+        @"^(~|(?<pronoun>it|that creature)|(?<mine>target [a-z0-9'’ ]+)) "
+            + @"fights (?<theirs>target [a-z0-9'’ ]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FightLine();
 
@@ -6753,8 +7122,14 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^tap ~$", RegexOptions.IgnoreCase)]
     private static partial Regex TapSelfLine();
 
+    /// <remarks>
+    /// The subject is optional because a card writes the theft both ways — "gain control of
+    /// target creature" and "you gain control of that creature" — and it is the controller
+    /// either way (CR 109.5). A second matcher for the second spelling is how the two would
+    /// drift over which phrases they accept.
+    /// </remarks>
     [GeneratedRegex(
-        @"^gain control of " + T + @" until end of turn$", RegexOptions.IgnoreCase)]
+        @"^(you )?gain control of " + T + @" until end of turn$", RegexOptions.IgnoreCase)]
     private static partial Regex GainControlUntilLine();
 
     /// <summary>"Gain control of X for as long as you control [this]" (CR 611.2b).</summary>
@@ -6890,7 +7265,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^[Aa]mass (?<kind>[A-Z][a-z]+)? ?(?<n>" + N + @")$", RegexOptions.None)]
     private static partial Regex AmassLine();
 
-    [GeneratedRegex(@"^gain control of " + T + @"$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(you )?gain control of " + T + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex GainControlLine();
 
     [GeneratedRegex(
@@ -6920,14 +7295,44 @@ public static partial class EffectPhrase
     private static partial Regex BecomeMonarchLine();
 
     /// <summary>"Creature cards in your graveyard" - counting a zone rather than the board.</summary>
+    /// <remarks>
+    /// The library is here beside the hand and the graveyard because it is the same question
+    /// about a third pile, and the counter that answers it is the same line of code. It is not
+    /// hidden information the count could leak: any player may count any library at any time
+    /// (CR 401.3), and it is the order and the faces that are hidden, not the size.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<noun>[a-z ]*?) ?cards? in (?<whose>your|all|each player's) (?<zone>hand|graveyard)s?$",
+        @"^(?<noun>[a-z ]*?) ?cards? in (?<whose>your|all|each player's) "
+            + @"(?<zone>hand|graveyard|library)s?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CardsInZoneLine();
 
     /// <summary>"+1/+1 counter on ~" - counting what is on a permanent, not the permanents.</summary>
+    /// <remarks>
+    /// "This creature", "this artifact", "this enchantment", "this Equipment", "this Aura",
+    /// "this land" — every one of them names the object the ability is printed on (CR 700.7),
+    /// exactly as "~" and "it" do here, so the noun after "this" is not read: it says which kind
+    /// of permanent the source is, which the source already knows. The current templating uses
+    /// those spellings and the older cards use the name, so refusing them left ninety-odd corpus
+    /// lines unread for a synonym.
+    /// <para>
+    /// The kind is optional because "the number of counters on it" means every counter of every
+    /// kind, which is a different question from any one of them and is answered below by summing.
+    /// It is written as its own alternative rather than an optional group so that the two cannot
+    /// be confused: an absent kind is a total, never a kind that failed to match.
+    /// </para>
+    /// <para>
+    /// Plural as well as singular, because the two spellings on a card mean the same count:
+    /// "for each charge counter on it" and "the number of charge counters on it" are the same
+    /// question, and the second arrives here with its "s" still on. The plural noun folding that
+    /// handles this everywhere else knows the six card types and not the word "counter", so the
+    /// commonest counted group in the corpus — forty-three cards say "the number of +1/+1
+    /// counters on it" — was refused by one letter.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<kind>[+-]?[0-9]+/[+-]?[0-9]+|[a-z]+) counter on (~|it)$", RegexOptions.IgnoreCase)]
+        @"^((?<kind>[+-]?[0-9]+/[+-]?[0-9]+|[a-z]+) )?counters? on (~|it|this [A-Za-z]+)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex CountersOnLine();
 
     [GeneratedRegex(@"^transform (~|it)$", RegexOptions.IgnoreCase)]
@@ -6972,6 +7377,38 @@ public static partial class EffectPhrase
     /// a pronoun names nothing, so adding a target for it would make the spell ask the player to
     /// choose something the sentence had already decided.
     /// </remarks>
+    /// <summary>
+    /// The index of an already-chosen target a verb's pronoun object names, or null.
+    /// </summary>
+    /// <remarks>
+    /// For the verbs whose effect carries a target index and nothing else — damage and the
+    /// until-end-of-turn theft. <see cref="ObjectOf"/> answers the same question in three ways,
+    /// and only one of the three can be honoured by an effect with nowhere to put a subject: the
+    /// target an earlier sentence chose. The other two are refused here rather than approximated.
+    /// <para>
+    /// Approximating them is the specific mistake this codebase has already made and reverted.
+    /// A pronoun that means the <em>trigger's</em> subject, answered with "whatever was targeted",
+    /// turned "whenever ~ blocks a creature, destroy that creature" into a card that destroyed
+    /// the blocker — it compiled, it played, and it was the wrong card. An unread line is the
+    /// cheaper failure, so a pronoun this cannot resolve to a target leaves the line unread.
+    /// </para>
+    /// </remarks>
+    private static int? PronounObject(
+        Match m,
+        ImmutableList<TargetSpec>.Builder targets,
+        bool objectNamedByTrigger)
+    {
+        if (!m.Success || !Pronouns.Contains(
+                m.Groups["t"].Value.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var named = ObjectOf(m.Groups["t"].Value, targets, objectNamedByTrigger);
+
+        return named is { Subject: EffectSubject.Target } ? named.Value.Index : null;
+    }
+
     private static (EffectSubject Subject, int Index)? ObjectOf(
         string phrase,
         ImmutableList<TargetSpec>.Builder targets,
@@ -7021,8 +7458,8 @@ public static partial class EffectPhrase
 
     [GeneratedRegex(
         @"^(?<who>you|each opponent|each player) (?<verb>gains?|loses?) "
-            + @"((?<n>\d+|X) life for (?<t>each [A-Za-z0-9'’~ ]+)"
-            + @"|life equal to (?<mult>twice |three times )?the number of (?<t>[A-Za-z0-9'’ ]+)"
+            + @"((?<n>\d+|X) life for (?<t>each " + COUNTED + @"+)"
+            + @"|life equal to (?<mult>twice |three times )?the number of (?<t>" + COUNTED + @"+)"
             + @"|life equal to (?<subject>that [a-z]+'s|its|the sacrificed [a-z]+'s) "
             + @"(?<stat>power|toughness|mana value))$",
         RegexOptions.IgnoreCase)]
@@ -7033,8 +7470,8 @@ public static partial class EffectPhrase
     /// same amount with a fixed part of one rather than getting a mechanism of its own.
     /// </remarks>
     [GeneratedRegex(
-        @"^draw " + N + @" cards? for each (?<t>[A-Za-z0-9'’ ]+)"
-            + @"|^draw cards equal to (?<mult>twice |three times )?the number of (?<t>[A-Za-z0-9'’ ]+)$",
+        @"^draw " + N + @" cards? for each (?<t>" + COUNTED + @"+)"
+            + @"|^draw cards equal to (?<mult>twice |three times )?the number of (?<t>" + COUNTED + @"+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PerEachDrawLine();
 
@@ -7344,7 +7781,7 @@ public static partial class EffectPhrase
             + @" (?<tapped>tapped )?(?<p>\d+)/(?<tough>\d+) (?<colours>[a-z, ]*?)\s*"
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
             + @"(?: with (?<kw>[a-z ,]+?)|(?: with)? ""(?<text>[^""]+)"")?"
-            + @"( for (?<foreach>each [A-Za-z0-9'’~ ]+))?$",
+            + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.None)]
     private static partial Regex CreatureTokenLine();
 
@@ -7359,7 +7796,7 @@ public static partial class EffectPhrase
             + N
             + @"(?<tapped> tapped)?"
             + @" (?<kind>Treasure|Clue|Food|Gold|Blood|Lander|Map|Junk|Mutagen|Powerstone)"
-            + @" tokens?$",
+            + @" tokens?" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex NamedTokenLine();
 
@@ -7513,7 +7950,7 @@ public static partial class EffectPhrase
 
     [GeneratedRegex(
         @"^put " + N + @" (?<kind>\+1/\+1|-1/-1|[a-z]+) counters? on "
-            + @"(?<t>[A-Za-z0-9'’ ]+?)( for (?<foreach>each [A-Za-z0-9'’~ ]+))?$",
+            + @"(?<t>[A-Za-z0-9'’ ]+?)( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PutCountersLine();
 
