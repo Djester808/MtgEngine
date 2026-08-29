@@ -1399,6 +1399,14 @@ public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : Ga
     public override string Describe() => $"{Id} was sneaked in.";
 }
 
+/// <summary>A spell's teamwork cost was paid as it was cast (CR 702.194b).</summary>
+public sealed record SpellTeamwork(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.194";
+
+    public override string Describe() => $"{Id} was cast using teamwork.";
+}
+
 /// <summary>A spell was cast for its awaken cost (CR 702.113a).</summary>
 public sealed record SpellAwakened(ObjectId Id) : GameEvent
 {

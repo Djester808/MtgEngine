@@ -668,7 +668,8 @@ public sealed class Game
         bool withFlash = false,
         bool prototyped = false,
         bool awakened = false,
-        bool sneaked = false)
+        bool sneaked = false,
+        bool teamwork = false)
     {
         RequirePriority(playerId);
 
@@ -1339,6 +1340,16 @@ public sealed class Game
         if (fromElsewhere && alternative!.Extra is { } extra)
             owed = owed.AddRange(extra);
 
+        // CR 702.194a: teamwork's cost is optional, so it joins the list only when the caster
+        // has said they will pay it. Nothing is charged for saying no.
+        if (teamwork)
+        {
+            owed = owed.Add(
+                definition?.TeamworkCost
+                ?? throw new InvalidOperationException(
+                    $"{card.Card.Name} has no teamwork cost to pay (CR 702.194a)."));
+        }
+
         // CR 702.190a: the other half of the sneak price. An additional entry rather than a
         // replacement, so a card that also charges something of its own still charges it.
         if (sneaked)
@@ -1548,6 +1559,9 @@ public sealed class Game
 
         if (sneaked)
             Emit(new SpellSneaked(stackId, joining));
+
+        if (teamwork)
+            Emit(new SpellTeamwork(stackId));
 
         if (bestowed)
             Emit(new SpellBestowed(stackId));

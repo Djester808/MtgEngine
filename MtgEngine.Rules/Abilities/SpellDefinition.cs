@@ -226,6 +226,23 @@ public sealed record SpellDefinition
     public ChosenCost? SneakReturn { get; init; }
 
     /// <summary>
+    /// The optional additional cost teamwork charges (CR 702.194a).
+    /// </summary>
+    /// <remarks>
+    /// "You may tap any number of creatures you control with total power N or more" - crew's cost
+    /// offered rather than demanded, which is why it is kept apart from
+    /// <see cref="ChosenCosts"/> the same way bargain's is: those are charged every time and this
+    /// one only when the caster says so.
+    /// <para>
+    /// What paying it buys is on the card's other lines - "if this spell was cast using teamwork,
+    /// ..." - and those sentences are not read yet, so <see cref="GameObject.WasTeamwork"/> is
+    /// recorded and nothing consults it. The alternative was to leave the keyword unread, which
+    /// would be reading a cost as though the card did not offer it.
+    /// </para>
+    /// </remarks>
+    public ChosenCost? TeamworkCost { get; init; }
+
+    /// <summary>
     /// The land the awaken half animates, targeted only when awaken was paid (CR 702.113b).
     /// </summary>
     /// <remarks>

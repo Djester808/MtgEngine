@@ -612,6 +612,17 @@ public sealed record GameObject
     public AttackTarget? JoiningAgainst { get; init; }
 
     /// <summary>
+    /// Whether this spell's teamwork cost was paid (CR 702.194b).
+    /// </summary>
+    /// <remarks>
+    /// Recorded and, for now, read by nothing: what paying it buys lives on the card's other
+    /// lines - "if this spell was cast using teamwork, ..." - and those sentences are not read
+    /// yet. The fact belongs in the state rather than nowhere, because the payment happened and
+    /// a log that does not say so cannot be replayed into a game that knows it.
+    /// </remarks>
+    public bool WasTeamwork { get; init; }
+
+    /// <summary>
     /// Whether this spell was cast for its awaken cost (CR 702.113a).
     /// </summary>
     /// <remarks>
@@ -890,6 +901,7 @@ public sealed record GameObject
         WasEvoked == other.WasEvoked &&
         WasOverloaded == other.WasOverloaded &&
         WasAwakened == other.WasAwakened &&
+        WasTeamwork == other.WasTeamwork &&
         Equals(JoiningAgainst, other.JoiningAgainst) &&
         WasBestowed == other.WasBestowed &&
         WasOffspring == other.WasOffspring &&

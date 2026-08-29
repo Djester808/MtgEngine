@@ -43411,6 +43411,119 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(compiled.HasReadAhead);
     }
 
+    /// <summary>
+    /// Hideaway looks at the top N, puts one aside and buries the rest (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The exiled card is exiled face up here, because this engine has no face-down exile - a
+    /// deviation that costs the permanent's controller information and gains them nothing, which
+    /// is the direction a reading is allowed to be wrong in. Nothing in a game reaches it either
+    /// way: the second line every hideaway card prints, saying when the exiled card may be
+    /// played, is not read yet, so no hideaway card compiles completely.
+    /// </remarks>
+    [Fact]
+    public void Hideaway_exiles_one_of_the_top_cards_and_buries_the_rest()
+    {
+        var vault = Card(
+            "Hideaway Vault Test",
+            "Hideaway 4",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(vault);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        game.Create(alice, vault, Zone.Battlefield);
+        Settle(game);
+
+        // One card is in exile and the other three went to the bottom, so the library is one
+        // shorter and nothing else moved.
+        Assert.Single(game.State.Exile);
+        Assert.Equal(library - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// A card printing hideaway twice does it twice (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// "Hideaway 3, hideaway 3" is two instances of the keyword on one line, and each is its own
+    /// triggered ability. A reader that stopped at the first comma would compile half the card
+    /// and report the line as fully read, which is the failure the coverage number cannot see.
+    /// </remarks>
+    [Fact]
+    public void Two_hideaways_on_one_line_are_two_abilities()
+    {
+        var ursine = Card(
+            "Hideaway Ursine Test",
+            "Hideaway 3, hideaway 3",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(ursine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Triggers.Count);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, ursine, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, game.State.Exile.Count);
+    }
+
+    /// <summary>
+    /// Teamwork is an optional additional cost paid by tapping a team (CR 702.194a).
+    /// </summary>
+    /// <remarks>
+    /// Crew's cost offered rather than demanded: any number of creatures whose power adds up to
+    /// N or more. What paying it buys is on the card's other lines - "if this spell was cast
+    /// using teamwork, ..." - and those sentences are not read yet, so nothing in the game
+    /// consults the fact. It is recorded anyway, because the payment happened and a log that
+    /// does not say so cannot be replayed into a game that knows it.
+    /// </remarks>
+    [Fact]
+    public void A_teamwork_cost_taps_a_team_whose_power_adds_up()
+    {
+        var tactics = Card("Teamwork Tactics Test", "Draw a card.\nTeamwork 3");
+
+        var compiled = CardCompiler.Compile(tactics);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.Spell?.TeamworkCost);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.Creature("Teamwork One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Teamwork Two Test", 1, 1), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, tactics);
+
+        // Two power is not three, so one creature cannot pay it alone (CR 702.194a).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], costPayment: [first], teamwork: true));
+
+        game.CastSpell(alice, card, [], costPayment: [first, second], teamwork: true);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(first).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(second).Permanent!.IsTapped);
+    }
+
+    /// <summary>Declining teamwork taps nothing and casts the spell as printed (CR 702.194a).</summary>
+    [Fact]
+    public void A_spell_with_teamwork_may_be_cast_without_paying_it()
+    {
+        var tactics = Card("Teamwork Declined Test", "Draw a card.\nTeamwork 3");
+
+        var (game, alice, _) = InMainPhase();
+        var ally = game.Create(alice, TestCards.Creature("Teamwork Idle Test", 4, 4), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, tactics);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(ally).Permanent!.IsTapped);
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

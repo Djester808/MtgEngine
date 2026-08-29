@@ -318,6 +318,7 @@ public static partial class CardCompiler
         var awakenCounters = 0;
         ManaCostSpec? sneak = null;
         ChosenCost? sneakReturn = null;
+        ChosenCost? teamwork = null;
 
         // CR 702.155a: read ahead changes what a chapter ability may do on the turn the Saga
         // arrives, and the chapter lines are printed above it on every card that has it. So the
@@ -923,6 +924,32 @@ public static partial class CardCompiler
                 continue;
             }
 
+            if (TeamworkLine().Match(line) is { Success: true } together)
+            {
+                // CR 702.194a: "you may tap any number of creatures you control with total power
+                // N or more" - crew's shape as an optional additional cost, and the same
+                // MinTotalPower the crew cost already carries answers it.
+                if (EffectPhrase.Specs.Parse("target creature you control") is not
+                    { Kind: TargetKind.Permanent } crewmate)
+                {
+                    unhandled.Add(line);
+                    continue;
+                }
+
+                teamwork = new ChosenCost(
+                    ChosenCostKind.TapPermanents,
+                    0,
+                    crewmate with { Description = "a creature you control" },
+                    ExcludesSource: false,
+                    MinTotalPower: int.Parse(
+                        together.Groups["n"].Value, CultureInfo.InvariantCulture));
+
+                continue;
+            }
+
+            if (TryHideaway(line, card, triggers))
+                continue;
+
             if (SneakLine().Match(line) is { Success: true } snuck)
             {
                 // CR 702.190a: the mana is only half the price - an attacker goes back to hand
@@ -1323,6 +1350,7 @@ public static partial class CardCompiler
             AwakenEffects = awakenEffects,
             SneakCost = sneak,
             SneakReturn = sneakReturn,
+            TeamworkCost = teamwork,
             PlotCost = plot,
             ReplicateCost = replicate,
             OffspringCost = offspring,
@@ -4613,6 +4641,58 @@ public static partial class CardCompiler
     /// decision cannot be taken inside a replacement effect. See <c>Game.AskOwedAmplify</c>.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "Hideaway N" &#8212; look at the top N, put one aside, bury the rest (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The whole keyword is one sentence the shared vocabulary already reads, so it costs an
+    /// effect and no new machinery: look at the top N, one goes to exile, the rest to the bottom
+    /// of the library in a random order.
+    /// <para>
+    /// <strong>One deviation, and it is the losing one.</strong> The rule exiles the card face
+    /// down and gives its controller permission to look at it; this engine has no face-down
+    /// exile, so the card is exiled face up and every player can see it. That is information the
+    /// printed card keeps from the opponents, so the reading is worse for the permanent's
+    /// controller rather than better - which is the direction a reading is allowed to be wrong
+    /// in. Nothing reaches it in a game either way: the second line every hideaway card prints,
+    /// the one saying when the exiled card may be played, is not read yet.
+    /// </para>
+    /// <para>
+    /// One card prints the word twice on one line ("Hideaway 3, hideaway 3"), and each instance
+    /// is its own triggered ability (CR 702.75a) - so the line yields two.
+    /// </para>
+    /// </remarks>
+    private static bool TryHideaway(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = HideawayLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (TriggerConditions.Parse("~ enters") is not { } entered)
+            return false;
+
+        foreach (Capture each in m.Groups["n"].Captures)
+        {
+            var count = int.Parse(each.Value, CultureInfo.InvariantCulture);
+            if (count <= 0)
+                return false;
+
+            into.Add(new TriggeredAbilityDefinition
+            {
+                Id = "hideaway" + Suffix(into.Count),
+                Text = $"When {card.Name} enters, look at the top "
+                    + count.ToString(CultureInfo.InvariantCulture)
+                    + " cards of your library. Exile one of them and put the rest on the bottom "
+                    + "of your library in a random order.",
+                Triggers = entered,
+                Effects = [new LookAndTake(count, Zone.Exile)],
+            });
+        }
+
+        return true;
+    }
+
     private static bool TryAmplify(string line, CardDefinition card, ref int amplify)
     {
         var m = AmplifyLine().Match(line);
@@ -11971,6 +12051,22 @@ public static partial class CardCompiler
     /// <summary>"Read ahead" (CR 702.155a). Printed alone on every Saga that has it.</summary>
     [GeneratedRegex(@"^Read ahead\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ReadAheadLine();
+
+    /// <summary>
+    /// "Hideaway N", or the one card that prints two of them on a line (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The repeat is captured rather than alternated so that both numbers are read: a group that
+    /// matched only the first would compile "Hideaway 3, hideaway 3" as one instance, which is
+    /// half of what the card does and reads as a complete line.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Hideaway (?<n>\d+)(?:, hideaway (?<n>\d+))*\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex HideawayLine();
+
+    /// <summary>"Teamwork N" (CR 702.194a).</summary>
+    [GeneratedRegex(@"^Teamwork (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex TeamworkLine();
 
     /// <summary>
     /// "Amplify N" (CR 702.38a).

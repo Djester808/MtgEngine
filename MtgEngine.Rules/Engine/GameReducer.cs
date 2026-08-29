@@ -132,6 +132,9 @@ public static class GameReducer
             SpellOverloaded loud => state.TryGetObject(loud.Id, out var everything)
                 ? state.WithObject(everything with { WasOverloaded = true })
                 : state,
+            SpellTeamwork teamed => state.TryGetObject(teamed.Id, out var helped)
+                ? state.WithObject(helped with { WasTeamwork = true })
+                : state,
             SpellAwakened roused => state.TryGetObject(roused.Id, out var stirring)
                 ? state.WithObject(stirring with { WasAwakened = true })
                 : state,
