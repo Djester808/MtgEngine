@@ -446,7 +446,44 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **46.8% of playable cards fully read** (15,347 of 32,765), 64.0% of all lines (39,559 of 61,846 lines of rules text).
+Coverage is **47.3% of playable cards fully read** (15,500 of 32,765), 64.3% of all lines
+(39,748 of 61,846 lines of rules text).
+
+### A capability the compiler cannot reach is not coverage
+
+Copiable values (CR 706, 707) landed complete and correct: a permanent under a copy effect *is*
+the copied card, proved by five tests that play a real game — it fires the copied attack trigger,
+activates the copied `{T}` ability, a copy of a lord pumps a third creature the spell never
+touched, and CR 707.2's exclusions hold, so a 1/1 that entered with a `+1/+1` counter and copies a
+3/3 is a 4/4 and stays tapped. The whole copied card round-trips through `EventLogSerializer` and
+`GameReducer.Replay`. **Coverage moved by exactly zero**, because the compiler emits no copy
+effect, so nothing in the corpus can ask for any of it.
+
+That is the third time this session the same shape has appeared — the deck gate above, the
+prevention shield that was half a feature, and now this — and it is worth stating as a rule rather
+than as three anecdotes: **engine work is not coverage until a printed card reaches it.** The
+honest ceiling here was measured before the work started and is 79 of the 132 cards that print a
+copy sentence, because 79 of 135 such sentences carry an "except" clause and the ranking of
+copy templates is completely flat.
+
+### The line ranking is not a work queue, and two families proved it again
+
+Two plausible "doors" — a whole family reachable through one grammar — were checked and both
+were false. **Sagas** read 34 of 215, which looks like the chapter grammar is missing; it is not,
+and what blocks the other 181 is 181 bespoke chapter effects plus `Read ahead`. **Planeswalkers**
+read about 5% of some subtypes, which looks like loyalty abilities are unread; `TryLoyaltyAbility`
+has read `+1:` and `-3:` for a long time, and what blocks 353 planeswalkers is one bespoke loyalty
+effect at a time. The work queue agrees: its top ten templates are worth 89 cards between them,
+0.3% of the corpus, and its top *thousand* are worth 1,902. The remaining corpus is a long tail of
+roughly 9,700 distinct blocking sentences at about 1.1 cards each, and no ranking of sentences
+changes that.
+
+What is still shaped like a door is the **keyword backlog** — each one a self-contained grammar
+with its own CR 702 section, none of them read: `{M} - N/N` (48 cards), mutate (34), sneak (27),
+level up (25 cards, printed as four line kinds), soulbond (24), spree (21), kicker-and/or (18),
+overload (17), teamwork (17), awaken (15), double team (15), specialize (15), hideaway (14),
+emerge (14), cleave (12), phasing (12), ravenous (12), backup (11), tribute (11), prowl (10),
+read ahead (10).
 
 ### The compiler was not connected to the game
 
