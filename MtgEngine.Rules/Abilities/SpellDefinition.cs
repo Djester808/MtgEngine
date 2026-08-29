@@ -372,6 +372,22 @@ public sealed record SpellDefinition
     public int ModesToChoose { get; init; }
 
     /// <summary>
+    /// Whether the same mode may be taken more than once (CR 700.2d).
+    /// </summary>
+    /// <remarks>
+    /// The default is that it may not, and that default is a rule rather than a convenience -
+    /// which is why the permission has to be printed to exist. "Choose three. You may choose the
+    /// same mode more than once" is a different card from "choose three": the second cannot aim
+    /// nine damage at one creature and the first can.
+    /// <para>
+    /// Nothing else changes. CR 700.2d says a mode chosen twice is treated as though it appeared
+    /// twice in sequence, which is exactly what the resolution loop already does with a repeated
+    /// index — each occurrence gets its own slice of the chosen targets and runs its own effects.
+    /// </para>
+    /// </remarks>
+    public bool ModesMayRepeat { get; init; }
+
+    /// <summary>
     /// The most modes that may be chosen, when the card offers a range (CR 700.2d).
     /// </summary>
     /// <remarks>
@@ -385,6 +401,18 @@ public sealed record SpellDefinition
     /// </para>
     /// </remarks>
     public int ModesMax { get; init; }
+
+    /// <summary>
+    /// A wider mode allowance the card offers only while the board says so (CR 700.2d).
+    /// </summary>
+    /// <remarks>
+    /// "Choose one. If you control a commander as you cast this spell, you may choose both
+    /// instead." The maximum is not a property of the card alone, so it cannot live in
+    /// <see cref="ModesMax"/>: a card compiled with a maximum of two would let anybody take both
+    /// modes, which is the strictly better card, and one compiled with a maximum of one would
+    /// never offer what it prints.
+    /// </remarks>
+    public ConditionalModes? ExtraModes { get; init; }
 
     /// <summary>
     /// What choosing every mode costs on top of the mana cost (CR 702.42a) - entwine.
@@ -472,7 +500,34 @@ public sealed record SpellDefinition
 /// <param name="Targets">What this mode targets, chosen only if this mode is chosen.</param>
 /// <param name="Effects">What this mode does, indexed into its own targets.</param>
 public sealed record SpellMode(
-    string Text, ImmutableList<TargetSpec> Targets, ImmutableList<IEffect> Effects);
+    string Text, ImmutableList<TargetSpec> Targets, ImmutableList<IEffect> Effects)
+{
+    /// <summary>
+    /// What choosing this mode costs on top of the spell's own cost (CR 700.2h) - spree.
+    /// </summary>
+    /// <remarks>
+    /// On the mode rather than on the spell, which is the whole difference between spree and
+    /// escalate: escalate charges one flat price for every mode past the first, so the spell can
+    /// hold it, while a spree card's modes each name their own price and what is owed depends on
+    /// which ones were taken.
+    /// </remarks>
+    public ManaCostSpec? Cost { get; init; }
+}
+
+/// <summary>
+/// A larger number of modes a card offers only under a condition (CR 700.2d).
+/// </summary>
+/// <remarks>
+/// Shaped like <see cref="ConditionalCost"/> and for the same reason: the permission and the
+/// question that gates it are one fact, and a maximum that could be taken while its condition is
+/// false is not a bonus, it is a different card. The rule travels with it so a refusal can name
+/// what was reached for.
+/// </remarks>
+/// <param name="Max">The most modes that may be chosen while the condition holds.</param>
+/// <param name="Rule">The rule the wider allowance comes from, cited in a refusal.</param>
+/// <param name="IsAvailable">Whether the game currently permits it.</param>
+public sealed record ConditionalModes(
+    int Max, string Rule, Func<GameState, IAbilitySource, Guid, bool> IsAvailable);
 
 /// <summary>Permission to cast a card from another zone for another cost (CR 702.34a).</summary>
 /// <param name="Zone">Where it may be cast from.</param>
@@ -781,6 +836,17 @@ public enum ChosenCostKind
     DiscardAtRandom,
 
     /// <summary>
+    /// Exile cards from your hand (CR 701.13a).
+    /// </summary>
+    /// <remarks>
+    /// The pitch spells' price - "you may exile a blue card from your hand rather than pay this
+    /// spell's mana cost". A kind of its own rather than a discard, and the difference is the
+    /// whole reason those cards are what they are: a card exiled this way is gone, while a card
+    /// in the graveyard is still somewhere a dozen mechanics can reach it.
+    /// </remarks>
+    ExileFromHand,
+
+    /// <summary>
     /// Tap untapped permanents you control (CR 118.12).
     /// </summary>
     /// <remarks>
@@ -974,4 +1040,45 @@ public sealed record ConditionalCost(
     string Keyword,
     string Rule,
     ManaCostSpec Cost,
-    Func<GameState, Guid, bool> IsAvailable);
+    Func<GameState, Guid, bool> IsAvailable)
+{
+    /// <summary>
+    /// What the caster gives up as well as the mana, when the offer asks for something
+    /// (CR 118.9a, 601.2f-h).
+    /// </summary>
+    /// <remarks>
+    /// This is the field that makes an alternative cost more than a discount. "You may sacrifice
+    /// two Mountains rather than pay this spell's mana cost", "you may return two Islands you
+    /// control to their owner's hand", "you may tap an untapped creature you control", emerge's
+    /// creature — all of them are one offer whose price is paid in something other than mana, and
+    /// a record that could hold only a <see cref="ManaCostSpec"/> could hold them only by
+    /// dropping the payment, which is a strictly cheaper card than the one printed.
+    /// <para>
+    /// A list rather than one entry, because several cards name two prices at once — Force of
+    /// Will's life and card, a Borderpost's mana and land. Chosen as the offer is taken
+    /// (CR 601.2b) and paid on the same footing as every other chosen cost, so it rides the
+    /// cast's existing cost-payment list rather than needing a channel of its own.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<ChosenCost> Payments { get; init; } = [];
+
+    /// <summary>Life paid as part of taking the offer (CR 118.8).</summary>
+    /// <remarks>
+    /// "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost." Life
+    /// is not mana and not a card, so it has nowhere else to go — and like the mana it is checked
+    /// before anything is spent, so a caster who cannot afford it has lost nothing.
+    /// </remarks>
+    public int LifeCost { get; init; }
+
+    /// <summary>
+    /// Whether what was sacrificed takes its own mana value off the cost (CR 702.119a).
+    /// </summary>
+    /// <remarks>
+    /// A flag beside the payments rather than a second reduction hook, because the two are the
+    /// same sentence: emerge's discount is the mana value of the creature its cost already made
+    /// you give up. It comes off the generic part only, which is not a simplification but what
+    /// the rule says — "reduced by an amount of generic mana equal to the sacrificed creature's
+    /// mana value".
+    /// </remarks>
+    public bool ReducedByManaValueSacrificed { get; init; }
+}

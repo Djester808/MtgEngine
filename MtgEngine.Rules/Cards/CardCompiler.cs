@@ -273,6 +273,14 @@ public static partial class CardCompiler
         var modes = ImmutableList.CreateBuilder<SpellMode>();
         var modesToChoose = 0;
         var modesMax = 0;
+        var modesMayRepeat = false;
+        ConditionalModes? extraModes = null;
+        string? modalSpellHeader = null;
+
+        // Whether the modes being read are spree's, which is what allows a priced bullet to be
+        // read as one. Kept across the loop for the same reason the mode count is: the header
+        // and the bullets are separate lines.
+        var spree = false;
 
         // Which trigger, if any, the bullets that follow belong to. "When ~ enters, choose one —"
         // is a trigger whose effect is a menu, and the menu arrives on the lines after it - so
@@ -378,8 +386,24 @@ public static partial class CardCompiler
             if (TryModalTriggerBullet(line, triggers, modalTriggerAt))
                 continue;
 
-            if (TryModal(line, modes, ref modesToChoose, ref modesMax))
+            var modesBefore = modes.Count;
+            if (TryModal(
+                line,
+                modes,
+                ref modesToChoose,
+                ref modesMax,
+                ref modesMayRepeat,
+                ref extraModes,
+                ref spree))
+            {
+                // A line the modal reader took that added no mode is the header. Remembered so
+                // that a menu which turns out to have nothing on it can put its own words back
+                // into the unread list rather than a reconstruction of them.
+                if (modes.Count == modesBefore)
+                    modalSpellHeader = line;
+
                 continue;
+            }
 
             if (IsKeywordLine(line, card))
                 continue;
@@ -1016,6 +1040,36 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // CR 702.119a: emerge is two static abilities in one word - an alternative cost paid
+            // with mana *and* a creature, and a reduction of that cost by what the creature was
+            // worth. Both halves ride the one offer: an emerge that charged the mana and not the
+            // sacrifice would be a cheaper card, and one that took the sacrifice without the
+            // discount would be a dearer one.
+            if (EmergeLine().Match(line) is { Success: true } emerging
+                && EffectPhrase.Specs.Parse("target creature you control") is { } sacrificed)
+            {
+                conditionalCost = new ConditionalCost(
+                    "emerge",
+                    "CR 702.119a",
+                    ManaCostSpec.Parse(emerging.Groups["cost"].Value),
+
+                    // No board question of its own. What gates the offer is whether there is a
+                    // creature to give up, and the cost payment refuses that on its own terms -
+                    // naming the creature that could not be sacrificed rather than the keyword.
+                    static (_, _) => true)
+                {
+                    Payments = [
+                        new ChosenCost(
+                            ChosenCostKind.SacrificePermanents,
+                            Count: 1,
+                            What: sacrificed with { Description = "a creature you control" }),
+                    ],
+                    ReducedByManaValueSacrificed = true,
+                };
+
+                continue;
+            }
+
             if (SurgeLine().Match(line) is { Success: true } surged)
             {
                 conditionalCost = new ConditionalCost(
@@ -1184,6 +1238,21 @@ public static partial class CardCompiler
         if (backupLine is not null)
             TryBackup(backupLine, card, backup, triggers, unhandled);
 
+        // A spell that says "choose one —" and has no bullets under it offers a menu with
+        // nothing on it - the same fault the modal trigger already guards against, in the other
+        // place it can happen. The header goes back to unread and the spell stops being modal,
+        // rather than compiling into a choice that cannot be made. Spree brought it within reach
+        // of a real card: every one of its bullets carries a cost and an effect, so a card whose
+        // effects the vocabulary cannot read keeps its keyword and loses its whole menu.
+        if (modesToChoose > 0 && modes.Count == 0)
+        {
+            unhandled.Add(modalSpellHeader ?? "choose one —");
+            modesToChoose = 0;
+            modesMax = 0;
+            modesMayRepeat = false;
+            extraModes = null;
+        }
+
         var built = new SpellDefinition
         {
             Targets = spellTargets.ToImmutable(),
@@ -1197,6 +1266,8 @@ public static partial class CardCompiler
             // "Or more" is stored as -1 while the bullets are still being counted, since
             // how many there are is only known once the last one has been read.
             ModesMax = modesMax < 0 ? modes.Count : modesMax,
+            ModesMayRepeat = modesMayRepeat,
+            ExtraModes = extraModes,
             EntwineCost = entwine,
             SpliceCost = splice,
             SquadCost = squad,
@@ -7372,6 +7443,27 @@ public static partial class CardCompiler
                 });
         }
 
+        // CR 118.9a does not say the price has to be mana, and 78 corpus cards take it at its
+        // word: two Mountains, an Island back to hand, a blue card out of hand, four life. Each
+        // half of the sentence is read on its own and a half nothing can read leaves the whole
+        // line unread - a cost with a payment dropped out of it is a cheaper card than the
+        // printed one, and that is the direction this must never fail in.
+        var mana = ManaCostSpec.Free;
+        var life = 0;
+        var payments = ImmutableList.CreateBuilder<ChosenCost>();
+
+        if (m.Groups["paid"].Success)
+        {
+            foreach (var part in m.Groups["paid"].Value.Split(" and ", StringSplitOptions.TrimEntries))
+            {
+                if (!TryAlternativePayment(part, ref mana, ref life, payments))
+                    return false;
+            }
+
+            if (mana == ManaCostSpec.Free && life == 0 && payments.Count == 0)
+                return false;
+        }
+
         into = new ConditionalCost(
             "alternative cost",
             "CR 118.9a",
@@ -7381,10 +7473,172 @@ public static partial class CardCompiler
             // and a cost of no symbols is what the engine then charges.
             m.Groups["cost"].Success
                 ? ManaCostSpec.Parse(m.Groups["cost"].Value)
-                : ManaCostSpec.Free,
-            available);
+                : mana,
+            available)
+        {
+            LifeCost = life,
+            Payments = payments.ToImmutable(),
+        };
 
         return true;
+    }
+
+    /// <summary>
+    /// One price in an alternative cost's list, or false if nothing here can read it.
+    /// </summary>
+    /// <remarks>
+    /// The prices are joined by "and" and there are only ever two or three of them, so they are
+    /// read one at a time and folded into the running cost. Everything a card can ask for here
+    /// is already a <see cref="ChosenCost"/> the engine charges somewhere else — this only has to
+    /// say which kind, and to hand the noun to the shared target vocabulary rather than growing a
+    /// second one.
+    /// </remarks>
+    private static bool TryAlternativePayment(
+        string part, ref ManaCostSpec mana, ref int life, ImmutableList<ChosenCost>.Builder into)
+    {
+        if (AlternativeManaPart().Match(part) is { Success: true } paying)
+        {
+            var more = ManaCostSpec.Parse(paying.Groups["cost"].Value);
+            mana = mana with { Symbols = mana.Symbols.AddRange(more.Symbols) };
+
+            return true;
+        }
+
+        if (AlternativeLifePart().Match(part) is { Success: true } bleeding)
+        {
+            life += int.Parse(bleeding.Groups["life"].Value, CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        if (AlternativeCardPart().Match(part) is { Success: true } spending)
+        {
+            var many = ModeCount(spending.Groups["n"].Value) ?? 1;
+            if (SpecForCardPayment(spending.Groups["what"].Value, many) is not { } named)
+                return false;
+
+            // An exile has to say where from. "Exile a blue card" with no zone is not a price
+            // this can charge, and guessing at the hand would be guessing at the card.
+            var kind = (spending.Groups["verb"].Value.ToLowerInvariant(),
+                    spending.Groups["zone"].Value.ToLowerInvariant()) switch
+            {
+                ("discard", "") => ChosenCostKind.DiscardCards,
+                ("exile", "hand") => ChosenCostKind.ExileFromHand,
+                ("exile", "graveyard") => ChosenCostKind.ExileFromGraveyard,
+                _ => (ChosenCostKind?)null,
+            };
+
+            if (kind is not { } charging)
+                return false;
+
+            into.Add(new ChosenCost(charging, many, named));
+            return true;
+        }
+
+        var giving = AlternativeGivingPart().Match(part);
+        if (!giving.Success)
+            return false;
+
+        var count = ModeCount(giving.Groups["n"].Value) ?? 1;
+        if (SpecForPayment(giving.Groups["what"].Value, count) is not { } what)
+            return false;
+
+        into.Add(new ChosenCost(
+            giving.Groups["verb"].Value.ToLowerInvariant() switch
+            {
+                "sacrifice" => ChosenCostKind.SacrificePermanents,
+                "return" => ChosenCostKind.ReturnToHand,
+                _ => ChosenCostKind.TapPermanents,
+            },
+            count,
+            what));
+
+        return true;
+    }
+
+    /// <summary>Which colour a word names, for the prices that are paid in cards.</summary>
+    private static readonly Dictionary<string, ManaColor> PaymentColors =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["white"] = ManaColor.White,
+            ["blue"] = ManaColor.Blue,
+            ["black"] = ManaColor.Black,
+            ["red"] = ManaColor.Red,
+            ["green"] = ManaColor.Green,
+        };
+
+    /// <summary>
+    /// The cards a price names, when the price is paid out of a hand or a graveyard.
+    /// </summary>
+    /// <remarks>
+    /// The target vocabulary is written about permanents and reads a card's types wherever the
+    /// card is, which is what retrace's land discard already leans on - but it has no noun for
+    /// "a blue card", because no card targets one. So a colour is answered here and everything
+    /// else is handed over: "a creature card" and "a Plains card" are the ordinary nouns with
+    /// the word "card" taken off.
+    /// <para>
+    /// The kind on the returned spec is never consulted for a cost. What a cost asks of it is the
+    /// filter and the description, and the description is what the player is told when they offer
+    /// the wrong thing.
+    /// </para>
+    /// </remarks>
+    private static TargetSpec? SpecForCardPayment(string noun, int count)
+    {
+        var phrase = noun.Trim();
+        if (count > 1 && phrase.EndsWith("cards", StringComparison.OrdinalIgnoreCase))
+            phrase = phrase[..^1];
+
+        if (!phrase.EndsWith(" card", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var head = phrase[..^" card".Length].Trim();
+
+        if (PaymentColors.TryGetValue(head, out var colour))
+        {
+            return new TargetSpec
+            {
+                Kind = TargetKind.Permanent,
+                Description = $"a {head} card",
+                ObjectFilter = (state, abilities, obj, _) =>
+                    Characteristics.Of(state, abilities, obj).Colors.Contains(colour),
+            };
+        }
+
+        return EffectPhrase.Specs.Parse("target " + head) is { } spec
+            ? spec with { Description = $"a {head} card" }
+            : null;
+    }
+
+    /// <summary>
+    /// The permanents a payment names, read through the shared target vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// The card writes the noun in the plural when it wants more than one — "two Mountains",
+    /// "three black creatures" — and the target grammar is written in the singular, so the head
+    /// noun is put back into the singular before it is handed over. The head is the word in front
+    /// of "you control" when the phrase has one and the last word otherwise, which is what keeps
+    /// "untapped creatures you control with flying" from being singularised on "flying".
+    /// <para>
+    /// Anything the vocabulary will not take comes back null and the whole line goes unread.
+    /// </para>
+    /// </remarks>
+    private static TargetSpec? SpecForPayment(string noun, int count)
+    {
+        var phrase = noun.Trim();
+        if (!phrase.EndsWith(" you control", StringComparison.OrdinalIgnoreCase)
+            && !phrase.Contains(" you control ", StringComparison.OrdinalIgnoreCase))
+        {
+            phrase += " you control";
+        }
+
+        if (count > 1)
+        {
+            var head = phrase.IndexOf(" you control", StringComparison.OrdinalIgnoreCase);
+            var before = phrase[..head].TrimEnd();
+            if (before.EndsWith('s'))
+                phrase = before[..^1] + phrase[head..];
+        }
+
+        return EffectPhrase.Specs.Parse("target " + phrase);
     }
 
     /// <summary>"Kicker [cost]" — an optional additional cost (CR 702.33a).</summary>
@@ -7448,8 +7702,51 @@ public static partial class CardCompiler
     /// </para>
     /// </remarks>
     private static bool TryModal(
-        string line, ImmutableList<SpellMode>.Builder into, ref int toChoose, ref int max)
+        string line,
+        ImmutableList<SpellMode>.Builder into,
+        ref int toChoose,
+        ref int max,
+        ref bool mayRepeat,
+        ref ConditionalModes? extra,
+        ref bool spree)
     {
+        // CR 702.172a: spree is a modal spell whose header is the keyword itself - "choose one
+        // or more modes", with each chosen mode's own cost paid on top. The bullets are marked
+        // with a plus rather than a dot, which is the visual reminder that they cost something
+        // (CR 702.172b) and the reason they need a reader of their own.
+        if (SpreeLine().IsMatch(line))
+        {
+            toChoose = 1;
+            max = -1;
+            spree = true;
+            return true;
+        }
+
+        // CR 700.2d: the permission to repeat a mode has to be printed, because the default is
+        // that a mode may be taken once. Reading the header without it would offer a card that
+        // can point three of its modes at one creature, which is not the card.
+        if (RepeatableModalHeader().Match(line) is { Success: true } repeatable)
+        {
+            if (ModeCount(repeatable.Groups["n"].Value) is not { } takes)
+                return false;
+
+            toChoose = takes;
+            max = takes;
+            mayRepeat = true;
+            return true;
+        }
+
+        // CR 700.2d again, in the other direction: a maximum that is only sometimes on offer.
+        // Compiled as a condition rather than as a number because either number alone is the
+        // wrong card - two lets anybody take both modes, one never offers what is printed.
+        if (CommanderModalHeader().IsMatch(line))
+        {
+            toChoose = 1;
+            max = 1;
+            extra = new ConditionalModes(2, "CR 903.3d", ControlsACommander);
+            return true;
+        }
+
         var header = ModalHeader().Match(line);
         if (header.Success)
         {
@@ -7473,6 +7770,25 @@ public static partial class CardCompiler
             return true;
         }
 
+        // CR 700.2h: a mode with a cost printed in front of it charges that cost when it is
+        // chosen. Read only under a spree header, so that nothing else on any other card can be
+        // taken for a priced mode - the shape is a plus and a mana cost, and a card that never
+        // said "spree" has no modes for it to join.
+        if (spree && SpreeBullet().Match(line) is { Success: true } priced)
+        {
+            var offer = priced.Groups["mode"].Value.Trim();
+            if (!EffectPhrase.TryParse(offer, out var costly))
+                return false;
+
+            into.Add(
+                new SpellMode(offer, costly.Targets, costly.Effects)
+                {
+                    Cost = ManaCostSpec.Parse(priced.Groups["cost"].Value),
+                });
+
+            return true;
+        }
+
         var bullet = ModalBullet().Match(line);
         if (!bullet.Success || toChoose == 0)
             return false;
@@ -7485,6 +7801,45 @@ public static partial class CardCompiler
         into.Add(new SpellMode(bullet.Groups["mode"].Value.Trim(), parsed.Targets, parsed.Effects));
         return true;
     }
+
+    /// <summary>How many modes a written-out number asks for, or null if it is not one.</summary>
+    /// <remarks>
+    /// "Choose X" is deliberately not here. The count would be the X the spell was cast for,
+    /// which is chosen after the modes are (CR 601.2b before 601.2f), so a card compiled with a
+    /// fixed count would either offer too few modes or too many.
+    /// </remarks>
+    private static int? ModeCount(string word) => word.ToLowerInvariant() switch
+    {
+        "one" => 1,
+        "two" => 2,
+        "three" => 3,
+        "four" => 4,
+        "five" => 5,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Whether this player controls a permanent that is somebody's commander (CR 903.3d).
+    /// </summary>
+    /// <remarks>
+    /// "A commander", not "your commander". CR 903.3d reads controlling a commander as
+    /// controlling a permanent that is one, whoever designated it — so a commander taken off an
+    /// opponent answers this and the lieutenant cycle's question is a different one.
+    /// <para>
+    /// Control is computed rather than read off the object (CR 613.1b), because the stored
+    /// controller is only where control started.
+    /// </para>
+    /// </remarks>
+    private static bool ControlsACommander(GameState state, IAbilitySource abilities, Guid playerId)
+        => state.Battlefield.Any(id =>
+        {
+            var obj = state.GetObject(id);
+
+            return Characteristics.Of(state, abilities, obj).ControllerId == playerId
+                && state.TurnOrder.Any(
+                    seat => state.GetPlayer(seat).CommanderOracleId is { } theirs
+                        && string.Equals(obj.Card.OracleId, theirs, StringComparison.Ordinal));
+        });
 
     /// <summary>
     /// "Flashback [cost]" — permission to cast it from the graveyard, once (CR 702.34a).
@@ -11505,9 +11860,29 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(?:If (?<when>[^,]+), )?you may (?:pay (?<cost>(\{[^}]+\})+) "
             + @"rather than pay ~'s mana cost"
+            + @"|(?<paid>.+?) rather than pay ~'s mana cost"
             + @"|cast ~ without paying its mana cost)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AlternativeManaCostLine();
+
+    [GeneratedRegex(@"^pay (?<cost>(\{[^}]+\})+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex AlternativeManaPart();
+
+    [GeneratedRegex(@"^pay (?<life>\d+) life$", RegexOptions.IgnoreCase)]
+    private static partial Regex AlternativeLifePart();
+
+    [GeneratedRegex(
+        @"^(?<verb>sacrifice|tap) (?<n>a|an|two|three|four|five) (?:untapped )?(?<what>.+?)$"
+            + @"|^(?<verb>return) (?<n>a|an|two|three|four|five) (?<what>.+?)"
+            + @" to (?:its|their) owner'?s'? hand$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AlternativeGivingPart();
+
+    [GeneratedRegex(
+        @"^(?<verb>exile|discard) (?<n>a|an|two|three|four|five) (?<what>.+?)"
+            + @"(?: from your (?<zone>hand|graveyard))?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AlternativeCardPart();
 
     [GeneratedRegex(@"^kicker (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex KickerLine();
@@ -11649,6 +12024,25 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^[•\u2022]\s*(?<mode>.+)$")]
     private static partial Regex ModalBullet();
+
+    [GeneratedRegex(
+        @"^choose (?<n>one|two|three|four|five)\. You may choose the same mode more than once\.$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex RepeatableModalHeader();
+
+    [GeneratedRegex(
+        @"^choose one\. If you control a commander as you cast ~, you may choose both instead\.$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CommanderModalHeader();
+
+    [GeneratedRegex(@"^Spree$", RegexOptions.IgnoreCase)]
+    private static partial Regex SpreeLine();
+
+    [GeneratedRegex(@"^\+ (?<cost>(\{[^}]+\})+) [—–\-] (?<mode>.+)$")]
+    private static partial Regex SpreeBullet();
+
+    [GeneratedRegex(@"^Emerge (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex EmergeLine();
 
     [GeneratedRegex(@"^Entwine (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex EntwineLine();

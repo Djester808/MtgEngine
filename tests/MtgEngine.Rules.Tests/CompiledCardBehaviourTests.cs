@@ -42763,6 +42763,441 @@ public sealed class CompiledCardBehaviourTests
         Assert.NotEmpty(GrantedOn(game, commander));
         Assert.Empty(GrantedOn(game, ordinary));
     }
+    // ---- Modes with a price, and costs paid in something other than mana -----
+
+    /// <summary>A card with a real printed mana cost, so an alternative to it means something.</summary>
+    private static CardDefinition PricedCard(
+        string name,
+        string manaCost,
+        int cmc,
+        string oracleText,
+        CardType types = CardType.Creature) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            ManaCostRaw = manaCost,
+            Cmc = cmc,
+            OracleText = oracleText,
+            CardTypes = types,
+            Power = types.HasFlag(CardType.Creature) ? 4 : null,
+            Toughness = types.HasFlag(CardType.Creature) ? 5 : null,
+        };
+
+    private static CardDefinition SpreeRaid() => Card(
+        "Requisition Raid Test",
+        "Spree (Choose one or more additional costs.)\n"
+            + "+ {1} — Destroy target artifact.\n"
+            + "+ {1} — Destroy target enchantment.");
+
+    [Fact]
+    public void Spree_charges_only_the_mode_that_was_taken()
+    {
+        var raid = SpreeRaid();
+
+        var compiled = CardCompiler.Compile(raid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.Modes.Count);
+        Assert.Equal(1, compiled.Spell.ModesToChoose);
+        Assert.Equal(2, compiled.Spell.ModesMax);
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(bob, Card("Spree Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var shrine = game.Create(bob, Card("Spree Shrine Test", string.Empty, CardType.Enchantment), Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.White);
+
+        var card = TestCards.PutInHand(game, alice, raid);
+        game.CastSpell(alice, card, [Target.ToPermanent(relic)], modes: [0]);
+        Settle(game);
+
+        // One mode taken, one mode's price paid, and the mode nobody chose did nothing.
+        Assert.DoesNotContain(relic, game.State.Battlefield);
+        Assert.Contains(shrine, game.State.Battlefield);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    [Fact]
+    public void Spree_charges_every_mode_that_was_taken()
+    {
+        var raid = SpreeRaid();
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(bob, Card("Spree Relic Two Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var shrine = game.Create(bob, Card("Spree Shrine Two Test", string.Empty, CardType.Enchantment), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, raid);
+        game.AddMana(alice, ManaColor.White);
+
+        // CR 700.2h: every chosen mode's cost is paid, so one mana buys one mode and not two. A
+        // spree that charged its price once would take both here and leave the pool empty either
+        // way, which is why the refusal is asserted as well as the payment.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                card,
+                [Target.ToPermanent(relic), Target.ToPermanent(shrine)],
+                modes: [0, 1]));
+
+        game.AddMana(alice, ManaColor.White);
+        game.CastSpell(
+            alice, card, [Target.ToPermanent(relic), Target.ToPermanent(shrine)], modes: [0, 1]);
+        Settle(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    [Fact]
+    public void The_same_mode_can_be_taken_twice_when_the_card_says_so()
+    {
+        var confluence = Card(
+            "Confluence Test",
+            "Choose two. You may choose the same mode more than once.\n"
+                + "• You gain 3 life.\n• You draw a card.");
+
+        var compiled = CardCompiler.Compile(confluence);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Spell!.ModesMayRepeat);
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, confluence);
+
+        // CR 700.2d: the mode is treated as though it appeared twice in sequence, so the life is
+        // gained twice. Six rather than three is the whole of what the printed sentence buys.
+        game.CastSpell(alice, card, targets: null, modes: [0, 0]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_mode_cannot_be_taken_twice_when_the_card_does_not_say_so()
+    {
+        var charm = Card(
+            "Plain Two Modes Test",
+            "Choose two —\n• You gain 3 life.\n• You draw a card.");
+
+        var compiled = CardCompiler.Compile(charm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.False(compiled.Spell!.ModesMayRepeat);
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, charm);
+
+        // The default is a rule, not a convenience (CR 700.2d). Without this half the permission
+        // above would be worth nothing, because every modal card would already have it.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, modes: [0, 0]));
+    }
+
+    private const string WillCommanderId = "oracle-will-captain-test";
+
+    private static CardDefinition WillCommander() => new()
+    {
+        OracleId = WillCommanderId,
+        Name = "Will's Captain Test",
+        Cmc = 3,
+        ManaCostRaw = "{1}{G}{G}",
+        CardTypes = CardType.Creature,
+        Supertypes = ["Legendary"],
+        Power = 3,
+        Toughness = 3,
+    };
+
+    private static (Game Game, Guid Alice, Guid Bob) CommanderTable()
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(
+                    alice,
+                    "Alice",
+                    40,
+                    [.. TestCards.Deck(40, "Alice"), WillCommander()])
+                {
+                    CommanderOracleId = WillCommanderId,
+                },
+                new PlayerSetup(bob, "Bob", 40, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(3),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice, bob);
+    }
+
+    [Fact]
+    public void Both_modes_are_offered_only_while_a_commander_is_out()
+    {
+        var will = Card(
+            "Jeska's Will Test",
+            "Choose one. If you control a commander as you cast ~, you may choose both instead."
+                + "\n• You gain 3 life.\n• You draw a card.");
+
+        var compiled = CardCompiler.Compile(will);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(1, compiled.Spell!.ModesToChoose);
+        Assert.Equal(1, compiled.Spell.ModesMax);
+        Assert.Equal(2, compiled.Spell.ExtraModes!.Max);
+
+        var (game, alice, _) = CommanderTable();
+        var card = TestCards.PutInHand(game, alice, will);
+
+        // The commander starts in the command zone, so it is not controlled (CR 903.3d) and the
+        // wider allowance is not on offer. A maximum compiled as a flat two would take both here.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, modes: [0, 1]));
+
+        game.Create(alice, WillCommander(), Zone.Battlefield);
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        game.CastSpell(alice, card, targets: null, modes: [0, 1]);
+        Settle(game);
+
+        Assert.Equal(43, game.State.GetPlayer(alice).Life);
+        Assert.Equal(library - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    [Fact]
+    public void Emerge_pays_with_a_creature_and_takes_its_mana_value_off_the_cost()
+    {
+        var scuttler = PricedCard("Vexing Scuttler Test", "{8}", 8, "Emerge {6}{U}");
+
+        var compiled = CardCompiler.Compile(scuttler);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal("emerge", compiled.Spell!.ConditionalAlternativeCost!.Keyword);
+
+        var (game, alice, _) = InMainPhase();
+        var fodder = game.Create(
+            alice, TestCards.Costed("Emerge Fodder Test", "{2}{G}", 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, scuttler);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+            game.AddMana(alice, ManaColor.Blue);
+
+        // {6}{U} less the sacrificed creature's mana value of three is {3}{U}, so three mana is
+        // one short. Asserting the refusal as well as the cast is what pins the discount to
+        // exactly three: an engine that forgot it would need seven, and one that took too much
+        // would let this through.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, card, targets: null, alternativeCost: true, costPayment: [fodder]));
+
+        game.AddMana(alice, ManaColor.Blue);
+        game.CastSpell(
+            alice, card, targets: null, alternativeCost: true, costPayment: [fodder]);
+        Settle(game);
+
+        Assert.DoesNotContain(fodder, game.State.Battlefield);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Vexing Scuttler Test");
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    [Fact]
+    public void An_alternative_cost_can_be_paid_by_sacrificing_lands()
+    {
+        var fireblast = Card(
+            "Fireblast Test",
+            "You may sacrifice two Mountains rather than pay this spell's mana cost."
+                + "\n~ deals 4 damage to any target.");
+
+        var compiled = CardCompiler.Compile(fireblast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        var offer = Assert.Single(compiled.Spell!.ConditionalAlternativeCost!.Payments);
+        Assert.Equal(ChosenCostKind.SacrificePermanents, offer.Kind);
+        Assert.Equal(2, offer.Count);
+
+        var (game, alice, bob) = InMainPhase();
+        var first = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, fireblast);
+
+        // The cost names Mountains, and a cost that took any land would be a different card.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                card,
+                [Target.ToPlayer(bob)],
+                alternativeCost: true,
+                costPayment: [first, forest]));
+
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPlayer(bob)],
+            alternativeCost: true,
+            costPayment: [first, second]);
+
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetPlayer(alice).Graveyard.Count(
+            id => game.State.GetObject(id).Card.Name == "Mountain"));
+
+        // Not a single mana was made, which is the point of the whole family.
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    [Fact]
+    public void An_alternative_cost_paid_with_lands_returns_them_rather_than_burying_them()
+    {
+        var gush = Card(
+            "Gush Test",
+            "You may return two Islands you control to their owner's hand rather than pay this "
+                + "spell's mana cost.\nDraw two cards.");
+
+        var compiled = CardCompiler.Compile(gush);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        var offer = Assert.Single(compiled.Spell!.ConditionalAlternativeCost!.Payments);
+        Assert.Equal(ChosenCostKind.ReturnToHand, offer.Kind);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, gush);
+
+        game.CastSpell(alice, card, targets: null, alternativeCost: true, costPayment: [first, second]);
+        Settle(game);
+
+        // A cast had never charged this kind before - it reached the engine as ninjutsu's, which
+        // is an activated ability - so a spell paying with one put the Islands in the graveyard.
+        Assert.Empty(game.State.Battlefield);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Island");
+
+        Assert.Equal(2, game.State.GetPlayer(alice).Hand.Count(
+            id => game.State.GetObject(id).Card.Name == "Island"));
+    }
+
+    [Fact]
+    public void An_alternative_cost_can_be_paid_in_life_while_the_board_allows_it()
+    {
+        var snuff = Card(
+            "Snuff Out Test",
+            "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost."
+                + "\nDestroy target creature.");
+
+        var compiled = CardCompiler.Compile(snuff);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(4, compiled.Spell!.ConditionalAlternativeCost!.LifeCost);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Snuffed Bear Test", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, snuff);
+
+        // No Swamp, so the offer is not on the table at all.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, card, [Target.ToPermanent(bear)], alternativeCost: true));
+
+        game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)], alternativeCost: true);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    [Fact]
+    public void An_alternative_cost_can_be_paid_by_exiling_a_card_from_hand()
+    {
+        var force = Card(
+            "Force of Will Test",
+            "You may pay 1 life and exile a blue card from your hand rather than pay this "
+                + "spell's mana cost.\nCounter target spell.");
+
+        var compiled = CardCompiler.Compile(force);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        var offer = compiled.Spell!.ConditionalAlternativeCost!;
+        Assert.Equal(1, offer.LifeCost);
+        Assert.Equal(ChosenCostKind.ExileFromHand, Assert.Single(offer.Payments).Kind);
+
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var theirs = TestCards.PutInHand(game, bob, Card("Pitched At Test", "You gain 5 life."));
+        var onStack = game.CastSpell(bob, theirs, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var card = TestCards.PutInHand(game, alice, force);
+        var blue = TestCards.PutInHand(game, alice, Coloured("Pitch Blue Test", ManaColor.Blue));
+        var red = TestCards.PutInHand(game, alice, Coloured("Pitch Red Test", ManaColor.Red));
+
+        // The price names a colour, and a cost that took any card would be the best card in the
+        // game rather than the one printed.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, card, [Target.ToSpell(onStack)], alternativeCost: true, costPayment: [red]));
+
+        game.CastSpell(
+            alice, card, [Target.ToSpell(onStack)], alternativeCost: true, costPayment: [blue]);
+
+        Settle(game);
+
+        // Countered, one life lighter, and the blue card exiled rather than discarded - which is
+        // the difference the whole family is built on, since a graveyard is somewhere a card can
+        // come back from.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+        Assert.Contains(
+            game.State.Exile, id => game.State.GetObject(id).Card.Name == "Pitch Blue Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Pitch Blue Test");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    [Fact]
+    public void An_alternative_cost_can_ask_for_mana_and_a_tapped_permanent_together()
+    {
+        var zahid = PricedCard(
+            "Zahid Test",
+            "{4}{U}{U}",
+            6,
+            "You may pay {3}{U} and tap an untapped artifact you control rather than pay this "
+                + "spell's mana cost.");
+
+        var compiled = CardCompiler.Compile(zahid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        var offer = compiled.Spell!.ConditionalAlternativeCost!;
+        Assert.Equal(ChosenCostKind.TapPermanents, Assert.Single(offer.Payments).Kind);
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Zahid Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, zahid);
+        foreach (var _ in Enumerable.Range(0, 4))
+            game.AddMana(alice, ManaColor.Blue);
+
+        game.CastSpell(
+            alice, card, targets: null, alternativeCost: true, costPayment: [relic]);
+
+        Settle(game);
+
+        // Four mana rather than six, and the artifact is turned sideways rather than spent -
+        // both halves of one offer, and taking only the cheaper of them is not the printed card.
+        Assert.True(game.State.GetObject(relic).Permanent!.IsTapped);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Zahid Test");
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

@@ -968,7 +968,7 @@ public sealed class Game
 
         // CR 601.2b then 601.2c: modes are chosen first, and only then the targets — because
         // which targets the spell even has depends on which modes were taken.
-        var chosenModes = RequireLegalModes(definition, modes, card.Card.Name, entwined);
+        var chosenModes = RequireLegalModes(definition, modes, card.Card.Name, entwined, playerId);
 
         // The spell's own targets come first and the chosen modes' after, so the spell's own
         // effects keep the indices the compiler gave them and each mode gets a slice at a known
@@ -1167,6 +1167,8 @@ public sealed class Game
         // reaching for one whose condition is false is a player who has misread the board. A
         // condition checked anywhere but here would be checked against a board the payment had
         // already changed.
+        ConditionalCost? costTaken = null;
+
         if (alternativeCost)
         {
             if (definition?.ConditionalAlternativeCost is not { } offered)
@@ -1182,7 +1184,17 @@ public sealed class Game
                         + $"({offered.Rule}).");
             }
 
+            // CR 118.8, 601.2h: life is checked with the rest of the cost and before any of it is
+            // paid, so a caster who cannot afford it is refused having spent nothing. A player
+            // may pay life only down to zero.
+            if (offered.LifeCost > State.GetPlayer(playerId).Life)
+            {
+                throw new InvalidOperationException(
+                    $"You cannot pay {offered.LifeCost} life for {card.Card.Name} (CR 118.8).");
+            }
+
             cost = offered.Cost;
+            costTaken = offered;
         }
 
         // CR 702.171a: offspring is an ordinary optional additional cost - what it buys happens
@@ -1223,6 +1235,16 @@ public sealed class Game
         {
             for (var i = definition.ModesToChoose; i < chosenModes.Count; i++)
                 cost = cost with { Symbols = cost.Symbols.AddRange(escalateCost.Symbols) };
+        }
+
+        // CR 700.2h, CR 702.172a: a spree card's modes each name their own additional cost, and
+        // every mode taken charges its own. Counted from the choice rather than from a second
+        // parameter, exactly as escalate is - the modes were picked above and what is owed
+        // follows from them.
+        foreach (var index in chosenModes)
+        {
+            if (definition?.Modes[index].Cost is { } perMode)
+                cost = cost with { Symbols = cost.Symbols.AddRange(perMode.Symbols) };
         }
 
         // CR 702.47a: each spliced card charges its splice cost on top, and the card itself
@@ -1277,6 +1299,17 @@ public sealed class Game
         if (fromElsewhere && alternative!.Extra is { } extra)
             owed = owed.AddRange(extra);
 
+        // CR 601.2b, 702.119c: what an alternative cost asks for besides mana is chosen as the
+        // offer is taken and paid as the total cost is paid, so it joins the list the cast
+        // already pays from - and where it starts is remembered, because emerge's discount is
+        // the mana value of whatever went into the first of those slots.
+        var sacrificedFor = -1;
+        if (costTaken is { Payments.IsEmpty: false } giving)
+        {
+            sacrificedFor = owed.Count;
+            owed = owed.AddRange(giving.Payments);
+        }
+
         // CR 702.166a: bargain's cost is optional, so it joins the list only when the caster has
         // said they will pay it - and a caster who says so on a card with no bargain is refused
         // rather than quietly cast for free.
@@ -1302,6 +1335,19 @@ public sealed class Game
             : [];
 
         var chosenCosts = MatchChosenCosts(owed, playerId, cardId, costPayment);
+
+        // CR 702.119a: "its total cost is reduced by an amount of generic mana equal to the
+        // sacrificed creature's mana value". Worked out here rather than at the offer, because
+        // which creature is going is only known once the payment has been matched — and read
+        // before anything is paid, since the creature is still on the battlefield until it is.
+        if (costTaken is { ReducedByManaValueSacrificed: true }
+            && sacrificedFor >= 0
+            && sacrificedFor < chosenCosts.Count)
+        {
+            var worth = chosenCosts[sacrificedFor].Cards.Sum(id => State.GetObject(id).Card.Cmc);
+            if (worth > 0)
+                cost = cost with { Symbols = ReduceGeneric(cost.Symbols, worth) };
+        }
 
         // CR 702.132a: another player may pay any amount of the generic mana in the total cost.
         // Their half comes out of their own pool first, and what is left is what the caster owes.
@@ -1351,10 +1397,23 @@ public sealed class Game
                     continue;
                 }
 
-                // A cost paid out of the graveyard goes to exile, not back to it (CR 701.13a).
-                if (chosenCost.Kind is ChosenCostKind.ExileFromGraveyard)
+                // A cost paid out of the graveyard or the hand goes to exile, not back to either
+                // (CR 701.13a). The hand is where the pitch spells take theirs from, and a card
+                // exiled that way is gone in a sense a discarded one is not.
+                if (chosenCost.Kind
+                    is ChosenCostKind.ExileFromGraveyard or ChosenCostKind.ExileFromHand)
                 {
                     Move(paid, Zone.Exile, MoveCause.Exile, playerId);
+                    continue;
+                }
+
+                // CR 108.3: home to its owner, not to whoever is paying. Until an alternative
+                // cost could ask for it, no cast had ever charged this kind - it reached the
+                // engine as ninjutsu's, which is an activated ability - and a spell paying with
+                // one would have put the Island in the graveyard.
+                if (chosenCost.Kind is ChosenCostKind.ReturnToHand)
+                {
+                    Move(paid, Zone.Hand, MoveCause.Return, State.GetObject(paid).OwnerId);
                     continue;
                 }
 
@@ -1366,6 +1425,14 @@ public sealed class Game
                         : MoveCause.Discard,
                     playerId);
             }
+        }
+
+        // CR 118.8: paid with the rest of the cost, after the mana and beside the cards. Life is
+        // not damage - nothing prevents it and no lifelink sees it - so it is simply a change.
+        if (costTaken is { LifeCost: > 0 } bleeding)
+        {
+            var before = State.GetPlayer(playerId).Life;
+            Emit(new LifeChanged(playerId, -bleeding.LifeCost, before - bleeding.LifeCost));
         }
 
         // The permanent never leaves the battlefield and so never becomes a new object. Losing
@@ -1744,7 +1811,8 @@ public sealed class Game
                     continue;
                 }
 
-                if (cost.Kind is ChosenCostKind.ExileFromGraveyard)
+                if (cost.Kind
+                    is ChosenCostKind.ExileFromGraveyard or ChosenCostKind.ExileFromHand)
                 {
                     Move(card, Zone.Exile, MoveCause.Exile, playerId);
                     continue;
@@ -3168,6 +3236,23 @@ public sealed class Game
             // battlefield. The spec carries whatever else the card asked for.
             if (obj.Zone != Zone.Battlefield || ControllerOf(obj) != playerId)
                 throw new InvalidOperationException("You cannot sacrifice that (CR 701.21a).");
+
+            if (cost.What?.ObjectFilter?.Invoke(State, _abilities, obj, playerId) == false)
+                throw new InvalidOperationException($"That is not {cost.What.Description}.");
+
+            return;
+        }
+
+        if (cost.Kind is ChosenCostKind.ExileFromHand)
+        {
+            // CR 701.13a: out of your own hand, and it has to answer what the card asked for -
+            // "a blue card" is not "a card", and a pitch spell that took any card would be a
+            // different and much better card.
+            if (obj.Zone != Zone.Hand || obj.OwnerId != playerId)
+            {
+                throw new InvalidOperationException(
+                    "You cannot exile that from your hand (CR 701.13a).");
+            }
 
             if (cost.What?.ObjectFilter?.Invoke(State, _abilities, obj, playerId) == false)
                 throw new InvalidOperationException($"That is not {cost.What.Description}.");
@@ -6229,8 +6314,12 @@ public sealed class Game
     /// does: choosing them is part of casting (CR 601.2b), so the player can decide before they
     /// commit and the engine never has to suspend a cast.
     /// </remarks>
-    private static ImmutableList<int> RequireLegalModes(
-        SpellDefinition? definition, IReadOnlyList<int>? offered, string cardName, bool entwined)
+    private ImmutableList<int> RequireLegalModes(
+        SpellDefinition? definition,
+        IReadOnlyList<int>? offered,
+        string cardName,
+        bool entwined,
+        Guid caster)
     {
         if (definition is null || definition.Modes.IsEmpty)
             return [];
@@ -6240,9 +6329,28 @@ public sealed class Game
         // CR 702.42a: entwine is not a wider range but a fixed one - paying it takes every mode,
         // and there is nothing in between to choose.
         var least = definition.ModesToChoose;
+        var ceiling = definition.ModesMax;
+
+        // CR 700.2d: a maximum the card offers only under a condition, asked here because here is
+        // where the board still is what it was as the spell was cast. A card whose condition is
+        // false keeps the printed maximum rather than being refused - "you may choose both
+        // instead" adds a permission, it does not take the ordinary one away.
+        if (definition.ExtraModes is { } wider
+            && wider.Max > ceiling
+            && wider.IsAvailable(State, _abilities, caster))
+        {
+            ceiling = wider.Max;
+        }
+
         var most = entwined
             ? definition.Modes.Count
-            : Math.Clamp(definition.ModesMax, least, definition.Modes.Count);
+
+            // A repeated mode is still one pick, so the number of picks may exceed the number of
+            // modes on offer - which is exactly what "you may choose the same mode more than
+            // once" buys and what clamping to the mode count would take away again.
+            : definition.ModesMayRepeat
+            ? Math.Max(ceiling, least)
+            : Math.Clamp(ceiling, least, definition.Modes.Count);
 
         if (entwined)
         {
@@ -6265,8 +6373,10 @@ public sealed class Game
                 throw new InvalidOperationException($"{cardName} has no such mode.");
         }
 
-        // CR 700.2d: the same mode cannot be chosen twice unless the card says otherwise.
-        if (picked.Distinct().Count() != picked.Count)
+        // CR 700.2d: the same mode cannot be chosen twice unless the card says otherwise. A card
+        // that does say otherwise is treated as though the mode appeared that many times in
+        // sequence, which is what the resolution loop does with a repeated index.
+        if (!definition.ModesMayRepeat && picked.Distinct().Count() != picked.Count)
             throw new InvalidOperationException($"{cardName} cannot take the same mode twice (CR 700.2d).");
 
         return picked;

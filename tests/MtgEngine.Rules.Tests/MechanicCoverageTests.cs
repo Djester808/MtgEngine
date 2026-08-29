@@ -58,6 +58,14 @@ public sealed partial class MechanicCoverageTests
         // only what it cut out between "for each" and the full stop. Played by
         // A_creature_can_count_the_auras_attached_to_it, through the line that contains it.
         "AttachedCountLine",
+
+        // One price out of an alternative cost's "and"-joined list, not a line: the reader
+        // splits "pay {3}{U} and tap an untapped artifact you control" and offers each half to
+        // these in turn. Played through the lines that contain them, by
+        // An_alternative_cost_can_ask_for_mana_and_a_tapped_permanent_together and
+        // An_alternative_cost_can_be_paid_in_life_while_the_board_allows_it.
+        "AlternativeManaPart",
+        "AlternativeLifePart",
     ];
 
     [Fact]
