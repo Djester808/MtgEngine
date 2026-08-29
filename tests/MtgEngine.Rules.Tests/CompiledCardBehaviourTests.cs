@@ -46947,6 +46947,508 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.Exile);
     }
 
+    // ---- Soulbond (CR 702.95), and granted phasing (CR 702.26) ---------------
+
+    /// <summary>The reminder text every soulbond printing carries, stripped before compiling.</summary>
+    private const string SoulbondReminder =
+        " (You may pair this creature with another unpaired creature when either enters. They "
+        + "remain paired for as long as you control both of them.)";
+
+    /// <summary>Wingcrafter as printed, shared by two tests so the pool holds one definition.</summary>
+    private static CardDefinition Wingcrafter() => Card(
+        "Wingcrafter",
+        "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another "
+            + "creature, both creatures have flying.",
+        CardType.Creature,
+        1,
+        1,
+        KeywordAbility.Soulbond);
+
+    [Fact]
+    public void Soulbond_asks_on_its_own_entry_and_the_bonus_reaches_both()
+    {
+        // CR 702.95a's first trigger: entering, this creature may pair with another unpaired
+        // creature its controller has - a choice made on resolution, so it is a question rather
+        // than a target. The payoff is CR 702.95b: a conditional static whose two subjects are
+        // the two halves of the pair.
+        var wolfir = Card(
+            "Wolfir Silverheart",
+            "Soulbond\nAs long as this creature is paired with another creature, each of those "
+                + "creatures gets +4/+4.",
+            CardType.Creature,
+            4,
+            4,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(wolfir);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, TestCards.Creature("Bonded Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Unbondable Bear Test", 2, 2), Zone.Battlefield);
+
+        var pack = game.Create(alice, wolfir, Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+
+        // The question offers Alice's unpaired creature and declining, and nobody else's:
+        // pairing is "you control both" (CR 702.95a), so Bob's bear is not on the menu.
+        var asked = game.State.Choice!;
+        Assert.Equal(alice, asked.PlayerId);
+        Assert.Contains(asked.Options, o => o.Id == "none");
+        Assert.DoesNotContain(asked.Options, o => o.Id == theirs.Value.ToString("N"));
+
+        game.Choose(alice, [mine.Value.ToString("N")]);
+        Settle(game);
+
+        // Paired both ways round, and the bonus lands on both halves and nobody else.
+        Assert.Equal(mine, game.State.GetObject(pack).Permanent!.PairedWithId);
+        Assert.Equal(pack, game.State.GetObject(mine).Permanent!.PairedWithId);
+        Assert.Equal(8, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(pack)));
+        Assert.Equal(6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    [Fact]
+    public void Soulbond_offers_the_newcomer_while_it_stands_unpaired()
+    {
+        // CR 702.95a's second trigger: another creature entering may be paired with this one.
+        // That arm pairs the newcomer and nothing else, so the question is one candidate plus
+        // declining - and it is guarded by an intervening if (CR 603.4), so a soulbond creature
+        // alone never asks at all.
+        var mauler = Card(
+            "Lightning Mauler",
+            "Soulbond\nAs long as this creature is paired with another creature, both creatures "
+                + "have haste.",
+            CardType.Creature,
+            2,
+            1,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(mauler);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var speedster = game.Create(alice, mauler, Zone.Battlefield);
+        Settle(game);
+
+        Assert.DoesNotContain(game.Log, e => e is SoulbondPairRequested);
+
+        var friend = game.Create(alice, TestCards.Creature("Hasty Friend Test", 2, 2), Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+
+        var asked = game.State.Choice!;
+        Assert.Equal(2, asked.Options.Count);
+        Assert.Equal(friend.Value.ToString("N"), asked.Options[0].Id);
+
+        game.Choose(alice, [asked.Options[0].Id]);
+        Settle(game);
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(speedster))
+            .Has(KeywordAbility.Haste));
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(friend))
+            .Has(KeywordAbility.Haste));
+    }
+
+    [Fact]
+    public void Declining_leaves_both_unpaired_and_the_next_arrival_asks_again()
+    {
+        // "You may pair" (CR 702.95a): declining spends the trigger, not the ability. The
+        // soulbond creature stays unpaired, so the next arrival triggers the same question -
+        // and the creature that was declined is not offered again by it.
+        var (game, alice, _) = InMainPhase();
+        var flier = game.Create(alice, Wingcrafter(), Zone.Battlefield);
+        var first = game.Create(alice, TestCards.Creature("Grounded Bear Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, ["none"]);
+        Settle(game);
+
+        Assert.Null(game.State.GetObject(flier).Permanent!.PairedWithId);
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(first))
+            .Has(KeywordAbility.Flying));
+
+        var second = game.Create(alice, TestCards.Creature("Skybound Bear Test", 2, 2), Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [second.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(flier))
+            .Has(KeywordAbility.Flying));
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(second))
+            .Has(KeywordAbility.Flying));
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(first))
+            .Has(KeywordAbility.Flying));
+    }
+
+    [Fact]
+    public void The_pairing_ends_when_the_partner_leaves_and_is_recorded_once()
+    {
+        // CR 702.95e: a half leaving the battlefield unpairs the survivor. The static reader
+        // treats a missing partner as gone at once, and the sweep records the break as one
+        // event - both halves of a broken bond report it, and a bond is one thing.
+        var pilgrim = Card(
+            "Nearheath Pilgrim",
+            "Soulbond\nAs long as this creature is paired with another creature, both creatures "
+                + "have lifelink.",
+            CardType.Creature,
+            2,
+            1,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(pilgrim);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var devout = game.Create(alice, pilgrim, Zone.Battlefield);
+        var friend = game.Create(alice, TestCards.Creature("Mortal Friend Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [friend.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(devout))
+            .Has(KeywordAbility.Lifelink));
+
+        // The question left priority with whoever was owed it; play on to a moment Alice holds it.
+        TestCards.PassUntil(game, () => game.State.IsSorcerySpeedFor(alice));
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Bond Breaker Test", "Destroy target creature.")),
+            [Target.ToPermanent(friend)]);
+        Settle(game);
+
+        Assert.Null(game.State.GetObject(devout).Permanent!.PairedWithId);
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(devout))
+            .Has(KeywordAbility.Lifelink));
+        Assert.Single(game.Log.OfType<CreaturesUnpaired>());
+    }
+
+    [Fact]
+    public void Another_player_gaining_control_breaks_the_pairing_for_good()
+    {
+        // CR 702.95e's other half: another player gaining control of either creature unpairs
+        // them - and unpairing is for keeps. The theft ends with the turn; the pairing does
+        // not resume with it, because only a soulbond trigger ever pairs.
+        var shaman = Card(
+            "Trusted Forcemage",
+            "Soulbond\nAs long as this creature is paired with another creature, each of those "
+                + "creatures gets +1/+1.",
+            CardType.Creature,
+            2,
+            2,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(shaman);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var thief = Card(
+            "Bond Thief Test", "Gain control of target creature until end of turn.", CardType.Sorcery);
+        var stealable = CardCompiler.Compile(thief);
+        Assert.True(stealable.IsComplete, string.Join(" | ", stealable.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mage = game.Create(alice, shaman, Zone.Battlefield);
+        var friend = game.Create(alice, TestCards.Creature("Loyal Friend Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [friend.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(friend)));
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, thief), [Target.ToPermanent(friend)]);
+        Settle(game);
+
+        Assert.Null(game.State.GetObject(mage).Permanent!.PairedWithId);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mage)));
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Assert.Null(game.State.GetObject(friend).Permanent!.PairedWithId);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(friend)));
+    }
+
+    [Fact]
+    public void A_quoted_ability_is_granted_to_both_halves_while_paired()
+    {
+        // "Each of those creatures has ..." is layer 6 for two permanents at once: the quoted
+        // ability is compiled once and handed to whichever half is being computed, exactly as
+        // an Aura's grant is handed to its host.
+        var smith = Card(
+            "Stonewright",
+            "Soulbond\nAs long as Stonewright is paired with another creature, each of those "
+                + "creatures has \"{R}: This creature gets +1/+0 until end of turn.\"",
+            CardType.Creature,
+            1,
+            1,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(smith);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var wright = game.Create(alice, smith, Zone.Battlefield);
+        var friend = game.Create(alice, TestCards.Creature("Fiery Friend Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [friend.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.NotEmpty(GrantedIdsOf(game, wright));
+        var granted = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(friend))
+            .Single(a => a.Id.StartsWith("granted:", StringComparison.Ordinal));
+
+        TestCards.PassUntil(game, () => game.State.IsSorcerySpeedFor(alice));
+        game.AddMana(alice, ManaColor.Red);
+        game.ActivateAbility(alice, friend, granted.Id);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(friend)));
+    }
+
+    [Fact]
+    public void A_granted_trigger_belongs_to_each_half_that_carries_it()
+    {
+        // The granted ability is as often a trigger as an activated one, and it belongs to the
+        // creature holding it: one opponent's spell fires both halves' copies, and each puts
+        // its counter on itself.
+        var spirit = Card(
+            "Thundering Mightmare",
+            "Soulbond\nAs long as Thundering Mightmare is paired with another creature, each of "
+                + "those creatures has \"Whenever an opponent casts a spell, put a +1/+1 counter "
+                + "on this creature.\"",
+            CardType.Creature,
+            2,
+            2,
+            KeywordAbility.Soulbond);
+
+        var compiled = CardCompiler.Compile(spirit);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var horse = game.Create(alice, spirit, Zone.Battlefield);
+        var friend = game.Create(alice, TestCards.Creature("Startled Friend Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [friend.Value.ToString("N")]);
+        Settle(game);
+
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        game.CastSpell(
+            bob,
+            TestCards.PutInHand(game, bob, Card("Provocation Test", "Draw a card.", CardType.Sorcery)),
+            targets: null);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(horse).Permanent!
+            .Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+        Assert.Equal(1, game.State.GetObject(friend).Permanent!
+            .Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    [Fact]
+    public void A_creature_that_needs_a_soulbonded_partner_may_attack_once_it_has_one()
+    {
+        // Flowering Lumberknot has no soulbond of its own: it consults the status from outside,
+        // and the qualifier - "a creature with soulbond" - is answered off the partner's
+        // computed keywords.
+        var knot = Card(
+            "Flowering Lumberknot",
+            "This creature can't attack or block unless it's paired with a creature with soulbond.",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(knot);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var trunk = game.Create(alice, knot, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(trunk), alice, bob));
+
+        var flier = game.Create(alice, Wingcrafter(), Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [trunk.Value.ToString("N")]);
+        Settle(game);
+
+        // Paired with a soulbond creature: the restriction lifts, and the bond's own payoff
+        // reaches the Lumberknot too.
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(trunk), alice, bob));
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(trunk))
+            .Has(KeywordAbility.Flying));
+    }
+
+    [Fact]
+    public void A_spell_that_consults_the_pairing_reaches_the_partner()
+    {
+        // Joint Assault, the one spell that reads the status: the partner's bonus rides on the
+        // pairing as the spell resolves. The partner is not a second target - nothing about it
+        // was chosen - and a target with no partner is simply pumped alone.
+        var assault = Card(
+            "Joint Assault",
+            "Target creature gets +2/+2 until end of turn. If it's paired with a creature, that "
+                + "creature also gets +2/+2 until end of turn.");
+
+        var compiled = CardCompiler.Compile(assault);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var flier = game.Create(alice, Wingcrafter(), Zone.Battlefield);
+        var friend = game.Create(alice, TestCards.Creature("Charging Friend Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+        game.Choose(alice, [friend.Value.ToString("N")]);
+        Settle(game);
+
+        // Arriving beside an already-paired soulbond creature asks nothing (CR 702.95a).
+        var bystander = game.Create(alice, TestCards.Creature("Bystander Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Single(game.Log.OfType<SoulbondPairRequested>());
+
+        TestCards.PassUntil(game, () => game.State.IsSorcerySpeedFor(alice));
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, assault), [Target.ToPermanent(friend)]);
+        Settle(game);
+
+        // The target and its partner, and nobody else.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(friend)));
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(flier)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bystander)));
+    }
+
+    [Fact]
+    public void The_soulbond_shelf_compiles_exactly_as_measured()
+    {
+        // Every printing that mentions the pairing, compiled from its real wording, with the
+        // complete set pinned so the round's claim stays measured. The keyword line itself must
+        // read on every card that prints it - an incomplete card here is short somewhere else.
+        var shelf = new (string Name, string Text, CardType Types, KeywordAbility Keywords)[]
+        {
+            ("Wingcrafter", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have flying.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Nearheath Pilgrim", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have lifelink.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Spectral Gateguards", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have vigilance.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Hanweir Lancer", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have first strike.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Lightning Mauler", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have haste.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Geist Trappers", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have reach.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Elgaud Shieldmate", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have hexproof. (They can't be the targets of spells or abilities your opponents control.)", CardType.Creature, KeywordAbility.Soulbond),
+            ("Pathbreaker Wurm", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have trample.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Nightshade Peddler", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have deathtouch.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Silverblade Paladin", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have double strike.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Diregraf Escort", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, both creatures have protection from Zombies.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Trusted Forcemage", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, each of those creatures gets +1/+1.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Druid's Familiar", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, each of those creatures gets +2/+2.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Wolfir Silverheart", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, each of those creatures gets +4/+4.", CardType.Creature, KeywordAbility.Soulbond),
+            ("Stonewright", "Soulbond" + SoulbondReminder + "\nAs long as Stonewright is paired with another creature, each of those creatures has \"{R}: This creature gets +1/+0 until end of turn.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Galvanic Alchemist", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, each of those creatures has \"{2}{U}: Untap this creature.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Stern Mentor", "Soulbond" + SoulbondReminder + "\nAs long as this creature is paired with another creature, each of those creatures has \"{T}: Target player mills two cards.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Thundering Mightmare", "Soulbond" + SoulbondReminder + "\nAs long as Thundering Mightmare is paired with another creature, each of those creatures has \"Whenever an opponent casts a spell, put a +1/+1 counter on this creature.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Tandem Lookout", "Soulbond" + SoulbondReminder + "\nAs long as Tandem Lookout is paired with another creature, each of those creatures has \"Whenever this creature deals damage to an opponent, draw a card.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Doom Weaver", "Reach\nSoulbond" + SoulbondReminder + "\nAs long as Doom Weaver is paired with another creature, each of those creatures has \"When this creature dies, draw cards equal to its power.\"", CardType.Creature, KeywordAbility.Reach | KeywordAbility.Soulbond),
+            ("Imperious Mindbreaker", "Soulbond" + SoulbondReminder + "\nAs long as Imperious Mindbreaker is paired with another creature, each of those creatures has \"Whenever this creature attacks, each opponent mills cards equal to its toughness.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Deadeye Navigator", "Soulbond" + SoulbondReminder + "\nAs long as Deadeye Navigator is paired with another creature, each of those creatures has \"{1}{U}: Exile this creature, then return it to the battlefield under your control.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Breathkeeper Seraph", "Flying, soulbond" + SoulbondReminder + "\nAs long as Breathkeeper Seraph is paired with another creature, each of those creatures has \"When this creature dies, you may return it to the battlefield under its owner's control at the beginning of your next upkeep.\"", CardType.Creature, KeywordAbility.Flying | KeywordAbility.Soulbond),
+            ("Mirage Phalanx", "Soulbond" + SoulbondReminder + "\nAs long as Mirage Phalanx is paired with another creature, each of those creatures has \"At the beginning of combat on your turn, create a token that's a copy of this creature, except it has haste and loses soulbond. Exile it at end of combat.\"", CardType.Creature, KeywordAbility.Soulbond),
+            ("Donna Noble", "Soulbond" + SoulbondReminder + "\nWhenever Donna Noble or a creature it's paired with is dealt damage, Donna Noble deals that much damage to target opponent.\nDoctor's companion (You can have two commanders if the other is the Doctor.)", CardType.Creature, KeywordAbility.Soulbond),
+            ("Flowering Lumberknot", "This creature can't attack or block unless it's paired with a creature with soulbond.", CardType.Creature, KeywordAbility.None),
+            ("Joint Assault", "Target creature gets +2/+2 until end of turn. If it's paired with a creature, that creature also gets +2/+2 until end of turn.", CardType.Instant, KeywordAbility.None),
+        };
+
+        var complete = new List<string>();
+        var blocked = new List<string>();
+
+        foreach (var (name, text, types, keywords) in shelf)
+        {
+            var compiled = CardCompiler.Compile(Card(name, text, types, 2, 2, keywords));
+
+            if (compiled.IsComplete)
+                complete.Add(name);
+            else
+                blocked.Add(name + " -> " + string.Join(" ;; ", compiled.Unhandled));
+
+            // The keyword line always reads; what stops an incomplete card is its other lines.
+            Assert.DoesNotContain(
+                compiled.Unhandled,
+                line => line is "Soulbond" or "Flying, soulbond");
+        }
+
+        complete.Sort(StringComparer.Ordinal);
+
+        // Not on the list, and why: Diregraf Escort grants protection from a creature type,
+        // which no flag can carry; Doom Weaver and Imperious Mindbreaker count "cards equal to
+        // its power/toughness" inside their quoted grants; Breathkeeper Seraph's grant is a
+        // delayed return; Mirage Phalanx's is a token copy with exceptions; and Donna Noble's
+        // trigger watches damage to either half. Each is short on that line alone - the
+        // Soulbond line itself reads on all of them.
+        List<string> expected =
+        [
+            "Deadeye Navigator",
+            "Druid's Familiar",
+            "Elgaud Shieldmate",
+            "Flowering Lumberknot",
+            "Galvanic Alchemist",
+            "Geist Trappers",
+            "Hanweir Lancer",
+            "Joint Assault",
+            "Lightning Mauler",
+            "Nearheath Pilgrim",
+            "Nightshade Peddler",
+            "Pathbreaker Wurm",
+            "Silverblade Paladin",
+            "Spectral Gateguards",
+            "Stern Mentor",
+            "Stonewright",
+            "Tandem Lookout",
+            "Thundering Mightmare",
+            "Trusted Forcemage",
+            "Wingcrafter",
+            "Wolfir Silverheart",
+        ];
+
+        Assert.True(
+            expected.SequenceEqual(complete, StringComparer.Ordinal),
+            "complete: " + string.Join(", ", complete) + "\n" + string.Join("\n", blocked));
+    }
+
+    [Fact]
+    public void Granted_phasing_phases_the_host_out_on_its_controllers_untap()
+    {
+        // Teferi's Curse. The untap action already read the computed keyword (CR 702.26a) and
+        // took everything attached along with its host (CR 702.26g); the one word "phasing"
+        // was missing from the grantable vocabulary, so no granting line could reach any of it.
+        var curse = Card(
+            "Phase Curse Test",
+            "Enchant permanent\nEnchanted permanent has phasing.",
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Phased Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, curse), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Alice's next untap: out, and not on the battlefield while it is (CR 702.26c).
+        PassTo(game, 3, TurnStep.Upkeep);
+        Assert.True(game.State.PhasedOut.ContainsKey(bear));
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        // Her untap after that: back, still enchanted, so the cycle goes on (CR 702.26b).
+        PassTo(game, 5, TurnStep.Upkeep);
+        Assert.False(game.State.PhasedOut.ContainsKey(bear));
+        Assert.Contains(bear, game.State.Battlefield);
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

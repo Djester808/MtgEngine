@@ -507,6 +507,32 @@ public sealed record GameState
     }
 
     /// <summary>
+    /// The creature this one is paired with, or null while it is unpaired (CR 702.95b).
+    /// </summary>
+    /// <remarks>
+    /// The pairing is held on both halves and trusted only where the two agree, so a half-written
+    /// pairing can never apply an effect from one side only. A partner that has left the
+    /// battlefield answers null here before the CR 702.95e sweep in state-based actions has
+    /// recorded the break — which is the right reading of the window: the pair is already over,
+    /// the log just has not said so yet. Deliberately shallow beyond that: whether either half is
+    /// still a creature is a computed characteristic, and this is called from inside layer 6,
+    /// where computing the partner's characteristics would be re-entrant. The sweep asks those
+    /// questions from outside and severs the pairing.
+    /// </remarks>
+    public GameObject? PairedPartnerOf(GameObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+
+        if (obj.Permanent?.PairedWithId is not { } partnerId)
+            return null;
+
+        if (!TryGetObject(partnerId, out var partner) || partner.Zone != Zone.Battlefield)
+            return null;
+
+        return partner.Permanent?.PairedWithId == obj.Id ? partner : null;
+    }
+
+    /// <summary>
     /// Whether the given player could cast a sorcery right now: their main phase, an empty
     /// stack, and priority (CR 117.1a, 505.6a).
     /// </summary>

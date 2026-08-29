@@ -2419,6 +2419,37 @@ public sealed record PumpUntilEndOfTurn(
 }
 
 /// <summary>
+/// Gives the target's soulbond partner a bonus too, if it has one (CR 702.95b).
+/// </summary>
+/// <remarks>
+/// "If it's paired with a creature, that creature also gets +2/+2 until end of turn" — the
+/// pairing consulted from a resolving spell rather than from a static. The partner is read off
+/// the status when the effect resolves: it is not a second target, so nothing about it was
+/// chosen and hexproof on it does not apply. No partner means no event, which is the sentence's
+/// own "if".
+/// </remarks>
+public sealed record PumpPairedPartner(string DefinitionId, int TargetIndex) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, EffectSubject.Target, TargetIndex) is not { } aimed
+            || !context.State.TryGetObject(aimed, out var target)
+            || context.State.PairedPartnerOf(target) is not { } partner)
+        {
+            return [];
+        }
+
+        return
+        [
+            new ContinuousEffectCreated(
+                Guid.NewGuid(), DefinitionId, [partner.Id], context.State.TurnNumber),
+        ];
+    }
+}
+
+/// <summary>
 /// Makes a permanent become a copy of a target permanent (CR 613.2a, 707.2).
 /// </summary>
 /// <remarks>
@@ -3633,6 +3664,33 @@ public sealed record OfferExploit : IEffect
         ArgumentNullException.ThrowIfNull(context);
 
         return [new ExploitRequested(context.ControllerId, context.PhysicalSourceId)];
+    }
+}
+
+/// <summary>Offers the soulbond pairing (CR 702.95a).</summary>
+/// <remarks>
+/// Exploit's shape: the offer and the choice are one question, answered by naming a creature or
+/// declining. Which question depends on the arm. "When this creature enters" chooses among every
+/// unpaired creature its controller has; "whenever another creature you control enters" pairs
+/// the newcomer with this creature or nobody, so <see cref="WithEnteringCreature"/> reads that
+/// newcomer off the trigger's subject — the one thing the resolution still knows that the board
+/// no longer says. CR 702.95c's re-check happens where the question is asked, against the state
+/// as it stands then.
+/// </remarks>
+public sealed record OfferSoulbondPair(bool WithEnteringCreature) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (!WithEnteringCreature)
+            return [new SoulbondPairRequested(context.ControllerId, context.PhysicalSourceId, null)];
+
+        // A subject the trigger never recorded is a card this effect was wired to wrongly;
+        // doing nothing is the failure that cannot mispair anybody.
+        return context.SubjectObject is { } entered
+            ? [new SoulbondPairRequested(context.ControllerId, context.PhysicalSourceId, entered)]
+            : [];
     }
 }
 

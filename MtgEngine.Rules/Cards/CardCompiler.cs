@@ -515,6 +515,9 @@ public static partial class CardCompiler
             if (TryExploit(line, triggers))
                 continue;
 
+            if (TrySoulbond(line, card, triggers))
+                continue;
+
             if (TryExert(line, triggers))
                 continue;
 
@@ -3055,6 +3058,105 @@ public static partial class CardCompiler
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// "Soulbond" - the two pairing triggers (CR 702.95a).
+    /// </summary>
+    /// <remarks>
+    /// Exploit's shape twice over: each trigger's resolution is one question, answered by naming
+    /// a creature or declining. The intervening if is carried on the trigger predicate
+    /// (CR 603.4's first check) and the second check lives where the question is asked, which is
+    /// where CR 702.95c re-tests everything anyway. "Flying, soulbond" closes a keyword list, so
+    /// the leading words are accepted on exactly the terms <see cref="TryKeywordList"/> accepts
+    /// them: a keyword the engine models and the card actually has.
+    /// </remarks>
+    private static bool TrySoulbond(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = SoulbondLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (m.Groups["lead"].Success)
+        {
+            foreach (var part in m.Groups["lead"].Value.Split(','))
+            {
+                var word = part.Trim();
+                if (word.Length == 0)
+                    continue;
+
+                if (!KeywordNames.TryGetValue(word, out var flag) || !card.Keywords.HasFlag(flag))
+                    return false;
+            }
+        }
+
+        var selfEnters = TriggerConditions.Parse("~ enters");
+        var otherEnters = TriggerConditions.Parse("another creature you control enters");
+        if (selfEnters is null || otherEnters is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "soulbond-this",
+            Text = "When this creature enters, if you control both this creature and another "
+                + "creature and both are unpaired, you may pair this creature with another "
+                + "unpaired creature you control.",
+
+            // A new object is considered against the state just after its own arrival, so the
+            // source is on the battlefield here and the scan below excludes it by id.
+            Triggers = (e, state, source) =>
+                selfEnters(e, state, source)
+                && source.Permanent?.PairedWithId is null
+                && HasUnpairedPartnerFor(state, source),
+            Effects = [new OfferSoulbondPair(WithEnteringCreature: false)],
+        });
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "soulbond-other",
+            Text = "Whenever another creature you control enters, if you control both that "
+                + "creature and this one and both are unpaired, you may pair that creature "
+                + "with this creature.",
+
+            // The newcomer is a fresh object and cannot be paired; only this half needs asking.
+            Triggers = (e, state, source) =>
+                otherEnters(e, state, source) && source.Permanent?.PairedWithId is null,
+            Effects = [new OfferSoulbondPair(WithEnteringCreature: true)],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the source's controller has another unpaired creature to offer (CR 702.95a).
+    /// </summary>
+    /// <remarks>
+    /// Computed characteristics on both sides, because the intervening if is a question about
+    /// creatures: an animated land is a legal partner while it is animated, and a stolen
+    /// creature is not the controller's to pair.
+    /// </remarks>
+    private static bool HasUnpairedPartnerFor(GameState state, TriggerSource source)
+    {
+        var mine = source.Now(state).ControllerId;
+
+        foreach (var id in state.Battlefield)
+        {
+            if (id == source.Id)
+                continue;
+
+            var other = state.GetObject(id);
+            if (other.Permanent is not { PairedWithId: null })
+                continue;
+
+            if (Characteristics.Of(state, source.Abilities, other) is { IsCreature: true } c
+                && c.ControllerId == mine)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -6276,6 +6378,7 @@ public static partial class CardCompiler
             || TryGrantedAbility(line, card, statics)
             || TryDefinedPowerToughness(line, card, statics)
             || TryCountingStatic(line, card, statics)
+            || TrySoulbondStatic(line, card, statics)
             || TryConditionalStatic(line, card, statics)
             || TryMassStatic(line, card, statics);
 
@@ -7398,6 +7501,117 @@ public static partial class CardCompiler
                 id => group.ObjectFilter?.Invoke(
                     state, EmptyAbilities.Instance, state.GetObject(id), you) != false)
             : null;
+    }
+
+    /// <summary>
+    /// "As long as ~ is paired with another creature, ..." — soulbond's payoff (CR 702.95b).
+    /// </summary>
+    /// <remarks>
+    /// Every soulbond card's second line, in the three forms the 24 of them print: "both
+    /// creatures have &lt;keywords&gt;", "each of those creatures gets +N/+N", and "each of
+    /// those creatures has "&lt;ability&gt;"". The two subjects mean the same two permanents —
+    /// the source and whatever it is paired with — so one recipient test serves all three, and
+    /// the condition is not parsed at all: being paired with another creature is what a pairing
+    /// <em>is</em>, and the reader that answers it is the same one every other consumer of the
+    /// status uses. A quoted ability is read exactly as <see cref="TryGrantedAbility"/> reads
+    /// one, granted in layer 6 to both halves.
+    /// </remarks>
+    private static bool TrySoulbondStatic(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = SoulbondStaticLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // The recipient test: the computed permanent is one of the pair's two halves. Reads the
+        // stored pairing plus the partner's zone, and deliberately nothing computed — this runs
+        // inside the layers, where computing the partner's characteristics would be re-entrant.
+        // The sweep in state-based actions severs a pairing the deeper questions have broken.
+        static bool OnEitherHalf(GameState state, GameObject? source, CharacteristicsBuilder target)
+        {
+            if (source is null || state.PairedPartnerOf(source) is not { } partner)
+                return false;
+
+            return target.Subject.Id == source.Id || target.Subject.Id == partner.Id;
+        }
+
+        if (m.Groups["p"].Success)
+        {
+            var power = int.Parse(
+                m.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            var toughness = int.Parse(
+                m.Groups["tough"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"soulbond:{card.Name}:{GenerativeEffects.PumpId(power, toughness)}",
+                Layer = EffectLayer.PowerToughnessModify,
+                Applies = OnEitherHalf,
+                Apply = (_, _, builder) => builder.Modify(power, toughness),
+            });
+
+            return true;
+        }
+
+        if (m.Groups["kw"].Success)
+        {
+            // Whole or not at all: "protection from Zombies" is a keyword the engine cannot
+            // grant, and half a bond would be a different card.
+            if (EffectPhrase.Keywords(m.Groups["kw"].Value) is not { } granted)
+                return false;
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"soulbond:{card.Name}:{GenerativeEffects.GrantId(granted)}",
+                Layer = EffectLayer.Ability,
+                Applies = OnEitherHalf,
+                Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+
+            return true;
+        }
+
+        var quoted = ImmutableList.CreateBuilder<ActivatedAbilityDefinition>();
+        var quotedTriggers = ImmutableList.CreateBuilder<TriggeredAbilityDefinition>();
+        var rejected = ImmutableList.CreateBuilder<string>();
+        var inner = m.Groups["ability"].Value.Trim();
+
+        var modalAt = -1;
+        var isTrigger = TryTrigger(inner, card, quotedTriggers, rejected, ref modalAt)
+            && rejected.Count == 0
+            && quotedTriggers.Count > 0;
+
+        if (!isTrigger
+            && !TryManaAbility(inner, quoted)
+            && (!TryActivatedAbility(inner, card, quoted, rejected) || rejected.Count > 0))
+        {
+            return false;
+        }
+
+        if (quoted.Count == 0 && quotedTriggers.Count == 0)
+            return false;
+
+        var abilities = quoted
+            .Select(a => a with { Id = "granted:" + card.Name + ":" + a.Id })
+            .ToImmutableList();
+
+        var grantedTriggers = quotedTriggers
+            .Select(t => t with { Id = "granted:" + card.Name + ":" + t.Id })
+            .ToImmutableList();
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "soulbond-grants:" + card.Name,
+            Layer = EffectLayer.Ability,
+            Applies = OnEitherHalf,
+            Apply = (_, _, builder) =>
+            {
+                builder.GrantedActivated.AddRange(abilities);
+                builder.GrantedTriggers.AddRange(grantedTriggers);
+            },
+        });
+
+        return true;
     }
 
     private static bool TryConditionalStatic(
@@ -12657,6 +12871,29 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^exploit$", RegexOptions.IgnoreCase)]
     private static partial Regex ExploitKeywordLine();
+
+    /// <remarks>
+    /// The keyword alone, or closing a keyword list — "Flying, soulbond" is the one list the
+    /// corpus prints. The lead is captured whole and validated in code against the same table
+    /// <see cref="TryKeywordList"/> reads, rather than alternated here.
+    /// </remarks>
+    [GeneratedRegex(@"^(?:(?<lead>[a-z][a-z ,']*), )?soulbond\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex SoulbondLine();
+
+    /// <remarks>
+    /// The condition is fixed words rather than a captured clause, because every one of the 24
+    /// cards prints exactly this condition — it names the status, not a question about the
+    /// board. The keyword list is lower-case on purpose: "protection from Zombies" fails the
+    /// match and leaves the line unread, which is the whole-or-nothing rule every keyword list
+    /// here follows.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^[Aa]s long as ~ is paired with another creature, "
+            + @"(?:both creatures have (?<kw>[a-z ,]+?)"
+            + @"|each of those creatures (?:gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+            + @"|has ""(?<ability>[^""]+)""))\.?$",
+        RegexOptions.None)]
+    private static partial Regex SoulbondStaticLine();
 
     [GeneratedRegex(@"^decayed$", RegexOptions.IgnoreCase)]
     private static partial Regex DecayedLine();

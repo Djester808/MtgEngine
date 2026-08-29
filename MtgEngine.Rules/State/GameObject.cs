@@ -286,6 +286,19 @@ public sealed record PermanentState
     /// <summary>Where redirected damage goes, while there is any left to redirect.</summary>
     public ObjectId? RedirectDamageTo { get; init; }
 
+    /// <summary>The creature this one is paired with, while a soulbond pairing stands (CR 702.95b).</summary>
+    /// <remarks>
+    /// A designation like monstrous, not a characteristic: pairing is a fact a soulbond ability
+    /// wrote onto both creatures, and the cards ask about it from either end — so it is held on
+    /// both halves, each pointing at the other, and read only where the two agree
+    /// (<see cref="GameState.PairedPartnerOf"/>). CR 702.95e's break-up conditions are swept
+    /// where state-based actions are checked; a partner that has already left the battlefield
+    /// reads as unpaired in the window before the sweep records it. Never restored: once the
+    /// sweep clears it, only a new soulbond trigger can pair again — a creature that briefly
+    /// stopped being a creature does not resume its old pairing (CR 702.95e).
+    /// </remarks>
+    public ObjectId? PairedWithId { get; init; }
+
     // Records compare collections by reference; see Structural.
     public bool Equals(PermanentState? other) =>
         other is not null &&
@@ -308,6 +321,7 @@ public sealed record PermanentState
         DamageToPrevent == other.DamageToPrevent &&
         DamageToRedirect == other.DamageToRedirect &&
         RedirectDamageTo == other.RedirectDamageTo &&
+        PairedWithId == other.PairedWithId &&
         Level == other.Level &&
         IsSolved == other.IsSolved &&
         IsRenowned == other.IsRenowned &&

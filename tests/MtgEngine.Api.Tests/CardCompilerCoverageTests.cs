@@ -170,6 +170,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                     "Daybound" => KeywordAbility.Daybound,
                     "Nightbound" => KeywordAbility.Nightbound,
                     "Enlist" => KeywordAbility.Enlist,
+                    "Soulbond" => KeywordAbility.Soulbond,
                     _ => KeywordAbility.None,
                 };
             }

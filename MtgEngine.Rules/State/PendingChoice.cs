@@ -165,6 +165,15 @@ public enum ChoiceKind
     /// <summary>Which creature to sacrifice to exploit, or none (CR 702.110a).</summary>
     Exploit,
 
+    /// <summary>Which unpaired creature a soulbond creature pairs with, or none (CR 702.95a).</summary>
+    /// <remarks>
+    /// Exploit's shape: "you may pair" is answered by naming a creature or declining, so it is
+    /// one question rather than a yes/no followed by a selection. The "whenever another creature
+    /// you control enters" arm arrives here with a single candidate — the newcomer — and the
+    /// same question serves as its yes or no.
+    /// </remarks>
+    Soulbond,
+
     /// <summary>Naming one of the five colours, for an effect that asks (CR 202.2).</summary>
     ChooseColor,
 

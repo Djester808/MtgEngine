@@ -209,6 +209,17 @@ public enum KeywordAbility : long
     /// not express.
     /// </remarks>
     Phasing = 1L << 48,
+
+    /// <summary>
+    /// "Soulbond" (CR 702.95a): may pair with another creature as either enters.
+    /// </summary>
+    /// <remarks>
+    /// The keyword's behaviour is two triggered abilities, compiled from the line rather than
+    /// from this bit. The flag exists because a card can ask whether a creature <em>has</em>
+    /// soulbond — "unless it's paired with a creature with soulbond" — and that question is
+    /// answered off computed characteristics like any other keyword.
+    /// </remarks>
+    Soulbond = 1L << 49,
 }
 
 public enum ManaColor

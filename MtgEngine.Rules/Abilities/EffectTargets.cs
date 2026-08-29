@@ -263,6 +263,8 @@ public static class EffectTargets
                 : e);
         Add<PumpTargetByVariable>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+        Add<PumpPairedPartner>(
+            e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<AttachSourceTo>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         // Nullable, because the shield may name a player by scope instead of by target.
         Add<PreventDamage>(

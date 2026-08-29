@@ -2969,6 +2969,13 @@ public sealed class Game
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
+            case ChoiceKind.Soulbond:
+                ResolveSoulbond(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.Populate:
                 ResolvePopulate(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3681,6 +3688,9 @@ public sealed class Game
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
     private readonly List<PopulateRequested> _populatesOwed = [];
     private readonly List<ExploitRequested> _exploitsOwed = [];
+
+    /// <summary>Soulbond pairings owed, asked at the next settle (CR 702.95a).</summary>
+    private readonly List<SoulbondPairRequested> _soulbondsOwed = [];
 
     private readonly List<UntapChoiceRequested> _untapChoicesOwed = [];
 
@@ -5307,6 +5317,99 @@ public sealed class Game
         // Announced after the move, so a trigger that reads it sees a board the sacrifice has
         // already happened on - which is what "when this creature exploits a creature" means.
         Emit(new CreatureExploited(owed.ExploiterId, id));
+    }
+
+    private SoulbondPairRequested? _soulbondBeingAsked;
+
+    /// <summary>The answer that pairs with nobody — declining is on the same list (CR 702.95a).</summary>
+    private const string DeclineSoulbond = "none";
+
+    /// <summary>
+    /// Offers the oldest owed soulbond pairing, if any (CR 702.95a).
+    /// </summary>
+    /// <remarks>
+    /// CR 702.95c is enforced here, against the state as the ability resolves: if this creature
+    /// is no longer a creature, no longer on the battlefield, no longer this player's, or no
+    /// longer unpaired, nobody becomes paired — and the same tests pick the candidates, so a
+    /// question with no legal answer is not asked at all. The two arms differ only in the set:
+    /// "when this creature enters" offers every unpaired creature its controller has, and
+    /// "whenever another creature you control enters" offers exactly the newcomer.
+    /// </remarks>
+    private bool AskOwedSoulbond()
+    {
+        if (_soulbondsOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _soulbondsOwed[0];
+        _soulbondsOwed.RemoveAt(0);
+
+        bool Pairable(GameObject o) =>
+            o.Zone == Zone.Battlefield
+            && o.Permanent is { PairedWithId: null }
+            && Characteristics.Of(State, _abilities, o) is { IsCreature: true } computed
+            && computed.ControllerId == owed.ChooserId;
+
+        if (!State.TryGetObject(owed.SourceId, out var source) || !Pairable(source))
+            return false;
+
+        var eligible = State.Battlefield
+            .Where(id => id != owed.SourceId)
+            .Where(id => owed.PartnerId is not { } chosen || id == chosen)
+            .Select(State.GetObject)
+            .Where(Pairable)
+            .ToList();
+
+        if (eligible.Count == 0)
+            return false;
+
+        _soulbondBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"soulbond:{owed.SourceId.Value:N}",
+            PlayerId = owed.ChooserId,
+            Kind = ChoiceKind.Soulbond,
+            Prompt = $"Pair {source.Card.Name} with another creature?",
+            Options =
+            [
+                .. eligible.Select(o => new ChoiceOption(o.Id.Value.ToString("N"), o.Card.Name)),
+                new ChoiceOption(DeclineSoulbond, "Pair with nobody."),
+            ],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>Pairs the two creatures the player chose to bond (CR 702.95b).</summary>
+    private void ResolveSoulbond(IReadOnlyList<string> picks)
+    {
+        if (_soulbondBeingAsked is not { } owed)
+            return;
+
+        _soulbondBeingAsked = null;
+
+        if (picks.Count == 0
+            || string.Equals(picks[0], DeclineSoulbond, StringComparison.Ordinal)
+            || !Guid.TryParse(picks[0], out var chosen))
+        {
+            return;
+        }
+
+        // The game halts while a choice stands, but the answer still has to name something that
+        // was on the list: an id from outside is checked the way every other pick is.
+        var id = new ObjectId(chosen);
+        if (!State.TryGetObject(id, out var partner)
+            || partner.Zone != Zone.Battlefield
+            || partner.Permanent is not { PairedWithId: null }
+            || !State.TryGetObject(owed.SourceId, out var source)
+            || source.Permanent is not { PairedWithId: null })
+        {
+            return;
+        }
+
+        Emit(new CreaturesPaired(owed.SourceId, id));
     }
 
     private PopulateRequested? _populateBeingAsked;
@@ -7456,6 +7559,9 @@ public sealed class Game
                 return true;
 
             if (AskOwedExploit())
+                return true;
+
+            if (AskOwedSoulbond())
                 return true;
 
             if (AskOwedPopulate())
@@ -10371,6 +10477,9 @@ public sealed class Game
 
         if (e is ExploitRequested exploiting)
             _exploitsOwed.Add(exploiting);
+
+        if (e is SoulbondPairRequested pairing)
+            _soulbondsOwed.Add(pairing);
 
         if (e is UntapChoiceRequested untapping)
             _untapChoicesOwed.Add(untapping);

@@ -41,6 +41,7 @@ public static class StateBasedActions
         CheckPlayers(state, events);
         CheckCreatures(state, abilities, events);
         CheckPlaneswalkers(state, events);
+        CheckPaired(state, abilities, events);
         CheckAuras(state, abilities, events);
         CheckEquipment(state, events);
         CheckTokens(state, events);
@@ -174,6 +175,51 @@ public static class StateBasedActions
                     id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
                     obj.ControllerId, MoveCause.Destroy));
             }
+        }
+    }
+
+    /// <summary>
+    /// A soulbond pairing whose ground has gone comes apart (CR 702.95e).
+    /// </summary>
+    /// <remarks>
+    /// Not literally one of CR 704.5's actions — 702.95e is soulbond's own rule and applies the
+    /// moment its condition does — but this sweep runs everywhere a player would receive
+    /// priority, which is the first moment anyone could act on the difference, and the paired
+    /// reader already treats a partner that left the battlefield as gone in the window before
+    /// the event lands. What the sweep alone can see is the rest of the rule: a half that
+    /// stopped being a creature, or a controller the two no longer share — both computed
+    /// characteristics, which is why they cannot be checked from inside the layers where the
+    /// pairing is read. Severing the state is what makes the break permanent: a creature that
+    /// qualifies again later has still stopped being paired (CR 702.95e), and only a new
+    /// soulbond trigger pairs it again.
+    /// </remarks>
+    private static void CheckPaired(GameState state, IAbilitySource abilities, List<GameEvent> events)
+    {
+        HashSet<(ObjectId, ObjectId)>? broken = null;
+
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (obj.Permanent is not { PairedWithId: { } partnerId })
+                continue;
+
+            var holds =
+                state.TryGetObject(partnerId, out var partner)
+                && partner.Zone == Zone.Battlefield
+                && partner.Permanent?.PairedWithId == id
+                && Characteristics.Of(state, abilities, obj) is { IsCreature: true } mine
+                && Characteristics.Of(state, abilities, partner) is { IsCreature: true } theirs
+                && mine.ControllerId == theirs.ControllerId;
+
+            if (holds)
+                continue;
+
+            // One event per pair, whichever end the walk met first: both halves of a broken
+            // bond report it, and a bond is one thing.
+            broken ??= [];
+            var pair = id.Value.CompareTo(partnerId.Value) <= 0 ? (id, partnerId) : (partnerId, id);
+            if (broken.Add(pair))
+                events.Add(new CreaturesUnpaired(id, partnerId));
         }
     }
 

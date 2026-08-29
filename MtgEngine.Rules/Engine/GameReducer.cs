@@ -187,6 +187,9 @@ public static class GameReducer
             ManifestDreadRequested => state,
             PopulateRequested => state,
             ExploitRequested => state,
+            SoulbondPairRequested => state,
+            CreaturesPaired paired => Pair(state, paired),
+            CreaturesUnpaired unpaired => Unpair(state, unpaired),
             DiscoverRequested => state,
             RingBearerRequested => state,
             RingTempted tempted => state.WithPlayer(
@@ -1398,6 +1401,49 @@ public static class GameReducer
         {
             Permanent = permanent with { AttachedTo = e.To, AttachedToPlayer = e.ToPlayer },
         });
+    }
+
+    /// <summary>Writes a soulbond pairing onto both creatures (CR 702.95b).</summary>
+    /// <remarks>
+    /// Total, like every arm: either half missing leaves the state alone, and neither becomes
+    /// paired — which is CR 702.95c's own answer for a half that stopped qualifying.
+    /// </remarks>
+    private static GameState Pair(GameState state, CreaturesPaired e)
+    {
+        if (!state.TryGetObject(e.FirstId, out var first) || first.Permanent is not { } onFirst)
+            return state;
+
+        if (!state.TryGetObject(e.SecondId, out var second) || second.Permanent is not { } onSecond)
+            return state;
+
+        return state
+            .WithObject(first with { Permanent = onFirst with { PairedWithId = e.SecondId } })
+            .WithObject(second with { Permanent = onSecond with { PairedWithId = e.FirstId } });
+    }
+
+    /// <summary>Clears a pairing from whichever halves still record it (CR 702.95e).</summary>
+    /// <remarks>
+    /// Each side is cleared only if it still points at the other, so the event is idempotent and
+    /// cannot disturb a newer pairing: a creature already re-paired by the time a stale unpair
+    /// replays keeps the pairing it has.
+    /// </remarks>
+    private static GameState Unpair(GameState state, CreaturesUnpaired e)
+    {
+        if (state.TryGetObject(e.FirstId, out var first)
+            && first.Permanent is { } onFirst
+            && onFirst.PairedWithId == e.SecondId)
+        {
+            state = state.WithObject(first with { Permanent = onFirst with { PairedWithId = null } });
+        }
+
+        if (state.TryGetObject(e.SecondId, out var second)
+            && second.Permanent is { } onSecond
+            && onSecond.PairedWithId == e.FirstId)
+        {
+            state = state.WithObject(second with { Permanent = onSecond with { PairedWithId = null } });
+        }
+
+        return state;
     }
 
     /// <summary>Turns a permanent's prepared designation on or off.</summary>

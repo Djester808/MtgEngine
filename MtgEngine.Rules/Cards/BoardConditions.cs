@@ -1431,6 +1431,23 @@ public static partial class BoardConditions
                 && (self.Permanent?.IsTapped ?? false) == wantsTapped;
         }
 
+        // "Unless it's paired with a creature with soulbond" - the soulbond status, asked from
+        // one end (CR 702.95b). The pairing itself comes from the shared reader every consumer
+        // of the status uses; what this adds is the qualifier, answered off the partner's
+        // computed keywords so that a partner that loses its abilities stops satisfying it.
+        var bonded = SelfPairedLine().Match(text);
+        if (bonded.Success)
+        {
+            var needsSoulbond = bonded.Groups["soulbond"].Success;
+
+            return (state, abilities, source) =>
+                Subject(state, source, bonded.Groups["it"].Success) is { } self
+                && state.PairedPartnerOf(self) is { } partner
+                && (!needsSoulbond
+                    || Characteristics.Of(state, abilities, partner)
+                        .Has(Domain.Enums.KeywordAbility.Soulbond));
+        }
+
         // "Activate only if ~'s power is 3 or greater", "as long as its power is 2 or less" -
         // one permanent's power rather than a search of the board, which is why it is not the
         // controls-with-power reader with the subject changed: that one answers "is there such a
@@ -2189,6 +2206,13 @@ public static partial class BoardConditions
         @"^((~|(this|the) [a-z]+) is|(?<it>it)('s| is)) (?<tapped>tapped|untapped)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfStateLine();
+
+    /// <summary>"It's paired with a creature with soulbond" — the status, asked from one end.</summary>
+    [GeneratedRegex(
+        @"^(~ is|(?<it>it)('s| is)) paired with a(nother)? creature"
+            + @"( with (?<soulbond>soulbond))?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfPairedLine();
 
     /// <summary>"~'s power is 3 or greater" — one permanent's power, not a search for one.</summary>
     /// <remarks>

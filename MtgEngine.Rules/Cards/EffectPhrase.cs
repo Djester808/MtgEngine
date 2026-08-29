@@ -2054,6 +2054,23 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "If it's paired with a creature, that creature also gets +2/+2 until end of turn" —
+        // Joint Assault's second sentence, the one spell that consults the soulbond pairing.
+        // "It" is the creature an earlier sentence targeted, so the sentence is read only after
+        // a target exists and never inside a trigger that names its own object; "that creature"
+        // is the target's partner, found when the spell resolves rather than chosen
+        // (CR 702.95b), which is why it is not a second target.
+        var alsoPaired = PairedAlsoPumpLine().Match(sentence);
+        if (alsoPaired.Success && targets.Count > 0 && !objectNamedByTrigger)
+        {
+            effects.Add(new PumpPairedPartner(
+                GenerativeEffects.PumpId(
+                    Signed(alsoPaired.Groups["p"].Value), Signed(alsoPaired.Groups["tough"].Value)),
+                targets.Count - 1));
+
+            return true;
+        }
+
         // "Put the top three cards of your library into your graveyard" — milling, spelled the
         // long way round. The engine has had the effect since before the word existed on cards.
         var selfMill = PutTopIntoGraveyardLine().Match(sentence);
@@ -5025,6 +5042,11 @@ public static partial class EffectPhrase
             ["changeling"] = KeywordAbility.Changeling,
             ["can't be blocked"] = KeywordAbility.CantBeBlocked,
             ["can't block"] = KeywordAbility.CantBlock,
+
+            // The untap step reads the computed keyword (CR 702.26a) and everything attached
+            // phases out indirectly with its host, so a granted phasing is played in full -
+            // "enchanted permanent has phasing" was unreadable over this one missing word.
+            ["phasing"] = KeywordAbility.Phasing,
         };
 
     /// <summary>A signed modifier as printed, e.g. "+3" or "-1".</summary>
@@ -8825,6 +8847,13 @@ public static partial class EffectPhrase
             + @"for (?<group>each [A-Za-z0-9'’ ]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PerEachPumpLine();
+
+    /// <summary>"If it's paired with a creature, that creature also gets +2/+2 until end of turn."</summary>
+    [GeneratedRegex(
+        @"^if it('s| is) paired with a creature, that creature also gets "
+            + @"(?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PairedAlsoPumpLine();
 
     /// <remarks>
     /// The dealer is optional because it is sometimes the card itself - "~ deals damage equal to

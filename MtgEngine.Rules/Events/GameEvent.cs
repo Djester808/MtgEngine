@@ -946,6 +946,47 @@ public sealed record CreatureExploited(ObjectId ExploiterId, ObjectId Sacrificed
     public override string Describe() => $"{ExploiterId} exploited {SacrificedId}.";
 }
 
+/// <summary>
+/// A soulbond ability resolved and its controller may pair (CR 702.95a).
+/// </summary>
+/// <remarks>
+/// <paramref name="PartnerId"/> is the entering creature when the trigger was "whenever another
+/// creature you control enters" — that arm pairs the newcomer with this creature and nothing
+/// else, so the question is yes or no. Null for the "when this creature enters" arm, where the
+/// player chooses among every unpaired creature they control. Both halves are re-checked when
+/// the question is actually asked, because CR 702.95c re-tests creature, battlefield and
+/// controller at resolution and answers "neither becomes paired" if any fails.
+/// </remarks>
+public sealed record SoulbondPairRequested(Guid ChooserId, ObjectId SourceId, ObjectId? PartnerId)
+    : GameEvent
+{
+    public override string Rule => "702.95a";
+
+    public override string Describe() => $"{SourceId} may pair with another creature.";
+}
+
+/// <summary>Two creatures became paired by a soulbond ability (CR 702.95b).</summary>
+public sealed record CreaturesPaired(ObjectId FirstId, ObjectId SecondId) : GameEvent
+{
+    public override string Rule => "702.95b";
+
+    public override string Describe() => $"{FirstId} became paired with {SecondId}.";
+}
+
+/// <summary>A pairing came apart (CR 702.95e).</summary>
+/// <remarks>
+/// A real event rather than an absence, for the reason unattaching is: the pairing is state on
+/// both creatures, and a replay has to reach the same board. Emitted by the sweep in
+/// state-based actions when a break-up condition holds; the fold clears whichever halves still
+/// point at each other, so a half that already left the battlefield needs nothing cleared.
+/// </remarks>
+public sealed record CreaturesUnpaired(ObjectId FirstId, ObjectId SecondId) : GameEvent
+{
+    public override string Rule => "702.95e";
+
+    public override string Describe() => $"{FirstId} and {SecondId} became unpaired.";
+}
+
 /// <summary>A player must choose a creature token of theirs to copy (CR 701.36a).</summary>
 public sealed record PopulateRequested(Guid ChooserId) : GameEvent
 {
