@@ -392,6 +392,39 @@ public sealed record ObjectView
     public int? DamageMarked { get; init; }
 
     public IReadOnlyDictionary<string, int>? Counters { get; init; }
+
+    /// <summary>
+    /// The cards under this one, when the permanent is a stack of them (CR 730.2) — mutate.
+    /// </summary>
+    /// <remarks>
+    /// Everything else in this view is the topmost card, which is the right answer to every
+    /// question about characteristics (CR 730.2a) and is why nothing above had to change. But a
+    /// mutated permanent has the abilities of every card under it as well (CR 702.140e), and a
+    /// board that shows only the top card is a board where a player cannot tell why the creature
+    /// in front of them has flying, or what they get back when it dies.
+    /// <para>
+    /// Empty for every ordinary permanent. Top-first, which is the order the physical stack is
+    /// in.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<MergedCardView> MergedUnder { get; init; } = [];
+}
+
+/// <summary>One card under the top of a merged permanent, as a client sees it (CR 730.2).</summary>
+/// <remarks>
+/// Deliberately not an <see cref="ObjectView"/>: a component is not an object while the permanent
+/// stands (CR 730.2b), so it has no id, no controller and no status of its own. What it has is a
+/// card, and the reason it is worth showing is its rules text.
+/// </remarks>
+public sealed record MergedCardView
+{
+    public required string Name { get; init; }
+
+    public required string OracleId { get; init; }
+
+    public string? OracleText { get; init; }
+
+    public string? ImageUri { get; init; }
 }
 
 /// <summary>What a creature is attacking, as a client sees it (CR 508.1b).</summary>

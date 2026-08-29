@@ -369,6 +369,23 @@ public static class Characteristics
     private static ComputedCharacteristics ApplyLayers(
         GameState state, IAbilitySource abilities, GameObject obj, CharacteristicsBuilder builder)
     {
+        // CR 613.2c: once layer 1 is over, the object's characteristics *are* its copiable
+        // values — so this is the moment the copied card's own text is read, and the moment the
+        // cards under a mutated permanent contribute their abilities (CR 730.2a makes the merge a
+        // copiable effect too). Both have to happen before any layer that could add or remove an
+        // ability, and exactly once.
+        var copiableRead = false;
+
+        void ReadCopiableValues()
+        {
+            if (copiableRead)
+                return;
+
+            copiableRead = true;
+            ReadCopiedCard(abilities, obj, builder);
+            ReadMergedComponents(abilities, obj, builder);
+        }
+
         // CR 613.1: start with the printed values, then apply the effects layer by layer. Within
         // a layer the order is by timestamp (CR 613.7) unless one effect depends on another, in
         // which case dependency wins (CR 613.8).
@@ -376,6 +393,15 @@ public static class Characteristics
             .GroupBy(c => c.Effect.Layer)
             .OrderBy(g => (int)g.Key))
         {
+            // Layer 1 is the lowest, so anything else is past it. Hanging this on the *end* of
+            // the copy layer alone was wrong in a way nothing noticed for as long as the only
+            // caller was the copy read: the loop iterates the layers that have effects in them,
+            // so on a board carrying no copy effect there is no layer 1 group and the hook never
+            // ran at all. A copy read there is a no-op, which is why it never showed - and a
+            // mutated permanent on a quiet board silently had none of its components' abilities.
+            if (layer.Key != EffectLayer.Copy)
+                ReadCopiableValues();
+
             foreach (var candidate in InDependencyOrder(state, [.. layer], builder))
             {
                 // Applicability is asked again here rather than reused: an effect earlier in the
@@ -383,13 +409,12 @@ public static class Characteristics
                 ApplyCandidate(state, candidate, builder);
             }
 
-            // CR 613.2c: once layer 1 is over, the object's characteristics *are* its copiable
-            // values — so this is the moment the copied card's own text is read, before any
-            // layer that could add or remove an ability has run. Hung on the layer rather than
-            // done unconditionally so that a board with no copy effect on it pays nothing.
             if (layer.Key == EffectLayer.Copy)
-                ReadCopiedCard(abilities, obj, builder);
+                ReadCopiableValues();
         }
+
+        // A board with no continuous effects on it at all never entered the loop.
+        ReadCopiableValues();
 
         // CR 701.54c: the Ring is an emblem rather than a permanent, so its abilities have no
         // source object to hang a continuous effect on. They are applied here, after the layers,
@@ -457,6 +482,93 @@ public static class Characteristics
         builder.GrantedActivated.AddRange(abilities.ActivatedOf(copied));
         builder.GrantedTriggers.AddRange(abilities.TriggersOf(copied));
     }
+
+    /// <summary>
+    /// Reads the abilities of every card under the top one (CR 702.140e).
+    /// </summary>
+    /// <remarks>
+    /// "A mutated permanent has all abilities of each card and token that represents it. Its
+    /// other characteristics are derived from the topmost card or token." The second sentence is
+    /// free: the topmost card <em>is</em> <see cref="GameObject.Card"/>, so the whole engine
+    /// already reads the characteristics from it. This is the first sentence, and it has exactly
+    /// one place to go — a permanent's abilities are looked up from an
+    /// <see cref="IAbilitySource"/> by card, and the only card a lookup can be keyed on is the
+    /// one on top. So the components' abilities go where a copy's do and where an Aura's grant
+    /// does: <see cref="ComputedCharacteristics.GrantedActivated"/> and its triggered twin, which
+    /// <c>Game.ActivatedAbilitiesOf</c> and <c>Game.TriggersWatching</c> already union in.
+    /// <para>
+    /// Beside the copy read and in the same layer, because CR 730.2a says the merge is a copiable
+    /// effect. Which also settles the interaction: an effect that removes all abilities is layer
+    /// 6 and runs afterwards, so it takes the components' abilities with it, exactly as it takes
+    /// a copied card's.
+    /// </para>
+    /// <para>
+    /// Skipped outright while a copy effect is on the permanent. CR 730.2a makes the merge part
+    /// of the copiable values, so a permanent that has become a copy of something else <em>is</em>
+    /// that card and nothing more — which is also why a copy of a mutated permanent copies only
+    /// the topmost card. Where the two rules could be read either way, this takes the reading
+    /// that gives the permanent fewer abilities rather than more.
+    /// </para>
+    /// </remarks>
+    private static void ReadMergedComponents(
+        IAbilitySource abilities, GameObject obj, CharacteristicsBuilder builder)
+    {
+        if (obj.MergedComponents.IsEmpty)
+            return;
+
+        // CR 613.2b, as for the copy above: layer 1b leaves a face-down permanent with no
+        // abilities whatever is under it.
+        if (obj.Permanent is { IsFaceDown: true })
+            return;
+
+        if (!string.Equals(builder.Card.OracleId, obj.Card.OracleId, StringComparison.Ordinal))
+            return;
+
+        for (var slot = 0; slot < obj.MergedComponents.Count; slot++)
+        {
+            var component = obj.MergedComponents[slot];
+
+            // A keyword is an ability (CR 702.1), so a stack whose bottom card has flying flies.
+            // Both halves are needed: the printed flags and whatever the component's own text
+            // grants, which is where the compiler puts a keyword written out as a sentence.
+            builder.Keywords |= component.Keywords | abilities.GrantedKeywords(component);
+
+            if (builder.Keywords.HasFlag(KeywordAbility.Changeling))
+                builder.IsEveryCreatureType = true;
+
+            var slotPrefix = MergedAbilityPrefix(slot);
+
+            builder.GrantedActivated.AddRange(
+                abilities.ActivatedOf(component).Select(a => a with { Id = slotPrefix + a.Id }));
+
+            builder.GrantedTriggers.AddRange(
+                abilities.TriggersOf(component).Select(t => t with { Id = slotPrefix + t.Id }));
+        }
+    }
+
+    /// <summary>
+    /// What a component's ability ids are prefixed with, so one stack cannot hold two of a name.
+    /// </summary>
+    /// <remarks>
+    /// An ability id is only ever unique <em>within its card</em> — the compiler numbers them
+    /// "t0", "a0" and so on from zero for every card it reads. That is enough everywhere else,
+    /// because a permanent's abilities all come from one card. A mutated permanent's do not, and
+    /// two cards in one stack collide on the very first ability each of them has.
+    /// <para>
+    /// What the collision costs is not a duplicate in a list: an ability goes on the stack as an
+    /// id, and it is resolved by looking that id up on the permanent's card — so the card
+    /// underneath would have its trigger resolved with the <em>top</em> card's effects, silently
+    /// and only ever on the cards this feature exists for.
+    /// </para>
+    /// <para>
+    /// Prefixed by position rather than by card, because position is what the stack is: two
+    /// copies of one card mutated onto the same permanent are two components and each gets its
+    /// own. Stable across a recomputation because the stack's order is, which is what lets a
+    /// deferred question and a pending trigger find the ability again.
+    /// </para>
+    /// </remarks>
+    internal static string MergedAbilityPrefix(int slot) =>
+        "m" + slot.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
 
     /// <summary>
     /// The abilities the Ring gives its bearer, as far as it has tempted them (CR 701.54c).
@@ -655,6 +767,24 @@ public static class Characteristics
 
                 removing |= Removes(effect);
                 found.Add(new Candidate(effect, source, source.Timestamp));
+            }
+
+            // CR 702.140e: a mutated permanent has the abilities of every card representing it,
+            // and a static ability is an ability. It is gathered here rather than in
+            // ReadMergedComponents with the rest, for the reason the copy read gives: a static
+            // ability is an effect on other objects, not a characteristic of this one, so it is
+            // found by sweeping the battlefield and never by asking one permanent what it is.
+            // Nearly always an empty list, and skipped without a lookup when it is.
+            foreach (var component in source.MergedComponents)
+            {
+                foreach (var effect in abilities.StaticsOf(component))
+                {
+                    if (effect.Layer >= EffectLayer.Ability)
+                        (silenceable ??= []).Add(source.Id);
+
+                    removing |= Removes(effect);
+                    found.Add(new Candidate(effect, source, source.Timestamp));
+                }
             }
         }
 

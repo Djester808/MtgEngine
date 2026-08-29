@@ -479,11 +479,63 @@ roughly 9,700 distinct blocking sentences at about 1.1 cards each, and no rankin
 changes that.
 
 What is still shaped like a door is the **keyword backlog** — each one a self-contained grammar
-with its own CR 702 section, none of them read: `{M} - N/N` (48 cards), mutate (34), sneak (27),
+with its own CR 702 section: `{M} - N/N` (48 cards), sneak (27),
 level up (25 cards, printed as four line kinds), soulbond (24), spree (21), kicker-and/or (18),
 overload (17), teamwork (17), awaken (15), double team (15), specialize (15), hideaway (14),
 emerge (14), cleave (12), phasing (12), ravenous (12), backup (11), tribute (11), prowl (10),
 read ahead (10).
+
+**Mutate (CR 702.140) is off that list**, and it is the one that was not a grammar at all. The
+other entries are templates; this one is a change to what a permanent *is*, because CR 702.140e
+makes a mutated permanent one object represented by a stack of cards — the topmost card's
+characteristics and *every* card's abilities. `GameObject.MergedComponents` holds the cards under
+the top one and `GameObject.Card` stays the topmost, which is what made it affordable: CR 730.2a
+says a merged permanent has only its topmost component's characteristics, so every existing reader
+of `obj.Card` — the layers, the view, the legality checks, `Characteristics.CardOf` and therefore
+every copy effect — was already answering the question the rule asks. Only the abilities are the
+exception, and abilities are not characteristics: they are looked up from an `IAbilitySource` *by
+card*, so the components' go where a copied card's already go, `GrantedActivated` and
+`GrantedTriggers`, which `Game.ActivatedAbilitiesOf` and `Game.TriggersWatching` already union in.
+
+Three things it turned up that nothing else had:
+
+- **The copiable-values hook never ran on a quiet board.** `Characteristics.ApplyLayers` iterates
+  the layers *that have effects in them*, and read the copied card at the end of the layer 1 group
+  — so with no continuous effect anywhere on the battlefield there was no layer 1 group and the
+  hook did not fire at all. Invisible for the copy reader, whose own first line is "return if this
+  is not a copy", and fatal for mutate. It now runs when the loop passes layer 1 in either
+  direction, and again after the loop for a board with no effects on it.
+- **An ability id is unique only within its card.** The compiler numbers them `t0`, `a0` from zero
+  per card, which is enough everywhere else because a permanent's abilities come from one card. A
+  mutated permanent's do not, and two cards in one stack collide on the first ability each has —
+  and an ability goes on the stack as an *id*, resolved by looking that id up on the permanent's
+  card, so the card underneath would have had its trigger resolved with the top card's effects.
+  Component abilities are prefixed by their position in the stack.
+- **A trigger on the card that just arrived was never considered.** `CollectTriggers` reads an
+  object that exists on both sides of an event as it was *before* it, and a mutated permanent keeps
+  its id (CR 730.2c) — so the mutating card's own "whenever this creature mutates" trigger, which
+  is the trigger the whole cast was for, looked at a state where that card was still a spell on the
+  stack. It is considered once, afterwards.
+
+`Game.Move` is **not** the funnel for a permanent leaving the battlefield — every removal effect
+builds its own `ObjectMoved` — so CR 730.3's "each of the individual components are put into the
+appropriate zone" is done in `Emit`, which is the one path all of them come down. Without it the
+stack becomes one card the moment it dies and every card ever mutated onto something is gone from
+the game.
+
+What it is worth: **25 cards**, measured before and after over the whole corpus, and nothing lost.
+The remaining 13 of the 38 that mention mutate are blocked by their own bespoke effects, not by the
+keyword — Nethroi's "total power 10 or less", Illuna's exile-until, Vadrok's free cast from a
+graveyard, Brokkos casting itself from one, and Pollywog Symbiote's two lines that ask a *spell*
+whether it has mutate, which nothing in the vocabulary can ask.
+
+Two deviations, both written down rather than pretended away. **The over-or-under choice is made
+with the cast** rather than on resolution (CR 702.140c), for the reason every other cast-time choice
+is: a question asked mid-resolution is a continuation the log cannot rebuild. It commits the caster
+earlier than printed and can never make the card better than printed. And **the board has no way to
+offer it**: `CastOptionsDto` carries `Mutated`/`MutateOnTop` and `GameHub` forwards them, but
+nothing in `mtg-client` sends them yet, so mutate is reachable through the hub and not through the
+table.
 
 ### The compiler was not connected to the game
 

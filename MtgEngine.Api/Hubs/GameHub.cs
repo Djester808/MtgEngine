@@ -133,7 +133,9 @@ public sealed class GameHub : Hub
                 chosen.Fused,
                 chosen.Prepared,
                 chosen.WithFlash,
-                chosen.Prototyped);
+                chosen.Prototyped,
+                chosen.Mutated,
+                chosen.MutateOnTop);
         });
     }
 
@@ -331,7 +333,28 @@ public sealed record CastOptionsDto(
     bool WithFlash = false,
 
     /// <summary>Whether a prototype card is being cast for its smaller cost (CR 718.3).</summary>
-    bool Prototyped = false)
+    bool Prototyped = false,
+
+    /// <summary>
+    /// Whether the mutate cost is being paid, making this a mutating creature spell
+    /// (CR 702.140a).
+    /// </summary>
+    /// <remarks>
+    /// The creature it merges with is an ordinary target and arrives in <c>targets</c> like any
+    /// other, after whatever the card itself targets.
+    /// </remarks>
+    bool Mutated = false,
+
+    /// <summary>
+    /// Whether a mutating creature spell goes over the creature rather than under it
+    /// (CR 702.140c).
+    /// </summary>
+    /// <remarks>
+    /// The choice that decides what the permanent <em>is</em> afterwards: over, and it takes the
+    /// new card's name, size and types; under, and it keeps its own and gains only the abilities.
+    /// Ignored unless <see cref="Mutated"/> is set.
+    /// </remarks>
+    bool MutateOnTop = true)
 {
     /// <summary>A spell cast for exactly what is printed on it, choosing nothing.</summary>
     public static readonly CastOptionsDto Printed = new();

@@ -593,6 +593,31 @@ public sealed record GameObject
     /// </remarks>
     public bool WasBestowed { get; init; }
 
+    /// <summary>
+    /// Whether this was cast for its mutate cost, making it a mutating creature spell
+    /// (CR 702.140a).
+    /// </summary>
+    /// <remarks>
+    /// It is the flag two rules read, and both of them read it <em>instead of</em> the ordinary
+    /// path rather than alongside it. CR 608.3b: a mutating creature spell whose target has
+    /// become illegal does not fizzle — it stops being a mutating creature spell and resolves as
+    /// an ordinary creature spell. CR 702.140c: one whose target is still legal does not enter
+    /// the battlefield at all, and merges instead.
+    /// </remarks>
+    public bool WasMutated { get; init; }
+
+    /// <summary>Which end of the stack a mutating creature spell was put on (CR 702.140c).</summary>
+    /// <remarks>
+    /// The rule gives the choice to the spell's controller as it resolves. It is taken with the
+    /// cast instead, beside the decision to pay the mutate cost at all — the same place modes,
+    /// kicker and every other alternative cost are chosen, and for the reason given in
+    /// <c>Game.CastSpell</c>: a cast is one atomic action, and a question asked mid-resolution
+    /// would be a continuation the log cannot rebuild. The cost is that the choice is public
+    /// earlier than printed, which commits the caster sooner rather than later; it can never
+    /// make the card better than printed.
+    /// </remarks>
+    public bool MutatesOnTop { get; init; }
+
     /// <summary>Whether this spell was cast for its overload cost (CR 702.96a).</summary>
     public bool WasOverloaded { get; init; }
 
@@ -757,6 +782,45 @@ public sealed record GameObject
     public ImmutableList<Domain.Models.CardDefinition> Spliced { get; init; } = [];
 
     /// <summary>
+    /// The cards under the topmost one, when this permanent is represented by more than one
+    /// card (CR 730.2) — a mutated permanent.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Card"/> stays the <em>topmost</em> component, which is what makes this
+    /// affordable: CR 730.2a says a merged permanent has only its topmost component's
+    /// characteristics, so every existing reader of <c>obj.Card</c> — the layers, the view, the
+    /// legality checks, <see cref="Characteristics.CardOf"/> and therefore every copy effect —
+    /// is already answering the question the rule asks, and none of them had to learn that a
+    /// permanent can be a stack of cards.
+    /// <para>
+    /// Only the <em>abilities</em> are the exception (CR 702.140e: "a mutated permanent has all
+    /// abilities of each card and token that represents it"), and abilities are not
+    /// characteristics — they are looked up from an <see cref="Abilities.IAbilitySource"/> by
+    /// card. So the components' abilities are put where a permanent's non-printed abilities
+    /// already live, <c>ComputedCharacteristics.GrantedActivated</c> and its triggered twin,
+    /// which is the same place a copied card's go.
+    /// </para>
+    /// <para>
+    /// Ordered top-first, so index 0 is the card immediately under <see cref="Card"/>. Empty for
+    /// every ordinary permanent, which is nearly all of them.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<Domain.Models.CardDefinition> MergedComponents { get; init; } = [];
+
+    /// <summary>
+    /// How many times this permanent has mutated (CR 702.140), which four corpus cards read
+    /// as X.
+    /// </summary>
+    /// <remarks>
+    /// Derived rather than stored. Every merge adds exactly one card to the stack and nothing
+    /// ever takes one away while the permanent is on the battlefield, so the count of components
+    /// under the top <em>is</em> the number of merges — and a derived number cannot fall out of
+    /// step with the stack it describes, nor be left out of <see cref="Equals(GameObject?)"/>
+    /// and have its updates silently dropped.
+    /// </remarks>
+    public int TimesMutated => MergedComponents.Count;
+
+    /// <summary>
     /// How many times this spell's squad cost was paid as it was cast (CR 702.157a).
     /// </summary>
     /// <remarks>
@@ -857,6 +921,17 @@ public sealed record GameObject
         Structural.Same(ChosenModes, other.ChosenModes) &&
         Structural.Same(
             Spliced.ConvertAll(c => c.Name), other.Spliced.ConvertAll(c => c.Name)) &&
+
+        // The stack a mutated permanent is, compared the way the card above is: by oracle id,
+        // because a state rebuilt from a stored log has its own CardDefinition instances. Leaving
+        // it out would drop the second and every later merge — SetItem skips a write when the new
+        // value compares equal — so the permanent would keep the abilities of the first card
+        // under it and quietly stop counting mutations.
+        Structural.Same(
+            MergedComponents.ConvertAll(c => c.OracleId),
+            other.MergedComponents.ConvertAll(c => c.OracleId)) &&
+        WasMutated == other.WasMutated &&
+        MutatesOnTop == other.MutatesOnTop &&
         IsCopy == other.IsCopy &&
         WasBoughtBack == other.WasBoughtBack &&
         WasDashed == other.WasDashed &&

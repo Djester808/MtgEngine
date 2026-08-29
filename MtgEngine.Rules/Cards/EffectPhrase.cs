@@ -1031,6 +1031,33 @@ public static partial class EffectPhrase
         //
         // Read first, because the head on its own is a sentence the matchers below would take -
         // and take with X meaning "a number the caster chose", which is a different card.
+        //
+        // The mutation count comes before the general count, whose wording it starts with: "the
+        // number of times ~ has mutated" would otherwise reach the group grammar as a group
+        // called "times ~ has mutated", which is nothing, and the whole sentence would go unread.
+        var mutations = VariableIsMutationsLine().Match(sentence);
+        if (mutations.Success)
+        {
+            var scratch = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(
+                    mutations.Groups["head"].Value.Trim(),
+                    targets,
+                    scratch,
+                    objectNamedByTrigger))
+            {
+                return false;
+            }
+
+            effects.Add(new WithCountedVariable(
+                context => context.State.TryGetObject(context.PhysicalSourceId, out var self)
+                    ? self.TimesMutated
+                    : 0,
+                scratch.ToImmutable()));
+
+            return true;
+        }
+
         var defining = VariableIsCountLine().Match(sentence);
         if (defining.Success)
         {
@@ -7959,6 +7986,21 @@ public static partial class EffectPhrase
     private static partial Regex VariableIsCountLine();
 
     /// <summary>
+    /// "…, where X is the number of times ~ has mutated" (CR 702.140).
+    /// </summary>
+    /// <remarks>
+    /// Not a count of anything on the battlefield, so it cannot go through the group grammar
+    /// above: it is a fact about one permanent's own history, the way "where X is its power" is a
+    /// fact about its own size. Four corpus cards read it, and each of them would otherwise take
+    /// X to mean a number the caster chose - which on a spell nobody casts for X is zero, and
+    /// zero is the number that makes every one of them do nothing at all.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is the number of times ~ has mutated$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsMutationsLine();
+
+    /// <summary>
     /// "…, where X is its power" — X measured on one permanent rather than counted (CR 107.3).
     /// </summary>
     /// <remarks>
@@ -9884,6 +9926,15 @@ public static partial class TriggerConditions
             };
         }
 
+        // CR 702.140c: a mutation is one spell merging with one creature, and the event names
+        // that creature - so "put a +1/+1 counter on it" and "put a +1/+1 counter on that
+        // creature" both have exactly one thing they can mean. Admitted with the same discipline
+        // as the families below: Game.SubjectObjectOf really does answer with that permanent's
+        // id, and the id is still the permanent's afterwards because merging does not make a new
+        // object (CR 730.2c).
+        if (MutatesLine().IsMatch(condition))
+            return true;
+
         // The zone-change family, and it is admitted one verb at a time rather than whole. Most
         // of its verbs name an event carrying exactly one object - the permanent that entered,
         // the card that reached the graveyard, the permanent that tapped - and for those the
@@ -10498,6 +10549,31 @@ public static partial class TriggerConditions
         {
             return (e, _, source) =>
                 e is BecameMonstrous monstrous && monstrous.Id == source.Id;
+        }
+
+        // CR 702.140d: "an ability that triggers whenever a creature mutates triggers when a
+        // spell merges with a creature as a result of a resolving mutating creature spell" -
+        // which is exactly the event, and nothing else produces one.
+        var mutates = MutatesLine().Match(condition);
+        if (mutates.Success)
+        {
+            var itself = mutates.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
+
+            return (e, state, source) =>
+            {
+                if (e is not PermanentMutated merged)
+                    return false;
+
+                if (itself)
+                    return merged.Id == source.Id;
+
+                // CR 613.1b: whose creature it is, is a computed characteristic. Asked of the
+                // permanent that mutated rather than of its stored controller, because a creature
+                // an opponent has taken is not one you control however it started.
+                return state.TryGetObject(merged.Id, out var creature)
+                    && Characteristics.Of(state, source.Abilities, creature).ControllerId
+                        == source.ControllerId;
+            };
         }
 
         if (TurnedFaceUpLine().IsMatch(condition))
@@ -11962,6 +12038,18 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^~ becomes monstrous$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomesMonstrousLine();
+
+    /// <summary>
+    /// "~ mutates" and "a creature you control mutates" (CR 702.140d).
+    /// </summary>
+    /// <remarks>
+    /// The two shapes are one pattern because they differ only in who the creature is, which is
+    /// the same distinction every other trigger family here draws. "Another creature" is not
+    /// printed on any card and is left out rather than guessed at.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>~|a creature you control) mutates$", RegexOptions.IgnoreCase)]
+    private static partial Regex MutatesLine();
 
     [GeneratedRegex(
         @"^(?<who>you|a player|an opponent) discards? a card$", RegexOptions.IgnoreCase)]

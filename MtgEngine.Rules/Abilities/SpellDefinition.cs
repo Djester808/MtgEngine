@@ -190,6 +190,26 @@ public sealed record SpellDefinition
     /// <summary>What a bestowed casting enchants, which a normal one does not target.</summary>
     public TargetSpec? BestowTarget { get; init; }
 
+    /// <summary>
+    /// What casting this as a mutating creature spell costs (CR 702.140a).
+    /// </summary>
+    /// <remarks>
+    /// Bestow's shape one keyword along: an alternative cost that also gives the spell a target
+    /// it does not otherwise have, and changes what it becomes when it resolves. Where bestow
+    /// makes the card an Aura on the battlefield, this stops it reaching the battlefield at all —
+    /// it merges with what it targeted and the two are one permanent afterwards (CR 702.140c).
+    /// </remarks>
+    public ManaCostSpec? MutateCost { get; init; }
+
+    /// <summary>What a mutating casting merges with, which a normal one does not target.</summary>
+    /// <remarks>
+    /// "A non-Human creature with the same owner as this spell" (CR 702.140a). The owner half is
+    /// a <see cref="TargetSpec.SourceFilter"/> rather than an object filter because it is a
+    /// question about the spell as well as the candidate, and only the caller that knows which
+    /// spell is asking can answer it.
+    /// </remarks>
+    public TargetSpec? MutateTarget { get; init; }
+
     /// <summary>What casting this for its overload cost costs (CR 702.96a).</summary>
     public ManaCostSpec? OverloadCost { get; init; }
 
