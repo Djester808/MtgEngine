@@ -120,6 +120,26 @@ public sealed record LibraryShuffled(Guid PlayerId, ImmutableList<ObjectId> Orde
 /// something that no longer exists, which is the rule working as intended: an aura attached to
 /// a creature that died must not find it again when it returns.
 /// </remarks>
+/// <param name="ControllerId">Who controls it on arrival, for a zone that has controllers.</param>
+/// <param name="LeavingControllerId">
+/// Who controlled it as it left the battlefield, if it was on one (CR 613.1b).
+/// </param>
+/// <remarks>
+/// The leaving controller is a different question from <paramref name="ControllerId"/> and cannot
+/// be answered by it: that one says who controls the object where it is going, and for a hand, a
+/// library or a graveyard the answer is simply its owner (CR 400.3). "If a permanent left the
+/// battlefield under your control this turn" — revolt, and twenty-six corpus lines — asks the
+/// other end of the move.
+/// <para>
+/// It is on the event rather than worked out by the fold because <b>control is layer 2</b>
+/// (CR 613.1b): the controller stored on an object is only where its control <em>started</em>, so
+/// a stolen permanent that dies would be filed against the player it was taken from. The reducer
+/// has no ability source and cannot compute the current controller; the engine can, and stamps it
+/// here, on the one path every event takes. Null means nobody stamped it — a hand-built event in
+/// a test, or a log written before the field existed — and the fold falls back to the stored
+/// controller rather than refusing to fold.
+/// </para>
+/// </remarks>
 public sealed record ObjectMoved(
     ObjectId OldId,
     ObjectId NewId,
@@ -127,7 +147,8 @@ public sealed record ObjectMoved(
     Zone To,
     Guid ControllerId,
     MoveCause Cause,
-    ZonePosition Position = ZonePosition.Top) : GameEvent
+    ZonePosition Position = ZonePosition.Top,
+    Guid? LeavingControllerId = null) : GameEvent
 {
     public override string Rule => "400.7";
 
@@ -581,7 +602,7 @@ public sealed record CoinFlipped(Guid PlayerId, bool Won) : GameEvent
     public override string Describe() => $"{PlayerId:N} {(Won ? "won" : "lost")} the flip.";
 }
 
-/// <summary>Energy counters gained or spent by a player (CR 122.1, 107.4c).</summary>
+/// <summary>Energy counters gained or spent by a player (CR 122.1, 107.14).</summary>
 /// <param name="TurnIncrease">
 /// Whether this is the once-a-turn automatic increase, which may not happen twice (CR 702.179b).
 /// Starting your engines is not one, so a player who starts them and then makes an opponent lose
@@ -596,10 +617,33 @@ public sealed record SpeedChanged(Guid PlayerId, int Speed, bool TurnIncrease = 
 
 public sealed record EnergyChanged(Guid PlayerId, int Delta) : GameEvent
 {
-    public override string Rule => "107.4c";
+    // Was 107.4c, which is the colorless mana symbol {C} and has nothing to do with energy. The
+    // citation gate only checks that a rule exists, and that one does.
+    public override string Rule => "107.14";
 
     public override string Describe() =>
         $"{PlayerId:N} {(Delta >= 0 ? "gets" : "pays")} {Math.Abs(Delta)} energy.";
+}
+
+/// <summary>
+/// Experience counters gained by a player (CR 122.1).
+/// </summary>
+/// <remarks>
+/// Energy's shape, and a delta rather than a total for the same reason: two effects giving a
+/// counter in the same window each say what they did, so neither has to have read the other's
+/// result first. The delta is signed only because the type is - nothing in the corpus removes an
+/// experience counter, and the fold clamps at zero the way energy's does rather than trusting
+/// that.
+/// </remarks>
+public sealed record ExperienceCountersChanged(Guid PlayerId, int Delta) : GameEvent
+{
+    // CR 122.1 and no further: unlike poison, loyalty, shield and the rest, an experience counter
+    // has no sub-rule because it does nothing by itself. It is a marker on a player that the
+    // cards which hand them out read back, and that is the whole of it.
+    public override string Rule => "122.1";
+
+    public override string Describe() =>
+        $"{PlayerId:N} gets {Math.Abs(Delta)} experience counter(s).";
 }
 
 /// <summary>

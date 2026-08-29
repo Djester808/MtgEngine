@@ -1294,6 +1294,34 @@ public sealed record GainEnergy(Amount Count, PlayerScope Scope = PlayerScope.Yo
 }
 
 /// <summary>
+/// "You get an experience counter" (CR 122.1).
+/// </summary>
+/// <remarks>
+/// Energy's twin, and separate from it because the two are different resources that different
+/// cards read back: sixteen commanders hand out experience and eighteen cards multiply by "the
+/// number of experience counters you have", none of which would be satisfied by a pile of energy.
+/// <para>
+/// The printed line is always exactly one counter, but the count is an <see cref="Amount"/> like
+/// every other number in the engine, so a card that ever prints two - or two for each of
+/// something - needs no new effect.
+/// </para>
+/// </remarks>
+public sealed record GainExperience(Amount Count, PlayerScope Scope = PlayerScope.You) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var count = Count.In(context);
+        return
+        [
+            .. PlayerScopes.Resolve(Scope, context)
+                .Select(who => new ExperienceCountersChanged(who, count)),
+        ];
+    }
+}
+
+/// <summary>
 /// Copies a spell on the stack some number of times (CR 707.10).
 /// </summary>
 /// <remarks>

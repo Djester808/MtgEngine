@@ -178,7 +178,7 @@ public sealed record PlayerState
     public bool WasDealtDamageThisTurn { get; init; }
 
     /// <summary>
-    /// Energy counters this player has (CR 122.1, 107.4c).
+    /// Energy counters this player has (CR 122.1, 107.14).
     /// </summary>
     /// <remarks>
     /// A counter on a player, like poison, and kept the same way. It is not mana: it does not
@@ -271,6 +271,40 @@ public sealed record PlayerState
     /// </remarks>
     public int LifeGainedThisTurn { get; init; }
 
+    /// <summary>
+    /// How many times this player has descended this turn (CR 700.11).
+    /// </summary>
+    /// <remarks>
+    /// The rule defines the word exactly, and not as anything to do with the graveyard's current
+    /// contents: a player has descended when "a permanent card has been put into that player's
+    /// graveyard from anywhere this turn", and the number of times is the number of such cards.
+    /// So this counts arrivals, not residents — CR 700.11's last sentence says in as many words
+    /// that none of those cards need still be there.
+    /// <para>
+    /// Two things it is not, and both are printed on cards that look like they mean it.
+    /// <b>Descend 4 and descend 8 are not this</b>: they read "there are four or more permanent
+    /// cards in your graveyard", which is a count of the zone right now and needs no watcher.
+    /// And a <em>token</em> put into a graveyard is not a card (CR 111.7), so it does not descend
+    /// anybody — which matters, because a board of tokens dying would otherwise turn on every
+    /// end-step trigger in the family for free.
+    /// </para>
+    /// </remarks>
+    public int TimesDescendedThisTurn { get; init; }
+
+    /// <summary>
+    /// Experience counters this player has (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// A counter on a player, like poison and energy, and kept the same way — but unlike every
+    /// "this turn" number beside it, and unlike energy, it is <em>never</em> reset and never
+    /// spent. Sixteen commanders hand them out and eighteen cards read the total back as "for
+    /// each experience counter you have"; nothing in the corpus removes one. So there is no
+    /// resetting arm in the fold, deliberately: a counter that could be cleared at end of turn
+    /// would make every one of those cards a strictly worse card than the one printed, and
+    /// nothing in the suite would say so.
+    /// </remarks>
+    public int ExperienceCounters { get; init; }
+
     /// <summary>How many noncreature spells this player has cast this turn.</summary>
     /// <remarks>
     /// Counted separately rather than derived, because by the time anything asks, the spells are
@@ -361,6 +395,8 @@ public sealed record PlayerState
         HasCitysBlessing == other.HasCitysBlessing &&
         LifeGainedThisTurn == other.LifeGainedThisTurn &&
         NoncreatureSpellsCastThisTurn == other.NoncreatureSpellsCastThisTurn &&
+        TimesDescendedThisTurn == other.TimesDescendedThisTurn &&
+        ExperienceCounters == other.ExperienceCounters &&
 
         // By name, the way an object's spliced cards are compared: a CardDefinition is a class
         // with reference equality, and two runs of the same log hand out the same definitions

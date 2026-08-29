@@ -11452,6 +11452,496 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(1, player.SpellsCastThisTurnOfKind(CardType.None));
     }
 
+    // ---- What a turn remembers ------------------------------------------------
+
+    /// <summary>Plays on until the given turn has reached its first main phase.</summary>
+    /// <remarks>
+    /// Stopping on the turn number alone stops somewhere inside the untap and upkeep steps, and
+    /// two of the tests below are about facts that the untap step changes. Naming the step as
+    /// well is what makes "on the opponent's turn" mean a moment rather than a range.
+    /// </remarks>
+    private static void PassToMainPhaseOfTurn(Game game, int turnNumber) =>
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber >= turnNumber
+                && game.State.CurrentStep >= TurnStep.PrecombatMain);
+
+    /// <summary>
+    /// "As long as ~ entered this turn" is about the turn it arrived on, and no other.
+    /// </summary>
+    /// <remarks>
+    /// Eighty-seven corpus cards ask it, including the whole cycle of lands whose second mana
+    /// ability reads "Activate only if this land entered this turn". A permanent that arrived on
+    /// an earlier turn has to answer no, which is the half a stored flag gets wrong by never being
+    /// cleared — so the turn number is compared rather than a flag being set and reset.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_entered_this_turn_only_on_the_turn_it_arrived()
+    {
+        var (game, alice, _) = InMainPhase();
+        var pit = game.Create(alice, TestCards.BasicLand("Entered Turn Pit"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.EnteredThisTurn(pit));
+        Assert.Equal(
+            game.State.TurnNumber, game.State.GetObject(pit).Permanent!.EnteredOnTurn);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.False(game.State.EnteredThisTurn(pit));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// The two permanents on the board disagree, which is the whole of what the question is for.
+    /// </summary>
+    /// <remarks>
+    /// A test that only ever has one permanent cannot tell "entered this turn" from "is on the
+    /// battlefield". The second creature arrives a turn later, so a reader that answered from the
+    /// board rather than from the turn would light both of them up.
+    /// <para>
+    /// It also exercises the other way onto the battlefield. A token is <em>created</em> there and
+    /// was never anywhere else (CR 111.1), while a creature spell <em>moves</em> there as it
+    /// resolves — two different arms of the fold, and an "enters" fact recorded in only one of
+    /// them has been an engine bug here before.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Only_the_permanent_that_arrived_this_turn_says_it_entered_this_turn()
+    {
+        var (game, alice, _) = InMainPhase();
+        var veteran = game.Create(
+            alice, TestCards.Creature("Entered Turn Veteran", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+
+        var recruit = Card(
+            "Entered Turn Recruit", string.Empty, CardType.Creature, power: 2, toughness: 2);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, recruit));
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Entered Turn Recruit");
+
+        Assert.True(game.State.EnteredThisTurn(arrived));
+        Assert.False(game.State.EnteredThisTurn(veteran));
+    }
+
+    /// <summary>
+    /// Entering this turn is not summoning sickness, and this is the turn they disagree on.
+    /// </summary>
+    /// <remarks>
+    /// The substitution is tempting and wrong. CR 302.6 keeps summoning sickness until the
+    /// permanent's controller's <em>next</em> turn begins, so a creature that arrived on Alice's
+    /// turn still has it all through Bob's turn — while "as long as ~ entered this turn" is
+    /// emphatically off during that turn. The two agree only on the turn the permanent arrived,
+    /// and diverge on the next one, which is the turn combat happens on: a reader built on the
+    /// sickness flag would have been wrong exactly where it mattered and right everywhere it was
+    /// easy to check.
+    /// <para>
+    /// The third stop is the question worth being explicit about: when the turn comes back round
+    /// to Alice, does the permanent "enter this turn" again? No. It is the turn it arrived on, not
+    /// a window that reopens each time its controller's turn does — and by then the sickness has
+    /// gone, so the two flags have swapped which of them is true and still neither says yes.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Entering_this_turn_is_not_summoning_sickness()
+    {
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Entered Turn Bear", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var arrivedOn = game.State.TurnNumber;
+        Assert.True(game.State.EnteredThisTurn(bear));
+        Assert.True(game.State.GetObject(bear).Permanent!.HasSummoningSickness);
+
+        // Bob's turn. Still sick (CR 302.6), and it did not enter this turn.
+        PassToMainPhaseOfTurn(game, arrivedOn + 1);
+        Assert.NotEqual(alice, game.State.ActivePlayerId);
+        Assert.True(game.State.GetObject(bear).Permanent!.HasSummoningSickness);
+        Assert.False(game.State.EnteredThisTurn(bear));
+
+        // Alice's turn again. The sickness is gone and the answer has not changed.
+        PassToMainPhaseOfTurn(game, arrivedOn + 2);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.False(game.State.GetObject(bear).Permanent!.HasSummoningSickness);
+        Assert.False(game.State.EnteredThisTurn(bear));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "If a nonland permanent left the battlefield this turn" — void's first half.
+    /// </summary>
+    /// <remarks>
+    /// Sixteen corpus lines say "nonland" — which is not decoration: a fetchland sacrificing itself
+    /// would otherwise turn every one of them on for free, on a board where nothing the card is
+    /// about has happened. Void is an ability word and so has no rule of its own (CR 207.2c); only
+    /// its other half, "a spell was warped this turn", is defined anywhere (CR 702.185c).
+    /// <para>
+    /// Exile is the other half. A creature exiled has left the battlefield and has not died
+    /// (CR 700.4), so the departure count moves and the death count does not — one recorded fact
+    /// answering two questions that a single flag would have run together.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_leaving_the_battlefield_is_recorded_and_lands_can_be_left_out()
+    {
+        var (game, _, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Departing Bear", 2, 2), Zone.Battlefield);
+        var forest = game.Create(bob, TestCards.BasicLand("Departing Forest"), Zone.Battlefield);
+        var ox = game.Create(bob, TestCards.Creature("Departing Ox", 3, 3), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(0, game.State.PermanentsLeftBattlefieldThisTurn());
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn());
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(nonlandOnly: true));
+        Assert.True(game.State.CreatureDiedThisTurn);
+
+        // A land leaving is a departure, and is not one void asks about.
+        game.Move(forest, Zone.Graveyard, MoveCause.Sacrifice);
+        Settle(game);
+
+        Assert.Equal(2, game.State.PermanentsLeftBattlefieldThisTurn());
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(nonlandOnly: true));
+
+        // Exiled is gone from the battlefield without having died.
+        game.Move(ox, Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(3, game.State.PermanentsLeftBattlefieldThisTurn());
+        Assert.Equal(2, game.State.PermanentsLeftBattlefieldThisTurn(nonlandOnly: true));
+        Assert.Equal(1, game.State.CreaturesDiedThisTurn());
+
+        // "If a creature left the battlefield under your control this turn" names a type as well
+        // as a player, and the land and the exiled creature are told apart by it.
+        Assert.Equal(
+            2, game.State.PermanentsLeftBattlefieldThisTurn(types: CardType.Creature));
+
+        // It is a fact about the turn, and the turn ends.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.Equal(0, game.State.PermanentsLeftBattlefieldThisTurn());
+        Assert.False(game.State.CreatureDiedThisTurn);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// Revolt: "if a permanent left the battlefield <em>under your control</em> this turn".
+    /// </summary>
+    /// <remarks>
+    /// This is the case a game-wide flag gets wrong, and it gets it wrong in the direction that
+    /// still plays: 26 corpus lines say "under your control" and 5 more say "you controlled", and
+    /// on every one of them an opponent's creature dying must <em>not</em> turn the card on. A
+    /// reader built on "did anything leave" would be strictly better than printed on all 31, and
+    /// nothing about the card would say so.
+    /// <para>
+    /// The two halves are asserted against each other rather than separately, because that is what
+    /// makes the test fail on an unscoped implementation: an engine that ignored the scope would
+    /// give both players the same answer, and both assertions here would have to be true at once.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_departure_is_recorded_against_the_player_who_controlled_it()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var hers = game.Create(bob, TestCards.Creature("Revolt Bear", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        game.Move(hers, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(bob));
+        Assert.Equal(0, game.State.PermanentsLeftBattlefieldThisTurn(alice));
+
+        // Void is the one shape in the family that really is game-wide, and it still sees it.
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(nonlandOnly: true));
+
+        var mine = game.Create(alice, TestCards.Creature("Revolt Ox", 3, 3), Zone.Battlefield);
+        game.Move(mine, Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(alice));
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(bob));
+        Assert.Equal(2, game.State.PermanentsLeftBattlefieldThisTurn());
+
+        // Only one of them died, and only one of them was Bob's.
+        Assert.Equal(1, game.State.CreaturesDiedThisTurn(controllerId: bob));
+        Assert.Equal(0, game.State.CreaturesDiedThisTurn(controllerId: alice));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A stolen permanent that dies left under the control of whoever had taken it (CR 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// This is the case the scoping gets wrong if it is read off the departing object. Control is
+    /// layer 2, so <c>obj.ControllerId</c> is only where control <em>started</em> — it is not
+    /// rewritten when an effect takes the permanent — and a revolt card belonging to the thief
+    /// would have stayed off while the victim's turned on. The fold cannot compute the answer, so
+    /// the engine puts it on the move; this is the test that says the stamp is happening and is
+    /// being read.
+    /// <para>
+    /// The two assertions are each other's control: an engine reading the stored controller passes
+    /// neither, and an engine that simply gave both players the same answer fails the second.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_stolen_permanent_leaves_under_the_control_of_whoever_took_it()
+    {
+        var treason = Card(
+            "Revolt Treason Test",
+            "Gain control of target creature until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(treason);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Revolt Stolen Bear", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, treason), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        // It died under Alice's control, however it started, and however Bob's copy of the object
+        // still reads.
+        Assert.Equal(1, game.State.PermanentsLeftBattlefieldThisTurn(alice));
+        Assert.Equal(0, game.State.PermanentsLeftBattlefieldThisTurn(bob));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// Celebration: "two or more nonland permanents entered the battlefield under your control
+    /// this turn".
+    /// </summary>
+    /// <remarks>
+    /// A different question from "did <em>this</em> permanent enter this turn", and about thirty
+    /// corpus lines past it: nine for celebration itself, eight for "an artifact entered under your
+    /// control this turn", and the rest spread over creatures, planeswalkers and single cards
+    /// naming a subtype.
+    /// <para>
+    /// The land is what the test turns on. Two permanents entering is not celebration if one of
+    /// them is a land, and a reader that counted permanents rather than nonland permanents would
+    /// be turned on by a land drop plus anything — which is most turns of most games.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Permanents_that_entered_under_your_control_are_counted_without_the_lands()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Celebration Forest"), Zone.Battlefield);
+        var relic = game.Create(
+            alice,
+            Card("Celebration Relic", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+        Settle(game);
+
+        // A land and an artifact is one nonland permanent, and celebration wants two.
+        Assert.Equal(2, game.State.PermanentsEnteredThisTurn(alice));
+        Assert.Equal(1, game.State.PermanentsEnteredThisTurn(alice, nonlandOnly: true));
+        Assert.Equal(1, game.State.PermanentsEnteredThisTurn(alice, types: CardType.Artifact));
+
+        game.Create(alice, TestCards.Creature("Celebration Bear", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, game.State.PermanentsEnteredThisTurn(alice, nonlandOnly: true));
+
+        // "Another creature entered under your control this turn" is the same count with the
+        // asking permanent taken out - and the relic is not a creature either way.
+        Assert.Equal(
+            1, game.State.PermanentsEnteredThisTurn(alice, types: CardType.Creature));
+        Assert.Equal(
+            0,
+            game.State.PermanentsEnteredThisTurn(
+                alice, types: CardType.Artifact, except: relic));
+
+        // It is scoped to a player, and Bob has played nothing.
+        Assert.Equal(0, game.State.PermanentsEnteredThisTurn(bob));
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.Equal(0, game.State.PermanentsEnteredThisTurn(alice));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A permanent that entered and left in the same turn still entered.
+    /// </summary>
+    /// <remarks>
+    /// The reason the arrivals are recorded rather than swept off the battlefield. Counting
+    /// permanents stamped with this turn number would be free and would answer this one wrongly:
+    /// a token created and sacrificed before the trigger looks is not there to be counted, and
+    /// celebration does not ask what is on the board — it asks what arrived.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_that_entered_and_left_this_turn_is_still_counted_as_having_entered()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        var spark = game.Create(
+            alice,
+            Card("Celebration Spark", string.Empty, CardType.Creature | CardType.Token, 1, 1),
+            Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Celebration Second", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        game.Move(spark, Zone.Graveyard, MoveCause.Sacrifice);
+        Settle(game);
+
+        Assert.DoesNotContain(spark, game.State.Battlefield);
+        Assert.Equal(2, game.State.PermanentsEnteredThisTurn(alice, nonlandOnly: true));
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "The number of creatures that died this turn", and the nontoken half of it.
+    /// </summary>
+    /// <remarks>
+    /// Nineteen corpus cards multiply by this count and six of them say "nontoken", which a bool
+    /// cannot answer at all and a single count answers wrongly: a board of tokens dying would
+    /// otherwise make Rise of the Dread Marn and Gadrak twice the cards they are printed as. The
+    /// token flag is a printed card type here, so the two counts come off the same record.
+    /// </remarks>
+    [Fact]
+    public void Creatures_that_died_this_turn_are_counted_and_tokens_can_be_left_out()
+    {
+        var (game, _, bob) = InMainPhase();
+        var first = game.Create(bob, TestCards.Creature("Died Count First", 2, 2), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Died Count Second", 2, 2), Zone.Battlefield);
+        var spirit = game.Create(
+            bob,
+            Card("Died Count Spirit", string.Empty, CardType.Creature | CardType.Token, 1, 1),
+            Zone.Battlefield);
+        Settle(game);
+
+        game.Move(first, Zone.Graveyard, MoveCause.Destroy);
+        game.Move(second, Zone.Graveyard, MoveCause.Destroy);
+        game.Move(spirit, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, game.State.CreaturesDiedThisTurn());
+        Assert.Equal(2, game.State.CreaturesDiedThisTurn(nontokenOnly: true));
+        Assert.True(game.State.CreatureDiedThisTurn);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.Equal(0, game.State.CreaturesDiedThisTurn());
+        Assert.False(game.State.CreatureDiedThisTurn);
+    }
+
+    /// <summary>
+    /// "You descended this turn" is a permanent card reaching your graveyard (CR 700.11).
+    /// </summary>
+    /// <remarks>
+    /// The rule defines the word and it is not about the graveyard's contents: descending is a
+    /// card <em>arriving</em>, from anywhere, and CR 700.11 says in as many words that none of
+    /// them need still be there. So the four things that look like it and are not each get an
+    /// assertion — a mill counts as much as a death, a token is not a card (CR 111.7), an instant
+    /// is not a permanent card, and it is another player's graveyard that decides whose count
+    /// moves.
+    /// <para>
+    /// Descend 4 and descend 8 are deliberately not this, and nothing here should be taken as
+    /// covering them: those read "there are four or more permanent cards in your graveyard", which
+    /// is a count of the zone right now and needs no watcher at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Descending_counts_permanent_cards_reaching_your_graveyard_from_anywhere()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Descend Bear", 2, 2), Zone.Battlefield);
+        var husk = game.Create(
+            alice,
+            Card("Descend Husk", string.Empty, CardType.Creature | CardType.Token, 1, 1),
+            Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Descend Forest"), Zone.Library);
+        var jolt = game.Create(alice, Card("Descend Jolt", string.Empty), Zone.Hand);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+
+        // A creature card dying is a permanent card put into its owner's graveyard.
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+        Assert.Equal(1, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+
+        // "From anywhere": milled off the library counts exactly as much as dying does.
+        game.Move(forest, Zone.Graveyard, MoveCause.Mill);
+        Settle(game);
+        Assert.Equal(2, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+
+        // A token is not a card, so it descends nobody.
+        game.Move(husk, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+        Assert.Equal(2, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+
+        // Nor is an instant a permanent card.
+        game.Move(jolt, Zone.Graveyard, MoveCause.Discard);
+        Settle(game);
+        Assert.Equal(2, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+
+        // It is that player's graveyard the rule names, and Bob's has had nothing in it.
+        Assert.Equal(0, game.State.GetPlayer(bob).TimesDescendedThisTurn);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.Equal(0, game.State.GetPlayer(alice).TimesDescendedThisTurn);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "You get an experience counter", and it is still there next turn (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// Sixteen commanders hand these out and eighteen cards read the total back as "for each
+    /// experience counter you have"; nothing in the corpus removes one. The turn boundary is the
+    /// assertion that matters: every other number that arrived on <c>PlayerState</c> beside this
+    /// one is cleared when a turn begins, and clearing this one would make every card that reads
+    /// it a strictly worse card than the one printed, with nothing failing to say so.
+    /// <para>
+    /// Hand-built, like the four spells further up this file: the effect is engine machinery whose
+    /// reader is being written separately, and a test that waited for the reader would be a test
+    /// of two things that fails for either.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_experience_counter_is_kept_past_the_turn_that_gave_it()
+    {
+        var rite = Card("Experience Rite Test", "You get an experience counter.", CardType.Sorcery);
+        var pool = new HandBuilt().WithSpell(
+            rite, new SpellDefinition { Effects = [new GainExperience(1)] });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rite));
+        Settle(game);
+        Assert.Equal(1, game.State.GetPlayer(alice).ExperienceCounters);
+
+        // They accumulate, which is the whole of what "for each experience counter you have" is
+        // multiplying by.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rite));
+        Settle(game);
+        Assert.Equal(2, game.State.GetPlayer(alice).ExperienceCounters);
+        Assert.Equal(0, game.State.GetPlayer(bob).ExperienceCounters);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 1);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).ExperienceCounters);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
     /// <summary>
     /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
     /// </summary>

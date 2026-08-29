@@ -9252,6 +9252,15 @@ public sealed class Game
             return;
         }
 
+        // CR 613.1b: control is layer 2, so the controller stored on the departing object is only
+        // where its control started - a stolen permanent that dies would be filed against the
+        // player it was taken from. The fold cannot work the current one out, because it has no
+        // ability source; this does, and this is the one path every event takes on its way into
+        // both the state and the log, so a replay reads the same answer rather than recomputing
+        // it against a board that has moved on.
+        if (e is ObjectMoved { From: Zone.Battlefield, LeavingControllerId: null } leaving)
+            e = leaving with { LeavingControllerId = ControllerOf(State.GetObject(leaving.OldId)) };
+
         var before = State;
         State = GameReducer.Apply(State, e);
         _log.Add(e);
