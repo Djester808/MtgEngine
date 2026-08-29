@@ -552,6 +552,11 @@ public static class GameReducer
             ChoosePermanentRequested => state,
             CoinFlipRequested => state,
             CoinFlipped => state,
+
+            // Like the coin, a roll changes no state of its own: what it decided is carried by
+            // the events the chosen branch then emitted, which the fold replays like any others.
+            DiceRollRequested => state,
+            DiceRolled => state,
             ModesChosen chosenModes => Changing(
                 state, chosenModes.StackId, o => o with { ChosenModes = chosenModes.Modes }),
             SpellSquadded squad => Changing(

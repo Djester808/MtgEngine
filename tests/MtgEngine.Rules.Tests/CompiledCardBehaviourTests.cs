@@ -43096,6 +43096,464 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(after.CardTypes.HasFlag(CardType.Creature));
     }
 
+    // ---- Dice rolling (CR 706) -----------------------------------------------
+
+    /// <summary>Recruitment Drive: the row the number lands in is the row that happens.</summary>
+    /// <remarks>
+    /// The assertion is written against the logged outcome rather than a known number, because
+    /// the number is the randomness under test: whatever came up, the tokens on the table have
+    /// to be the ones that row prints and no other row's.
+    /// </remarks>
+    [Fact]
+    public void A_results_table_runs_the_row_the_die_lands_in()
+    {
+        var drive = Card(
+            "Recruitment Drive Test",
+            "Roll a d20.\n"
+                + "1—9 | Create two 1/1 white Soldier creature tokens.\n"
+                + "10—19 | Create two 2/2 white Knight creature tokens.\n"
+                + "20 | Create three 2/2 white Knight creature tokens.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(drive).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drive));
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(20, rolled.Sides);
+        Assert.InRange(rolled.Result, 1, 20);
+
+        var tokens = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.Name is "Soldier" or "Knight")
+            .ToList();
+
+        var (name, count) = rolled.Result switch
+        {
+            <= 9 => ("Soldier", 2),
+            <= 19 => ("Knight", 2),
+            _ => ("Knight", 3),
+        };
+
+        Assert.Equal(count, tokens.Count);
+        Assert.All(tokens, t => Assert.Equal(name, t.Card.Name));
+    }
+
+    /// <summary>Contact Other Plane: rows that scry and draw, picked by range (CR 706.3a).</summary>
+    [Fact]
+    public void A_row_of_several_sentences_runs_whole()
+    {
+        var contact = Card(
+            "Contact Other Plane Test",
+            "Roll a d20.\n"
+                + "1—9 | Draw two cards.\n"
+                + "10—19 | Scry 2, then draw two cards.\n"
+                + "20 | Scry 3, then draw three cards.");
+
+        Assert.True(CardCompiler.Compile(contact).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, contact));
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+
+        // The spell itself leaves the hand, and the row's draws come back into it.
+        var drawn = rolled.Result == 20 ? 3 : 2;
+        Assert.Equal(before - 1 + drawn, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The roll is in the log as its outcome, so a resumed game reads it instead of re-rolling
+    /// — the rule every shuffle and coin flip here already follows.
+    /// </summary>
+    [Fact]
+    public void A_roll_replays_from_its_logged_outcome_not_the_dice()
+    {
+        var purse = Card(
+            "Everfull Sac Test",
+            "{T}, Sacrifice ~: Roll a six-sided die. You gain life equal to the result.",
+            CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(purse).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bauble = game.Create(alice, purse, Zone.Battlefield);
+        game.ActivateAbility(alice, bauble, "a");
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(20 + rolled.Result, game.State.GetPlayer(alice).Life);
+
+        // A different seed on resume must make no difference: the outcome is already history.
+        var resumed = Game.Resume([.. game.Log], new GameRandom(987654), Pool);
+        Assert.Equal(game.State, resumed.State);
+    }
+
+    /// <summary>Two games from two seeds do not always roll the same number.</summary>
+    /// <remarks>
+    /// The counterpart of the replay test above, and the pair is the whole contract: the same
+    /// log is always the same game, and a fresh game is not condemned to the same dice.
+    /// </remarks>
+    [Fact]
+    public void Seeded_games_roll_their_own_numbers()
+    {
+        var roller = Card("Bare Roller Test", "{T}: Roll a d20.", CardType.Artifact);
+        Assert.True(CardCompiler.Compile(roller).IsComplete);
+
+        var seen = new HashSet<int>();
+
+        foreach (var seed in Enumerable.Range(1, 8))
+        {
+            var (game, alice) = InMainPhaseSeeded(seed);
+            var die = game.Create(alice, roller, Zone.Battlefield);
+            game.ActivateAbility(alice, die, "a");
+            Settle(game);
+
+            seen.Add(Assert.Single(game.Log.OfType<DiceRolled>()).Result);
+        }
+
+        Assert.True(seen.Count > 1, "eight seeds all rolled the same number");
+    }
+
+    /// <summary>
+    /// Dissatisfied Customer: "If the result is 3 or less, you lose that much life" — the
+    /// conditional sentence is a row, and "that much" is the number rolled (CR 706.4).
+    /// </summary>
+    [Fact]
+    public void An_if_the_result_sentence_runs_only_in_its_range()
+    {
+        var customer = Card(
+            "Dissatisfied Customer Test",
+            "When ~ enters, roll a six-sided die. If the result is 3 or less, you lose that much life.",
+            CardType.Creature,
+            power: 3,
+            toughness: 1);
+
+        Assert.True(CardCompiler.Compile(customer).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, customer, Zone.Battlefield);
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        var expected = rolled.Result <= 3 ? 20 - rolled.Result : 20;
+
+        Assert.Equal(expected, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>Brazen Dwarf: "whenever you roll one or more dice" fires on a roll (CR 706.5).</summary>
+    [Fact]
+    public void A_dice_watcher_fires_when_its_controller_rolls()
+    {
+        var dwarf = Card(
+            "Brazen Dwarf Test",
+            "Whenever you roll one or more dice, ~ deals 1 damage to each opponent.",
+            CardType.Creature,
+            power: 1,
+            toughness: 3);
+
+        var roller = Card("Six Roller Test", "{T}: Roll a six-sided die.", CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(dwarf).IsComplete);
+        Assert.True(CardCompiler.Compile(roller).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, dwarf, Zone.Battlefield);
+        var die = game.Create(alice, roller, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        game.ActivateAbility(alice, die, "a");
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>An opponent's roll is not "you roll", and wakes nobody else's watcher.</summary>
+    [Fact]
+    public void A_dice_watcher_ignores_an_opponents_roll()
+    {
+        var dwarf = Card(
+            "Brazen Dwarf Test",
+            "Whenever you roll one or more dice, ~ deals 1 damage to each opponent.",
+            CardType.Creature,
+            power: 1,
+            toughness: 3);
+
+        var roller = Card("Six Roller Test", "{T}: Roll a six-sided die.", CardType.Artifact);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Bob has the watcher; Alice rolls. Bob's dwarf must stay quiet.
+        game.Create(bob, dwarf, Zone.Battlefield);
+        var die = game.Create(alice, roller, Zone.Battlefield);
+        game.ActivateAbility(alice, die, "a");
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Monoxa, Midway Manager: a threshold watcher whose follow-up clauses each read the
+    /// number rolled (CR 706.4) — every keyword she has afterwards is the roll's doing.
+    /// </summary>
+    [Fact]
+    public void Threshold_clauses_read_the_number_rolled()
+    {
+        var monoxa = Card(
+            "Monoxa Test",
+            "Whenever you roll a 3 or higher, ~ gains first strike until end of turn. If the"
+                + " roll was 4 or higher, it gains menace until end of turn. If the roll was 5"
+                + " or higher, it gains lifelink until end of turn.\n{6}: Roll a six-sided die.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        Assert.True(CardCompiler.Compile(monoxa).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var manager = game.Create(alice, monoxa, Zone.Battlefield);
+        game.AddMana(alice, null, 6);
+        game.ActivateAbility(alice, manager, "a");
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(manager));
+
+        Assert.Equal(rolled.Result >= 3, computed.Has(KeywordAbility.FirstStrike));
+        Assert.Equal(rolled.Result >= 4, computed.Has(KeywordAbility.Menace));
+        Assert.Equal(rolled.Result >= 5, computed.Has(KeywordAbility.Lifelink));
+    }
+
+    /// <summary>
+    /// Spiked Pit Trap: a target chosen before the roll is what the rows aim at afterwards
+    /// (CR 601.2c) — the die decides the row, never the victim.
+    /// </summary>
+    [Fact]
+    public void A_target_chosen_before_the_roll_is_what_the_rows_hit()
+    {
+        var trap = Card(
+            "Spiked Pit Test",
+            "{5}, {T}, Sacrifice ~: Choose target creature, then roll a d20.\n"
+                + "1—9 | ~ deals 5 damage to that creature.\n"
+                + "10—20 | ~ deals 5 damage to that creature. Create a Treasure token.",
+            CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(trap).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Bear", 4, 4), Zone.Battlefield);
+        var pit = game.Create(alice, trap, Zone.Battlefield);
+        game.AddMana(alice, null, 5);
+        game.ActivateAbility(alice, pit, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+
+        // Five damage kills the 4/4 whichever row ran; the Treasure is the high rows' extra.
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject), o => o.Card.Name == "Bear");
+        Assert.Equal(
+            rolled.Result >= 10,
+            game.State.Battlefield.Select(game.State.GetObject)
+                .Any(o => o.Card.Name == "Treasure"));
+    }
+
+    /// <summary>
+    /// Pixie Guide rolls an extra die and ignores the lowest (CR 706.2b) — and per CR 706.6 the
+    /// ignored die never happened: one outcome in the log, one trigger for the watchers.
+    /// </summary>
+    [Fact]
+    public void An_extra_die_keeps_the_highest_and_the_ignored_die_never_happened()
+    {
+        var pixie = Card(
+            "Pixie Guide Test",
+            "If you would roll one or more dice, instead roll that many dice plus one and"
+                + " ignore the lowest roll.",
+            CardType.Creature,
+            power: 1,
+            toughness: 3,
+            keywords: KeywordAbility.Flying);
+
+        var roller = Card("Bare Roller Test", "{T}: Roll a d20.", CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(pixie).IsComplete);
+
+        // The same seed twice: once alone, once with the Guide. The first die of both games is
+        // the same draw, so keeping the higher of two can never come out below rolling one.
+        var (alone, aliceAlone) = InMainPhaseSeeded(7);
+        var soloDie = alone.Create(aliceAlone, roller, Zone.Battlefield);
+        alone.ActivateAbility(aliceAlone, soloDie, "a");
+        Settle(alone);
+        var unaided = Assert.Single(alone.Log.OfType<DiceRolled>());
+
+        var (game, alice) = InMainPhaseSeeded(7);
+        game.Create(alice, pixie, Zone.Battlefield);
+        var die = game.Create(alice, roller, Zone.Battlefield);
+        game.ActivateAbility(alice, die, "a");
+        Settle(game);
+
+        var request = Assert.Single(game.Log.OfType<DiceRollRequested>());
+        Assert.Equal(1, request.ExtraDice);
+
+        var helped = Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.True(
+            helped.Result >= unaided.Result,
+            $"keeping the higher of two dice rolled {helped.Result}, below the single {unaided.Result}");
+    }
+
+    /// <summary>
+    /// Netherese Puzzle-Ward's second ability: the highest natural result is the die's own face
+    /// (CR 706.2) — a d4 pays out on 4, and on nothing else.
+    /// </summary>
+    [Fact]
+    public void The_highest_natural_result_watcher_reads_the_face()
+    {
+        var ward = Card(
+            "Perfect Illumination Test",
+            "Whenever you roll a die's highest natural result, draw a card.",
+            CardType.Enchantment);
+
+        var roller = Card("Four Roller Test", "{T}: Roll a four-sided die.", CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(ward).IsComplete);
+        Assert.True(CardCompiler.Compile(roller).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, ward, Zone.Battlefield);
+        var die = game.Create(alice, roller, Zone.Battlefield);
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, die, "a");
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(4, rolled.Sides);
+        Assert.Equal(
+            before + (rolled.Natural == 4 ? 1 : 0),
+            game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>The real printings this round is for, compiled whole.</summary>
+    [Fact]
+    public void The_d20_family_compiles_complete()
+    {
+        var djinni = Card(
+            "Djinni Windseer Test",
+            "Flying\nWhen ~ enters, roll a d20.\n1—9 | Scry 1.\n10—19 | Scry 2.\n20 | Scry 3.",
+            CardType.Creature,
+            power: 4,
+            toughness: 3,
+            keywords: KeywordAbility.Flying);
+
+        var ogre = Card(
+            "Hoarding Ogre Test",
+            "Whenever ~ attacks, roll a d20.\n"
+                + "1—9 | Create a Treasure token.\n"
+                + "10—19 | Create two Treasure tokens.\n"
+                + "20 | Create three Treasure tokens.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var herald = Card(
+            "Herald of Hadar Test",
+            "{5}{B}: Roll a d20.\n"
+                + "1—9 | Each opponent loses 2 life.\n"
+                + "10—19 | Each opponent loses 2 life and you gain 2 life.\n"
+                + "20 | Each opponent loses 2 life and you gain 2 life. Create two Treasure tokens.",
+            CardType.Creature,
+            power: 3,
+            toughness: 2);
+
+        var trickster = Card(
+            "Feywild Trickster Test",
+            "Whenever you roll one or more dice, create a 1/1 blue Faerie Dragon creature"
+                + " token with flying.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var puzzleWard = Card(
+            "Netherese Puzzle-Ward Test",
+            "Focus Beam — At the beginning of your upkeep, roll a d4. Scry X, where X is"
+                + " the result.\n"
+                + "Perfect Illumination — Whenever you roll a die's highest natural"
+                + " result, draw a card.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(djinni).IsComplete);
+        Assert.True(CardCompiler.Compile(ogre).IsComplete);
+        Assert.True(CardCompiler.Compile(herald).IsComplete);
+        Assert.True(CardCompiler.Compile(trickster).IsComplete);
+        Assert.True(CardCompiler.Compile(puzzleWard).IsComplete);
+    }
+
+    /// <summary>What stays honestly unread: modifiers, multi-dice, and the graveyard watcher.</summary>
+    /// <remarks>
+    /// Each of these is a card the machinery this round could half-run, and half-running any of
+    /// them prints a different card: a modified roll read as unmodified lands in the wrong row,
+    /// "roll two and choose" decided by the engine takes the player's choice away, and a
+    /// "natural 20" trigger compiled to the battlefield would simply never fire from the
+    /// graveyard it watches.
+    /// </remarks>
+    [Fact]
+    public void Modified_and_multi_dice_rolls_stay_unread()
+    {
+        var modified = Card(
+            "Diviner Test",
+            "Roll a d20 and add the number of cards in your hand.\n"
+                + "1—14 | Draw X cards.\n"
+                + "15+ | Scry X, then draw X cards.");
+
+        var chooseOne = Card(
+            "Valiant Endeavor Test",
+            "Roll two d6 and choose one result. Destroy each creature with power greater than"
+                + " or equal to that result. Then create a number of 2/2 white Knight creature"
+                + " tokens with vigilance equal to the other result.",
+            CardType.Sorcery);
+
+        var natural = Card(
+            "Critical Hit Test",
+            "Target creature gains double strike until end of turn.\n"
+                + "When you roll a natural 20, return ~ from your graveyard to your hand.");
+
+        Assert.False(CardCompiler.Compile(modified).IsComplete);
+        Assert.False(CardCompiler.Compile(chooseOne).IsComplete);
+        Assert.False(CardCompiler.Compile(natural).IsComplete);
+    }
+
+    /// <summary>
+    /// A Spacecraft's station bar shares the row shape exactly — "10+ | Flying" — and must not
+    /// fold into the line above it, because that line rolls no dice (CR 706.3b cuts both ways).
+    /// </summary>
+    [Fact]
+    public void A_station_bar_is_not_a_results_row()
+    {
+        var skiff = Card(
+            "Rescue Skiff Test",
+            "Station (Tap another creature you control: Put charge counters equal to its"
+                + " power on this Spacecraft. Station only as a sorcery. It's an artifact"
+                + " creature at 10+.)\n10+ | Flying",
+            CardType.Artifact,
+            subtypes: "Spacecraft");
+
+        var compiled = CardCompiler.Compile(skiff);
+
+        Assert.False(compiled.IsComplete);
+
+        // Two lines, not one: the bar stayed its own — and its own unread — line.
+        Assert.Equal(2, CardCompiler.Lines(skiff).Count());
+        Assert.Contains(compiled.Unhandled, line => line.StartsWith("10+ |", StringComparison.Ordinal));
+    }
+
     // ---- Sagas (CR 714) ------------------------------------------------------
 
     /// <summary>A three-chapter Saga whose chapters are each visible in the life total.</summary>
