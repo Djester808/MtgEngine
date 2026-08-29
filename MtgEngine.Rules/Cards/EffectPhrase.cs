@@ -337,6 +337,52 @@ public static partial class EffectPhrase
             : text;
     }
 
+    /// <summary>
+    /// Aims a run of generated effects at what a "for as long as" sentence names (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The three verbs that take this duration all name their subject the same two ways — a
+    /// target phrase, or a pronoun for the one the sentence before chose — so the split lives
+    /// here rather than three times over. Nothing is added to either builder until the phrase has
+    /// been read, so a sentence this refuses falls through with no half-built effect behind it.
+    /// <para>
+    /// A pronoun is read only once something <em>has</em> been targeted. "That creature doesn't
+    /// untap" is the tail of "tap target creature", and on a card that targeted nothing those
+    /// words mean something this cannot see.
+    /// </para>
+    /// </remarks>
+    private static bool HoldsWhile(
+        Match m,
+        IReadOnlyList<string> definitionIds,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects)
+    {
+        var who = m.Groups["t"].Value.Trim();
+        int index;
+
+        if (Pronouns.Contains(who, StringComparer.OrdinalIgnoreCase))
+        {
+            if (targets.Count == 0)
+                return false;
+
+            index = targets.Count - 1;
+        }
+        else
+        {
+            if (Specs.Parse(who) is not { Kind: TargetKind.Permanent } affected)
+                return false;
+
+            targets.Add(affected);
+            index = targets.Count - 1;
+        }
+
+        var until = WhileNamed(m);
+        foreach (var id in definitionIds)
+            effects.Add(new HoldsWhileSourceHolds(id, until, index));
+
+        return true;
+    }
+
     /// <summary>Which "for as long as" condition a gain-control clause printed (CR 611.2b).</summary>
     /// <remarks>
     /// Three spellings of one mechanism rather than three mechanisms: the effect, the definition
@@ -2829,6 +2875,48 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target creature gets +2/+0 for as long as ~ remains tapped", and its two siblings —
+        // a granted keyword and a permanent that stops untapping. The same duration the gain
+        // control clause above already reads, on the three other verbs the corpus prints it with
+        // (CR 611.2b).
+        m = PumpWhileLine().Match(sentence);
+        if (m.Success)
+        {
+            var boost = Keywords(m.Groups["kw"].Value);
+            if (m.Groups["kw"].Success && boost is null)
+                return false;
+
+            var power = int.Parse(
+                m.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            var toughness = int.Parse(
+                m.Groups["tough"].Value, NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture);
+
+            var held = new List<string> { GenerativeEffects.PumpId(power, toughness) };
+            if (boost is { } alongside)
+                held.Add(GenerativeEffects.GrantId(alongside));
+
+            if (HoldsWhile(m, held, targets, effects))
+                return true;
+        }
+
+        m = GainsKeywordWhileLine().Match(sentence);
+        if (m.Success)
+        {
+            if (Keywords(m.Groups["kw"].Value) is not { } lasting)
+                return false;
+
+            if (HoldsWhile(m, [GenerativeEffects.GrantId(lasting)], targets, effects))
+                return true;
+        }
+
+        m = DoesNotUntapWhileLine().Match(sentence);
+        if (m.Success
+            && HoldsWhile(m, [GenerativeEffects.DoesNotUntapId()], targets, effects))
+        {
+            return true;
+        }
+
         m = GainControlUntilLine().Match(sentence);
         if (!m.Success)
             m = GainControlLine().Match(sentence);
@@ -3111,6 +3199,16 @@ public static partial class EffectPhrase
                     && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
                     ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
                     : null));
+            return true;
+        }
+
+        // "Until end of turn, target creature loses all abilities and has base power and
+        // toughness 0/1" (CR 613.1f). Read before the animation family below, because the clause
+        // is printed in front of every one of their wordings and the whole point of reading it
+        // here is that they carry on reading the rest.
+        if (LosesAllAbilitiesSentence().Match(sentence) is { Success: true } silencing
+            && TrySilencing(silencing, targets, effects, objectNamedByTrigger))
+        {
             return true;
         }
 
@@ -5767,6 +5865,121 @@ public static partial class EffectPhrase
         foreach (var id in definitionIds)
             effects.Add(new PumpUntilEndOfTurn(id, index));
 
+        return true;
+    }
+
+    /// <summary>
+    /// "… loses all abilities …", lifted out so the rest of the sentence keeps its readers
+    /// (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The corpus prints the clause in front of half a dozen different tails — a base size, an
+    /// animation, a colour, a keyword — and every one of those tails is a wording the readers
+    /// above already know. So the removal is lifted out and the sentence is offered back with the
+    /// clause deleted: "Until end of turn, target creature loses all abilities and has base power
+    /// and toughness 0/1" is read as the removal plus "Until end of turn, target creature has
+    /// base power and toughness 0/1", which reads today. Pairing a reader with each tail would
+    /// have been six copies of one rule, and the seventh wording would still have been unread.
+    /// <para>
+    /// The target is added by the tail's own reader and then checked to be the phrase the head
+    /// named. Adding it here as well would make the spell ask its controller to choose two
+    /// creatures for a sentence that names one.
+    /// </para>
+    /// <para>
+    /// A duration is required, in any of the three places a card prints it. The effect this
+    /// builds ends in the cleanup step either way, so without the words a card that silences a
+    /// permanent <em>for good</em> would be read as a trick that undoes itself, and "perpetually"
+    /// and "until your next turn" would each be read as shorter than printed. Those stay in the
+    /// work queue, which is the same refusal <see cref="AnimationLastsTheTurn"/> makes and for
+    /// the same reason.
+    /// </para>
+    /// </remarks>
+    private static bool TrySilencing(
+        Match m,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        const string Prefix = "Until end of turn, ";
+
+        var head = m.Groups["head"].Value.Trim();
+        var rest = m.Groups["rest"].Success ? m.Groups["rest"].Value.Trim() : null;
+
+        var lastsTheTurn = m.Groups["ueot"].Success
+            || head.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)
+            || rest?.EndsWith(" until end of turn", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (!lastsTheTurn)
+            return false;
+
+        var who = head.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)
+            ? head[Prefix.Length..].Trim()
+            : head;
+
+        var onSource = who == "~";
+        var pronoun = Pronouns.Contains(who, StringComparer.OrdinalIgnoreCase);
+        var named = onSource || pronoun ? null : Specs.Parse(who);
+
+        if (!onSource && !pronoun && named is null)
+            return false;
+
+        // Where the removal lands is decided from the head, never from whatever the tail happened
+        // to add: a sentence whose head is "~" and whose tail targets something else would
+        // otherwise silence the wrong permanent.
+        var before = targets.Count;
+
+        if (rest is not null)
+        {
+            var scratch = ImmutableList.CreateBuilder<IEffect>();
+
+            // Compared by description rather than by the specs themselves: a spec carries its
+            // filters as delegates, so two readings of one phrase are never equal as records
+            // even when they are the same phrase. The description is what the phrase said.
+            if (!TryOne(head + " " + rest, targets, scratch, objectNamedByTrigger)
+                || (named is null
+                    ? targets.Count != before
+                    : targets.Count != before + 1
+                        || !string.Equals(
+                            targets[before].Description, named.Description, StringComparison.Ordinal)))
+            {
+                // The tail read a different target phrase from the head's, or none at all, so
+                // which permanent loses its abilities would be a guess. Whatever it added comes
+                // back off, because a refused sentence has to fall through to the readers below
+                // with no half-built spell left behind.
+                while (targets.Count > before)
+                    targets.RemoveAt(targets.Count - 1);
+
+                return false;
+            }
+
+            effects.AddRange(scratch);
+        }
+        else if (named is not null)
+        {
+            targets.Add(named);
+        }
+
+        var id = GenerativeEffects.LosesAllAbilitiesId();
+
+        if (onSource)
+        {
+            effects.Add(new PumpSourceUntilEndOfTurn(id));
+            return true;
+        }
+
+        if (!pronoun)
+        {
+            effects.Add(new PumpUntilEndOfTurn(id, before));
+            return true;
+        }
+
+        // "Tap target creature. It loses all abilities until end of turn." The pronoun means the
+        // target the sentence before named, and on a card that has targeted nothing it means
+        // something else entirely — so it is read only once something has been.
+        if (before == 0)
+            return false;
+
+        effects.Add(new PumpUntilEndOfTurn(id, before - 1));
         return true;
     }
 
@@ -8649,13 +8862,58 @@ public static partial class EffectPhrase
         @"^(you )?gain control of " + T + @" until end of turn$", RegexOptions.IgnoreCase)]
     private static partial Regex GainControlUntilLine();
 
+    /// <summary>
+    /// The "for as long as …" tail, in the three spellings the cards print (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// Shared with the gain-control clause that first needed it, so the four verbs that take this
+    /// duration agree about what it says. <see cref="WhileNamed"/> reads the two groups, and a
+    /// second copy of the tail would be a second chance for them to disagree.
+    /// </remarks>
+    private const string HELD =
+        @" for as long as (you control (?<until>~|this [a-z]+)"
+            + @"|(~|this [a-z]+) remains (?<until2>tapped|on the battlefield))";
+
     /// <summary>"Gain control of X for as long as you control [this]" (CR 611.2b).</summary>
     [GeneratedRegex(
-        @"^gain control of " + T + @" for as long as "
-            + @"(you control (?<until>~|this [a-z]+)"
-            + @"|(~|this [a-z]+) remains (?<until2>tapped|on the battlefield))$",
+        @"^gain control of " + T + HELD + "$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GainControlWhileLine();
+
+    /// <summary>
+    /// "Target Zombie creature gets +2/+2 and has fear for as long as ~ remains tapped."
+    /// </summary>
+    /// <remarks>
+    /// The bonus and the keyword arrive together on most of the cards that print this shape — the
+    /// five Couriers are one card five times — and they are two effects in two layers either way
+    /// (CR 613.1f, 613.4c), so the pattern captures both and the reader emits both.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + T + @" gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+            + @"( and has (?<kw>[a-z ,]+?))?" + HELD + @"\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PumpWhileLine();
+
+    /// <summary>"Another target permanent gains indestructible for as long as you control ~."</summary>
+    [GeneratedRegex(
+        @"^" + T + @" gains (?<kw>[a-z ,]+?)" + HELD + @"\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GainsKeywordWhileLine();
+
+    /// <summary>
+    /// "That creature doesn't untap during its controller's untap step for as long as ~ remains
+    /// tapped" (CR 502.3, 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// Singular only. The plural spelling — "those creatures don't untap … " — is the tail of a
+    /// sentence that tapped several targets at once, and a reader that took it would have to
+    /// guess which of them the restriction lands on; the four corpus cards that say it stay in
+    /// the work queue rather than being read as one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + T + @" doesn't untap during (its|their) controller's untap step" + HELD + @"\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DoesNotUntapWhileLine();
 
     /// <summary>"…gains protection from the color of your choice until end of turn".</summary>
     [GeneratedRegex(
@@ -9322,6 +9580,32 @@ public static partial class EffectPhrase
             + @"(?<u2> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex BasePowerToughnessSelfLine();
+
+    /// <summary>
+    /// "Target creature loses all abilities until end of turn" (CR 613.1f, layer 6).
+    /// </summary>
+    /// <remarks>
+    /// Both halves are captured rather than alternated over. What precedes the clause is a target
+    /// phrase, "~", or a pronoun, and <see cref="Specs"/> already tells those apart; what follows
+    /// it is a whole instruction, and it is handed back to the sentence grammar rather than
+    /// enumerated here — so this pattern never has to know what can come after "and".
+    /// <para>
+    /// Case-sensitive, and the plural verb is optional in one letter: "creatures target player
+    /// controls <em>lose</em> all abilities" is the group form of the same sentence.
+    /// </para>
+    /// <para>
+    /// The tail is anchored on the whole clause, so a wording this cannot read leaves the line
+    /// unread instead of silencing something and dropping the rest. "All lands lose all abilities
+    /// <em>except mana abilities</em>" is the case that matters: it does not match, which is the
+    /// right answer, because a land silenced outright is a land that cannot tap for mana.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?) loses? all abilities"
+            + @"(?<ueot> until end of turn)?"
+            + @"( and (?<rest>.+?))?\.?$",
+        RegexOptions.None)]
+    private static partial Regex LosesAllAbilitiesSentence();
 
     /// <summary>
     /// "~ becomes an artifact creature until end of turn" — an animation with no size (CR 205.1b).

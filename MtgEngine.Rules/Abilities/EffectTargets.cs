@@ -291,6 +291,14 @@ public static class EffectTargets
         Add<GainControlWhileSourceHolds>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        // Only shifted when it is aimed at a target: like its until-end-of-turn twin it can name
+        // the creature a trigger was about instead, and that index means nothing here.
+        Add<HoldsWhileSourceHolds>(
+            e => e.TargetIndex,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
+
         Add<ChooseCreatureTypeForTarget>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);

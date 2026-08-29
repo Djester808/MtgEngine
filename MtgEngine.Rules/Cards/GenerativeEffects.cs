@@ -211,6 +211,31 @@ public static partial class GenerativeEffects
             CultureInfo.InvariantCulture,
             $"control-while:{controllerId:N}:{sourceId.Value:N}:{Named(until)}");
 
+    /// <summary>
+    /// The id for any generated effect that lasts "for as long as …" (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// A wrapper rather than a duration on each id, and that is the whole of why it is worth
+    /// having: the corpus prints the clause after a pump, a keyword grant, an animation and a
+    /// "doesn't untap", and every one of those already has a name here. Wrapping means the
+    /// duration is written once and the vocabulary keeps multiplying instead of being enumerated
+    /// again with an "-while" suffix on each entry.
+    /// <para>
+    /// Both ids the condition needs travel with it: the permanent whose continued presence is the
+    /// condition, and the player who has to still control it for "for as long as you control
+    /// this" to be true. The player is not always the affected permanent's controller — the whole
+    /// point of these cards is that it usually is not.
+    /// </para>
+    /// <para>
+    /// The wrapped id goes last, so it may itself contain colons; nothing else may.
+    /// </para>
+    /// </remarks>
+    public static string HeldWhileId(
+        string inner, Guid holderId, State.ObjectId sourceId, ControlHeldWhile until) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"while:{Named(until)}:{holderId:N}:{sourceId.Value:N}:{inner}");
+
     /// <summary>The id for "all creatures able to block it do so" (CR 509.1c).</summary>
     /// <remarks>
     /// The same requirement a printed lure produces, made by a spell instead and lasting only the
@@ -266,6 +291,39 @@ public static partial class GenerativeEffects
     /// </remarks>
     public static string SwitchPowerToughnessId() => "switch-pt";
 
+    /// <summary>The id for "loses all abilities until end of turn" (CR 613.1f, layer 6).</summary>
+    /// <remarks>
+    /// One name and no parameters, because a removal has nothing to say about itself: every card
+    /// that prints it takes <em>all</em> of them, and the only variable — which permanents it
+    /// reaches — is the floating effect's own list of affected ids (CR 613.7b), settled when the
+    /// spell resolved.
+    /// <para>
+    /// The definition it resolves to declares <see cref="ContinuousEffectDefinition
+    /// .RemovesAllAbilities"/> rather than emptying the keywords in <c>Apply</c>, and that is the
+    /// whole reason the flag exists: the silenced permanent's own static abilities have to stop
+    /// being <em>offered</em>, which is decided before any effect is applied and to a permanent
+    /// that is not the one being computed. A creature stripped this way stops being a lord for
+    /// everything else on the board, and no <c>Apply</c> can reach that.
+    /// </para>
+    /// </remarks>
+    public static string LosesAllAbilitiesId() => "lose-abilities";
+
+    /// <summary>
+    /// The id for "doesn't untap during its controller's untap step" (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// The restriction a printed Aura already carries as a static, made by a resolving ability
+    /// instead. It is the same flag on the same builder, so the untap step keeps asking one
+    /// question whatever put the restriction there — which is the point of naming it rather than
+    /// giving the effect a second path through the untap rules.
+    /// <para>
+    /// No duration in the name: on its own it is permanent, which is what "that permanent doesn't
+    /// untap during its controller's untap step" says when nothing follows it. The cards that
+    /// bound it wrap this in <see cref="HeldWhileId"/>.
+    /// </para>
+    /// </remarks>
+    public static string DoesNotUntapId() => "no-untap";
+
     /// <summary>The id for "becomes the colour of your choice" (CR 613.4d, layer 5).</summary>
     /// <remarks>
     /// Becoming a colour *replaces* what the permanent was, rather than adding to it (CR 202.2b),
@@ -319,6 +377,41 @@ public static partial class GenerativeEffects
     /// <summary>The condition's name as it appears in an id — lower case, so ids compare.</summary>
     private static string Named(ControlHeldWhile until) =>
         until.ToString().ToLowerInvariant();
+
+    /// <summary>Whether a "for as long as …" duration is still running (CR 611.2b).</summary>
+    /// <remarks>
+    /// One question with two callers — the control effect that needed it first and the wrapper
+    /// that gives the same duration to everything else. Written twice it would have drifted, and
+    /// the half that would have drifted is the one that matters: an effect whose condition is
+    /// answered too generously never ends.
+    /// <para>
+    /// Every spelling first requires the source to still be there. A permanent that has left is a
+    /// different object (CR 400.7), so the id names nothing and the condition is false whatever
+    /// else it asks — which is what "for as long as this creature remains on the battlefield"
+    /// says in so many words, and what the other two need before they can ask anything.
+    /// </para>
+    /// </remarks>
+    private static bool StillHolds(
+        State.GameState state,
+        IAbilitySource abilities,
+        State.ObjectId keeper,
+        Guid holder,
+        ControlHeldWhile until) =>
+        state.TryGetObject(keeper, out var source)
+        && source.Zone == State.Zone.Battlefield
+        && until switch
+        {
+            // Control is layer 2, so who controls the *keeper* is itself a computed answer - a
+            // thief that has been stolen no longer keeps what it took.
+            ControlHeldWhile.Controlled =>
+                State.Characteristics.Of(state, abilities, source).ControllerId == holder,
+
+            ControlHeldWhile.Tapped => source.Permanent?.IsTapped == true,
+
+            // Nothing more to ask: being on the battlefield is the whole condition, and the guard
+            // above has already answered it.
+            _ => true,
+        };
 
     /// <summary>A colour's name as it appears in an id.</summary>
     private static string Named(ManaColor colour) =>
@@ -518,26 +611,30 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.Control,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.ControllerId = taker,
+                While = (state, abilities) => StillHolds(state, abilities, keeper, taker, until),
+            };
+        }
 
-                // Every one of these first requires the source to still be there: a permanent
-                // that has left is a different object (CR 400.7), so the id names nothing and
-                // the condition is false whatever else it asks.
-                While = (state, abilities) =>
-                    state.TryGetObject(keeper, out var source)
-                    && source.Zone == State.Zone.Battlefield
-                    && until switch
-                    {
-                        // Control is layer 2, so who controls the *keeper* is itself a computed
-                        // answer - a thief that has been stolen no longer keeps what it took.
-                        ControlHeldWhile.Controlled =>
-                            State.Characteristics.Of(state, abilities, source).ControllerId == taker,
+        // "… for as long as ~ remains tapped" wrapped round any of the names below it
+        // (CR 611.2b). The inner effect is built by this same method, so a duration is available
+        // on every generated effect that exists rather than on the handful somebody remembered
+        // to give one: the pump, the grant, the animation and the "doesn't untap" all arrive
+        // here already working.
+        var lasting = HeldWhileName().Match(definitionId);
+        if (lasting.Success && Resolve(lasting.Groups["inner"].Value) is { } held)
+        {
+            var holder = Guid.ParseExact(lasting.Groups["p"].Value, "N");
+            var kept = new State.ObjectId(Guid.ParseExact(lasting.Groups["s"].Value, "N"));
+            var ends = Enum.Parse<ControlHeldWhile>(lasting.Groups["k"].Value, true);
 
-                        ControlHeldWhile.Tapped => source.Permanent?.IsTapped == true,
-
-                        // Nothing more to ask: being on the battlefield is the whole condition,
-                        // and the guard above has already answered it.
-                        _ => true,
-                    },
+            // The wrapped definition keeps its own layer and its own Apply, and gains nothing but
+            // the condition. An inner effect that already carried one would have it replaced,
+            // which is why nothing this wraps has one: the only definitions with a While of their
+            // own are the two above, and neither is reachable through here.
+            return held with
+            {
+                Id = definitionId,
+                While = (state, abilities) => StillHolds(state, abilities, kept, holder, ends),
             };
         }
 
@@ -643,6 +740,37 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.PowerToughnessSwitch,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.Switch(),
+            };
+        }
+
+        // "Loses all abilities until end of turn" (CR 613.1f). Nothing to apply: the flag is
+        // read on the way in, before any effect runs, and <see cref="CharacteristicsBuilder
+        // .LoseAllAbilities"/> is called when layer 6 is reached. Writing the removal into
+        // <c>Apply</c> instead would take the keywords off and leave the permanent's own statics
+        // still being offered, which is half a removal and looks like a working card.
+        //
+        // Applies to whatever it was aimed at and asks nothing: a floating effect carries the
+        // ids it affects, fixed when it was created (CR 611.2c, 613.7b).
+        if (string.Equals(definitionId, "lose-abilities", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                RemovesAllAbilities = true,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, _) => { },
+            };
+        }
+
+        if (string.Equals(definitionId, "no-untap", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.DoesNotUntap = true,
             };
         }
 
@@ -839,6 +967,14 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^control-while:(?<p>[0-9a-f]{32}):(?<s>[0-9a-f]{32}):(?<k>[a-z]+)$")]
     private static partial Regex ControlWhileName();
+
+    /// <remarks>
+    /// The wrapped id is the whole of the tail, colons and all — a <c>pump:+2/+2</c> or a
+    /// serialised copied card go through here unchanged.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^while:(?<k>[a-z]+):(?<p>[0-9a-f]{32}):(?<s>[0-9a-f]{32}):(?<inner>.+)$")]
+    private static partial Regex HeldWhileName();
 
     [GeneratedRegex(@"^control:(?<p>[0-9a-f]{32})$")]
     private static partial Regex ControlName();

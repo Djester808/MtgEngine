@@ -41905,6 +41905,369 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(expectedLife, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Losing every ability, and a bonus with a clock ---------------------
+
+    /// <summary>
+    /// "Enchanted creature loses all abilities and has base power and toughness 1/1" (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The Aura half of ability removal, and the half where the interesting failure lives. Taking
+    /// the keywords off is something an <c>Apply</c> could do; what it cannot do is stop the
+    /// silenced permanent's own static abilities being <em>offered</em>, because that decision is
+    /// made before any effect is applied and about a permanent that is not the one being
+    /// computed. So the enchanted creature is a lord, and the assertion that matters is about the
+    /// creature standing next to it: an implementation that only emptied the keywords would pass
+    /// every assertion about the Aura's own victim and leave the anthem running.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_take_every_ability_from_what_it_enchants()
+    {
+        var transmutation = Card(
+            "Kasmina's Transmutation Test",
+            "Enchant creature\n"
+                + "Enchanted creature loses all abilities and has base power and toughness 1/1.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var lord = Card(
+            "Transmuted Lord Test",
+            "Flying\nOther creatures you control get +1/+1.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(transmutation);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var flier = game.Create(alice, lord, Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Transmuted Grunt Test", 2, 2), Zone.Battlefield);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(grunt)).Power);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, transmutation),
+            [Target.ToPermanent(flier)]);
+
+        Settle(game);
+
+        var silenced = Characteristics.Of(game.State, Pool, game.State.GetObject(flier));
+        Assert.True(silenced.HasLostAllAbilities);
+        Assert.False(silenced.Has(KeywordAbility.Flying));
+
+        // Layer 7b, so the size the Aura names replaces the printed one rather than adding to it.
+        Assert.Equal(1, silenced.Power);
+        Assert.Equal(1, silenced.Toughness);
+
+        // CR 613.6: the anthem is gone because the ability producing it was removed in layer 6,
+        // before layer 7c was ever reached. This is the assertion the flag exists for.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(grunt)).Power);
+    }
+
+    /// <summary>
+    /// "All creatures lose all abilities and have base power and toughness 1/1" - Humility.
+    /// </summary>
+    /// <remarks>
+    /// The same removal said about a group rather than about one attachment, and the card the
+    /// engine's hand-written fixture for this had been imitating for as long as the fixture
+    /// existed. It reaches across the table, which is what "all creatures" says and what a mass
+    /// static with no ownership clause has been caught getting wrong before.
+    /// </remarks>
+    [Fact]
+    public void Humility_takes_every_creatures_abilities_and_its_size()
+    {
+        var humility = Card(
+            "Humility Test",
+            "All creatures lose all abilities and have base power and toughness 1/1.",
+            CardType.Enchantment);
+
+        var lord = Card(
+            "Humbled Lord Test",
+            "Flying\nOther creatures you control get +1/+1.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(humility);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var flier = game.Create(alice, lord, Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Humbled Grunt Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Humbled Stranger Test", 4, 4), Zone.Battlefield);
+
+        game.Create(alice, humility, Zone.Battlefield);
+        Settle(game);
+
+        var quieted = Characteristics.Of(game.State, Pool, game.State.GetObject(flier));
+        Assert.True(quieted.HasLostAllAbilities);
+        Assert.False(quieted.Has(KeywordAbility.Flying));
+        Assert.Equal(1, quieted.Power);
+
+        Assert.Equal(1, Characteristics.Of(game.State, Pool, game.State.GetObject(grunt)).Power);
+
+        // Across the table too: "all creatures" names nobody's in particular, and a mass static
+        // that quietly meant "you control" is the shape this compiler has already shipped once.
+        Assert.Equal(1, Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).Power);
+    }
+
+    /// <summary>
+    /// "Until end of turn, target creature loses all abilities and becomes a blue Frog with base
+    /// power and toughness 1/1" - Turn to Frog (CR 613.1d, 613.1f, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The removal arriving as an effect a spell left behind rather than as anything's static
+    /// ability, and one sentence landing in three layers at once. The clause is read by splitting
+    /// it off and handing the rest of the sentence back to the animation grammar, so what this
+    /// proves is that the two halves still agree about which creature they are talking about -
+    /// the failure a rewrite of this kind would produce is a spell that asks for two targets.
+    /// </remarks>
+    [Fact]
+    public void A_spell_can_turn_a_lord_into_a_frog_for_the_turn()
+    {
+        var frog = Card(
+            "Turn to Frog Test",
+            "Until end of turn, target creature loses all abilities and becomes a blue Frog "
+                + "with base power and toughness 1/1.",
+            CardType.Instant);
+
+        var lord = Card(
+            "Frogged Lord Test",
+            "Flying\nOther creatures you control get +1/+1.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(frog);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One target, not two: the sentence names its creature once, and a rewrite that let both
+        // halves read the phrase would make the spell ask its controller to choose twice.
+        Assert.Single(compiled.Spell!.Targets);
+
+        var (game, alice, _) = InMainPhase();
+        var flier = game.Create(alice, lord, Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Frogged Grunt Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, frog),
+            [Target.ToPermanent(flier)]);
+
+        Settle(game);
+
+        var toad = Characteristics.Of(game.State, Pool, game.State.GetObject(flier));
+        Assert.True(toad.HasLostAllAbilities);
+        Assert.False(toad.Has(KeywordAbility.Flying));
+        Assert.Equal(1, toad.Power);
+        Assert.Contains("Frog", toad.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(ManaColor.Blue, toad.Colors);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(grunt)).Power);
+
+        // And it is the turn's effect it says it is: cleanup takes all three layers back off.
+        TestCards.PassToTurn(game, 2);
+
+        var restored = Characteristics.Of(game.State, Pool, game.State.GetObject(flier));
+        Assert.False(restored.HasLostAllAbilities);
+        Assert.True(restored.Has(KeywordAbility.Flying));
+        Assert.Equal(3, restored.Power);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(grunt)).Power);
+    }
+
+    /// <summary>
+    /// "Target creature gets +2/+2 and has trample for as long as ~ remains tapped" (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The Couriers' sentence - one clause, two layers, and a duration that is a condition rather
+    /// than a turn number. Untapping the source is what ends it, and the last assertion is what
+    /// separates an ending from a pause: CR 611.2b says the effect is over and does not begin
+    /// again, so tapping the source a second time must not bring the old bonus back.
+    /// <para>
+    /// The mana cost and the tribal filter of the printed cards are dropped so the ability can be
+    /// activated on turn one; the sentence under test is theirs word for word.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_bonus_held_while_the_source_is_tapped_ends_when_it_untaps()
+    {
+        var weaponry = new CardDefinition
+        {
+            OracleId = "oracle-courier-weaponry-test",
+            Name = "Courier Weaponry Test",
+            OracleText = "{T}: Target creature gets +2/+2 and has trample "
+                + "for as long as ~ remains tapped.",
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+        };
+
+        var compiled = CardCompiler.Compile(weaponry);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Couriered Bear Test", 2, 2), Zone.Battlefield);
+        var gear = game.Create(alice, weaponry, Zone.Battlefield);
+
+        game.ActivateAbility(alice, gear, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var armed = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(4, armed.Power);
+        Assert.True(armed.Has(KeywordAbility.Trample));
+
+        // It outlives the turn, which an until-end-of-turn pump would not.
+        TestCards.PassToTurn(game, 2);
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        // Alice's untap step unties it, through the ordinary rule rather than by hand.
+        TestCards.PassToTurn(game, 3);
+        Settle(game);
+
+        var disarmed = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(2, disarmed.Power);
+        Assert.False(disarmed.Has(KeywordAbility.Trample));
+
+        // Ended, not paused: the condition becoming true again does not restart it.
+        game.Tap(gear);
+        Settle(game);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>
+    /// "That creature doesn't untap during its controller's untap step for as long as ~ remains
+    /// tapped" (CR 502.3, 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The pronoun form: the sentence before it tapped a target, and this one is about that same
+    /// creature rather than about another. Twenty-one corpus cards print the pair, and the
+    /// restriction they impose is one the engine already had - only the duration was missing.
+    /// </remarks>
+    [Fact]
+    public void A_creature_tapped_this_way_stays_down_while_the_source_is_tapped()
+    {
+        var squid = new CardDefinition
+        {
+            OracleId = "oracle-sand-squid-test",
+            Name = "Sand Squid Test",
+            OracleText = "{T}: Tap target creature. That creature doesn't untap during its "
+                + "controller's untap step for as long as ~ remains tapped.",
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{3}",
+            Cmc = 3,
+        };
+
+        var compiled = CardCompiler.Compile(squid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Creature("Squidded Bear Test", 2, 2), Zone.Battlefield);
+        var trap = game.Create(alice, squid, Zone.Battlefield);
+
+        game.ActivateAbility(alice, trap, "a", [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(theirs).Permanent?.IsTapped);
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).DoesNotUntap);
+
+        // Bob's own untap step comes and goes and the creature is still down.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.True(game.State.GetObject(theirs).Permanent?.IsTapped);
+
+        // Alice's untap step frees the trap, which ends the restriction (CR 611.2b) - and only
+        // then does Bob get his creature back, on the untap step after that.
+        TestCards.PassToTurn(game, 3);
+        Settle(game);
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).DoesNotUntap);
+        Assert.True(game.State.GetObject(theirs).Permanent?.IsTapped);
+
+        TestCards.PassToTurn(game, 4);
+        Settle(game);
+        Assert.False(game.State.GetObject(theirs).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// "Target permanent gains indestructible for as long as you control ~" (CR 611.2b, 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The third verb the duration is printed with, and the one whose ending is visible without
+    /// reading any characteristic: the creature simply dies. The source leaving the battlefield
+    /// is enough to end it - a permanent that has left is a different object (CR 400.7), so the
+    /// condition names nothing and is false whatever else it asks.
+    /// <para>
+    /// The printed cards hang this on an enters trigger; here it is an activated ability so that
+    /// the source can be removed independently of the creature it protected. The clause is the
+    /// same one and is read by the same pattern.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Indestructible_held_while_you_control_the_source_ends_when_it_leaves()
+    {
+        var aegis = new CardDefinition
+        {
+            OracleId = "oracle-aegis-relic-test",
+            Name = "Aegis Relic Test",
+            OracleText = "{T}: Target creature gains indestructible for as long as you control ~.",
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+        };
+
+        var doom = Card("Aegis Doom Blade Test", "Destroy target creature.", CardType.Instant);
+
+        var compiled = CardCompiler.Compile(aegis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Aegis Bear Test", 2, 2), Zone.Battlefield);
+        var relic = game.Create(alice, aegis, Zone.Battlefield);
+
+        game.ActivateAbility(alice, relic, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bear))
+                .Has(KeywordAbility.Indestructible));
+
+        // Alice's next turn, because settling the activation spent the priority she cast with.
+        PassToMainPhaseOfTurn(game, 3);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doom), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Contains(bear, game.State.Battlefield);
+
+        // The relic goes, and the shield goes with it rather than outliving its source.
+        game.Move(relic, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bear))
+                .Has(KeywordAbility.Indestructible));
+
+        PassToMainPhaseOfTurn(game, 5);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doom), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
     // ---- Counting a zone rather than the board ------------------------------
 
     /// <summary>

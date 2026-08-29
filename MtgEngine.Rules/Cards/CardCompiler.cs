@@ -753,6 +753,9 @@ public static partial class CardCompiler
             if (TryDoesNotUntap(line, card, statics))
                 continue;
 
+            if (TryAttachedSilencing(line, card, statics))
+                continue;
+
             if (TryAttachedBuff(line, statics))
                 continue;
 
@@ -5762,6 +5765,71 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Enchanted creature loses all abilities and has base power and toughness 1/1" (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The clause is lifted out and the rest of the line is offered back to the attached readers
+    /// as the card would have written it without one — "Enchanted creature has base power and
+    /// toughness 1/1", which they have read for a long time. Twenty-six corpus lines print it on
+    /// an Aura or an Equipment, paired with four different tails; teaching each of those readers
+    /// to say "and loses all abilities" would have been four copies of one rule.
+    /// <para>
+    /// It is declared rather than applied, which is the whole reason
+    /// <see cref="ContinuousEffectDefinition.RemovesAllAbilities"/> exists: the enchanted
+    /// permanent's own static abilities have to stop being <em>offered</em>, a decision made
+    /// before any effect is applied and about a permanent that is not the one being computed.
+    /// An <c>Apply</c> that emptied the keywords would leave a silenced lord still pumping the
+    /// board.
+    /// </para>
+    /// <para>
+    /// The clause may sit on either side of the tail — "gets -5/-0 and loses all abilities" and
+    /// "loses all abilities and doesn't untap" are both printed — but never on both, and a line
+    /// claiming otherwise is refused rather than half-read.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedSilencing(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedLosesAllAbilitiesLine().Match(line);
+        if (!m.Success || (m.Groups["before"].Success && m.Groups["after"].Success))
+            return false;
+
+        var rest = m.Groups["before"].Success
+            ? m.Groups["before"].Value.Trim()
+            : m.Groups["after"].Success ? m.Groups["after"].Value.Trim() : null;
+
+        // Built aside, so a tail none of them can read leaves the line unread with nothing
+        // half-applied — an Aura that silenced a creature and quietly dropped the rest of its
+        // sentence is exactly the "half a card" failure this compiler refuses.
+        var scratch = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+
+        if (rest is not null)
+        {
+            var rewritten = m.Groups["subject"].Value + " " + rest;
+
+            if (!TryAttachedBuff(rewritten, scratch)
+                && !TryDoesNotUntap(rewritten, card, scratch)
+                && !TryAttachedAnimation(rewritten, scratch))
+            {
+                return false;
+            }
+        }
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"attached:lose-abilities:{card.Name}",
+            Layer = EffectLayer.Ability,
+            RemovesAllAbilities = true,
+            Applies = (_, source, target) =>
+                source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host,
+            Apply = (_, _, _) => { },
+        });
+
+        into.AddRange(scratch);
+        return true;
+    }
+
+    /// <summary>
     /// "Enchanted creature gets +N/+N" — a continuous effect on whatever this is attached to.
     /// </summary>
     /// <remarks>
@@ -7132,6 +7200,23 @@ public static partial class CardCompiler
             : group.Described)
             + (needs is { } named ? ":with-" + named : string.Empty)
             + (needsCounter is { } counted ? ":counter-" + counted : string.Empty);
+
+        // "All creatures lose all abilities and have base power and toughness 1/1" — Humility, in
+        // layer 6 and then in layer 7b (CR 613.1f, 613.4b). Declared rather than applied, because
+        // the half that matters is not a characteristic at all: every creature on the board has to
+        // stop *offering* its own static abilities, and that is decided before any of them runs.
+        // An Apply that emptied the keywords would leave every lord on the table still pumping.
+        if (m.Groups["lose"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:lose-abilities",
+                Layer = EffectLayer.Ability,
+                RemovesAllAbilities = true,
+                Applies = Matches,
+                Apply = (_, _, _) => { },
+            });
+        }
 
         if (m.Groups["p"].Success)
         {
@@ -10890,6 +10975,20 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedAnimationLine();
 
+    /// <summary>
+    /// "Enchanted creature loses all abilities and has base power and toughness 1/1" (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The tail is captured whole on either side of the clause and handed back to the attached
+    /// readers rather than enumerated here, so this pattern never has to know what an Aura can
+    /// say next to it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<subject>(enchanted|equipped) " + AttachedSubject + ")"
+            + @"( (?<before>.+?) and)? loses all abilities( and (?<after>.+?))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedLosesAllAbilitiesLine();
+
     /// <summary>The ability that may ride along with a conditional bonus.</summary>
     private const string BUFF =
         @"( and (has (?<kw>[a-z ,]+?)|can't (?<cant>attack or block|attack|block|be blocked)))?";
@@ -11413,6 +11512,8 @@ public static partial class CardCompiler
             + @"( and (has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?)?"
             + @"|(has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+)"
             + @"|(has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?"
+            + @"|(?<lose>loses? all abilities)"
+            + @"( and (has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+))?"
             + @"|(?<must>attacks? each combat if able))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassStaticLine();
