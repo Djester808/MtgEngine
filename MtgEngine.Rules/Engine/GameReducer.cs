@@ -86,6 +86,7 @@ public static class GameReducer
                     MayCastFree = true,
                     OfferedCost = offered.Cost,
                     ToHandIfCastDeclined = offered.ToHandIfDeclined,
+                    CastsTransformed = offered.Transformed,
                 })
                 : state,
             FreeCastLapsed lapsed => state.TryGetObject(lapsed.Id, out var stale)
@@ -93,8 +94,18 @@ public static class GameReducer
                 {
                     MayCastFree = false,
                     ToHandIfCastDeclined = false,
+                    CastsTransformed = false,
                 })
                 : state,
+
+            // CR 310.9f: a battle has one protector at a time, so a later choice replaces the
+            // earlier one by writing over it.
+            ProtectorChosen protecting => Changing(
+                state,
+                protecting.Id,
+                o => o.Permanent is { } onField
+                    ? o with { Permanent = onField with { ProtectorId = protecting.PlayerId } }
+                    : o),
             CardForetold told => state.TryGetObject(told.Id, out var hidden)
                 ? state.WithObject(hidden with { ForetoldOnTurn = told.Turn })
                 : state,
@@ -176,6 +187,11 @@ public static class GameReducer
             // CR 725.3: only one player can be the monarch, so this is a single field and the
             // previous monarch stops being one by the same assignment.
             MonarchChanged crowned => state with { MonarchId = crowned.PlayerId },
+
+            // CR 726.3: only one player can have the initiative, so this is the same single
+            // assignment the monarch's is - the previous holder ceases to have it by the same
+            // event, and taking it while already holding it re-assigns the same value (CR 726.5).
+            InitiativeTaken took => state with { InitiativeId = took.PlayerId },
 
             CitysBlessingGained blessed => state.WithPlayer(
                 state.GetPlayer(blessed.PlayerId) with { HasCitysBlessing = true }),
@@ -562,6 +578,10 @@ public static class GameReducer
                 state, kicked.StackId, o => o with { WasKicked = true }),
             SpellBargained bargained => Changing(
                 state, bargained.StackId, o => o with { WasBargained = true }),
+            SpellCleaved cloven => Changing(
+                state, cloven.StackId, o => o with { WasCleaved = true }),
+            GiftPromised promised => Changing(
+                state, promised.StackId, o => o with { GiftedTo = promised.Opponent }),
             SpellMultikicked many => Changing(
                 state, many.Id, o => o with { TimesKicked = many.Times }),
             SpellKickedWith which => Changing(
@@ -798,6 +818,13 @@ public static class GameReducer
             // spell into a permanent, and no other.
             KickedWith = resolving ? moving.KickedWith : [],
             WasTeamwork = resolving && moving.WasTeamwork,
+
+            // The gift is kicker's exception again (CR 607.2): a permanent's gift trigger reads
+            // "if its gift cost was paid" of the spell that became it, so the chosen opponent
+            // rides the one move that turns a spell into a permanent. The cleave flag is
+            // deliberately not carried — CR 702.148a's two abilities function only "while a
+            // spell with cleave is on the stack", and nothing printed asks about it afterwards.
+            GiftedTo = resolving ? moving.GiftedTo : null,
 
             // The same exception, one announcement along: "if X is 5 or more" on a ravenous
             // creature is linked to the X announced for the spell that became it (CR 607.2), and
@@ -1038,12 +1065,13 @@ public static class GameReducer
     }
 
     /// <summary>
-    /// The status a permanent arrives with (CR 306.5b).
+    /// The status a permanent arrives with (CR 306.5b, 310.4b).
     /// </summary>
     /// <remarks>
-    /// A planeswalker enters with loyalty counters equal to its printed loyalty. That is not a
-    /// replacement effect a card carries — it is what the rules do for every planeswalker — so
-    /// it happens here rather than needing a definition per card.
+    /// A planeswalker enters with loyalty counters equal to its printed loyalty, and a battle
+    /// with defense counters equal to its printed defense. Neither is a replacement effect a
+    /// card carries — it is what the rules do for every planeswalker and every battle — so it
+    /// happens here rather than needing a definition per card.
     /// </remarks>
     /// <param name="card">The printed card the permanent arrives as.</param>
     /// <param name="turn">
@@ -1053,15 +1081,35 @@ public static class GameReducer
     /// </param>
     private static PermanentState EnteringPermanent(CardDefinition card, int turn)
     {
-        if (!card.CardTypes.HasFlag(CardType.Planeswalker) || card.StartingLoyalty is not { } loyalty)
-            return new PermanentState { EnteredOnTurn = turn };
-
-        return new PermanentState
+        // A card that is a face definition — a spell cast transformed resolving as its back face
+        // (CR 712.11a) — arrives already showing that face, and the permanent has to say so or
+        // the day/night rules and a later transform would read it as its front.
+        var arriving = new PermanentState
         {
             EnteredOnTurn = turn,
-            Counters = ImmutableDictionary<string, int>.Empty
-                .Add(CounterKinds.Loyalty, loyalty),
+            FaceIndex = MtgEngine.Rules.Cards.CardFaces.FaceIndexOf(card.OracleId),
         };
+
+        if (card.CardTypes.HasFlag(CardType.Planeswalker) && card.StartingLoyalty is { } loyalty)
+        {
+            return arriving with
+            {
+                Counters = ImmutableDictionary<string, int>.Empty
+                    .Add(CounterKinds.Loyalty, loyalty),
+            };
+        }
+
+        // CR 310.4b: a battle enters with defense counters equal to its printed defense number.
+        if (card.CardTypes.HasFlag(CardType.Battle) && card.Defense is > 0 and var defense)
+        {
+            return arriving with
+            {
+                Counters = ImmutableDictionary<string, int>.Empty
+                    .Add(CounterKinds.Defense, defense),
+            };
+        }
+
+        return arriving;
     }
 
     /// <summary>
@@ -1103,6 +1151,25 @@ public static class GameReducer
                     Counters = left == 0
                         ? permanent.Counters.Remove(CounterKinds.Loyalty)
                         : permanent.Counters.SetItem(CounterKinds.Loyalty, left),
+                },
+            });
+        }
+
+        // CR 120.3h, 310.6: damage dealt to a battle removes that many defense counters — the
+        // planeswalker rule with the battle's own counter kind. Removing the last one is what
+        // the Siege's intrinsic defeat trigger watches for (CR 310.12b).
+        if (obj.Card.CardTypes.HasFlag(CardType.Battle))
+        {
+            var defense = permanent.Counters.GetValueOrDefault(CounterKinds.Defense);
+            var standing = Math.Max(0, defense - e.Amount);
+
+            return state.WithObject(obj with
+            {
+                Permanent = permanent with
+                {
+                    Counters = standing == 0
+                        ? permanent.Counters.Remove(CounterKinds.Defense)
+                        : permanent.Counters.SetItem(CounterKinds.Defense, standing),
                 },
             });
         }
@@ -1636,11 +1703,25 @@ public static class GameReducer
     private static GameState Transform(GameState state, PermanentTransformed e)
     {
         if (!state.TryGetObject(e.Id, out var permanent)
-            || permanent.Permanent is not { } onBattlefield
             || permanent.Card.Faces.Count <= e.FaceIndex
             || e.FaceIndex < 0)
         {
             return state;
+        }
+
+        // CR 712.11a: a card cast "transformed" is put on the stack with its back face up, so
+        // the event may name a spell as well as a permanent — a defeated Siege's flip side is
+        // the one printed cast that does (CR 310.12b). Off the battlefield there is no
+        // PermanentState to note the face on; the swapped card records it in its own id, and
+        // EnteringPermanent reads it back if the spell resolves into a permanent.
+        if (permanent.Permanent is not { } onBattlefield)
+        {
+            return permanent.Zone == Zone.Stack
+                ? state.WithObject(permanent with
+                {
+                    Card = MtgEngine.Rules.Cards.CardFaces.Definition(permanent.Card, e.FaceIndex),
+                })
+                : state;
         }
 
         return state.WithObject(permanent with

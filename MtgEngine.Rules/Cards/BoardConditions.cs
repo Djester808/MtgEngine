@@ -1183,6 +1183,20 @@ public static partial class BoardConditions
                 state.TryGetObject(source.Id, out var self) && self.WasTeamwork;
         }
 
+        // "If the gift was promised" - CR 702.174k, and the chosen opponent rides the
+        // resolution move for exactly this reason: a permanent's gift trigger asks about the
+        // spell that became it (CR 607.2). Read from the source the way kicker's flag is, and
+        // fail-closed the same way too - an object that has gone answers neither the promise
+        // nor its absence.
+        if (GiftPromisedLine().Match(text) is { Success: true } gifted)
+        {
+            var unpromised = gifted.Groups["not"].Success;
+
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self)
+                && (self.GiftedTo is not null) != unpromised;
+        }
+
         // "When ~ enters, if it was bargained, ..." - CR 702.166b: a spell has been bargained
         // once its controller declares the intention to pay that cost. The sentence form of this
         // ("If this spell was bargained, destroy that creature instead") was already read, and
@@ -1293,6 +1307,14 @@ public static partial class BoardConditions
                 ? state.MonarchId == source.ControllerId
                 : state.MonarchId is { } held && held != source.ControllerId;
         }
+
+        // "If you have the initiative" (CR 726.1) - the monarch's twin, held the same way: one
+        // designation on the state, at most one holder (CR 726.3). Only the "you" arm is read,
+        // because that is the only arm the corpus prints - every "an opponent has it" wording
+        // arrives inside a longer clause this vocabulary does not read, and an arm no card
+        // exercises is an arm no test can keep honest.
+        if (InitiativeLine().IsMatch(text))
+            return (state, _, source) => state.InitiativeId == source.ControllerId;
 
         // "If it's night", "if it's neither day nor night" (CR 731.1). A designation the game
         // itself has rather than a player, so it sits beside the monarch — and it has three
@@ -2379,6 +2401,18 @@ public static partial class BoardConditions
         @"^(~|it|this spell) was cast using teamwork$", RegexOptions.IgnoreCase)]
     private static partial Regex TeamworkCastLine();
 
+    /// <summary>"If the gift was promised" / "if the gift wasn't promised" (CR 702.174k).</summary>
+    /// <remarks>
+    /// Also "if its gift cost was paid", which is how CR 702.174b spells the same fact inside
+    /// the trigger it defines. CR 702.174k makes the two one thing: declaring the intention to
+    /// pay is what promising is.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(the gift ((was)|(?<not>wasn't|was not)) promised"
+            + @"|its gift cost ((was)|(?<not>wasn't|was not)) paid)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GiftPromisedLine();
+
     /// <summary>"If it was bargained" (CR 702.166b).</summary>
     [GeneratedRegex(@"^(~|it|this spell) was bargained$", RegexOptions.IgnoreCase)]
     private static partial Regex WasBargainedLine();
@@ -2865,6 +2899,10 @@ public static partial class BoardConditions
             + @"|(?<nobody>there is no monarch))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
+
+    /// <summary>"You have the initiative" (CR 726.1).</summary>
+    [GeneratedRegex(@"^you have the initiative$", RegexOptions.IgnoreCase)]
+    private static partial Regex InitiativeLine();
 
     /// <summary>"You've completed a dungeon" (CR 309.7).</summary>
     /// <remarks>

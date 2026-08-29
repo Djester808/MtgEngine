@@ -486,7 +486,28 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **48.6% of playable cards fully read** (15,901 of 32,717), 65.6% of lines.
+Coverage is **48.7% of playable cards fully read** (15,937 of 32,717), 65.9% of lines.
+
+### Round ten, and what an interrupted round leaves behind
+
+Seven agents were stopped mid-flight by a session limit rather than by failure. Three had
+finished: the initiative and Undercity (the room that blocked it turned out to be sayable with
+the `UntilTurnOf` duration built for a different dungeon the round before), cleave with the
+square-bracket defect closed in the same change as the doc demanded, and CR 310 battles -
+defense counters, a protector, being attacked, and the defeat that exiles and recasts.
+
+The battle refusal added by the previous gate was **narrowed rather than deleted**: a battle
+that is not a Siege is still refused whole, because the protector provisions differ by battle
+type and only the Siege's are implemented. Every battle printed into a legal format is one.
+
+The other four are parked on their branches, committed but unmerged, and the triage is worth
+recording because it is the shape an interrupted round always takes. All four compile. One
+(bargain and per-kicker read-back) fails nothing but `MechanicCoverageTests`, which refuses
+five new line shapes that no played-game test exercises - the gate working exactly as designed,
+since a reader without a game behind it is how a card comes to compile and not play. One (dice)
+fails only its own new tests. **Two regress pre-existing tests** - soulbond breaks a self-pump
+keyword grant, and the source-scoped group work breaks a keyword lord - and those two are the
+reason none of the four was merged on a "it compiles and mostly passes" basis.
 
 ### What the round-end gate caught that no agent could
 
@@ -6054,11 +6075,10 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
 - **Landwalk reads computed land types, but nothing yet grants one.** The check is right; the
   template that would exercise it — "each land is a Swamp in addition to its other types" — does
   not compile, so that half is unverified and is not claimed by any test.
-- **The phrase parser ignores square brackets rather than refusing them.** `"Draw a card for each creature you control [with flying]."` parses today as the flier-less
-  sentence — a read-better-than-printed, which is the one class of error the fail-closed rule
-  exists to prevent. No playable card is affected right now, because bracketed text is printed
-  only on the 12 cleave cards and all 12 are incomplete for other reasons. That is luck, not
-  safety: it becomes live the moment anyone reads cleave, so it must be fixed in the same change.
+- ~~The phrase parser ignores square brackets rather than refusing them.~~ Fixed in the cleave
+  round, in the same change that made it live: a line containing `[...]` that no cleave-aware
+  reader claimed is now refused, with a test holding the exact sentence that used to read
+  flier-less. See "Cleave, and the bracket the parser had been eating".
 - **A cast had never charged a `ReturnToHand` cost.** Only ninjutsu produced one, and only as an
   activated ability, so the cast path had no arm for it and would have put the returned lands in
   the *graveyard*. Found by wiring alternative costs that are not mana; now covered by a Gush test.
@@ -6310,9 +6330,9 @@ that number was one rather than three.
 | dungeon | the room that blocks it |
 |---|---|
 | Lost Mine of Phandelver | *(none — Fungi Cavern needed a duration, which was built)* |
-| Undercity | Throne of the Dead Three: reveal ten, put a creature from among them onto the battlefield with three counters, hexproof until your next turn, then shuffle |
-| Dungeon of the Mad Mage | Twisted Caverns ("can't attack until your next turn"), Mad Wizard's Lair ("draw three, cast one free") |
-| Tomb of Annihilation | three of five rooms are "each player loses N life unless they …" |
+| Undercity | *(none since the initiative round — Throne of the Dead Three's four welded instructions became the look-and-take with the taking dressed, and it ships)* |
+| Dungeon of the Mad Mage | Mad Wizard's Lair ("draw three, cast one free" — and it is the bottommost room), Runestone Caverns ("you may play them", a play permission with no duration where both stored permissions expire). Twisted Caverns no longer blocks: defender is exactly "can't attack" (CR 702.3b) and the until-your-next-turn duration carries it |
+| Tomb of Annihilation | two of five rooms (a re-measurement — Trapped Entry is a plain "each player loses 1 life") are "each player loses 2 life unless they …", an offer to every player at once whose decline falls on the decliner, which `MayPay` cannot say for more than one player |
 
 A dungeon with a room that does nothing would be worse than a dungeon nobody owns, and it does not
 cost the cards anything: **a player who brought one dungeon card is playing a legal game of Magic**,
@@ -6343,7 +6363,9 @@ Stalker, Dungeon Crawler, Fifty Feet of Rope and the rest.
 
 Three families were sized in the same pass and none of them is built. The numbers are the argument.
 
-**The initiative (CR 726) — 26 cards touching, 13 reachable, declined for one room.** Not for want
+**The initiative (CR 726) — 26 cards touching, 13 reachable, declined for one room.** *(Taken the
+round after — see "The initiative ships, and Undercity with it" below. The decline was correct when
+it was made and its reasoning is why the next round was cheap.)* Not for want
 of machinery: it is the monarch's twin. One designation at most one player holds, moving on combat
 damage, with an inherent upkeep trigger — and the monarch is already built exactly that way, down to
 the stated simplification about sourceless triggers. What stops it is that **all three of CR 726.2's
@@ -6479,3 +6501,158 @@ Declined here, with the count behind each:
   checked, and a trigger that fired for damage dealt to anybody is a strictly better card than the
   one printed. The recipient is admitted on the singular sentence only, and there is a test holding
   the refusal.
+
+
+### The initiative ships, and Undercity with it
+
+The decline the round before named its own price of admission: all three of CR 726.2's inherent
+abilities venture into Undercity by name, and Undercity's bottommost room - reveal ten, put a
+creature from among them onto the battlefield with three +1/+1 counters, it gains hexproof until
+your next turn, then shuffle - could not be said. **Every piece of that sentence existed within a
+round.** The until-your-next-turn duration was built for Fungi Cavern; the reveal, the counters,
+the grant and the shuffle are one look-and-take with the taking dressed. The dressing rides the
+request rather than becoming separate effects, for the reason unearth is one effect: only the move
+knows the id the taken card lands under (CR 400.7), so a second effect running afterwards could
+not name the thing that just arrived.
+
+So Undercity is the second dungeon in `Dungeons.cs`, nine rooms of existing vocabulary plus that
+one, and the initiative sits on top exactly as the monarch does: one nullable field on the state
+(CR 726.3), an upkeep hook beside the suspend tick, and a combat-damage hook beside the crown's -
+in the one place every `PlayerDamaged` passes, because the crown's first version taught what
+happens when the hook watches a door combat does not use. Two behaviours are the initiative's own
+rather than the monarch's, and each has a test that plays it:
+
+- **Taking it while holding it ventures again** (CR 726.5). `TakeTheInitiative` never
+  short-circuits the way `BecomeTheMonarch` does; the designation re-assigns harmlessly and the
+  venture happens every time.
+- **"One or more creatures" is one trigger** (CR 726.2). The batching costs nothing: the first
+  creature's damage moves the designation, after which the holder is no longer the player being
+  damaged and the rest of the batch fails the guard. Two unblocked attackers, one venture - the
+  test asserts the marker sits on the topmost room, because a double-take would have walked past it.
+
+**"Venture into Undercity" reads now** (CR 701.49d), as one alternation with the plain venture so
+no looser pattern can ever send a named venture into the wrong dungeon, and the test that held the
+line unread flipped to assert both halves: Undercity's name reads, any other name still refuses the
+card. The variant differs from the plain instruction only in what it *starts* - a player already in
+any dungeon advances it, which the "taking the initiative mid-Lost-Mine" test plays out. And the
+plain venture still has exactly one answer with two dungeons shipped, because the restriction is
+printed on the card: "You can't enter this dungeon unless you 'venture into Undercity.'"
+CR 701.49a's choice never offers it, which is the rule as written rather than a simplification.
+
+**15,899 -> 15,908 complete cards, +9, none lost, measured by set difference**: Aarakocra Sneak,
+Avenging Hunter, Bloodboil Sorcerer, Feywild Caretaker, Goliath Paladin, Passageway Seer, Stirring
+Bard, Underdark Explorer, Undermountain Adventurer. The 19-card estimate for `When ~ enters, you
+take the initiative.` was the line's frequency, not its sole-blocker count: the enters line now
+reads on every card that prints it, and the other ten are each one *different* line short -
+attack-and-blocked triggers, "draw another card if" tails, a free-cast offer - none of them
+initiative-shaped. `you have the initiative` joined the board conditions (the "you" arm only;
+no corpus card prints the opponent arm as a bare condition, and an arm no card exercises is an arm
+no test keeps honest), which is what Passageway Seer's and Feywild Caretaker's end-step triggers
+needed beside the enters line.
+
+**Checked against the vocabulary and still declined, with the stale notes corrected:**
+
+- **Dungeon of the Mad Mage.** The recorded blocker list was half stale: Twisted Caverns
+  ("target creature can't attack until your next turn") stopped blocking the day the duration
+  was built, because defender *is* "can't attack" (CR 702.3b) and a floating grant carries it.
+  What actually blocks is **Mad Wizard's Lair** - "draw three cards and reveal them, you may cast
+  one of them without paying its mana cost" needs a reference to the cards a draw just drew,
+  which nothing has - and it is the *bottommost* room, the exact place a dungeon must not stop
+  working. **Runestone Caverns** is the subtler one: "exile the top two cards of your library,
+  you may play them" grants a permission with no duration, and both permissions the engine stores
+  expire (`MayPlayUntilTurn`, `MayPlayThroughOwnersNextTurn`) - reading it as either would be
+  a room that quietly takes the cards back.
+- **Tomb of Annihilation.** Two of five rooms, not the recorded three - Trapped Entry is a plain
+  "each player loses 1 life", sayable today. Veils of Fear and Sandfall Cell are "each player
+  loses 2 life unless they [discard / sacrifice]": an offer put to every player at once, with the
+  decline consequence falling on the decliner. `MayPay` asks exactly one player and resolves its
+  branches as the room controller's, so each opponent's decline would drain the venturing player.
+  Oubliette's mandatory discard-and-sacrifices became sayable while nobody was looking
+  (`ChooseAndMove` asks the owner of the board it picks from), and Cradle of the Death God is a
+  token - the family is down to one missing shape used twice.
+
+### Cleave, and the bracket the parser had been eating
+
+Cleave (CR 702.148) waited behind a defect that had to land first. The phrase parser *ignored*
+square brackets rather than refusing them: "Draw a card for each creature you control [with
+flying]." compiled as the flier-less draw -- a card read strictly better than printed, the one
+class of error the fail-closed rule exists to prevent. Nothing playable was affected only because
+every bracketed line sat on a card that was incomplete for other reasons, and that was luck: the
+moment cleave read, it went live. So the fix is the guard, not the mechanic: a line containing a
+bracket that no cleave-aware reader claimed lands in `Unhandled` before any matcher can see it,
+and a test holds the exact sentence. The corpus's only other brackets -- loyalty costs inside
+granted-ability quotes ('has "[+1]: ..."') and Comet's dice lines -- were unread anyway, so the
+refusal cost nothing, which the set diff proved rather than assumed.
+
+Cleave itself is the adventurer answer a third time: one card carrying two spells, chosen as it
+is cast. The text is compiled **twice** -- brackets dropped and the words kept, bracketed words
+gone -- each reading through every matcher unchanged, so the vocabulary work other rounds landed
+is what made 7 of the 12 readable both ways (an earlier agent measured 3; re-measuring before
+building is the habit that found the difference). The printed reading is the card;
+`CompiledCard.CleaveSpell` and `CleaveCostRaw` hold the other, `Game.CastSpell(cleaved: true)`
+charges the alternative cost and swaps the reading in through the same `CastAs` record adventures
+use, and a `SpellCleaved` event folds `WasCleaved` onto the stack object -- so `SpellBeingCast`
+can answer from the state and a *resumed* game still resolves the reading that was paid for,
+which the in-process table alone could not promise (adventures and split halves still cannot;
+that gap stands recorded). The behaviour tests turn on the readings answering differently: one
+flier among two creatures draws one card printed and two cleaved, and "Destroy target [attacking]
+creature" refuses an idle creature printed and kills it cleaved -- the target list is part of the
+reading, not just the effects.
+
+Fail-closed carries through the pair: a card either of whose readings has an unreadable sentence
+stays unread whole, reporting only the real blocker, and a cleaved reading that compiled to
+anything besides a single spell is refused because the swap carries a spell and nothing else.
+The five that stay incomplete, each with its honest sentence: Lantern Flare (a standalone "X is
+the number of creatures you control" definition), Alchemist's Gambit (an extra turn with a
+prevention rider and a delayed loss), Inspired Idea (a lasting hand-size reduction), Wash Away
+(a cast-zone target filter), Dread Fugue (a mana-value filter after "from it").
+
+### Gift: a promise is a cast fact with a name on it
+
+Gift (CR 702.174) is kicker's family with one addition -- the fact has a *player* in it.
+Promising is choosing an opponent (702.174a), so `GiftPromised(stackId, opponent)` is one event,
+the reducer folds it to `GameObject.GiftedTo`, and the field rides the resolution move exactly as
+the kicker flag does (CR 607.2), because a permanent's trigger asks about the spell it used to
+be. Delivery is synthesized from CR 702.174d-j's own sentences ("Create a Food token.") and then
+re-aimed at a new `PlayerScope.GiftRecipient` -- "the chosen player" is deliberately not taught
+to the shared grammar, since no printed rules text says it, and the re-aim refuses any effect
+shape other than the draw and the token creation the six defined kinds produce.
+
+The branch went two ways, by card type. An instant or sorcery is the cleave shape again: the
+promise is settled at cast, so "If the gift was promised, ..." is not a runtime conditional at
+all -- the text is rewritten into an unpromised and a promised reading (the "instead" sentences
+swap an instruction, targets included, which is what CR 702.174m asks; the delivery is the
+promised reading's first effect, which is 702.174j), and each compiles as a card of its own. A
+permanent cannot do that, because its own printed trigger reads the promise *later*, off the
+permanent -- so "the gift was promised" joined `BoardConditions`, where the intervening-if and
+the bare-conditional sentence readers pick it up unchanged, and the gift line itself compiles to
+the enters trigger 702.174b spells out. The multiplayer half is behaviour-tested at a table of
+three: the Food goes to the opponent named at cast and to nobody else, promising yourself
+refuses, and promising off a card with no gift refuses.
+
+10 of the 27 gift cards read completely: Mind Spiral, Pool Resources, Valley Rally, Into the
+Flood Maw, Peerless Recycling, Sazacap's Brew, Nocturnal Hunger, Long River's Pull, and the two
+permanents Scrapshooter and Kitnap. The other 17 are blocked by their own sentences, not by the
+mechanic -- doubled damage numbers in one clause, "up to N ... each with mana value" reanimation,
+"put into your graveyard this way", phase-out-and-protection, a copy with an exception -- and two
+kinds were declined by measurement: "Gift an extra turn" (one card, Perch Protection, blocked by
+its phasing sentence regardless of the delivery) and "Gift a Rhystic Study" (one card; the kind
+is not defined by CR 702.174 at all, and inventing a delivery for it would be guessing).
+
+### The aftermath flag never fired on cardboard, and neither did fuse
+
+The audit that said `CardHalf.HasAftermath` was reachable by zero cards was pointing at a missing
+reader, not a stale record. The flag was matched with `^Aftermath$` against the face's *raw*
+text, and no printing says the bare word -- the cardboard says "Aftermath (Cast this spell only
+from your graveyard. Then exile it.)", so the flag set on zero corpus cards while the keyword
+*line* read fine through `Lines`' reminder stripping. Thirteen split cards were complete,
+flagless, and quietly castable from hand twice -- the exact strictly-better failure the aftermath
+test narrates, live in the shipping compiler, invisible because the test's fixture printed the
+bare word no card prints. `HasFuse` had the same bug on the same pattern, which cost all 22 fuse
+cards their fused cast. Both now strip reminder text before matching; all 27 aftermath cards flag
+their half, and a corpus-shaped fixture -- reminder text and all -- holds the from-hand refusal
+so the fixture blindspot cannot reopen.
+
+**15,899 → 15,916 complete cards, the set diffed and none lost:** 7 cleave (Winged Portent,
+Fierce Retribution, Alchemist's Retrieval, Dig Up, Lunar Rejection, Path of Peril, Parasitic
+Grasp) and 10 gift, as named above.

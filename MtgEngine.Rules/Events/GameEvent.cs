@@ -418,6 +418,32 @@ public sealed record LookAndTakeRequested(
     string FilterId = "any")
     : GameEvent
 {
+    /// <summary>Whether the cards are revealed to everybody rather than looked at (CR 701.16a).</summary>
+    /// <remarks>
+    /// "Reveal the top ten cards of your library. Put a creature card from among them onto the
+    /// battlefield" — the same question with the cards face up, which matters because a look kept
+    /// private would hide from the opponents which ten cards the choice was made from.
+    /// </remarks>
+    public bool Reveal { get; init; }
+
+    /// <summary>+1/+1 counters the taken card arrives with, when it lands on the battlefield.</summary>
+    public int CountersOnTaken { get; init; }
+
+    /// <summary>
+    /// A generated continuous effect given to the taken card as it lands, or null for none —
+    /// "it gains hexproof until your next turn" as a <c>grant:</c> definition id.
+    /// </summary>
+    public string? TakenGrantId { get; init; }
+
+    /// <summary>Whether the grant lasts until the taker's next turn rather than this one (CR 611.2b).</summary>
+    public bool GrantUntilTakersNextTurn { get; init; }
+
+    /// <summary>
+    /// Whether the library is shuffled after the rest go back — "then shuffle" — instead of the
+    /// rest going to the bottom in a random order (CR 701.20a).
+    /// </summary>
+    public bool ShuffleAfter { get; init; }
+
     public override string Rule => "701.20a";
 
     public override string Describe() =>
@@ -576,6 +602,36 @@ public sealed record SpellBargained(ObjectId StackId) : GameEvent
     public override string Rule => "702.166b";
 
     public override string Describe() => "The spell was bargained.";
+}
+
+/// <summary>A spell's cleave cost was paid as it was cast (CR 702.148a).</summary>
+/// <remarks>
+/// The fact that chooses which reading resolves: a cleave card is compiled twice — with the
+/// bracketed words and without them — and paying the cleave cost is what selects the second.
+/// In the log rather than only in the in-process table, so a replayed game folds the choice
+/// back onto the stack object and resolves the same spell the table would have.
+/// </remarks>
+public sealed record SpellCleaved(ObjectId StackId) : GameEvent
+{
+    public override string Rule => "702.148a";
+
+    public override string Describe() => "The spell was cast for its cleave cost.";
+}
+
+/// <summary>
+/// A spell's gift was promised to an opponent as it was cast (CR 702.174a, 702.174k).
+/// </summary>
+/// <remarks>
+/// The promise and the recipient are one event because the rules make them one act: paying the
+/// gift cost <em>is</em> choosing an opponent. Who was chosen has to be in the log — the
+/// delivery resolves later, an enters trigger may read it later still, and by then the choice
+/// is otherwise nowhere.
+/// </remarks>
+public sealed record GiftPromised(ObjectId StackId, Guid Opponent) : GameEvent
+{
+    public override string Rule => "702.174k";
+
+    public override string Describe() => $"A gift was promised to {Opponent:N}.";
 }
 
 /// <summary>A player is to proliferate, asked at the next settle (CR 701.34a).</summary>
@@ -904,6 +960,21 @@ public sealed record MonarchChanged(Guid PlayerId) : GameEvent
     public override string Rule => "725.3";
 
     public override string Describe() => $"{PlayerId:N} became the monarch.";
+}
+
+/// <summary>A player took the initiative (CR 726.3).</summary>
+/// <remarks>
+/// The monarch's twin: one event for the whole change, because taking the initiative is also the
+/// previous holder ceasing to have it (CR 726.3). It is emitted even when the taker already has
+/// it — CR 726.5 says taking it again is a real taking that triggers the Undercity venture, just
+/// not a second designation — so the log records the taking and the fold makes the re-assignment
+/// harmless.
+/// </remarks>
+public sealed record InitiativeTaken(Guid PlayerId) : GameEvent
+{
+    public override string Rule => "726.3";
+
+    public override string Describe() => $"{PlayerId:N} took the initiative.";
 }
 
 /// <summary>
@@ -1654,8 +1725,18 @@ public sealed record CardForetold(ObjectId Id, int Turn) : GameEvent
 /// is. Discover says so and cascade does not, and the difference is the whole of what separates
 /// the two (CR 701.57a, CR 702.85a).
 /// </param>
+/// <param name="Transformed">
+/// Whether taking the offer casts the card transformed (CR 712.11a) — a defeated Siege's
+/// "you may cast it transformed without paying its mana cost" (CR 310.12b). On the offer rather
+/// than derived from the card, because the same battle card in exile under a cascade offer is
+/// cast as its front face; only the offer knows which cast it bought.
+/// </param>
 public sealed record FreeCastOffered(
-    ObjectId Id, Guid PlayerId, string Cost = "", bool ToHandIfDeclined = false) : GameEvent
+    ObjectId Id,
+    Guid PlayerId,
+    string Cost = "",
+    bool ToHandIfDeclined = false,
+    bool Transformed = false) : GameEvent
 {
     public override string Rule => "601.2b";
 
@@ -1670,6 +1751,23 @@ public sealed record FreeCastLapsed(ObjectId Id) : GameEvent
     public override string Rule => "601.2b";
 
     public override string Describe() => $"The offer on {Id} lapsed.";
+}
+
+/// <summary>
+/// A player became a battle's protector (CR 310.9).
+/// </summary>
+/// <remarks>
+/// Chosen by the battle's controller as it enters (CR 310.9a) — forced when only one player may
+/// be chosen, which is every Siege at a two-player table (CR 310.12a) — and chosen again by the
+/// state-based action when the designated protector stops being eligible (CR 704.5x, 704.5y).
+/// A battle has one protector at a time (CR 310.9f), so folding this over an earlier choice
+/// replaces it.
+/// </remarks>
+public sealed record ProtectorChosen(ObjectId Id, Guid PlayerId) : GameEvent
+{
+    public override string Rule => "310.9";
+
+    public override string Describe() => $"{PlayerId:N} now protects {Id}.";
 }
 
 /// <summary>A cascading spell is looking for something cheaper (CR 702.85a).</summary>
