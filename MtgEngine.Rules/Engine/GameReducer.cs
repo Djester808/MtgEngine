@@ -449,6 +449,10 @@ public static class GameReducer
             PermanentAttached attached => Attach(state, attached),
             RegenerationShieldsChanged shields => Shield(state, shields),
             PreventionChanged prevent => Prevent(state, prevent),
+            PreventionEffectCreated shield => state with
+            {
+                Preventions = state.Preventions.Add(shield.Effect),
+            },
             RedirectionChanged redirect => Redirect(state, redirect),
             HandLookedAt => state,
             FreerunningEnabled ready => state.WithPlayer(
@@ -807,7 +811,14 @@ public static class GameReducer
     {
         var player = state.GetPlayer(e.PlayerId);
         var pool = e.Restriction is { } only
-            ? player.ManaPool.AddRestricted(e.Color, only, e.Amount)
+            ? player.ManaPool.AddRestricted(
+                new RestrictedMana(e.Color, only)
+                {
+                    FilterId = e.RestrictedTo,
+                    FromZone = e.RestrictedToZone,
+                    CommanderOnly = e.RestrictedToCommander,
+                },
+                e.Amount)
             : e.Color is null
                 ? player.ManaPool.AddColorless(e.Amount)
                 : player.ManaPool.Add(e.Color.Value, e.Amount);
@@ -1325,6 +1336,19 @@ public static class GameReducer
         {
             if (state.GetPlayer(id).DamageToPrevent != 0)
                 state = state.WithPlayer(state.GetPlayer(id) with { DamageToPrevent = 0 });
+        }
+
+        // CR 514.2: "this turn" ends at the same moment damage is removed, and a described
+        // prevention effect reads it the same way a shield does. Derived from the turn it was
+        // made on rather than announced by an event of its own - this *is* the moment, and an
+        // event saying so would be a second place for the two to disagree.
+        if (state.Preventions.Any(p => p.UntilEndOfTurn <= state.TurnNumber))
+        {
+            state = state with
+            {
+                Preventions = state.Preventions.RemoveAll(
+                    p => p.UntilEndOfTurn <= state.TurnNumber),
+            };
         }
 
         return state;

@@ -65,11 +65,16 @@ public sealed record ManaPool
     public ManaPool AddColorless(int amount = 1) => this with { Colorless = Colorless + amount };
 
     /// <summary>Adds mana that may only be spent on some things (CR 106.6).</summary>
-    public ManaPool AddRestricted(ManaColor? color, ManaRestriction restriction, int amount = 1)
+    /// <remarks>
+    /// One entry per mana rather than a count, because CR 106.6a applies the restriction to every
+    /// mana the ability produced: two mana added under one clause are two restricted mana, and
+    /// merging them would lose the only fact the pool is keeping.
+    /// </remarks>
+    public ManaPool AddRestricted(RestrictedMana mana, int amount = 1)
     {
         var added = Restricted;
         for (var i = 0; i < amount; i++)
-            added = added.Add(new RestrictedMana(color, restriction));
+            added = added.Add(mana);
 
         return this with { Restricted = added };
     }
@@ -140,10 +145,127 @@ public sealed record ManaPool
 }
 
 /// <summary>One mana that may only be spent on some things (CR 106.6).</summary>
+/// <remarks>
+/// <see cref="ManaRestriction"/> answers two questions — which purpose, and which card types —
+/// and the corpus asks six. The four it could not say are here, beside it rather than inside it,
+/// because the type mask is the compiler's output today and widening it is the other half of this
+/// work: a permanent's tribe ("spend this mana only to cast Dragon spells"), a negation
+/// ("noncreature"), the zone a spell is cast from, and the caster's commander.
+/// <para>
+/// Each is null or false for mana with nothing more to say, so a restriction that names only a
+/// purpose and a type behaves exactly as it did.
+/// </para>
+/// </remarks>
 public readonly record struct RestrictedMana(ManaColor? Color, ManaRestriction Restriction)
 {
+    /// <summary>
+    /// A card filter in the shared vocabulary, or null for "any card of the right type".
+    /// </summary>
+    /// <remarks>
+    /// The same names <see cref="Abilities.SearchFilters"/> gives tutors, digs and cost
+    /// modifiers, which is what makes "Dragon spells", "noncreature spells", "legendary spells",
+    /// "multicolored spells" and "instant and sorcery spells" one field rather than five readers.
+    /// It is asked of the card being cast, or of the permanent whose ability is being activated —
+    /// "spend this mana only to cast Dragon spells or activate abilities of Dragons" is one
+    /// restriction, exactly as the type mask already treats it.
+    /// </remarks>
+    public string? FilterId { get; init; }
+
+    /// <summary>
+    /// The zone a spell has to be cast from, or null for anywhere (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// "Spend this mana only to cast spells from your graveyard" — and "from exile" beside it.
+    /// The zone is read from where the card stands as its cost is worked out, before it moves to
+    /// the stack and stops being that object (CR 400.7).
+    /// </remarks>
+    public State.Zone? FromZone { get; init; }
+
+    /// <summary>Whether it may only pay for the player's own commander (CR 903.3).</summary>
+    /// <remarks>
+    /// Jeweled Lotus, and it is not something a filter can say: which card is a commander is a
+    /// fact about this game rather than about the card, and the same card in somebody else's deck
+    /// is not one.
+    /// </remarks>
+    public bool CommanderOnly { get; init; }
+
+    /// <summary>Whether this mana may pay for what is being paid for (CR 106.6).</summary>
+    public bool Allows(ManaSpend spend)
+    {
+        if (!Restriction.Allows(spend.Purpose, spend.Types))
+            return false;
+
+        // The narrower questions are asked only when the clause asked them. A restriction that
+        // said nothing about a tribe must not start refusing mana over one.
+        if (FilterId is { } filter
+            && !(Restriction.TypesOnlyWhenCasting && spend.Purpose != ManaPurpose.CastSpell)
+            && !(spend.Card is { } card && Abilities.SearchFilters.Matches(filter, card)))
+        {
+            return false;
+        }
+
+        if (FromZone is { } zone && spend.From != zone)
+            return false;
+
+        return !CommanderOnly || spend.IsCommander;
+    }
+
     public override string ToString() =>
         (Color is { } c ? ManaSymbol.Letter(c).ToString() : "C") + "*";
+}
+
+/// <summary>
+/// What a mana payment is for, so restricted mana can tell whether it may pay (CR 106.6).
+/// </summary>
+/// <remarks>
+/// One record rather than a growing parameter list, and the reason is what it grew for: payment
+/// used to know only a purpose and a type mask, so a mana that could say "only a Dragon spell"
+/// would have had nothing to ask. Every fact a printed restriction reads about the thing being
+/// paid for is here, and the ones that are not are the ones no card asks.
+/// <para>
+/// Its default is the payment that is neither a cast nor an activation — a cumulative upkeep, an
+/// unless-cost — which no restricted mana pays unless its clause named that purpose.
+/// </para>
+/// </remarks>
+public readonly record struct ManaSpend
+{
+    /// <summary>What kind of thing is being paid for.</summary>
+    public ManaPurpose Purpose { get; init; }
+
+    /// <summary>
+    /// The card being cast, or the card whose ability is being activated.
+    /// </summary>
+    /// <remarks>
+    /// Printed rather than computed, matching every other card-filter question the engine asks at
+    /// cast time. It is null only for a payment that is about neither a spell nor a permanent.
+    /// </remarks>
+    public Domain.Models.CardDefinition? Card { get; init; }
+
+    /// <summary>The zone a spell is being cast from, or null when it is not a cast.</summary>
+    public State.Zone? From { get; init; }
+
+    /// <summary>Whether the spell being cast is the caster's commander (CR 903.3).</summary>
+    public bool IsCommander { get; init; }
+
+    /// <summary>The card's types, or none when there is no card (CR 205.2).</summary>
+    public CardType Types => Card?.CardTypes ?? default;
+
+    /// <summary>Paying for a spell being cast (CR 601.2h).</summary>
+    public static ManaSpend Casting(
+        Domain.Models.CardDefinition card, State.Zone from, bool isCommander = false) => new()
+        {
+            Purpose = ManaPurpose.CastSpell,
+            Card = card,
+            From = from,
+            IsCommander = isCommander,
+        };
+
+    /// <summary>Paying for an ability of a permanent being activated (CR 602.2b).</summary>
+    public static ManaSpend Activating(Domain.Models.CardDefinition source) => new()
+    {
+        Purpose = ManaPurpose.ActivateAbility,
+        Card = source,
+    };
 }
 
 /// <summary>Whether a pool can pay a cost, and what it would cost to do so.</summary>
@@ -167,8 +289,7 @@ public static class ManaPayment
         ManaPool pool,
         ManaCostSpec cost,
         int variableValue = 0,
-        ManaPurpose purpose = ManaPurpose.Other,
-        CardType paidFor = default)
+        ManaSpend spend = default)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(cost);
@@ -183,7 +304,7 @@ public static class ManaPayment
         int TakeRestricted(ManaColor? color)
         {
             var index = remaining.Restricted.FindIndex(
-                r => r.Color == color && r.Restriction.Allows(purpose, paidFor));
+                r => r.Color == color && r.Allows(spend));
 
             if (index < 0)
                 return 0;
@@ -194,8 +315,7 @@ public static class ManaPayment
 
         int TakeAnyRestricted()
         {
-            var index = remaining.Restricted.FindIndex(
-                r => r.Restriction.Allows(purpose, paidFor));
+            var index = remaining.Restricted.FindIndex(r => r.Allows(spend));
 
             if (index < 0)
                 return 0;
@@ -294,7 +414,6 @@ public static class ManaPayment
         ManaPool pool,
         ManaCostSpec cost,
         int variableValue = 0,
-        ManaPurpose purpose = ManaPurpose.Other,
-        CardType paidFor = default) =>
-        Pay(pool, cost, variableValue, purpose, paidFor) is not null;
+        ManaSpend spend = default) =>
+        Pay(pool, cost, variableValue, spend) is not null;
 }

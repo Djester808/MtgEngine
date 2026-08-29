@@ -261,6 +261,12 @@ public static class EffectTargets
         Add<PreventDamage>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
+        // Nullable for the same reason and more of them: a described prevention names its subject
+        // by filter or by scope far more often than it targets one.
+        Add<PreventDescribedDamage>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
         Add<CounterTargetSpell>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<MoveTargetedCard>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<GainControlUntilEndOfTurn>(

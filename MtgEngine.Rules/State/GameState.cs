@@ -186,6 +186,21 @@ public sealed record GameState
     public ImmutableList<FloatingEffect> FloatingEffects { get; init; } = [];
 
     /// <summary>
+    /// Prevention effects created by resolved spells and abilities (CR 615.1, 615.3).
+    /// </summary>
+    /// <remarks>
+    /// Held apart from <see cref="FloatingEffects"/> because they are not layered: a prevention
+    /// effect never changes a characteristic, so it has no place in CR 613's order and no
+    /// timestamp to take. It watches a damage event and reduces it, which is the replacement
+    /// machinery's job rather than the characteristics'.
+    /// <para>
+    /// Also apart from the countdown shields on permanents and players, which are the other kind
+    /// of prevention (CR 615.7) and are spent rather than described.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<PreventionEffect> Preventions { get; init; } = [];
+
+    /// <summary>
     /// Every permanent that has entered the battlefield this turn, oldest first (CR 400.7).
     /// </summary>
     /// <remarks>
@@ -515,6 +530,7 @@ public sealed record GameState
         Structural.Same(Players, other.Players) &&
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
+        Structural.Same(Preventions, other.Preventions) &&
         Structural.Same(ArrivalsThisTurn, other.ArrivalsThisTurn) &&
         Structural.Same(DeparturesThisTurn, other.DeparturesThisTurn) &&
         MonarchId == other.MonarchId &&

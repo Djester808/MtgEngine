@@ -2643,6 +2643,110 @@ public sealed record PreventDamage(
     }
 }
 
+/// <summary>
+/// Prevents damage to or from a described set of things (CR 615.1, 615.3).
+/// </summary>
+/// <remarks>
+/// The other half of <see cref="PreventDamage"/>, and the half every prevention line that is not
+/// "prevent the next N damage to target X" needs. Two things separate them:
+/// <list type="bullet">
+/// <item>
+/// It shields by <em>description</em> rather than by target. "Prevent all damage that would be
+/// dealt to creatures you control" names no target, so a countdown shield — which is created per
+/// target — had nowhere at all to be put.
+/// </item>
+/// <item>
+/// It can ask about the source. "Prevent all combat damage that would be dealt by creatures this
+/// turn" is a question about who is dealing, and a shield sitting on the thing being hit cannot
+/// answer it (CR 609.7).
+/// </item>
+/// </list>
+/// <para>
+/// <see cref="Amount"/> is CR 615.10's number, not CR 615.7's: it caps each damage event
+/// separately and is never spent. Null means all of it, which is what the great majority print
+/// and what the existing reader was faking with a shield of a million points.
+/// </para>
+/// </remarks>
+public sealed record PreventDescribedDamage : IEffect
+{
+    /// <summary>The most prevented from any one damage event, or null for all of it.</summary>
+    public int? Amount { get; init; }
+
+    /// <summary>Whether it watches all damage, combat damage, or noncombat damage.</summary>
+    public State.DamageKind Kind { get; init; }
+
+    /// <summary>A chosen permanent or player it shields, for the targeted wordings.</summary>
+    public int? TargetIndex { get; init; }
+
+    /// <summary>Permanents answering this filter, in the shared vocabulary.</summary>
+    public string? PermanentFilter { get; init; }
+
+    /// <summary>Whose permanents those are, or null for anyone's.</summary>
+    public PlayerScope? PermanentController { get; init; }
+
+    /// <summary>A described set of players — "dealt to you", "dealt to players".</summary>
+    public PlayerScope? Players { get; init; }
+
+    /// <summary>A filter the damage's source has to answer — "dealt by creatures".</summary>
+    public string? SourceFilter { get; init; }
+
+    /// <summary>Whose sources those are, or null for anyone's.</summary>
+    public PlayerScope? SourceController { get; init; }
+
+    /// <summary>
+    /// Whether it ends as the turn does (CR 514.2), which is what "this turn" means.
+    /// </summary>
+    /// <remarks>
+    /// False is for a prevention a permanent's static ability generates, which lasts as long as
+    /// the permanent does rather than as long as the turn.
+    /// </remarks>
+    public bool ForTheTurn { get; init; } = true;
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        ObjectId? permanent = null;
+        Guid? player = null;
+
+        if (TargetIndex is { } index)
+        {
+            // A target that has gone leaves nothing to shield, and shielding everything instead
+            // would be a strictly better card than the printed one.
+            switch (context.TargetAt(index))
+            {
+                case { Kind: TargetKind.Permanent } aimedAtPermanent:
+                    permanent = aimedAtPermanent.Subject;
+                    break;
+                case { Kind: TargetKind.Player } aimedAtPlayer:
+                    player = aimedAtPlayer.Player;
+                    break;
+                default:
+                    return [];
+            }
+        }
+
+        return
+        [
+            new PreventionEffectCreated(new State.PreventionEffect
+            {
+                Id = Guid.NewGuid(),
+                ControllerId = context.ControllerId,
+                Amount = Amount,
+                Kind = Kind,
+                Permanent = permanent,
+                PermanentFilter = PermanentFilter,
+                PermanentController = PermanentController,
+                Player = player,
+                Players = Players,
+                SourceFilter = SourceFilter,
+                SourceController = SourceController,
+                UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
+            }),
+        ];
+    }
+}
+
 /// <summary>Counters a target spell (CR 701.6).</summary>
 /// <remarks>
 /// A countered spell is put into its owner's graveyard from the stack; it does not resolve, so
@@ -2776,6 +2880,30 @@ internal static class PlayerScopes
                 .Where(id => id != context.ControllerId && !context.State.GetPlayer(id).HasLost),
             _ => context.State.ApnapOrder().Where(id => !context.State.GetPlayer(id).HasLost),
         };
+
+    /// <summary>
+    /// The same question asked of a permanent rather than of a resolving spell or ability.
+    /// </summary>
+    /// <remarks>
+    /// A static ability has no resolution to be the controller of, so "you" is whoever controls
+    /// the permanent the ability is printed on. The three scopes a board question can answer are
+    /// the only ones offered here: the rest read a trigger's subject or a combat, and neither
+    /// exists at the moment a cost is being worked out (CR 601.2f).
+    /// </remarks>
+    public static IEnumerable<Guid> Around(
+        PlayerScope scope, State.GameState state, Guid controllerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return scope switch
+        {
+            PlayerScope.You => [controllerId],
+            PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer => state.ApnapOrder()
+                .Where(id => id != controllerId && !state.GetPlayer(id).HasLost),
+            PlayerScope.EachPlayer => state.ApnapOrder().Where(id => !state.GetPlayer(id).HasLost),
+            _ => [],
+        };
+    }
 }
 
 /// <summary>
@@ -4276,6 +4404,16 @@ public static class SearchFilters
         if (string.Equals(filterId, "colorless", StringComparison.Ordinal))
             return card.Colors.Count == 0;
 
+        // "Multicolored" and "monocolored" count colours rather than naming one (CR 105.4), so
+        // they are their own questions for the same reason colourless is. Both are printed by
+        // the mana restrictions - "spend this mana only to cast a multicolored spell" - and by
+        // the cost modifiers, and neither could be said with the table above.
+        if (string.Equals(filterId, "multicolored", StringComparison.Ordinal))
+            return card.Colors.Count > 1;
+
+        if (string.Equals(filterId, "monocolored", StringComparison.Ordinal))
+            return card.Colors.Count == 1;
+
         // A capitalised name is a subtype — "Forest", "Goblin", "Equipment".
         return card.Subtypes.Contains(filterId, StringComparer.OrdinalIgnoreCase);
     }
@@ -4312,6 +4450,195 @@ public static class SearchFilters
         "sorcery" => Domain.Enums.CardType.Sorcery,
         _ => null,
     };
+}
+
+/// <summary>Whether a cost modifier adds to a cost or takes off it (CR 601.2f).</summary>
+/// <remarks>
+/// Two named values rather than a signed amount. The only cost modification the engine had could
+/// physically only subtract — it accumulated a discount and called
+/// <see cref="Mana.ManaCostSpec.WithoutGeneric"/> — so every "costs {1} more" on the board was
+/// unread, and a sign convention smuggled into an int is exactly how the next reader gets it
+/// backwards on a card that then costs less than printed.
+/// </remarks>
+public enum CostChange
+{
+    /// <summary>"...cost {1} less to cast."</summary>
+    Reduction,
+
+    /// <summary>"...cost {1} more to cast."</summary>
+    Increase,
+}
+
+/// <summary>What a cost modifier modifies (CR 601.2f, 602.2b).</summary>
+/// <remarks>
+/// CR 602.2b makes an activated ability's activation cost the analogue of a spell's mana cost, so
+/// the two are the same mechanism pointed at two different costs — which is why this is a field
+/// rather than a second kind of modifier. It is also the half that did not exist: an ability's
+/// cost was paid with no modifier hook at all.
+/// </remarks>
+public enum CostModifierKind
+{
+    /// <summary>"Spells you cast cost {1} less to cast."</summary>
+    Spells,
+
+    /// <summary>"Abilities you activate cost {1} less to activate."</summary>
+    ActivatedAbilities,
+}
+
+/// <summary>
+/// A standing change a permanent makes to what somebody's spells or abilities cost (CR 601.2f).
+/// </summary>
+/// <remarks>
+/// Supersedes <c>CostReducer</c>, which could say only one of the six things the corpus prints:
+/// it walked the caster's own battlefield and could only ever subtract. The grid is
+/// (whose spells or abilities) × (more or less) × (spells or abilities), and only
+/// <em>your spells, less</em> was reachable.
+/// <para>
+/// Deliberately not a continuous effect, for the reason <c>CostReducer</c> already gave: what a
+/// spell costs is worked out once as it is cast (CR 601.2f) and never recomputed, so this is read
+/// at cast time from whatever is on the battlefield at that moment rather than folded into a
+/// layer.
+/// </para>
+/// <para>
+/// A reduction comes off the generic part only, and an increase is added to it. Neither can touch
+/// a coloured pip (CR 601.2f), and a cost cannot be reduced below {0}.
+/// </para>
+/// </remarks>
+public sealed record CostModifier
+{
+    /// <summary>
+    /// Which spells or abilities' sources it applies to, in the shared filter vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// The same names <see cref="SearchFilters"/> gives tutors and digs, so "Dragon spells",
+    /// "noncreature spells" and "artifact and enchantment spells" are one filter, a negation and
+    /// two filters joined, rather than three readers. For
+    /// <see cref="CostModifierKind.ActivatedAbilities"/> it is asked of the permanent whose
+    /// ability is being activated — "activated abilities of creatures you control".
+    /// </remarks>
+    public string FilterId { get; init; } = SearchFilters.AnyCard;
+
+    /// <summary>How much generic mana it moves.</summary>
+    public required int Amount { get; init; }
+
+    /// <summary>Which way (CR 601.2f).</summary>
+    public CostChange Change { get; init; } = CostChange.Reduction;
+
+    /// <summary>Whether it modifies spells being cast or abilities being activated.</summary>
+    public CostModifierKind Kind { get; init; } = CostModifierKind.Spells;
+
+    /// <summary>
+    /// Whose spells or abilities, read around whoever controls the permanent printing this.
+    /// </summary>
+    /// <remarks>
+    /// The distinction the old reducer could not make and the one this exists for.
+    /// <see cref="PlayerScope.You"/> is "spells you cast", <see cref="PlayerScope.EachOpponent"/>
+    /// is "spells your opponents cast", and <see cref="PlayerScope.EachPlayer"/> is the bare
+    /// "noncreature spells cost {1} more to cast", which taxes its own controller too.
+    /// </remarks>
+    public PlayerScope Who { get; init; } = PlayerScope.You;
+
+    /// <summary>
+    /// Whose permanent the ability has to be on, or null for anyone's.
+    /// </summary>
+    /// <remarks>
+    /// A second scope because the cards ask two different questions and folding them would answer
+    /// one of them wrongly. "Abilities <em>you activate</em> cost {1} less to activate" is about
+    /// who is paying, which is <see cref="Who"/>; "activated abilities <em>of creatures you
+    /// control</em> cost {2} less to activate" is about whose permanent the ability is printed on,
+    /// and says nothing at all about who activates it. Only <see cref="CostModifierKind"/>'s
+    /// ability half reads this: a spell has no permanent behind it.
+    /// </remarks>
+    public PlayerScope? SourceController { get; init; }
+
+    /// <summary>
+    /// The zone a spell has to be cast from for this to apply, or null for any (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// "Spells you cast from your graveyard cost {1} less to cast." The zone has to be on both
+    /// halves or on neither: a reducer carrying the zone that nothing consulted would apply the
+    /// reduction from every zone, which is a strictly worse card than the unread one. It is read
+    /// from where the card is standing when its cost is worked out, which is before it moves to
+    /// the stack.
+    /// </remarks>
+    public State.Zone? FromZone { get; init; }
+
+    /// <summary>
+    /// Whether mana abilities are exempt — "unless they're mana abilities" (CR 605.1a).
+    /// </summary>
+    public bool ExceptManaAbilities { get; init; }
+
+    /// <summary>
+    /// Whether it applies only to the abilities of the permanent that prints it.
+    /// </summary>
+    /// <remarks>
+    /// "This ability costs {1} less to activate" is a modifier a permanent makes to itself, and
+    /// reading it as "abilities you activate" would discount every other permanent's abilities
+    /// too. <see cref="Who"/> is not consulted when this is set: the source's own controller is
+    /// whoever is activating it.
+    /// </remarks>
+    public bool SourceOnly { get; init; }
+}
+
+/// <summary>
+/// Where the engine finds the cost modifiers a card prints.
+/// </summary>
+/// <remarks>
+/// A seam of its own rather than another member on <see cref="IAbilitySource"/>, so the engine
+/// half can be built and tested before the compiler reads a word of it: an ability source that
+/// does not implement this simply has no modifiers, which is what every source says today.
+/// <para>
+/// <see cref="IAbilitySource"/> should grow to extend this once the compiler emits them, at which
+/// point <c>CostReducer</c> folds into <see cref="CostModifier"/> — it is exactly a
+/// <see cref="CostChange.Reduction"/> of <see cref="CostModifierKind.Spells"/> scoped to
+/// <see cref="PlayerScope.You"/> from any zone.
+/// </para>
+/// </remarks>
+public interface ICostModifierSource
+{
+    /// <summary>What this permanent changes about somebody's costs (CR 601.2f).</summary>
+    IReadOnlyList<CostModifier> CostModifiersOf(Domain.Models.CardDefinition card) => [];
+}
+
+/// <summary>Applying a set of cost modifiers to one cost (CR 601.2f).</summary>
+public static class CostModification
+{
+    /// <summary>
+    /// The cost after every modifier that applies has been taken into account.
+    /// </summary>
+    /// <remarks>
+    /// CR 601.2f states the order and it is not the order they were found in: the total cost is
+    /// the mana cost "plus all additional costs and cost increases, and minus all cost
+    /// reductions". Increases first, then reductions — a {1} spell taxed {2} and discounted {2}
+    /// costs {1}, where reducing first would floor at {0} and then charge {2}.
+    /// <para>
+    /// The mana component cannot be reduced below {0}, which
+    /// <see cref="Mana.ManaCostSpec.WithoutGeneric"/> already gives us by taking off only what is
+    /// there to take.
+    /// </para>
+    /// </remarks>
+    public static Mana.ManaCostSpec Apply(
+        Mana.ManaCostSpec cost, IEnumerable<CostModifier> modifiers)
+    {
+        ArgumentNullException.ThrowIfNull(cost);
+        ArgumentNullException.ThrowIfNull(modifiers);
+
+        var increase = 0;
+        var reduction = 0;
+
+        foreach (var modifier in modifiers)
+        {
+            if (modifier.Amount <= 0)
+                continue;
+
+            if (modifier.Change == CostChange.Increase)
+                increase += modifier.Amount;
+            else
+                reduction += modifier.Amount;
+        }
+
+        return cost.PlusGeneric(increase).WithoutGeneric(reduction);
+    }
 }
 
 /// <summary>
