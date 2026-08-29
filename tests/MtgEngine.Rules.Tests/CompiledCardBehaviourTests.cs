@@ -43653,6 +43653,101 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(host, game.State.GetObject(attached).Permanent!.AttachedTo);
     }
 
+    /// <summary>
+    /// Ripple shows the top cards and hands back the copies for free (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// Three things have to be true and each is asserted: the copy sharing the spell's name is
+    /// castable without paying, everything else goes to the bottom rather than staying on top,
+    /// and the copy that is cast does what the card says. The last is what separates a ripple
+    /// that works from one that merely moves cards about.
+    /// </remarks>
+    [Fact]
+    public void Ripple_offers_the_copies_it_finds_for_free()
+    {
+        var surge = new CardDefinition
+        {
+            OracleId = "oracle-ripple-surge-test",
+            Name = "Ripple Surge Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 2 life.\nRipple 4",
+            CardTypes = CardType.Instant,
+        };
+
+        var compiled = CardCompiler.Compile(surge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+
+        // A second copy sitting on top of the library, under three cards that are not it.
+        game.Create(alice, surge, Zone.Library);
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        var card = TestCards.PutInHand(game, alice, surge);
+        game.AddMana(alice, ManaColor.Green);
+
+        game.CastSpell(alice, card, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Ripple });
+
+        // Declining is on the menu, because a ripple buries what it showed.
+        Assert.Equal(0, game.State.Choice!.MinPicks);
+
+        // Answered and not played on: an offer to cast for free is a window, and passing
+        // priority is how a player declines it (CR 601.2b).
+        game.Choose(alice, ["ripple"]);
+
+        // The copy is in exile and castable for nothing; the other three went to the bottom.
+        // Looked up by name rather than held onto: a card that changes zone becomes a new
+        // object and the id it had in the library stopped existing (CR 400.7).
+        var copy = Assert.Single(game.State.Exile);
+        Assert.Equal("Ripple Surge Test", game.State.GetObject(copy).Card.Name);
+        Assert.True(game.State.GetObject(copy).MayCastFree);
+        Assert.Equal(library - 1, game.State.GetPlayer(alice).Library.Count);
+
+        game.CastSpell(alice, copy, []);
+        Settle(game);
+
+        // Both halves resolved: the spell that was cast and the copy it turned up.
+        Assert.Equal(before + 4, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>Declining a ripple leaves the library exactly as it was (CR 702.60a).</summary>
+    /// <remarks>
+    /// "You may" is a real decision here rather than a formality, which is why it is a question
+    /// at all: rippling shuffles what it showed into the bottom of the library in a random
+    /// order, and a player who has arranged their top cards does not want that.
+    /// </remarks>
+    [Fact]
+    public void Declining_a_ripple_leaves_the_library_alone()
+    {
+        var surge = new CardDefinition
+        {
+            OracleId = "oracle-ripple-declined-test",
+            Name = "Ripple Declined Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 2 life.\nRipple 4",
+            CardTypes = CardType.Instant,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, surge);
+        var top = game.State.GetPlayer(alice).Library[0];
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        game.AddMana(alice, ManaColor.Green);
+        game.CastSpell(alice, card, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Ripple });
+        game.Choose(alice, []);
+        Settle(game);
+
+        Assert.Equal(library, game.State.GetPlayer(alice).Library.Count);
+        Assert.Equal(top, game.State.GetPlayer(alice).Library[0]);
+        Assert.Empty(game.State.Exile);
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

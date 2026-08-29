@@ -133,6 +133,18 @@ public enum ChoiceKind
     /// </remarks>
     ReadAhead,
 
+    /// <summary>
+    /// Whether to reveal the top cards for a ripple (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// One option, and picking nothing declines - the same shape devour uses, because "you may"
+    /// followed by a thing to do is one question rather than a yes/no and then a selection. It
+    /// is a real decision rather than a formality: rippling shuffles what was on top of the
+    /// library into the bottom in a random order, which a player who has just scried does not
+    /// want.
+    /// </remarks>
+    Ripple,
+
     /// <summary>Which creature a ciphered spell is encoded on, if any (CR 702.99a).</summary>
     EncodeOnCreature,
 

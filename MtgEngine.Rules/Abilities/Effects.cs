@@ -2244,6 +2244,29 @@ public sealed record Cascade : IEffect
     }
 }
 
+/// <summary>
+/// Offers to show the top N cards and cast the ones sharing this spell's name (CR 702.60a).
+/// </summary>
+/// <remarks>
+/// Cascade's shape with the search replaced by a name match, and like cascade it records that the
+/// question is owed rather than asking it: an effect returns events, and a decision halts the
+/// whole game. What name to match is read from the spell underneath rather than carried here, so
+/// one definition serves every card that has the keyword.
+/// </remarks>
+public sealed record Ripple(Amount Count) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var many = Math.Max(0, Count.In(context));
+        if (many == 0)
+            return [];
+
+        return [new RippleRequested(context.ControllerId, context.PhysicalSourceId, many)];
+    }
+}
+
 /// <summary>Puts counters on a target permanent (CR 121.2).</summary>
 public sealed record PutCounters(
     string Kind,

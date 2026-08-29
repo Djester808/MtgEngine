@@ -56,6 +56,9 @@ public static class GameReducer
 
             // The request changes nothing on its own; the shuffle that answers it does.
             ShuffleRequested => state,
+
+            // The same: what a ripple does is done by the settle that answers it.
+            RippleRequested => state,
             ObjectMoved moved => Move(state, moved),
             LifeChanged life => Life(state, life),
             DrawFromEmptyLibraryAttempted drawn => EmptyDraw(state, drawn),

@@ -503,6 +503,9 @@ public static partial class CardCompiler
             if (TryStorm(line, card, triggers))
                 continue;
 
+            if (TryRipple(line, card, triggers))
+                continue;
+
             if (TryJumpStart(line, card, ref castFrom))
                 continue;
 
@@ -3130,6 +3133,45 @@ public static partial class CardCompiler
     /// the player's count already includes it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "Ripple N" &#8212; show the top N and cast the copies for nothing (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// Storm's shape - a trigger that fires from the stack as the spell is cast - with cascade's
+    /// resolution: exile what matched, offer it for free, and put the rest on the bottom of the
+    /// library in a random order. Which name to match is read from the spell underneath at
+    /// resolution, so nothing about the card travels in the definition.
+    /// </remarks>
+    private static bool TryRipple(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = RippleLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (TriggerConditions.Parse("you cast ~") is not { } cast)
+            return false;
+
+        var count = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+        if (count <= 0)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "ripple",
+            Text = $"When you cast {card.Name}, you may reveal the top "
+                + count.ToString(CultureInfo.InvariantCulture)
+                + " cards of your library. If you do, you may cast any of those cards with the "
+                + "same name as this spell without paying their mana costs, then put the rest on "
+                + "the bottom of your library.",
+            FunctionsFrom = Zone.Stack,
+            Triggers = cast,
+            Effects = [new Ripple(count)],
+        });
+
+        return true;
+    }
+
     private static bool TryStorm(
         string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
     {
@@ -12052,6 +12094,10 @@ public static partial class CardCompiler
     /// <summary>"Ravenous" (CR 702.156a). Printed alone; the reminder text carries the rest.</summary>
     [GeneratedRegex(@"^Ravenous\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RavenousLine();
+
+    /// <summary>"Ripple N" (CR 702.60a).</summary>
+    [GeneratedRegex(@"^Ripple (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex RippleLine();
 
     /// <summary>"Read ahead" (CR 702.155a). Printed alone on every Saga that has it.</summary>
     [GeneratedRegex(@"^Read ahead\.?$", RegexOptions.IgnoreCase)]

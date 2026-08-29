@@ -1528,6 +1528,20 @@ public sealed record CascadeRequested(Guid PlayerId, ObjectId SourceId, int Less
     public override string Describe() => $"{PlayerId:N} cascades below {LessThan}.";
 }
 
+/// <summary>
+/// A rippling spell is offering to show the top of its caster's library (CR 702.60a).
+/// </summary>
+/// <remarks>
+/// The reveal is optional and the offer is a question, so this only records that the question is
+/// owed - the same shape cascade and every other mid-resolution decision use.
+/// </remarks>
+public sealed record RippleRequested(Guid PlayerId, ObjectId SourceId, int Count) : GameEvent
+{
+    public override string Rule => "702.60";
+
+    public override string Describe() => $"{PlayerId:N} may ripple {Count}.";
+}
+
 public sealed record PermanentTapped(ObjectId Id) : GameEvent
 {
     public override string Rule => "701.26a";

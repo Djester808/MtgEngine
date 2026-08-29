@@ -2959,6 +2959,13 @@ public sealed class Game
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
+            case ChoiceKind.Ripple:
+                ResolveRipple(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.PayOrSacrifice:
                 ResolveSacrificeUnless(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3527,6 +3534,10 @@ public sealed class Game
 
     /// <summary>Cascades owed, performed at the next settle (CR 702.85a).</summary>
     private readonly List<CascadeRequested> _cascadesOwed = [];
+
+    private readonly List<RippleRequested> _ripplesOwed = [];
+
+    private RippleRequested? _rippleBeingAsked;
     private readonly List<DiscoverRequested> _discoveriesOwed = [];
 
     /// <summary>Hand choices owed, asked at the next settle (CR 701.16).</summary>
@@ -4324,6 +4335,96 @@ public sealed class Game
             Move(id, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Bottom);
 
         return true;
+    }
+
+    /// <summary>
+    /// Asks whether to ripple, and does it if the answer is yes (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// The reveal is optional and the question is a real one: a ripple puts what it showed on the
+    /// bottom of the library in a random order, so a player who has just arranged their top cards
+    /// will usually decline. Reading "you may" as "you do" would have been the cheap way and
+    /// would have made the card worse than printed on exactly the boards it is played on.
+    /// </remarks>
+    private bool AskOwedRipple()
+    {
+        if (_ripplesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _ripplesOwed[0];
+        _ripplesOwed.RemoveAt(0);
+
+        if (State.GetPlayer(owed.PlayerId).Library.IsEmpty)
+            return false;
+
+        _rippleBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"ripple:{owed.SourceId.Value:N}",
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.Ripple,
+            Prompt = "You may reveal the top "
+                + owed.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " cards of your library and cast the ones with this spell's name for free.",
+            Options = [new ChoiceOption("ripple", "Reveal them")],
+            MinPicks = 0,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Reveals the top cards and offers the matching ones for free (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// One deviation, and it is cascade's: a card offered for free and declined stays in exile
+    /// rather than going to the bottom of the library, because the offer lapses when its window
+    /// closes and there is nowhere in that moment to say where it should have gone. It only ever
+    /// touches a card sharing the spell's name, which is a card its caster would cast.
+    /// </remarks>
+    private void ResolveRipple(IReadOnlyList<string> picks)
+    {
+        if (_rippleBeingAsked is not { } owed)
+            return;
+
+        _rippleBeingAsked = null;
+
+        if (picks.Count == 0)
+            return;
+
+        if (!State.TryGetObject(owed.SourceId, out var spell))
+            return;
+
+        var name = spell.Card.Name;
+        var top = State.GetPlayer(owed.PlayerId).Library.Take(owed.Count).ToList();
+        var buried = new List<ObjectId>();
+
+        foreach (var id in top)
+        {
+            var card = State.GetObject(id);
+
+            // CR 702.60a: only cards with the same name as this spell may be cast this way. The
+            // rest are the ones that go on the bottom.
+            if (!string.Equals(card.Card.Name, name, StringComparison.Ordinal))
+            {
+                buried.Add(id);
+                continue;
+            }
+
+            var exiled = Move(id, Zone.Exile, MoveCause.Exile, owed.PlayerId);
+            if (exiled is { } offered)
+                Emit(new FreeCastOffered(offered, owed.PlayerId));
+        }
+
+        // CR 702.60a says "in any order", which is the player's decision, and this does not ask
+        // - the same reading the look-and-take vocabulary already takes. The cards end face down
+        // on the bottom of a library either way, and the difference is one nobody can observe.
+        // Randomised rather than left in library order so that no information leaks out of the
+        // order they went back in.
+        foreach (var id in _random.Shuffle(buried))
+            Move(id, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Bottom);
     }
 
     /// <summary>
@@ -7141,6 +7242,9 @@ public sealed class Game
             if (SettleOwedCascade())
                 return true;
 
+            if (AskOwedRipple())
+                return true;
+
             if (SettleOwedFlip())
                 return true;
 
@@ -9680,6 +9784,9 @@ public sealed class Game
 
         if (e is CascadeRequested cascading)
             _cascadesOwed.Add(cascading);
+
+        if (e is RippleRequested rippling)
+            _ripplesOwed.Add(rippling);
 
         // Rebound exiles the spell instead of letting it reach the graveyard, and the moment to
         // say so is now: the trigger resolves while the spell is still on the stack underneath

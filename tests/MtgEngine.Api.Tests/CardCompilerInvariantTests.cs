@@ -1627,29 +1627,20 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
 
             inspected++;
 
+            // Asked of the compiled card rather than restated here. This used to be a second copy
+            // of everything a CompiledCard can carry, and it drifted the moment one was added:
+            // amplify landed on the record, was left off this list, and Glowering Rogon - whose
+            // only printed line is "Amplify 1" - read as complete, playable and inert. The five
+            // below are the ones HasAbilities deliberately does not cover, because they are ways
+            // of casting the card rather than things the permanent does.
             var declares =
-                compiled.Spell is not null
+                compiled.HasAbilities
                 || compiled.Adventure is not null
                 || compiled.PreparedSpell is not null
                 || !compiled.Halves.IsEmpty
-                || !compiled.Activated.IsEmpty
-                || !compiled.Triggers.IsEmpty
-                || !compiled.Statics.IsEmpty
-                || !compiled.Replacements.IsEmpty
-                || !compiled.CostModifiers.IsEmpty
-                || compiled.GrantedKeywords != MtgEngine.Domain.Enums.KeywordAbility.None
-                || card.Keywords != MtgEngine.Domain.Enums.KeywordAbility.None
-                || compiled.DevourCount > 0
-                || compiled.ExtraLandDrops > 0
                 || compiled.HasFuse
-                || compiled.ShowsTopOfLibrary
-                || compiled.RevealsTopOfLibrary
-                || compiled.RemovesHandLimit
-                || compiled.MayDeclineUntap
-                || compiled.SkipsDrawStep
-                || compiled.ChoosesOnEntry != ChoiceOnEntry.None
-                || compiled.AttacksOnlyIfDefenderControls is not null
-                || compiled.PartnerRule is not null;
+                || compiled.PartnerRule is not null
+                || card.Keywords != MtgEngine.Domain.Enums.KeywordAbility.None;
 
             if (!declares)
                 inert.Add($"{card.Name}: \"{card.OracleText.Replace('\n', ' ')}\"");
