@@ -558,15 +558,11 @@ public static partial class CardCompiler
                 continue;
             }
 
-            if (ChooseAsEntersLine().Match(line) is { Success: true } choosing)
-            {
-                chooses = choosing.Groups["what"].Value.Equals(
-                    "color", StringComparison.OrdinalIgnoreCase)
-                    ? ChoiceOnEntry.Color
-                    : ChoiceOnEntry.CreatureType;
-
+            if (TryChooseAsEnters(line, ref chooses))
                 continue;
-            }
+
+            if (TryEntersTappedChoosing(line, replacements, ref chooses))
+                continue;
 
             // "Play with the top card of your library revealed" - the same card, shown to
             // everybody rather than to one player. Kept apart from the private permission
@@ -825,6 +821,9 @@ public static partial class CardCompiler
                 continue;
 
             if (TryFlashback(line, ref castFrom))
+                continue;
+
+            if (TryHarmonize(line, ref castFrom))
                 continue;
 
             if (TryKicker(line, ref kicker))
@@ -7599,6 +7598,46 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>"Harmonize {4}{U}" — flashback with an optional discount (CR 702.180a).</summary>
+    /// <remarks>
+    /// CR 702.180a spells the keyword out as three static abilities: permission to cast the card
+    /// from the graveyard "by paying [cost] and tapping <em>up to one</em> untapped creature you
+    /// control rather than paying this spell's mana cost"; a reduction of the total cost by
+    /// generic mana equal to that creature's power; and the exile on the way out of the stack.
+    /// The first and third are flashback exactly, so that is what this compiles to.
+    /// <para>
+    /// <strong>The middle ability is not built, and the card is complete without it.</strong>
+    /// "Up to one" means tapping nothing is a legal way to pay the harmonize cost, so a card
+    /// compiled this way is a strict subset of the printed permission rather than a different
+    /// card: every cast it allows is one the rules allow, at the printed price or dearer, never
+    /// cheaper. That is the direction this compiler is allowed to be wrong in — the refusal it
+    /// exists for is the card that comes out <em>better</em> than printed.
+    /// </para>
+    /// <para>
+    /// What the discount would need is a reduction that belongs to the <em>zone permission</em>
+    /// rather than to the spell, and that is why it is not here rather than an oversight.
+    /// <see cref="TapToPay"/> sits on <c>SpellDefinition</c> and is applied to whatever cost the
+    /// cast arrived at, so hanging harmonize's tap there would discount the card cast from hand
+    /// for its printed cost as well; and it pays fixed symbols per permanent, where this pays one
+    /// permanent's <em>power</em>. Both halves — an <c>AlternativeCastZone</c> that can carry a
+    /// tap-to-reduce, and a reduce-by-power mode — are engine changes outside this file.
+    /// </para>
+    /// </remarks>
+    private static bool TryHarmonize(string line, ref AlternativeCastZone? into)
+    {
+        var m = HarmonizeLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        into = new AlternativeCastZone(
+            Zone.Graveyard,
+            ManaCostSpec.Parse(m.Groups["cost"].Value),
+            ExileOnResolve: true,
+            Keyword: "harmonize");
+
+        return true;
+    }
+
     /// <summary>
     /// "Unearth [cost]" — an activated ability that works from the graveyard (CR 702.83a).
     /// </summary>
@@ -8503,6 +8542,61 @@ public static partial class CardCompiler
             Replace = (e, _, source) => [e, new BecamePrepared(Arriving(e, source)!.Value)],
         });
 
+        return true;
+    }
+
+    /// <summary>"As ~ enters, choose a color" — a choice made as it arrives (CR 614.12).</summary>
+    private static bool TryChooseAsEnters(string line, ref ChoiceOnEntry into)
+    {
+        var m = ChooseAsEntersLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        into = m.Groups["what"].Value.Equals("color", StringComparison.OrdinalIgnoreCase)
+            ? ChoiceOnEntry.Color
+            : ChoiceOnEntry.CreatureType;
+
+        return true;
+    }
+
+    /// <summary>"~ enters tapped. As it enters, choose a color."</summary>
+    /// <remarks>
+    /// Two facts the compiler already reads, printed on one line — the thirteen colour-fixing
+    /// lands say them as a pair. Both halves matched on their own and the pair matched nothing,
+    /// because every matcher here is anchored to a whole line and none of them splits sentences.
+    /// <para>
+    /// So this splits the pair and hands each half back to the reader that owns it, rather than
+    /// restating either. That is the point of the shape: the enters-tapped replacement is built
+    /// in exactly one place, and a card saying the two things separately and a card saying them
+    /// together cannot come out different. Nothing below loses a line to it — neither existing
+    /// reader could match this line at all.
+    /// </para>
+    /// <para>
+    /// The five Thriving lands say "choose a color <em>other than</em> red", and this refuses
+    /// them: <see cref="ChoiceOnEntry"/> names a kind of choice and has nowhere to put an
+    /// excluded colour, so reading them here would offer red and hand the player a land strictly
+    /// better than the one printed. Eight of the thirteen say it without the exclusion.
+    /// </para>
+    /// </remarks>
+    private static bool TryEntersTappedChoosing(
+        string line,
+        ImmutableList<ReplacementEffectDefinition>.Builder replacements,
+        ref ChoiceOnEntry chooses)
+    {
+        var m = EntersTappedChoosingLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Both halves or neither: the reader that owns each sentence decides, and a "no" from
+        // either leaves the whole line unread rather than half of it applied.
+        var choice = ChoiceOnEntry.None;
+        if (!TryChooseAsEnters(m.Groups["choice"].Value, ref choice))
+            return false;
+
+        if (!TryEntersTapped(m.Groups["tapped"].Value, replacements))
+            return false;
+
+        chooses = choice;
         return true;
     }
 
@@ -11086,6 +11180,10 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^flashback (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex FlashbackLine();
 
+    /// <summary>"Harmonize {X}{R}{R}" (CR 702.180a).</summary>
+    [GeneratedRegex(@"^harmonize (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex HarmonizeLine();
+
     /// <summary>"Escape—{cost}, Exile N other cards from your graveyard" (CR 702.139a).</summary>
     [GeneratedRegex(
         @"^Escape—(?<cost>(\{[^}]+\})+), Exile "
@@ -11673,6 +11771,15 @@ public static partial class CardCompiler
         @"^as (~|it) enters, choose a (?<what>color|creature type)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ChooseAsEntersLine();
+
+    /// <summary>
+    /// The two sentences the colour-fixing lands print as one line, captured separately so each
+    /// goes back to the reader that already owns it.
+    /// </summary>
+    [GeneratedRegex(
+        @"^(?<tapped>~ enters tapped\.) (?<choice>As (~|it) enters, choose a [a-z ]+\.)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex EntersTappedChoosingLine();
 
     [GeneratedRegex(
         @"^If damage would be dealt to ~, prevent that damage\. "
