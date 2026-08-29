@@ -5233,22 +5233,6 @@ public sealed record IfKicked(ImmutableList<IEffect> Effects) : IEffect
 }
 
 /// <summary>
-/// Does something, and does the rest only if the first part actually happened.
-/// </summary>
-/// <remarks>
-/// "Tap target untapped creature you control. **If you do**, add {C} equal to its power." The
-/// engine understood "if you do" only after a *may* - after an offer, where the answer is a
-/// choice - and this is the other half of the phrase: after a **mandatory** action, where "if you
-/// do" asks whether the action came off at all. A target that has left, a creature already tapped,
-/// a card no longer in the graveyard: the instruction is given and nothing happens.
-/// <para>
-/// "Happened" is read as "produced events", which is the engine's own record of something having
-/// occurred and is what every effect here already answers with. It is an approximation in one
-/// direction only - an action that does nothing produces nothing - and it is stated rather than
-/// hidden.
-/// </para>
-/// </remarks>
-/// <summary>
 /// "Each opponent attacking that player does the same" — the Curse family (CR 508.1b).
 /// </summary>
 /// <remarks>
@@ -5318,6 +5302,22 @@ public sealed record RepeatForOpponentsAttackingEnchanted(ImmutableList<IEffect>
     }
 }
 
+/// <summary>
+/// Does something, and does the rest only if the first part actually happened.
+/// </summary>
+/// <remarks>
+/// "Tap target untapped creature you control. **If you do**, add {C} equal to its power." The
+/// engine understood "if you do" only after a *may* - after an offer, where the answer is a
+/// choice - and this is the other half of the phrase: after a **mandatory** action, where "if you
+/// do" asks whether the action came off at all. A target that has left, a creature already tapped,
+/// a card no longer in the graveyard: the instruction is given and nothing happens.
+/// <para>
+/// "Happened" is read as "produced events", which is the engine's own record of something having
+/// occurred and is what every effect here already answers with. It is an approximation in one
+/// direction only - an action that does nothing produces nothing - and it is stated rather than
+/// hidden.
+/// </para>
+/// </remarks>
 public sealed record IfItHappened(
     ImmutableList<IEffect> Doing, ImmutableList<IEffect> Then) : IEffect
 {

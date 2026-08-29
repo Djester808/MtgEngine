@@ -13593,7 +13593,13 @@ public static partial class CardCompiler
             + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls"
             + @"|\s+enchanted player controls)?"
             + @"(\s+of the chosen (?<chosen>type|color))?"
-            + @"(?<withcounter>\s+with (an? )?((?<counter>[+-]\d/[+-]\d) )?counters? on (it|them)"
+            // The counter arm is named so the any-counter form can be told from the named one,
+            // and the name closes *before* the alternation - a group spanning both arms reports
+            // success for "with flying" as well, and the any-counter reader would then demand a
+            // counter of every keyword-qualified lord. That is exactly what it did: "Other
+            // creatures you control with flying get +2/+2" buffed nothing, because every flier
+            // was asked for a counter it did not have.
+            + @"((?<withcounter>\s+with (an? )?((?<counter>[+-]\d/[+-]\d) )?counters? on (it|them))"
             + @"|\s+with (?<needs>[a-z ]+?))?\s+"
             + @"(gets? (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
             + @"( and (has|have) (?<kw>[a-z0-9{} ,]+?)( and (?<must>attacks? each combat if able))?)?"

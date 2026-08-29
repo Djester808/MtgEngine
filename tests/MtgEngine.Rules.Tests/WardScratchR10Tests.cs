@@ -46,7 +46,7 @@ public sealed class WardScratchR10Tests(ITestOutputHelper output)
         game.BeginPlay(withMulligans: false);
         TestCards.PassToStep(game, TurnStep.PrecombatMain);
 
-        var lord = game.Create(alice, herald, Zone.Battlefield);
+        game.Create(alice, herald, Zone.Battlefield);
         var shielded = game.Create(
             alice, TestCards.Creature("Scratch Shielded Bear", 2, 2), Zone.Battlefield);
 
@@ -67,22 +67,34 @@ public sealed class WardScratchR10Tests(ITestOutputHelper output)
             CardTypes = CardType.Instant,
         };
 
-        game.CastSpell(
+        var mark = game.Log.Count;
+        var cast = game.CastSpell(
             bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(shielded)]);
+
+        output.WriteLine("--- immediately after cast ---");
+        output.WriteLine("cast id: " + cast);
+        output.WriteLine("stack: " + game.State.Stack.Count);
+        output.WriteLine("choice: " + (game.State.Choice?.Kind.ToString() ?? "none"));
+        foreach (var e in game.Log.Skip(mark))
+            output.WriteLine("log: " + e.GetType().Name + " :: " + e);
 
         for (var i = 0; i < 12 && game.State.Choice is null; i++)
         {
             if (game.State.Priority.Holder is not { } holder)
                 break;
+
+            mark = game.Log.Count;
             game.PassPriority(holder);
+
+            output.WriteLine("--- pass " + i + " by "
+                + (holder == alice ? "alice" : "bob") + " ---");
+
+            foreach (var e in game.Log.Skip(mark))
+                output.WriteLine("log: " + e.GetType().Name + " :: " + e);
         }
 
         output.WriteLine("choice: " + (game.State.Choice?.Kind.ToString() ?? "none"));
         output.WriteLine("stack: " + game.State.Stack.Count);
-        foreach (var e in game.Log.TakeLast(14))
-            output.WriteLine("log: " + e.GetType().Name);
-
         output.WriteLine("bear on battlefield: " + game.State.Battlefield.Contains(shielded));
-        output.WriteLine("lord on battlefield: " + game.State.Battlefield.Contains(lord));
     }
 }

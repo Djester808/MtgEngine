@@ -46012,6 +46012,14 @@ public sealed class CompiledCardBehaviourTests
             () => game.State.ActivePlayerId == bob
                 && game.State.CurrentStep == TurnStep.PrecombatMain);
 
+        // Two mana floating, so that declining is a decision. An offer nobody can afford is not
+        // put to the player at all — the engine runs the "if you don't" branch straight away
+        // (CR 118.3), which counters the spell without ever asking, and a pool-less Bob would
+        // have proved the counter while proving nothing about the question.
+        var rock = Card("Ward Probe Peak Test", "{T}: Add {C}.", CardType.Land);
+        game.ActivateAbility(bob, game.Create(bob, rock, Zone.Battlefield), "mana");
+        game.ActivateAbility(bob, game.Create(bob, rock, Zone.Battlefield), "mana");
+
         var bolt = Card("Ward Probe Bolt Test", "~ deals 3 damage to any target.");
         game.CastSpell(
             bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(shielded)]);
@@ -46031,7 +46039,9 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Ward Probe Bolt Test");
 
         // "Other creatures" leaves the herald itself outside its own grant: the second bolt is
-        // never taxed and kills it.
+        // never taxed and kills it. Settling handed priority on, so it is taken back first.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+
         var second = Card("Ward Second Bolt Test", "~ deals 3 damage to any target.");
         game.CastSpell(bob, TestCards.PutInHand(game, bob, second), [Target.ToPermanent(lord)]);
         Settle(game);
@@ -46063,8 +46073,12 @@ public sealed class CompiledCardBehaviourTests
             () => game.State.ActivePlayerId == bob
                 && game.State.CurrentStep == TurnStep.PrecombatMain);
 
-        var one = game.Create(bob, TestCards.BasicLand("Ward Peak Test"), Zone.Battlefield);
-        var two = game.Create(bob, TestCards.BasicLand("Ward Crag Test"), Zone.Battlefield);
+        // A printed mana ability rather than TestCards.BasicLand: a basic land's mana comes from
+        // its subtype, so a uniquely named "basic" has no ability at all and the activation
+        // throws before the ward is ever asked.
+        var rock = Card("Ward Peak Test", "{T}: Add {C}.", CardType.Land);
+        var one = game.Create(bob, rock, Zone.Battlefield);
+        var two = game.Create(bob, rock, Zone.Battlefield);
         game.ActivateAbility(bob, one, "mana");
         game.ActivateAbility(bob, two, "mana");
 
@@ -46102,8 +46116,13 @@ public sealed class CompiledCardBehaviourTests
         var (game, seats) = FourPlayers();
         var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
 
+        // Hasty, like the goad-verb test's bear next door: the question here is who the goad
+        // takes off the menu, and a creature that arrived this turn is refused every attack for
+        // a reason that has nothing to do with goad (CR 302.6).
         var bear = game.Create(
-            bob, TestCards.Creature("Impetus Bear Test", 2, 2), Zone.Battlefield);
+            bob,
+            Card("Impetus Bear Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
 
         game.CastSpell(
             alice, TestCards.PutInHand(game, alice, impetus), [Target.ToPermanent(bear)]);
