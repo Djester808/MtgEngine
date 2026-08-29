@@ -317,6 +317,9 @@ public sealed class StateEqualityTests
         if (current is ImmutableList<ObjectId> objects)
             return objects.Add(ObjectId.New());
 
+        if (current is ImmutableList<string> words)
+            return words.Add("different" + words.Count);
+
         if (current is ImmutableList<Target> targets)
             return targets.Add(Target.ToPlayer(Guid.NewGuid()));
 

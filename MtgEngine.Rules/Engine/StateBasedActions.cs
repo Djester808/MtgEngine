@@ -46,8 +46,44 @@ public static class StateBasedActions
         CheckTokens(state, events);
         CheckCounters(state, events);
         CheckSagas(state, abilities, events);
+        CheckDungeons(state, events);
 
         return events;
+    }
+
+    /// <summary>A finished dungeon leaves the game, and its owner completes it (CR 309.6).</summary>
+    /// <remarks>
+    /// The same shape as the Saga rule above and for the same reason: the bottommost room's
+    /// ability triggers on the marker arriving there, so at the moment the marker reaches it the
+    /// ability has not resolved. A dungeon removed then is a dungeon whose last room never
+    /// happened - which is exactly the mistake the Saga check exists to record, met a second time.
+    /// <para>
+    /// CR 309.7 says the player completes the dungeon <em>as</em> the card is removed, so the two
+    /// events are emitted together: the completion is what "whenever you complete a dungeon"
+    /// watches, and the removal is what makes the next venture start a new one.
+    /// </para>
+    /// </remarks>
+    private static void CheckDungeons(GameState state, List<GameEvent> events)
+    {
+        foreach (var id in state.Command)
+        {
+            if (!state.TryGetObject(id, out var obj) || !Dungeons.IsDungeon(obj.Card))
+                continue;
+
+            if (!Dungeons.IsBottommost(obj.Card.Name, state.GetPlayer(obj.OwnerId).DungeonRoom))
+                continue;
+
+            var roomOnStack = state.Stack.Any(stacked =>
+                state.TryGetObject(stacked, out var waiting)
+                && waiting.Ability is { } ability
+                && ability.SourceId == id);
+
+            if (roomOnStack)
+                continue;
+
+            events.Add(new DungeonCompleted(obj.OwnerId, obj.Card.Name));
+            events.Add(new ObjectCeasedToExist(id, Zone.Command));
+        }
     }
 
     private static void CheckPlayers(GameState state, List<GameEvent> events)

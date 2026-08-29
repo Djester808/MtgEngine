@@ -46308,6 +46308,374 @@ public sealed class CompiledCardBehaviourTests
             game.State.GetPlayer(alice).Graveyard,
             id => game.State.GetObject(id).Card.Name == "Test Strike // Test Echo");
     }
+    // ---- Dungeons and venturing (CR 309, CR 701.49) ---------------------------
+
+    /// <summary>An instant that ventures, so a test can venture as often as it likes.</summary>
+    private static CardDefinition VentureCard() =>
+        Card("Venture Test", "Venture into the dungeon.");
+
+    /// <summary>Casts one venture and plays on until the game is quiet again.</summary>
+    private static void Venture(Game game, Guid who)
+    {
+        game.CastSpell(who, TestCards.PutInHand(game, who, VentureCard()), []);
+        Settle(game);
+    }
+
+    /// <summary>The dungeon this player owns in the command zone, or null.</summary>
+    private static GameObject? DungeonOf(Game game, Guid who) =>
+        Dungeons.OwnedBy(game.State, who);
+
+    /// <summary>What a permanent is now, after the layers (CR 613).</summary>
+    private static ComputedCharacteristics Now(Game game, ObjectId id) =>
+        Characteristics.Of(game.State, Pool, game.State.GetObject(id));
+
+    /// <summary>The power a creature has now, after the layers (CR 613).</summary>
+    private static int PowerNow(Game game, ObjectId id) => Now(game, id).Power ?? 0;
+
+    /// <summary>
+    /// Venturing with no dungeon puts one in the command zone and moves the marker onto its
+    /// topmost room, whose ability then triggers (CR 701.49a, CR 309.4a, CR 309.4c).
+    /// </summary>
+    /// <remarks>
+    /// The middle assertion is the one worth having: a dungeon card is not a permanent
+    /// (CR 309.2c), so a sweeper that destroys all artifacts must not be able to see it, and it
+    /// must not be counted as a permanent anybody controls.
+    /// </remarks>
+    [Fact]
+    public void Venturing_with_no_dungeon_starts_one_in_the_command_zone()
+    {
+        var compiled = CardCompiler.Compile(VentureCard());
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        Venture(game, alice);
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+        Assert.Equal(Dungeons.LostMineOfPhandelver, dungeon.Card.Name);
+
+        // Not a permanent, and not on the battlefield (CR 309.2c).
+        Assert.Contains(dungeon.Id, game.State.Command);
+        Assert.DoesNotContain(dungeon.Id, game.State.Battlefield);
+        Assert.Null(dungeon.Permanent);
+
+        // CR 309.4a: the marker goes on the topmost room.
+        Assert.Equal("Cave Entrance", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// A room with two arrows out of it asks its owner which to follow, and only the room they
+    /// chose triggers (CR 701.49b).
+    /// </summary>
+    /// <remarks>
+    /// The room ability is a real triggered ability whose source is the dungeon card (CR 309.4c),
+    /// which is the whole reason a dungeon is an object in the command zone rather than a field
+    /// on the player. Running a room's effect inside the venture would be a shorter
+    /// implementation and a different game: nobody could respond, and no room could target — two
+    /// of Lost Mine's seven rooms do.
+    /// </remarks>
+    [Fact]
+    public void A_fork_asks_which_room_to_enter_and_only_that_room_fires()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        Venture(game, alice);
+
+        // Cave Entrance leads to Goblin Lair and Mine Tunnels, so the second venture forks.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, VentureCard()), []);
+
+        PassUntilRoomChoice(game);
+
+        var choice = Assert.IsType<PendingChoice>(game.State.Choice);
+        Assert.Equal(ChoiceKind.VentureRoom, choice.Kind);
+        Assert.Equal(
+            ["Goblin Lair", "Mine Tunnels"],
+            choice.Options.Select(o => o.Id).Order(StringComparer.Ordinal));
+
+        game.Choose(alice, ["Mine Tunnels"]);
+        Settle(game);
+
+        Assert.Equal("Mine Tunnels", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Mine Tunnels creates a Treasure; Goblin Lair, the arrow not taken, creates a Goblin.
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Treasure");
+
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Goblin");
+    }
+
+    /// <summary>Plays on until the venture fork is the question being asked.</summary>
+    private static void PassUntilRoomChoice(Game game)
+    {
+        for (var guard = 0; guard < 40; guard++)
+        {
+            if (game.State.Choice is { Kind: ChoiceKind.VentureRoom })
+                return;
+
+            if (game.State.Choice is { } other)
+            {
+                game.Choose(
+                    other.PlayerId,
+                    [.. other.Options.Take(Math.Max(other.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        Assert.Fail("The venture never reached a fork.");
+    }
+
+    /// <summary>Ventures along a named path, answering each fork with the room wanted.</summary>
+    private static void VentureTo(Game game, Guid who, params string[] rooms)
+    {
+        foreach (var room in rooms)
+        {
+            game.CastSpell(who, TestCards.PutInHand(game, who, VentureCard()), []);
+
+            var passedOnce = false;
+
+            for (var guard = 0; guard < 80; guard++)
+            {
+                if (game.State.Choice is { } choice)
+                {
+                    string[] picks = choice.Kind == ChoiceKind.VentureRoom
+                        ? [room]
+                        : [.. choice.Options
+                            .Take(Math.Max(choice.MinPicks, 1))
+                            .Select(o => o.Id)];
+
+                    game.Choose(choice.PlayerId, picks);
+                    continue;
+                }
+
+                if (passedOnce
+                    && game.State.Stack.IsEmpty
+                    && game.State.PendingTriggers.IsEmpty)
+                {
+                    break;
+                }
+
+                if (game.State.Priority.Holder is not { } holder)
+                    break;
+
+                game.PassPriority(holder);
+                passedOnce = true;
+            }
+        }
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A room ability can target, and the target is chosen as the ability goes on the stack
+    /// (CR 603.3d).
+    /// </summary>
+    [Fact]
+    public void A_room_ability_targets_a_creature_the_player_chooses()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        var bear = game.Create(alice, TestCards.Creature("Dungeon Bear"), Zone.Battlefield);
+
+        VentureTo(game, alice, "Cave Entrance", "Goblin Lair", "Storeroom");
+
+        Assert.Equal("Storeroom", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Storeroom is "put a +1/+1 counter on target creature". Two creatures are on the
+        // battlefield by now — the bear and the Goblin the previous room made — and the counter
+        // is on whichever was chosen, not on both and not on neither.
+        var counters = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Sum(o => o.Permanent is { } p
+                ? p.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne)
+                : 0);
+
+        Assert.Equal(1, counters);
+        Assert.Contains(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A dungeon is completed as its card leaves the game, which is after the bottommost room's
+    /// ability has resolved (CR 309.6, CR 309.7).
+    /// </summary>
+    /// <remarks>
+    /// The ordering is the whole rule, and it is the same trap the Saga sacrifice has: the last
+    /// room triggers on the marker arriving, so at the moment the marker reaches it the ability
+    /// has not resolved. A dungeon removed then is a dungeon whose last room never happened —
+    /// here, Temple of Dumathoin's card never drawn.
+    /// </remarks>
+    [Fact]
+    public void Completing_a_dungeon_happens_after_its_last_room_and_removes_it_from_the_game()
+    {
+        var varis = Card(
+            "Varis Test",
+            "Whenever you complete a dungeon, create a 2/2 green Wolf creature token.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(varis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, varis, Zone.Battlefield);
+
+        var drawn = game.State.GetPlayer(alice).Hand.Count;
+
+        VentureTo(game, alice, "Cave Entrance", "Goblin Lair", "Dark Pool", "Temple of Dumathoin");
+
+        // CR 309.6: the card is gone from the command zone, and CR 309.7 says its owner completed
+        // it as that happened.
+        Assert.Null(DungeonOf(game, alice));
+        Assert.Null(game.State.GetPlayer(alice).DungeonRoom);
+        Assert.Equal(
+            [Dungeons.LostMineOfPhandelver],
+            game.State.GetPlayer(alice).CompletedDungeons);
+
+        // Dark Pool ran on the way past: each opponent lost 1 life and Alice gained 1.
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+
+        // And the trigger that watches for the completion fired.
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Wolf");
+
+        // The last room's own draw happened before the dungeon left, which is the ordering this
+        // test exists for. Four ventures were cast out of hand and one card scried to the bottom,
+        // so the hand is compared against what those account for plus Temple of Dumathoin's card.
+        Assert.True(
+            game.State.GetPlayer(alice).Hand.Count >= drawn - 4,
+            $"hand went from {drawn} to {game.State.GetPlayer(alice).Hand.Count}");
+    }
+
+    /// <summary>
+    /// "As long as you've completed a dungeon" is false until one has been completed, and true
+    /// from then on (CR 309.7).
+    /// </summary>
+    /// <remarks>
+    /// It stays true with no dungeon anywhere, which is the point of keeping the completed ones
+    /// on the player: completing a dungeon is the moment its card <em>leaves</em>, so a condition
+    /// that looked for a dungeon on the board would be false exactly when it must be true.
+    /// </remarks>
+    [Fact]
+    public void A_completed_dungeon_condition_turns_on_when_the_dungeon_finishes()
+    {
+        var stalker = Card(
+            "Gloom Stalker Test",
+            "As long as you've completed a dungeon, ~ has double strike.",
+            CardType.Creature,
+            3,
+            2);
+
+        var compiled = CardCompiler.Compile(stalker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var gloom = game.Create(alice, stalker, Zone.Battlefield);
+
+        Assert.False(Now(game, gloom).Has(KeywordAbility.DoubleStrike));
+
+        VentureTo(game, alice, "Cave Entrance", "Goblin Lair", "Dark Pool", "Temple of Dumathoin");
+
+        // The dungeon card has left the game, and the condition is true from here on.
+        Assert.Null(DungeonOf(game, alice));
+        Assert.True(Now(game, gloom).Has(KeywordAbility.DoubleStrike));
+    }
+
+    /// <summary>
+    /// "Until your next turn" outlasts every other player's turn and ends as yours begins
+    /// (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// Fungi Cavern is the only room in the shipped dungeon that needed anything the engine did
+    /// not have. A floating effect knew one duration — the turn it was made in — and reading this
+    /// as "until end of turn" would have been a room that does most of nothing: the creature it
+    /// shrinks is untapped and attacking again before the opponent's turn is over.
+    /// </remarks>
+    [Fact]
+    public void A_room_that_lasts_until_your_next_turn_survives_the_opponents_turn()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var bear = game.Create(alice, TestCards.Creature("Fungi Bear"), Zone.Battlefield);
+
+        VentureTo(game, alice, "Cave Entrance", "Mine Tunnels", "Fungi Cavern");
+
+        Assert.Equal("Fungi Cavern", game.State.GetPlayer(alice).DungeonRoom);
+        Assert.Equal(-2, PowerNow(game, bear));
+
+        // Still shrunk through Bob's whole turn.
+        TestCards.PassToTurn(game, game.State.TurnNumber + 1);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        Assert.Equal(-2, PowerNow(game, bear));
+
+        // And back to itself as Alice's next turn begins.
+        TestCards.PassToTurn(game, game.State.TurnNumber + 1);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.Equal(2, PowerNow(game, bear));
+    }
+
+    /// <summary>
+    /// The corpus wordings that reach the dungeon compile, in the shapes the cards print them.
+    /// </summary>
+    /// <remarks>
+    /// Every one of these is a real oracle line. They are checked together because the keyword
+    /// action arrives on four different kinds of ability — a trigger, an activated ability, a
+    /// spell and a condition — and the reason it is one effect sentence rather than four readers
+    /// is that <c>EffectPhrase</c> is shared by all of them.
+    /// </remarks>
+    [Theory]
+    [InlineData("When ~ enters, venture into the dungeon.", CardType.Creature)]
+    [InlineData("Whenever ~ attacks, venture into the dungeon.", CardType.Creature)]
+    [InlineData("When ~ dies, venture into the dungeon.", CardType.Creature)]
+    [InlineData("{3}, {T}: Venture into the dungeon. Activate only as a sorcery.", CardType.Artifact)]
+    [InlineData("As long as you've completed a dungeon, ~ has double strike.", CardType.Creature)]
+    [InlineData(
+        "Whenever you complete a dungeon, you may return ~ from your graveyard to your hand.",
+        CardType.Creature)]
+    public void The_printed_dungeon_wordings_compile(string text, CardType types)
+    {
+        var card = Card("Delver Test", text, types, power: 2, toughness: 2);
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// "Venture into Undercity" is not read, because Undercity is not a dungeon this engine has
+    /// (CR 701.49d).
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half of the same reader, and it has a test because the alternative is
+    /// silent: a pattern loose enough to admit it would send the initiative's cards into Lost
+    /// Mine of Phandelver, which is a different dungeon with different rooms, and every one of
+    /// those cards would look implemented.
+    /// </remarks>
+    [Fact]
+    public void Venturing_into_a_named_dungeon_the_engine_does_not_have_is_left_unread()
+    {
+        var compiled = CardCompiler.Compile(Card(
+            "Initiative Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            "Undercity",
+            string.Join(" | ", compiled.Unhandled),
+            StringComparison.Ordinal);
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>

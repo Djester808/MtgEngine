@@ -6220,3 +6220,123 @@ corpus** — they carry `alchemy`, `historic` and `timeless` legalities — whil
 versions above are in none of it, and both facts come from the same one line of the corpus loader:
 a card counts as playable if any format says legal or restricted. Every number on this page depends
 on that line, so it is worth reading before quoting one.
+
+### A dungeon is a rules object too, and its rooms are abilities
+
+The Ring's entry above records the decision: a game object that no card carries has its wording in
+the rules. A dungeon is the second of those and it is a larger one, because a dungeon is not an
+emblem — it is a **card in the command zone that is not a permanent, cannot be cast, and never
+leaves that zone except to leave the game** (CR 309.2c). The three venture dungeons are in
+Scryfall's bulk data and legal in no format, so they never enter the corpus at all; Undercity is a
+double-faced token and is filtered out before that. There is nothing for the compiler to read, and
+`Dungeons.cs` is where the rooms live.
+
+**The rooms are triggered abilities, and that is the whole design.** CR 309.4c: "the full text of
+each room ability is 'When you move your venture marker into this room, [effect]'", and its source
+is the dungeon card. The cheap implementation — keep the marker on the player and run the room's
+effect inside the venture — is a shorter piece of code and a different game: nobody can respond,
+and no room can target. Two of Lost Mine of Phandelver's seven rooms target. So the dungeon is a
+real `GameObject` in `Zone.Command`, its rooms come back from `Game.TriggersWatching` the way a
+granted ability does, and the ordinary trigger machinery does the rest.
+
+Three details the rules insist on and the implementation keeps:
+
+- **Completing is not entering the last room.** CR 309.6 removes the dungeon *as a state-based
+  action*, once the marker is on the bottommost room **and no room ability of that dungeon is still
+  on the stack** — and CR 309.7 says the player completes it as that happens. This is the Saga
+  sacrifice's trap met a second time: the last room triggers on the marker arriving, so removing
+  the dungeon then is removing it before its last room has done anything.
+- **A fork is a choice.** CR 701.49b has the player choose which arrow to follow. A room with one
+  arrow moves the marker inside the effect and asks nothing — a question with one answer stops the
+  game and hands an opponent a free window.
+- **What is completed stays on the player, not on the board.** Completing a dungeon is the moment
+  its card *leaves*, so "as long as you've completed a dungeon" asked of the board would be false
+  exactly when it has to be true.
+
+**One dungeon ships.** Not a scoping compromise but a measurement: every one of the four has at
+least one room the effect vocabulary cannot say, and Lost Mine of Phandelver is the only one where
+that number was one rather than three.
+
+| dungeon | the room that blocks it |
+|---|---|
+| Lost Mine of Phandelver | *(none — Fungi Cavern needed a duration, which was built)* |
+| Undercity | Throne of the Dead Three: reveal ten, put a creature from among them onto the battlefield with three counters, hexproof until your next turn, then shuffle |
+| Dungeon of the Mad Mage | Twisted Caverns ("can't attack until your next turn"), Mad Wizard's Lair ("draw three, cast one free") |
+| Tomb of Annihilation | three of five rooms are "each player loses N life unless they …" |
+
+A dungeon with a room that does nothing would be worse than a dungeon nobody owns, and it does not
+cost the cards anything: **a player who brought one dungeon card is playing a legal game of Magic**,
+and every "venture into the dungeon" card is correct for them. CR 701.49a's choice of *which*
+dungeon has one answer here, which is the same game.
+
+**Fungi Cavern is why "until your next turn" now exists.** A `FloatingEffect` knew one duration —
+the turn it was made in — and there is no way to spell the other as that: "until your next turn"
+runs through everyone else's turn and ends as that player's untap step begins. Storing a turn
+*number* for it would be wrong the moment somebody takes an extra turn, so what is stored is the
+player and the untap step does the comparing.
+
+**And a live bug fell out of needing it.** A granted trigger's *targets* were looked up by card and
+ability id with **no source id**, so `TargetsOfAbility` fell through every arm and came back empty —
+the trigger went on the stack with nothing to target, resolved, and did nothing. Its *effects* were
+found correctly, by the same lookup with the source passed. So the ability worked and looked
+implemented, and only the half that chooses a target was blind. That is the third instance this file
+records of *the same ability having to be found twice and only one of the lookups being right*, and
+it reaches past dungeons: any Aura reading `enchanted creature has "when this dies, destroy target
+creature"` had the same hole.
+
+**30 cards, measured by set difference rather than by the coverage delta.** Complete cards went from
+15,570 to 15,600 with nothing lost, and the thirty are the venture cards whose every line is now
+read — Nadaar's neighbours: Veteran Dungeoneer, Dungeon Map, Triumphant Adventurer, Varis, Gloom
+Stalker, Dungeon Crawler, Fifty Feet of Rope and the rest.
+
+### Measured and declined: the initiative, Attractions, and dice
+
+Three families were sized in the same pass and none of them is built. The numbers are the argument.
+
+**The initiative (CR 726) — 26 cards touching, 13 reachable, declined for one room.** Not for want
+of machinery: it is the monarch's twin. One designation at most one player holds, moving on combat
+damage, with an inherent upkeep trigger — and the monarch is already built exactly that way, down to
+the stated simplification about sourceless triggers. What stops it is that **all three of CR 726.2's
+inherent abilities venture into Undercity by name**, and Undercity's bottommost room is the one
+listed above. An initiative that sent players into a dungeon which stops working at its last room is
+a mechanic that reads as implemented and is not. `When ~ enters, you take the initiative.` is
+19 cards and is now the single largest sole-blocker in this corner; it becomes cheap the day Throne
+of the Dead Three can be said. `venture into Undercity` is deliberately left unread rather than
+folded into `venture into the dungeon`, and there is a test holding that line: a pattern loose enough
+to admit it would send nineteen cards into a different dungeon with different rooms.
+
+**Attractions and stickers — 46 and 96 cards touching, declined.** These are the worst-read subtypes
+in the corpus (Attraction 22 of 22 unread, Guest 21 of 21) and that ranking is what put them at the
+top of the queue. Measuring what they need is what took them off it:
+
+- **An Attraction deck is a second deck**, opened from rather than drawn from (CR 701.51), which is
+  a deck-construction change reaching `CardPool`, the deck gate and the client, not a rules change.
+- **Which Attractions a roll visits is decided by the lights printed on the card** (CR 701.52a), and
+  the lights are not in the rules text at all — they are a Scryfall field (`attraction_lights`) that
+  `CardDefinition` does not have and the corpus reader does not read. Without them "roll to visit
+  your Attractions" cannot say which Attractions were visited, and inventing lights would print
+  a different card.
+- **Stickers are a physical sheet**, and the Guest cards are mostly stickers rather than
+  Attractions: `_____ Bird Gets the Worm` gains life equal to *the number of unique vowels on the
+  name sticker*, and `Clandestine Chameleon` has *all abilities of ability stickers on other
+  permanents you own*. Neither the sheet nor its contents exist anywhere in the data.
+- Individual Attractions then want phasing (Ferris Wheel), horsemanship (Merry-Go-Round) and
+  "claim the prize" (Pick-a-Beeble) on top.
+
+This file already records the size of the supplemental formats: 75 of 32,765 playable cards are
+format-specific, 0.2% of the corpus. Against that, a second deck, a card characteristic threaded
+through `Domain` and the corpus reader, a sticker sheet and a dice subsystem is the largest
+machinery-to-cards ratio anything in this document has proposed. **The alternative that was built
+instead — dungeons — cost one new file, one duration and no new deck, and turned over the same
+number of cards.**
+
+**Dice rolling (CR 706) — 142 cards touching, 119 reachable, deferred rather than declined.** It is
+genuinely large and it is genuinely ordinary paper Magic: 113 corpus cards roll dice outside
+Un-sets, mostly the AFR d20 with a results table. The randomness has a settled precedent here —
+`FlipCoin` records the *outcome* in the log so a replay reproduces it — so this is a normal piece of
+work rather than a structural one. It is not built because **nothing in the dungeon family needs
+it**: not one of the 60 dungeon cards or the 26 initiative cards rolls anything, so pairing them
+would have been two mechanics in one round for no shared machinery. The d20 cards' real blocker is
+not the roll but the **results table** — `1—9 |`, `10—19 |`, `20 |` are separate lines the line
+splitter hands to the compiler alone, and reading them means reading a line in the context of the
+one above it.

@@ -48,6 +48,32 @@ public sealed record PlayerState
     /// </remarks>
     public ObjectId? RingBearer { get; init; }
 
+    /// <summary>
+    /// The room this player's venture marker is on, if they own a dungeon (CR 309.4).
+    /// </summary>
+    /// <remarks>
+    /// The marker and not the dungeon: the dungeon itself is a real object in the command zone
+    /// (CR 309.2b) and is found there, so recording its name here as well would be two facts that
+    /// can disagree. Null when the player owns no dungeon, which is also what completing one
+    /// leaves behind.
+    /// <para>
+    /// A room name rather than an index, because that is what the log has to carry - see
+    /// <see cref="Abilities.DungeonRoom"/>.
+    /// </para>
+    /// </remarks>
+    public string? DungeonRoom { get; init; }
+
+    /// <summary>The dungeons this player has completed, in the order they finished them (CR 309.7).</summary>
+    /// <remarks>
+    /// A list rather than a count, because two cards ask questions a count cannot answer:
+    /// "for each differently named dungeon you've completed" needs the names, and completing the
+    /// same dungeon twice is possible once its card has left the game and been chosen again.
+    /// </remarks>
+    public ImmutableList<string> CompletedDungeons { get; init; } = [];
+
+    /// <summary>Whether this player has completed a dungeon (CR 309.7).</summary>
+    public bool HasCompletedADungeon => !CompletedDungeons.IsEmpty;
+
     /// <summary>Whether this player declared one or more attackers this turn (CR 508.1).</summary>
     /// <remarks>
     /// A fact about the turn rather than about any creature, which is why it is here and not on
@@ -371,6 +397,8 @@ public sealed record PlayerState
         AttackedThisTurn == other.AttackedThisTurn &&
         RingTemptations == other.RingTemptations &&
         RingBearer == other.RingBearer &&
+        string.Equals(DungeonRoom, other.DungeonRoom, StringComparison.Ordinal) &&
+        Structural.Same(CompletedDungeons, other.CompletedDungeons) &&
         ManaPool == other.ManaPool &&
         HasAttemptedDrawFromEmptyLibrary == other.HasAttemptedDrawFromEmptyLibrary &&
         HasLost == other.HasLost &&

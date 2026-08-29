@@ -2838,6 +2838,13 @@ public sealed class Game
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
+            case ChoiceKind.VentureRoom:
+                ResolveVentureRoom(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.ClashKeepOnTop:
                 ResolveClashDecision(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3935,6 +3942,58 @@ public sealed class Game
     /// went to the bottom. The rules put the moves first and so does this.
     /// </remarks>
     private RingBearerRequested? _ringBearerBeingAsked;
+
+    private readonly List<VentureRoomRequested> _venturesOwed = [];
+
+    private VentureRoomRequested? _ventureBeingAsked;
+
+    /// <summary>Asks which arrow to follow out of a forked room (CR 701.49b).</summary>
+    /// <remarks>
+    /// Only ever raised for a fork: a room with one arrow moves the marker inside the effect,
+    /// because "choose one of them to follow" is not a decision when there is one. A question with
+    /// a single answer stops the game to ask something nobody can get wrong, and every one of
+    /// those is a window an opponent gets for free.
+    /// </remarks>
+    private bool AskOwedVenture()
+    {
+        if (_venturesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _venturesOwed[0];
+        _venturesOwed.RemoveAt(0);
+
+        if (owed.Rooms.Count == 0)
+            return false;
+
+        _ventureBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = "venture:" + owed.PlayerId.ToString("N"),
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.VentureRoom,
+            Prompt = $"Choose which room of {owed.Dungeon} to venture into.",
+            Options = [.. owed.Rooms.Select(room => new ChoiceOption(room, room))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>Moves the venture marker into the room the player chose (CR 701.49b).</summary>
+    private void ResolveVentureRoom(IReadOnlyList<string> picks)
+    {
+        if (_ventureBeingAsked is not { } owed)
+            return;
+
+        _ventureBeingAsked = null;
+
+        if (picks.Count == 0 || !owed.Rooms.Contains(picks[0], StringComparer.Ordinal))
+            return;
+
+        Emit(new VentureMarkerMoved(owed.PlayerId, owed.Dungeon, picks[0]));
+    }
 
     /// <summary>Asks which creature bears the Ring (CR 701.54a).</summary>
     /// <remarks>
@@ -6998,6 +7057,9 @@ public sealed class Game
             if (AskOwedRingBearer())
                 return true;
 
+            if (AskOwedVenture())
+                return true;
+
             if (SettleOwedClash())
                 return true;
 
@@ -7340,12 +7402,18 @@ public sealed class Game
 
                 // A modal ability targets whatever its chosen modes target, in the order they
                 // were picked - the same slicing the spell path does.
+                //
+                // The source id on the other arm is load-bearing and was missing. An ability that
+                // is not on its source card - one an Aura granted, a trigger from the card
+                // under a mutated permanent, or a dungeon room, which no card carries at all -
+                // is found by (source, ability id) and not by card, so a
+                // lookup without the source fell through every arm of TargetsOfAbility and came
+                // back empty. The trigger then went on the stack with nothing to target, resolved,
+                // and did nothing. Its *effects* were found correctly, by the same lookup with the
+                // source passed - so the ability looked implemented, and only the half that
+                // chooses a target was blind.
                 var specs = modal is { ModesToChoose: > 0 }
                     ? [.. pickedModes.SelectMany(index => modal.Modes[index].Targets)]
-                    // The source is named as well as its card, because an ability the permanent
-                    // was given is not on the card: a trigger from the card under a mutated
-                    // permanent, or one an Aura granted, has its specs only in the granted table.
-                    // Without it such a trigger reached the stack with no targets and did nothing.
                     : TargetsOfAbility(sourceCard, trigger.AbilityId, trigger.SourceId) ?? [];
                 if (!specs.IsEmpty)
                 {
@@ -8385,6 +8453,17 @@ public sealed class Game
         {
             case TurnStep.Untap:
                 TurnTheSky();
+
+                // CR 611.2b: "until your next turn" runs out as that player's next turn begins,
+                // which is here. Compared against the active player rather than a stored turn
+                // number, because an extra turn moves the number and not the player.
+                foreach (var lapsed in State.FloatingEffects
+                    .Where(f => f.UntilTurnOf == State.ActivePlayerId)
+                    .ToList())
+                {
+                    Emit(new ContinuousEffectEnded(lapsed.Id));
+                }
+
                 Untap();
                 // CR 500.3: a step in which no player receives priority ends once its actions
                 // are done.
@@ -9415,6 +9494,19 @@ public sealed class Game
     private IReadOnlyList<TriggeredAbilityDefinition> TriggersWatching(
         GameState state, GameObject obj)
     {
+        // A dungeon in the command zone (CR 309.2b) has no card the compiler ever read - dungeon
+        // cards are legal in no format and never enter the corpus - so its rooms come from the
+        // rules, like the Ring's abilities. They are written down the way a granted trigger is,
+        // because the ability goes on the stack as an id and the card it will be looked up on
+        // does not have it.
+        if (Dungeons.RoomAbilitiesOf(obj) is { Count: > 0 } rooms)
+        {
+            foreach (var room in rooms)
+                _grantedTriggersOnStack[GrantedKey(obj.Id, room.Id)] = room;
+
+            return rooms;
+        }
+
         var printed = _abilities.TriggersOf(obj.Card);
 
         if (obj.Zone != Zone.Battlefield)
@@ -9746,6 +9838,9 @@ public sealed class Game
 
         if (e is RingBearerRequested tempted)
             _ringBearersOwed.Add(tempted);
+
+        if (e is VentureRoomRequested venturing)
+            _venturesOwed.Add(venturing);
 
         if (e is ClashRequested clashing && FindClash(clashing) is { } clash)
         {
