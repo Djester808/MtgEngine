@@ -2344,4 +2344,1028 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         // rather than passing quietly.
         Assert.True(live > 0, "no unlock triggers compiled at all, so nothing was checked.");
     }
+    /// <summary>
+    /// Every noun phrase a complete card prints, once the compiler's own noun grammar has read
+    /// it, has to describe something a board can actually contain (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// Aimed at the failure this project is least able to see: a card that compiles as
+    /// <em>complete</em> and then does nothing, or half of what it prints. Four defects of that
+    /// shape have shipped and every one was found by hand rather than by a test —
+    /// "you gain 1 life for each Equipment you control" gaining 0, because an unknown capitalised
+    /// noun resolved to a creature type; "Artifact creatures you control get +1/+1" becoming a
+    /// lord for the creature type "Artifact", 129 cards; a mass static with no ownership clause
+    /// pumping only its controller's half of the board, 83 cards; and a <c>+X/+Y</c> counter on a
+    /// group read as <c>+1/+1</c>, 3 cards live and wrong. None of them failed anything, because
+    /// what selects the permanents is a closure and nothing static can read one.
+    /// <para>
+    /// So this runs the closure. Every noun phrase a <em>complete</em> card actually prints is
+    /// pulled out of the corpus and handed to <c>Specs.Parse</c> / <c>Specs.ParseGroup</c> — the
+    /// compiler's own noun grammar, not a second copy of it — and, when it reads into a filter
+    /// over permanents, tried against a board built to hold anything the game can: a real-shaped
+    /// permanent for every subtype the rules define, a plain permanent of each card type, one
+    /// that is every type at once, in and out of combat, tapped and untapped, coloured and
+    /// colourless, token and not, snow, basic, face down, attached and bare, all under both
+    /// players. A filter that nothing on that board answers is one no game can ever satisfy, and
+    /// the card carrying it is legal, playable and silently inert.
+    /// </para>
+    /// <para>
+    /// 839 distinct printed noun phrases today: 216 the noun grammar does not read at all — which
+    /// is not a fault, because an unread line is refused and refusing is the honest answer — 10
+    /// that read into something other than a filter over permanents, 601 that read and are
+    /// satisfiable, and 12 that read and are not. About 30 seconds, most of it compiling the
+    /// corpus, which every invariant in this file pays anyway.
+    /// </para>
+    /// <para>
+    /// The witness board is half the instrument, and the half that decides whether the answer
+    /// means anything. An earlier build of it reported 53, and every one of the 41 it then lost
+    /// was the board rather than the compiler: it could not hold an attacking Goblin, a snow
+    /// permanent, a tapped colourless creature, or an Army — a creature type no playable card is
+    /// printed with, because the only way to have one is to amass it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_printed_noun_phrase_the_grammar_reads_can_be_satisfied()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        // Only what a card that reads as *complete* prints. An unread card is refused by the
+        // legality gate and says so; this whole invariant is about the other kind.
+        var printed = new Dictionary<string, (bool Group, string Card)>(StringComparer.Ordinal);
+        var tokens = new List<(string Subtype, MtgEngine.Domain.Enums.CardType Types)>();
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            tokens.AddRange(TokenShapes(compiled));
+
+            foreach (var line in CardCompiler.Lines(card))
+            {
+                foreach (var (group, phrase) in NounPhrases(line))
+                    printed.TryAdd((group ? "group|" : "target|") + phrase, (group, card.Name));
+            }
+        }
+
+        // What subtypes exist is a question the rules answer and the corpus only samples: a
+        // token type nothing is printed with is still a thing a board can hold.
+        var defined = RulesSubtypes();
+
+        Assert.True(
+            defined.Count > 250,
+            $"only {defined.Count} subtypes were read out of CR 205.3, which is far too few — the "
+                + "rules file has changed shape and the witness board is quietly missing most of "
+                + "the game's types.");
+
+        var board = new WitnessBoard(corpus, [.. tokens, .. defined]);
+
+        var unread = 0;
+        var elsewhere = 0;
+        var satisfiable = 0;
+        var survivors = new List<string>();
+
+        foreach (var entry in printed.OrderBy(e => e.Key, StringComparer.Ordinal))
+        {
+            var phrase = entry.Key[(entry.Key.IndexOf('|', StringComparison.Ordinal) + 1)..];
+
+            TargetSpec? spec;
+            try
+            {
+                spec = entry.Value.Group
+                    ? EffectPhrase.Specs.ParseGroup(phrase)
+                    : EffectPhrase.Specs.Parse("target " + phrase);
+            }
+            catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)
+            {
+                survivors.Add($"{entry.Value.Card}: \"{phrase}\" threw {ex.GetType().Name}");
+                continue;
+            }
+
+            if (spec is null)
+            {
+                unread++;
+                continue;
+            }
+
+            if (spec.Kind != TargetKind.Permanent)
+            {
+                elsewhere++;
+                continue;
+            }
+
+            if (board.Satisfies(spec, phrase))
+                satisfiable++;
+            else
+                survivors.Add($"{entry.Value.Card}: \"{phrase}\" -> {spec.Description}");
+        }
+
+        output.WriteLine($"printed noun phrases: {printed.Count}");
+        output.WriteLine($"  not read by the noun grammar: {unread}");
+        output.WriteLine($"  read, but not a filter over permanents: {elsewhere}");
+        output.WriteLine($"  read as a permanent filter, satisfiable: {satisfiable}");
+        output.WriteLine($"  read as a permanent filter, unsatisfiable: {survivors.Count}");
+        output.WriteLine($"largest witness board: {board.Size} permanents");
+
+        foreach (var survivor in survivors)
+            output.WriteLine("  " + survivor);
+
+        Assert.True(
+            survivors.Count <= UnsatisfiablePhrases,
+            $"{survivors.Count} printed noun phrases compile to a filter nothing on a board can "
+                + $"satisfy, where {UnsatisfiablePhrases} were recorded:\n  "
+                + string.Join("\n  ", survivors.Take(60)));
+
+        // A ratchet is only a ratchet while it is tight. If the count drops, the number here is
+        // stale and the next regression hides under the slack.
+        Assert.True(
+            survivors.Count == UnsatisfiablePhrases,
+            $"only {survivors.Count} phrases are unsatisfiable now, not {UnsatisfiablePhrases}. "
+                + "Lower the recorded number in the same commit that fixed them.");
+    }
+
+    /// <summary>
+    /// How many printed noun phrases the grammar currently reads into an unsatisfiable filter.
+    /// </summary>
+    /// <remarks>
+    /// A bare number, and the weakest of the three ways this could have been left. Zero is not
+    /// true today, and a rule about the <em>kind</em> of survivor would be worse than the number:
+    /// all twelve are live defects in the noun grammar rather than states the witness board
+    /// cannot build, so any such rule would amount to asserting that the bug is acceptable. The
+    /// number records what is true, and the test prints the twelve in full on every run.
+    /// <para>
+    /// They are three faults, not twelve. <c>SingularWord</c> over-reaches on eight of them:
+    /// "Caves" folds to "Caf" and "Detectives" to "Detectif" (the <c>-ves</c> rule that was added
+    /// to rescue "Elves"), "Faeries" to "Faery" and "Zombies" to "Zomby" (the <c>-ies</c> rule,
+    /// which wants a consonant before it), and "Locus" and "Pegasus" lose their last letter for
+    /// being plurals that they are not. On two more, the group grammar folds a plural only at the
+    /// head of the phrase, so "untapped Mountains you control" and "tapped Assassins you control"
+    /// keep the s and look for a creature type spelled that way. On the last two — "Commanders
+    /// you control" and "Equipped creatures you control" — an unrecognised capitalised word is
+    /// still turned into a creature type, which is the residue of the founding bug:
+    /// <c>SubtypeCardType</c> was fixed to say which card type a <em>known</em> subtype implies
+    /// and still defaults everything else to Creature.
+    /// </para>
+    /// <para>
+    /// Asserted from both sides on purpose. A ceiling alone leaves slack, and slack is exactly
+    /// how an instrument in this repository stops measuring without anyone noticing. Fix the
+    /// singulariser and this has to come down in the same commit; print a new card that trips the
+    /// same fault and it has to be looked at rather than absorbed.
+    /// </para>
+    /// </remarks>
+    private const int UnsatisfiablePhrases = 12;
+
+    /// <summary>The words that end a printed noun phrase rather than belonging to it.</summary>
+    /// <remarks>
+    /// Verbs, the ownership clauses' own words, the keywords that introduce a noun without being
+    /// part of it, and the conjunctions and prepositions that start the next clause. Deliberately
+    /// generous about what it lets through: an over-long phrase is refused by the grammar and
+    /// lands in the "not read" pile, which costs nothing, while a phrase cut short would be
+    /// checked as a different phrase from the one the card prints.
+    /// </remarks>
+    private static readonly HashSet<string> PhraseStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "abilities", "ability", "an", "and", "another", "are", "as", "at", "attack",
+        "attacks", "be", "became", "become", "becomes", "been", "being", "block", "blocks",
+        "but", "by", "can", "cannot", "control", "controlled", "controller", "controls",
+        "deal", "dealt", "deals", "die", "dies", "do", "does", "done", "down", "during",
+        "each", "enchant", "enter", "enters", "equip", "every", "for", "from", "gain",
+        "gained", "gains", "get", "gets", "had", "has", "have", "he", "if", "in", "instead",
+        "into", "is", "it", "its", "may", "must", "name", "named", "of", "off", "on", "only",
+        "onto", "or", "other", "out", "over", "player", "players", "put", "puts", "she",
+        "target", "than", "that", "the", "their", "them", "then", "there", "these", "they",
+        "this", "those", "to", "under", "unless", "until", "up", "when", "whenever", "where",
+        "which", "while", "who", "whose", "with", "without", "you", "your",
+    };
+
+    /// <summary>The three ownership clauses the group grammar reads, already tokenised.</summary>
+    private static readonly string[][] OwnershipClauses =
+    [
+        ["you", "control"],
+        ["your", "opponents", "control"],
+        ["an", "opponent", "controls"],
+    ];
+
+    /// <summary>Words and single punctuation marks, which is all this needs to find a noun run.</summary>
+    private static readonly System.Text.RegularExpressions.Regex PhraseTokenRegex =
+        new(@"[A-Za-z][A-Za-z'’-]*|[^A-Za-z\s]");
+
+    /// <summary>
+    /// Every noun phrase one printed line names, and which of the two grammars reads it.
+    /// </summary>
+    /// <remarks>
+    /// Anchored on the words that introduce a group or a target — "all", "each", "every",
+    /// "other", "target" — plus the bare ownership clause, which carries no opener at all and is
+    /// how every mass static names the group it applies to.
+    /// </remarks>
+    private static IEnumerable<(bool Group, string Phrase)> NounPhrases(string line)
+    {
+        var tokens = new List<string>();
+        foreach (System.Text.RegularExpressions.Match token in PhraseTokenRegex.Matches(line))
+            tokens.Add(token.Value);
+
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var opener = tokens[i];
+            var group = opener.Equals("all", StringComparison.OrdinalIgnoreCase)
+                || opener.Equals("each", StringComparison.OrdinalIgnoreCase)
+                || opener.Equals("every", StringComparison.OrdinalIgnoreCase)
+                || opener.Equals("other", StringComparison.OrdinalIgnoreCase);
+
+            if (!group && !opener.Equals("target", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var run = NounRun(tokens, i + 1, out var after);
+            if (run.Length == 0)
+                continue;
+
+            var owner = OwnershipAt(tokens, after);
+            yield return (group, owner is null ? run : run + " " + owner);
+        }
+
+        // "Slivers you control", with nothing in front of it: the commonest group phrase there
+        // is, and the shape both mass-static defects were printed in.
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (OwnershipAt(tokens, i) is not { } clause)
+                continue;
+
+            var run = NounRunBackwards(tokens, i - 1);
+            if (run.Length > 0)
+                yield return (true, run + " " + clause);
+        }
+    }
+
+    /// <summary>The run of ordinary words starting at <paramref name="start"/>.</summary>
+    private static string NounRun(IReadOnlyList<string> tokens, int start, out int after)
+    {
+        var words = new List<string>();
+        var i = start;
+
+        while (i < tokens.Count && words.Count < 4)
+        {
+            var word = tokens[i];
+            if (!char.IsLetter(word[0]) || PhraseStopWords.Contains(word))
+                break;
+
+            words.Add(word);
+            i++;
+        }
+
+        after = i;
+        return string.Join(' ', words);
+    }
+
+    /// <summary>The same run, read backwards from the word before an ownership clause.</summary>
+    private static string NounRunBackwards(IReadOnlyList<string> tokens, int last)
+    {
+        var words = new List<string>();
+
+        for (var i = last; i >= 0 && words.Count < 4; i--)
+        {
+            var word = tokens[i];
+            if (!char.IsLetter(word[0]) || PhraseStopWords.Contains(word))
+                break;
+
+            words.Insert(0, word);
+        }
+
+        return string.Join(' ', words);
+    }
+
+    /// <summary>The ownership clause starting at a token index, or null.</summary>
+    private static string? OwnershipAt(IReadOnlyList<string> tokens, int at)
+    {
+        foreach (var clause in OwnershipClauses)
+        {
+            if (at < 0 || at + clause.Length > tokens.Count)
+                continue;
+
+            var matched = true;
+            for (var k = 0; k < clause.Length; k++)
+            {
+                if (!tokens[at + k].Equals(clause[k], StringComparison.OrdinalIgnoreCase))
+                {
+                    matched = false;
+                    break;
+                }
+            }
+
+            if (matched)
+                return string.Join(' ', clause);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Every subtype a compiled card can put onto the battlefield, and what card type it is on.
+    /// </summary>
+    /// <remarks>
+    /// The corpus is cards, and a token is not a card — Scryfall's token layouts are dropped
+    /// before the compiler ever sees them. So "Army", "Blinkmoth" and "Incubator" are subtypes no
+    /// corpus card is printed with and that a real board is full of, and a witness board built
+    /// from printed subtypes alone accuses every card that names one. They are read off the token
+    /// definitions the compiler itself builds, which is the only list of them that cannot go
+    /// stale as sets are added.
+    /// </remarks>
+    private static IEnumerable<(string Subtype, MtgEngine.Domain.Enums.CardType Types)> TokenShapes(
+        CompiledCard compiled)
+    {
+        foreach (var effect in EveryCompiledEffect(compiled))
+        {
+            foreach (var property in effect.GetType().GetProperties())
+            {
+                if (property.PropertyType != typeof(MtgEngine.Domain.Models.CardDefinition)
+                    || property.GetValue(effect) is not MtgEngine.Domain.Models.CardDefinition token)
+                {
+                    continue;
+                }
+
+                foreach (var subtype in token.Subtypes)
+                    yield return (subtype, token.CardTypes);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every subtype the rules themselves define, and the card type it belongs to (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// The corpus only samples this. Scryfall's token layouts are dropped before the compiler
+    /// sees them, so "Army" and "Blinkmoth" are creature types no playable card is printed with
+    /// and that a real board is full of — one is amassed (CR 701.44a), the other is a land that
+    /// animates itself. A witness board built from printed subtypes alone accuses every card that
+    /// names one, and the accusation is about Scryfall rather than about the compiler.
+    /// <para>
+    /// Read from the same file the <c>/api/rules</c> endpoint serves, and by rule number rather
+    /// than by a table written here: which card type a subtype belongs to is CR 205.3g through
+    /// 205.3q and nothing else. That also settles the question the four bugs turned on —
+    /// "Equipment" is an artifact type because 205.3g says so, and so no witness anywhere on this
+    /// board is a creature with it.
+    /// </para>
+    /// </remarks>
+    private static List<(string Subtype, MtgEngine.Domain.Enums.CardType Types)> RulesSubtypes()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Knowledge", "comprehensive-rules.txt");
+        var found = new List<(string, MtgEngine.Domain.Enums.CardType)>();
+
+        if (!File.Exists(path))
+            return found;
+
+        foreach (var line in File.ReadLines(path))
+        {
+            if (SubtypeRule(line) is not { } types)
+                continue;
+
+            // "The artifact types are Attraction (see rule 717), Blood, ... and Space." — and for
+            // the battle types, a single one written "That battle type is Siege."
+            var plural = line.IndexOf(" types are ", StringComparison.Ordinal);
+            var singular = line.IndexOf(" type is ", StringComparison.Ordinal);
+
+            var listing = plural >= 0
+                ? line[(plural + " types are ".Length)..]
+                : singular >= 0 ? line[(singular + " type is ".Length)..] : null;
+
+            if (listing is null)
+                continue;
+
+            // The land types are followed by a second sentence naming the basic ones, and the
+            // creature types by nothing at all. Either way the list ends at the first full stop.
+            var stop = listing.IndexOf(". ", StringComparison.Ordinal);
+            if (stop >= 0)
+                listing = listing[..stop];
+
+            // "All other creature types are one word long: Advisor, ..." — the colon, where there
+            // is one, is where the prose stops and the list starts.
+            var colon = listing.LastIndexOf(": ", StringComparison.Ordinal);
+            if (colon >= 0)
+                listing = listing[(colon + 2)..];
+
+            foreach (var item in listing.Split(','))
+            {
+                var name = SeeRule().Replace(item, string.Empty).Trim().TrimEnd('.').Trim();
+
+                if (name.StartsWith("and ", StringComparison.Ordinal))
+                    name = name[4..];
+
+                if (SubtypeName().IsMatch(name))
+                    found.Add((name, types));
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Which card type CR 205.3's subtype lists belong to, by rule number.</summary>
+    private static MtgEngine.Domain.Enums.CardType? SubtypeRule(string line) =>
+        line.StartsWith("205.3g", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Artifact
+        : line.StartsWith("205.3h", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Enchantment
+        : line.StartsWith("205.3i", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Land
+        : line.StartsWith("205.3j", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Planeswalker
+        : line.StartsWith("205.3m", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Creature
+        : line.StartsWith("205.3q", StringComparison.Ordinal) ? MtgEngine.Domain.Enums.CardType.Battle
+        : null;
+
+    /// <summary>The cross-reference the rules put beside a subtype that has its own section.</summary>
+    private static readonly System.Text.RegularExpressions.Regex SeeRuleRegex =
+        new(@"\s*\(see rule[^)]*\)");
+
+    private static System.Text.RegularExpressions.Regex SeeRule() => SeeRuleRegex;
+
+    /// <summary>A subtype as the rules spell one: capitalised letters, hyphens and apostrophes.</summary>
+    private static readonly System.Text.RegularExpressions.Regex SubtypeNameRegex =
+        new(@"^[A-Z][A-Za-z'’\-]*$");
+
+    private static System.Text.RegularExpressions.Regex SubtypeName() => SubtypeNameRegex;
+
+    /// <summary>Every effect a compiled card runs, from wherever it hangs, nested ones included.</summary>
+    private static IEnumerable<IEffect> EveryCompiledEffect(CompiledCard compiled)
+    {
+        var effects = new List<IEffect>();
+
+        if (compiled.Spell is { } spell)
+        {
+            effects.AddRange(spell.Effects);
+            effects.AddRange(spell.Modes.SelectMany(m => m.Effects));
+        }
+
+        effects.AddRange(compiled.Triggers.SelectMany(t => t.Effects));
+        effects.AddRange(compiled.Activated.SelectMany(a => a.Effects));
+
+        return Flatten(effects);
+    }
+
+    /// <summary>One permanent's worth of status, varied so conjunctions have a single witness.</summary>
+    private sealed record Flavour(
+        string Name,
+        IReadOnlyList<MtgEngine.Domain.Enums.ManaColor> Colors,
+        MtgEngine.Domain.Enums.KeywordAbility Keywords,
+        int Power,
+        int Toughness,
+        int Cmc,
+        bool Token,
+        bool Legendary,
+        bool Tapped,
+        bool Sick,
+        bool Counters,
+        bool Decorated,
+        bool InCombat = false,
+        bool Blocked = false);
+
+    /// <summary>
+    /// A board carrying one of everything the game can contain, for a phrase to be tried against.
+    /// </summary>
+    /// <remarks>
+    /// The instrument the invariant above turns on, and the half that decides whether its answer
+    /// means anything: a board that cannot hold a tapped multicoloured legendary Sliver accuses
+    /// every card that names one. The first build of this reported 53 unsatisfiable phrases and
+    /// most of the difference between that and the real number was here — attacking permanents of
+    /// a named subtype, the snow supertype, and the token-only creature types together accounted
+    /// for two thirds of them.
+    /// <para>
+    /// Built by hand rather than played into, the way <c>Game.AddCounters</c> and
+    /// <c>Game.Attach</c> are: a board with an attacker, an Equipment on a creature and counters
+    /// stacked up is a position, and playing four turns to reach it says nothing this is about.
+    /// </para>
+    /// </remarks>
+    private sealed class WitnessBoard
+    {
+        private static readonly Guid Alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid Bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        private static readonly Guid[] Controllers = [Alice, Bob];
+
+        private static readonly MtgEngine.Domain.Enums.ManaColor[] EveryColor =
+        [
+            MtgEngine.Domain.Enums.ManaColor.White,
+            MtgEngine.Domain.Enums.ManaColor.Blue,
+            MtgEngine.Domain.Enums.ManaColor.Black,
+            MtgEngine.Domain.Enums.ManaColor.Red,
+            MtgEngine.Domain.Enums.ManaColor.Green,
+        ];
+
+        private static readonly MtgEngine.Domain.Enums.ManaColor[] JustWhite =
+            [MtgEngine.Domain.Enums.ManaColor.White];
+
+        private static readonly MtgEngine.Domain.Enums.ManaColor[] Colorless = [];
+
+        private static readonly string[] BasicLands =
+            ["Plains", "Island", "Swamp", "Mountain", "Forest"];
+
+        private static readonly string[] Snow = ["Snow"];
+
+        /// <summary>
+        /// Every keyword at once, except the one that would make this check vacuous.
+        /// </summary>
+        /// <remarks>
+        /// Changeling is every creature type in every zone (CR 702.73a). A witness carrying it
+        /// answers every subtype filter ever written, including one asking for a subtype no card
+        /// has — which is precisely the fault this exists to find.
+        /// </remarks>
+        private static readonly MtgEngine.Domain.Enums.KeywordAbility EveryKeyword = AllKeywords();
+
+        /// <summary>Every card-type combination a permanent has, plus one that is all of them.</summary>
+        private static readonly (string Name, MtgEngine.Domain.Enums.CardType Types)[] Shapes =
+        [
+            ("Creature", MtgEngine.Domain.Enums.CardType.Creature),
+            ("Artifact", MtgEngine.Domain.Enums.CardType.Artifact),
+            ("Enchantment", MtgEngine.Domain.Enums.CardType.Enchantment),
+            ("Land", MtgEngine.Domain.Enums.CardType.Land),
+            ("Planeswalker", MtgEngine.Domain.Enums.CardType.Planeswalker),
+            ("Battle", MtgEngine.Domain.Enums.CardType.Battle),
+            ("ArtifactCreature",
+                MtgEngine.Domain.Enums.CardType.Artifact | MtgEngine.Domain.Enums.CardType.Creature),
+            ("EnchantmentCreature",
+                MtgEngine.Domain.Enums.CardType.Enchantment | MtgEngine.Domain.Enums.CardType.Creature),
+            ("LandCreature",
+                MtgEngine.Domain.Enums.CardType.Land | MtgEngine.Domain.Enums.CardType.Creature),
+            ("Everything",
+                MtgEngine.Domain.Enums.CardType.Creature
+                    | MtgEngine.Domain.Enums.CardType.Artifact
+                    | MtgEngine.Domain.Enums.CardType.Enchantment
+                    | MtgEngine.Domain.Enums.CardType.Land
+                    | MtgEngine.Domain.Enums.CardType.Planeswalker
+                    | MtgEngine.Domain.Enums.CardType.Battle),
+        ];
+
+        /// <summary>
+        /// The states a permanent can be in, chosen so that the printed conjunctions each have
+        /// one object answering every half of them at once.
+        /// </summary>
+        /// <remarks>
+        /// A filter is satisfied by a single permanent or by nothing, so spreading "tapped" and
+        /// "has a counter on it" across two witnesses answers "tapped creature with a +1/+1
+        /// counter on it" with a false accusation. Hence a maximal witness in both tapped and
+        /// untapped, a plain one in both, and three in combat rather than one flag per witness.
+        /// </remarks>
+        private static readonly Flavour[] Flavours =
+        [
+            new("plain", Colorless, MtgEngine.Domain.Enums.KeywordAbility.None,
+                2, 2, 0, Token: false, Legendary: false, Tapped: false, Sick: true,
+                Counters: false, Decorated: false),
+            new("held", Colorless, MtgEngine.Domain.Enums.KeywordAbility.None,
+                2, 2, 0, Token: false, Legendary: false, Tapped: true, Sick: false,
+                Counters: false, Decorated: false),
+            new("tapped", EveryColor, EveryKeyword,
+                7, 7, 8, Token: false, Legendary: true, Tapped: true, Sick: false,
+                Counters: true, Decorated: true),
+            new("ready", EveryColor, EveryKeyword,
+                7, 7, 8, Token: false, Legendary: true, Tapped: false, Sick: false,
+                Counters: true, Decorated: true),
+            new("token", JustWhite, MtgEngine.Domain.Enums.KeywordAbility.None,
+                1, 1, 0, Token: true, Legendary: false, Tapped: false, Sick: false,
+                Counters: false, Decorated: false),
+            new("small", Colorless, MtgEngine.Domain.Enums.KeywordAbility.None,
+                0, 1, 3, Token: false, Legendary: false, Tapped: false, Sick: false,
+                Counters: true, Decorated: false),
+
+            // In combat. One token, one plain, one maximal, and only the last of them blocked, so
+            // that "unblocked attacking creature" has an answer and so does "blocking creature".
+            new("raiding", JustWhite, MtgEngine.Domain.Enums.KeywordAbility.None,
+                1, 1, 0, Token: true, Legendary: false, Tapped: false, Sick: false,
+                Counters: false, Decorated: false, InCombat: true),
+            new("charging", Colorless, MtgEngine.Domain.Enums.KeywordAbility.None,
+                3, 3, 2, Token: false, Legendary: false, Tapped: false, Sick: false,
+                Counters: false, Decorated: false, InCombat: true),
+            new("storming", EveryColor, EveryKeyword,
+                7, 7, 8, Token: false, Legendary: true, Tapped: false, Sick: false,
+                Counters: true, Decorated: true, InCombat: true, Blocked: true),
+        ];
+
+        private readonly CompiledPool pool = new();
+        private readonly GameState bare;
+        private readonly ImmutableList<GameObject> generic;
+
+        private readonly Dictionary<string, ImmutableHashSet<MtgEngine.Domain.Enums.CardType>> printedOn =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        private readonly Dictionary<string, (GameState State, ImmutableList<GameObject> Objects)> boards =
+            new(StringComparer.Ordinal);
+
+        /// <summary>Who is in combat, filled in as witnesses are made and read back per board.</summary>
+        private readonly List<(ObjectId Id, bool Blocked)> attacking = [];
+        private readonly List<ObjectId> blocking = [];
+
+        private long stamp = 5000;
+
+        internal WitnessBoard(
+            IReadOnlyList<MtgEngine.Domain.Models.CardDefinition> corpus,
+            IEnumerable<(string Subtype, MtgEngine.Domain.Enums.CardType Types)> tokens)
+        {
+            // Which card types a subtype is actually printed on, which is the only definition of
+            // that fact there is: "Equipment" is an artifact type because every card printed with
+            // it is an artifact, and no table anywhere says so.
+            foreach (var card in corpus)
+            {
+                foreach (var subtype in card.Subtypes)
+                    Record(subtype, card.CardTypes);
+            }
+
+            foreach (var (subtype, types) in tokens)
+                Record(subtype, types);
+
+            var game = Game.Start(
+                Guid.NewGuid(),
+                [
+                    new PlayerSetup(Alice, "Alice", 20, SmokeDeck("Alice")),
+                    new PlayerSetup(Bob, "Bob", 20, SmokeDeck("Bob")),
+                ],
+                new GameRandom(1),
+                startingPlayerId: Alice,
+                abilities: pool);
+
+            game.BeginPlay(withMulligans: false);
+            bare = game.State;
+
+            generic = BuildGeneric();
+        }
+
+        /// <summary>The largest board any one phrase was tried against, for the report.</summary>
+        internal int Size { get; private set; }
+
+        /// <summary>Whether anything the game can contain answers this filter.</summary>
+        internal bool Satisfies(TargetSpec spec, string phrase)
+        {
+            // Both what the card printed and what the grammar made of it. The two disagree
+            // exactly when a plural was folded, and the board should hold whichever either meant.
+            var (state, objects) = BoardFor(phrase + " " + spec.Description);
+
+            foreach (var obj in objects)
+            {
+                foreach (var controller in Controllers)
+                {
+                    try
+                    {
+                        if (spec.ObjectFilter?.Invoke(state, pool, obj, controller) == false)
+                            continue;
+
+                        if (spec.SourceFilter?.Invoke(state, pool, obj, null, controller) == false)
+                            continue;
+
+                        return true;
+                    }
+                    catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)
+                    {
+                        // A filter that throws when handed a witness has answered "not this one".
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private void Record(string subtype, MtgEngine.Domain.Enums.CardType types) =>
+            printedOn[subtype] = printedOn.TryGetValue(subtype, out var already)
+                ? already.Add(types)
+                : [types];
+
+        /// <summary>
+        /// The board one phrase is tried against: everything generic, plus a real-shaped
+        /// permanent for every capitalised word in it that some card prints as a subtype.
+        /// </summary>
+        /// <remarks>
+        /// Cached by which subtypes it needs, because most phrases name none and the ones that do
+        /// mostly name the same few. A game per phrase would be the same board and forty times
+        /// the cost.
+        /// </remarks>
+        private (GameState State, ImmutableList<GameObject> Objects) BoardFor(string phrase)
+        {
+            var named = new SortedSet<string>(StringComparer.Ordinal);
+
+            foreach (var word in phrase.Split(
+                [' ', ',', '.', '"'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (word.Length < 2 || !char.IsUpper(word[0]))
+                    continue;
+
+                foreach (var candidate in SubtypeCandidates(word))
+                {
+                    if (printedOn.ContainsKey(candidate))
+                        named.Add(candidate);
+                }
+            }
+
+            var key = string.Join('|', named);
+            if (boards.TryGetValue(key, out var already))
+                return already;
+
+            var objects = generic;
+            foreach (var subtype in named)
+                objects = objects.AddRange(SubtypeWitnesses(subtype));
+
+            var here = objects.Select(o => o.Id).ToHashSet();
+
+            var state = bare with
+            {
+                Objects = bare.Objects.SetItems(objects.Select(o => KeyValuePair.Create(o.Id, o))),
+                Battlefield = bare.Battlefield.AddRange(objects.Select(o => o.Id)),
+                Combat = BuildCombat(here),
+            };
+
+            Size = Math.Max(Size, objects.Count);
+
+            var built = (state, objects);
+            boards[key] = built;
+            return built;
+        }
+
+        /// <summary>
+        /// Every singular a printed plural could honestly have been.
+        /// </summary>
+        /// <remarks>
+        /// The witness side of the singularisation, and deliberately <em>not</em> the compiler's
+        /// own <c>SingularWord</c>. Mirroring that would put whatever it produced onto the board,
+        /// and a check that agrees with the thing it is checking cannot fail. This offers every
+        /// reading the word could have instead, so a phrase left unsatisfied is one the compiler
+        /// resolved to a word no card is printed with — which is the whole fault.
+        /// </remarks>
+        private static IEnumerable<string> SubtypeCandidates(string word)
+        {
+            yield return word;
+
+            if (word.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return word[..^3] + "y";
+                yield return word[..^3] + "ie";
+            }
+
+            if (word.EndsWith("ves", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return word[..^3] + "f";
+                yield return word[..^3] + "fe";
+            }
+
+            if (word.EndsWith("es", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return word[..^2];
+                yield return word[..^1];
+            }
+            else if (word.EndsWith('s') && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return word[..^1];
+            }
+
+            // The five English plurals no rule reaches, which the compiler also keeps as a list.
+            var irregular = word.ToLowerInvariant() switch
+            {
+                "mice" => "Mouse",
+                "geese" => "Goose",
+                "children" => "Child",
+                "teeth" => "Tooth",
+                "feet" => "Foot",
+                _ => null,
+            };
+
+            if (irregular is not null)
+                yield return irregular;
+        }
+
+        /// <summary>A permanent of every card-type shape that subtype is actually printed on.</summary>
+        private IEnumerable<GameObject> SubtypeWitnesses(string subtype)
+        {
+            foreach (var types in printedOn[subtype])
+            {
+                foreach (var flavour in Flavours)
+                {
+                    foreach (var who in Controllers)
+                        yield return Make(subtype, types, [subtype], flavour, who);
+                }
+            }
+        }
+
+        private static MtgEngine.Domain.Enums.KeywordAbility AllKeywords()
+        {
+            var all = MtgEngine.Domain.Enums.KeywordAbility.None;
+
+            foreach (var keyword in Enum.GetValues<MtgEngine.Domain.Enums.KeywordAbility>())
+            {
+                if (keyword != MtgEngine.Domain.Enums.KeywordAbility.Changeling)
+                    all |= keyword;
+            }
+
+            return all;
+        }
+
+        private ImmutableList<GameObject> BuildGeneric()
+        {
+            var built = ImmutableList.CreateBuilder<GameObject>();
+            var host = new Dictionary<Guid, ObjectId>();
+
+            foreach (var shape in Shapes)
+            {
+                foreach (var flavour in Flavours)
+                {
+                    foreach (var who in Controllers)
+                    {
+                        var made = Make(shape.Name, shape.Types, [], flavour, who);
+                        built.Add(made);
+
+                        if (shape.Types == MtgEngine.Domain.Enums.CardType.Creature)
+                            host.TryAdd(who, made.Id);
+                    }
+                }
+
+                // Snow is a supertype and nothing else on this board has one, so "snow permanent
+                // you control" — 200-odd corpus lines across the ice ages — has no witness at all
+                // without these.
+                foreach (var who in Controllers)
+                {
+                    built.Add(Make(shape.Name, shape.Types, [], Flavours[0], who, supertypes: Snow));
+                    built.Add(Make(shape.Name, shape.Types, [], Flavours[1], who, supertypes: Snow));
+                }
+            }
+
+            // The five basics: the only lands carrying a supertype nothing else has, and the only
+            // answer to "basic land you control".
+            foreach (var basic in BasicLands)
+            {
+                foreach (var who in Controllers)
+                {
+                    built.Add(Make(
+                        basic,
+                        MtgEngine.Domain.Enums.CardType.Land,
+                        [basic],
+                        Flavours[0],
+                        who,
+                        supertypes: ["Basic"]));
+
+                    built.Add(Make(
+                        basic,
+                        MtgEngine.Domain.Enums.CardType.Land,
+                        [basic],
+                        Flavours[1],
+                        who,
+                        supertypes: ["Snow", "Basic"]));
+                }
+            }
+
+            // A face-down permanent is a 2/2 colourless creature with no name, no other types and
+            // no abilities (CR 707.2) — not a card with an effect on it, so nothing else is one.
+            foreach (var who in Controllers)
+            {
+                built.Add(Make(
+                    "FaceDown",
+                    MtgEngine.Domain.Enums.CardType.Creature,
+                    [],
+                    Flavours[0],
+                    who,
+                    faceDown: true));
+            }
+
+            // An Aura and an Equipment on a creature, and an Aura on a player. Attachment is a
+            // state nothing else here is in, and "enchanted creature" is a printed phrase.
+            foreach (var who in Controllers)
+            {
+                built.Add(Make(
+                    "Aura",
+                    MtgEngine.Domain.Enums.CardType.Enchantment,
+                    ["Aura"],
+                    Flavours[0],
+                    who,
+                    attachedTo: host.GetValueOrDefault(who)));
+
+                built.Add(Make(
+                    "Equipment",
+                    MtgEngine.Domain.Enums.CardType.Artifact,
+                    ["Equipment"],
+                    Flavours[0],
+                    who,
+                    attachedTo: host.GetValueOrDefault(who)));
+
+                built.Add(Make(
+                    "PlayerAura",
+                    MtgEngine.Domain.Enums.CardType.Enchantment,
+                    ["Aura"],
+                    Flavours[0],
+                    who,
+                    attachedToPlayer: who));
+            }
+
+            return built.ToImmutable();
+        }
+
+        /// <summary>
+        /// The combat every witness made in a combat flavour is already in.
+        /// </summary>
+        /// <remarks>
+        /// One player's copy of each combat flavour attacks and the other player's copy blocks,
+        /// so "attacking Goblin you control" and "blocking creature you control" are both
+        /// answered without any one permanent doing both. Set on the state rather than played
+        /// out, the way <c>Game.AddCounters</c> is: a board with an attacker on it is a position,
+        /// and playing four turns to reach it says nothing this check is about.
+        /// </remarks>
+        private CombatState BuildCombat(HashSet<ObjectId> here)
+        {
+            var attackers = ImmutableDictionary.CreateBuilder<ObjectId, AttackTarget>();
+            var blockers = ImmutableDictionary.CreateBuilder<ObjectId, ImmutableList<ObjectId>>();
+            var blocked = ImmutableHashSet.CreateBuilder<ObjectId>();
+
+            // Only the witnesses this board actually holds: a combat naming an object the state
+            // has never heard of is a state no game could reach, and the filters read it.
+            var free = blocking.Find(here.Contains);
+
+            foreach (var (id, isBlocked) in attacking)
+            {
+                if (!here.Contains(id))
+                    continue;
+
+                attackers.Add(id, AttackTarget.Player(Bob));
+
+                if (!isBlocked || free == default)
+                    continue;
+
+                blockers.Add(id, [free]);
+                blocked.Add(id);
+            }
+
+            return new CombatState
+            {
+                Attackers = attackers.ToImmutable(),
+                Blockers = blockers.ToImmutable(),
+                Blocked = blocked.ToImmutable(),
+                AttackersDeclared = true,
+                BlockersDeclared = true,
+            };
+        }
+
+        private GameObject Make(
+            string name,
+            MtgEngine.Domain.Enums.CardType types,
+            IReadOnlyList<string> subtypes,
+            Flavour flavour,
+            Guid who,
+            IReadOnlyList<string>? supertypes = null,
+            bool faceDown = false,
+            ObjectId attachedTo = default,
+            Guid? attachedToPlayer = null)
+        {
+            var creature = types.HasFlag(MtgEngine.Domain.Enums.CardType.Creature);
+            var walker = types.HasFlag(MtgEngine.Domain.Enums.CardType.Planeswalker);
+
+            var supers = new List<string>(supertypes ?? []);
+            if (flavour.Legendary)
+                supers.Add("Legendary");
+
+            var card = new MtgEngine.Domain.Models.CardDefinition
+            {
+                OracleId = $"witness-{stamp}",
+                Name = $"Witness {name} {flavour.Name} {stamp}",
+                CardTypes = flavour.Token ? types | MtgEngine.Domain.Enums.CardType.Token : types,
+                Subtypes = subtypes,
+                Supertypes = supers,
+                Colors = flavour.Colors,
+                Keywords = flavour.Keywords,
+                Power = creature ? flavour.Power : null,
+                Toughness = creature ? flavour.Toughness : null,
+                StartingLoyalty = walker ? 4 : null,
+                Cmc = flavour.Cmc,
+            };
+
+            var counters = flavour.Counters
+                ? ImmutableDictionary<string, int>.Empty
+                    .Add("+1/+1", 1)
+                    .Add("charge", 1)
+                    .Add("loyalty", 4)
+                : ImmutableDictionary<string, int>.Empty;
+
+            var made = new GameObject
+            {
+                Id = ObjectId.New(),
+                Card = card,
+                OwnerId = who,
+                ControllerId = who,
+                Zone = Zone.Battlefield,
+                Timestamp = stamp++,
+                Permanent = new PermanentState
+                {
+                    IsTapped = flavour.Tapped,
+                    HasSummoningSickness = flavour.Sick,
+                    IsFaceDown = faceDown,
+                    IsMonstrous = flavour.Decorated,
+                    IsRenowned = flavour.Decorated,
+                    IsSaddled = flavour.Decorated,
+                    DamageMarked = flavour.Decorated ? 1 : 0,
+                    Counters = counters,
+                    AttachedTo = attachedTo == default ? null : attachedTo,
+                    AttachedToPlayer = attachedToPlayer,
+                },
+            };
+
+            if (creature && flavour.InCombat)
+            {
+                if (who == Alice)
+                    attacking.Add((made.Id, flavour.Blocked));
+                else
+                    blocking.Add(made.Id);
+            }
+
+            return made;
+        }
+    }
 }
