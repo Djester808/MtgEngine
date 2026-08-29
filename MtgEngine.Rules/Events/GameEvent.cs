@@ -1403,6 +1403,85 @@ public sealed record SpellBestowed(ObjectId Id) : GameEvent
     public override string Describe() => $"{Id} was cast with bestow.";
 }
 
+/// <summary>A spell was cast for its mutate cost (CR 702.140a).</summary>
+/// <remarks>
+/// Recorded on the spell rather than remembered by the engine, for the reason buyback and bestow
+/// are: the spell has to still know, several priority passes later, that it is a mutating
+/// creature spell — and a rebuilt game has to know it too, or the merge becomes an ordinary
+/// creature arriving on the battlefield beside the creature it should have joined.
+/// </remarks>
+public sealed record SpellMutating(ObjectId Id, bool OnTop) : GameEvent
+{
+    public override string Rule => "702.140a";
+
+    public override string Describe() =>
+        $"{Id} was cast for its mutate cost, going {(OnTop ? "over" : "under")}.";
+}
+
+/// <summary>
+/// A mutating creature spell merged with the creature it targeted (CR 702.140c, 730.2).
+/// </summary>
+/// <remarks>
+/// One event for the whole merge, because it is one thing happening: the spell leaves the stack
+/// and <em>becomes part of</em> the permanent (CR 730.2b), which is not the card ceasing to exist
+/// and not a zone change either. Splitting it into a removal and an addition would leave a moment
+/// between them in which the card was nowhere.
+/// <para>
+/// The permanent keeps its id: CR 730.2c says it is the same object it was, so it has not just
+/// entered, has not just come under anybody's control, and every continuous effect on it goes on
+/// applying. That is also why nothing here touches its timestamp.
+/// </para>
+/// </remarks>
+public sealed record PermanentMutated(ObjectId Id, ObjectId SpellId, bool OnTop) : GameEvent
+{
+    public override string Rule => "702.140c";
+
+    public override string Describe() =>
+        $"{SpellId} merged {(OnTop ? "over" : "under")} {Id}.";
+}
+
+/// <summary>
+/// A mutating creature spell stopped being one, because its target had become illegal
+/// (CR 702.140b).
+/// </summary>
+/// <remarks>
+/// The rule is an exception to CR 608.2b, and it is written as the spell <em>changing</em> rather
+/// than as the engine making an exception: "it ceases to be a mutating creature spell and
+/// continues resolving as a creature spell". Emitting that change means a replayed game reaches
+/// the same fork by reaching the same events, instead of re-deciding it from a target legality
+/// that has moved on since.
+/// </remarks>
+public sealed record SpellMutationLapsed(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.140b";
+
+    public override string Describe() =>
+        $"{Id} lost its mutate target and resolves as a creature spell.";
+}
+
+/// <summary>
+/// A merged permanent is leaving the battlefield, so its components become separate objects
+/// (CR 730.3).
+/// </summary>
+/// <remarks>
+/// "One permanent leaves the battlefield and each of the individual components are put into the
+/// appropriate zone." The topmost component travels as the permanent itself, through the ordinary
+/// move that follows this — so only the cards <em>under</em> it are named here, each with the id
+/// it will have in its new zone (CR 400.7).
+/// <para>
+/// The ids are on the event rather than made by the reducer, because a fold decides nothing: two
+/// replays of one log have to produce the same objects.
+/// </para>
+/// </remarks>
+public sealed record MergedPermanentSeparated(
+    ObjectId Id, Zone To, ImmutableList<ObjectId> ComponentIds) : GameEvent
+{
+    public override string Rule => "730.3";
+
+    public override string Describe() =>
+        $"{Id} came apart into {ComponentIds.Count} more card(s) in {To}.";
+}
+
 /// <summary>A spell was cast for its overload cost (CR 702.96a).</summary>
 public sealed record SpellOverloaded(ObjectId Id) : GameEvent
 {

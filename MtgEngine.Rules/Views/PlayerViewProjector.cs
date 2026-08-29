@@ -270,6 +270,18 @@ public static class PlayerViewProjector
             HasSummoningSickness = obj.Permanent?.HasSummoningSickness,
             DamageMarked = obj.Permanent?.DamageMarked,
             Counters = obj.Permanent?.Counters,
+
+            // CR 730.2: the permanent is every one of these cards, and the fields above are all
+            // the topmost. Nothing is hidden by listing them - a mutated permanent is public
+            // information, and a player who cannot see what is underneath cannot work out what
+            // the creature in front of them does.
+            MergedUnder = [.. obj.MergedComponents.Select(c => new MergedCardView
+            {
+                Name = c.Name,
+                OracleId = c.OracleId,
+                OracleText = string.IsNullOrWhiteSpace(c.OracleText) ? null : c.OracleText,
+                ImageUri = c.ImageUriNormal ?? c.ImageUriLarge,
+            })],
         };
     }
 

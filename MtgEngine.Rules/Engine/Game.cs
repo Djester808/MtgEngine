@@ -666,7 +666,9 @@ public sealed class Game
         bool fused = false,
         bool prepared = false,
         bool withFlash = false,
-        bool prototyped = false)
+        bool prototyped = false,
+        bool mutated = false,
+        bool mutateOnTop = true)
     {
         RequirePriority(playerId);
 
@@ -1004,6 +1006,21 @@ public sealed class Game
             specs = specs.Add(enchanting);
         }
 
+        // CR 702.140a: paying the mutate cost gives a creature spell a target it does not
+        // otherwise have — "a non-Human creature with the same owner as this spell". Added the
+        // way bestow's is, after whatever the card itself targets, so the card's own effects keep
+        // the indices the compiler numbered them with.
+        if (mutated)
+        {
+            if (_abilities.SpellOf(card.Card)?.MutateTarget is not { } merging)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no mutate (CR 702.140a).");
+            }
+
+            specs = specs.Add(merging);
+        }
+
         // CR 702.96a: overload replaces every "target" the spell printed, so the check below has
         // nothing to check. They are not merely ignored - an overloaded spell has no targets at
         // all, so nothing about it can be made illegal by hexproof or lost to fizzling.
@@ -1120,6 +1137,21 @@ public sealed class Game
 
         if (bestowed && definition?.BestowCost is { } bestowCost)
             cost = bestowCost;
+
+        // CR 702.140a: "you may pay [cost] rather than pay this spell's mana cost", which is an
+        // alternative cost and so replaces the printed one outright - applied exactly where
+        // bestow's is, and before the additional costs below so those are added to what is
+        // actually being paid.
+        if (mutated)
+        {
+            if (definition?.MutateCost is not { } mutateCost)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no mutate (CR 702.140a).");
+            }
+
+            cost = mutateCost;
+        }
 
         // CR 702.74a: evoke is an alternative cost like dash, and the two are never both paid -
         // a card printed with both would be cast one way or the other.
@@ -1523,6 +1555,9 @@ public sealed class Game
 
         if (bestowed)
             Emit(new SpellBestowed(stackId));
+
+        if (mutated)
+            Emit(new SpellMutating(stackId, mutateOnTop));
 
         if (offspring)
             Emit(new SpellOffspring(stackId));
@@ -7307,7 +7342,11 @@ public sealed class Game
                 // were picked - the same slicing the spell path does.
                 var specs = modal is { ModesToChoose: > 0 }
                     ? [.. pickedModes.SelectMany(index => modal.Modes[index].Targets)]
-                    : TargetsOfAbility(sourceCard, trigger.AbilityId) ?? [];
+                    // The source is named as well as its card, because an ability the permanent
+                    // was given is not on the card: a trigger from the card under a mutated
+                    // permanent, or one an Aura granted, has its specs only in the granted table.
+                    // Without it such a trigger reached the stack with no targets and did nothing.
+                    : TargetsOfAbility(sourceCard, trigger.AbilityId, trigger.SourceId) ?? [];
                 if (!specs.IsEmpty)
                 {
                     var key = TriggerKey(trigger);
@@ -7520,12 +7559,24 @@ public sealed class Game
         // leaves-the-battlefield ability triggers on the game as it was *before*, because by the
         // time the event has happened the permanent is gone. Looking only at the state before the
         // event, as this did at first, silently loses every ETB trigger there is.
+        // CR 702.140d: an ability that triggers when a creature mutates is on the permanent the
+        // merge produced, and that permanent has the abilities of every card representing it
+        // (CR 702.140e) — the one that arrived in this very event included. A mutated permanent
+        // keeps its id (CR 730.2c), so it is in both states and the loops below would read it
+        // only as it was *before*: the card whose trigger the whole cast was for is still a spell
+        // on the stack there, and its own mutate trigger would never fire. It is considered once,
+        // afterwards, which is the only state that has all of its abilities.
+        var justMerged = e is PermanentMutated merged ? merged.Id : (ObjectId?)null;
+
         foreach (var (id, obj) in before.Objects)
-            Consider(e, before, id, obj);
+        {
+            if (id != justMerged)
+                Consider(e, before, id, obj);
+        }
 
         foreach (var (id, obj) in State.Objects)
         {
-            if (!before.Objects.ContainsKey(id))
+            if (!before.Objects.ContainsKey(id) || id == justMerged)
                 Consider(e, State, id, obj);
         }
     }
@@ -7724,6 +7775,12 @@ public sealed class Game
         // one is what exists once the trigger resolves.
         ObjectMoved moved => moved.NewId,
         ObjectCreated made => made.Id,
+
+        // CR 730.2c: the permanent that mutated is the same object it already was, so the id the
+        // event carries is the one that still exists when the trigger resolves - which is what
+        // makes "put a +1/+1 counter on it" and "put a +1/+1 counter on that creature" the same
+        // question here.
+        PermanentMutated mutated => mutated.Id,
         PermanentTapped tapped => tapped.Id,
         CountersChanged counted => counted.Id,
         SpellCastEvent cast => cast.StackId,
@@ -8816,6 +8873,19 @@ public sealed class Game
 
         Emit(new PriorityWithdrawn());
 
+        // CR 608.3b and 702.140b: a mutating creature spell is the exception to the rule below.
+        // With an illegal target it does not fail to resolve — it stops being a mutating creature
+        // spell, continues resolving as an ordinary creature spell, and the creature arrives on
+        // the battlefield on its own. Left to fizzle it would go to the graveyard instead, which
+        // is a card its controller has lost rather than one that merged with nothing.
+        var mergingCreature = spell.WasMutated && spell.Ability is null;
+        if (mergingCreature && !MutateTargetStillLegal(spell))
+        {
+            Emit(new SpellMutationLapsed(stackId));
+            spell = State.GetObject(stackId);
+            mergingCreature = false;
+        }
+
         // CR 608.2b: if every target is now illegal, it does not resolve at all — none of its
         // effects happen, including the ones that had nothing to do with the target.
         if (!TargetsStillLegal(spell))
@@ -8980,6 +9050,24 @@ public sealed class Game
             destination = Zone.Exile;
 
         var wentAdventuring = chosenHalf?.OnAdventure == true;
+
+        // CR 702.140c: "it doesn't enter the battlefield. Rather, it merges with the target
+        // creature and becomes one object represented by more than one card." So the move that
+        // every other permanent spell makes is the one thing that must not happen here — the
+        // card does not arrive anywhere, it joins something already on the battlefield, and the
+        // permanent that results is the one that was already there (CR 730.2c).
+        //
+        // Everything the spell itself said has already run above, which is CR 702.140f working
+        // out on its own: by the time anything could refer to the mutating creature spell, what
+        // is left of it is the permanent it merged with.
+        if (mergingCreature
+            && destination == Zone.Battlefield
+            && spell.Targets.LastOrDefault() is { Kind: TargetKind.Permanent } merging)
+        {
+            Emit(new PermanentMutated(merging.Subject, stackId, spell.MutatesOnTop));
+            Emit(new StackObjectResolved(stackId, spell.Card.Name));
+            return;
+        }
 
         var landed = Move(stackId, destination, MoveCause.Resolve, spell.ControllerId);
 
@@ -9200,6 +9288,32 @@ public sealed class Game
     /// <summary>Whether the card is an Aura, and so enters attached (CR 303.4).</summary>
     private static bool IsAura(CardDefinition card) =>
         card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether the creature a mutating creature spell is merging with is still legal
+    /// (CR 702.140b).
+    /// </summary>
+    /// <remarks>
+    /// Asked of the mutate target alone rather than through
+    /// <see cref="TargetsStillLegal(GameObject)"/>, which answers "is <em>any</em> target still
+    /// legal" (CR 608.2b). The two agree on every printed mutate card, because none of them
+    /// targets anything else; they would disagree on one that did, and the mutate target is the
+    /// only one this question is about — a spell whose creature has died merges with nothing
+    /// however legal the rest of its targets are.
+    /// <para>
+    /// Mutate's target is appended after whatever the card itself targets, so it is the last one.
+    /// </para>
+    /// </remarks>
+    private bool MutateTargetStillLegal(GameObject spell)
+    {
+        var specs = SpellBeingCast(spell)?.Targets ?? [];
+        if (_abilities.SpellOf(spell.Card)?.MutateTarget is not { } merging)
+            return false;
+
+        var index = specs.Count;
+        return index < spell.Targets.Count
+            && merging.IsLegal(State, _abilities, spell.Targets[index], spell.ControllerId, spell);
+    }
 
     /// <summary>
     /// Whether at least one of the object's targets is still legal (CR 608.2b).
@@ -9874,6 +9988,31 @@ public sealed class Game
         // it against a board that has moved on.
         if (e is ObjectMoved { From: Zone.Battlefield, LeavingControllerId: null } leaving)
             e = leaving with { LeavingControllerId = ControllerOf(State.GetObject(leaving.OldId)) };
+
+        // CR 730.3: "if a merged permanent leaves the battlefield, one permanent leaves the
+        // battlefield and each of the individual components are put into the appropriate zone."
+        // The topmost card travels as the permanent, in the move about to be applied; the cards
+        // under it have no move of their own to make, because they were never separate objects
+        // while the permanent stood. Without this the whole stack becomes one card the moment it
+        // dies, and every card ever mutated onto something is quietly gone from the game.
+        //
+        // Here rather than in Move, because Move is not the only way a permanent leaves the
+        // battlefield: every removal effect builds its own ObjectMoved and emits it. This is the
+        // one path all of them come down.
+        if (e is ObjectMoved { From: Zone.Battlefield } departing
+            && departing.To != Zone.Battlefield
+            && State.TryGetObject(departing.OldId, out var coming)
+            && !coming.MergedComponents.IsEmpty)
+        {
+            // The ids are made once, here, and go into the log with the event - a fold decides
+            // nothing, and two replays of one game have to produce the same objects.
+            Emit(
+                new MergedPermanentSeparated(
+                    departing.OldId,
+                    departing.To,
+                    [.. coming.MergedComponents.Select(_ => ObjectId.New())]),
+                applied);
+        }
 
         var before = State;
         State = GameReducer.Apply(State, e);

@@ -336,6 +336,7 @@ public static partial class CardCompiler
         var splitSecond = false;
         ManaCostSpec? bestow = null;
         TargetSpec? bestowTarget = null;
+        ManaCostSpec? mutate = null;
         string? backupLine = null;
         var backup = 0;
         var overloadEffects = ImmutableList<IEffect>.Empty;
@@ -858,6 +859,17 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // CR 702.140a: "you may pay [cost] rather than pay this spell's mana cost. If you do,
+            // it becomes a mutating creature spell and targets a non-Human creature with the same
+            // owner as this spell." Both halves are the spell's business - the cost swap and the
+            // target it acquires - so the line contributes nothing to the permanent, exactly as
+            // bestow's does not.
+            if (MutateLine().Match(line) is { Success: true } merging)
+            {
+                mutate = ManaCostSpec.Parse(merging.Groups["cost"].Value);
+                continue;
+            }
+
             if (BackupLine().Match(line) is { Success: true } backing)
             {
                 // Held until the whole card is read: whether backup can be honoured depends on
@@ -1286,6 +1298,8 @@ public static partial class CardCompiler
             HasSplitSecond = splitSecond,
             BestowCost = bestow,
             BestowTarget = bestowTarget,
+            MutateCost = mutate,
+            MutateTarget = mutate is null ? null : MutateTargetSpec,
             CopyingCost = conspire,
             OverloadCost = overload,
             OverloadEffects = overloadEffects,
@@ -8631,6 +8645,42 @@ public static partial class CardCompiler
     /// effects. Unearth is those two and a keyword grant.
     /// </remarks>
     /// <summary>
+    /// What a mutating creature spell targets: "a non-Human creature with the same owner as this
+    /// spell" (CR 702.140a).
+    /// </summary>
+    /// <remarks>
+    /// Written here rather than read from the target grammar, and the reason is the owner clause.
+    /// The printed reminder text says "target non-Human creature you own", which the grammar
+    /// would read as a question about the <em>chooser</em> - and that is a different card in the
+    /// one case it matters, when a player is casting a spell whose card somebody else owns. The
+    /// rule says the spell's owner, so the check needs the spell, and only a
+    /// <see cref="TargetSpec.SourceFilter"/> gets one.
+    /// <para>
+    /// CR 702.73a decides the awkward half of "non-Human": a changeling is every creature type,
+    /// so it is no more a non-Human than it is a non-Wall, and it may not be mutated onto.
+    /// </para>
+    /// <para>
+    /// One shared instance rather than one per card. It closes over nothing, and a spec built per
+    /// compile would be one more object per mutate card for no difference.
+    /// </para>
+    /// </remarks>
+    private static readonly TargetSpec MutateTargetSpec = new()
+    {
+        Kind = TargetKind.Permanent,
+        Description = "target non-Human creature you own",
+        ObjectFilter = (state, abilities, obj, _) =>
+        {
+            var now = Characteristics.Of(state, abilities, obj);
+            return now.IsCreature && !now.IsEveryCreatureType && !now.HasSubtype("Human");
+        },
+
+        // A caller that cannot say which spell is asking skips this, exactly as the protection
+        // check does - never the creature test above, which is the half that keeps a mutate from
+        // landing on something it may not touch.
+        SourceFilter = (_, _, obj, source, _) => source is null || obj.OwnerId == source.OwnerId,
+    };
+
+    /// <summary>
     /// While a bestowed permanent is attached to something it is an Aura, not a creature
     /// (CR 702.103a).
     /// </summary>
@@ -13157,6 +13207,10 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^Bestow (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex BestowLine();
+
+    /// <summary>"Mutate {cost}" (CR 702.140a), once the reminder text has been stripped.</summary>
+    [GeneratedRegex(@"^Mutate (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex MutateLine();
 
     [GeneratedRegex(@"^Split second\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex SplitSecondLine();

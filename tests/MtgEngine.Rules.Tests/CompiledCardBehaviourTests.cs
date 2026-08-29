@@ -42897,6 +42897,412 @@ public sealed class CompiledCardBehaviourTests
         // 1 + 2 + 2, not 1 + 2.
         Assert.Equal(before + 5, game.State.GetPlayer(alice).Life);
     }
+    // ---- Mutate (CR 702.140) -------------------------------------------------
+
+    /// <summary>Dreamtail Heron, whose wording is the whole mutate template.</summary>
+    private static CardDefinition MutateHeron() => Card(
+        "Test Dreamtail Heron",
+        "Mutate {3}{U} (If you cast this spell for its mutate cost, put it over or under target "
+            + "non-Human creature you own. They mutate into the creature on top plus all "
+            + "abilities from under it.)\nFlying\nWhenever this creature mutates, draw a card.",
+        CardType.Creature,
+        3,
+        4,
+
+        // A flag as well as a printed line, exactly as the card database has it: the compiler
+        // reads a bare keyword line only so as not to report it unread, because the flag is
+        // already there (CR 702.1).
+        KeywordAbility.Flying,
+        "Bird");
+
+    /// <summary>Mysterious Egg: a mutate host whose whole text is a mutate trigger.</summary>
+    /// <remarks>
+    /// Printed with no mutate cost of its own, which makes it the card that proves CR 702.140e:
+    /// once something is over it, this trigger is on a card that is no longer the one the
+    /// permanent's characteristics come from, and it still has to fire.
+    /// </remarks>
+    private static CardDefinition MutateEgg() => Card(
+        "Test Mysterious Egg",
+        "Whenever this creature mutates, put a +1/+1 counter on it.",
+        CardType.Creature,
+        0,
+        1,
+        subtypes: "Egg");
+
+    /// <summary>Enough basics for Dreamtail Heron's {3}{U} and the Hemophage's {2}{B}.</summary>
+    /// <remarks>
+    /// Named rather than counted because a mutate cost is coloured, and a basic taps for the
+    /// colour of its own land type (CR 305.6): "three and a blue" is three Forests and an Island,
+    /// not four of anything.
+    /// </remarks>
+    private static readonly string[] ThreeAndBlue = ["Forest", "Forest", "Forest", "Island"];
+
+    private static readonly string[] TwoAndBlack = ["Forest", "Forest", "Swamp"];
+
+    /// <summary>Mutates a creature on the battlefield, paying the cost with basics.</summary>
+    private static void Mutate(
+        Game game,
+        Guid player,
+        CardDefinition card,
+        ObjectId host,
+        IReadOnlyList<string> lands,
+        bool onTop)
+    {
+        var spell = TestCards.PutInHand(game, player, card);
+
+        foreach (var basic in lands)
+        {
+            var land = game.Create(player, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(player, land, "mana");
+        }
+
+        game.CastSpell(
+            player, spell, [Target.ToPermanent(host)], mutated: true, mutateOnTop: onTop);
+    }
+
+    /// <summary>
+    /// CR 730.2a: a merged permanent has the characteristics of its topmost component.
+    /// </summary>
+    [Fact]
+    public void Mutating_over_a_creature_takes_the_new_cards_characteristics()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        // CR 730.2c: the same object it was, so it is still findable by the id it had.
+        var merged = game.State.GetObject(host);
+        var now = Characteristics.Of(game.State, Pool, merged);
+
+        Assert.Equal("Test Dreamtail Heron", now.Name);
+
+        // 3/4 from the Heron, plus the +1/+1 counter the Egg's own trigger put on underneath.
+        Assert.Equal(4, now.Power);
+        Assert.Equal(5, now.Toughness);
+        Assert.True(now.Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// CR 702.140e: the permanent has every component's abilities, whichever card is on top.
+    /// </summary>
+    /// <remarks>
+    /// The Egg's trigger is the one that matters. After the merge it is printed on a card that is
+    /// no longer the permanent's - the whole engine reads characteristics from the topmost card -
+    /// so a mutate that only swapped the card would leave it silently unwatched. It fires here,
+    /// on the very event that buried it.
+    /// </remarks>
+    [Fact]
+    public void A_mutated_permanent_keeps_the_abilities_of_the_card_under_it()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var merged = game.State.GetObject(host);
+
+        Assert.Equal(
+            1, merged.Permanent!.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        Assert.Equal(
+            [MutateEgg().OracleId], merged.MergedComponents.Select(c => c.OracleId));
+    }
+
+    /// <summary>CR 702.140c: the spell's own trigger fires too, on the merge it caused.</summary>
+    [Fact]
+    public void The_mutating_cards_own_trigger_fires_when_it_merges()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        Assert.Equal(before - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// CR 702.140c: put under, the permanent keeps its own characteristics and gains only the
+    /// abilities.
+    /// </summary>
+    [Fact]
+    public void Mutating_under_a_creature_leaves_its_characteristics_alone()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: false);
+        Settle(game);
+
+        var merged = game.State.GetObject(host);
+        var now = Characteristics.Of(game.State, Pool, merged);
+
+        // Still the Egg, still its own size before counters - and still flying, because a keyword
+        // is an ability and the Heron is underneath (CR 702.140e).
+        Assert.Equal("Test Mysterious Egg", now.Name);
+        Assert.Equal(1, now.Power);
+        Assert.True(now.Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// CR 702.140c again: the spell does not enter the battlefield, it merges.
+    /// </summary>
+    /// <remarks>
+    /// The failure this rules out is the loudest one available and the easiest to write by
+    /// accident: a mutating creature spell that resolves the ordinary way leaves two creatures on
+    /// the table instead of one.
+    /// </remarks>
+    [Fact]
+    public void A_mutating_creature_spell_does_not_enter_the_battlefield_of_its_own()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var creatures = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.CardTypes.HasFlag(CardType.Creature))
+            .ToList();
+
+        Assert.Single(creatures);
+        Assert.Equal(host, creatures[0].Id);
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// CR 730.3: when a merged permanent leaves, every card it was made of goes with it.
+    /// </summary>
+    /// <remarks>
+    /// The half a partial implementation loses, and it loses a card out of the game: with only
+    /// the topmost component moved, the creature underneath is simply gone the moment the stack
+    /// dies. Two cards went onto the battlefield here and two have to come off it.
+    /// </remarks>
+    [Fact]
+    public void Every_card_of_a_merged_permanent_goes_to_the_graveyard()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var kill = TestCards.PutInHand(
+            game, bob, Card("Test Mutate Murder", "Destroy target creature."));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        game.CastSpell(bob, kill, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        var yard = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Contains("Test Dreamtail Heron", yard);
+        Assert.Contains("Test Mysterious Egg", yard);
+    }
+
+    /// <summary>
+    /// CR 702.140b: with its target gone it is no longer a mutating creature spell, and resolves
+    /// as an ordinary creature spell rather than failing to resolve.
+    /// </summary>
+    /// <remarks>
+    /// This is CR 608.3b's exception, and it is worth a test of its own because the ordinary rule
+    /// is exactly wrong here: a spell whose every target is illegal does not resolve at all
+    /// (CR 608.2b), which would put the creature in its owner's graveyard. The card is supposed
+    /// to arrive.
+    /// </remarks>
+    [Fact]
+    public void A_mutating_spell_whose_target_died_arrives_as_an_ordinary_creature()
+    {
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+
+        // In response, the creature it was going to merge with dies.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var kill = TestCards.PutInHand(
+            game, bob, Card("Test Mutate Doom", "Destroy target creature."));
+
+        game.CastSpell(bob, kill, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        var heron = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .SingleOrDefault(o => o.Card.Name == "Test Dreamtail Heron");
+
+        Assert.NotNull(heron);
+        Assert.Empty(heron!.MergedComponents);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Test Dreamtail Heron");
+    }
+
+    /// <summary>CR 702.140a: the target has to be a non-Human creature.</summary>
+    [Fact]
+    public void Mutate_refuses_a_Human()
+    {
+        var (game, alice, _) = InMainPhase();
+        var human = game.Create(
+            alice,
+            Card("Test Mutate Soldier", string.Empty, CardType.Creature, 2, 2, subtypes: "Human"),
+            Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, MutateHeron());
+        TapLands(game, alice, 4);
+
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(
+            alice, spell, [Target.ToPermanent(human)], mutated: true, mutateOnTop: true));
+    }
+
+    /// <summary>
+    /// CR 702.140: "the number of times this creature has mutated" counts the stack.
+    /// </summary>
+    /// <remarks>
+    /// Four corpus cards read X this way, and every one of them is a card that does nothing at
+    /// all if the clause is left to mean "a number the caster chose" - which on a creature spell
+    /// nobody casts for X is zero.
+    /// </remarks>
+    [Fact]
+    public void The_number_of_times_it_has_mutated_is_how_many_cards_are_under_it()
+    {
+        var hemophage = Card(
+            "Test Insatiable Hemophage",
+            "Mutate {2}{B}\nDeathtouch\nWhenever this creature mutates, each opponent loses X "
+                + "life and you gain X life, where X is the number of times this creature has "
+                + "mutated.",
+            CardType.Creature,
+            2,
+            3,
+            KeywordAbility.Deathtouch,
+            "Nightmare");
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, hemophage, host, TwoAndBlack, onTop: true);
+        Settle(game);
+
+        // One card under it, so one life each way.
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: false);
+        Settle(game);
+
+        // Two cards under it now, and the Hemophage is still on top watching for it.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.Equal(2, game.State.GetObject(host).TimesMutated);
+    }
+
+    /// <summary>
+    /// CR 702.140d: an ability watching for any creature mutating sees somebody else's merge.
+    /// </summary>
+    [Fact]
+    public void A_watcher_sees_another_creature_you_control_mutate()
+    {
+        var symbiote = Card(
+            "Test Essence Symbiote",
+            "Whenever a creature you control mutates, put a +1/+1 counter on that creature and "
+                + "you gain 2 life.",
+            CardType.Creature,
+            2,
+            2,
+            subtypes: "Beast");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, symbiote, Zone.Battlefield);
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+        var before = game.State.GetPlayer(alice).Life;
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+
+        // One from the Egg's own trigger and one from the Symbiote's, which is what "that
+        // creature" has to have meant.
+        Assert.Equal(
+            2,
+            game.State.GetObject(host).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// CR 730.2a: the merge is a copiable effect, and the copiable values are the topmost card's.
+    /// </summary>
+    /// <remarks>
+    /// Which is what makes a copy of a mutated permanent a copy of the card on top and nothing
+    /// else. It holds here without a line of copy code, because the topmost component <em>is</em>
+    /// <c>GameObject.Card</c> and that is what <c>Characteristics.CardOf</c> answers with; the
+    /// components' abilities live where a grant lives and are not copiable. Asserted so that a
+    /// later change to either half has to notice.
+    /// </remarks>
+    [Fact]
+    public void The_copiable_values_of_a_mutated_permanent_are_the_top_cards()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var merged = game.State.GetObject(host);
+
+        Assert.Equal(
+            "Test Dreamtail Heron",
+            Characteristics.CardOf(game.State, Pool, merged).Name);
+    }
+
+    /// <summary>The board is told what the permanent is made of (CR 730.2).</summary>
+    [Fact]
+    public void The_view_shows_the_cards_under_a_mutated_permanent()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var view = Views.PlayerViewProjector.Project(game.State, alice, Pool);
+        var merged = view.Battlefield.Single(o => o.Name == "Test Dreamtail Heron");
+
+        var under = Assert.Single(merged.MergedUnder);
+        Assert.Equal("Test Mysterious Egg", under.Name);
+    }
+
+    /// <summary>A stored game comes back as the same stack of cards (CR 730.2).</summary>
+    /// <remarks>
+    /// The event that merges carries no cards of its own - it names the spell and reads the card
+    /// off it - so this is the check that the reducer and the serializer agree about what a
+    /// merged permanent is. <c>Settle</c> already replays the log; this one goes through the
+    /// stored text as well, which is what persistence actually does.
+    /// </remarks>
+    [Fact]
+    public void A_mutated_permanent_survives_being_written_out_and_read_back()
+    {
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, MutateEgg(), Zone.Battlefield);
+
+        Mutate(game, alice, MutateHeron(), host, ThreeAndBlue, onTop: true);
+        Settle(game);
+
+        var reloaded = GameReducer.Replay(
+            EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
+
+        Assert.Equal(game.State, reloaded);
+        Assert.Equal(
+            "Test Mysterious Egg",
+            Assert.Single(reloaded.GetObject(host).MergedComponents).Name);
+    }
+
     // ---- Classes (CR 716) ----------------------------------------------------
 
     /// <summary>Enough untapped basics for a generic cost, tapped for mana.</summary>

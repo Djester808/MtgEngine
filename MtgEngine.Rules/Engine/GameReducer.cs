@@ -129,6 +129,18 @@ public static class GameReducer
             SpellBestowed bestowed => state.TryGetObject(bestowed.Id, out var asAura)
                 ? state.WithObject(asAura with { WasBestowed = true })
                 : state,
+            SpellMutating mutating => state.TryGetObject(mutating.Id, out var joining)
+                ? state.WithObject(joining with
+                {
+                    WasMutated = true,
+                    MutatesOnTop = mutating.OnTop,
+                })
+                : state,
+            SpellMutationLapsed lapsed => state.TryGetObject(lapsed.Id, out var plain)
+                ? state.WithObject(plain with { WasMutated = false })
+                : state,
+            PermanentMutated merged => Merge(state, merged),
+            MergedPermanentSeparated apart => Separate(state, apart),
             SpellOverloaded loud => state.TryGetObject(loud.Id, out var everything)
                 ? state.WithObject(everything with { WasOverloaded = true })
                 : state,
@@ -772,6 +784,96 @@ public static class GameReducer
 
         // CR 400.3: an object headed for a library, graveyard, or hand goes to its owner's.
         return AddTo(state, e.To, moving.OwnerId, e.NewId, e.Position);
+    }
+
+    /// <summary>
+    /// Merges a mutating creature spell into the creature it targeted (CR 702.140c, 730.2).
+    /// </summary>
+    /// <remarks>
+    /// The spell leaves the stack and becomes part of the permanent, which keeps its own id, its
+    /// own timestamp, its counters, its damage and its tapped state — CR 730.2c: it is the same
+    /// object it was, and has not entered the battlefield (CR 730.2b). Only which cards represent
+    /// it changes.
+    /// <para>
+    /// Which card ends up on top is the whole of the difference between the two choices, and the
+    /// rest of the engine reads it as <see cref="GameObject.Card"/>: put the spell over and the
+    /// permanent's name, size, types and colours become the new card's (CR 730.2a); put it under
+    /// and they stay what they were. Either way the stack grows by one, which is what
+    /// <see cref="GameObject.TimesMutated"/> counts.
+    /// </para>
+    /// </remarks>
+    private static GameState Merge(GameState state, PermanentMutated e)
+    {
+        if (!state.TryGetObject(e.Id, out var target)
+            || target.Permanent is null
+            || !state.TryGetObject(e.SpellId, out var spell))
+        {
+            return state;
+        }
+
+        state = RemoveFrom(state, spell.Zone, spell.OwnerId, e.SpellId);
+        state = state with { Objects = state.Objects.Remove(e.SpellId) };
+
+        return state.WithObject(target with
+        {
+            Card = e.OnTop ? spell.Card : target.Card,
+            MergedComponents = e.OnTop
+                ? target.MergedComponents.Insert(0, target.Card)
+                : target.MergedComponents.Add(spell.Card),
+        });
+    }
+
+    /// <summary>
+    /// Puts the components of a merged permanent into the zone it is leaving for (CR 730.3).
+    /// </summary>
+    /// <remarks>
+    /// Only the cards <em>under</em> the top one: the topmost component travels as the permanent
+    /// itself, in the ordinary move that follows. So this runs first and leaves the object with
+    /// an empty stack, and the move after it is an ordinary one-card move that knows nothing
+    /// about merging.
+    /// <para>
+    /// Each component becomes its own new object with no memory of what it was part of
+    /// (CR 400.7). The battlefield bookkeeping — departures, "died", descend — stays with the
+    /// single move, because CR 730.3 is explicit that <em>one</em> permanent left.
+    /// </para>
+    /// </remarks>
+    private static GameState Separate(GameState state, MergedPermanentSeparated e)
+    {
+        if (!state.TryGetObject(e.Id, out var merged) || merged.MergedComponents.IsEmpty)
+            return state;
+
+        var count = int.Min(merged.MergedComponents.Count, e.ComponentIds.Count);
+
+        for (var i = 0; i < count; i++)
+        {
+            var card = merged.MergedComponents[i];
+            var id = e.ComponentIds[i];
+
+            var (withTimestamp, timestamp) = state.TakeTimestamp();
+            state = withTimestamp;
+
+            state = state.WithObject(new GameObject
+            {
+                Id = id,
+                PreviousId = e.Id,
+                Card = card,
+                // CR 108.3: mutate requires the same owner as the spell (CR 702.140a), so every
+                // component of a mutated permanent is owned by one player and goes home together.
+                OwnerId = merged.OwnerId,
+                ControllerId = e.To.IsPerPlayer() ? merged.OwnerId : merged.ControllerId,
+                Zone = e.To,
+                Timestamp = timestamp,
+                Permanent = e.To == Zone.Battlefield
+                    ? EnteringPermanent(card, state.TurnNumber)
+                    : null,
+            });
+
+            // CR 730.3a: the owner may arrange them in any order. Bottom, so the components sit
+            // under the top card that is about to follow them, which is the order they were in.
+            state = AddTo(state, e.To, merged.OwnerId, id, ZonePosition.Bottom);
+        }
+
+        return state.WithObject(merged with { MergedComponents = [] });
     }
 
     private static GameState Life(GameState state, LifeChanged e)
