@@ -5495,9 +5495,15 @@ public static partial class EffectPhrase
         if (word.Length < 3)
             return word;
 
-        // Spelled the same either way, and the one that breaks by every rule below.
-        if (string.Equals(word, "Plains", StringComparison.Ordinal))
+        // Spelled the same either way, and the ones that break by every rule below. Aurochs
+        // reached this list by being caught: it had only ever escaped folding by accident, because
+        // the adjective in front of it stopped the search before the noun was reached, and fixing
+        // that search turned "attacking Aurochs" into the type "Auroch" that no card has.
+        if (string.Equals(word, "Plains", StringComparison.Ordinal)
+            || string.Equals(word, "Aurochs", StringComparison.OrdinalIgnoreCase))
+        {
             return word;
+        }
 
         foreach (var (many, one) in Irregulars)
         {
@@ -5505,22 +5511,36 @@ public static partial class EffectPhrase
                 return one;
         }
 
-        if (word.EndsWith("ves", StringComparison.OrdinalIgnoreCase))
-            return word[..^3] + "f";
-
-        if (word.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
-            return word[..^3] + "y";
-
         // "Heroes" is "Hero" and "Horses" is "Horse": the "-oes" plural takes both letters back
         // and everything else takes one.
         if (word.EndsWith("oes", StringComparison.OrdinalIgnoreCase))
             return word[..^2];
+
+        // Latin singulars that already end in "s". Stripping one gave "Locu" and "Pegasu", which
+        // are creature types no card has - so a phrase naming them counted nothing, and Glimmerpost
+        // gained life per "Locu" while compiling as a complete card.
+        if (word.EndsWith("us", StringComparison.OrdinalIgnoreCase))
+            return word;
 
         return word.EndsWith('s') && !word.EndsWith("ss", StringComparison.Ordinal)
             ? word[..^1]
             : word;
     }
 
+    /// <remarks>
+    /// The "-ves" and "-ies" plurals are listed rather than folded by rule, and that is the whole
+    /// point of this table. As rules they were wrong more often than right on this corpus: "-ves"
+    /// turned <c>Caves</c> into "Caf" and <c>Detectives</c> into "Detectif", and "-ies" turned
+    /// <c>Faeries</c> into "Faery" when the type is spelled Faerie. Every one of those is a
+    /// creature type no card has, so the phrase naming it counted nothing while the card compiled
+    /// as complete - the same silent failure as reading an unknown noun as a creature type.
+    /// <para>
+    /// The set of subtypes whose plural really does change the stem is small and closed, so it is
+    /// written out. A type added to the game that belongs here will fold to the wrong stem until
+    /// it is added - which shows up as a phrase nothing can satisfy, and there is an invariant
+    /// watching for exactly that.
+    /// </para>
+    /// </remarks>
     private static readonly (string Many, string One)[] Irregulars =
     [
         ("Mice", "Mouse"),
@@ -5528,6 +5548,18 @@ public static partial class EffectPhrase
         ("Children", "Child"),
         ("Teeth", "Tooth"),
         ("Feet", "Foot"),
+
+        // "-ves": the stem loses the v.
+        ("Elves", "Elf"),
+        ("Wolves", "Wolf"),
+        ("Werewolves", "Werewolf"),
+        ("Dwarves", "Dwarf"),
+        ("Thieves", "Thief"),
+
+        // "-ies": the stem ends in y. Faeries and Zombies do not belong here - their singulars
+        // end in e and the ordinary "-s" strip is right for them.
+        ("Allies", "Ally"),
+        ("Armies", "Army"),
     ];
 
     /// <summary>A printed count as an amount, which may be X (CR 601.2b).</summary>
@@ -6071,15 +6103,30 @@ public static partial class EffectPhrase
             // no card has. Every mass effect naming one silently touched nothing: Boil destroyed
             // no Islands, and it compiled, cast and resolved without complaint.
             //
-            // The leading run of capitalised words is the noun, and only its last word carries
-            // the plural: "Elf Warriors" is one noun with the s on the end of it.
+            // The run of capitalised words is the noun, and only its last word carries the
+            // plural: "Elf Warriors" is one noun with the s on the end of it.
+            //
+            // The run is found wherever it starts, not only at the front. Scanning from index 0
+            // meant a single lowercase adjective stopped the search before it reached the noun, so
+            // "untapped Mountains you control" and "tapped Assassins you control" stayed plural
+            // and asked for the types "Mountains" and "Assassins", which no card has. Ben-Ben
+            // dealt damage equal to the number of "Mountains" and Lydia Frye surveilled per
+            // "Assassins" - both counting zero, both compiling as complete cards.
             var words = text.Split(' ');
-            var head = 0;
+            var start = 0;
+
+            while (start < words.Length
+                && !(words[start].Length > 1 && char.IsUpper(words[start][0])))
+            {
+                start++;
+            }
+
+            var head = start;
 
             while (head < words.Length && words[head].Length > 1 && char.IsUpper(words[head][0]))
                 head++;
 
-            if (head > 0)
+            if (head > start)
             {
                 words[head - 1] = SingularWord(words[head - 1]);
                 text = string.Join(' ', words);

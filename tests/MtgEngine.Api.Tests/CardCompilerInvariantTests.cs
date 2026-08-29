@@ -2500,17 +2500,31 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     /// cannot build, so any such rule would amount to asserting that the bug is acceptable. The
     /// number records what is true, and the test prints the twelve in full on every run.
     /// <para>
-    /// They are three faults, not twelve. <c>SingularWord</c> over-reaches on eight of them:
-    /// "Caves" folds to "Caf" and "Detectives" to "Detectif" (the <c>-ves</c> rule that was added
-    /// to rescue "Elves"), "Faeries" to "Faery" and "Zombies" to "Zomby" (the <c>-ies</c> rule,
-    /// which wants a consonant before it), and "Locus" and "Pegasus" lose their last letter for
-    /// being plurals that they are not. On two more, the group grammar folds a plural only at the
-    /// head of the phrase, so "untapped Mountains you control" and "tapped Assassins you control"
-    /// keep the s and look for a creature type spelled that way. On the last two — "Commanders
-    /// you control" and "Equipped creatures you control" — an unrecognised capitalised word is
-    /// still turned into a creature type, which is the residue of the founding bug:
-    /// <c>SubtypeCardType</c> was fixed to say which card type a <em>known</em> subtype implies
-    /// and still defaults everything else to Creature.
+    /// It found twelve, and ten of those are now fixed. Two faults accounted for them.
+    /// <para>
+    /// <c>SingularWord</c> over-reached on eight: "Caves" folded to "Caf" and "Detectives" to
+    /// "Detectif" by a blanket <c>-ves</c> rule added to rescue "Elves", "Faeries" to "Faery" by a
+    /// blanket <c>-ies</c> rule, and "Locus" and "Pegasus" lost a letter for being plurals they
+    /// are not. Both blanket rules are gone: the subtypes whose plural really changes the stem are
+    /// a small closed set and are now listed, a word ending in "us" is left alone, and "Aurochs"
+    /// joined "Plains" as spelled the same either way. That last one was <em>caused</em> by the
+    /// second fix and caught here immediately, which is the argument for this guard in one line.
+    /// </para>
+    /// <para>
+    /// On two more the group grammar looked for its noun only at the front of the phrase, so a
+    /// single lowercase adjective stopped the search before it arrived: "untapped Mountains you
+    /// control" and "tapped Assassins you control" kept the s and asked for creature types spelled
+    /// that way. Ben-Ben dealt damage equal to the number of "Mountains" and Lydia Frye surveilled
+    /// per "Assassins" — both counting zero, both compiling as complete cards. The run is now
+    /// found wherever it starts.
+    /// </para>
+    /// <para>
+    /// The two that remain need something this layer does not have. "Commanders you control" names
+    /// a designation rather than a creature type, and "Equipped creatures you control" is a
+    /// <em>sentence-initial</em> adjective that the capital-letter heuristic cannot tell from a
+    /// subtype. Both are residue of the founding bug — <c>SubtypeCardType</c> says which card type
+    /// a <em>known</em> subtype implies and still defaults everything else to Creature — and
+    /// closing them wants a subtype dictionary, which lives outside <c>MtgEngine.Rules</c>.
     /// </para>
     /// <para>
     /// Asserted from both sides on purpose. A ceiling alone leaves slack, and slack is exactly
@@ -2519,7 +2533,7 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     /// same fault and it has to be looked at rather than absorbed.
     /// </para>
     /// </remarks>
-    private const int UnsatisfiablePhrases = 12;
+    private const int UnsatisfiablePhrases = 2;
 
     /// <summary>The words that end a printed noun phrase rather than belonging to it.</summary>
     /// <remarks>
