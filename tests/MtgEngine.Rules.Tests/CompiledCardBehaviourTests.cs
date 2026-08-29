@@ -10358,6 +10358,42 @@ public sealed class CompiledCardBehaviourTests
     /// that kept only the first.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "As long as you control a red or white permanent" — the same pair inside a condition.
+    /// </summary>
+    /// <remarks>
+    /// The condition grammar reaches the same noun vocabulary, so the colour pair arrives there
+    /// too — and this is the test that says the reading is the printed one rather than a
+    /// condition that is quietly always true. The blue permanent is the whole point: a static
+    /// that switched on for any permanent at all would pass every other assertion here.
+    /// </remarks>
+    [Fact]
+    public void A_colour_pair_in_a_condition_is_one_noun_and_not_a_join()
+    {
+        var lord = Card(
+            "Colour Pair Condition Test",
+            "As long as you control a red or white permanent, ~ gets +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var self = game.Create(alice, lord, Zone.Battlefield);
+
+        int? Power() => Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self));
+
+        Assert.Equal(1, Power());
+
+        game.Create(alice, Coloured("Colour Cond Blue Test", ManaColor.Blue), Zone.Battlefield);
+        Assert.Equal(1, Power());
+
+        game.Create(alice, Coloured("Colour Cond White Test", ManaColor.White), Zone.Battlefield);
+        Assert.Equal(2, Power());
+    }
+
     [Fact]
     public void A_count_can_name_two_colours_as_alternatives()
     {
@@ -10378,6 +10414,111 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Whenever one or more creatures you control attack, draw that many cards."
+    /// </summary>
+    /// <remarks>
+    /// The trigger fires once for the batch (CR 508.1) and the amount is the batch's size, which
+    /// is why this was refused for as long as the declaration carried no number: it compiled, it
+    /// fired, and it drew nothing. Two attackers rather than one is the whole assertion — a
+    /// reading that fired correctly and then took "that many" as one would pass at half strength.
+    /// </remarks>
+    [Fact]
+    public void One_or_more_attackers_is_a_number_the_trigger_can_use()
+    {
+        var radha = Card(
+            "Batch Attack Test",
+            "Whenever one or more creatures you control attack, draw that many cards.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(radha);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, radha, Zone.Battlefield);
+
+        var first = game.Create(
+            alice, TestCards.Creature("Batch Attacker One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            alice, TestCards.Creature("Batch Attacker Two Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        Assert.Equal(held + 2, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Whenever you cast your first enchantment spell each turn, you gain 2 life."
+    /// </summary>
+    /// <remarks>
+    /// The instant is cast first on purpose, and it is what the test is for. The count has to be
+    /// of enchantment spells and not of spells: reading it as "your first spell each turn" would
+    /// have the instant use up the trigger and the enchantment behind it would do nothing.
+    /// <para>
+    /// The second enchantment is the other half. Both are answered from the cards the player
+    /// actually cast, so the reading is exact rather than an approximation through the ability's
+    /// once-per-turn flag — which is per (permanent, ability) and would fire for a permanent that
+    /// arrived after the turn's first enchantment had already been cast.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_first_spell_of_a_named_kind_each_turn_is_counted_by_that_kind()
+    {
+        var altar = Card(
+            "First Enchantment Test",
+            "Whenever you cast your first enchantment spell each turn, you gain 2 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(altar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, altar, Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("First Kind Instant Test", "You gain 1 life.")),
+            targets: null);
+
+        Settle(game);
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+
+        // The enchantments carry no text of their own, so every life total below is the trigger
+        // and nothing else - a spell that also gained life would leave the two indistinguishable.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("First Kind Charm Test", string.Empty, CardType.Enchantment)),
+            targets: null);
+
+        Settle(game);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Second Kind Charm Test", string.Empty, CardType.Enchantment)),
+            targets: null);
+
+        Settle(game);
+
+        // Unmoved: the second enchantment this turn is not the first one.
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
     }
 
     // ---- The verbs that can carry a count ------------------------------------
@@ -13198,26 +13339,23 @@ public sealed class CompiledCardBehaviourTests
     /// the only one that could invent a condition out of a word it happened to find. Both halves
     /// having to parse is what stops it, and this is that rule asserted rather than described.
     /// <para>
-    /// The two cases are the two ways it can go wrong. "A red or white permanent" is one noun
-    /// with a colour choice in it, not two conditions, and splitting it produces "you control a
-    /// red" and "white permanent"; "you win the flip" is a real clause that is simply not a
-    /// board question. Either way the card must stay in <c>Unhandled</c> rather than compile
-    /// with a condition nobody printed — a condition silently true is a conditional card played
-    /// as an unconditional one.
+    /// "You win the flip" is a real clause that is simply not a board question, so the card must
+    /// stay in <c>Unhandled</c> rather than compile with a condition nobody printed — a condition
+    /// silently true is a conditional card played as an unconditional one.
+    /// </para>
+    /// <para>
+    /// It used to assert the same of "a red or white permanent", on the reasoning that it is one
+    /// noun with a colour choice in it and not two conditions. That reasoning is still exactly
+    /// right and the conclusion no longer follows: the <em>noun</em> grammar reads the colour pair
+    /// now, so the line is read whole rather than split, and
+    /// <see cref="A_colour_pair_in_a_condition_is_one_noun_and_not_a_join"/> plays it to show the
+    /// reading is the printed one. What this test guards is the disjunction reader inventing a
+    /// condition, which is the second case and not the first.
     /// </para>
     /// </remarks>
     [Fact]
     public void A_join_whose_halves_are_not_conditions_leaves_the_line_unread()
     {
-        var colours = Card(
-            "Unjoinable Colour Test",
-            "As long as you control a red or white permanent, ~ gets +1/+1.",
-            CardType.Creature,
-            power: 1,
-            toughness: 1);
-
-        Assert.False(CardCompiler.Compile(colours).IsComplete);
-
         var chance = Card(
             "Unjoinable Chance Test",
             "As long as you control a creature or you win the flip, ~ gets +1/+1.",

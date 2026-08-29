@@ -8112,6 +8112,37 @@ public static partial class TriggerConditions
         _ => true,
     };
 
+    /// <summary>
+    /// What a card means by the kind of spell it counts (CR 205.2, 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// "Outlaw" is the one that is not a type at all: CR 700.12 defines it as any of five creature
+    /// types, and the reason it is a list here rather than five conditions is that a Pirate Rogue
+    /// is one outlaw. Counting the cards and asking each of them settles that; counting five
+    /// tallies would not.
+    /// </remarks>
+    private static (Domain.Enums.CardType Types, string[] Subtypes)? SpellKind(string kind) =>
+        kind switch
+        {
+            "enchantment" => (Domain.Enums.CardType.Enchantment, []),
+            "artifact" => (Domain.Enums.CardType.Artifact, []),
+            "instant" => (Domain.Enums.CardType.Instant, []),
+            "sorcery" => (Domain.Enums.CardType.Sorcery, []),
+            "instant or sorcery" =>
+                (Domain.Enums.CardType.Instant | Domain.Enums.CardType.Sorcery, []),
+            "outlaw" => (
+                Domain.Enums.CardType.Creature,
+                new[] { "Assassin", "Mercenary", "Pirate", "Rogue", "Warlock" }),
+            _ => null,
+        };
+
+    /// <summary>Whether one card answers to a kind, asked the same way the count is.</summary>
+    private static bool IsOfKind(
+        Domain.Models.CardDefinition card, (Domain.Enums.CardType Types, string[] Subtypes) kind) =>
+        (card.CardTypes & kind.Types) != Domain.Enums.CardType.None
+        && (kind.Subtypes.Length == 0
+            || card.Subtypes.Any(had => kind.Subtypes.Contains(had, StringComparer.OrdinalIgnoreCase)));
+
     /// <summary>A number a card prints in words, ordinal or cardinal.</summary>
     /// <remarks>
     /// One table for both, because the two readings never disagree where they overlap: "second"
@@ -8634,9 +8665,19 @@ public static partial class TriggerConditions
                         if (!state.TryGetObject(cast.StackId, out var spell))
                             return false;
 
-                        var isCreature = spell.Card.CardTypes.HasFlag(Domain.Enums.CardType.Creature);
-                        if (isCreature != kind.Equals("creature", StringComparison.Ordinal))
+                        if (kind is "creature" or "noncreature")
+                        {
+                            var isCreature = spell.Card.CardTypes.HasFlag(
+                                Domain.Enums.CardType.Creature);
+
+                            if (isCreature != kind.Equals("creature", StringComparison.Ordinal))
+                                return false;
+                        }
+                        else if (SpellKind(kind) is not { } asked
+                            || !IsOfKind(spell.Card, asked))
+                        {
                             return false;
+                        }
                     }
 
                     var caster = state.GetPlayer(cast.PlayerId);
@@ -8649,7 +8690,16 @@ public static partial class TriggerConditions
                         "noncreature" => caster.NoncreatureSpellsCastThisTurn,
                         "creature" =>
                             caster.SpellsCastThisTurn - caster.NoncreatureSpellsCastThisTurn,
-                        _ => caster.SpellsCastThisTurn,
+                        "" => caster.SpellsCastThisTurn,
+
+                        // Counted off the cards the player actually cast, so that a spell
+                        // answering to two of the words the kind names is still one spell. The
+                        // null arm cannot be reached — the same table refused the sentence above —
+                        // and answers zero rather than throwing, because a predicate that throws
+                        // in the middle of a game is a worse failure than one that never fires.
+                        _ => SpellKind(kind) is { } counted
+                            ? caster.SpellsCastThisTurnOfKind(counted.Types, counted.Subtypes)
+                            : 0,
                     };
 
                     return already + 1 == wanted;
@@ -9427,18 +9477,17 @@ public static partial class TriggerConditions
         // and combat damage is now summarised; entering and dying are one event each, so a
         // plural sentence about them is left unread rather than fired several times.
         //
-        // Attacking is a declaration too and is still refused, which is the one case this
-        // reasoning does not settle on its own. Six of the 28 corpus lines shaped "one or more X
-        // you control attack" go on to say "that many" - "add that much {R}", "create that many
-        // Treasure tokens" - and the declaration carries no amount, so each of those compiled
-        // into a trigger that fired and then added nothing. The invariant found it on Grand
-        // Warlord Radha the first time this verb was admitted to the family, and the singular
-        // form the 35 lines above use is unaffected.
+        // Attacking is a declaration too and was refused for longer than the others, because six
+        // of the 28 corpus lines shaped "one or more X you control attack" go on to say "that
+        // many" - "add that much {R}", "create that many Treasure tokens" - and the declaration
+        // carried no amount, so each of those compiled into a trigger that fired and then added
+        // nothing. The invariant found it on Grand Warlord Radha the first time this verb was
+        // admitted.
         //
-        // Refused on the trigger rather than on the sentence, because the effect parser cannot
-        // see which trigger it belongs to. Lifting it wants the batch's size recorded on the
-        // event, which is a change to what the game writes down rather than to this grammar.
-        if (oneOrMore && !dealing && blockVerb is null)
+        // The engine records the count now, and records the *narrowed* one: the raw batch size is
+        // the wrong number for the four of those lines that name a tribe, and a Dragon trigger
+        // paid for every attacker would print a strictly better card than the one on the table.
+        if (oneOrMore && !dealing && !attacking && blockVerb is null)
             return null;
 
         // "Ally", "Goblin", "Zombie" — a creature type rather than a card type. The two are
@@ -10230,25 +10279,31 @@ public static partial class TriggerConditions
 
     /// <summary>"[Who] casts their Nth [kind] spell each turn" — the ordinal cast family.</summary>
     /// <remarks>
-    /// The kind slot is deliberately only "creature" and "noncreature", and the reason is what
-    /// the player carries rather than what the sentence says. <c>SpellsCastThisTurn</c> and
-    /// <c>NoncreatureSpellsCastThisTurn</c> are the only two counts kept, and creature spells are
-    /// the difference between them — so those three readings can be answered <em>exactly</em>,
-    /// and no other can.
+    /// The kind slot was once only "creature" and "noncreature", and the reason was what the
+    /// player carried rather than what the sentence said: <c>SpellsCastThisTurn</c> and
+    /// <c>NoncreatureSpellsCastThisTurn</c> were the only counts kept, and creature spells are
+    /// the difference between them. Everything else was refused, because the tempting reading —
+    /// the ability's <c>OncePerTurn</c> flag with a plain enchantment-cast condition — is wrong in
+    /// the direction that matters: that flag is per (permanent, ability), so a permanent arriving
+    /// after an enchantment had already been cast this turn would still trigger on the second one,
+    /// which the printed card never does.
     /// <para>
-    /// "Your first enchantment spell each turn" and its nine siblings — instant, Omen, outlaw,
-    /// Human creature, "with {X} in its mana cost" — are therefore left unread, on 15 corpus
-    /// lines. The tempting reading is the ability's <c>OncePerTurn</c> flag with a plain
-    /// enchantment-cast condition, and it is wrong in a way that makes the card better than
-    /// printed: that flag is kept per (permanent, ability), so a permanent that arrives after an
-    /// enchantment has already been cast this turn would still trigger on the second one, which
-    /// the printed card never does. Reading those needs a per-type count on the player, which is
-    /// a change to the state rather than to this grammar.
+    /// The player records the cards themselves now, so the rest of the family can be answered
+    /// exactly. It stores cards rather than tallies for a reason worth keeping: a per-type counter
+    /// would count a Pirate Rogue twice over the five outlaw types.
+    /// </para>
+    /// <para>
+    /// A tribe is still not admitted here — "your first Human creature spell each turn" — and the
+    /// omission is deliberate. The word would have to be taken on trust as a creature type, and a
+    /// word that is not one matches nothing, which compiles a trigger that never fires. That is
+    /// the failure this file spends most of its comments avoiding, and it is worth more than the
+    /// two lines it costs.
     /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^(?<who>you|an opponent|a player) (casts?|draws?) (your|their) (?<ord>[a-z]+) "
-            + @"(?<kind>creature |noncreature )?(?<what>spell|card) each turn$",
+            + @"(?<kind>instant or sorcery |creature |noncreature |enchantment |artifact "
+            + @"|instant |sorcery |outlaw )?(?<what>spell|card) each turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex NthEachTurn();
 
