@@ -446,7 +446,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **44.7% of playable cards fully read** (14,630 of 32,765), 62.4% of all lines (38,608 of 61,846 lines of rules text).
+Coverage is **45.4% of playable cards fully read** (14,879 of 32,765), 62.9% of all lines (38,927 of 61,846 lines of rules text).
 
 ### What is actually left, measured rather than estimated
 
@@ -503,6 +503,41 @@ Three findings worth keeping because they are about the instruments, not the car
   citations passed it: cipher as 702.98 (Unleash), scavenge as 702.98a, transform as 701.28
   (Convert), and a chosen cost as 701.20a (Reveal).
 
+### One capital letter, four bug reports
+
+Four defects were reported independently — `you control a Desert` compiling and never firing, a
+mass static that buffed nothing, `target Nissa planeswalker` unreadable, and a colour-disjunction
+noun refused — and they were one bug. `Specs.Parse` fell back to `char.IsUpper(printed[0])` and
+treated any unknown capitalised noun as a **creature type**. Every printed sentence starts with a
+capital.
+
+The failure mode is the one this project most wants to avoid: it does not refuse, it *succeeds
+wrongly*. `You gain 1 life for each Equipment you control` compiled **complete** and gained 0 life
+instead of 2 — measured in a real game, not reasoned about. Fixing the one table fixed Desert, Gate,
+Aura and Shrine together, and reading subtypes against CR 205.3 reaches the 945 cards that name a
+non-creature subtype.
+
+The same shape had already been found and fixed in `MassStaticLine`, where `Artifact creatures you
+control get +1/+1` compiled into a lord for the creature type "Artifact" — 150 lines across 129
+cards, all reading as complete and doing nothing. **That is strictly worse than an unread card:** an
+unread card is refused by the legality gate, while these are legal, playable, and quietly inert,
+with nothing on the board to say so.
+
+`Every_subtype_a_mass_static_names_is_a_subtype_some_card_has` now guards the half the existing
+subtype invariant could not see — it walks the `*Filter` string properties of spell, trigger and
+activated-ability effects, and a continuous effect carries its filter as a compiled predicate
+instead.
+
+### The founding invariant was asserted almost nowhere
+
+`Settle` — the helper nearly every behaviour test ends with — asserted `Replay(log) == State` after
+a loop whose two ordinary exits are both `return`s. It was reached only when the guard ran out,
+which is to say almost never, while its own comment claimed every test asserted it. Present,
+documented, and not running.
+
+The loop is now a separate method and the assertion follows it unconditionally. Proved by mutation:
+inverting it fails **805 of 1,350** tests, where before the change inverting it failed none.
+
 ### Declined here, with the measurement behind each
 
 Recorded so the next pass does not re-spend the cycle. Each was probed or swept, not guessed.
@@ -513,13 +548,25 @@ Recorded so the next pass does not re-spend the cycle. Each was probed or swept,
   wrong question on all of them.
 - **`unless its controller pays {N}`** (123 lines) and its siblings. An unless-*cost* is a decision,
   not a state; unreadable by a condition parser by construction.
-- **`your first enchantment spell each turn`** (~15 lines). `PlayerState` counts total and
-  noncreature spells only. Reading it through `OncePerTurn` is wrong in the direction that matters:
-  that flag is per (permanent, ability), so a permanent arriving after an enchantment had already
-  been cast would still trigger on the second one.
-- **`Whenever one or more X you control attack`** (28 lines). Caught by `CardCompilerInvariantTests`:
-  six of them say "that many", and `AttackersDeclared` carries no batch size, so the trigger fired
-  and added nothing. Lifting it wants the count on the event.
+- ~~**`your first enchantment spell each turn`**~~ and ~~**`Whenever one or more X you control
+  attack`**~~ — **both now built**, and both are worth recording as declines that were correct at
+  the time. Each was refused because the only available reading made the card better than printed,
+  and each needed an engine capability rather than a cleverer pattern.
+
+  The first was refused because `OncePerTurn` is per (permanent, ability), so a permanent arriving
+  *after* an enchantment had already been cast would still trigger on the second one. `PlayerState`
+  now records the spell cards cast this turn, and answers `SpellsCastThisTurnOfKind(types,
+  subtypes)`. It holds the cards rather than a tally on purpose: a per-type counter answers
+  "enchantment" and then stops, because "your first outlaw spell" is five creature types asked at
+  once and summing five counters counts a Pirate Rogue twice.
+
+  The second was caught by `CardCompilerInvariantTests` — six of the lines say "that many" and
+  `AttackersDeclared` carried no amount, so the trigger fired and added nothing. The batch size was
+  already in the log, since attackers are declared as one event (CR 508.1); only the lookup was
+  missing. The subtlety is that the batch size *alone* is the wrong number for four of the six —
+  Dragons, Dinosaurs, Birds, Treefolk — so it is narrowed by offering the ability's own predicate a
+  synthetic single-attacker declaration per attacker, a declaration of one being exactly the
+  question "does this creature answer the description".
 - **`Living metal`** (13 faces) — *built*, and worth zero. All 13 are backs of the same 13
   Transformers cards, whose fronts carry `More Than Meets the Eye` plus bespoke unread `convert`
   sentences. "Faces blocked by this line" is an upper bound, never a card count.
