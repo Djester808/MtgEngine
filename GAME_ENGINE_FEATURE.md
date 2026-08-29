@@ -446,7 +446,85 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **45.9% of playable cards fully read** (15,037 of 32,765), 63.2% of all lines (39,114 of 61,846 lines of rules text).
+Coverage is **46.6% of playable cards fully read** (15,262 of 32,765), 63.8% of all lines (39,442 of 61,846 lines of rules text).
+
+### The compiler was not connected to the game
+
+For most of this engine's life there was no wire between the two. `Program.cs` registered
+`CardPool` — five basic lands and a small curated set — as the only `IAbilitySource`, while
+`CompiledPool`, which reads a card's printed text, was constructed in the test projects and nowhere
+else. Measured against the real `GameTableService`: **the deck gate admitted 917 cards while the
+compiler read every line of 15,262.** Every reader written for this engine was exercised by tests
+and by nothing that plays a game.
+
+It stayed invisible for a reason worth remembering: `GameHubTests` builds its service with
+`new CompiledPool()`, so **the tests exercised a wiring production did not have**.
+
+`PlayableCards` now composes the two — a written script where there is one, compiled text otherwise
+— and the gate asks its `Refuses`. The old question ("is any of five ability collections
+non-empty") was wrong in both directions, and both were measured: it turned away **396** cards
+whose whole text lands in a cost reducer or a keyword flag, and admitted **6,759** cards with one
+ability read and the rest of their lines unread. `CompiledPool.Refuses` was written for exactly
+this and had no caller anywhere in the repository.
+
+Every member of the interface delegates, and a reflection test enforces it, because every default
+on `IAbilitySource` returns *nothing*. That test earned its place on its first run: `FloatingEffect`
+was missing, and left that way every temporary pump, grant and animation the compiler generates
+would have stopped applying the moment the wiring went live — with nothing failing.
+
+### A stored game forgot every transform
+
+`PrintedCard` recorded fourteen printed fields and not `Faces`, so a card read back out of a stored
+log had none — and `GameReducer.Transform`, which correctly refuses a face index the card does not
+have, silently dropped every `PermanentTransformed` event in it. A saved game came back with its
+werewolves on their day faces, with the day face's characteristics, and unable to flip again. **837
+corpus cards carry faces.**
+
+Nothing caught it because the invariant everything else leans on was never violated: live state and
+the in-memory `Replay(log)` agree perfectly. The divergence appears only through the door
+`GameSessionService` actually uses — write, re-read, fold. The soak now exercises that on every
+sampled game rather than skipping the ones that had transformed something, an exclusion that was
+hiding **43 of 105** sampled games in the deep slice: precisely the games that would have caught it.
+
+### What the soak reaches, and what it did not
+
+Widened after measuring the residue rather than guessing at it. `IsPermanent` named
+creature/artifact/enchantment/planeswalker and not `CardType.Land`, and the spell soak takes only
+instants and sorceries — so **778 complete cards, every land in the corpus, were touched by no test
+at all**, carrying most of the compiler's mana abilities.
+
+| | before | after |
+|---|---:|---:|
+| permanents played | 11,334 | 12,317 |
+| activated abilities | 2,702 | 3,488 |
+| triggers fired | not measured | 12,091 on 4,268 cards |
+| complete cards no test touches | 778 | **0, asserted** |
+
+Triggers were the real gap and the largest declaration kind in the corpus (5,858 cards): playing a
+permanent runs its statics, pressing its button runs an ability, casting runs a spell, and none of
+those makes a trigger fire.
+
+### Ten phrases that named creature types no card has
+
+The noun-satisfiability guard — every printed noun phrase a complete card carries, handed to the
+compiler's own grammar and tried against a witness board — found twelve unsatisfiable phrases, and
+ten are now fixed. Two faults accounted for them.
+
+`SingularWord` over-reached on eight. A blanket `-ves` rule added to rescue "Elves" turned **Caves
+into "Caf"** and Detectives into "Detectif"; a blanket `-ies` rule turned **Faeries into "Faery"**;
+and Locus and Pegasus lost a letter for being plurals they are not. Both blanket rules are gone: the
+subtypes whose plural really changes the stem are a small closed set and are listed, a word ending
+in "us" is left alone, and **Aurochs** joined "Plains" as spelled the same either way.
+
+The group grammar looked for its noun only at the front of the phrase, so one lowercase adjective
+stopped the search before it arrived. "untapped Mountains you control" and "tapped Assassins you
+control" kept the s: **Ben-Ben dealt damage equal to the number of "Mountains" and Lydia Frye
+surveilled per "Assassins", both counting zero, both compiling as complete cards.**
+
+Aurochs is the argument for the guard in one line — that break was *caused* by the second fix and
+caught by the invariant in the same run.
+
+
 
 ### What is actually left, measured rather than estimated
 
