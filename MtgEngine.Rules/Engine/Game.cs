@@ -7895,8 +7895,17 @@ public sealed class Game
             if (SettleOwedFlip())
                 return true;
 
+            // A roll asks nobody anything - there is no modifier to choose between (CR 706.2b
+            // is a replacement, applied on the way in) - so it is made here and the sweep goes
+            // round again, the way a seek does. Returning as though a question were pending
+            // handed priority back with the state-based actions unchecked: a creature the row
+            // had just dealt lethal damage to went on standing there, alive, on a board where
+            // the damage was plainly marked on it.
             if (SettleOwedRoll())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedLook())
                 return true;
@@ -10822,14 +10831,10 @@ public sealed class Game
             _flipsOwed.Add((flip, coin, aimed));
         }
 
+        // Off the request and not off the source: the source named here is the permanent whose
+        // ability rolled, and the targets were chosen by the ability on the stack (CR 601.2c).
         if (e is DiceRollRequested roll && FindRoll(roll) is { } dice)
-        {
-            var aimedAtRoll = State.TryGetObject(roll.SourceId, out var roller)
-                ? roller.Targets
-                : [];
-
-            _rollsOwed.Add((roll, dice, aimedAtRoll));
-        }
+            _rollsOwed.Add((roll, dice, roll.Targets));
 
         // Resolved here, while the source is still where the locator says it is — and its
         // targets are taken with it, because a spell loses them when it leaves the stack and the

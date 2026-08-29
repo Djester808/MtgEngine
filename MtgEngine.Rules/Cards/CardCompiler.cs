@@ -11441,21 +11441,6 @@ public static partial class CardCompiler
     }
 
     /// <summary>
-    /// "If [something] would die, exile it instead" — a death replacement (CR 614.1a).
-    /// </summary>
-    /// <remarks>
-    /// CR 700.4 defines "dies" as being put into a graveyard <em>from the battlefield</em>, which
-    /// is the whole difference from the sentence its neighbour <see cref="TryGraveyardReplacement"/>
-    /// reads: that one says "from anywhere" and catches a card milled, discarded or countered as
-    /// well. Reading this one as "from anywhere" would take those too, on a card that says nothing
-    /// about them.
-    /// <para>
-    /// The destination alternation is the same three the printed cards use, and nothing else: a
-    /// destination this does not know leaves the line unread rather than defaulting to exile,
-    /// which is the harshest of the three and would be wrong on two of the four cards.
-    /// </para>
-    /// </remarks>
-    /// <summary>
     /// "If you would roll one or more dice, instead roll that many dice plus one and ignore the
     /// lowest roll." — the grant-an-advantage replacement (CR 706.2b, 706.6).
     /// </summary>
@@ -11493,6 +11478,21 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "If [something] would die, exile it instead" — a death replacement (CR 614.1a).
+    /// </summary>
+    /// <remarks>
+    /// CR 700.4 defines "dies" as being put into a graveyard <em>from the battlefield</em>, which
+    /// is the whole difference from the sentence its neighbour <see cref="TryGraveyardReplacement"/>
+    /// reads: that one says "from anywhere" and catches a card milled, discarded or countered as
+    /// well. Reading this one as "from anywhere" would take those too, on a card that says nothing
+    /// about them.
+    /// <para>
+    /// The destination alternation is the same three the printed cards use, and nothing else: a
+    /// destination this does not know leaves the line unread rather than defaulting to exile,
+    /// which is the harshest of the three and would be wrong on two of the four cards.
+    /// </para>
+    /// </remarks>
     private static bool TryDiesReplacement(
         string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {

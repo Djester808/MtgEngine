@@ -6402,7 +6402,11 @@ machinery-to-cards ratio anything in this document has proposed. **The alternati
 instead — dungeons — cost one new file, one duration and no new deck, and turned over the same
 number of cards.**
 
-**Dice rolling (CR 706) — 142 cards touching, 119 reachable, deferred rather than declined.** It is
+**Dice rolling (CR 706) — 142 cards touching, 119 reachable, deferred rather than declined.**
+*(Taken two rounds later — see "A results table is one ability printed across four lines" below.
+The deferral was right; the reachable figure was not. 29 cards, not 119: the queue counted every
+card whose only unread line mentioned a die, and most of those lines are unread for a second
+reason printed inside the same sentence.)* It is
 genuinely large and it is genuinely ordinary paper Magic: 113 corpus cards roll dice outside
 Un-sets, mostly the AFR d20 with a results table. The randomness has a settled precedent here —
 `FlipCoin` records the *outcome* in the log so a replay reproduces it — so this is a normal piece of
@@ -6656,3 +6660,83 @@ so the fixture blindspot cannot reopen.
 **15,899 → 15,916 complete cards, the set diffed and none lost:** 7 cleave (Winged Portent,
 Fierce Retribution, Alchemist's Retrieval, Dig Up, Lunar Rejection, Path of Peril, Parasitic
 Grasp) and 10 gift, as named above.
+
+### A results table is one ability printed across four lines
+
+`Roll a d20.` and the rows under it are one ability (CR 706.3b) and four lines of text, and the
+compile loop reads one line at a time — a row alone is half a sentence, and `1—9 | Scry 1.` says
+nothing without the line above it. So `Lines` folds a row into the line that called for the roll
+before the compiler ever sees either, which is the shape `CompileClass` and `CompileLeveler`
+already use for the same problem. The fold is one-way and gated on the line above: a Spacecraft's
+station bar is `10+ | Flying`, character for character a results row, and it folds into nothing
+because the keyword above it rolls no dice. That guard is worth an ability — the station threshold
+reads that bar (CR 721.2), so a fold that swallowed it would leave a Spacecraft that never becomes
+a creature and no count anywhere would have gone down.
+
+The randomness follows `FlipCoin` exactly: `RollDice` cannot reach the seeded source, so it emits
+`DiceRollRequested`, the game settles it against `_random`, and `DiceRolled` records the number. The
+log holds the *outcome*, so a replay reads what came up instead of rolling again — the assertion
+that a game resumed on a different seed equals the game that produced the log is what holds it.
+`Natural` is recorded beside `Result` although no modifier machinery exists to separate them yet,
+because "a die's highest natural result" has to keep reading the face on the day one does.
+
+**Three bugs, and all three were silent.** The first refused cards outright: `EffectPhrase.TryParse`
+rejects a phrase that produces no effect — correctly, since a line that only chooses is not a line —
+and "Choose target creature, then roll a d20" is exactly that phrase, with the doing printed in the
+rows underneath. The preamble is now read sentence by sentence into the line's own builders instead,
+which also fixes the arithmetic beside it: the count a row was checked against was taken *before* the
+preamble rather than after, so every row saying "that creature" looked like a row choosing a target
+of its own, and the all-or-nothing rule threw away the whole table.
+
+The second and third bugs were worse, because the card compiled and the game ran. `DiceRollRequested`
+carried no targets, and the settle read them off the source it names — which is the *physical* source,
+the permanent whose ability rolled, and a permanent carries no targets because the ability on the
+stack did. Spiked Pit Trap rolled its d20, ran the row the number landed in, created the Treasure that
+row prints, and dealt its five damage to nobody; nothing in the log said anything had gone wrong. That
+is the third time this exact mistake has been made here, and `OptionalPaymentRequested.Targets`
+already carries the note about the previous two, so the roll request now carries them the same way.
+Then, with the damage landing, the creature it killed went on standing there: `SettleOwedRoll`
+returned from the settle sweep as though a question were pending, so priority was handed back with
+state-based actions unchecked and five damage plainly marked on a 4/4. A roll asks nobody anything —
+CR 706.2b's extra die is a replacement, applied on the way in — so it now continues the sweep the way
+a seek does.
+
+**15,935 → 15,964 complete cards, the set diffed and none lost.** The 29: Ancient Copper Dragon,
+Arcane Investigator, Atomwheel Acrobats, Barbarian Class, Boing!, Brazen Dwarf, Contact Other Plane,
+Dissatisfied Customer, Djinni Windseer, Farideh's Fireball, Farideh Devil's Chosen, Feywild Trickster,
+Goblin Morningstar, Herald of Hadar, Hoarding Ogre, Lightfoot Rogue, Monoxa Midway Manager, Netherese
+Puzzle-Ward, Non-Human Cannonball, Nothic, Overwhelming Encounter, Pixie Guide, Recruitment Drive,
+Scion of Stygia, Shackle Slinger, Spiked Pit Trap, Sylvan Shepherd, Vegetation Abomination, and Wyll
+Blade of Frontiers.
+
+**Twenty-nine, against a work queue that promised a hundred and nineteen.** The gap is the queue's
+own blind spot rather than a shortfall here, and it is worth writing down because the queue is how
+every round of this work picks its next target. It ranks cards whose *sole* unread line mentions a
+mechanic — but a single line of a dice card is a whole results table, and a table is unread the
+moment any one thing inside it is. 105 corpus cards roll dice; 28 read completely; 66 are one line
+short, and every one of those 66 blockers is distinct. Sorted by why:
+
+- **27 cards** — the roll reads and something in a row does not: "Each player sacrifices a permanent
+  of their choice", "Copy that spell", "Gain control of it until the end of your next turn". Ordinary
+  effect vocabulary, reachable by ordinary vocabulary work, and nothing to do with dice.
+- **24 cards** — the result is spelled a way the row rewrite does not cover. Measured and declined:
+  the biggest single spelling, "…, where X is the result", is 17 cards, and the X-definition wrapper
+  already in `TryOne` would take it in about twenty lines. It was built and then reverted, because
+  it turned over **zero** cards: Growth Spurt, Painiac and Ground Pounder are legal in no format and
+  are not in the corpus at all, and every legal card printing the clause carries a second blocker in
+  the same sentence — "Monstrosity X", "become an X/X Insect", "up to X target creatures", "the
+  result minus 1". A compiler path no card reaches is untested surface, so it is not there.
+- **14 cards** — multi-dice rolls: "roll two d6 and choose one result", "roll a d20 for each player
+  being attacked and ignore all but the highest". The engine deciding which result to keep takes the
+  choice off the player, and there is a test holding that line.
+- **9 cards** — the unread line is not a roll line at all.
+- **7 cards** — modified rolls: "roll a d20 and add the number of cards in your hand". A modified
+  roll read as unmodified lands in the wrong row of its own table, which prints a different card.
+- **2 cards** — the planar die, whose faces are symbols rather than numbers (CR 901.4).
+- **1 card** — Critical Hit's "when you roll a natural 20", watched from the graveyard, where a
+  trigger compiled to the battlefield would read cleanly and never fire.
+
+The one piece of dice machinery here with no results table under it is Pixie Guide's replacement
+(CR 706.2b): the extra die is added to the request on the way into the log, the settle keeps the
+highest, and CR 706.6's ignored rolls never happened — so one number goes in the log however many
+dice went in, and the watchers see one roll.

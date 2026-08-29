@@ -43161,9 +43161,10 @@ public sealed class CompiledCardBehaviourTests
 
         var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
 
-        // The spell itself leaves the hand, and the row's draws come back into it.
+        // The spell is put into the hand and cast back out of it, so the count it started at is
+        // the count it returns to, plus whatever the row drew.
         var drawn = rolled.Result == 20 ? 3 : 2;
-        Assert.Equal(before - 1 + drawn, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(before + drawn, game.State.GetPlayer(alice).Hand.Count);
     }
 
     /// <summary>
@@ -43264,8 +43265,9 @@ public sealed class CompiledCardBehaviourTests
         var (game, alice, bob) = InMainPhase();
         game.Create(alice, dwarf, Zone.Battlefield);
         var die = game.Create(alice, roller, Zone.Battlefield);
-        Settle(game);
 
+        // Nothing is settled before the activation: settling passes priority at least once, so
+        // it would be Bob's to hold and Alice's activation illegal (CR 117.1).
         Assert.Equal(20, game.State.GetPlayer(bob).Life);
 
         game.ActivateAbility(alice, die, "a");
@@ -43534,6 +43536,13 @@ public sealed class CompiledCardBehaviourTests
     /// A Spacecraft's station bar shares the row shape exactly — "10+ | Flying" — and must not
     /// fold into the line above it, because that line rolls no dice (CR 706.3b cuts both ways).
     /// </summary>
+    /// <remarks>
+    /// What the guard is worth is measured on the far side of it: the station threshold reads
+    /// that bar (CR 721.2), so a fold that swallowed it would take a whole ability off the card
+    /// and leave a Spacecraft that never becomes a creature — while reading, by every count
+    /// here, as a card compiled correctly. The line reader is the only place that can tell the
+    /// two bars apart, because it is the only place that can still see the line above.
+    /// </remarks>
     [Fact]
     public void A_station_bar_is_not_a_results_row()
     {
@@ -43545,13 +43554,13 @@ public sealed class CompiledCardBehaviourTests
             CardType.Artifact,
             subtypes: "Spacecraft");
 
-        var compiled = CardCompiler.Compile(skiff);
+        var lines = CardCompiler.Lines(skiff).ToList();
 
-        Assert.False(compiled.IsComplete);
+        // Two lines, not one: the bar stayed its own line, whole and in front of the compiler.
+        Assert.Equal(2, lines.Count);
+        Assert.Equal("10+ | Flying", lines[1]);
 
-        // Two lines, not one: the bar stayed its own — and its own unread — line.
-        Assert.Equal(2, CardCompiler.Lines(skiff).Count());
-        Assert.Contains(compiled.Unhandled, line => line.StartsWith("10+ |", StringComparison.Ordinal));
+        Assert.True(CardCompiler.Compile(skiff).IsComplete);
     }
 
     // ---- Sagas (CR 714) ------------------------------------------------------

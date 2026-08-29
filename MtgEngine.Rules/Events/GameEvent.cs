@@ -695,6 +695,20 @@ public sealed record DiceRollRequested(
     public ObjectId? SubjectObject { get; init; }
 
     /// <summary>
+    /// What the ability that called for the roll was aimed at (CR 601.2c, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Carried rather than looked up, which is the same lesson
+    /// <see cref="OptionalPaymentRequested.Targets"/> records and the same way it was learnt.
+    /// The rows are run after the ability has resolved, against the <em>permanent</em> whose
+    /// ability it was — and a permanent carries no targets, because the ability on the stack
+    /// did. "Choose target creature, then roll a d20" therefore rolled its die, ran the row the
+    /// number landed in, and dealt its damage to nobody: a Treasure appeared, the creature
+    /// stood there, and no event in the log said anything had gone wrong.
+    /// </remarks>
+    public ImmutableList<Target> Targets { get; init; } = [];
+
+    /// <summary>
     /// How many extra dice replacement effects have added to this roll (CR 706.2b). Each extra
     /// die is rolled alongside the printed one and the lowest results are ignored, which per
     /// CR 706.6 means they never happened: one die comes out of the roll however many went in.

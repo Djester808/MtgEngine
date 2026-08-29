@@ -918,34 +918,56 @@ public static partial class EffectPhrase
         var targetsBefore = targets.Count;
         var effectsBefore = effects.Count;
 
+        void Rewind()
+        {
+            while (targets.Count > targetsBefore)
+                targets.RemoveAt(targets.Count - 1);
+            while (effects.Count > effectsBefore)
+                effects.RemoveAt(effects.Count - 1);
+        }
+
         // The sentences before the roll are ordinary effects, and they may target: targets are
         // chosen as the spell is cast (CR 601.2c), long before the die comes down, which is
         // exactly why the rows below may only refer back to them.
+        //
+        // Read sentence by sentence into this line's own builders rather than through TryParse,
+        // and that is the whole of the difference: TryParse refuses a phrase that chooses and
+        // does nothing, because a line that only chooses is not a line — and "Choose target
+        // creature, then roll a d20" is exactly that phrase, with the doing printed in the rows
+        // underneath. Sharing the builders is also what keeps the target indices right, since a
+        // nested parse numbers its own targets from zero.
         var before = m.Groups["before"].Value.Trim().TrimEnd(',');
         if (before.Length > 0)
         {
-            if (!TryParse(before, out var opening, objectNamedByTrigger)
-                || opening.Effects.Any(FindsItselfByIndex))
+            foreach (var sentence in Sentences(before))
             {
-                return false;
+                if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                {
+                    Rewind();
+                    return false;
+                }
             }
 
-            targets.AddRange(opening.Targets);
-            foreach (var effect in opening.Effects)
-                effects.Add(effect);
+            if (effects.Skip(effectsBefore).Any(FindsItselfByIndex))
+            {
+                Rewind();
+                return false;
+            }
         }
+
+        // What the rows may refer back to and may not add to. Counted after the preamble rather
+        // than before it: a row saying "that creature" points at the target the preamble chose,
+        // and measuring from before the preamble read every such row as choosing one of its own
+        // — which refused the whole table on every card that names its victim first.
+        var chosen = targets.Count;
 
         var rows = ImmutableList.CreateBuilder<RollBranch>();
 
         foreach (var (from, to, body) in RollSegments(m.Groups["rest"].Value))
         {
-            if (!TryRollBranch(body, targets, targetsBefore, out var branch, objectNamedByTrigger))
+            if (!TryRollBranch(body, targets, chosen, out var branch, objectNamedByTrigger))
             {
-                while (targets.Count > targetsBefore)
-                    targets.RemoveAt(targets.Count - 1);
-                while (effects.Count > effectsBefore)
-                    effects.RemoveAt(effects.Count - 1);
-
+                Rewind();
                 return false;
             }
 

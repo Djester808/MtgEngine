@@ -6011,6 +6011,7 @@ public sealed record RollDice(
                 context.ControllerId, context.PhysicalSourceId, abilityId, EffectIndex, Sides)
             {
                 SubjectObject = context.SubjectObject,
+                Targets = context.Targets,
             },
         ];
     }
