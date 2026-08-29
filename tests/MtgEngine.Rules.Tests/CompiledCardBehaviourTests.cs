@@ -11885,6 +11885,346 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "Target creature has base power and toughness 4/4 until end of turn" — layer 7b (CR 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The counter is the whole test. A base size is <em>set</em> in sublayer 7b and a +1/+1
+    /// counter modifies in 7c, so a 2/2 with a counter set to 4/4 is a 5/5. Read as a pump — the
+    /// nearest reader that already existed, and the one a hurry would reach for — the same board
+    /// would be a 7/7, and read as a plain overwrite it would be a 4/4. All three compile; only
+    /// one of them is the printed card.
+    /// <para>
+    /// 61 corpus cards print the shape and none of them could be read, because "has" is a
+    /// different verb from "becomes" and the animation grammar begins at the second.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_base_power_and_toughness_is_set_under_the_counters()
+    {
+        var shrink = Card(
+            "Base Size Test",
+            "Target creature has base power and toughness 4/4 until end of turn.");
+
+        var compiled = CardCompiler.Compile(shrink);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Base Size Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(bear, CounterKinds.PlusOnePlusOne, 1);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shrink), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // 4/4 set in 7b, then the counter in 7c. A pump would read 7/7; ignoring the counter, 4/4.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(5, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    /// <summary>
+    /// The same setting said of the permanent whose ability it is, with a keyword beside it.
+    /// </summary>
+    /// <remarks>
+    /// The self form is a separate reader for the reason every reader in this family is: the
+    /// target grammar begins at a target phrase and the source is not a target. The duration is
+    /// printed twice on this wording — once after the size and once after the keyword — which is
+    /// why the pattern has two places to find it.
+    /// </remarks>
+    [Fact]
+    public void A_base_size_on_the_source_arrives_with_its_keyword()
+    {
+        var mimic = Card(
+            "Base Size Self Test",
+            "{2}: ~ has base power and toughness 3/3 until end of turn and gains first strike "
+                + "until end of turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(mimic);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, mimic, Zone.Battlefield);
+        game.ChangeCounters(creature, CounterKinds.PlusOnePlusOne, 1);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var source = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, source, "mana");
+        }
+
+        game.ActivateAbility(alice, creature, "a");
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(4, now.Power);
+        Assert.True(now.Has(KeywordAbility.FirstStrike));
+
+        // "Until end of turn" on both halves, so both are gone by the next turn: the printed 2/2
+        // plus its counter, and no first strike.
+        PassToMainPhaseOfTurn(game, 2);
+
+        var later = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(3, later.Power);
+        Assert.False(later.Has(KeywordAbility.FirstStrike));
+    }
+
+    /// <summary>
+    /// "~ becomes an artifact creature until end of turn" — the Vehicle wording (CR 205.1b).
+    /// </summary>
+    /// <remarks>
+    /// The animation that prints no size, because the permanent it is printed on already has one.
+    /// Both assertions are about what the reader must <em>not</em> do: setting a size here would
+    /// overwrite the number the Vehicle is played for, and replacing the subtype would stop it
+    /// being a Vehicle — which is the type its own crew ability and every "Vehicles you control"
+    /// lord is looking for. CR 205.1b names this exact phrase and says every prior card type and
+    /// subtype is kept.
+    /// </remarks>
+    [Fact]
+    public void An_animation_with_no_size_leaves_the_vehicle_its_own()
+    {
+        var truck = Card(
+            "Vehicle Animation Test",
+            "{2}: ~ becomes an artifact creature until end of turn.",
+            CardType.Artifact,
+            power: 4,
+            toughness: 4,
+            subtypes: "Vehicle");
+
+        var compiled = CardCompiler.Compile(truck);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var vehicle = game.Create(alice, truck, Zone.Battlefield);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(vehicle)).IsCreature);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var source = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, source, "mana");
+        }
+
+        game.ActivateAbility(alice, vehicle, "a");
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(vehicle));
+        Assert.True(now.IsCreature);
+        Assert.True(now.CardTypes.HasFlag(CardType.Artifact));
+
+        // Its own printed size, not a size this reader invented.
+        Assert.Equal(4, now.Power);
+        Assert.Equal(4, now.Toughness);
+
+        // Still a Vehicle: the phrase keeps every subtype (CR 205.1b).
+        Assert.Contains("Vehicle", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// "In addition to its other types" adds the type rather than replacing it (CR 205.1b).
+    /// </summary>
+    /// <remarks>
+    /// The two halves of CR 205.1 are one phrase apart and do opposite things. Without the words,
+    /// 205.1a replaces the permanent's subtypes from the same set; with them, 205.1b keeps every
+    /// one. A Vampire told to become a Demon "in addition to its other types" is both, and reading
+    /// it as the replacement takes away the type the rest of the board is counting — on a card
+    /// that says in print that it does not.
+    /// <para>
+    /// 20 corpus cards print this shape with a duration on it. The ones without are refused: the
+    /// effect built here ends in the cleanup step, and a permanent type change is a different card.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_added_type_keeps_the_one_the_permanent_had()
+    {
+        var rite = Card(
+            "Added Type Test",
+            "{2}: Target creature becomes a Demon in addition to its other types until end of turn.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(rite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The same sentence with no duration is a permanent type change, which this engine cannot
+        // express - so it is refused rather than quietly undone in the cleanup step.
+        var forGood = Card(
+            "Added Type Forever Test",
+            "{2}: Target creature becomes a Demon in addition to its other types.",
+            CardType.Enchantment);
+
+        Assert.False(CardCompiler.Compile(forGood).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var shrine = game.Create(alice, rite, Zone.Battlefield);
+
+        var vampire = new CardDefinition
+        {
+            OracleId = "oracle-added-type-vampire-test",
+            Name = "Added Type Vampire Test",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Vampire"],
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var biter = game.Create(alice, vampire, Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var source = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, source, "mana");
+        }
+
+        game.ActivateAbility(alice, shrine, "a", [Target.ToPermanent(biter)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(biter));
+        Assert.Contains("Demon", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Vampire", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The same phrase on a sized animation — "a 4/4 Illusion creature in addition to its other
+    /// types until end of turn" (CR 205.1b).
+    /// </summary>
+    /// <remarks>
+    /// 17 corpus cards print the tail on an animation that also names a size, and every one of
+    /// them was lost twice over: the keyword clause before it is written <c>[a-z ,]+?</c>, so it
+    /// swallowed "haste in addition to its other types", handed that to the keyword table, and the
+    /// refusal took the whole sentence down. The phrase is now its own group, which is what lets
+    /// the two readings be told apart at all.
+    /// </remarks>
+    [Fact]
+    public void A_sized_animation_can_add_its_type_instead_of_replacing_it()
+    {
+        var glaze = Card(
+            "Sized Addition Test",
+            "{2}: ~ becomes a 4/4 Illusion creature with flying in addition to its other types "
+                + "until end of turn.",
+            CardType.Artifact,
+            subtypes: "Vehicle");
+
+        var compiled = CardCompiler.Compile(glaze);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(alice, glaze, Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var source = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, source, "mana");
+        }
+
+        game.ActivateAbility(alice, relic, "a");
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(relic));
+
+        Assert.Equal(4, now.Power);
+        Assert.True(now.IsCreature);
+        Assert.True(now.Has(KeywordAbility.Flying));
+
+        // Both types: the one the sentence names and the one the permanent had.
+        Assert.Contains("Illusion", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Vehicle", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A replacing type change takes only the subtypes from its own set (CR 205.1a).
+    /// </summary>
+    /// <remarks>
+    /// "The new subtype replaces any existing subtypes <em>from the appropriate set</em>" —
+    /// creature types, land types, artifact types and the rest are separate sets, and a change to
+    /// one leaves the others alone. This reader used to clear the whole list, so an animated basic
+    /// land stopped being a Forest; landwalk reads the computed land types, not the printed ones,
+    /// so a Forest that had got up and walked could no longer be walked past.
+    /// <para>
+    /// The comment justifying the old behaviour cited 205.1b, which is the rule that says the
+    /// opposite.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_animated_land_keeps_the_land_type_it_had()
+    {
+        var awaken = Card(
+            "Land Animation Test",
+            "Target land you control becomes a 3/3 Elemental creature until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(awaken);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, awaken), [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(forest));
+
+        Assert.Equal(3, now.Power);
+        Assert.True(now.CardTypes.HasFlag(CardType.Creature));
+        Assert.True(now.CardTypes.HasFlag(CardType.Land));
+
+        // The creature type it was given, and the land type it already had. Both.
+        Assert.Contains("Elemental", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Forest", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// "Becomes a Dragon with base power and toughness 4/4 and gains flying" (CR 205.1a, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The same animation with its size printed after the noun instead of before it, which is 23
+    /// corpus cards the earlier pattern could not see. Three things are asserted that a looser
+    /// reader gets wrong: the creature type <em>replaces</em> the one it had, because this wording
+    /// carries no "in addition"; the size is set under the counter rather than added to it; and no
+    /// card type is conferred, because the sentence names none — a permanent that became a
+    /// creature on the strength of a word the card did not print would be a different card.
+    /// </remarks>
+    [Fact]
+    public void A_size_printed_after_the_type_still_sets_it()
+    {
+        var polymorph = Card(
+            "Late Size Test",
+            "Until end of turn, target creature becomes a Dragon with base power and toughness "
+                + "4/4 and gains flying.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(polymorph);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // TestCards.Creature prints the subtype Bear, which is what the Dragon has to displace.
+        var bear = game.Create(
+            alice, TestCards.Creature("Late Size Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(bear, CounterKinds.PlusOnePlusOne, 1);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, polymorph), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+
+        Assert.Equal(5, now.Power);
+        Assert.True(now.Has(KeywordAbility.Flying));
+
+        Assert.Contains("Dragon", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Bear", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // Nothing but a creature: the sentence names no card type, so none is conferred.
+        Assert.False(now.CardTypes.HasFlag(CardType.Artifact));
+    }
+
+    /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>
     /// <remarks>

@@ -170,12 +170,32 @@ public static partial class GenerativeEffects
     /// </remarks>
     /// <summary>The id for "becomes the creature type of your choice" (CR 613.4c, layer 4).</summary>
     /// <remarks>
-    /// Layer 4 and a replacement rather than an addition: CR 205.1b says changing a permanent's
-    /// creature types removes the ones it had, unless the card says "in addition to its other
-    /// types". A card that meant the second says so, and this is not it.
+    /// Layer 4 and a replacement rather than an addition: CR 205.1a says a new subtype replaces
+    /// the permanent's existing subtypes <em>from the same set</em>, and a card that meant to
+    /// keep them says "in addition to its other types" — which is CR 205.1b and
+    /// <see cref="GainsCreatureTypeId"/>. The citation here used to name 205.1b for the
+    /// replacement, which is the rule that says the opposite.
+    /// <para>
+    /// "From the same set" is the half that had been dropped. Clearing the whole list took the
+    /// land types with it, so a Forest animated into an Elemental stopped being a Forest — and
+    /// landwalk reads the computed type, not the printed one.
+    /// </para>
     /// </remarks>
     public static string BecomesCreatureTypeId(string type) =>
         string.Create(CultureInfo.InvariantCulture, $"becomes-type:{type}");
+
+    /// <summary>
+    /// The id for "becomes [type] in addition to its other types" (CR 205.1b, layer 4).
+    /// </summary>
+    /// <remarks>
+    /// The other half of 205.1: this one keeps what was there. It is a separate id rather than a
+    /// flag on the one above because a generated definition is looked up by name alone, and the
+    /// two do opposite things to the same list — a Vampire told to become a Demon "in addition to
+    /// its other types" is both, and reading it as the replacement would take away the type the
+    /// rest of the board is counting.
+    /// </remarks>
+    public static string GainsCreatureTypeId(string type) =>
+        string.Create(CultureInfo.InvariantCulture, $"gains-type:{type}");
 
     public static string BecomesColorId(ManaColor colour) =>
         string.Create(CultureInfo.InvariantCulture, $"becomes-color:{Named(colour)}");
@@ -504,16 +524,46 @@ public static partial class GenerativeEffects
         if (retyped.Success)
         {
             var named = retyped.Groups["t"].Value;
+            var displaces = EffectPhrase.SubtypeSetOf(named);
 
             return new ContinuousEffectDefinition
             {
                 Id = definitionId,
                 Layer = EffectLayer.Type,
                 Applies = (_, _, _) => true,
+
+                // CR 205.1a: the new subtype replaces the existing subtypes *from the appropriate
+                // set* - creature types, land types, artifact types, and so on are separate sets
+                // and a change to one leaves the others alone. Clearing the list wholesale meant
+                // an animated basic land stopped being a Forest.
                 Apply = (_, _, builder) =>
                 {
-                    builder.Subtypes.Clear();
+                    builder.Subtypes.RemoveAll(
+                        had => EffectPhrase.SubtypeSetOf(had) == displaces);
+
                     builder.Subtypes.Add(named);
+                },
+            };
+        }
+
+        var alsoTyped = GainsCreatureTypeName().Match(definitionId);
+        if (alsoTyped.Success)
+        {
+            var extra = alsoTyped.Groups["t"].Value;
+
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Type,
+                Applies = (_, _, _) => true,
+
+                // CR 205.1b: everything the permanent already was, plus this. Guarded against
+                // saying it twice, because a permanent that already has the type reads the same
+                // whether the effect is applying or not and a doubled entry would show in a view.
+                Apply = (_, _, builder) =>
+                {
+                    if (!builder.Subtypes.Contains(extra, StringComparer.OrdinalIgnoreCase))
+                        builder.Subtypes.Add(extra);
                 },
             };
         }
@@ -626,6 +676,9 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^becomes-type:(?<t>[A-Za-z' -]+)$")]
     private static partial Regex BecomesCreatureTypeName();
+
+    [GeneratedRegex(@"^gains-type:(?<t>[A-Za-z' -]+)$")]
+    private static partial Regex GainsCreatureTypeName();
 
     [GeneratedRegex(@"^must-block:(?<a>[0-9a-f]{32})$")]
     private static partial Regex MustBlockAttackerName();
