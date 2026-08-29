@@ -2263,6 +2263,29 @@ public sealed record Cascade : IEffect
     }
 }
 
+/// <summary>
+/// Offers to show the top N cards and cast the ones sharing this spell's name (CR 702.60a).
+/// </summary>
+/// <remarks>
+/// Cascade's shape with the search replaced by a name match, and like cascade it records that the
+/// question is owed rather than asking it: an effect returns events, and a decision halts the
+/// whole game. What name to match is read from the spell underneath rather than carried here, so
+/// one definition serves every card that has the keyword.
+/// </remarks>
+public sealed record Ripple(Amount Count) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var many = Math.Max(0, Count.In(context));
+        if (many == 0)
+            return [];
+
+        return [new RippleRequested(context.ControllerId, context.PhysicalSourceId, many)];
+    }
+}
+
 /// <summary>Puts counters on a target permanent (CR 121.2).</summary>
 public sealed record PutCounters(
     string Kind,
@@ -2357,6 +2380,18 @@ public sealed record PumpUntilEndOfTurn(
     /// </remarks>
     public bool UntilYourNextTurn { get; init; }
 
+    /// <summary>
+    /// Whether the effect ends at cleanup, or lasts for as long as the game does (CR 611.2).
+    /// </summary>
+    /// <remarks>
+    /// False is for the few effects that change a permanent and say nothing about when they
+    /// stop: awaken stands a land up as a creature and it stays one. The duration lives on the
+    /// effect rather than in the definition id because the id names <em>what</em> the change is,
+    /// and the same change can be temporary on one card and permanent on another. It is
+    /// exclusive with <see cref="UntilYourNextTurn"/> - a card prints one duration or none.
+    /// </summary>
+    public bool ForTheTurn { get; init; } = true;
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -2375,7 +2410,7 @@ public sealed record PumpUntilEndOfTurn(
                 Guid.NewGuid(),
                 DefinitionId,
                 [subject],
-                UntilYourNextTurn ? null : context.State.TurnNumber)
+                UntilYourNextTurn || !ForTheTurn ? null : context.State.TurnNumber)
             {
                 UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
             },

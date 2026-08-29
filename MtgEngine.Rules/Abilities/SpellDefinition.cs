@@ -224,6 +224,66 @@ public sealed record SpellDefinition
     /// </remarks>
     public ImmutableList<IEffect> OverloadEffects { get; init; } = [];
 
+    /// <summary>What casting this for its awaken cost costs (CR 702.113a).</summary>
+    public ManaCostSpec? AwakenCost { get; init; }
+
+    /// <summary>What casting this for its sneak cost costs in mana (CR 702.190a).</summary>
+    /// <remarks>
+    /// Only half the price. The rest is <see cref="SneakReturn"/>, and the two are paid together
+    /// or not at all - which is why the mana cost alone would be a discount rather than an
+    /// alternative cost.
+    /// </remarks>
+    public ManaCostSpec? SneakCost { get; init; }
+
+    /// <summary>
+    /// The attacker given up to pay a sneak cost (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// Ninjutsu's cost on a spell instead of an activated ability, and it buys the same thing:
+    /// what the returned creature was attacking is what the permanent this becomes arrives
+    /// attacking (CR 702.190b).
+    /// </remarks>
+    public ChosenCost? SneakReturn { get; init; }
+
+    /// <summary>
+    /// The optional additional cost teamwork charges (CR 702.194a).
+    /// </summary>
+    /// <remarks>
+    /// "You may tap any number of creatures you control with total power N or more" - crew's cost
+    /// offered rather than demanded, which is why it is kept apart from
+    /// <see cref="ChosenCosts"/> the same way bargain's is: those are charged every time and this
+    /// one only when the caster says so.
+    /// <para>
+    /// What paying it buys is on the card's other lines - "if this spell was cast using teamwork,
+    /// ..." - and those sentences are not read yet, so <see cref="GameObject.WasTeamwork"/> is
+    /// recorded and nothing consults it. The alternative was to leave the keyword unread, which
+    /// would be reading a cost as though the card did not offer it.
+    /// </para>
+    /// </remarks>
+    public ChosenCost? TeamworkCost { get; init; }
+
+    /// <summary>
+    /// The land the awaken half animates, targeted only when awaken was paid (CR 702.113b).
+    /// </summary>
+    /// <remarks>
+    /// Added to the spell's own targets as it is cast, exactly as bestow's is, and added
+    /// <em>last</em> so that <see cref="AwakenEffects"/> can find it as the final entry however
+    /// many the card printed. The rule is emphatic that it is not a target otherwise: a spell
+    /// cast for its printed cost "is cast as if it didn't have that target", so nothing about it
+    /// can be countered for having no legal target.
+    /// </remarks>
+    public TargetSpec? AwakenTarget { get; init; }
+
+    /// <summary>
+    /// What the awaken half does, on top of everything the card already says (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Added to the printed effects rather than replacing them, which is the difference from
+    /// overload: an awakened spell still does what it says, and then puts counters on a land and
+    /// stands it up. Its effects index into their own one-target slice, the way a mode's do.
+    /// </remarks>
+    public ImmutableList<IEffect> AwakenEffects { get; init; } = [];
+
     /// <summary>
     /// What one extra copy of this spell costs (CR 702.55a) - replicate.
     /// </summary>

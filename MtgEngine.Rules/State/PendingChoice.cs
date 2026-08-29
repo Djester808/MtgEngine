@@ -112,6 +112,39 @@ public enum ChoiceKind
     /// <summary>Which creatures are eaten as a devouring creature enters (CR 702.81a).</summary>
     Devour,
 
+    /// <summary>
+    /// Which cards are revealed from hand as an amplifying creature enters (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Devour's question asked of the hand rather than the battlefield, and it keeps devour's
+    /// shape for the same reason: revealing none is declining, so it is one question rather than
+    /// a yes/no followed by a selection.
+    /// </remarks>
+    Amplify,
+
+    /// <summary>
+    /// Which chapter a Saga with read ahead starts at (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// A number between one and the Saga's final chapter, asked as it enters. The options are
+    /// the numbers themselves rather than a free entry, because every choice in this engine is
+    /// a pick from a list the game offers - which is what makes an answer checkable when it
+    /// arrives from outside.
+    /// </remarks>
+    ReadAhead,
+
+    /// <summary>
+    /// Whether to reveal the top cards for a ripple (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// One option, and picking nothing declines - the same shape devour uses, because "you may"
+    /// followed by a thing to do is one question rather than a yes/no and then a selection. It
+    /// is a real decision rather than a formality: rippling shuffles what was on top of the
+    /// library into the bottom in a random order, which a player who has just scried does not
+    /// want.
+    /// </remarks>
+    Ripple,
+
     /// <summary>Which creature a ciphered spell is encoded on, if any (CR 702.99a).</summary>
     EncodeOnCreature,
 

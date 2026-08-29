@@ -668,7 +668,10 @@ public sealed class Game
         bool withFlash = false,
         bool prototyped = false,
         bool mutated = false,
-        bool mutateOnTop = true)
+        bool mutateOnTop = true,
+        bool awakened = false,
+        bool sneaked = false,
+        bool teamwork = false)
     {
         RequirePriority(playerId);
 
@@ -814,8 +817,28 @@ public sealed class Game
                 $"{card.Card.Name} has no offer to cast it as though it had flash.");
         }
 
+        // CR 702.190a: sneak buys one window and one only - "any time you could cast an instant
+        // during your declare blockers step". Refused outside it rather than quietly falling back
+        // to the printed timing, because a cheap creature castable in a main phase is a different
+        // card from one that can only be swapped in mid-combat.
+        if (sneaked)
+        {
+            if (_abilities.SpellOf(card.Card)?.SneakCost is null)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no sneak (CR 702.190a).");
+            }
+
+            if (State.CurrentStep != TurnStep.DeclareBlockers)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} may only be sneaked in during a declare blockers step "
+                        + "(CR 702.190a).");
+            }
+        }
+
         // A prepared spell's timing is its own face's, not the creature's that is holding it.
-        var isInstant = withFlash || (prepared
+        var isInstant = sneaked || withFlash || (prepared
             ? _abilities.PreparedIsInstantOf(card.Card)
             : card.Card.CardTypes.HasFlag(CardType.Instant)
                 || Characteristics.Of(State, _abilities, card).Has(KeywordAbility.Flash));
@@ -1036,6 +1059,21 @@ public sealed class Game
             specs = [];
         }
 
+        // CR 702.113b: the awaken half's target is chosen only when the awaken cost is being
+        // paid - otherwise "the spell is cast as if it didn't have that target". Added last, so
+        // that the land is the final entry however many targets the card itself printed, which
+        // is where the awaken effects look for it on resolution.
+        if (awakened)
+        {
+            if (_abilities.SpellOf(card.Card)?.AwakenTarget is not { } land)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no awaken (CR 702.113a).");
+            }
+
+            specs = specs.Add(land);
+        }
+
         if (WhySplitSecondForbids() is { } held)
             throw new InvalidOperationException(held);
 
@@ -1134,6 +1172,31 @@ public sealed class Game
 
         if (overloaded && definition?.OverloadCost is { } overloadCost)
             cost = overloadCost;
+
+        // CR 702.190a: sneak is an alternative cost. Its mana half replaces the mana cost; the
+        // attacker it also asks for joins the chosen costs below.
+        if (sneaked)
+        {
+            if (definition?.SneakCost is not { } sneakCost)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no sneak (CR 702.190a).");
+            }
+
+            cost = sneakCost;
+        }
+
+        // CR 702.113a: awaken is an alternative cost, so it replaces the mana cost outright.
+        if (awakened)
+        {
+            if (definition?.AwakenCost is not { } awakenCost)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no awaken (CR 702.113a).");
+            }
+
+            cost = awakenCost;
+        }
 
         if (bestowed && definition?.BestowCost is { } bestowCost)
             cost = bestowCost;
@@ -1342,6 +1405,26 @@ public sealed class Game
             owed = owed.AddRange(giving.Payments);
         }
 
+        // CR 702.194a: teamwork's cost is optional, so it joins the list only when the caster
+        // has said they will pay it. Nothing is charged for saying no.
+        if (teamwork)
+        {
+            owed = owed.Add(
+                definition?.TeamworkCost
+                ?? throw new InvalidOperationException(
+                    $"{card.Card.Name} has no teamwork cost to pay (CR 702.194a)."));
+        }
+
+        // CR 702.190a: the other half of the sneak price. An additional entry rather than a
+        // replacement, so a card that also charges something of its own still charges it.
+        if (sneaked)
+        {
+            owed = owed.Add(
+                definition?.SneakReturn
+                ?? throw new InvalidOperationException(
+                    $"{card.Card.Name} has no sneak (CR 702.190a)."));
+        }
+
         // CR 702.166a: bargain's cost is optional, so it joins the list only when the caster has
         // said they will pay it - and a caster who says so on a card with no bargain is refused
         // rather than quietly cast for free.
@@ -1416,6 +1499,11 @@ public sealed class Game
         foreach (var spent in delved)
             Move(spent, Zone.Exile, MoveCause.Exile, playerId);
 
+        // What a returned attacker was attacking, read before it leaves: a sneaked permanent
+        // arrives against the same defender, and by the time the spell resolves the creature
+        // that knew it is in its owner's hand (CR 702.190b).
+        AttackTarget? joining = null;
+
         // Paid before the spell moves to the stack (CR 601.2f), which matters when the cost is
         // sacrificing a creature: the sacrifice happens whether or not the spell ever resolves,
         // and anything that triggers on it triggers now.
@@ -1442,9 +1530,14 @@ public sealed class Game
                 // CR 108.3: home to its owner, not to whoever is paying. Until an alternative
                 // cost could ask for it, no cast had ever charged this kind - it reached the
                 // engine as ninjutsu's, which is an activated ability - and a spell paying with
-                // one would have put the Island in the graveyard.
+                // one would have put the Island in the graveyard. Sneak notes the seat the
+                // returned attacker was attacking on the way out (CR 702.190a), because the
+                // arriving creature joins combat against the same player or planeswalker.
                 if (chosenCost.Kind is ChosenCostKind.ReturnToHand)
                 {
+                    if (State.Combat.Attackers.TryGetValue(paid, out var wasAttacking))
+                        joining ??= wasAttacking;
+
                     Move(paid, Zone.Hand, MoveCause.Return, State.GetObject(paid).OwnerId);
                     continue;
                 }
@@ -1552,6 +1645,15 @@ public sealed class Game
 
         if (overloaded)
             Emit(new SpellOverloaded(stackId));
+
+        if (awakened)
+            Emit(new SpellAwakened(stackId));
+
+        if (sneaked)
+            Emit(new SpellSneaked(stackId, joining));
+
+        if (teamwork)
+            Emit(new SpellTeamwork(stackId));
 
         if (bestowed)
             Emit(new SpellBestowed(stackId));
@@ -2951,6 +3053,27 @@ public sealed class Game
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
+            case ChoiceKind.Amplify:
+                ResolveAmplify(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.ReadAhead:
+                ResolveReadAhead(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.Ripple:
+                ResolveRipple(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.PayOrSacrifice:
                 ResolveSacrificeUnless(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3543,6 +3666,10 @@ public sealed class Game
 
     /// <summary>Cascades owed, performed at the next settle (CR 702.85a).</summary>
     private readonly List<CascadeRequested> _cascadesOwed = [];
+
+    private readonly List<RippleRequested> _ripplesOwed = [];
+
+    private RippleRequested? _rippleBeingAsked;
     private readonly List<DiscoverRequested> _discoveriesOwed = [];
 
     /// <summary>Hand choices owed, asked at the next settle (CR 701.16).</summary>
@@ -4395,6 +4522,96 @@ public sealed class Game
     }
 
     /// <summary>
+    /// Asks whether to ripple, and does it if the answer is yes (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// The reveal is optional and the question is a real one: a ripple puts what it showed on the
+    /// bottom of the library in a random order, so a player who has just arranged their top cards
+    /// will usually decline. Reading "you may" as "you do" would have been the cheap way and
+    /// would have made the card worse than printed on exactly the boards it is played on.
+    /// </remarks>
+    private bool AskOwedRipple()
+    {
+        if (_ripplesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _ripplesOwed[0];
+        _ripplesOwed.RemoveAt(0);
+
+        if (State.GetPlayer(owed.PlayerId).Library.IsEmpty)
+            return false;
+
+        _rippleBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"ripple:{owed.SourceId.Value:N}",
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.Ripple,
+            Prompt = "You may reveal the top "
+                + owed.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " cards of your library and cast the ones with this spell's name for free.",
+            Options = [new ChoiceOption("ripple", "Reveal them")],
+            MinPicks = 0,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Reveals the top cards and offers the matching ones for free (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// One deviation, and it is cascade's: a card offered for free and declined stays in exile
+    /// rather than going to the bottom of the library, because the offer lapses when its window
+    /// closes and there is nowhere in that moment to say where it should have gone. It only ever
+    /// touches a card sharing the spell's name, which is a card its caster would cast.
+    /// </remarks>
+    private void ResolveRipple(IReadOnlyList<string> picks)
+    {
+        if (_rippleBeingAsked is not { } owed)
+            return;
+
+        _rippleBeingAsked = null;
+
+        if (picks.Count == 0)
+            return;
+
+        if (!State.TryGetObject(owed.SourceId, out var spell))
+            return;
+
+        var name = spell.Card.Name;
+        var top = State.GetPlayer(owed.PlayerId).Library.Take(owed.Count).ToList();
+        var buried = new List<ObjectId>();
+
+        foreach (var id in top)
+        {
+            var card = State.GetObject(id);
+
+            // CR 702.60a: only cards with the same name as this spell may be cast this way. The
+            // rest are the ones that go on the bottom.
+            if (!string.Equals(card.Card.Name, name, StringComparison.Ordinal))
+            {
+                buried.Add(id);
+                continue;
+            }
+
+            var exiled = Move(id, Zone.Exile, MoveCause.Exile, owed.PlayerId);
+            if (exiled is { } offered)
+                Emit(new FreeCastOffered(offered, owed.PlayerId));
+        }
+
+        // CR 702.60a says "in any order", which is the player's decision, and this does not ask
+        // - the same reading the look-and-take vocabulary already takes. The cards end face down
+        // on the bottom of a library either way, and the difference is one nobody can observe.
+        // Randomised rather than left in library order so that no information leaks out of the
+        // order they went back in.
+        foreach (var id in _random.Shuffle(buried))
+            Move(id, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Bottom);
+    }
+
+    /// <summary>
     /// Asks the oldest owed hand choice, if any (CR 701.16).
     /// </summary>
     /// <remarks>
@@ -4508,6 +4725,232 @@ public sealed class Game
 
         if (eaten > 0)
             Emit(new CountersChanged(owed.Id, CounterKinds.PlusOnePlusOne, eaten * owed.Each));
+    }
+
+    /// <summary>
+    /// "As this creature enters, you may reveal any number of cards from your hand that share a
+    /// creature type with it. It enters with N +1/+1 counters on it for each" (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Devour's question asked of the hand instead of the battlefield, and asked in the same
+    /// sweep for the same reason: a replacement effect cannot stop and ask, and every amplifying
+    /// creature is printed with a body that the counters are meant to be added to rather than a
+    /// 0/0 that dies without them - so the deviation is safe here in a way it is not for devour.
+    /// <para>
+    /// The types compared are the arriving permanent's <em>computed</em> ones, so a changeling
+    /// amplifies off anything and a creature that was made a Dragon this turn amplifies off
+    /// Dragons. What is in hand is compared by its printed types, which is all a card in a hand
+    /// has (CR 613.2) - plus its own changeling, which is a characteristic-defining ability and
+    /// therefore true in every zone.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedAmplify()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        foreach (var id in State.Battlefield)
+        {
+            if (_amplifyAsked.Contains(id))
+                continue;
+
+            var obj = State.GetObject(id);
+            var each = _abilities.AmplifyCountOf(obj.Card);
+            if (each <= 0)
+                continue;
+
+            _amplifyAsked.Add(id);
+
+            var mine = Characteristics.Of(State, _abilities, obj);
+            var controller = ControllerOf(obj);
+
+            var showable = State.GetPlayer(controller).Hand
+                .Select(State.GetObject)
+                .Where(held => SharesACreatureType(mine, held))
+                .ToList();
+
+            if (showable.Count == 0)
+                continue;
+
+            _amplifyBeingAsked = (id, each);
+
+            Ask(new PendingChoice
+            {
+                Id = $"amplify:{id.Value:N}",
+                PlayerId = controller,
+                Kind = ChoiceKind.Amplify,
+                Prompt = $"Reveal any number of cards from your hand to amplify "
+                    + $"{obj.Card.Name}. Each is worth {each} +1/+1 counter(s).",
+                Options = [.. showable.Select(held => new ChoiceOption(
+                    held.Id.Value.ToString("N"), held.Card.Name))],
+                MinPicks = 0,
+                MaxPicks = showable.Count,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether a card in hand shares a creature type with an arriving permanent.</summary>
+    private static bool SharesACreatureType(ComputedCharacteristics mine, GameObject held) =>
+        held.Card.CardTypes.HasFlag(CardType.Creature)
+        && (held.Card.Keywords.HasFlag(KeywordAbility.Changeling)
+            || mine.IsEveryCreatureType
+            || held.Card.Subtypes.Any(mine.HasSubtype));
+
+    private readonly HashSet<ObjectId> _amplifyAsked = [];
+
+    private (ObjectId Id, int Each)? _amplifyBeingAsked;
+
+    /// <summary>Shows what was chosen and puts the counters on (CR 702.38a).</summary>
+    private void ResolveAmplify(IReadOnlyList<string> picks)
+    {
+        if (_amplifyBeingAsked is not { } owed)
+            return;
+
+        _amplifyBeingAsked = null;
+
+        if (!State.TryGetObject(owed.Id, out var amplified)
+            || amplified.Zone != Zone.Battlefield)
+        {
+            return;
+        }
+
+        var mine = Characteristics.Of(State, _abilities, amplified);
+        var shown = ImmutableList.CreateBuilder<ObjectId>();
+
+        foreach (var pick in picks)
+        {
+            var id = new ObjectId(Guid.ParseExact(pick, "N"));
+
+            // Re-checked rather than trusted: the option list was built for this player's hand
+            // as it was, and an answer arrives from outside the engine.
+            if (!State.TryGetObject(id, out var held)
+                || held.Zone != Zone.Hand
+                || held.OwnerId != ControllerOf(amplified)
+                || !SharesACreatureType(mine, held))
+            {
+                continue;
+            }
+
+            shown.Add(id);
+        }
+
+        if (shown.Count == 0)
+            return;
+
+        // The reveal is what the cost of the counters is, so it goes in the log before them.
+        Emit(new CardsRevealed(ControllerOf(amplified), shown.ToImmutable()));
+
+        Emit(new CountersChanged(
+            owed.Id, CounterKinds.PlusOnePlusOne, shown.Count * owed.Each));
+    }
+
+    /// <summary>
+    /// "As this Saga enters, choose a number between one and its final chapter number, and it
+    /// enters with that many lore counters on it" (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// Read ahead replaces the intrinsic ability that gives every other Saga its first counter
+    /// (CR 714.3b), so a Saga with it sits at zero until this is answered - which is safe, and
+    /// deliberately so: nothing sacrifices a Saga for being below its final chapter, and this
+    /// sweep runs before state-based actions do.
+    /// <para>
+    /// The counters arrive in one lump, which without CR 702.155a's restriction would fire every
+    /// chapter from the first. The restriction lives in the chapter predicate the compiler
+    /// builds, where it can see whether the Saga entered this turn.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedReadAhead()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        foreach (var id in State.Battlefield)
+        {
+            if (_readAheadAsked.Contains(id))
+                continue;
+
+            var obj = State.GetObject(id);
+            if (!_abilities.HasReadAhead(obj.Card))
+                continue;
+
+            var final = FinalChapterOf(obj.Card);
+            if (final <= 0)
+                continue;
+
+            _readAheadAsked.Add(id);
+            _readAheadBeingAsked = id;
+
+            Ask(new PendingChoice
+            {
+                Id = $"read-ahead:{id.Value:N}",
+                PlayerId = ControllerOf(obj),
+                Kind = ChoiceKind.ReadAhead,
+                Prompt = $"Choose the chapter {obj.Card.Name} starts at.",
+                Options =
+                [
+                    .. Enumerable.Range(1, final).Select(n => new ChoiceOption(
+                        n.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        "Chapter "
+                            + n.ToString(System.Globalization.CultureInfo.InvariantCulture))),
+                ],
+                MinPicks = 1,
+                MaxPicks = 1,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The greatest chapter number a Saga has, which is its final chapter (CR 714.2d).</summary>
+    private int FinalChapterOf(CardDefinition card)
+    {
+        var final = 0;
+        foreach (var trigger in _abilities.TriggersOf(card))
+        {
+            if (trigger.Chapter is { } chapter && chapter > final)
+                final = chapter;
+        }
+
+        return final;
+    }
+
+    private readonly HashSet<ObjectId> _readAheadAsked = [];
+
+    private ObjectId? _readAheadBeingAsked;
+
+    /// <summary>Starts the Saga at the chapter that was picked (CR 702.155b).</summary>
+    private void ResolveReadAhead(IReadOnlyList<string> picks)
+    {
+        if (_readAheadBeingAsked is not { } saga)
+            return;
+
+        _readAheadBeingAsked = null;
+
+        if (!State.TryGetObject(saga, out var onBoard) || onBoard.Zone != Zone.Battlefield)
+            return;
+
+        var final = FinalChapterOf(onBoard.Card);
+
+        // Clamped rather than trusted: the answer arrives from outside the engine, and a Saga
+        // started past its final chapter would be sacrificed before it did anything.
+        var chosen = picks.Count > 0
+            && int.TryParse(
+                picks[0],
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var n)
+            && n >= 1
+            && n <= final
+            ? n
+            : 1;
+
+        Emit(new CountersChanged(saga, CounterKinds.Lore, chosen));
     }
 
     private bool AskOwedEntryChoice()
@@ -7045,6 +7488,12 @@ public sealed class Game
             if (AskOwedDevour())
                 return true;
 
+            if (AskOwedAmplify())
+                return true;
+
+            if (AskOwedReadAhead())
+                return true;
+
             if (AskOwedEntryChoice())
                 return true;
 
@@ -7067,6 +7516,9 @@ public sealed class Game
                 return true;
 
             if (SettleOwedCascade())
+                return true;
+
+            if (AskOwedRipple())
                 return true;
 
             if (SettleOwedFlip())
@@ -8452,6 +8904,10 @@ public sealed class Game
         switch (step)
         {
             case TurnStep.Untap:
+                // CR 703.4a: phasing happens immediately after the untap step begins, before
+                // anything untaps - so a permanent that phases in this turn is untapped by the
+                // step it arrived in, and one that phases out is not.
+                PhaseInAndOut();
                 TurnTheSky();
 
                 // CR 611.2b: "until your next turn" runs out as that player's next turn begins,
@@ -8554,6 +9010,72 @@ public sealed class Game
 
         // CR 117.3a: the active player receives priority at the beginning of most steps.
         Emit(new PriorityGranted(State.ActivePlayerId));
+    }
+
+    /// <summary>
+    /// Phases permanents out and in, before the active player untaps (CR 703.4a).
+    /// </summary>
+    /// <remarks>
+    /// One turn-based action, not two: everything phases at once (CR 702.26a), so both lists are
+    /// worked out against the board as it stands and only then written. Reading the second list
+    /// after the first had been applied would phase a permanent out and straight back in.
+    /// <para>
+    /// CR 702.26g: an Aura, Equipment or Fortification attached to something that phases out goes
+    /// with it, and comes back with it - which is why what is written down is the player whose
+    /// untap step returns each permanent rather than its own controller. An opponent's Aura on
+    /// your phasing creature returns on <em>your</em> untap step, along with the creature.
+    /// </para>
+    /// </remarks>
+    private void PhaseInAndOut()
+    {
+        var returning = State.PhasedOut
+            .Where(pair => pair.Value == State.ActivePlayerId)
+            .Select(pair => pair.Key)
+            .ToList();
+
+        var leaving = new Dictionary<ObjectId, Guid>();
+
+        foreach (var id in State.Battlefield)
+        {
+            var obj = State.GetObject(id);
+            if (ControllerOf(obj) != State.ActivePlayerId)
+                continue;
+
+            if (Characteristics.Of(State, _abilities, obj).Has(KeywordAbility.Phasing))
+                leaving[id] = State.ActivePlayerId;
+        }
+
+        // CR 702.26g, 702.26h: anything attached to a departing permanent leaves with it, under
+        // the departing permanent's schedule rather than its own. Run to a fixed point so a
+        // chain - an Aura on an Equipment on a creature - goes whole.
+        bool grew;
+        do
+        {
+            grew = false;
+
+            foreach (var id in State.Battlefield)
+            {
+                if (leaving.ContainsKey(id))
+                    continue;
+
+                if (State.GetObject(id).Permanent?.AttachedTo is { } host
+                    && leaving.TryGetValue(host, out var withHost))
+                {
+                    leaving[id] = withHost;
+                    grew = true;
+                }
+            }
+        }
+        while (grew);
+
+        if (leaving.Count == 0 && returning.Count == 0)
+            return;
+
+        foreach (var (id, returnsFor) in leaving)
+            Emit(new PermanentPhasedOut(id, returnsFor));
+
+        foreach (var id in returning)
+            Emit(new PermanentPhasedIn(id));
     }
 
     private void Untap()
@@ -9092,6 +9614,17 @@ public sealed class Game
             RunSpliced();
         }
 
+        // CR 702.113a: the awaken half is a second spell ability that happens on top of
+        // everything the card already said - not instead of it, which is the difference from
+        // overload. Its one target was added last as the spell was cast, so it is the final
+        // entry in whatever the card, its modes and its splices between them chose.
+        if (spell.WasAwakened && spellDefinition is { AwakenEffects.IsEmpty: false })
+        {
+            RunEffects(
+                spellDefinition.AwakenEffects,
+                spell with { Targets = [.. spell.Targets.Skip(spell.Targets.Count - 1)] });
+        }
+
         // CR 608.3: a permanent spell becomes a permanent. CR 608.2m: an instant or sorcery is
         // put into its owner's graveyard as the final part of its resolution — unless it was cast
         // with flashback, which exiles it instead (CR 702.34a).
@@ -9177,6 +9710,18 @@ public sealed class Game
         // that decided what resolved, so it is read from the same place.
         if (castHalf is { } opened && destination == Zone.Battlefield && landed is { } arrived)
             Emit(new HalfUnlocked(arrived, opened));
+
+        // CR 702.190b: "a permanent spell whose sneak cost was paid enters the battlefield tapped
+        // and attacking ... the same player, planeswalker, or battle as the creature that was
+        // returned". It arrives attacking without ever having been declared, so no "whenever this
+        // attacks" ability of its own triggers - the same thing ninjutsu's JoinedCombat says.
+        if (spell.JoiningAgainst is { } sneakingInto
+            && destination == Zone.Battlefield
+            && landed is { } snuckIn)
+        {
+            Emit(new PermanentTapped(snuckIn));
+            Emit(new JoinedCombat(snuckIn, sneakingInto));
+        }
 
         // Emitted straight after the move rather than as part of it, because turning face down is
         // its own thing that happens to a permanent and the move is not where that knowledge is.
@@ -9759,6 +10304,9 @@ public sealed class Game
 
         if (e is CascadeRequested cascading)
             _cascadesOwed.Add(cascading);
+
+        if (e is RippleRequested rippling)
+            _ripplesOwed.Add(rippling);
 
         // Rebound exiles the spell instead of letting it reach the graveyard, and the moment to
         // say so is now: the trigger resolves while the spell is still on the stack underneath

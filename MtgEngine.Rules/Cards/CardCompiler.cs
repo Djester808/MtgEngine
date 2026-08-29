@@ -306,6 +306,7 @@ public static partial class CardCompiler
         var noHandLimit = false;
         var chooses = ChoiceOnEntry.None;
         var devour = 0;
+        var amplify = 0;
         ManaCostSpec? flashSurcharge = null;
         ManaCostSpec? prototypeCost = null;
         ManaCostSpec? miracleCost = null;
@@ -332,6 +333,19 @@ public static partial class CardCompiler
         ManaCostSpec? offspring = null;
         ManaCostSpec? suspend = null;
         ManaCostSpec? overload = null;
+        ManaCostSpec? awaken = null;
+        string? awakenLine = null;
+        var awakenCounters = 0;
+        ManaCostSpec? sneak = null;
+        ChosenCost? sneakReturn = null;
+        ChosenCost? teamwork = null;
+
+        // CR 702.155a: read ahead changes what a chapter ability may do on the turn the Saga
+        // arrives, and the chapter lines are printed above it on every card that has it. So the
+        // word is looked for before any line is read rather than hoping for a line order - a
+        // chapter predicate built before the keyword was seen would be built without the rule.
+        var readAhead = card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
+            && Lines(card).Any(l => ReadAheadLine().IsMatch(l));
         ChosenCost? conspire = null;
         var splitSecond = false;
         ManaCostSpec? bestow = null;
@@ -526,6 +540,9 @@ public static partial class CardCompiler
             if (TryStorm(line, card, triggers))
                 continue;
 
+            if (TryRipple(line, card, triggers))
+                continue;
+
             if (TryJumpStart(line, card, ref castFrom))
                 continue;
 
@@ -683,6 +700,12 @@ public static partial class CardCompiler
             if (TryBloodthirst(line, replacements))
                 continue;
 
+            if (TryRavenous(line, card, triggers, replacements))
+                continue;
+
+            if (TryAmplify(line, card, ref amplify))
+                continue;
+
             if (TryGroupEntersWithAdditionalCounter(line, card, replacements))
                 continue;
 
@@ -692,7 +715,10 @@ public static partial class CardCompiler
             if (TryEntersWithCounters(line, card, replacements))
                 continue;
 
-            if (TrySagaChapter(line, triggers, unhandled))
+            if (ReadAheadLine().IsMatch(line) && readAhead)
+                continue;
+
+            if (TrySagaChapter(line, triggers, unhandled, readAhead))
                 continue;
 
             if (TryClassLevelTrigger(line, triggers, unhandled))
@@ -918,6 +944,65 @@ public static partial class CardCompiler
                 }
 
                 overload = ManaCostSpec.Parse(loud.Groups["cost"].Value);
+                continue;
+            }
+
+            if (TeamworkLine().Match(line) is { Success: true } together)
+            {
+                // CR 702.194a: "you may tap any number of creatures you control with total power
+                // N or more" - crew's shape as an optional additional cost, and the same
+                // MinTotalPower the crew cost already carries answers it.
+                if (EffectPhrase.Specs.Parse("target creature you control") is not
+                    { Kind: TargetKind.Permanent } crewmate)
+                {
+                    unhandled.Add(line);
+                    continue;
+                }
+
+                teamwork = new ChosenCost(
+                    ChosenCostKind.TapPermanents,
+                    0,
+                    crewmate with { Description = "a creature you control" },
+                    ExcludesSource: false,
+                    MinTotalPower: int.Parse(
+                        together.Groups["n"].Value, CultureInfo.InvariantCulture));
+
+                continue;
+            }
+
+            if (TryHideaway(line, card, triggers))
+                continue;
+
+            if (SneakLine().Match(line) is { Success: true } snuck)
+            {
+                // CR 702.190a: the mana is only half the price - an attacker goes back to hand
+                // with it. Both halves are read here or neither is, because the cost alone is a
+                // discount on the printed card rather than an alternative way to cast it.
+                if (EffectPhrase.Specs.Parse("target unblocked creature you control") is not
+                    { Kind: TargetKind.Permanent } attacker)
+                {
+                    unhandled.Add(line);
+                    continue;
+                }
+
+                sneak = ManaCostSpec.Parse(snuck.Groups["cost"].Value);
+                sneakReturn = new ChosenCost(
+                    ChosenCostKind.ReturnToHand,
+                    1,
+                    attacker with { Description = "an unblocked attacker you control" });
+
+                continue;
+            }
+
+            if (AwakenLine().Match(line) is { Success: true } roused)
+            {
+                awaken = ManaCostSpec.Parse(roused.Groups["cost"].Value);
+                awakenCounters = int.Parse(
+                    roused.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+                // Held so that the line can go back unread if the half cannot be built - see
+                // the end of Compile, where the target phrase is read.
+                awakenLine = line;
                 continue;
             }
 
@@ -1267,6 +1352,53 @@ public static partial class CardCompiler
             extraModes = null;
         }
 
+        // CR 702.113a: the awaken half is a whole spell ability of its own, and it is built here
+        // rather than where the line was read because it targets a land the printed spell knows
+        // nothing about. Its effects index into their own one-target slice, the way a mode's do,
+        // so the card's own targets keep the indices they were compiled with.
+        var awakenTarget = awaken is null
+            ? null
+            : EffectPhrase.Specs.Parse("target land you control");
+
+        var awakenEffects = ImmutableList<IEffect>.Empty;
+
+        if (awaken is not null && awakenTarget is not null)
+        {
+            awakenEffects =
+            [
+                new PutCounters(CounterKinds.PlusOnePlusOne, awakenCounters),
+
+                // Four separate effects because they are four separate layers (CR 613.1): the
+                // creature type is layer 4, the size is layer 7b and haste is layer 6, and one
+                // effect cannot be in two of them. Adding the card type rather than replacing it
+                // is what the rider "it's still a land" says.
+                new PumpUntilEndOfTurn(GenerativeEffects.BecomesId(CardType.Creature))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.GainsCreatureTypeId("Elemental"))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.SetPowerToughnessId(0, 0))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.GrantId(KeywordAbility.Haste))
+                {
+                    ForTheTurn = false,
+                },
+            ];
+        }
+
+        // A cost with nothing behind it would be a discount on the printed spell, which is a
+        // strictly better card than the one that was printed. The line goes back unread instead.
+        if (awakenLine is not null && awakenEffects.IsEmpty)
+        {
+            unhandled.Add(awakenLine);
+            awaken = null;
+        }
+
         var built = new SpellDefinition
         {
             Targets = spellTargets.ToImmutable(),
@@ -1303,6 +1435,12 @@ public static partial class CardCompiler
             CopyingCost = conspire,
             OverloadCost = overload,
             OverloadEffects = overloadEffects,
+            AwakenCost = awaken,
+            AwakenTarget = awaken is null ? null : awakenTarget,
+            AwakenEffects = awakenEffects,
+            SneakCost = sneak,
+            SneakReturn = sneakReturn,
+            TeamworkCost = teamwork,
             PlotCost = plot,
             ReplicateCost = replicate,
             OffspringCost = offspring,
@@ -1348,11 +1486,19 @@ public static partial class CardCompiler
         //
         // Conditioned on the card actually having a chapter, so that a Saga whose chapters this
         // compiler could not read does not quietly gain a counter it has nothing to spend on.
-        // Read ahead (CR 702.155) replaces this ability with a choice, and is not read yet - a
-        // Saga carrying it keeps that line unread, so the card is incomplete and unplayable
-        // rather than silently starting at chapter one.
-        if (card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
-            && triggers.Any(t => t.Chapter is not null))
+        //
+        // CR 702.155b replaces this ability outright on a Saga with read ahead: that one enters
+        // with a *chosen* number of counters instead of one, which is a question and therefore
+        // lives in the engine's owed-choice sweep rather than in a replacement effect here.
+        var isSaga = card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
+            && triggers.Any(t => t.Chapter is not null);
+
+        // The word on a card with no chapter this compiler could read has nothing to change, and
+        // a Saga that started at a chapter it cannot run is worse than one left unread.
+        if (readAhead && !isSaga)
+            unhandled.Add("Read ahead");
+
+        if (isSaga && !readAhead)
         {
             replacements.Add(new ReplacementEffectDefinition
             {
@@ -1388,6 +1534,8 @@ public static partial class CardCompiler
             RemovesHandLimit = noHandLimit,
             ChoosesOnEntry = chooses,
             DevourCount = devour,
+            AmplifyCount = amplify,
+            HasReadAhead = isSaga && readAhead,
             ExtraLandDrops = extraLandDrops,
             MayDeclineUntap = mayDeclineUntap,
             SkipsDrawStep = skipsDraw,
@@ -3426,6 +3574,45 @@ public static partial class CardCompiler
     /// the player's count already includes it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "Ripple N" &#8212; show the top N and cast the copies for nothing (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// Storm's shape - a trigger that fires from the stack as the spell is cast - with cascade's
+    /// resolution: exile what matched, offer it for free, and put the rest on the bottom of the
+    /// library in a random order. Which name to match is read from the spell underneath at
+    /// resolution, so nothing about the card travels in the definition.
+    /// </remarks>
+    private static bool TryRipple(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = RippleLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (TriggerConditions.Parse("you cast ~") is not { } cast)
+            return false;
+
+        var count = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+        if (count <= 0)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "ripple",
+            Text = $"When you cast {card.Name}, you may reveal the top "
+                + count.ToString(CultureInfo.InvariantCulture)
+                + " cards of your library. If you do, you may cast any of those cards with the "
+                + "same name as this spell without paying their mana costs, then put the rest on "
+                + "the bottom of your library.",
+            FunctionsFrom = Zone.Stack,
+            Triggers = cast,
+            Effects = [new Ripple(count)],
+        });
+
+        return true;
+    }
+
     private static bool TryStorm(
         string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
     {
@@ -4852,6 +5039,168 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Ravenous" &#8212; X counters, and a card when X was big (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// One word standing for a replacement effect and a triggered ability, both of which read the
+    /// same number: the X paid for the creature. So the keyword is refused outright on a card
+    /// whose mana cost has no {X} in it. Ravenous on such a card would be a creature that enters
+    /// with nothing and never draws, which is not a card worth reading, and more to the point it
+    /// would be reading a word the printed card cannot mean.
+    /// <para>
+    /// The draw's intervening-if is checked twice (CR 603.4), and both checks read X off the
+    /// object &#8212; which is why <c>GameReducer</c> carries <see cref="GameObject.VariableValue"/>
+    /// across the one move that turns a spell into a permanent, exactly as it already carries
+    /// "was kicked" for the same rule (CR 607.2). Without that the second check finds a zero on
+    /// the permanent and no ravenous creature in the game ever draws.
+    /// </para>
+    /// </remarks>
+    private static bool TryRavenous(
+        string line,
+        CardDefinition card,
+        ImmutableList<TriggeredAbilityDefinition>.Builder triggers,
+        ImmutableList<ReplacementEffectDefinition>.Builder replacements)
+    {
+        if (!RavenousLine().IsMatch(line))
+            return false;
+
+        // CR 702.156a: "found on some creature cards with {X} in their mana cost". Both halves
+        // of the keyword are about that X, so without one there is nothing here to read.
+        if (!card.ManaCostRaw.Contains("{X}", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (TriggerConditions.Parse("~ enters") is not { } entered)
+            return false;
+
+        replacements.Add(new ReplacementEffectDefinition
+        {
+            Id = "ravenous",
+            FunctionsFrom = null,
+            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Replace = (e, state, source) =>
+            {
+                var arrived = Arriving(e, source)!.Value;
+
+                // X rides on the object that was cast, which only a move has - a ravenous
+                // creature put onto the battlefield by something else was never cast for an X
+                // and arrives with nothing, which is what the rules say.
+                var many = e is ObjectMoved move && state.TryGetObject(move.OldId, out var cast)
+                    ? cast.VariableValue
+                    : 0;
+
+                return many <= 0
+                    ? [e]
+                    : [e, new CountersChanged(arrived, CounterKinds.PlusOnePlusOne, many)];
+            },
+        });
+
+        bool BigX(GameState _, IAbilitySource __, GameObject source) => source.VariableValue >= 5;
+
+        triggers.Add(new TriggeredAbilityDefinition
+        {
+            Id = "ravenous",
+            Text = $"When {card.Name} enters, if X is 5 or more, draw a card.",
+            Triggers = (e, state, source) =>
+                entered(e, state, source) && BigX(state, source.Abilities, source),
+            Effects = [new OnlyIf(BigX, [new DrawCards(new Amount(1))])],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Amplify N" &#8212; counters bought by showing the rest of the tribe (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// "As this creature enters, reveal any number of cards from your hand that share a creature
+    /// type with it. It enters with N +1/+1 counters on it for each card revealed this way."
+    /// <para>
+    /// The share-a-type test is the card's own creature types, which the line does not print -
+    /// so a card with no creature types has no amplify the engine can honour and the line is left
+    /// unread rather than compiled into a keyword that can never find anything to reveal.
+    /// </para>
+    /// <para>
+    /// Asked where devour is asked, and for the same reason: the reveal is a decision, and a
+    /// decision cannot be taken inside a replacement effect. See <c>Game.AskOwedAmplify</c>.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// "Hideaway N" &#8212; look at the top N, put one aside, bury the rest (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The whole keyword is one sentence the shared vocabulary already reads, so it costs an
+    /// effect and no new machinery: look at the top N, one goes to exile, the rest to the bottom
+    /// of the library in a random order.
+    /// <para>
+    /// <strong>One deviation, and it is the losing one.</strong> The rule exiles the card face
+    /// down and gives its controller permission to look at it; this engine has no face-down
+    /// exile, so the card is exiled face up and every player can see it. That is information the
+    /// printed card keeps from the opponents, so the reading is worse for the permanent's
+    /// controller rather than better - which is the direction a reading is allowed to be wrong
+    /// in. Nothing reaches it in a game either way: the second line every hideaway card prints,
+    /// the one saying when the exiled card may be played, is not read yet.
+    /// </para>
+    /// <para>
+    /// One card prints the word twice on one line ("Hideaway 3, hideaway 3"), and each instance
+    /// is its own triggered ability (CR 702.75a) - so the line yields two.
+    /// </para>
+    /// </remarks>
+    private static bool TryHideaway(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = HideawayLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (TriggerConditions.Parse("~ enters") is not { } entered)
+            return false;
+
+        foreach (Capture each in m.Groups["n"].Captures)
+        {
+            var count = int.Parse(each.Value, CultureInfo.InvariantCulture);
+            if (count <= 0)
+                return false;
+
+            into.Add(new TriggeredAbilityDefinition
+            {
+                Id = "hideaway" + Suffix(into.Count),
+                Text = $"When {card.Name} enters, look at the top "
+                    + count.ToString(CultureInfo.InvariantCulture)
+                    + " cards of your library. Exile one of them and put the rest on the bottom "
+                    + "of your library in a random order.",
+                Triggers = entered,
+                Effects = [new LookAndTake(count, Zone.Exile)],
+            });
+        }
+
+        return true;
+    }
+
+    private static bool TryAmplify(string line, CardDefinition card, ref int amplify)
+    {
+        var m = AmplifyLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // CR 702.38a: what may be revealed is a card "that shares a creature type with it", and
+        // the types are the card's own. A card with none has nothing the keyword can ask for, so
+        // the word is left unread rather than compiled into a dead offer.
+        if (card.Subtypes.Count == 0)
+            return false;
+
+        var each = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+        if (each <= 0)
+            return false;
+
+        // CR 702.38b: multiple instances work separately, which is one reveal each rather than
+        // one reveal. They are summed into a single question because the answers cannot differ
+        // in a way that matters: a card revealed for one instance may be revealed again for the
+        // next, so the best play is to show the same hand to both, and the sum is what that pays.
+        amplify += each;
+        return true;
+    }
+
+    /// <summary>
     /// "I &#8212; [effect]", "II, III &#8212; [effect]" &#8212; a Saga's chapter ability (CR 714.2b).
     /// </summary>
     /// <remarks>
@@ -4887,7 +5236,8 @@ public static partial class CardCompiler
     private static bool TrySagaChapter(
         string line,
         ImmutableList<TriggeredAbilityDefinition>.Builder into,
-        ImmutableList<string>.Builder unhandled)
+        ImmutableList<string>.Builder unhandled,
+        bool readAhead = false)
     {
         var m = SagaChapterLine().Match(line);
         if (!m.Success)
@@ -4941,7 +5291,15 @@ public static partial class CardCompiler
                     && saga.Permanent is { } permanent
                     && permanent.Counters.GetValueOrDefault(CounterKinds.Lore) is var before
                     && before < at
-                    && before + counters.Delta >= at,
+                    && before + counters.Delta >= at
+
+                    // CR 702.155a: a Saga with read ahead skips the chapters it was started
+                    // past. Its counters arrive in one lump, so without this the whole run from
+                    // chapter one would fire - which is the reading that makes the card better
+                    // than the one printed, and the one the coverage number cannot see.
+                    && (!readAhead
+                        || !state.EnteredThisTurn(saga)
+                        || before + counters.Delta == at),
             });
         }
 
@@ -12077,6 +12435,11 @@ public static partial class CardCompiler
             ["Intimidate"] = KeywordAbility.Intimidate,
             ["Skulk"] = KeywordAbility.Skulk,
 
+            // Phasing (CR 702.26a), which is a keyword here rather than a flag on the card
+            // because effects grant it - "enchanted permanent has phasing" - and the untap step
+            // asks for the computed answer.
+            ["Phasing"] = KeywordAbility.Phasing,
+
             // Banding, of which only the blocking half is enforced (CR 702.22j): a creature
             // blocked by one has its damage divided by the defending player. Declaring an
             // attacking band is not modelled at all - no client can say it and nothing in the
@@ -13295,6 +13658,30 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Overload (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex OverloadLine();
 
+    /// <summary>
+    /// "Sneak [cost]" (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// Anchored on the whole line so that "Sneak Attack &#8212; whenever this creature attacks,
+    /// ..." - an ability word that happens to begin with the same word - is not read as the
+    /// keyword and cast for one mana.
+    /// </remarks>
+    [GeneratedRegex(@"^Sneak (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex SneakLine();
+
+    /// <summary>
+    /// "Awaken N&#8212;[cost]" (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// The separator is an em dash on all fifteen printings, written as its code point rather
+    /// than typed so that a hyphen cannot pass for it in an editor - and a hyphen is accepted
+    /// beside it for the same reason reinforce accepts one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Awaken (?<n>\d+)\s*[\u2014\u2015-]\s*(?<cost>(\{[^}]+\})+)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AwakenLine();
+
     [GeneratedRegex(@"^Conspire\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ConspireLine();
 
@@ -13425,6 +13812,45 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^Devour (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex DevourLine();
+
+    /// <summary>"Ravenous" (CR 702.156a). Printed alone; the reminder text carries the rest.</summary>
+    [GeneratedRegex(@"^Ravenous\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex RavenousLine();
+
+    /// <summary>"Ripple N" (CR 702.60a).</summary>
+    [GeneratedRegex(@"^Ripple (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex RippleLine();
+
+    /// <summary>"Read ahead" (CR 702.155a). Printed alone on every Saga that has it.</summary>
+    [GeneratedRegex(@"^Read ahead\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex ReadAheadLine();
+
+    /// <summary>
+    /// "Hideaway N", or the one card that prints two of them on a line (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The repeat is captured rather than alternated so that both numbers are read: a group that
+    /// matched only the first would compile "Hideaway 3, hideaway 3" as one instance, which is
+    /// half of what the card does and reads as a complete line.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Hideaway (?<n>\d+)(?:, hideaway (?<n>\d+))*\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex HideawayLine();
+
+    /// <summary>"Teamwork N" (CR 702.194a).</summary>
+    [GeneratedRegex(@"^Teamwork (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex TeamworkLine();
+
+    /// <summary>
+    /// "Amplify N" (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Anchored on the whole line so the word "Amplify" beginning a sentence somewhere else
+    /// cannot be read as the keyword. A card printing two instances prints them on two lines,
+    /// and each is read separately and added.
+    /// </remarks>
+    [GeneratedRegex(@"^Amplify (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AmplifyLine();
 
     [GeneratedRegex(
         @"^You may have ~ assign its combat damage as though it weren't blocked\.?$",
@@ -13679,6 +14105,20 @@ public sealed record CompiledCard
     public int DevourCount { get; init; }
 
     /// <summary>
+    /// How many +1/+1 counters each card revealed to amplify is worth (CR 702.38a).
+    /// </summary>
+    public int AmplifyCount { get; init; }
+
+    /// <summary>
+    /// Whether this Saga starts at a chapter its controller picks (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// True only when the chapters themselves compiled: a Saga started at a chapter that does
+    /// nothing is a Saga that walks to its own sacrifice, which is worse than one left unread.
+    /// </remarks>
+    public bool HasReadAhead { get; init; }
+
+    /// <summary>
     /// Whether the prepared spell may be cast at instant speed (CR 117.1a).
     /// </summary>
     /// <remarks>
@@ -13775,6 +14215,9 @@ public sealed record CompiledCard
         || ShowsTopOfLibrary
         || RemovesHandLimit
         || ChoosesOnEntry != ChoiceOnEntry.None
+        || DevourCount > 0
+        || AmplifyCount > 0
+        || HasReadAhead
         || ExtraLandDrops > 0
         || MayDeclineUntap
         || SkipsDrawStep

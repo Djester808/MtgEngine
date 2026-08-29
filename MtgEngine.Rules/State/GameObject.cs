@@ -621,6 +621,42 @@ public sealed record GameObject
     /// <summary>Whether this spell was cast for its overload cost (CR 702.96a).</summary>
     public bool WasOverloaded { get; init; }
 
+    /// <summary>
+    /// The attack this <em>spell</em> is to join when it becomes a permanent (CR 702.190b).
+    /// </summary>
+    /// <remarks>
+    /// Sneak's half of what <see cref="AbilityOnStack.JoiningAgainst"/> does for ninjutsu, and it
+    /// has to live out here rather than there because a spell on the stack has no ability: the
+    /// object is the card itself. The fact is known when the cost is paid - the creature being
+    /// returned is still attacking then - and needed when the spell resolves, by which time that
+    /// creature is in its owner's hand.
+    /// <para>
+    /// Null on everything else, which is every spell ever cast but these.
+    /// </para>
+    /// </remarks>
+    public AttackTarget? JoiningAgainst { get; init; }
+
+    /// <summary>
+    /// Whether this spell's teamwork cost was paid (CR 702.194b).
+    /// </summary>
+    /// <remarks>
+    /// Recorded and, for now, read by nothing: what paying it buys lives on the card's other
+    /// lines - "if this spell was cast using teamwork, ..." - and those sentences are not read
+    /// yet. The fact belongs in the state rather than nowhere, because the payment happened and
+    /// a log that does not say so cannot be replayed into a game that knows it.
+    /// </remarks>
+    public bool WasTeamwork { get; init; }
+
+    /// <summary>
+    /// Whether this spell was cast for its awaken cost (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Read while the spell is still on the stack — the awaken half is a spell ability, so it
+    /// resolves before the card goes anywhere — which is why this needs none of the carrying
+    /// across a zone change that "was kicked" does.
+    /// </remarks>
+    public bool WasAwakened { get; init; }
+
     /// <summary>Whether this spell was cast for its evoke cost (CR 702.74a).</summary>
     /// <remarks>
     /// Evoke buys the enters trigger and nothing else: the creature is sacrificed the moment it
@@ -939,6 +975,9 @@ public sealed record GameObject
         TimesKicked == other.TimesKicked &&
         WasEvoked == other.WasEvoked &&
         WasOverloaded == other.WasOverloaded &&
+        WasAwakened == other.WasAwakened &&
+        WasTeamwork == other.WasTeamwork &&
+        Equals(JoiningAgainst, other.JoiningAgainst) &&
         WasBestowed == other.WasBestowed &&
         WasOffspring == other.WasOffspring &&
         IsRevealed == other.IsRevealed &&

@@ -1538,6 +1538,59 @@ public sealed record SpellOverloaded(ObjectId Id) : GameEvent
     public override string Describe() => $"{Id} was overloaded.";
 }
 
+/// <summary>
+/// A spell was cast for its sneak cost, in place of an attacker (CR 702.190a).
+/// </summary>
+/// <remarks>
+/// Carries what the returned creature was attacking, because that is the only moment the game
+/// knows: the creature is in its owner's hand before the spell resolves, and the permanent this
+/// becomes has to arrive attacking the same defender (CR 702.190b).
+/// </remarks>
+public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : GameEvent
+{
+    public override string Rule => "702.190";
+
+    public override string Describe() => $"{Id} was sneaked in.";
+}
+
+/// <summary>
+/// A permanent phased out (CR 702.26b).
+/// </summary>
+/// <remarks>
+/// Carries whose untap step brings it back, which is not always its controller's: an Aura that
+/// phased out along with what it enchants returns with that permanent (CR 702.26g).
+/// </remarks>
+public sealed record PermanentPhasedOut(ObjectId Id, Guid ReturnsFor) : GameEvent
+{
+    public override string Rule => "702.26b";
+
+    public override string Describe() => $"{Id} phased out.";
+}
+
+/// <summary>A permanent phased in (CR 702.26c).</summary>
+public sealed record PermanentPhasedIn(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.26c";
+
+    public override string Describe() => $"{Id} phased in.";
+}
+
+/// <summary>A spell's teamwork cost was paid as it was cast (CR 702.194b).</summary>
+public sealed record SpellTeamwork(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.194";
+
+    public override string Describe() => $"{Id} was cast using teamwork.";
+}
+
+/// <summary>A spell was cast for its awaken cost (CR 702.113a).</summary>
+public sealed record SpellAwakened(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.113";
+
+    public override string Describe() => $"{Id} was awakened.";
+}
+
 /// <summary>A spell was cast for its evoke cost (CR 702.74a).</summary>
 public sealed record SpellEvoked(ObjectId Id) : GameEvent
 {
@@ -1627,6 +1680,20 @@ public sealed record CascadeRequested(Guid PlayerId, ObjectId SourceId, int Less
     public override string Rule => "702.85";
 
     public override string Describe() => $"{PlayerId:N} cascades below {LessThan}.";
+}
+
+/// <summary>
+/// A rippling spell is offering to show the top of its caster's library (CR 702.60a).
+/// </summary>
+/// <remarks>
+/// The reveal is optional and the offer is a question, so this only records that the question is
+/// owed - the same shape cascade and every other mid-resolution decision use.
+/// </remarks>
+public sealed record RippleRequested(Guid PlayerId, ObjectId SourceId, int Count) : GameEvent
+{
+    public override string Rule => "702.60";
+
+    public override string Describe() => $"{PlayerId:N} may ripple {Count}.";
 }
 
 public sealed record PermanentTapped(ObjectId Id) : GameEvent

@@ -16261,6 +16261,10 @@ public sealed class CompiledCardBehaviourTests
 
         public int DevourCountOf(CardDefinition card) => _compiled.DevourCountOf(card);
 
+        public int AmplifyCountOf(CardDefinition card) => _compiled.AmplifyCountOf(card);
+
+        public bool HasReadAhead(CardDefinition card) => _compiled.HasReadAhead(card);
+
         public ManaCostSpec? MiracleCostOf(CardDefinition card) => _compiled.MiracleCostOf(card);
 
         public IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => _compiled.HalvesOf(card);
@@ -46064,6 +46068,885 @@ public sealed class CompiledCardBehaviourTests
             game.State.Battlefield,
             id => game.State.GetObject(id).Card.Name == "Test Guidemother");
     }
+    // ---- Combat and board keywords (CR 702) ----------------------------------
+
+    /// <summary>
+    /// Ravenous is X counters, and a card when X was big (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// The two halves read the same number and the number is not on the board anywhere: X was
+    /// announced as the spell was cast (CR 601.2b) and the spell stopped existing when it
+    /// resolved (CR 400.7). So this is the test that says the announced X survives exactly the
+    /// one move that turns a spell into a permanent, which is what CR 607.2 asks of a linked
+    /// ability and what the intervening-if's second check (CR 603.4) has to read.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_enters_with_X_counters_and_draws_when_X_was_five_or_more()
+    {
+        var aberrant = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-big-test",
+            Name = "Ravenous Big Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 0,
+            Toughness = 0,
+            ManaCostRaw = "{X}{B}",
+        };
+
+        var compiled = CardCompiler.Compile(aberrant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, aberrant);
+
+        foreach (var _ in Enumerable.Range(0, 6))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, targets: null, variableValue: 5);
+        Settle(game);
+
+        var creature = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Ravenous Big Test");
+
+        // A printed 0/0 that arrived with nothing would already be in the graveyard, so being
+        // here at all is half the assertion.
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(5, grown.Power);
+        Assert.Equal(5, grown.Toughness);
+
+        // The card was cast out of hand and one was drawn, so the hand is where it started.
+        Assert.Equal(handBefore, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>A ravenous creature cast for a small X gets the counters and no card.</summary>
+    /// <remarks>
+    /// The half of CR 603.4 that a single-check reading would get wrong in the player's favour:
+    /// the draw is not what ravenous does, it is what ravenous does when X was big enough.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_draws_nothing_when_X_was_under_five()
+    {
+        var aberrant = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-small-test",
+            Name = "Ravenous Small Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 0,
+            Toughness = 0,
+            ManaCostRaw = "{X}{B}",
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, aberrant);
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, targets: null, variableValue: 4);
+        Settle(game);
+
+        var creature = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Ravenous Small Test");
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(4, grown.Power);
+
+        // One card left the hand and none came back.
+        Assert.Equal(handBefore - 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// Ravenous on a card with no X in its cost is not read at all (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// Both halves of the keyword are about the X that was paid, so on a card that has none the
+    /// word means nothing the engine could honour. Left unread rather than compiled into a
+    /// creature that quietly enters with no counters, because a card the deck check refuses is
+    /// better than one that silently does half of what it prints.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_without_an_X_in_the_mana_cost_stays_unread()
+    {
+        var wrong = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-no-x-test",
+            Name = "Ravenous No X Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            ManaCostRaw = "{2}{B}",
+        };
+
+        Assert.Contains("Ravenous", CardCompiler.Compile(wrong).Unhandled);
+    }
+
+    /// <summary>
+    /// Amplify buys counters by showing the rest of the tribe (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Two things the shape has to get right, and both are asserted here: only cards sharing a
+    /// creature type with the arriving permanent may be shown, and revealing none is a legal
+    /// answer — "any number" includes zero, which is why this is one question rather than a
+    /// yes/no followed by a selection.
+    /// </remarks>
+    [Fact]
+    public void Amplify_grows_the_creature_by_what_was_revealed_from_hand()
+    {
+        var dragon = Card(
+            "Amplify Dragon Test",
+            "Amplify 3",
+            CardType.Creature,
+            power: 5,
+            toughness: 5,
+            keywords: KeywordAbility.None,
+            "Dragon");
+
+        var compiled = CardCompiler.Compile(dragon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(3, compiled.AmplifyCount);
+
+        var (game, alice, _) = InMainPhase();
+
+        var kin = TestCards.PutInHand(
+            game, alice, Card(
+                "Amplify Kin Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Dragon"));
+
+        var stranger = TestCards.PutInHand(
+            game, alice, Card(
+                "Amplify Stranger Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Goblin"));
+
+        var arriving = game.Create(alice, dragon, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Amplify });
+
+        var choice = game.State.Choice!;
+        Assert.Equal(0, choice.MinPicks);
+        Assert.Contains(choice.Options, o => o.Id == kin.Value.ToString("N"));
+        Assert.DoesNotContain(choice.Options, o => o.Id == stranger.Value.ToString("N"));
+
+        game.Choose(alice, [kin.Value.ToString("N")]);
+        Settle(game);
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(arriving));
+        Assert.Equal(8, grown.Power);
+        Assert.Equal(8, grown.Toughness);
+
+        // Revealing is not discarding: the card is still in hand (CR 701.16a).
+        Assert.Contains(kin, game.State.GetPlayer(alice).Hand);
+        Assert.Contains(game.Log, e => e is CardsRevealed);
+    }
+
+    /// <summary>
+    /// Amplify on a card with no creature types is not read (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// What may be revealed is "a card that shares a creature type with this one", and the types
+    /// come from the card rather than from the line. Without them the keyword is an offer that
+    /// can never find anything, so the line goes back unread instead.
+    /// </remarks>
+    [Fact]
+    public void Amplify_without_a_creature_type_stays_unread()
+    {
+        var typeless = Card(
+            "Amplify Typeless Test", "Amplify 2", CardType.Creature, 2, 2);
+
+        Assert.Contains("Amplify 2", CardCompiler.Compile(typeless).Unhandled);
+    }
+
+    /// <summary>Clutch of Currents, printed exactly as it reads.</summary>
+    private static CardDefinition AwakenSpell() => new()
+    {
+        OracleId = "oracle-awaken-clutch-test",
+        Name = "Awaken Clutch Test",
+        ManaCostRaw = "{U}",
+        OracleText = "Return target creature to its owner's hand.\nAwaken 3\u2014{4}{U}",
+        CardTypes = CardType.Sorcery,
+    };
+
+    /// <summary>
+    /// A spell cast for its printed cost has no awaken target at all (CR 702.113b).
+    /// </summary>
+    /// <remarks>
+    /// The half of the rule that a naive reading gets wrong in the player's favour: if the land
+    /// were always targeted, an awaken card would stand a land up for its cheap cost. It is not
+    /// "targeted and then ignored" - the spell is cast as if it did not have that target.
+    /// </remarks>
+    [Fact]
+    public void An_awaken_spell_cast_for_its_printed_cost_leaves_lands_alone()
+    {
+        var clutch = AwakenSpell();
+
+        var compiled = CardCompiler.Compile(clutch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Awaken Bear Test", 2, 2), Zone.Battlefield);
+        var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, clutch);
+
+        game.AddMana(alice, ManaColor.Blue);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        var still = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.False(still.IsCreature);
+    }
+
+    /// <summary>
+    /// Awaken stands a land up permanently, on top of what the spell already did (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Four things in four different layers, which is why the half is four effects rather than
+    /// one: the counters are counters, the creature type is layer 4, the 0/0 is layer 7b and
+    /// haste is layer 6. And the land is still a land - the type is added, not swapped - which
+    /// is what the printed rider goes on to say.
+    /// <para>
+    /// The animation carries no duration, so it is asserted across a turn boundary. Reading it as
+    /// "until end of turn" would have looked right for as long as any single-turn test ran.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_awakened_spell_animates_the_land_and_still_does_what_it_says()
+    {
+        var clutch = AwakenSpell();
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Awaken Bear Test", 2, 2), Zone.Battlefield);
+        var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, clutch);
+
+        foreach (var _ in Enumerable.Range(0, 5))
+            game.AddMana(alice, ManaColor.Blue);
+
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPermanent(bear), Target.ToPermanent(land)],
+            awakened: true);
+
+        Settle(game);
+
+        // The printed spell still happened.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        var awoken = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.True(awoken.IsCreature);
+        Assert.True(awoken.CardTypes.HasFlag(CardType.Land));
+        Assert.True(awoken.HasSubtype("Elemental"));
+        Assert.True(awoken.Keywords.HasFlag(KeywordAbility.Haste));
+        Assert.Equal(3, awoken.Power);
+        Assert.Equal(3, awoken.Toughness);
+
+        // And it is not an until-end-of-turn effect: the land is still a creature next turn.
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var later = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.True(later.IsCreature);
+        Assert.Equal(3, later.Power);
+    }
+
+    /// <summary>Nothing may be awakened that has no awaken (CR 702.113a).</summary>
+    [Fact]
+    public void Awakening_a_spell_that_has_no_awaken_is_refused()
+    {
+        var plain = Card("Awaken Plain Test", "Draw a card.");
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, plain);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], awakened: true));
+    }
+
+    /// <summary>A creature with sneak, printed the way the real ones are.</summary>
+    private static CardDefinition SneakCreature() => new()
+    {
+        OracleId = "oracle-sneak-ninja-test",
+        Name = "Sneak Ninja Test",
+        ManaCostRaw = "{4}{B}",
+        OracleText = "Sneak {B}",
+        CardTypes = CardType.Creature,
+        Power = 3,
+        Toughness = 3,
+    };
+
+    /// <summary>
+    /// Sneak swaps an unblocked attacker for the card, mid-combat (CR 702.190a, 702.190b).
+    /// </summary>
+    /// <remarks>
+    /// Ninjutsu written as a way of casting rather than as an activated ability, and the same
+    /// three things have to be true: the attacker goes back to hand rather than to a graveyard,
+    /// the arriving permanent is tapped and attacking, and it is attacking whoever the returned
+    /// creature was - a fact that only exists while the creature is still in combat, so it is
+    /// written down as the cost is paid and read back on resolution.
+    /// <para>
+    /// The damage at the end is what proves the attack is real rather than a flag: a permanent
+    /// merely on the battlefield deals nobody anything.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_sneaked_creature_replaces_its_attacker_and_arrives_swinging()
+    {
+        var ninja = SneakCreature();
+
+        var compiled = CardCompiler.Compile(ninja);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var scout = game.Create(alice, TestCards.Creature("Sneak Scout Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [scout] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        // Put in hand here rather than before the turns were passed: a cleanup step in between
+        // discards down to hand size, and the card the test is about is one of the ones it takes.
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        game.CastSpell(alice, card, [], costPayment: [scout], sneaked: true);
+        Settle(game);
+
+        // The attacker went to hand, not to a graveyard (CR 701.20a).
+        Assert.DoesNotContain(scout, game.State.Battlefield);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+
+        var arrived = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Sneak Ninja Test");
+
+        Assert.True(game.State.GetObject(arrived).Permanent!.IsTapped);
+        Assert.Equal(AttackTarget.Player(bob), game.State.Combat.Attackers[arrived]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // A 3/3 that arrived attacking, and nothing blocked it.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Sneak buys one window and it is not the main phase (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// "Any time you could cast an instant during your declare blockers step" is the whole of
+    /// the permission. Read as an ordinary alternative cost, this would be a five-mana 3/3 that
+    /// could be had for one at any time - a strictly better card than the one printed, and the
+    /// coverage number would have gone up either way.
+    /// </remarks>
+    [Fact]
+    public void Sneaking_a_creature_in_outside_the_declare_blockers_step_is_refused()
+    {
+        var ninja = SneakCreature();
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], sneaked: true));
+    }
+
+    /// <summary>
+    /// The mana is only half the sneak price, and a blocked attacker cannot pay it (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// "An unblocked creature you control" is the whole point of the mechanic: the card takes
+    /// the place of something that was about to get through. A blocked attacker was not, and
+    /// letting it pay would make sneak a way to un-block your own creature for one mana.
+    /// </remarks>
+    [Fact]
+    public void Sneaking_in_place_of_a_blocked_attacker_is_refused()
+    {
+        var ninja = SneakCreature();
+
+        var (game, alice, bob) = InMainPhase();
+        var scout = game.Create(alice, TestCards.Creature("Sneak Blocked Test", 1, 1), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Sneak Wall Test", 0, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [scout] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [scout] = [wall] });
+
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], costPayment: [scout], sneaked: true));
+
+        // CR 601.2i: a cast that cannot pay its cost is rewound, so nothing moved.
+        Assert.Contains(card, game.State.GetPlayer(alice).Hand);
+        Assert.Contains(scout, game.State.Battlefield);
+    }
+
+    /// <summary>A three-chapter Saga with read ahead, written the way the real ones are.</summary>
+    private static CardDefinition ReadAheadSaga() => new()
+    {
+        OracleId = "oracle-read-ahead-saga-test",
+        Name = "Read Ahead Saga Test",
+        ManaCostRaw = "{2}{W}",
+        OracleText = "Read ahead\nI — You gain 1 life.\nII — You gain 2 life."
+            + "\nIII — You gain 3 life.",
+        CardTypes = CardType.Enchantment,
+        Subtypes = ["Saga"],
+    };
+
+    /// <summary>
+    /// A Saga with read ahead starts where its controller says, and skips what it started past
+    /// (CR 702.155a, 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// Two rules, and the second is the one a partial reading gets wrong in the player's favour.
+    /// The counters arrive in one lump, and CR 714.2b would fire every chapter that lump crossed -
+    /// so reading only "enters with the chosen number of counters" turns a Saga started at three
+    /// into a Saga that runs all three chapters at once. That reading compiles, plays, and is a
+    /// strictly better card than the printed one.
+    /// </remarks>
+    [Fact]
+    public void A_Saga_with_read_ahead_starts_at_the_chosen_chapter_and_skips_the_rest()
+    {
+        var saga = ReadAheadSaga();
+
+        var compiled = CardCompiler.Compile(saga);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasReadAhead);
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+        var chronicle = game.Create(alice, saga, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.ReadAhead });
+
+        // One option per chapter, and the final chapter is the last of them (CR 714.2d).
+        var choice = game.State.Choice!;
+        Assert.Equal(3, choice.Options.Count);
+
+        game.Choose(alice, ["3"]);
+        Settle(game);
+
+        // Chapter three, and only chapter three: one plus two plus three would be six.
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+
+        // CR 714.4: it reached its final chapter, so it is sacrificed.
+        Assert.DoesNotContain(chronicle, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Started at chapter one, a read-ahead Saga runs like any other (CR 702.155a).
+    /// </summary>
+    /// <remarks>
+    /// The restriction is only about the turn it entered. A Saga that chose one still advances a
+    /// counter each precombat main phase afterwards and fires each chapter as it gets there -
+    /// which is what says the gate is scoped to the entry turn rather than switched on for good.
+    /// </remarks>
+    [Fact]
+    public void A_read_ahead_Saga_that_chose_chapter_one_advances_normally_afterwards()
+    {
+        var saga = ReadAheadSaga();
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+        game.Create(alice, saga, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.ReadAhead });
+        game.Choose(alice, ["1"]);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Life);
+
+        // Alice's next turn: a lore counter, and chapter two with it.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+        Settle(game);
+
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Read ahead on a card with no chapter this compiler could read is left unread.
+    /// </summary>
+    /// <remarks>
+    /// The keyword only says where to start. A Saga started at a chapter that does nothing is a
+    /// Saga walking to its own sacrifice, which is worse than a card a deck check refuses.
+    /// </remarks>
+    [Fact]
+    public void Read_ahead_without_a_readable_chapter_stays_unread()
+    {
+        var wordy = new CardDefinition
+        {
+            OracleId = "oracle-read-ahead-unreadable-test",
+            Name = "Read Ahead Unreadable Test",
+            OracleText = "Read ahead\nI — Ponder the meaning of the sea.",
+            CardTypes = CardType.Enchantment,
+            Subtypes = ["Saga"],
+        };
+
+        var compiled = CardCompiler.Compile(wordy);
+        Assert.Contains("Read ahead", compiled.Unhandled);
+        Assert.False(compiled.HasReadAhead);
+    }
+
+    /// <summary>
+    /// Hideaway looks at the top N, puts one aside and buries the rest (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// The exiled card is exiled face up here, because this engine has no face-down exile - a
+    /// deviation that costs the permanent's controller information and gains them nothing, which
+    /// is the direction a reading is allowed to be wrong in. Nothing in a game reaches it either
+    /// way: the second line every hideaway card prints, saying when the exiled card may be
+    /// played, is not read yet, so no hideaway card compiles completely.
+    /// </remarks>
+    [Fact]
+    public void Hideaway_exiles_one_of_the_top_cards_and_buries_the_rest()
+    {
+        var vault = Card(
+            "Hideaway Vault Test",
+            "Hideaway 4",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(vault);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        game.Create(alice, vault, Zone.Battlefield);
+        Settle(game);
+
+        // One card is in exile and the other three went to the bottom, so the library is one
+        // shorter and nothing else moved.
+        Assert.Single(game.State.Exile);
+        Assert.Equal(library - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// A card printing hideaway twice does it twice (CR 702.75a).
+    /// </summary>
+    /// <remarks>
+    /// "Hideaway 3, hideaway 3" is two instances of the keyword on one line, and each is its own
+    /// triggered ability. A reader that stopped at the first comma would compile half the card
+    /// and report the line as fully read, which is the failure the coverage number cannot see.
+    /// </remarks>
+    [Fact]
+    public void Two_hideaways_on_one_line_are_two_abilities()
+    {
+        var ursine = Card(
+            "Hideaway Ursine Test",
+            "Hideaway 3, hideaway 3",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(ursine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Triggers.Count);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, ursine, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, game.State.Exile.Count);
+    }
+
+    /// <summary>
+    /// Teamwork is an optional additional cost paid by tapping a team (CR 702.194a).
+    /// </summary>
+    /// <remarks>
+    /// Crew's cost offered rather than demanded: any number of creatures whose power adds up to
+    /// N or more. What paying it buys is on the card's other lines - "if this spell was cast
+    /// using teamwork, ..." - and those sentences are not read yet, so nothing in the game
+    /// consults the fact. It is recorded anyway, because the payment happened and a log that
+    /// does not say so cannot be replayed into a game that knows it.
+    /// </remarks>
+    [Fact]
+    public void A_teamwork_cost_taps_a_team_whose_power_adds_up()
+    {
+        var tactics = Card("Teamwork Tactics Test", "Draw a card.\nTeamwork 3");
+
+        var compiled = CardCompiler.Compile(tactics);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.Spell?.TeamworkCost);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.Creature("Teamwork One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Teamwork Two Test", 1, 1), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, tactics);
+
+        // Two power is not three, so one creature cannot pay it alone (CR 702.194a).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], costPayment: [first], teamwork: true));
+
+        game.CastSpell(alice, card, [], costPayment: [first, second], teamwork: true);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(first).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(second).Permanent!.IsTapped);
+    }
+
+    /// <summary>Declining teamwork taps nothing and casts the spell as printed (CR 702.194a).</summary>
+    [Fact]
+    public void A_spell_with_teamwork_may_be_cast_without_paying_it()
+    {
+        var tactics = Card("Teamwork Declined Test", "Draw a card.\nTeamwork 3");
+
+        var (game, alice, _) = InMainPhase();
+        var ally = game.Create(alice, TestCards.Creature("Teamwork Idle Test", 4, 4), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, tactics);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(ally).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// A permanent with phasing leaves and comes back on its controller's untap steps
+    /// (CR 702.26a, 702.26c).
+    /// </summary>
+    /// <remarks>
+    /// The whole of what "treated as though it does not exist" means is tested through a
+    /// sweeper: while it is phased out, "destroy all creatures" does not find it, and it is back
+    /// two turns later with nothing having happened to it (CR 702.26b, 702.26d). A reading that
+    /// simply flagged the permanent would pass a test that only looked at the flag.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_with_phasing_stops_existing_and_comes_back()
+    {
+        var keeper = Card(
+            "Phasing Keeper Test",
+            "Phasing",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(keeper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var breeze = game.Create(alice, keeper, Zone.Battlefield);
+
+        Assert.Contains(breeze, game.State.Battlefield);
+
+        // Alice's next untap step: it phases out.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+
+        Assert.DoesNotContain(breeze, game.State.Battlefield);
+        Assert.Contains(breeze, game.State.PhasedOut.Keys);
+
+        // CR 702.26b: a sweeper does not find it, because it is not there to find.
+        var wrath = Card("Phasing Wrath Test", "Destroy all creatures.", CardType.Sorcery);
+        var card = TestCards.PutInHand(game, alice, wrath);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Phasing Keeper Test");
+
+        // And on the untap step after that it is back, untouched.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+
+        Assert.Contains(breeze, game.State.Battlefield);
+        Assert.Empty(game.State.PhasedOut);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(breeze)));
+    }
+
+    /// <summary>
+    /// An Aura goes with what it enchants, and comes back with it (CR 702.26g).
+    /// </summary>
+    /// <remarks>
+    /// The half that a reading of phasing on its own gets wrong <em>in the phasing card's
+    /// favour</em>: an Aura left behind on the battlefield is attached to nothing, and the
+    /// state-based action for that would bin it (CR 704.5m). The opponent's Pacifism would come
+    /// off permanently, which is a strictly better creature than the printed one.
+    /// <para>
+    /// It returns on the creature's controller's untap step rather than the Aura controller's,
+    /// which is why what the engine writes down is whose untap step brings each permanent back
+    /// rather than who controls it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_phases_out_with_the_creature_it_enchants()
+    {
+        var keeper = Card(
+            "Phasing Host Test",
+            "Phasing",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var pacifism = Card(
+            "Phasing Pacifism Test",
+            "Enchant creature\nEnchanted creature can't attack or block.",
+            CardType.Enchantment,
+            power: null,
+            toughness: null,
+            keywords: KeywordAbility.None,
+            "Aura");
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, keeper, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Put in hand once the turn has arrived: a cleanup step in between discards down to hand
+        // size, and it takes the card the test is about.
+        var aura = TestCards.PutInHand(game, bob, pacifism);
+        game.CastSpell(bob, aura, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        var attached = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Phasing Pacifism Test");
+
+        Assert.Equal(host, game.State.GetObject(attached).Permanent!.AttachedTo);
+
+        // Alice's untap step: the creature phases out and takes the Aura with it.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == alice
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.DoesNotContain(host, game.State.Battlefield);
+        Assert.DoesNotContain(attached, game.State.Battlefield);
+
+        // Not destroyed for being attached to nothing (CR 704.5m) - it is not there to check.
+        Assert.DoesNotContain(attached, game.State.GetPlayer(bob).Graveyard);
+
+        // Both return together on Alice's next untap step, still attached (CR 702.26g).
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == alice
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Battlefield.Contains(host));
+
+        Assert.Contains(attached, game.State.Battlefield);
+        Assert.Equal(host, game.State.GetObject(attached).Permanent!.AttachedTo);
+    }
+
+    /// <summary>
+    /// Ripple shows the top cards and hands back the copies for free (CR 702.60a).
+    /// </summary>
+    /// <remarks>
+    /// Three things have to be true and each is asserted: the copy sharing the spell's name is
+    /// castable without paying, everything else goes to the bottom rather than staying on top,
+    /// and the copy that is cast does what the card says. The last is what separates a ripple
+    /// that works from one that merely moves cards about.
+    /// </remarks>
+    [Fact]
+    public void Ripple_offers_the_copies_it_finds_for_free()
+    {
+        var surge = new CardDefinition
+        {
+            OracleId = "oracle-ripple-surge-test",
+            Name = "Ripple Surge Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 2 life.\nRipple 4",
+            CardTypes = CardType.Instant,
+        };
+
+        var compiled = CardCompiler.Compile(surge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+
+        // A second copy sitting on top of the library, under three cards that are not it.
+        game.Create(alice, surge, Zone.Library);
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        var card = TestCards.PutInHand(game, alice, surge);
+        game.AddMana(alice, ManaColor.Green);
+
+        game.CastSpell(alice, card, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Ripple });
+
+        // Declining is on the menu, because a ripple buries what it showed.
+        Assert.Equal(0, game.State.Choice!.MinPicks);
+
+        // Answered and not played on: an offer to cast for free is a window, and passing
+        // priority is how a player declines it (CR 601.2b).
+        game.Choose(alice, ["ripple"]);
+
+        // The copy is in exile and castable for nothing; the other three went to the bottom.
+        // Looked up by name rather than held onto: a card that changes zone becomes a new
+        // object and the id it had in the library stopped existing (CR 400.7).
+        var copy = Assert.Single(game.State.Exile);
+        Assert.Equal("Ripple Surge Test", game.State.GetObject(copy).Card.Name);
+        Assert.True(game.State.GetObject(copy).MayCastFree);
+        Assert.Equal(library - 1, game.State.GetPlayer(alice).Library.Count);
+
+        game.CastSpell(alice, copy, []);
+        Settle(game);
+
+        // Both halves resolved: the spell that was cast and the copy it turned up.
+        Assert.Equal(before + 4, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>Declining a ripple leaves the library exactly as it was (CR 702.60a).</summary>
+    /// <remarks>
+    /// "You may" is a real decision here rather than a formality, which is why it is a question
+    /// at all: rippling shuffles what it showed into the bottom of the library in a random
+    /// order, and a player who has arranged their top cards does not want that.
+    /// </remarks>
+    [Fact]
+    public void Declining_a_ripple_leaves_the_library_alone()
+    {
+        var surge = new CardDefinition
+        {
+            OracleId = "oracle-ripple-declined-test",
+            Name = "Ripple Declined Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 2 life.\nRipple 4",
+            CardTypes = CardType.Instant,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, surge);
+        var top = game.State.GetPlayer(alice).Library[0];
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        game.AddMana(alice, ManaColor.Green);
+        game.CastSpell(alice, card, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Ripple });
+        game.Choose(alice, []);
+        Settle(game);
+
+        Assert.Equal(library, game.State.GetPlayer(alice).Library.Count);
+        Assert.Equal(top, game.State.GetPlayer(alice).Library[0]);
+        Assert.Empty(game.State.Exile);
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

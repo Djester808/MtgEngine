@@ -73,6 +73,10 @@ public sealed class CompiledPool : IAbilitySource
 
     public int DevourCountOf(CardDefinition card) => For(card).DevourCount;
 
+    public int AmplifyCountOf(CardDefinition card) => For(card).AmplifyCount;
+
+    public bool HasReadAhead(CardDefinition card) => For(card).HasReadAhead;
+
     public Mana.ManaCostSpec? MiracleCostOf(CardDefinition card) => For(card).Spell?.MiracleCost;
 
     public IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => For(card).Halves;
