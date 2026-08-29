@@ -486,7 +486,28 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **48.6% of playable cards fully read** (15,901 of 32,717), 65.6% of lines.
+Coverage is **48.7% of playable cards fully read** (15,937 of 32,717), 65.9% of lines.
+
+### Round ten, and what an interrupted round leaves behind
+
+Seven agents were stopped mid-flight by a session limit rather than by failure. Three had
+finished: the initiative and Undercity (the room that blocked it turned out to be sayable with
+the `UntilTurnOf` duration built for a different dungeon the round before), cleave with the
+square-bracket defect closed in the same change as the doc demanded, and CR 310 battles -
+defense counters, a protector, being attacked, and the defeat that exiles and recasts.
+
+The battle refusal added by the previous gate was **narrowed rather than deleted**: a battle
+that is not a Siege is still refused whole, because the protector provisions differ by battle
+type and only the Siege's are implemented. Every battle printed into a legal format is one.
+
+The other four are parked on their branches, committed but unmerged, and the triage is worth
+recording because it is the shape an interrupted round always takes. All four compile. One
+(bargain and per-kicker read-back) fails nothing but `MechanicCoverageTests`, which refuses
+five new line shapes that no played-game test exercises - the gate working exactly as designed,
+since a reader without a game behind it is how a card comes to compile and not play. One (dice)
+fails only its own new tests. **Two regress pre-existing tests** - soulbond breaks a self-pump
+keyword grant, and the source-scoped group work breaks a keyword lord - and those two are the
+reason none of the four was merged on a "it compiles and mostly passes" basis.
 
 ### What the round-end gate caught that no agent could
 
