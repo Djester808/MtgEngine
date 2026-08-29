@@ -1152,6 +1152,37 @@ public static partial class BoardConditions
                 state.TryGetObject(source.Id, out var self) && self.WasKicked != unkicked;
         }
 
+        // "If it was kicked twice" - CR 702.33d: a spell with two kicker costs, or multikicker,
+        // may be kicked multiple times, and the count survives resolution exactly as the flag
+        // does (CR 607.2). Read as at-least rather than exactly: a triple-kicked spell has been
+        // kicked twice.
+        if (KickedTwiceLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self) && self.TimesKicked >= 2;
+        }
+
+        // "If it was kicked with its {W} kicker" - CR 702.33f: the clause is linked to one of
+        // the two kicker abilities an "and/or" card prints (CR 607.2), and it names the cost in
+        // the card's own spelling, which is the identity the payment was recorded under.
+        if (KickedWithLine().Match(text) is { Success: true } which)
+        {
+            var cost = which.Groups["cost"].Value.ToUpperInvariant();
+
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self)
+                && self.KickedWith.Contains(cost, StringComparer.OrdinalIgnoreCase);
+        }
+
+        // "If it was cast using teamwork" - CR 702.194b: whether the caster declared the
+        // intention to pay the teamwork cost, recorded on the spell and carried across the one
+        // move that turns it into a permanent (CR 607.2), exactly as kicker's flag is.
+        if (TeamworkCastLine().IsMatch(text))
+        {
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self) && self.WasTeamwork;
+        }
+
         // "When ~ enters, if it was bargained, ..." - CR 702.166b: a spell has been bargained
         // once its controller declares the intention to pay that cost. The sentence form of this
         // ("If this spell was bargained, destroy that creature instead") was already read, and
@@ -2326,15 +2357,27 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfTypeLine();
 
-    /// <remarks>
-    /// The kicker cost itself is not read here: "kicked with its {2}{R} kicker" names which of a
-    /// multikicker card's two costs was paid, and the engine records one flag rather than which.
-    /// Those cards are left unread instead, which is the rule the rest of this file follows.
-    /// </remarks>
     [GeneratedRegex(
         @"^(~|it|this spell) ((was|were)|(?<not>wasn't|weren't|was not)) kicked$",
         RegexOptions.IgnoreCase)]
     private static partial Regex WasKickedLine();
+
+    /// <summary>"It was kicked twice" (CR 702.33d).</summary>
+    [GeneratedRegex(
+        @"^(~|it|this spell|this creature) was kicked twice$", RegexOptions.IgnoreCase)]
+    private static partial Regex KickedTwiceLine();
+
+    /// <summary>"It was kicked with its {2}{R} kicker" (CR 702.33f).</summary>
+    [GeneratedRegex(
+        @"^(~|it|this spell|this creature) was kicked with its "
+            + @"(?<cost>(\{[^}]+\})+) kicker$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex KickedWithLine();
+
+    /// <summary>"It was cast using teamwork" (CR 702.194b).</summary>
+    [GeneratedRegex(
+        @"^(~|it|this spell) was cast using teamwork$", RegexOptions.IgnoreCase)]
+    private static partial Regex TeamworkCastLine();
 
     /// <summary>"If it was bargained" (CR 702.166b).</summary>
     [GeneratedRegex(@"^(~|it|this spell) was bargained$", RegexOptions.IgnoreCase)]

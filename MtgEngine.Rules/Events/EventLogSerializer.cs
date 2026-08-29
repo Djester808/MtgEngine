@@ -138,6 +138,7 @@ public static class EventLogSerializer
             ["PermanentSaddled"] = typeof(PermanentSaddled),
             ["SpellBargained"] = typeof(SpellBargained),
             ["SpellMultikicked"] = typeof(SpellMultikicked),
+            ["SpellKickedWith"] = typeof(SpellKickedWith),
             ["SpellEvoked"] = typeof(SpellEvoked),
             ["SpellOverloaded"] = typeof(SpellOverloaded),
             ["SpellAwakened"] = typeof(SpellAwakened),

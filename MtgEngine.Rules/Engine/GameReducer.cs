@@ -564,6 +564,8 @@ public static class GameReducer
                 state, bargained.StackId, o => o with { WasBargained = true }),
             SpellMultikicked many => Changing(
                 state, many.Id, o => o with { TimesKicked = many.Times }),
+            SpellKickedWith which => Changing(
+                state, which.StackId, o => o with { KickedWith = which.Costs }),
             ManaColorsSpent spent => Changing(
                 state, spent.StackId, o => o with { ManaSpent = spent.Spent }),
             OptionalPaymentRequested => state,
@@ -789,6 +791,13 @@ public static class GameReducer
             // to survive exactly one move - the resolution - and no other.
             WasKicked = resolving && moving.WasKicked,
             WasBargained = resolving && moving.WasBargained,
+
+            // "Kicked with its [A] kicker" and "cast using teamwork" are the same exception
+            // again: each clause is linked to the cost paid on the spell this permanent was
+            // (CR 607.2), so which kicker and whether teamwork ride the one move that turns a
+            // spell into a permanent, and no other.
+            KickedWith = resolving ? moving.KickedWith : [],
+            WasTeamwork = resolving && moving.WasTeamwork,
 
             // The same exception, one announcement along: "if X is 5 or more" on a ravenous
             // creature is linked to the X announced for the spell that became it (CR 607.2), and

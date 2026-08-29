@@ -875,6 +875,19 @@ public sealed record GameObject
     public bool WasKicked { get; init; }
 
     /// <summary>
+    /// Which of this spell's several kicker costs were paid, as the card prints them (CR 702.33f).
+    /// </summary>
+    /// <remarks>
+    /// "Kicker [A] and/or [B]" is two kicker abilities (CR 702.33b), and "if it was kicked with
+    /// its [A] kicker" is linked to exactly one of them (CR 607.2) — a question the yes-or-no
+    /// flag cannot answer. Kept as the printed cost text rather than an index, because the clause
+    /// that reads it back names the cost in the card's own spelling and the condition reader has
+    /// no card to count indices against. Carried onto the permanent the way the flag is: the
+    /// asking happens on the far side of the zone change (CR 400.7, 607.2).
+    /// </remarks>
+    public ImmutableList<string> KickedWith { get; init; } = [];
+
+    /// <summary>
     /// Whether its controller declared the intention to pay its bargain cost (CR 702.166b).
     /// </summary>
     /// <remarks>
@@ -1000,6 +1013,7 @@ public sealed record GameObject
         string.Equals(OfferedCost, other.OfferedCost, StringComparison.Ordinal) &&
         ExiledBy == other.ExiledBy &&
         WasKicked == other.WasKicked &&
+        Structural.Same(KickedWith, other.KickedWith) &&
         WasBargained == other.WasBargained &&
         CastBy == other.CastBy &&
         CastFromZone == other.CastFromZone &&

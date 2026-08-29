@@ -343,6 +343,10 @@ public static partial class CardCompiler
         ConditionalCost? conditionalCost = null;
         ManaCostSpec? blitz = null;
         ManaCostSpec? multikicker = null;
+        var kickerCosts = ImmutableList.CreateBuilder<KickerOption>();
+        var bargainDiscount = 0;
+        FactModes? factModes = null;
+        var modesFromX = false;
         string? partnerRule = null;
         var deckRules = ImmutableList.CreateBuilder<string>();
         ManaCostSpec? plot = null;
@@ -438,7 +442,9 @@ public static partial class CardCompiler
                 ref modesMax,
                 ref modesMayRepeat,
                 ref extraModes,
-                ref spree))
+                ref spree,
+                ref factModes,
+                ref modesFromX))
             {
                 // A line the modal reader took that added no mode is the header. Remembered so
                 // that a menu which turns out to have nothing on it can put its own words back
@@ -881,6 +887,22 @@ public static partial class CardCompiler
             if (TryKicker(line, ref kicker))
                 continue;
 
+            // CR 702.33b: "Kicker [A] and/or [B]" is two kicker abilities, not one cost — the
+            // caster may pay either, both, or neither. Each cost keeps its printed spelling,
+            // because "if it was kicked with its [A] kicker" names it by exactly that
+            // (CR 702.33f).
+            if (KickerAndOrLine().Match(line) is { Success: true } twoKickers)
+            {
+                kickerCosts.Add(new KickerOption(
+                    ManaCostSpec.Parse(twoKickers.Groups["a"].Value),
+                    twoKickers.Groups["a"].Value.ToUpperInvariant()));
+                kickerCosts.Add(new KickerOption(
+                    ManaCostSpec.Parse(twoKickers.Groups["b"].Value),
+                    twoKickers.Groups["b"].Value.ToUpperInvariant()));
+
+                continue;
+            }
+
             if (SplitSecondLine().IsMatch(line))
             {
                 splitSecond = true;
@@ -1226,9 +1248,13 @@ public static partial class CardCompiler
             }
 
             // "If this spell was kicked, ..." — a clause that happens only when it was
-            // (CR 702.33e). Only meaningful on a card that has a kicker to pay.
-            if (kicker is not null && TryIfKicked(line, spellEffects, spellTargets))
+            // (CR 702.33e). Only meaningful on a card that has a kicker to pay — either the
+            // single form or the "and/or" pair, since paying any kicker cost kicks (CR 702.33d).
+            if ((kicker is not null || kickerCosts.Count > 0)
+                && TryIfKicked(line, spellEffects, spellTargets))
+            {
                 continue;
+            }
 
             // CR 702.166a. The cost is the same on every card that has it, so the keyword is the
             // whole of the line - and the clause that reads it back is only meaningful on a card
@@ -1240,6 +1266,20 @@ public static partial class CardCompiler
                     Count: 1,
                     What: EffectPhrase.Specs.Parse(
                         "target artifact, enchantment, or token you control"));
+
+                continue;
+            }
+
+            // "This spell costs {2} less to cast if it's bargained" — the CR 601.2f reduction
+            // whose condition is the caster's own declaration (CR 601.2b, 702.166b), which only
+            // the cast in progress can answer — the board-condition reductions cannot. Only
+            // meaningful on a card that can be bargained at all, and the keyword line always
+            // comes first on the ones that print it.
+            if (bargain is not null
+                && BargainDiscountLine().Match(line) is { Success: true } cheaper)
+            {
+                bargainDiscount = int.Parse(
+                    cheaper.Groups["n"].Value, CultureInfo.InvariantCulture);
 
                 continue;
             }
@@ -1263,8 +1303,15 @@ public static partial class CardCompiler
                 continue;
             }
 
-            if (TryKickedCounters(line, replacements))
+            if (TryKickedCounters(
+                line,
+                replacements,
+                statics,
+                kicker is not null || multikicker is not null,
+                kickerCosts))
+            {
                 continue;
+            }
 
             if (TryMultikickedCounters(line, replacements))
                 continue;
@@ -1360,13 +1407,15 @@ public static partial class CardCompiler
         // rather than compiling into a choice that cannot be made. Spree brought it within reach
         // of a real card: every one of its bullets carries a cost and an effect, so a card whose
         // effects the vocabulary cannot read keeps its keyword and loses its whole menu.
-        if (modesToChoose > 0 && modes.Count == 0)
+        if ((modesToChoose > 0 || modesMax > 0 || modesFromX) && modes.Count == 0)
         {
             unhandled.Add(modalSpellHeader ?? "choose one —");
             modesToChoose = 0;
             modesMax = 0;
             modesMayRepeat = false;
             extraModes = null;
+            factModes = null;
+            modesFromX = false;
         }
 
         // CR 702.113a: the awaken half is a whole spell ability of its own, and it is built here
@@ -1437,7 +1486,11 @@ public static partial class CardCompiler
             HasAssist = assist,
             EscalateCost = escalate,
             KickerCost = kicker,
+            KickerCosts = kickerCosts.ToImmutable(),
             BargainCost = bargain,
+            BargainDiscount = bargainDiscount,
+            ModesOnFact = factModes,
+            ModesFromX = modesFromX,
             BuybackCost = buyback,
             DashCost = dash,
             BlitzCost = blitz,
@@ -1478,13 +1531,49 @@ public static partial class CardCompiler
             FaceDownWard = faceDownWard,
         };
 
-        // CR 702.166c: the clause is linked to the bargain ability printed on the same card, so
-        // a card that reads one back without having one is not a card this engine can play. The
-        // sentence grammar cannot see the rest of the card, so the check is here, where it can.
+        // CR 702.166c, 702.194b, 702.33f: each read-back clause is linked to the cost printed on
+        // the same card (CR 607.2), so a card that reads one without having the ability is not a
+        // card this engine can play. The sentence grammar cannot see the rest of the card, so
+        // the check is here, where it can — and it scans the triggers as well as the spell,
+        // because the clause rides wherever a sentence does.
+        var everySentenceEffect = spellEffects
+            .Concat(triggers.SelectMany(t => t.Effects))
+            .ToList();
+
         if (bargain is null
-            && EffectTree.Flatten(spellEffects).Any(e => e is IfBargained))
+            && EffectTree.Flatten(everySentenceEffect).Any(e => e is IfBargained))
         {
             unhandled.Add("if this spell was bargained");
+        }
+
+        if (teamwork is null
+            && EffectTree.Flatten(everySentenceEffect).Any(e => e is IfTeamwork))
+        {
+            unhandled.Add("if this spell was cast using teamwork");
+        }
+
+        foreach (var perCost in EffectTree.Flatten(everySentenceEffect).OfType<IfKickedWith>())
+        {
+            if (!kickerCosts.Any(k =>
+                string.Equals(k.Printed, perCost.Cost, StringComparison.OrdinalIgnoreCase)))
+            {
+                unhandled.Add($"if it was kicked with its {perCost.Cost} kicker");
+            }
+        }
+
+        // The same linkage for a mode count switched by a cast fact: "choose any number instead"
+        // on a card with no kicker would be a menu no cast could ever widen, and reading it as
+        // the plain count would be the wrong card in the other direction.
+        if (factModes is { } gated
+            && gated.Fact switch
+            {
+                CastFact.Kicked =>
+                    kicker is null && multikicker is null && kickerCosts.Count == 0,
+                CastFact.Teamwork => teamwork is null,
+                _ => true,
+            })
+        {
+            unhandled.Add("choose-instead clause with no matching cost");
         }
 
         // A trigger that says "choose one —" and has no bullets under it offers a menu with
@@ -8808,8 +8897,54 @@ public static partial class CardCompiler
         ref int max,
         ref bool mayRepeat,
         ref ConditionalModes? extra,
-        ref bool spree)
+        ref bool spree,
+        ref FactModes? onFact,
+        ref bool fromX)
     {
+        // CR 700.2d + 601.2b: a count switched by a fact of this very cast — the CR's own
+        // worked example is the kicked form on Inscription of Abundance. "Choose both instead"
+        // and "choose any number instead" replace the printed count rather than widening it,
+        // which is what separates these from the commander header's "you may" below. "Any
+        // number" keeps a floor of one: the spell still has to do something.
+        if (FactModalHeader().Match(line) is { Success: true } switched)
+        {
+            var everything = switched.Groups["what"].Value.Equals(
+                "both", StringComparison.OrdinalIgnoreCase);
+
+            toChoose = 1;
+            max = 1;
+            onFact = new FactModes(
+                switched.Groups["team"].Success ? CastFact.Teamwork : CastFact.Kicked,
+                everything ? 2 : 1,
+                everything ? 2 : -1);
+
+            return true;
+        }
+
+        // "Choose up to four. You may choose the same mode more than once." (CR 700.2d) — a
+        // floor of zero under a printed ceiling. A mode count of zero with modes on offer is
+        // exactly that; the legality check reads the two numbers and asks nothing else.
+        if (UpToModalHeader().Match(line) is { Success: true } upTo)
+        {
+            if (ModeCount(upTo.Groups["n"].Value) is not { } atMost)
+                return false;
+
+            toChoose = 0;
+            max = atMost;
+            mayRepeat = upTo.Groups["repeat"].Success;
+            return true;
+        }
+
+        // "Choose X. You may choose the same mode more than once." (CR 601.2b) — the count is
+        // the X announced with the cast; the card gives the variable no definition of its own.
+        if (ChooseXHeader().Match(line) is { Success: true } byX)
+        {
+            toChoose = 0;
+            max = 0;
+            fromX = true;
+            mayRepeat = byX.Groups["repeat"].Success;
+            return true;
+        }
         // CR 702.172a: spree is a modal spell whose header is the keyword itself - "choose one
         // or more modes", with each chosen mode's own cost paid on top. The bullets are marked
         // with a plus rather than a dot, which is the visual reminder that they cost something
@@ -8890,7 +9025,11 @@ public static partial class CardCompiler
         }
 
         var bullet = ModalBullet().Match(line);
-        if (!bullet.Success || toChoose == 0)
+
+        // A bullet belongs to a header. "Choose up to four" and "Choose X" put a floor of zero
+        // under the count, so "no header yet" is no longer the same test as "minimum of zero" —
+        // it is all three numbers still at rest.
+        if (!bullet.Success || (toChoose == 0 && max == 0 && !fromX))
             return false;
 
         // A mode the parser cannot read leaves the *line* unread, which is what stops a modal
@@ -11198,19 +11337,70 @@ public static partial class CardCompiler
     /// omission.
     /// </remarks>
     private static bool TryKickedCounters(
-        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+        string line,
+        ImmutableList<ReplacementEffectDefinition>.Builder into,
+        ImmutableList<ContinuousEffectDefinition>.Builder statics,
+        bool hasPlainKicker,
+        ImmutableList<KickerOption>.Builder kickerCosts)
     {
         var m = KickedCountersLine().Match(line);
         if (!m.Success)
             return false;
 
+        // CR 607.2: the clause is linked to a kicker printed on the same card. The plain form
+        // needs a kicker at all; "with its {1}{U} kicker" needs that exact cost on offer, in the
+        // exact spelling the payment was recorded under (CR 702.33f). The keyword lines always
+        // come first on the cards that print these, so the guard can be asked mid-loop.
+        var cost = m.Groups["cost"].Success ? m.Groups["cost"].Value.ToUpperInvariant() : null;
+
+        if (cost is null
+            ? !hasPlainKicker && kickerCosts.Count == 0
+            : !kickerCosts.Any(k =>
+                string.Equals(k.Printed, cost, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        Func<GameObject, bool> paid = cost is null
+            ? source => source.WasKicked
+            : source => source.KickedWith.Contains(cost, StringComparer.OrdinalIgnoreCase);
+
+        // "... and with flying", "... and with \"Pay 3 life: Regenerate this creature.\"" — the
+        // volvers' other half: an ability the permanent has because of how it was cast. Not an
+        // until-end-of-turn grant but a fact-conditioned static in layer 6 (CR 613.1f), because
+        // the flag rides the permanent for as long as it lives (CR 607.2). Refused whole when
+        // the gift is neither a grantable keyword nor a quoted ability the compiler reads — half
+        // the printed line is not the card.
+        Action<CharacteristicsBuilder>? gift = null;
+        if (m.Groups["quote"].Success)
+        {
+            if (!TryQuotedAbility(
+                m.Groups["quote"].Value, out var grantedActivated, out var grantedTriggers))
+            {
+                return false;
+            }
+
+            gift = builder =>
+            {
+                builder.GrantedActivated.AddRange(grantedActivated);
+                builder.GrantedTriggers.AddRange(grantedTriggers);
+            };
+        }
+        else if (m.Groups["kw"].Success)
+        {
+            if (EffectPhrase.Keywords(m.Groups["kw"].Value) is not { } keywords)
+                return false;
+
+            gift = builder => builder.Keywords |= keywords;
+        }
+
         var count = NumberWordOrDigits(m.Groups["n"].Value);
 
         into.Add(new ReplacementEffectDefinition
         {
-            Id = "kicked-counters",
+            Id = cost is null ? "kicked-counters" : "kicked-counters-" + cost,
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null && source.WasKicked,
+            Applies = (e, _, source) => Arriving(e, source) is not null && paid(source),
             Replace = (e, _, source) =>
             [
                 e,
@@ -11218,6 +11408,20 @@ public static partial class CardCompiler
                     Arriving(e, source)!.Value, CounterKinds.PlusOnePlusOne, count),
             ],
         });
+
+        if (gift is { } granting)
+        {
+            statics.Add(new ContinuousEffectDefinition
+            {
+                Id = cost is null ? "kicked-gift" : "kicked-gift-" + cost,
+                Layer = EffectLayer.Ability,
+                Applies = (state, source, builder) =>
+                    source is not null
+                    && builder.Subject.Id == source.Id
+                    && paid(builder.Subject),
+                Apply = (_, _, builder) => granting(builder),
+            });
+        }
 
         return true;
     }
@@ -11239,8 +11443,14 @@ public static partial class CardCompiler
     private static bool TryMultikickedCounters(
         string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {
-        if (!MultikickedCountersLine().IsMatch(line))
+        var m = MultikickedCountersLine().Match(line);
+        if (!m.Success)
             return false;
+
+        // "Two +1/+1 counters ... for each time" — the same replacement with a rate. A spell
+        // kicked with both of an "and/or" pair's costs has been kicked twice (CR 702.33d), and
+        // the count was carried across the move exactly as multikicker's is (CR 607.2).
+        var per = NumberWordOrDigits(m.Groups["n"].Value);
 
         into.Add(new ReplacementEffectDefinition
         {
@@ -11253,7 +11463,7 @@ public static partial class CardCompiler
                 new CountersChanged(
                     Arriving(e, source)!.Value,
                     CounterKinds.PlusOnePlusOne,
-                    source.TimesKicked),
+                    per * source.TimesKicked),
             ],
         });
 
@@ -13591,6 +13801,16 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^kicker (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex KickerLine();
 
+    /// <summary>"Kicker {1}{U} and/or {B}" — two kicker abilities on one line (CR 702.33b).</summary>
+    [GeneratedRegex(
+        @"^kicker (?<a>(\{[^}]+\})+) and/or (?<b>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex KickerAndOrLine();
+
+    /// <summary>"This spell costs {2} less to cast if it's bargained." (CR 601.2f, 702.166b).</summary>
+    [GeneratedRegex(
+        @"^~ costs \{(?<n>\d+)\} less to cast if it's bargained\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex BargainDiscountLine();
+
     [GeneratedRegex(@"^Buyback (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex BuybackLine();
 
@@ -13761,6 +13981,26 @@ public static partial class CardCompiler
         @"^choose (?<n>one|two|three|four|five)\. You may choose the same mode more than once\.$",
         RegexOptions.IgnoreCase)]
     private static partial Regex RepeatableModalHeader();
+
+    /// <summary>"Choose one. If this spell was kicked, choose any number instead." (CR 700.2d).</summary>
+    [GeneratedRegex(
+        @"^choose one\. If (~|this spell|it) was (?:(?<team>cast using teamwork)|kicked), "
+            + @"choose (?<what>both|any number) instead\.$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex FactModalHeader();
+
+    /// <summary>"Choose up to four. You may choose the same mode more than once." (CR 700.2d).</summary>
+    [GeneratedRegex(
+        @"^choose up to (?<n>one|two|three|four|five)\."
+            + @"( (?<repeat>You may choose the same mode more than once)\.)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex UpToModalHeader();
+
+    /// <summary>"Choose X. You may choose the same mode more than once." (CR 601.2b).</summary>
+    [GeneratedRegex(
+        @"^choose X\.( (?<repeat>You may choose the same mode more than once)\.)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChooseXHeader();
 
     [GeneratedRegex(
         @"^choose one\. If you control a commander as you cast ~, you may choose both instead\.$",
@@ -13952,14 +14192,23 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex PhantomDamageLine();
 
+    /// <remarks>
+    /// One pattern for the plain flag and the "and/or" pair's per-cost form (CR 702.33f), and
+    /// for the volvers' tail: "and with flying", "and with \"Pay 3 life: Regenerate this
+    /// creature.\"". The quoted alternative keeps its period inside the quotes, which is why the
+    /// closing anchor cannot simply be <c>\.?$</c>.
+    /// </remarks>
     [GeneratedRegex(
-        @"^If ~ was kicked, it enters with (?<n>a|an|one|two|three|four|five|[0-9]+) "
-            + @"[+]1/[+]1 counters? on it[.]?$",
+        @"^If ~ was kicked(?: with its (?<cost>(?:\{[^}]+\})+) kicker)?, "
+            + @"it enters with (?<n>a|an|one|two|three|four|five|[0-9]+) "
+            + @"[+]1/[+]1 counters? on it"
+            + @"(?: and with (?:""(?<quote>[^""]+)""|(?<kw>[a-z][a-z ']*[a-z])))?[.]?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex KickedCountersLine();
 
     [GeneratedRegex(
-        @"^~ enters with a [+]1/[+]1 counter on it for each time it was kicked[.]?$",
+        @"^~ enters with (?<n>a|an|one|two|three|four|five|[0-9]+) "
+            + @"[+]1/[+]1 counters? on it for each time it was kicked[.]?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MultikickedCountersLine();
 
