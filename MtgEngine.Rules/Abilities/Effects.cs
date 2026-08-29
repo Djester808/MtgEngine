@@ -4577,6 +4577,66 @@ public sealed record SearchLibrary(
 }
 
 /// <summary>
+/// Seek a card: one taken at random from among the cards in a library that match, put where the
+/// card says, without revealing or shuffling the library.
+/// </summary>
+/// <remarks>
+/// Seeking is a digital-only keyword action. The Comprehensive Rules do not define it and there
+/// is no paragraph to cite, so none is cited here — an invented number would be worse than none,
+/// because it invites the next reader to trust it.
+/// <para>
+/// What it <em>can</em> be defined against is <see cref="SearchLibrary"/>, which it differs from
+/// in exactly two ways, both of which matter:
+/// </para>
+/// <list type="bullet">
+/// <item><description>The card is chosen <strong>at random by the game</strong>, not by the
+/// player. Reading a seek as a search would hand its controller the pick of their library, which
+/// is a strictly better card than the one printed — so it goes through the game's shared seeded
+/// source, like a shuffle or a discard at random, and the log carries the moves that came out
+/// rather than the roll that chose them.</description></item>
+/// <item><description>The library is neither revealed nor shuffled. A search shuffles afterwards
+/// (CR 701.23e); leaving the order alone is most of the reason the mechanic exists at all.
+/// </description></item>
+/// </list>
+/// <para>
+/// Everything else is the search vocabulary unchanged — the same <see cref="SearchFilters"/>
+/// ids, the same mana-value bounds, the same destinations — because a second filter grammar
+/// would drift from this one the first time either of them learned a word.
+/// </para>
+/// </remarks>
+public sealed record Seek(
+    string FilterId,
+    Zone Destination = Zone.Hand,
+    bool Tapped = false,
+    int Count = 1,
+    int? MaxManaValue = null,
+    int? MinManaValue = null,
+    int? ExactManaValue = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // "A card named ~" is the card's own name, filled in here where the source is known -
+        // the same substitution a search makes and for the same reason: what reaches the log has
+        // to name the card outright, so a replayed seek looks for the same thing.
+        var filter = FilterId;
+        if (filter.Contains('~', StringComparison.Ordinal)
+            && context.State.TryGetObject(context.PhysicalSourceId, out var self))
+        {
+            filter = filter.Replace("~", self.Card.Name, StringComparison.Ordinal);
+        }
+
+        return
+        [
+            new SeekRequested(
+                context.ControllerId, filter, Destination, Tapped, Count,
+                MaxManaValue, MinManaValue, ExactManaValue),
+        ];
+    }
+}
+
+/// <summary>
 /// Which cards a named search filter accepts (CR 701.23).
 /// </summary>
 /// <remarks>

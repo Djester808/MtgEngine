@@ -114,6 +114,7 @@ public static class EventLogSerializer
             ["DelayedTriggerFired"] = typeof(DelayedTriggerFired),
             ["LookAndTakeRequested"] = typeof(LookAndTakeRequested),
             ["LibrarySearchRequested"] = typeof(LibrarySearchRequested),
+            ["SeekRequested"] = typeof(SeekRequested),
             ["ModesChosen"] = typeof(ModesChosen),
             ["CardsSpliced"] = typeof(CardsSpliced),
             ["SpellSquadded"] = typeof(SpellSquadded),

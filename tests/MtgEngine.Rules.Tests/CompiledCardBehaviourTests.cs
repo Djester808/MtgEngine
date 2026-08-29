@@ -45010,6 +45010,317 @@ public sealed class CompiledCardBehaviourTests
             game.State.Battlefield,
             id => game.State.GetObject(id).Card.Name == "Test Bolt // Test Bear");
     }
+    // ---- Seek, a tutor whose card the player does not get to choose ----------
+
+    /// <summary>
+    /// A game in its first main phase with a chosen seed, so a random outcome can be varied.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="InMainPhase"/> fixes the seed at 1, which is exactly right for every test that
+    /// wants a repeatable board and useless for the one question seeking raises: whether the card
+    /// it takes is picked or chosen. One seed cannot tell a random pick from "the first match".
+    /// </remarks>
+    private static (Game Game, Guid Alice) InMainPhaseSeeded(int seed)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(seed),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice);
+    }
+
+    [Fact]
+    public void A_seek_takes_a_matching_card_out_of_the_library()
+    {
+        // Skyshroud Lookout's wording, with a card type the forty-card test deck cannot supply,
+        // so the card that arrives can only be the planted one.
+        var lookout = Card(
+            "Seek Herald Test",
+            "When this creature enters, seek a land card.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Seekable Forest Test"), Zone.Library);
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        var card = TestCards.PutInHand(game, alice, lookout);
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Seekable Forest Test");
+        Assert.Equal(before - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// Seeking leaves the library in the order it found it, and the search beside it does not.
+    /// </summary>
+    /// <remarks>
+    /// This is one of the two things that separate the two mechanics, and the reason the effect
+    /// is its own rather than a flag on the search: a search shuffles when it is done
+    /// (CR 701.23e) and a seek must not, or every card that seeks quietly gains a side effect it
+    /// does not print.
+    /// <para>
+    /// The search half is here as a control rather than for its own sake. A new reader placed
+    /// beside an existing one can claim its wording and then refuse it, which takes the line off
+    /// the neighbour while the coverage total still rises - so the neighbour's own wording is
+    /// played in the same test that plays the new one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_seek_leaves_the_library_in_order_where_a_search_shuffles_it()
+    {
+        var seeker = Card(
+            "Seek Quiet Test",
+            "When this creature enters, seek a land card.",
+            CardType.Creature,
+            2,
+            2);
+
+        var searcher = Card(
+            "Seek Neighbour Test",
+            "When this creature enters, search your library for a land card, "
+                + "put it into your hand, then shuffle.",
+            CardType.Creature,
+            2,
+            2);
+
+        var untouched = OrderedTestDeck();
+
+        Assert.Equal(
+            untouched,
+            RestOfLibraryAfter(seeker, "Seekable Quiet Forest Test", out var soughtQuietly));
+
+        Assert.True(soughtQuietly, "the seek did not find the land it was planted for.");
+
+        Assert.NotEqual(
+            untouched,
+            RestOfLibraryAfter(searcher, "Seekable Noisy Forest Test", out var searchedOut));
+
+        Assert.True(
+            searchedOut, "the search beside it stopped finding the land - its line was eaten.");
+    }
+
+    /// <summary>The library's remaining cards, in order, once a fetcher has taken its land.</summary>
+    private static List<string> RestOfLibraryAfter(
+        CardDefinition fetcher, string landName, out bool found)
+    {
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand(landName), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, fetcher);
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        found = game.State.GetPlayer(alice).Hand
+            .Any(id => game.State.GetObject(id).Card.Name == landName);
+
+        return
+        [
+            .. game.State.GetPlayer(alice).Library
+                .Select(id => game.State.GetObject(id).Card.Name)
+                .Where(name => name != landName),
+        ];
+    }
+
+    /// <summary>
+    /// The forty-card test deck in the order the opening of a game leaves it, which is the order
+    /// a library nothing has shuffled still has.
+    /// </summary>
+    private static List<string> OrderedTestDeck()
+    {
+        var (game, alice, _) = InMainPhase();
+        return
+        [
+            .. game.State.GetPlayer(alice).Library
+                .Select(id => game.State.GetObject(id).Card.Name),
+        ];
+    }
+
+    /// <summary>
+    /// The card a seek takes is picked by the game, not chosen by its controller.
+    /// </summary>
+    /// <remarks>
+    /// The assertion that can tell those apart is variation across seeds. A choice would be
+    /// answered the same way every time by the harness - which takes the first option - and "the
+    /// first match in the library" would answer the same way too, so a single game proves
+    /// neither. Reading a seek as a search is the one misreading that matters here: it would hand
+    /// the player the pick of their library, which is a strictly better card than the printed one.
+    /// </remarks>
+    [Fact]
+    public void A_seek_picks_at_random_rather_than_letting_its_controller_choose()
+    {
+        var lottery = Card(
+            "Seek Lottery Test",
+            "When this creature enters, seek a land card.",
+            CardType.Creature,
+            2,
+            2);
+
+        string[] planted =
+        [
+            "Seekable Plains Test",
+            "Seekable Island Test",
+            "Seekable Swamp Test",
+            "Seekable Waste Test",
+        ];
+
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var seed = 1; seed <= 8; seed++)
+        {
+            var (game, alice) = InMainPhaseSeeded(seed);
+
+            foreach (var name in planted)
+                game.Create(alice, TestCards.BasicLand(name), Zone.Library);
+
+            var card = TestCards.PutInHand(game, alice, lottery);
+            game.CastSpell(alice, card);
+            Settle(game);
+
+            taken.UnionWith(game.State.GetPlayer(alice).Hand
+                .Select(id => game.State.GetObject(id).Card.Name)
+                .Where(planted.Contains));
+        }
+
+        Assert.True(
+            taken.Count > 1,
+            "every seed took the same card, so the pick is not random: "
+                + string.Join(", ", taken));
+    }
+
+    [Fact]
+    public void A_seek_can_put_what_it_finds_onto_the_battlefield_tapped()
+    {
+        // Spirited Simulacrum's wording, which is what took that card from unread to complete.
+        var simulacrum = Card(
+            "Seek Grounded Test",
+            "When this creature enters, seek a land card and put it onto the battlefield tapped.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Seekable Tapped Forest Test"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, simulacrum);
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        var landed = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Seekable Tapped Forest Test");
+
+        Assert.True(
+            game.State.GetObject(landed).Permanent?.IsTapped,
+            "the land arrived untapped, and the card says tapped.");
+    }
+
+    /// <summary>
+    /// A seek finds only what the card describes, and finding nothing is not a failure.
+    /// </summary>
+    /// <remarks>
+    /// Both halves in one test because each is worth little without the other: a seek that finds
+    /// nothing looks identical to a seek that never ran, so the same card is played twice - once
+    /// against a library nothing in which answers its description, and once against one where a
+    /// planted card does.
+    /// </remarks>
+    [Fact]
+    public void A_seek_finds_only_what_the_card_describes()
+    {
+        var picky = Card(
+            "Seek Picky Test",
+            "When this creature enters, seek an artifact card.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, _) = InMainPhase();
+
+        // Everything in the deck, and the planted card, is a creature or a land, so nothing
+        // answers to "artifact" yet.
+        game.Create(alice, TestCards.BasicLand("Seekable Ignored Forest Test"), Zone.Library);
+        var library = game.State.GetPlayer(alice).Library.Count;
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        var first = TestCards.PutInHand(game, alice, picky);
+        game.CastSpell(alice, first);
+        Settle(game);
+
+        Assert.Equal(library, game.State.GetPlayer(alice).Library.Count);
+        Assert.Equal(hand, game.State.GetPlayer(alice).Hand.Count);
+
+        // The same card again, now that the library holds something that does answer.
+        game.Create(alice, Card("Seekable Relic Test", string.Empty, CardType.Artifact), Zone.Library);
+
+        var second = TestCards.PutInHand(game, alice, picky);
+        game.CastSpell(alice, second);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Seekable Relic Test");
+    }
+
+    /// <summary>
+    /// A seek can be an activated ability, can take more than one card, and is bound by the mana
+    /// value its card names.
+    /// </summary>
+    /// <remarks>
+    /// The ceiling is the half worth playing rather than reading. A seek that ignored the mana
+    /// value its card prints would fetch anything, which is the failure this whole file exists to
+    /// catch: a card that compiles perfectly and plays as a better card than the printed one.
+    /// </remarks>
+    [Fact]
+    public void A_seek_takes_the_number_it_names_and_obeys_the_mana_value_it_names()
+    {
+        var engine = Card(
+            "Seek Twice Test",
+            "{T}: Seek two artifact cards with mana value 2 or less.",
+            CardType.Artifact);
+
+        var (game, alice, _) = InMainPhase();
+        var dear = new CardDefinition
+        {
+            OracleId = "oracle-seekable-dear-relic-test",
+            Name = "Seekable Dear Relic Test",
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{5}",
+            Cmc = 5,
+        };
+
+        game.Create(alice, Card("Seekable Cheap Relic Test", string.Empty, CardType.Artifact), Zone.Library);
+        game.Create(alice, Card("Seekable Second Relic Test", string.Empty, CardType.Artifact), Zone.Library);
+        game.Create(alice, dear, Zone.Library);
+
+        var permanent = game.Create(alice, engine, Zone.Battlefield);
+        game.ActivateAbility(alice, permanent, "a");
+        Settle(game);
+
+        var held = game.State.GetPlayer(alice).Hand
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Contains("Seekable Cheap Relic Test", held);
+        Assert.Contains("Seekable Second Relic Test", held);
+
+        // The dear one answers every word of the description except the ceiling.
+        Assert.DoesNotContain("Seekable Dear Relic Test", held);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

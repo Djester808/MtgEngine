@@ -6051,3 +6051,120 @@ That is a structural change to the object model, not a template. The half-built 
 mutate cost, read the triggers, and cast the card as an ordinary creature — is exactly the failure
 this file exists to prevent: 33 cards would compile as complete, be let into decks, and play as
 vanilla creatures whose printed trigger never fires.
+
+### The digital-only family, measured — and the one door in it
+
+The corpus is the whole Scryfall oracle set, so it carries the Alchemy and Arena-only cards, and
+their mechanics were entirely unread — no matcher, effect or event in `MtgEngine.Rules` mentioned
+`perpetually`, `conjure`, `seek`, `spellbook`, `intensity` or `specialize` at all. The family is
+self-contained — nothing else in the corpus depends on it — which makes it the one place where a
+misreading cannot regress a paper card.
+
+**It is much larger than it looks and has almost no template in it.** Both halves of that are the
+finding.
+
+| mechanic | cards | complete before | would complete if this alone were read |
+|---|---:|---:|---:|
+| `perpetually` | 246 | 0 | 187 |
+| `conjure` | 178 | 0 | 104 |
+| `seek` | 107 | 0 | 74 |
+| a card's `spellbook` | 64 | 0 | 39 |
+| `double team` | 23 | 0 | 11 |
+| `intensity` | 20 | 0 | 5 |
+| `specialize` | 19 | 0 | 10 |
+| **the union** | **541** | **0** | **393** |
+
+The right-hand column is what makes the family look like a door, and it is the number to distrust:
+it assumes every line carrying the word can be read, and those lines are not a template. Counted as
+shapes with the numbers and mana symbols normalised out, `perpetually` is **245 lines with 244
+distinct shapes**, `conjure` is **175 with 175**, and `seek` is **113 with 108**. Split further into
+sentences — the unit the work queue ranks, because that is where the leverage lives — it does not
+improve: 248 perpetual sentences in 225 shapes, 177 conjure sentences in 177. There is no head to
+attack anywhere in it.
+
+Which is why the honest yield here is one verb.
+
+#### Seek: a tutor whose card the player does not get to choose
+
+Seeking is search with the choice taken away and the shuffle removed, and that is the whole of it:
+the same `SearchFilters` ids, the same mana-value bounds, the same destinations. So `Seek` reuses
+the search's filter grammar rather than growing a second one, and differs in exactly the two places
+where the mechanics differ.
+
+- **The game picks, not the player.** Reading a seek as a search would hand its controller the pick
+  of their library, which is a strictly better card than the printed one — the failure this file
+  exists to prevent. The pick goes through the one seeded source, like a shuffle or a discard at
+  random, and the log carries the moves that came out rather than the roll that chose them.
+- **The library is not shuffled.** A search shuffles when it is done (CR 701.23e). Leaving the
+  order alone is most of the reason the mechanic exists, and it is why this is its own effect rather
+  than a flag on `SearchLibrary`: a flag governing two behaviours is one edit away from turning a
+  real tutor random.
+
+`SeekRequested` carries **no `Rule`**, and that is deliberate rather than an omission. Seeking is
+digital-only and the Comprehensive Rules do not define it, so there is no paragraph to point at — and
+a citation invented to fill the field would be worse than none, which this repository has already
+learned four times over.
+
+The reader is anchored at both ends, and that anchoring is what refuses the half of the family that
+must stay unread: `seek a nonland card instead`, `seek a card with mana value equal to the number of
+cards in your hand`, `seek three nonland cards, then nonland cards in your hand perpetually gain …`.
+Each means something the effect cannot build, and each stops matching at the tail rather than being
+read as the plain seek it is not.
+
+**15,570 → 15,577 complete cards, diffed as a set rather than counted**: Audacious Knuckleblade,
+Excogitator Sphinx, Routeway Moose, Skyshroud Lookout, Spirited Simulacrum, Sune's Intervention and
+Worldweave in, and **nothing out**. Six behaviour tests play it, and three were checked by watching
+them fail: taking the first match instead of a random one fails the seeded-variation test, shuffling
+afterwards fails the order test, and dropping the mana-value ceiling fails the ceiling test. The
+neighbouring search wording is played in the same test as a control, because a new reader placed
+beside an old one can claim its line and refuse it while the coverage total still rises.
+
+Seven cards is small, and it is worth saying what it is small *against*. The top row of the whole
+corpus work queue is worth **seven cards** — the head of that ranking is now completely flat — and
+`Specialize {N}` is one of the rows tied at the very top of it, on a mechanic that turns out to be
+unbuildable at any price. Meanwhile no seek line appears anywhere near the top of that ranking,
+because all 113 of them are spelled differently and each is worth one card. Both halves are the lesson this document has now recorded three times:
+a ranking of line shapes cannot see a gap in the shared vocabulary, and it cannot see that its own
+top row is impossible.
+
+#### Declined here, with the measurement behind each
+
+- **`perpetually`** (246 cards, 187 reachable in principle). Two independent reasons, either
+  sufficient. It fights CR 400.7 head on: a perpetual effect is defined to survive a zone change,
+  and this engine's identity model says an object that changes zones is a new object. Carrying it on
+  the *card* the way suspend carries time counters is the shape that could work — but it would have
+  to reach cards in a hand, a graveyard and a library, which is where most of these lines aim. And
+  it would buy nothing without 244 distinct sentences behind it. Blurring the identity rule the
+  whole event-sourced model rests on, for a mechanic with no template, is the worst trade available
+  here.
+- **`specialize`** (19 cards). It reads like the best row in the family — one template line, ten
+  cards — and it cannot be built at all, for a reason that has nothing to do with the engine.
+  Specializing turns the card into one of five printed versions of itself, and **all 85 of those
+  versions are legal in no format**, so the corpus loader (which admits a card only if some format
+  says legal or restricted) excludes every one of them. There is nothing in the playable corpus to
+  specialize into. Compiling the line anyway would give nineteen cards a button that does nothing,
+  which is the failure mode this file rates worse than an unread card.
+- **`intensity`** (20 cards, 5 reachable). The same fight as perpetually and a harder one: intensity
+  is a counter on the *card*, shared by **every card you own with that name**, in every zone —
+  "cards you own named Chittering Skullspeaker intensify by 1". That is neither a permanent's counter
+  nor a player's resource, and the five cards it would finish do not pay for a third kind of state.
+- **A card's `spellbook`** (62 cards). Not a rules problem: **the bulk data has no field naming a
+  spellbook's contents.** Every one of these lines draws a card from a list that does not exist
+  anywhere in the corpus, so there is nothing to conjure or draft.
+- **`conjure`** (178 cards, 104 reachable). Beyond the flat 175-shape tail, conjuring brings a named
+  card in from outside the game (CR 400.11b) and `MtgEngine.Rules` has no way to find a card by
+  name — `IAbilitySource` is keyed by the card it is handed. That is a new interface across the
+  layer boundary in service of 175 distinct sentences.
+- **`Activate only once`** (5 cards, the whole "Gate to …" cycle, each of them `{3}{C}, {T}: Seek a
+  nonland card. Activate only once.`). Bare "once" is once per *game*, and
+  `MaxActivationsPerTurn` can only say once per turn — reading it as the latter hands the card an
+  activation every turn after the first. That refusal is already recorded above for the conjunction
+  form; this is the same clause standing alone, and it is now the single largest blocker left in the
+  seek family. Making it work needs a count that survives a reload, which means state rather than an
+  engine field, and the failure if it is got wrong is silent and strictly generous.
+
+One instrument note worth keeping. **433 of the 434 "A-" rebalanced Alchemy cards are in the playable
+corpus** — they carry `alchemy`, `historic` and `timeless` legalities — while the 85 specialized
+versions above are in none of it, and both facts come from the same one line of the corpus loader:
+a card counts as playable if any format says legal or restricted. Every number on this page depends
+on that line, so it is worth reading before quoting one.
