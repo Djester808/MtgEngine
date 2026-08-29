@@ -331,6 +331,37 @@ public static partial class GenerativeEffects
     /// </remarks>
     public static string LureId() => "lure";
 
+    /// <summary>The id for "at least one creature able to block it has to" (CR 509.1c).</summary>
+    /// <remarks>
+    /// The singular of <see cref="LureId"/>, and not a weaker version of it: a lure compels every
+    /// creature that can block and this compels one, which CR 509.1c counts differently. The two
+    /// flags are checked apart in the combat rules for that reason, so an effect answering the
+    /// wrong one would either demand blocks the card never asked for or accept a declaration the
+    /// card forbids.
+    /// <para>
+    /// It exists because the static printing of the same requirement had nowhere to put a
+    /// duration: "~ must be blocked if able" is a continuous effect the compiler registers on the
+    /// card, and "must be blocked <em>this turn</em>" is the same characteristic granted by a
+    /// one-shot. Reading the second as the first is what would have made it permanent.
+    /// </para>
+    /// </remarks>
+    public static string MustBeBlockedId() => "must-be-blocked";
+
+    /// <summary>The id for "can block an additional N creatures" (CR 509.1a).</summary>
+    /// <remarks>
+    /// The count travels in the id because these grants add rather than replace - "an additional
+    /// creature" is an amount, so two of them let one creature block three. "Any number" is a
+    /// number no board can reach rather than a second unlimited flag, which is the same choice
+    /// the static reader makes.
+    /// <para>
+    /// The static printing's ids carry the card's name as well (<c>extra-blocks:Name:1</c>) and
+    /// are registered rather than generated, so nothing here can be confused for one: the
+    /// pattern that reads this is anchored on digits alone.
+    /// </para>
+    /// </remarks>
+    public static string ExtraBlocksId(int count) =>
+        string.Create(CultureInfo.InvariantCulture, $"extra-blocks:{count}");
+
     /// <summary>The id for "this creature blocks this turn if able" (CR 509.1a).</summary>
     /// <remarks>
     /// The requirement read from the blocker's side. A lure is the attacker's version of the
@@ -819,6 +850,37 @@ public static partial class GenerativeEffects
             };
         }
 
+        if (string.Equals(definitionId, "must-be-blocked", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.MustBeBlocked = true,
+            };
+        }
+
+        var extraBlocks = ExtraBlocksName().Match(definitionId);
+        if (extraBlocks.Success)
+        {
+            var more = int.Parse(
+                extraBlocks.Groups["n"].Value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture);
+
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+
+                // Added rather than assigned, exactly as the static reader adds: the rule says
+                // "an additional", which is an amount and not a state.
+                Apply = (_, _, builder) => builder.ExtraBlocks += more,
+            };
+        }
+
         if (string.Equals(definitionId, "switch-pt", StringComparison.Ordinal))
         {
             return new ContinuousEffectDefinition
@@ -1039,6 +1101,9 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^gains-type:(?<t>[A-Za-z' -]+)$")]
     private static partial Regex GainsCreatureTypeName();
+
+    [GeneratedRegex(@"^extra-blocks:(?<n>\d+)$")]
+    private static partial Regex ExtraBlocksName();
 
     [GeneratedRegex(@"^must-block:(?<a>[0-9a-f]{32})$")]
     private static partial Regex MustBlockAttackerName();

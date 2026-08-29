@@ -6010,9 +6010,13 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
   same answer whenever a creature's own limit is what binds it - and that is every board with
   one lure on it. A lure with menace requires nothing at all, deliberately: "able to block" is
   judged one creature at a time and menace is a fact about the set, so the strict reading would
-  leave the defender compelled to block and refused for blocking alone. The "this turn" wordings
+  leave the defender compelled to block and refused for blocking alone. ~~The "this turn" wordings
   of both this and "can block an additional creature" stay unread - they are one-shot effects,
-  and this static layer has nowhere to put a duration, so reading them would make them permanent.
+  and this static layer has nowhere to put a duration, so reading them would make them
+  permanent.~~ **Both now read**, as floating effects rather than statics - see "The declines a
+  duration retired" below. The static reader is unchanged and still refuses them, which is the
+  control a behaviour test holds: "each combat" is on from the moment the permanent arrives and
+  "this turn" is off until somebody pays for it.
 - **A permanent with two abilities** cannot be used from the board — a click that silently picked
   the first would be worse than one that does nothing, so it selects the card instead. It needs a
   menu.
@@ -6656,3 +6660,129 @@ so the fixture blindspot cannot reopen.
 **15,899 → 15,916 complete cards, the set diffed and none lost:** 7 cleave (Winged Portent,
 Fierce Retribution, Alchemist's Retrieval, Dig Up, Lunar Rejection, Path of Peril, Parasitic
 Grasp) and 10 gift, as named above.
+
+### The declines a duration retired, and the ones it did not
+
+This file has now recorded the same shape of mistake three times: **a line is declined for want of
+a mechanism, the mechanism arrives for some other reason, and nobody goes back.** The initiative
+was blocked on an unsayable room that became sayable the moment a different dungeon needed the
+same duration. Goad's "measured and declined" note went stale the same way. Both were found by
+somebody re-reading a note rather than by anything in the build.
+
+So this round is the sweep rather than the reader: every recorded decline whose stated reason was
+a missing duration or a one-shot-against-permanent problem, re-measured against the code as it
+now stands. **Three durations existed that did not when those notes were written** —
+`PumpUntilEndOfTurn.ForTheTurn` (a change that never wears off), `FloatingEffect.UntilTurnOf`
+("until your next turn", CR 611.2b), and `ContinuousEffectDefinition.While` ("for as long as …").
+The list below is the deliverable, not the code: the next round should not have to derive it
+again.
+
+**15,935 → 15,970 complete cards, +35, none lost, measured by set difference.** Five declines
+taken, and the numbers on four of the five were the ones the notes had.
+
+| decline, as recorded | verdict | measured |
+|---|---|---|
+| `{cost}: ~ can block an additional creature this turn` — *"one-shot effects, and this static layer has nowhere to put a duration"* | **taken** | +8: the 4 activated printings, Act of Heroism's trailing clause, and the "any number"/"up to two" wordings on Give No Ground, Valor Made Real and Yare |
+| `~ must be blocked this turn if able` — the same note's sibling | **taken** | +11, from a bare sorcery, an activated ability, a trigger and six compound sentences |
+| `Flashback—{cost}, Pay N life` — a price that is mana *and* life | **taken** | +4 (Acorn Harvest, Crippling Fatigue, Deep Analysis, Spirit Flare) |
+| `remove a +1/+1 counter from it at end of combat` — an effect scheduled for a later step | **taken** | +6: the four Clockwork cards, plus Wicker Warcrawler and Frostweb Spider, which put one on instead |
+| `Spells your opponents cast that target ~ cost {M} more` — *"a condition on the spell rather than a filter on the card"* | **taken** | +6, including the "less" direction and the bare "spells that target ~" |
+| `You have hexproof.` | **stands — not a duration** | 4 sole blockers, 11 touching |
+| `Creatures your opponents control enter tapped.` | **stands — not a duration** | 4 on that exact wording, 13 across the family |
+| `destroy it at end of combat` (recorded at 4 cards) | **stands** | 18 sole blockers, and the reason is unchanged |
+| A static prevention with no duration | **stands, and is duration-shaped** | 33 sole blockers, 59 touching — but none of the three new durations reaches it |
+| `you may play them`, a play permission with no duration (Runestone Caverns) | **stands, and is duration-shaped** | 14 sole blockers — the missing thing is a permission that does *not* expire |
+| `gain control … for as long as you control this` (~170 lines) | **already built**; the note was stale | `ControlWhileId`/`HeldWhileId` |
+| `all creatures able to block ~ this turn do so` | **already built** | `LureId` |
+
+**The two "this turn" combat requirements needed nothing but a name.** That is the whole finding
+and it is worth being precise about, because it says what the original decline actually cost. The
+requirement itself was never the problem: `Characteristics.ExtraBlocks` and
+`Characteristics.MustBeBlocked` have existed since the block rules were written, and the compiler
+already fills both from a printed static ability. What was missing was a *generated* name for
+them — `extra-blocks:1` and `must-be-blocked` — so that the ordinary pump effect could hand them
+to a creature with a turn number attached. `PumpUntilEndOfTurn` is not a pump: it is "apply the
+effect this id names to this subject until the turn ends", and every characteristic that has a
+generated name gets a duration for free. Two entries in `GenerativeEffects.Resolve` and one
+subject helper is the whole of it.
+
+**And the static reader is deliberately untouched.** `TryExtraBlocks` and `TryMustBeBlocked` still
+refuse the "this turn" wordings, exactly as before, because they are not statics.
+`The_each_combat_wording_is_a_static_and_the_this_turn_wording_is_not` is the control that keeps
+those two readings apart: a single pattern loose enough to claim both would pass every other test
+in this section and fail that one — which is the mistake the decline was right to refuse.
+
+**Flashback's life was a hole in the permission, not in the mechanic.** CR 702.34a's cost is paid
+"rather than the card's mana cost" and a cost is allowed to be more than mana;
+`AlternativeCastZone` could hold chosen cards and permanents (retrace's land, escape's exiles) and
+had nowhere to put life. It is charged where `ConditionalCost.LifeCost` is charged and checked
+where it is checked — before any of the cost is paid, so a caster who cannot afford it is refused
+having spent nothing. Two details fell out: Scryfall prints the separator as a space when the cost
+is mana alone and as an em dash when it is not, so the pattern takes either; and the mana group
+stays required, which is what keeps "Flashback—Sacrifice a Mountain" out.
+
+**The delayed counter change is a new effect rather than a fourth verb, and the reason is the
+default arm.** `DelaySourceAction`'s vocabulary is three zone changes, and the switch in
+`FireDelayedTriggers` that reads its id **falls through to a sacrifice** for any word it does not
+recognise. A counter removal handed to that vocabulary would not shrink the Clockwork Beetle, it
+would destroy it — the harshest possible reading of the gentlest possible line, and precisely the
+failure this file already recorded when it declined `destroy it at end of combat` for the mirror
+reason. `DelaySourceCounters` therefore carries `counters:+1/+1:-1` and is read *above* that
+switch, and the behaviour test's last assertion is that the creature is still on the battlefield.
+
+**`destroy it at end of combat` still stands, and the sweep re-measured it at 18 rather than 4.**
+Nothing about a delayed counter change gives the engine a delayed *destroy*: sacrificing is not
+destroying (CR 701.21a), so regeneration and indestructible cannot touch it, and the reading would
+still be harsher than printed. The number was worth re-measuring anyway — it is the largest
+remaining sole-blocker family in this corner and the cheapest thing left here, needing one entry
+in that same delayed vocabulary.
+
+**"That target ~" cost more to ask about than to answer.** The pattern's own remarks recorded the
+refusal — *"a condition on the spell rather than a filter on the card … would have to be read as
+the unconditional form, which is a better card than the printed one"* — and the condition turns
+out to be free: CR 601.2c chooses targets before CR 601.2f works the cost out, so the cast has the
+list in hand when it gathers modifiers. `CostModifier.TargetsSource` compares the chosen targets
+against the loop's own permanent id, which is why the modifier itself carries no id at all. An
+activated ability is never handed a target list, so a modifier carrying the flag never applies to
+one — which is what its printed word "spells" says. Every other `that target …` wording stays
+refused, and both Kaervek's Torch (the spell taxing itself on the stack) and Killian (a
+description rather than a permanent) are the controls that prove the new pattern did not eat its
+neighbours.
+
+**The two that are not duration problems at all, and what each actually needs.**
+
+- **`You have hexproof.`** — 4 sole blockers, 11 cards touching. Nothing to do with duration: the
+  ability is a permanent's static and lasts exactly as long as the permanent, which the layers
+  already handle for objects. The gap is that **a player is not an object**.
+  `TargetSpec.IsLegal`'s player arm asks three things — does the player exist, have they lost, and
+  does an optional filter accept them — and the hexproof/shroud/protection check one block below
+  it runs against `Characteristics.Of`, which exists only for game objects. `PlayerState` carries
+  no keywords and nothing computes any. What this needs is a small second layer system over
+  players, or an `IAbilitySource` seam the player arm can sweep the battlefield through; either is
+  a real piece of engine, and neither is a duration.
+- **`Creatures your opponents control enter tapped.`** — 4 on the exact wording, 13 across the
+  family once artifacts, lands and "nonbasic lands" are counted. Also not a duration: it is a
+  replacement effect **about somebody else's arrival**. The gathering loop already offers every
+  battlefield object's replacements against every event, so the mechanism is there; what is
+  missing is that `CardCompiler.Arriving` matches only the source's *own* arrival
+  (`moved.OldId == source.Id`), and every enters-tapped reader is built on it. A group form needs
+  a filter and a player scope, and one wrinkle worth writing down before somebody starts: for an
+  `ObjectMoved` the arriving object does not exist in the state yet, so its controller and type
+  have to be read off `OldId` in the zone it is leaving; only `ObjectCreated` carries them on the
+  event. It is the same shape as the "creatures enchanted player controls" group-filter decline,
+  and it is worth more cards than that one.
+
+**Two declines that *are* duration-shaped and that these three durations do not reach**, recorded
+so the next sweep does not re-hope for them:
+
+- **A static prevention with no duration** — 33 sole blockers, 59 touching. The recorded reason
+  still holds: `PreventDescribedDamage` produces a `PreventionEffect`, which is state the engine
+  keeps until the turn ends, and `ContinuousEffectDefinition.While` is a condition on a
+  *continuous* effect, so it cannot be hung on one. The shape that works is already in the file
+  once — `PreventAllCombatDamage` is a `ReplacementEffectDefinition` with
+  `FunctionsFrom = Zone.Battlefield`, which stops the moment its permanent does. That is the route,
+  and it is a rewrite of the described-prevention reader rather than a duration.
+- **A play permission that does not expire** — 14 sole blockers. Both permissions the engine
+  stores run out (`MayPlayUntilTurn`, `MayPlayThroughOwnersNextTurn`), and "you may play them for
+  as long as they remain exiled" needs one that does not. A third field, not a fourth duration.
+

@@ -2868,6 +2868,44 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target creature must be blocked this turn if able" (CR 509.1c) and "~ can block an
+        // additional creature this turn" (CR 509.1a). Both requirements already exist as static
+        // abilities the compiler registers on a card, and the "this turn" wordings of both were
+        // recorded as declined together for one reason: a static continuous effect has nowhere
+        // to put a duration, so reading them there would have made them permanent. A floating
+        // effect is where a duration lives, so each is that same characteristic granted for the
+        // turn and nothing else - and the "each combat" printings still read as statics, which
+        // is the pair of readings the behaviour tests hold apart.
+        m = MustBeBlockedThisTurnLine().Match(sentence);
+        if (m.Success
+            && AimedThisTurn(
+                m.Groups["t"].Value, GenerativeEffects.MustBeBlockedId(), targets) is
+            { } compelledToBeBlocked)
+        {
+            effects.Add(compelledToBeBlocked);
+            return true;
+        }
+
+        m = ExtraBlocksThisTurnLine().Match(sentence);
+        if (m.Success)
+        {
+            // The same three amounts the static reader knows, read the same way: "any number" is
+            // a number no board can reach rather than a separate flag.
+            var more = m.Groups["any"].Success
+                ? 1_000_000
+                : m.Groups["n"].Success
+                    ? Number(m.Groups["n"].Value).Fixed
+                    : 1;
+
+            if (AimedThisTurn(
+                    m.Groups["t"].Value, GenerativeEffects.ExtraBlocksId(more), targets) is
+                { } blocking)
+            {
+                effects.Add(blocking);
+                return true;
+            }
+        }
+
         m = SwitchPowerToughnessLine().Match(sentence);
         if (m.Success && Specs.Parse(m.Groups["t"].Value) is { } swapped)
         {
@@ -3180,6 +3218,32 @@ public static partial class EffectPhrase
             if (when is { } moment && doing is not null)
             {
                 effects.Add(new DelaySourceAction(doing, moment));
+                return true;
+            }
+        }
+
+        // "Remove a +1/+1 counter from it at end of combat" - the same delayed ability with a
+        // counter change instead of a zone change (CR 603.7, 122.1). The Clockwork cycle winds
+        // itself down this way and two other cards wind themselves up, so the sign is read from
+        // the verb rather than assumed. It is a separate effect from the delayed move above
+        // because that one's vocabulary defaults an unrecognised instruction to a sacrifice, and
+        // a counter removal answered with a sacrifice is a far worse card than an unread line.
+        m = DelayedSelfCountersLine().Match(sentence);
+        if (m.Success && CounterKindNamed(m.Groups["kind"].Value) is { } delayedKind)
+        {
+            var many = Number(m.Groups["n"].Value).Fixed;
+            var taking = m.Groups["verb"].Value.StartsWith(
+                "remove", StringComparison.OrdinalIgnoreCase);
+
+            var delayedWhen = m.Groups["combat"].Success
+                ? State.TurnStep.EndOfCombat
+                : TriggerConditions.StepNamed(m.Groups["step"].Value);
+
+            if (many > 0 && delayedWhen is { } thisStep)
+            {
+                effects.Add(new DelaySourceCounters(
+                    delayedKind, taking ? -many : many, thisStep));
+
                 return true;
             }
         }
@@ -9237,6 +9301,29 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex LureTargetLine();
 
+    /// <summary>"Target creature must be blocked this turn if able" (CR 509.1c).</summary>
+    /// <remarks>
+    /// The subject is optional because a sentence split on "and" leaves the second half without
+    /// one - "target creature gets +3/+3 until end of turn and must be blocked this turn if
+    /// able" is one subject with two things said about it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:(?<t>[A-Za-z0-9'’ ,-]+|~) )?must be blocked this (turn|combat) if able$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MustBeBlockedThisTurnLine();
+
+    /// <summary>"~ can block an additional creature this turn" (CR 509.1a).</summary>
+    /// <remarks>
+    /// The same three amounts the static printing prints, and no others: one more, a stated
+    /// number more, or any number at all.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:(?<t>[A-Za-z0-9'’ ,-]+|~) )?can block "
+            + @"(?:(?<any>any number of creatures)|an additional creature|"
+            + @"up to (?<n>[a-z]+) additional creatures) this (turn|combat)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ExtraBlocksThisTurnLine();
+
     /// <summary>"Untap up to three lands" — a choice made on resolution (CR 701.21a).</summary>
     [GeneratedRegex(
         @"^untap up to (?<n>" + N + @") (?<group>[a-z ]+)$",
@@ -9405,6 +9492,45 @@ public static partial class EffectPhrase
     /// cheaper failure, so a pronoun this cannot resolve to a target leaves the line unread.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Aims a "this turn" combat requirement at whatever its sentence names (CR 611.2).
+    /// </summary>
+    /// <remarks>
+    /// The three subjects these sentences use, and the effect each one needs. "~" is the
+    /// permanent whose ability it is, so it takes the source form and asks the player nothing;
+    /// "target creature" adds a target; and a pronoun - or the bare half left behind when a
+    /// sentence is split on "and" - is the target the sentence has already chosen.
+    /// <para>
+    /// The pronoun arm is deliberately stricter than its neighbours: with nothing targeted it
+    /// returns null and the line stays unread, rather than reaching for the triggering object.
+    /// Every printing of these two sentences that the corpus has either names a target or is the
+    /// tail of one that does, so an arm no card exercises would be an arm no test keeps honest.
+    /// </para>
+    /// </remarks>
+    private static IEffect? AimedThisTurn(
+        string who,
+        string definitionId,
+        ImmutableList<TargetSpec>.Builder targets)
+    {
+        var subject = who.Trim();
+
+        if (string.Equals(subject, "~", StringComparison.Ordinal))
+            return new PumpSourceUntilEndOfTurn(definitionId);
+
+        if (subject.Length == 0 || Pronouns.Contains(subject, StringComparer.OrdinalIgnoreCase))
+        {
+            return targets.Count > 0
+                ? new PumpUntilEndOfTurn(definitionId, targets.Count - 1)
+                : null;
+        }
+
+        if (Specs.Parse(subject) is not { } aimed)
+            return null;
+
+        targets.Add(aimed);
+        return new PumpUntilEndOfTurn(definitionId, targets.Count - 1);
+    }
+
     private static int? PronounObject(
         Match m,
         ImmutableList<TargetSpec>.Builder targets,
@@ -9934,6 +10060,22 @@ public static partial class EffectPhrase
             + @" (at the beginning of the next (?<step>[a-z ]+)|(?<combat>at end of combat))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DelayedSelfLine();
+
+    /// <summary>
+    /// "Remove a +1/+1 counter from it at end of combat" (CR 603.7, 122.1).
+    /// </summary>
+    /// <remarks>
+    /// The subject words are the ones a card uses for the permanent whose ability this is - "it",
+    /// "~", "this creature" - and nothing wider. A delayed counter change is aimed at the source
+    /// and has nowhere to put a target, so a phrase naming anything else must stay unread rather
+    /// than land on the wrong permanent.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<verb>put|remove) (?<n>a|an|one|two|three|[0-9]+) (?<kind>[+-]?[0-9]+/[+-]?[0-9]+|[a-z]+) "
+            + @"counters? (on|from) (it|~|this creature)"
+            + @" (at the beginning of the next (?<step>[a-z ]+)|(?<combat>at end of combat))\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DelayedSelfCountersLine();
 
     [GeneratedRegex(@"^attach (it|~) to " + T + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex AttachSelfLine();

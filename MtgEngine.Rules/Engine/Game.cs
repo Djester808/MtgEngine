@@ -1162,6 +1162,18 @@ public sealed class Game
                         $"{card.Card.Name} has no cleave (CR 702.148a)."))
             : definition?.AlternateCost ?? ManaCostSpec.Parse(card.Card.ManaCostRaw);
 
+        // CR 118.8, 601.2h: a zone permission whose price includes life is checked here, with
+        // the mana and before any of it is paid — "Flashback—{1}{U}, Pay 3 life." A player may
+        // pay life only down to zero, so a caster who cannot afford it is refused having spent
+        // nothing.
+        if (fromElsewhere
+            && alternative!.LifeCost > 0
+            && alternative.LifeCost > State.GetPlayer(playerId).Life)
+        {
+            throw new InvalidOperationException(
+                $"You cannot pay {alternative.LifeCost} life for {card.Card.Name} (CR 118.8).");
+        }
+
         // CR 903.8: {2} more for each previous cast from the command zone — the commander tax.
         // It counts casts from that zone specifically, so a commander cast from hand after being
         // bounced there is not taxed and does not add to the count.
@@ -1439,7 +1451,8 @@ public sealed class Game
         // reading only their own permanents is exactly why that cell of the grid was unread.
         cost = CostModification.Apply(
             cost,
-            CostModifiersFor(CostModifierKind.Spells, card.Card, playerId, castFrom, null, false));
+            CostModifiersFor(
+                CostModifierKind.Spells, card.Card, playerId, castFrom, null, false, chosen));
 
         // CR 601.2h: the whole cost is worked out and checked before any of it is paid, so a
         // spell whose additional cost cannot be met is refused with nothing spent.
@@ -1613,6 +1626,16 @@ public sealed class Game
         {
             var before = State.GetPlayer(playerId).Life;
             Emit(new LifeChanged(playerId, -bleeding.LifeCost, before - bleeding.LifeCost));
+        }
+
+        // The same charge for a permission that names life as part of its price, and it is a
+        // separate arm rather than a shared one because the two are never both taken: an
+        // alternative cost replaces the printed cost from hand, and this is the cost of casting
+        // from somewhere else.
+        if (fromElsewhere && alternative is { LifeCost: > 0 } fromZone)
+        {
+            var before = State.GetPlayer(playerId).Life;
+            Emit(new LifeChanged(playerId, -fromZone.LifeCost, before - fromZone.LifeCost));
         }
 
         // The permanent never leaves the battlefield and so never becomes a new object. Losing
@@ -2568,13 +2591,20 @@ public sealed class Game
     /// <param name="castFrom">The zone the spell is being cast from, or null for an ability.</param>
     /// <param name="abilitySourceId">Which permanent's ability, for a self-modifier.</param>
     /// <param name="isManaAbility">Whether it is a mana ability (CR 605.1a).</param>
+    /// <param name="aimedAt">
+    /// What the spell has chosen to target, for the modifiers that ask (CR 601.2c). Null for an
+    /// activated ability and for a face-down cast, neither of which chooses one — so a modifier
+    /// conditioned on being targeted never applies to either, which is what its printed word
+    /// "spells" says.
+    /// </param>
     private IEnumerable<CostModifier> CostModifiersFor(
         CostModifierKind kind,
         CardDefinition paying,
         Guid payerId,
         Zone? castFrom,
         ObjectId? abilitySourceId,
-        bool isManaAbility)
+        bool isManaAbility,
+        IReadOnlyList<Target>? aimedAt = null)
     {
         foreach (var id in State.Battlefield)
         {
@@ -2615,6 +2645,18 @@ public sealed class Game
                 // the stack, which is the only exclusion these cards print.
                 if (modifier.ExceptManaAbilities && isManaAbility)
                     continue;
+
+                // CR 601.2c before 601.2f: the targets are chosen before the cost is worked out,
+                // so "spells that target this creature" is a question the cast can already
+                // answer. Asked of this permanent's own id, which is why the loop variable is
+                // the right thing to compare and the modifier itself carries no id at all.
+                if (modifier.TargetsSource
+                    && (aimedAt is null
+                        || !aimedAt.Any(
+                            t => t.Kind == TargetKind.Permanent && t.Subject == id)))
+                {
+                    continue;
+                }
 
                 // The zone is read on both halves or on neither. A modifier carrying a zone that
                 // nothing consulted would apply its reduction from every zone, which is a worse
@@ -9158,6 +9200,28 @@ public sealed class Game
             if (!State.TryGetObject(delayed.SubjectId, out var subject)
                 || subject.Zone != Zone.Battlefield)
             {
+                continue;
+            }
+
+            // "Remove a +1/+1 counter from it at end of combat" (CR 122.1). Read here, above the
+            // zone table below, because that table's default arm is a sacrifice: an id it does
+            // not recognise destroys the permanent, so a counter change reaching it would be the
+            // harshest possible misreading of the gentlest possible line.
+            if (delayed.EffectId.StartsWith(DelaySourceCounters.Prefix, StringComparison.Ordinal))
+            {
+                var written = delayed.EffectId[DelaySourceCounters.Prefix.Length..];
+                var split = written.LastIndexOf(':');
+
+                if (split > 0
+                    && int.TryParse(
+                        written[(split + 1)..],
+                        System.Globalization.NumberStyles.AllowLeadingSign,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out var delta))
+                {
+                    Emit(new CountersChanged(delayed.SubjectId, written[..split], delta));
+                }
+
                 continue;
             }
 

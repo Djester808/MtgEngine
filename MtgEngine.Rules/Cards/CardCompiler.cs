@@ -4644,6 +4644,13 @@ public static partial class CardCompiler
         if (SpellCostModifierLine().Match(line) is { Success: true } spell)
             return ReadSpellCostModifier(spell, into);
 
+        // The same six cells with one condition on top, and a reader of its own so the
+        // unconditional pattern above keeps refusing every other "that target …" phrase. Only
+        // "that target ~" is admitted: the permanent printing the line is the one thing a cost
+        // modifier can ask about without a filter vocabulary over targets.
+        if (TargetingSpellCostModifierLine().Match(line) is { Success: true } aimedHere)
+            return ReadSpellCostModifier(aimedHere, into, targetsSource: true);
+
         if (AbilityCostModifierLine().Match(line) is { Success: true } ability)
             return ReadAbilityCostModifier(ability, into);
 
@@ -4652,7 +4659,7 @@ public static partial class CardCompiler
 
     /// <summary>"Creature spells you cast cost {1} less to cast" and its five siblings.</summary>
     private static bool ReadSpellCostModifier(
-        Match m, ImmutableList<CostModifier>.Builder into)
+        Match m, ImmutableList<CostModifier>.Builder into, bool targetsSource = false)
     {
         if (CostFilterFor(m.Groups["what"].Value) is not { } filter)
             return false;
@@ -4686,6 +4693,7 @@ public static partial class CardCompiler
             Kind = CostModifierKind.Spells,
             Who = who,
             FromZone = from,
+            TargetsSource = targetsSource,
         });
 
         return true;
@@ -9439,6 +9447,21 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "Flashback {cost}" and "Flashback—{cost}, Pay N life" (CR 702.34a).
+    /// </summary>
+    /// <remarks>
+    /// The life half was the whole of what kept four of these cards unread. CR 702.34a says the
+    /// flashback cost is what is paid "rather than the card's mana cost", and a cost is allowed
+    /// to be more than mana - the em-dash form is exactly the additional-cost spelling the rules
+    /// use everywhere else. What was missing was somewhere on the permission to put it:
+    /// <see cref="AlternativeCastZone.Extra"/> holds cards and permanents, and life is neither.
+    /// <para>
+    /// Nothing else about flashback changes. The permission, the zone and the exile on the way
+    /// out of the stack are the same three static abilities they were, so a card printing no
+    /// life clause compiles to exactly what it compiled to before.
+    /// </para>
+    /// </remarks>
     private static bool TryFlashback(string line, ref AlternativeCastZone? into)
     {
         var m = FlashbackLine().Match(line);
@@ -9446,7 +9469,12 @@ public static partial class CardCompiler
             return false;
 
         into = new AlternativeCastZone(
-            Zone.Graveyard, ManaCostSpec.Parse(m.Groups["cost"].Value), ExileOnResolve: true);
+            Zone.Graveyard, ManaCostSpec.Parse(m.Groups["cost"].Value), ExileOnResolve: true)
+        {
+            LifeCost = m.Groups["life"].Success
+                ? NumberWordOrDigits(m.Groups["life"].Value)
+                : 0,
+        };
 
         return true;
     }
@@ -13625,7 +13653,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^unearth (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex UnearthLine();
 
-    [GeneratedRegex(@"^flashback (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// The separator is a space or an em dash because the cardboard uses both: Scryfall prints
+    /// "Flashback {2}{R}" when the cost is mana alone and "Flashback\u2014{1}{U}, Pay 3 life."
+    /// when it is not. The mana group is still required, so the em dash cannot let in
+    /// "Flashback\u2014Sacrifice a Mountain", whose cost this permission has no way to charge.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^flashback[ \u2014](?<cost>(\{[^}]+\})+)(, Pay (?<life>\d+) life)?\.?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex FlashbackLine();
 
     /// <summary>"Harmonize {X}{R}{R}" (CR 702.180a).</summary>
@@ -14336,6 +14372,24 @@ public static partial class CardCompiler
             + @"(?<dir>less|more) to cast\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SpellCostModifierLine();
+
+    /// <summary>
+    /// "Spells your opponents cast that target ~ cost {2} more to cast" (CR 601.2c, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The condition the pattern above refuses, admitted on the one phrase that names something
+    /// a modifier can ask about: the permanent printing it. Every other "that target …" wording
+    /// in the corpus names a description - a creature you control, one or more commanders you
+    /// control, a creature - and reading any of those here would need a filter vocabulary over
+    /// chosen targets. "That target it", printed by a card talking about itself on the stack, is
+    /// refused too: the spell being taxed and the object being targeted are the same object
+    /// there, which is a different question from this one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<what>[A-Za-z ]+?)? ?spells(?<who> you cast| your opponents cast)?"
+            + @" that target ~ cost \{(?<n>\d+)\} (?<dir>less|more) to cast\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetingSpellCostModifierLine();
 
     /// <remarks>
     /// "Activated abilities of Foods you control cost {1} less to activate" (CR 602.2b). Only

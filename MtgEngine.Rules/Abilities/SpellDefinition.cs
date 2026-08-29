@@ -641,7 +641,24 @@ public sealed record AlternativeCastZone(
     ImmutableList<ChosenCost>? Extra = null,
     bool OnlyIfDiscardedThisTurn = false,
     string Keyword = "",
-    bool Transformed = false);
+    bool Transformed = false)
+{
+    /// <summary>Life paid as part of this permission's cost (CR 118.8, 601.2h).</summary>
+    /// <remarks>
+    /// "Flashback—{1}{U}, Pay 3 life." Life is not mana and not a card, so it fits neither
+    /// <see cref="Cost"/> nor <see cref="Extra"/> — the same hole
+    /// <see cref="ConditionalCost.LifeCost"/> fills for the alternative costs a spell offers from
+    /// hand, and it is charged on the same footing: checked with the rest of the cost before any
+    /// of it is paid, so a caster who cannot afford it is refused having spent nothing, and paid
+    /// as a plain change rather than as damage — nothing prevents it and no lifelink sees it.
+    /// <para>
+    /// It belongs to the <em>permission</em> rather than to the spell, for the reason retrace's
+    /// land discard does: the same card cast from hand pays no life, so a cost hung on the spell
+    /// would be charged on every cast.
+    /// </para>
+    /// </remarks>
+    public int LifeCost { get; init; }
+}
 
 /// <summary>
 /// Tapping permanents to pay part of a spell's cost (CR 702.51a, 702.56a).
