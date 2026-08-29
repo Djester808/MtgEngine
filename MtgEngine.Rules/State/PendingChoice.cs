@@ -186,6 +186,17 @@ public enum ChoiceKind
     /// <summary>Which creature you control bears the Ring (CR 701.54a).</summary>
     RingBearer,
 
+    /// <summary>
+    /// Which player protects a battle (CR 310.9a).
+    /// </summary>
+    /// <remarks>
+    /// Asked of the battle's controller as it enters, and again when its protector stops being
+    /// eligible (CR 704.5x, 704.5y). Only asked when the answer could differ: a Siege at a
+    /// two-player table has exactly one opponent (CR 310.12a), and a forced choice is made
+    /// rather than offered.
+    /// </remarks>
+    ChooseProtector,
+
     /// <summary>Which arrow to follow out of a dungeon room (CR 701.49b).</summary>
     VentureRoom,
 

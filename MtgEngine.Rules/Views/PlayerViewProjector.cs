@@ -262,6 +262,8 @@ public static class PlayerViewProjector
             IsPlaneswalker = card.CardTypes.HasFlag(CardType.Planeswalker),
             IsCreature = card.CardTypes.HasFlag(CardType.Creature),
             IsLand = card.CardTypes.HasFlag(CardType.Land),
+            IsBattle = card.CardTypes.HasFlag(CardType.Battle),
+            ProtectorId = obj.Permanent?.ProtectorId,
             Abilities = ProjectAbilities(state, obj, abilities),
             Colors = [.. card.Colors.Select(c => c.ToString())],
             PrintedPower = card.Power,

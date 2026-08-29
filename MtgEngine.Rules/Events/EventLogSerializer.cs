@@ -125,6 +125,8 @@ public static class EventLogSerializer
             ["CardsSpliced"] = typeof(CardsSpliced),
             ["SpellSquadded"] = typeof(SpellSquadded),
             ["SpellKicked"] = typeof(SpellKicked),
+            ["SpellCleaved"] = typeof(SpellCleaved),
+            ["GiftPromised"] = typeof(GiftPromised),
             ["ProliferateRequested"] = typeof(ProliferateRequested),
             ["ChoosePermanentRequested"] = typeof(ChoosePermanentRequested),
             ["CoinFlipRequested"] = typeof(CoinFlipRequested),
@@ -136,6 +138,7 @@ public static class EventLogSerializer
             ["SpellBlitzed"] = typeof(SpellBlitzed),
             ["CitysBlessingGained"] = typeof(CitysBlessingGained),
             ["MonarchChanged"] = typeof(MonarchChanged),
+            ["InitiativeTaken"] = typeof(InitiativeTaken),
             ["PermanentTransformed"] = typeof(PermanentTransformed),
             ["DayNightChanged"] = typeof(DayNightChanged),
             ["PermanentSaddled"] = typeof(PermanentSaddled),
@@ -176,6 +179,7 @@ public static class EventLogSerializer
             ["CardForetold"] = typeof(CardForetold),
             ["FreeCastOffered"] = typeof(FreeCastOffered),
             ["FreeCastLapsed"] = typeof(FreeCastLapsed),
+            ["ProtectorChosen"] = typeof(ProtectorChosen),
             ["CascadeRequested"] = typeof(CascadeRequested),
             ["CoinFlipped"] = typeof(CoinFlipped),
             ["SummoningSicknessCleared"] = typeof(SummoningSicknessCleared),
@@ -401,6 +405,11 @@ public static class EventLogSerializer
         int? Power,
         int? Toughness,
         int? StartingLoyalty,
+
+        // A battle's printed defense (CR 310.4a). Without it a stored game rebuilt every battle
+        // with no number to enter with, so the replacement that puts its defense counters on
+        // (CR 310.4b) silently put none.
+        int? Defense,
         KeywordAbility Keywords,
         IReadOnlyList<ManaColor> ColorIdentity,
         IReadOnlyList<ManaColor> Colors,
@@ -426,6 +435,7 @@ public static class EventLogSerializer
             card.Power,
             card.Toughness,
             card.StartingLoyalty,
+            card.Defense,
             card.Keywords,
             card.ColorIdentity,
             card.Colors,
@@ -444,6 +454,7 @@ public static class EventLogSerializer
             Power = Power,
             Toughness = Toughness,
             StartingLoyalty = StartingLoyalty,
+            Defense = Defense,
             Keywords = Keywords,
             ColorIdentity = [.. ColorIdentity],
             Colors = [.. Colors],

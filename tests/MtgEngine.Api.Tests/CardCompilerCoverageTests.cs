@@ -42,7 +42,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     /// a card the corpus gains does not fail an unrelated commit.
     /// </para>
     /// </remarks>
-    private const double MinimumCoverage = 0.484;
+    private const double MinimumCoverage = 0.486;
 
     /// <summary>The corpus, or null when the bulk file has not been downloaded.</summary>
     /// <remarks>
@@ -222,6 +222,11 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                 : 0,
             Power = Stat(front, "power"),
             Toughness = Stat(front, "toughness"),
+
+            // A battle's defense (CR 310.4a). Printed battles are all transforming cards, so the
+            // number is on the front face and the face answers for the card - the same fallback
+            // the cost and the power use.
+            Defense = Stat(front, "defense"),
             Subtypes = SubtypesOf(typeLine),
             Faces = FacesOf(json, keywords),
         };
@@ -352,6 +357,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                 OracleText = Text(face, "oracle_text"),
                 Power = Stat(face, "power"),
                 Toughness = Stat(face, "toughness"),
+                Defense = Stat(face, "defense"),
                 Colors = ColoursOf(face, "colors"),
                 Keywords = keywords,
             });

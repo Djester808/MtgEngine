@@ -43670,6 +43670,355 @@ public sealed class CompiledCardBehaviourTests
             Assert.Single(reloaded.GetObject(host).MergedComponents).Name);
     }
 
+    // ---- The initiative and Undercity (CR 726, CR 701.49d) --------------------
+
+    /// <summary>
+    /// "Venture into Undercity" starts Undercity, not the default dungeon (CR 701.49d).
+    /// </summary>
+    /// <remarks>
+    /// The line this round exists for: it was deliberately unread while Undercity's bottommost
+    /// room could not be said, because a pattern loose enough to admit it would have sent
+    /// nineteen cards into Lost Mine of Phandelver — a different dungeon with different rooms —
+    /// while looking implemented. Now that Undercity ships, the named venture has to prove it
+    /// arrives in the dungeon it names.
+    /// </remarks>
+    [Fact]
+    public void A_named_venture_enters_Undercity_not_the_default_dungeon()
+    {
+        var delver = Card(
+            "Undercity Delver Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(delver);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, delver, Zone.Battlefield);
+        Settle(game);
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+        Assert.Equal(Dungeons.Undercity, dungeon.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Entering it grants no designation: venturing into Undercity and taking the
+        // initiative are different instructions, and only the second confers the first.
+        Assert.Null(game.State.InitiativeId);
+    }
+
+    /// <summary>
+    /// "When ~ enters, you take the initiative." — nineteen cards say exactly this, and taking
+    /// the initiative is venturing into Undercity (CR 726.1, CR 726.2).
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_ventures_into_Undercity()
+    {
+        var herald = Card(
+            "Initiative Herald Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        Assert.Null(game.State.InitiativeId);
+
+        game.Create(alice, herald, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.InitiativeId);
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+        Assert.Equal(Dungeons.Undercity, dungeon.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// Taking the initiative while already in a dungeon advances that dungeon (CR 701.49d): a
+    /// named venture decides what is started, never what is advanced.
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_while_already_in_a_dungeon_advances_that_dungeon()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        Venture(game, alice);
+        Assert.Equal(
+            Dungeons.LostMineOfPhandelver, DungeonOf(game, alice)?.Card.Name);
+
+        game.Create(alice, Card(
+            "Initiative Spelunker Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        // The venture followed Lost Mine's arrows out of Cave Entrance — the settled game
+        // answered the fork with its first arrow — and no Undercity appeared beside it: a
+        // player owns one dungeon at a time (CR 309.3).
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal(
+            Dungeons.LostMineOfPhandelver, DungeonOf(game, alice)?.Card.Name);
+        Assert.Equal("Goblin Lair", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// A holder instructed to take the initiative takes it again: no second designation, but
+    /// the venture happens all the same (CR 726.5).
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_again_ventures_again_without_a_second_designation()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Initiative Repeat Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        game.Create(alice, Card(
+            "Initiative Repeat Two Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        // Still one holder, and the marker moved: the second taking ventured out of Secret
+        // Entrance along its first arrow.
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal("Forge", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// The first inherent ability (CR 726.2): at the beginning of the upkeep of the player who
+    /// has the initiative, that player ventures into Undercity. Nobody else's upkeep does.
+    /// </summary>
+    [Fact]
+    public void The_initiative_holder_ventures_at_their_own_upkeep()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Initiative Watch Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Bob's whole turn passes: his upkeep ventures nothing, because the ability belongs to
+        // the upkeep of the player who has the initiative.
+        TestCards.PassToTurn(game, 2);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PrecombatMain);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Alice's upkeep ventures, and Secret Entrance forks, so the venture is mid-question
+        // when her turn begins — the room choice is the proof the venture ran with no card cast.
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.VentureRoom });
+        Assert.Equal(3, game.State.TurnNumber);
+
+        game.Choose(alice, ["Lost Well"]);
+        Settle(game);
+
+        Assert.Equal("Lost Well", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// The second inherent ability (CR 726.2): combat damage to the holder hands the initiative
+    /// to the attacker — once for the whole batch, however many creatures connected — and the
+    /// taker ventures into their own Undercity for it.
+    /// </summary>
+    /// <remarks>
+    /// "One or more creatures a player controls" is one trigger, so two unblocked attackers must
+    /// produce one taking and one venture: a marker past Secret Entrance would mean the batch
+    /// was taken twice, the second of them a CR 726.5 re-take the rule does not have. The test
+    /// also holds the condition vocabulary to account: Alice's herald watches her own end step
+    /// for "if you have the initiative", which is true the turn she takes it and false after
+    /// Bob's raiders take it away.
+    /// </remarks>
+    [Fact]
+    public void Combat_damage_to_the_holder_takes_the_initiative_once_per_batch()
+    {
+        var seer = Card(
+            "Initiative Seer Test",
+            "When ~ enters, you take the initiative.\n"
+                + "At the beginning of your end step, if you have the initiative, "
+                + "put a +1/+1 counter on this creature.",
+            CardType.Creature,
+            power: 1,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(seer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, seer, Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(alice, game.State.InitiativeId);
+
+        var first = game.Create(
+            bob, TestCards.Creature("Initiative Raider Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            bob, TestCards.Creature("Initiative Raider Two Test", 2, 2), Zone.Battlefield);
+
+        // Alice's own end step, while she still holds it: the condition is true and the
+        // counter lands.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+        Assert.Equal(
+            1,
+            game.State.GetObject(watcher).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        TestCards.PassUntil(game, () => game.State.TurnNumber == 2
+            && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(bob, new Dictionary<ObjectId, AttackTarget>
+        {
+            [first] = AttackTarget.Player(alice),
+            [second] = AttackTarget.Player(alice),
+        });
+
+        // Nothing blocks, the damage lands, and the venture's search finds nothing in an
+        // all-creature library, so no question interrupts the walk to end of combat.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Bob took it exactly once: he owns his own Undercity with the marker still on the
+        // topmost room, and Alice's dungeon did not move.
+        Assert.Equal(bob, game.State.InitiativeId);
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+        Assert.Equal(Dungeons.Undercity, DungeonOf(game, bob)?.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(bob).DungeonRoom);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Alice's next end step: the condition is false now, and the counter count holds.
+        TestCards.PassUntil(game, () => game.State.TurnNumber == 3
+            && game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+        Assert.Equal(
+            1,
+            game.State.GetObject(watcher).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// A room ability can target a player, chosen as the ability goes on the stack (CR 603.3d):
+    /// Undercity's other side, down through Forge and Trap!.
+    /// </summary>
+    /// <remarks>
+    /// Trap! is the only room in either shipped dungeon that targets a player, and a granted
+    /// trigger's targets are the lookup that was blind once already — found by card and ability
+    /// id with no source, so the trigger resolved with nothing to aim at. The life has to move,
+    /// or that hole has quietly reopened for the player-shaped target.
+    /// </remarks>
+    [Fact]
+    public void A_room_that_targets_a_player_drains_whoever_was_chosen()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Trapfinder Bear Test"), Zone.Battlefield);
+
+        game.Create(alice, Card(
+            "Trapfinder Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        VentureTo(game, alice, "Forge", "Trap!");
+
+        // Forge put its two counters on whichever creature the settled game chose.
+        Assert.Equal(
+            2,
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Sum(o => o.Permanent is { } p
+                    ? p.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne)
+                    : 0));
+        Assert.Contains(bear, game.State.Battlefield);
+
+        // Trap! took 5 life from exactly one player — whichever was picked, the total says the
+        // room's target resolved rather than fizzling.
+        Assert.Equal(
+            35,
+            game.State.GetPlayer(alice).Life + game.State.GetPlayer(bob).Life);
+        Assert.Equal("Trap!", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// Undercity's bottommost room, the one that blocked the whole mechanic: reveal the top
+    /// ten, put a creature from among them onto the battlefield with three +1/+1 counters, it
+    /// gains hexproof until your next turn, then shuffle — and completing the dungeon happens
+    /// after all of that (CR 309.6, CR 309.7).
+    /// </summary>
+    [Fact]
+    public void The_bottom_of_Undercity_puts_a_revealed_creature_out_dressed_and_shuffles()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Throne Walker Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Down the token side of the dungeon: Lost Well scries, Stash makes a Treasure,
+        // Catacombs a 4/1 menace Skeleton — all plain ventures advancing Undercity (CR 701.49d).
+        VentureTo(game, alice, "Lost Well", "Stash", "Catacombs");
+
+        Assert.Equal(Dungeons.Undercity, DungeonOf(game, alice)?.Card.Name);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Treasure");
+
+        var skeleton = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Skeleton");
+        Assert.True(Now(game, skeleton.Id).Has(KeywordAbility.Menace));
+
+        var inLibrary = game.State.GetPlayer(alice).Library.Count;
+
+        VentureTo(game, alice, "Throne of the Dead Three");
+
+        // One creature came out of the ten revealed; the other nine were shuffled back in.
+        Assert.Equal(inLibrary - 1, game.State.GetPlayer(alice).Library.Count);
+
+        var throned = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Permanent is { } p
+                && p.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne) == 3);
+        Assert.StartsWith("Alice", throned.Card.Name, StringComparison.Ordinal);
+        Assert.True(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+
+        // The Throne is the bottommost room, so the dungeon completed as its ability finished —
+        // after the creature arrived, or the room would have done nothing (CR 309.6).
+        Assert.Null(DungeonOf(game, alice));
+        Assert.Contains(
+            Dungeons.Undercity, game.State.GetPlayer(alice).CompletedDungeons);
+
+        // "Until your next turn" (CR 611.2b): hexproof holds through Bob's whole turn and is
+        // gone as Alice's next begins.
+        TestCards.PassToTurn(game, 2);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        Assert.True(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+
+        TestCards.PassToTurn(game, 3);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.False(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+    }
+
     // ---- Classes (CR 716) ----------------------------------------------------
 
     /// <summary>Enough untapped basics for a generic cost, tapped for mana.</summary>
@@ -47886,6 +48235,504 @@ public sealed class CompiledCardBehaviourTests
         Assert.DoesNotContain("Seekable Dear Relic Test", held);
     }
 
+    // ---- Cleave, gift, and the bracket rule (CR 702.148, 702.174) ------------
+
+    /// <summary>
+    /// A line containing square brackets that no cleave-aware reader claimed is refused, not
+    /// silently read without its brackets.
+    /// </summary>
+    /// <remarks>
+    /// Before the guard, this exact sentence compiled as the flier-less draw — a card read
+    /// <em>better</em> than printed, which is the one class of error the fail-closed rule
+    /// exists to prevent. Nothing playable was affected only because every bracketed line sat
+    /// on an incomplete card; that was luck, and this assertion is the lock.
+    /// </remarks>
+    [Fact]
+    public void A_bracketed_line_is_refused_rather_than_read_without_its_brackets()
+    {
+        var sneaky = Card(
+            "Bracket Refusal Test",
+            "Draw a card for each creature you control [with flying].");
+
+        var compiled = CardCompiler.Compile(sneaky);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, l => l.Contains("[with flying]", StringComparison.Ordinal));
+        Assert.Null(compiled.Spell);
+    }
+
+    /// <summary>
+    /// A cleave card carries two readings, and the one that resolves is the one that was paid
+    /// for (CR 702.148a).
+    /// </summary>
+    /// <remarks>
+    /// Winged Portent's wording, with a board built so the two readings must answer
+    /// differently: one flier among two creatures, so the printed reading draws one card and
+    /// the cleaved reading draws two. The middle refusal is the cost half of the rule — cleave
+    /// is an alternative cost, and the printed mana must not buy the cleaved text.
+    /// </remarks>
+    [Fact]
+    public void A_cleave_card_resolves_the_reading_that_was_paid_for()
+    {
+        var portent = new CardDefinition
+        {
+            OracleId = "oracle-cleave-portent-test",
+            Name = "Cleave Portent Test",
+            ManaCostRaw = "{1}{U}{U}",
+            Cmc = 3,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {4}{G}{U} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Draw a card for each creature you control [with flying].",
+        };
+
+        var compiled = CardCompiler.Compile(portent);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.CleaveSpell);
+        Assert.Equal("{4}{G}{U}", compiled.CleaveCostRaw);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Cleave Grounded Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Cleave Flier Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.Flying),
+            Zone.Battlefield);
+
+        // Printed, the words in brackets are on the card: only the flier counts.
+        var printedCast = TestCards.PutInHand(game, alice, portent);
+        game.AddMana(alice, ManaColor.Blue, 3);
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, printedCast);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+
+        // The printed mana does not buy the cleaved reading: cleave replaces the cost.
+        var cleavedCast = TestCards.PutInHand(game, alice, portent);
+        game.AddMana(alice, ManaColor.Blue, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, cleavedCast, cleaved: true));
+
+        // Paid for, the bracketed words come off and every creature counts.
+        game.AddMana(alice, ManaColor.Green, 5);
+        before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, cleavedCast, cleaved: true);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The chosen reading decides what the spell may even target (CR 702.148a, 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// Fierce Retribution's wording. "Destroy target [attacking] creature" printed takes only
+    /// an attacker, so aiming it at an idle creature is refused at cast — and the same aim is
+    /// legal the moment the cleave cost removes the word. A swap that only reached the effects
+    /// would pass the first half of this test and fail the second.
+    /// </remarks>
+    [Fact]
+    public void The_reading_chooses_what_a_cleave_card_may_target()
+    {
+        var retribution = new CardDefinition
+        {
+            OracleId = "oracle-cleave-retribution-test",
+            Name = "Cleave Retribution Test",
+            ManaCostRaw = "{1}{W}",
+            Cmc = 2,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {5}{W} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Destroy target [attacking] creature.",
+        };
+
+        var compiled = CardCompiler.Compile(retribution);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var idler = game.Create(bob, TestCards.Creature("Cleave Idler Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, retribution);
+
+        // Printed, the spell wants an attacking creature and the idler is not one.
+        game.AddMana(alice, ManaColor.White, 2);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(idler)]));
+
+        // Cleaved, "attacking" is one of the removed words.
+        game.AddMana(alice, ManaColor.White, 4);
+        game.CastSpell(alice, card, [Target.ToPermanent(idler)], cleaved: true);
+        Settle(game);
+
+        Assert.DoesNotContain(idler, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Cleave Idler Test");
+    }
+
+    /// <summary>
+    /// A cleave card either of whose readings has an unreadable line stays unread, and reports
+    /// only the sentence that actually blocks it.
+    /// </summary>
+    /// <remarks>
+    /// Wash Away's wording: the cleaved reading is a plain counterspell the compiler knows,
+    /// and the printed reading's "wasn't cast from its owner's hand" is not yet vocabulary.
+    /// Shipping the readable half would sell a strictly smaller card as the printed one, so
+    /// the whole card refuses — with no <see cref="CompiledCard.CleaveSpell"/> for a cast to
+    /// reach past the deck gate.
+    /// </remarks>
+    [Fact]
+    public void A_cleave_card_with_an_unreadable_reading_stays_unread()
+    {
+        var washAway = new CardDefinition
+        {
+            OracleId = "oracle-cleave-wash-test",
+            Name = "Cleave Wash Test",
+            ManaCostRaw = "{U}",
+            Cmc = 1,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {1}{U}{U} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Counter target spell [that wasn't cast from its owner's hand].",
+        };
+
+        var compiled = CardCompiler.Compile(washAway);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Null(compiled.CleaveSpell);
+
+        var blocker = Assert.Single(compiled.Unhandled);
+        Assert.Contains("wasn't cast from its owner's hand", blocker, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A promised gift swaps in the promised reading, and the present is delivered before the
+    /// spell's own effects (CR 702.174j, 702.174m).
+    /// </summary>
+    /// <remarks>
+    /// Into the Flood Maw's wording, whose two readings take different targets: unpromised it
+    /// bounces only a creature, promised any nonland permanent. Aiming the unpromised cast at
+    /// an artifact is refused — CR 702.174m says those targets exist only if the gift was
+    /// promised — and the promised cast bounces it while the chosen opponent's Fish arrives
+    /// tapped, and arrives <em>first</em>.
+    /// </remarks>
+    [Fact]
+    public void A_promised_gift_delivers_first_and_swaps_in_the_promised_reading()
+    {
+        var maw = new CardDefinition
+        {
+            OracleId = "oracle-gift-maw-test",
+            Name = "Gift Maw Test",
+            ManaCostRaw = "{U}",
+            Cmc = 1,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Gift a tapped Fish (You may promise an opponent a gift as you cast this "
+                + "spell. If you do, they create a tapped 1/1 blue Fish creature token before "
+                + "its other effects.)\n"
+                + "Return target creature an opponent controls to its owner's hand. If the "
+                + "gift was promised, instead return target nonland permanent an opponent "
+                + "controls to its owner's hand.",
+        };
+
+        var compiled = CardCompiler.Compile(maw);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasGift);
+        Assert.NotNull(compiled.GiftSpell);
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(
+            bob, Card("Gift Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, maw);
+        game.AddMana(alice, ManaColor.Blue);
+
+        // Unpromised, the spell takes only a creature (CR 702.174m).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(relic)]));
+
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, card, [Target.ToPermanent(relic)], giftTo: bob);
+        Settle(game);
+
+        // The artifact went home, and the present arrived - tapped, Bob's, and 1/1.
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(bob).Hand.Count);
+
+        var fish = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Subtypes.Contains("Fish", StringComparer.Ordinal));
+        var present = game.State.GetObject(fish);
+        Assert.Equal(bob, present.ControllerId);
+        Assert.True(present.Permanent?.IsTapped);
+        Assert.Equal(1, present.Card.Power);
+        Assert.Equal(1, present.Card.Toughness);
+
+        // CR 702.174j: the gift happens before any other spell ability - so the Fish was
+        // created before the artifact left the battlefield.
+        var log = game.Log.ToList();
+        var delivered = log.FindIndex(e => e is ObjectCreated made && made.Id == fish);
+        var bounced = log.FindIndex(e =>
+            e is ObjectMoved moved && moved.From == Zone.Battlefield && moved.To == Zone.Hand);
+
+        Assert.True(delivered >= 0 && bounced >= 0);
+        Assert.True(
+            delivered < bounced,
+            "the spell's own effect resolved before the gift was delivered (CR 702.174j).");
+    }
+
+    /// <summary>
+    /// Declining the gift is what costs, and a promise names one opponent at a table of three
+    /// (CR 702.174a-b).
+    /// </summary>
+    /// <remarks>
+    /// Nocturnal Hunger's wording. Unpromised, the rider "if the gift wasn't promised, you
+    /// lose 2 life" fires; promised, it does not, and only the opponent chosen at cast gets
+    /// the Food — who receives is a cast-time choice, not "an opponent" resolved later. The
+    /// two refusals pin the promise down as a real cost declaration: no promising yourself,
+    /// and no promising on a card that offers nothing.
+    /// </remarks>
+    [Fact]
+    public void Declining_the_gift_costs_and_a_promise_names_one_opponent()
+    {
+        var hunger = new CardDefinition
+        {
+            OracleId = "oracle-gift-hunger-test",
+            Name = "Gift Hunger Test",
+            ManaCostRaw = "{2}{B}",
+            Cmc = 3,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Gift a Food (You may promise an opponent a gift as you cast this spell. If "
+                + "you do, they create a Food token before its other effects. It's an artifact "
+                + "with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n"
+                + "Destroy target creature. If the gift wasn't promised, you lose 2 life.",
+        };
+
+        var compiled = CardCompiler.Compile(hunger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var carol = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+                new PlayerSetup(carol, "Carol", 20, TestCards.Deck(40, "Carol")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var first = game.Create(bob, TestCards.Creature("Gift Victim One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Gift Victim Two Test", 2, 2), Zone.Battlefield);
+
+        // Unpromised: the creature dies and Alice pays the printed price.
+        var declined = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        var life = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, declined, [Target.ToPermanent(first)]);
+        Settle(game);
+
+        Assert.DoesNotContain(first, game.State.Battlefield);
+        Assert.Equal(life - 2, game.State.GetPlayer(alice).Life);
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Food");
+
+        // Promised to Carol: no life lost, and the Food is Carol's alone.
+        var promised = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        life = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, promised, [Target.ToPermanent(second)], giftTo: carol);
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(alice).Life);
+
+        var food = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Food");
+        Assert.Equal(carol, game.State.GetObject(food).ControllerId);
+
+        // A gift is promised to an opponent - not to yourself, and not off a card that
+        // offers none.
+        var third = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, third, [Target.ToPermanent(second)], giftTo: alice));
+
+        var giftless = TestCards.PutInHand(
+            game, alice, Card("Gift Murder Test", "Destroy target creature."));
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, giftless, [Target.ToPermanent(second)], giftTo: bob));
+    }
+
+    /// <summary>
+    /// A permanent's gift rides the resolution onto the battlefield, where the enters trigger
+    /// CR 702.174b defines reads it - and so does the card's own intervening-if.
+    /// </summary>
+    /// <remarks>
+    /// Scrapshooter's wording. The promise is made on the spell and asked about on the
+    /// permanent, which is a different object (CR 400.7); the fact rides the one move that
+    /// turns one into the other, exactly as kicker's flag does (CR 607.2). Cast plain, the
+    /// creature arrives and neither trigger fires; cast promising, the chosen opponent draws
+    /// and the printed trigger destroys their artifact.
+    /// </remarks>
+    [Fact]
+    public void A_permanents_gift_rides_the_resolution_into_its_enters_trigger()
+    {
+        var shooter = new CardDefinition
+        {
+            OracleId = "oracle-gift-shooter-test",
+            Name = "Gift Shooter Test",
+            ManaCostRaw = "{1}{G}{G}",
+            Cmc = 3,
+            CardTypes = CardType.Creature,
+            Power = 4,
+            Toughness = 3,
+            Keywords = KeywordAbility.Reach,
+            OracleText =
+                "Gift a card (You may promise an opponent a gift as you cast this spell. If "
+                + "you do, when it enters, they draw a card.)\n"
+                + "Reach\n"
+                + "When this creature enters, if the gift was promised, destroy target "
+                + "artifact or enchantment an opponent controls.",
+        };
+
+        var compiled = CardCompiler.Compile(shooter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasGift);
+
+        // The permanent route: no second spell, a synthesized delivery trigger instead.
+        Assert.Null(compiled.GiftSpell);
+        Assert.Contains(compiled.Triggers, t => t.Id == "gift");
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(
+            bob, Card("Gift Shooter Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        // Cast plain: it arrives, nobody draws, nothing is destroyed.
+        var plain = TestCards.PutInHand(game, alice, shooter);
+        game.AddMana(alice, ManaColor.Green, 3);
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, plain);
+        Settle(game);
+
+        Assert.Equal(handBefore, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Contains(relic, game.State.Battlefield);
+
+        // Cast promising Bob: he draws, and the trigger takes his artifact.
+        var promising = TestCards.PutInHand(game, alice, shooter);
+        game.AddMana(alice, ManaColor.Green, 3);
+        handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, promising, giftTo: bob);
+        Settle(game);
+
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(bob).Hand.Count);
+        Assert.DoesNotContain(relic, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The aftermath and fuse flags are read through the reminder text every real printing
+    /// carries.
+    /// </summary>
+    /// <remarks>
+    /// The fixtures above say a bare "Aftermath" and "Fuse", and the cardboard never does -
+    /// it says "Aftermath (Cast this spell only from your graveyard. ...)". The bare-word
+    /// match read raw face text, found nothing on any of the 27 real aftermath cards, and
+    /// thirteen "complete" split cards were quietly castable from hand twice; the 22 fuse
+    /// cards lost their fused cast the same way. So this fixture is shaped exactly like the
+    /// printing, and the play half proves the flag bites: the aftermath half refuses to cast
+    /// from hand.
+    /// </remarks>
+    [Fact]
+    public void Aftermath_and_fuse_are_read_through_the_printed_reminder_text()
+    {
+        var split = new CardDefinition
+        {
+            OracleId = "oracle-test-aftermath-reminder",
+            Name = "Reminder Strike Test // Reminder Echo Test",
+            ManaCostRaw = "{R}",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Sorcery,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Reminder Strike Test",
+                    ManaCostRaw = "{R}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText = "You gain 1 life.",
+                },
+                new CardFace
+                {
+                    Name = "Reminder Echo Test",
+                    ManaCostRaw = "{2}{R}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText =
+                        "You gain 5 life.\n"
+                        + "Aftermath (Cast this spell only from your graveyard. Then exile it.)",
+                },
+            ],
+        };
+
+        var compiled = CardCompiler.Compile(split);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Halves[1].HasAftermath);
+
+        var fused = new CardDefinition
+        {
+            OracleId = "oracle-test-fuse-reminder",
+            Name = "Reminder Pull Test // Reminder Push Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Sorcery,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Reminder Pull Test",
+                    ManaCostRaw = "{G}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText =
+                        "You gain 1 life.\n"
+                        + "Fuse (You may cast one or both halves of this card from your hand.)",
+                },
+                new CardFace
+                {
+                    Name = "Reminder Push Test",
+                    ManaCostRaw = "{1}{G}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText = "You gain 2 life.",
+                },
+            ],
+        };
+
+        Assert.True(CardCompiler.Compile(fused).HasFuse);
+
+        // The flag bites: from hand the aftermath half refuses (CR 702.127a).
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, split);
+        game.AddMana(alice, ManaColor.Red, 3);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], half: 1));
+
+        game.CastSpell(alice, card, [], half: 0);
+        Settle(game);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>
@@ -48383,6 +49230,367 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(leyline.DeckRules);
     }
 
+    // ---- Battles (CR 310) ----------------------------------------------------
+
+    /// <summary>
+    /// A Siege from the real printed wording of Invasion of Moag, faces and all.
+    /// </summary>
+    /// <remarks>
+    /// One of the ten battles the round-end gate found compiling "complete" against an engine
+    /// with no CR 310 — the shape this section exists to make true. The front's reminder text is
+    /// the printed reminder verbatim, because the intrinsic abilities it describes are exactly
+    /// the ones nothing on the card carries: entering with defense counters (CR 310.4b), the
+    /// protector (CR 310.9a), and the defeat that exiles and recasts (CR 310.12b).
+    /// </remarks>
+    private static CardDefinition MoagSiege() => new()
+    {
+        OracleId = "oracle-r10-moag-siege",
+        Name = "Invasion of Moag Test",
+        CardTypes = CardType.Battle,
+        Subtypes = ["Siege"],
+        Defense = 5,
+        OracleText = "When this Siege enters, put a +1/+1 counter on each creature you control.",
+        Faces =
+        [
+            new CardFace
+            {
+                Name = "Invasion of Moag Test",
+                TypeLine = "Battle — Siege",
+                CardTypes = CardType.Battle,
+                Subtypes = ["Siege"],
+                Defense = 5,
+                ManaCostRaw = "{2}{G}{W}",
+                OracleText = "(As a Siege enters, choose an opponent to protect it. You and "
+                    + "others can attack it. When it's defeated, exile it, then cast it "
+                    + "transformed.)\nWhen this Siege enters, put a +1/+1 counter on each "
+                    + "creature you control.",
+            },
+            new CardFace
+            {
+                Name = "Bloomwielder Dryads Test",
+                TypeLine = "Creature — Dryad",
+                CardTypes = CardType.Creature,
+                Subtypes = ["Dryad"],
+                Power = 3,
+                Toughness = 3,
+                OracleText = "Ward {2} (Whenever this creature becomes the target of a spell or "
+                    + "ability an opponent controls, counter it unless that player pays {2}.)\n"
+                    + "At the beginning of your end step, put a +1/+1 counter on target "
+                    + "creature you control.",
+            },
+        ],
+    };
+
+    private static int DefenseOf(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent!.Counters.GetValueOrDefault(CounterKinds.Defense);
+
+    private static Guid? ProtectorOf(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent!.ProtectorId;
+
+    [Fact]
+    public void A_siege_enters_with_defense_counters_and_a_forced_duel_protector()
+    {
+        var compiled = CardCompiler.Compile(MoagSiege());
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Moag Bear Test", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, MoagSiege());
+
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        var siege = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+
+        // CR 310.4b: it entered with defense counters equal to its printed defense, and its
+        // printed enters trigger played alongside the intrinsic rules.
+        Assert.Equal(5, DefenseOf(game, siege));
+        Assert.Equal(
+            1,
+            game.State.GetObject(bear).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // CR 310.12a at two players: the only opponent is the only legal protector, so the
+        // choice is forced — made, never asked.
+        Assert.Equal(bob, ProtectorOf(game, siege));
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(),
+            asked => asked.Choice.Kind == ChoiceKind.ChooseProtector);
+
+        // The board is told all three facts, in the opponent's own view: what it is, who
+        // protects it, and what its defense is — a battle shown without its counters is a board
+        // lying about the number the fight is about.
+        var seen = Views.PlayerViewProjector.Project(game.State, bob, Pool)
+            .Battlefield.Single(o => o.Name == "Invasion of Moag Test");
+        Assert.True(seen.IsBattle);
+        Assert.Equal(bob, seen.ProtectorId);
+        Assert.Equal(5, seen.Counters!.GetValueOrDefault(CounterKinds.Defense));
+    }
+
+    [Fact]
+    public void A_bigger_table_asks_the_sieges_controller_to_choose_its_protector()
+    {
+        // CR 310.9a, 310.12a: any opponent may protect it, so at four seats the designation is a
+        // real question — asked of the controller, answered like any other choice.
+        var (game, seats) = FourPlayers();
+        var (alice, carol) = (seats[0], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+
+        var choice = Assert.IsType<PendingChoice>(game.State.Choice);
+        Assert.Equal(ChoiceKind.ChooseProtector, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+        Assert.Equal(3, choice.Options.Count);
+
+        game.Choose(alice, [carol.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(carol, ProtectorOf(game, siege));
+    }
+
+    [Fact]
+    public void A_sieges_own_controller_attacks_it_and_combat_damage_removes_defense()
+    {
+        // CR 310.9b: a battle is attacked by any player for whom its protector is a defending
+        // player — "notably, a Siege battle can be attacked by its own controller", which is the
+        // whole play pattern of the type. CR 120.3h, 310.6: the damage removes defense counters;
+        // nothing reaches the protector's life.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The Siege's own enters trigger made the runner a 3/3 — its counter fell on "each
+        // creature you control" — so three counters came off, not two. The battle plays its own
+        // besieger up, which is the printed card working, not a test convenience.
+        Assert.Equal(2, DefenseOf(game, siege));
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Contains(siege, game.State.Battlefield);
+    }
+
+    [Fact]
+    public void The_protector_blocks_for_a_battle_it_does_not_control()
+    {
+        // CR 310.9c: the protector may block creatures attacking the battle with creatures they
+        // control — the defending player for the attack is the protector (CR 310.9d), and a
+        // blocked attacker deals its damage to the blocker rather than the battle.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+        var warden = game.Create(
+            bob, Card("Moag Warden Test", string.Empty, CardType.Creature, 1, 4), Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassToStep(game, TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [runner] = [warden],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The block stood between the attacker and the battle: full defense, traded damage —
+        // three from the runner, which the Siege's own enters trigger had made a 3/3.
+        Assert.Equal(5, DefenseOf(game, siege));
+        Assert.Equal(3, game.State.GetObject(warden).Permanent!.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(runner).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_battle_is_attacked_only_through_its_protector()
+    {
+        // CR 310.9b's other half: a player for whom the protector is not a defending player
+        // cannot send an attack at the battle — naming anyone else is refused whole.
+        var (game, seats) = FourPlayers();
+        var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+        game.Choose(alice, [bob.ToString("N")]);
+
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+
+        var refused = Assert.Throws<InvalidOperationException>(() =>
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+            {
+                [runner] = AttackTarget.At(carol, siege),
+            }));
+        Assert.Contains("protects it", refused.Message, StringComparison.Ordinal);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        Assert.True(game.State.Combat.Attackers.ContainsKey(runner));
+    }
+
+    [Fact]
+    public void Removing_the_last_defense_counter_exiles_the_siege_and_casts_the_back_face_free()
+    {
+        // CR 310.12b: "When the last defense counter is removed from this permanent, exile it,
+        // then you may cast it transformed without paying its mana cost." The offer is the
+        // standing free-cast machinery; taking it puts the back face up on the stack
+        // (CR 712.11a) and it resolves as that face alone (CR 712.8c).
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var breaker = game.Create(
+            alice,
+            Card("Siege Breaker Test", string.Empty, CardType.Creature, 6, 6, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [breaker] = AttackTarget.At(bob, siege),
+        });
+
+        // Six damage takes all five counters; the defeat trigger fires, resolves, and leaves
+        // the card in exile under a standing offer to its controller.
+        TestCards.PassUntil(game, () => game.State.Exile
+            .Select(game.State.GetObject)
+            .Any(o => o.Card.Name == "Invasion of Moag Test" && o.MayCastFree));
+
+        Assert.DoesNotContain(siege, game.State.Battlefield);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+
+        var exiled = game.State.Exile
+            .Single(id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+
+        // Cast it, mid-combat and with an empty mana pool: the offer covers both.
+        game.CastSpell(alice, exiled);
+
+        var onStack = game.State.GetObject(Assert.Single(game.State.Stack));
+        Assert.Equal("Bloomwielder Dryads Test", onStack.Card.Name);
+
+        Settle(game);
+
+        var flipped = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Bloomwielder Dryads Test");
+        var dryads = game.State.GetObject(flipped);
+        Assert.Equal(1, dryads.Permanent!.FaceIndex);
+        Assert.Equal(0, dryads.Permanent.Counters.GetValueOrDefault(CounterKinds.Defense));
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, dryads).Power);
+
+        // The whole exchange — the protector, the defeat, the transformed cast — survives the
+        // written log, not only the in-memory fold Settle already asserted.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    [Fact]
+    public void A_defeat_offer_declined_lapses_and_the_siege_stays_in_exile()
+    {
+        // CR 310.12b says "may": passing priority is declining, the window closes, and the card
+        // is simply an exiled card for the rest of the game.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var breaker = game.Create(
+            alice,
+            Card("Siege Breaker Test", string.Empty, CardType.Creature, 6, 6, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [breaker] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassUntil(game, () => game.State.Exile
+            .Select(game.State.GetObject)
+            .Any(o => o.Card.Name == "Invasion of Moag Test" && o.MayCastFree));
+
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Single(id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+        var declined = game.State.GetObject(exiled);
+        Assert.False(declined.MayCastFree);
+        Assert.False(declined.CastsTransformed);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, exiled));
+    }
+
+    [Fact]
+    public void A_siege_at_zero_defense_with_no_defeat_trigger_pending_is_buried()
+    {
+        // CR 704.5v: a Siege whose defense is 0 and which is not the source of an ability that
+        // has triggered but not yet left the stack goes to its owner's graveyard. No printed
+        // Siege has defense 0, but the rule contemplates reaching it without a removal — enter
+        // that way and nothing was ever removed, so the defeat trigger (CR 310.12b) never fired
+        // and the state-based action is all that speaks.
+        var collapsed = new CardDefinition
+        {
+            OracleId = "oracle-r10-collapsed-siege",
+            Name = "Collapsed Siege Test",
+            CardTypes = CardType.Battle,
+            Subtypes = ["Siege"],
+            Defense = 0,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var siege = game.Create(alice, collapsed, Zone.Battlefield);
+        Settle(game);
+
+        Assert.DoesNotContain(siege, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Collapsed Siege Test");
+    }
+
+    [Fact]
+    public void A_protector_who_leaves_the_game_is_replaced_by_the_controllers_choice()
+    {
+        // CR 704.5y: a battle whose protector can no longer be its protector has a new one
+        // chosen by its controller — a question again at a table where the answer could differ.
+        var (game, seats) = FourPlayers();
+        var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+        game.Choose(alice, [bob.ToString("N")]);
+        Assert.Equal(bob, ProtectorOf(game, siege));
+
+        // The choice resumed priority onward; the burn is an instant, so any window of Alice's
+        // will do.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var burn = Card("Overwhelm Protector Test", "~ deals 20 damage to any target.");
+        var card = TestCards.PutInHand(game, alice, burn);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Bob is gone; the settle asked again and the harness answered with the first eligible
+        // player in turn order, which is Carol.
+        Assert.True(game.State.GetPlayer(bob).HasLost);
+        Assert.Equal(carol, ProtectorOf(game, siege));
+        Assert.Equal(
+            2,
+            game.Log.OfType<ChoiceRequested>()
+                .Count(asked => asked.Choice.Kind == ChoiceKind.ChooseProtector));
+    }
+
     // ---- Aftermath (CR 702.127) ----------------------------------------------
 
     /// <summary>A split card whose second half is cast from the graveyard.</summary>
@@ -48809,29 +50017,41 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "Venture into Undercity" is not read, because Undercity is not a dungeon this engine has
-    /// (CR 701.49d).
+    /// "Venture into Undercity" reads now that Undercity ships (CR 701.49d) — and only that
+    /// name: a venture naming a dungeon the engine does not have is still left unread.
     /// </summary>
     /// <remarks>
-    /// The fail-closed half of the same reader, and it has a test because the alternative is
-    /// silent: a pattern loose enough to admit it would send the initiative's cards into Lost
-    /// Mine of Phandelver, which is a different dungeon with different rooms, and every one of
-    /// those cards would look implemented.
+    /// This test held the opposite until the initiative round: the line was deliberately
+    /// refused while Undercity's bottommost room could not be said, because a pattern loose
+    /// enough to admit it would have sent the initiative's cards into Lost Mine of Phandelver —
+    /// a different dungeon with different rooms — while looking implemented. The named arm now
+    /// exists because the named dungeon does. The second half is the fail-closed property that
+    /// survives the flip: the pattern admits Undercity exactly, so a venture naming anything
+    /// else still leaves its card unread rather than guessing a dungeon.
     /// </remarks>
     [Fact]
-    public void Venturing_into_a_named_dungeon_the_engine_does_not_have_is_left_unread()
+    public void Venturing_into_a_named_dungeon_reads_exactly_when_the_engine_ships_it()
     {
-        var compiled = CardCompiler.Compile(Card(
+        var read = CardCompiler.Compile(Card(
             "Initiative Test",
             "When ~ enters, venture into Undercity.",
             CardType.Creature,
             2,
             2));
 
-        Assert.False(compiled.IsComplete);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var unread = CardCompiler.Compile(Card(
+            "Mad Mage Test",
+            "When ~ enters, venture into Dungeon of the Mad Mage.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.False(unread.IsComplete);
         Assert.Contains(
-            "Undercity",
-            string.Join(" | ", compiled.Unhandled),
+            "Mad Mage",
+            string.Join(" | ", unread.Unhandled),
             StringComparison.Ordinal);
     }
 
