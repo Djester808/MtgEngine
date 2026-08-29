@@ -11169,6 +11169,374 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(1, game.State.GetObject(relic).Permanent!.Counters.GetValueOrDefault("charge"));
     }
 
+    // ---- Endure: counters or a Spirit, whichever you pick (CR 701.63a) -------
+
+    /// <summary>
+    /// "When ~ enters, it endures 2."
+    /// </summary>
+    /// <remarks>
+    /// CR 701.63a: the permanent's controller "creates an N/N white Spirit creature token unless
+    /// they put N +1/+1 counters on that permanent" — one free choice with two outcomes, which is
+    /// the offer machinery with an empty cost. Both branches are played, because an offer whose
+    /// second branch does nothing looks exactly like one that works from the first branch alone.
+    /// </remarks>
+    [Fact]
+    public void An_endure_puts_the_counters_on_when_that_is_what_its_controller_picks()
+    {
+        var nurturer = Card(
+            "Endure Counters Test",
+            "When ~ enters, it endures 2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(nurturer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var druid = game.Create(alice, nurturer, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var asked = game.State.Choice!;
+        game.Choose(
+            asked.PlayerId,
+            [asked.Options.First(o => o.Label.StartsWith("Put", StringComparison.Ordinal)).Id]);
+
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.GetObject(druid).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // And no Spirit: the two outcomes are alternatives, not a pair.
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Spirit");
+    }
+
+    /// <summary>The other branch of the same offer — the Spirit, and no counters.</summary>
+    /// <remarks>
+    /// The token is built by running "create a 2/2 white Spirit creature token" back through the
+    /// token reader rather than assembling a second definition, so the Spirit endure makes is the
+    /// same object every other card's Spirit is. Its size and colour are asserted here because a
+    /// token of the wrong size compiles perfectly.
+    /// </remarks>
+    [Fact]
+    public void An_endure_makes_a_white_spirit_of_its_own_size_when_the_counters_are_declined()
+    {
+        var vanguard = Card(
+            "Endure Spirit Test",
+            "When ~ enters, it endures 2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var (game, alice, _) = InMainPhase();
+        var soldier = game.Create(alice, vanguard, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var asked = game.State.Choice!;
+        game.Choose(
+            asked.PlayerId,
+            [asked.Options.First(o => o.Label.StartsWith("Create", StringComparison.Ordinal)).Id]);
+
+        Settle(game);
+
+        Assert.Equal(
+            0,
+            game.State.GetObject(soldier).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        var spirit = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Spirit");
+
+        Assert.Equal(alice, spirit.ControllerId);
+        Assert.Equal(2, spirit.Card.Power);
+        Assert.Equal(2, spirit.Card.Toughness);
+        Assert.Contains(ManaColor.White, spirit.Card.Colors);
+    }
+
+    /// <summary>"~ endures X" is refused, because the Spirit has no size until X does.</summary>
+    /// <remarks>
+    /// The token is a card definition and its power and toughness are part of its identity, so it
+    /// cannot be named before X is known. Three corpus cards spell endure that way and they stay
+    /// unread rather than being given a Spirit of some guessed size.
+    /// </remarks>
+    [Fact]
+    public void An_endure_whose_size_is_a_variable_is_refused()
+    {
+        var initiate = Card(
+            "Endure Variable Test",
+            "{X}{B}, {T}: ~ endures X.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.False(CardCompiler.Compile(initiate).IsComplete);
+    }
+
+    // ---- "Otherwise": the else branch of a bare conditional (CR 608.2c) ------
+
+    /// <summary>
+    /// "If you control a Demon, you gain 2 life. Otherwise, you lose 1 life."
+    /// </summary>
+    /// <remarks>
+    /// Both ways round in one test, because an else branch that never runs and a then branch that
+    /// always runs are the two ways this can be wrong and each looks correct from the other side.
+    /// </remarks>
+    [Fact]
+    public void An_otherwise_branch_runs_exactly_when_the_condition_does_not()
+    {
+        var annex = Card(
+            "Otherwise Branch Test",
+            "If you control an artifact, you gain 3 life. Otherwise, you lose 1 life.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(annex);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card("Otherwise Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        var before = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, annex));
+        Settle(game);
+
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+
+        // The same card with the condition unmet takes the other branch, and only the other one.
+        var (second, carol, _) = InMainPhase();
+        var start = second.State.GetPlayer(carol).Life;
+
+        second.CastSpell(carol, TestCards.PutInHand(second, carol, annex));
+        Settle(second);
+
+        Assert.Equal(start - 1, second.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>An "Otherwise" with no question in front of it is not read.</summary>
+    /// <remarks>
+    /// The word only means anything as the second half of a conditional. Read on its own it would
+    /// compile into an instruction that always happens, which is a strictly different card — so
+    /// the pairing is what admits it, and a lone else branch leaves the line unread.
+    /// </remarks>
+    [Fact]
+    public void An_otherwise_with_no_conditional_in_front_of_it_is_unread()
+    {
+        var orphan = Card(
+            "Otherwise Orphan Test",
+            "Draw a card. Otherwise, you gain 2 life.",
+            CardType.Instant);
+
+        Assert.False(CardCompiler.Compile(orphan).IsComplete);
+    }
+
+    /// <summary>An else branch may not choose a target of its own (CR 601.2c).</summary>
+    /// <remarks>
+    /// Targets are chosen and checked as the spell is cast, so a branch that will not run would
+    /// still make the card uncastable for want of something to aim it at. No corpus card is
+    /// written that way; the guard costs nothing and stops the reader inventing a requirement the
+    /// printed card does not have. The "if" half may target, as it always could — what is refused
+    /// is the second target, so the contrast is asserted rather than assumed.
+    /// </remarks>
+    [Fact]
+    public void An_otherwise_branch_that_chooses_its_own_target_is_refused()
+    {
+        var both = Card(
+            "Otherwise Two Targets Test",
+            "If you control an artifact, destroy target creature. "
+                + "Otherwise, destroy target artifact.",
+            CardType.Instant);
+
+        Assert.False(CardCompiler.Compile(both).IsComplete);
+
+        var one = Card(
+            "Otherwise One Target Test",
+            "Destroy target creature. If you control an artifact, you gain 3 life. "
+                + "Otherwise, you lose 1 life.",
+            CardType.Instant);
+
+        var reads = CardCompiler.Compile(one);
+        Assert.True(reads.IsComplete, string.Join(" | ", reads.Unhandled));
+        Assert.Single(reads.Spell!.Targets);
+    }
+
+    // ---- "It deals damage equal to its power" (CR 613.1) --------------------
+
+    /// <summary>
+    /// "When ~ enters, it deals damage equal to its power to each opponent."
+    /// </summary>
+    /// <remarks>
+    /// The amount is the source's power <em>as the ability resolves</em>, not as the card was
+    /// printed, so an anthem on the table makes the damage larger. A 2/2 under a +1/+1 anthem
+    /// dealing 2 would pass every check a reviewer could run except this one.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_deals_the_sources_power_counting_what_the_layers_add()
+    {
+        var redcap = Card(
+            "Power Damage Test",
+            "When ~ enters, it deals damage equal to its power to each opponent.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(redcap);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(
+            alice,
+            Card(
+                "Power Damage Anthem Test",
+                "Creatures you control get +1/+1.",
+                CardType.Enchantment),
+            Zone.Battlefield);
+
+        var before = game.State.GetPlayer(bob).Life;
+        var mine = game.State.GetPlayer(alice).Life;
+
+        game.Create(alice, redcap, Zone.Battlefield);
+        Settle(game);
+
+        // Three, not the printed two - and to the opponent only.
+        Assert.Equal(before - 3, game.State.GetPlayer(bob).Life);
+        Assert.Equal(mine, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same sentence where "it" cannot mean the source is left unread.
+    /// </summary>
+    /// <remarks>
+    /// Both the damage's source and the power measured are the permanent with the ability, so the
+    /// pronoun is only honoured where it can mean that permanent and nothing else.
+    /// <para>
+    /// Fiendlash is the card that proves it matters: "whenever equipped creature is dealt damage,
+    /// it deals damage equal to its power to target player or planeswalker" compiled with the
+    /// <em>Equipment</em> as the damage source and the Equipment's power as the amount, which is
+    /// no power at all — a card that read as complete and dealt nothing. An Aura or Equipment's
+    /// trigger is about its host, never about itself, so those conditions now say so.
+    /// </para>
+    /// <para>
+    /// The other refusal is a pronoun after a target: "Tap target creature. It deals damage equal
+    /// to its power…" means the tapped creature, and this effect could only ever deal the
+    /// source's power from the source.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_that_cannot_mean_the_source_leaves_the_damage_unread()
+    {
+        var lash = Card(
+            "Power Damage Equipment Test",
+            "Whenever equipped creature is dealt damage, it deals damage equal to its power to "
+                + "target player or planeswalker.\nEquip {3}",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        Assert.False(CardCompiler.Compile(lash).IsComplete);
+
+        var afterTarget = Card(
+            "Power Damage After Target Test",
+            "Tap target creature. It deals damage equal to its power to any target.",
+            CardType.Instant);
+
+        Assert.False(CardCompiler.Compile(afterTarget).IsComplete);
+
+        // The shape it is being kept apart from: the source naming itself, which still reads.
+        var berserker = Card(
+            "Power Damage Self Test",
+            "When ~ dies, it deals damage equal to its power to any target.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var reads = CardCompiler.Compile(berserker);
+        Assert.True(reads.IsComplete, string.Join(" | ", reads.Unhandled));
+    }
+
+    // ---- A trigger about an attached permanent names it (CR 603.2) ----------
+
+    /// <summary>
+    /// "When enchanted creature is dealt damage, destroy it."
+    /// </summary>
+    /// <remarks>
+    /// An Aura's trigger is about the permanent it is attached to (CR 603.2), and the event it
+    /// fires on carries that permanent's id — so "it" is the host and never the Aura, which is a
+    /// thing the reader now says rather than assumes. The test attacks the
+    /// question from the side that would hide a mistake: a second creature is on the board and
+    /// has to survive, because a reader that destroyed whatever it found first would look right
+    /// with only one creature in play.
+    /// </remarks>
+    [Fact]
+    public void A_trigger_about_an_enchanted_creature_names_it_for_the_pronoun_that_follows()
+    {
+        var wound = Card(
+            "Mortal Referent Test",
+            "Enchant creature\nWhen enchanted creature is dealt damage, destroy it.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(wound);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var cursed = game.Create(bob, TestCards.Creature("Referent Ogre Test", 4, 4), Zone.Battlefield);
+        var bystander = game.Create(
+            bob, TestCards.Creature("Referent Bystander Test", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, wound), [Target.ToPermanent(cursed)]);
+
+        Settle(game);
+
+        var ping = Card("Referent Ping Test", "~ deals 1 damage to any target.", CardType.Instant);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, ping), [Target.ToPermanent(cursed)]);
+
+        Settle(game);
+
+        // One point of damage is nowhere near lethal on a 4/4: only the trigger can kill it.
+        Assert.DoesNotContain(cursed, game.State.Battlefield);
+        Assert.Contains(bystander, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "When enchanted permanent becomes untapped, destroy it" stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Untapping looks like its twin and is not: several permanents untap at once and the event
+    /// carries a set of ids, so nothing can answer "which one was this about". Admitting it would
+    /// compile a trigger that resolves and destroys nothing — the tapping form beside it is
+    /// asserted here too, so the difference is the event and not the pattern.
+    /// </remarks>
+    [Fact]
+    public void An_untap_trigger_names_no_object_and_its_pronoun_is_refused()
+    {
+        var onUntap = Card(
+            "Untap Referent Test",
+            "Enchant permanent\nWhen enchanted permanent becomes untapped, destroy it.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.False(CardCompiler.Compile(onUntap).IsComplete);
+
+        var onTap = Card(
+            "Tap Referent Test",
+            "Enchant land\nWhen enchanted land becomes tapped, destroy it.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var reads = CardCompiler.Compile(onTap);
+        Assert.True(reads.IsComplete, string.Join(" | ", reads.Unhandled));
+    }
+
     /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>

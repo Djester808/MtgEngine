@@ -254,9 +254,29 @@ public static partial class EffectPhrase
             return true;
         }
 
-        foreach (var sentence in Sentences(text))
+        // "If you control a Demon, you gain 2 life. Otherwise, you lose 1 life." An else branch
+        // belongs to the "if" in front of it and to nothing else, so the two sentences are
+        // offered as a pair before either is read on its own - the same reason the optional
+        // payment and the slow blink are read before the splitter. Alone, "Otherwise, you lose 1
+        // life" is an instruction with no question attached to it.
+        var sentences = Sentences(text).ToList();
+
+        for (var i = 0; i < sentences.Count; i++)
         {
-            if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+            if (i + 1 < sentences.Count
+                && OtherwiseSentence().Match(sentences[i + 1]) is { Success: true } fallback
+                && TryConditionalPair(
+                    sentences[i],
+                    fallback.Groups["effect"].Value,
+                    targets,
+                    effects,
+                    objectNamedByTrigger))
+            {
+                i++;
+                continue;
+            }
+
+            if (!TryOne(sentences[i], targets, effects, objectNamedByTrigger))
                 return false;
         }
 
@@ -330,6 +350,101 @@ public static partial class EffectPhrase
                 ? GenerativeEffects.ControlHeldWhile.Tapped
                 : GenerativeEffects.ControlHeldWhile.OnBattlefield
             : GenerativeEffects.ControlHeldWhile.Controlled;
+
+    /// <summary>
+    /// "If [condition], [then]. Otherwise, [else]." — one instruction printed as two sentences.
+    /// </summary>
+    /// <remarks>
+    /// The "if" half is exactly the bare conditional sentence <see cref="TryOne"/> already reads,
+    /// and this adds the branch it had nowhere to put. Both halves go through the same readers
+    /// everything else does, so whatever the compiler can guard, it can now also alternate; a
+    /// condition <see cref="BoardConditions"/> cannot answer leaves the pair unread rather than
+    /// defaulting either way, because an else branch that always ran and a then branch that
+    /// always ran are two different wrong cards.
+    /// <para>
+    /// <strong>The two branches are wrapped in one effect on purpose.</strong> CR 608.2c has each
+    /// instruction carried out in order, and this engine honours that by handing every top-level
+    /// effect the state the one before it left. Two sibling guards - one on the condition, one on
+    /// its negation - would therefore ask their question at two different moments, and a then
+    /// branch that falsifies its own condition ("if you control a creature, sacrifice it")
+    /// would let the else branch fire as well. Nested inside one wrapper they are resolved
+    /// against a single state, which is what an "otherwise" means.
+    /// </para>
+    /// <para>
+    /// The wrapper's own condition is a tautology because there is no plain sequencing effect to
+    /// use instead, and inventing one to hold two guards would be a second way to spell what
+    /// <see cref="OnlyIf"/> already does.
+    /// </para>
+    /// </remarks>
+    private static bool TryConditionalPair(
+        string conditional,
+        string otherwise,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        var opening = ConditionalSentence().Match(conditional.Trim());
+        if (!opening.Success
+            || BoardConditions.Parse(opening.Groups["cond"].Value.Trim()) is not { } holds)
+        {
+            return false;
+        }
+
+        // Targets go into the caller's list so that each branch's effects record the index they
+        // will actually be read at, and are truncated back on failure - the same arithmetic and
+        // the same clean-up the "and" splitter does.
+        var targetsBefore = targets.Count;
+
+        var then = ImmutableList.CreateBuilder<IEffect>();
+        var instead = ImmutableList.CreateBuilder<IEffect>();
+
+        var readThen =
+            TryOne(opening.Groups["effect"].Value.Trim(), targets, then, objectNamedByTrigger)
+            && then.Count > 0
+            && !then.Any(FindsItselfByIndex);
+
+        // The branches are read in printed order and share the caller's target list, so the else
+        // branch's "it" and "that creature" find whatever the sentence in front of it named -
+        // "target creature gets +3/+1. If it's your turn, that creature gains trample. Otherwise,
+        // it gains first strike" is one creature, mentioned three times.
+        var chosenSoFar = targets.Count;
+
+        var readElse =
+            readThen
+            && TryOne(otherwise.Trim(), targets, instead, objectNamedByTrigger)
+            && instead.Count > 0
+            && !instead.Any(FindsItselfByIndex)
+
+            // …but an else branch may not choose a target of its own. Targets are chosen as the
+            // spell is cast and every one of them has to be legal then (CR 601.2c), so a branch
+            // that will not run would still make the card uncastable for want of something to
+            // aim it at. No corpus card is written that way; refusing costs nothing and keeps
+            // the reader from inventing a requirement the printed card does not have.
+            && targets.Count == chosenSoFar;
+
+        if (!readElse)
+        {
+            while (targets.Count > targetsBefore)
+                targets.RemoveAt(targets.Count - 1);
+
+            return false;
+        }
+
+        effects.Add(new OnlyIf(
+            Whatever,
+            [
+                new OnlyIf(holds, then.ToImmutable()),
+                new OnlyIf(
+                    (state, abilities, source) => !holds(state, abilities, source),
+                    instead.ToImmutable()),
+            ]));
+
+        return true;
+    }
+
+    /// <summary>A condition that is always met — the wrapper above holds two that are not.</summary>
+    private static bool Whatever(GameState state, IAbilitySource abilities, GameObject source) =>
+        true;
 
     private static IEnumerable<string> Sentences(string text)
     {
@@ -1566,12 +1681,41 @@ public static partial class EffectPhrase
 
         // "~ deals damage equal to its power to any target" — the number is the source's power
         // as the effect resolves, not as the card was printed, so a pumped creature deals more.
+        //
+        // "It deals damage equal to its power" is the same sentence with the source named by a
+        // pronoun, and it is read only where the pronoun can mean nothing else. Both the damage's
+        // source and the power measured are `PhysicalSourceId` — one effect, one permanent — so a
+        // pronoun pointing anywhere else cannot be honoured here at all:
+        //
+        // - after an earlier target ("Tap target creature. It deals damage equal to its power to
+        //   its controller") the pronoun is that creature, and this would deal the wrong
+        //   creature's power from the wrong source;
+        // - inside a trigger whose event names an object ("whenever another Demon you control
+        //   enters, it deals damage equal to its power to any target") it is that object.
+        //
+        // Both are refused rather than approximated, which leaves the shapes where "it" is the
+        // permanent with the ability: a self-referring trigger, and an activated ability.
         var byPower = DamageByPowerLine().Match(sentence);
-        if (byPower.Success && Specs.Parse(byPower.Groups["t"].Value.Trim()) is { } burned3)
+        if (byPower.Success
+            && (!byPower.Groups["pronoun"].Success || (targets.Count == 0 && !objectNamedByTrigger)))
         {
-            targets.Add(burned3);
-            effects.Add(new DealDamage(SourcePower(), targets.Count - 1));
-            return true;
+            var burnt = byPower.Groups["t"].Value.Trim();
+
+            // "~ deals damage equal to its power to each opponent" — a sentence that does not say
+            // "target" targets nothing (CR 115.1a), so the group is asked about before the target
+            // grammar rather than after it.
+            if (PlayerWords().IsMatch(burnt))
+            {
+                effects.Add(new DamageEach(SourcePower(), ScopeOf(burnt)));
+                return true;
+            }
+
+            if (Specs.Parse(burnt) is { } burned3)
+            {
+                targets.Add(burned3);
+                effects.Add(new DealDamage(SourcePower(), targets.Count - 1));
+                return true;
+            }
         }
 
         // "Target creature deals damage to itself equal to its power" - a fight with one
@@ -2288,6 +2432,42 @@ public static partial class EffectPhrase
 
             targets.Add(named);
             effects.Add(new Connive(many, targets.Count - 1));
+            return true;
+        }
+
+        // "~ endures 2", "it endures 1" (CR 701.63a): the permanent's controller "creates an N/N
+        // white Spirit creature token unless they put N +1/+1 counters on that permanent". That
+        // is a choice with two outcomes and no cost, which is exactly the offer machinery the
+        // optional payment already uses with an empty mana cost - so endure is a composition of
+        // two effects this compiler has had all along rather than a mechanic of its own.
+        //
+        // The token half is built by running the printed sentence for it back through the token
+        // reader, rather than by assembling a second CardDefinition here. Two constructions of
+        // "an N/N white Spirit creature token" would produce two oracle ids for one token, and
+        // the pool's duplicate guard would then refuse to play either; going through the one
+        // builder also means endure's Spirit is the same object every other card's Spirit is.
+        //
+        // Only a printed digit is taken. "Endure X" is three corpus cards and the token's size
+        // is part of its identity - a definition cannot be named before X is known - so those are
+        // left unread rather than given a Spirit of some guessed size.
+        var enduring = EndureLine().Match(sentence);
+        if (enduring.Success)
+        {
+            var endured = enduring.Groups["n"].Value;
+            var spirit = CreatureTokenLine().Match(
+                $"create a {endured}/{endured} white Spirit creature token");
+
+            if (!spirit.Success || TokenFrom(spirit) is not { } ghost)
+                return false;
+
+            effects.Add(new MayPay(
+                Mana.ManaCostSpec.Parse(string.Empty),
+                [new PutCountersOnSource(CounterKinds.PlusOnePlusOne, Number(endured))],
+                [new CreateToken(ghost)],
+                effects.Count,
+                YesLabel: $"Put {endured} +1/+1 counters on this permanent",
+                NoLabel: $"Create a {endured}/{endured} white Spirit creature token"));
+
             return true;
         }
 
@@ -7034,8 +7214,14 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetMillLine();
 
+    /// <remarks>
+    /// The pronoun is a group of its own so the reader can tell the two apart. "~" always means
+    /// the permanent with the ability; "it" means it only where nothing else has been named, and
+    /// the reader refuses the rest rather than pointing the damage at the source anyway.
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ deals damage equal to its power to (?<t>[a-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
+        @"^(?:~|(?<pronoun>it)) deals damage equal to its power to (?<t>[a-z0-9'’ ]+)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex DamageByPowerLine();
 
     /// <remarks>
@@ -7275,6 +7461,15 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^if (?<cond>[^,]+), (?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalSentence();
 
+    /// <summary>The else branch of the sentence above, which is where its condition lives.</summary>
+    /// <remarks>
+    /// Matched only as the sentence <em>after</em> a conditional one. On its own it names no
+    /// question, and reading it alone would compile "otherwise, you lose 1 life" into a card that
+    /// always loses the life.
+    /// </remarks>
+    [GeneratedRegex(@"^otherwise, (?<effect>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex OtherwiseSentence();
+
     [GeneratedRegex(@"^untap ~$", RegexOptions.IgnoreCase)]
     private static partial Regex UntapSelfLine();
 
@@ -7385,6 +7580,21 @@ public static partial class EffectPhrase
         @"^manifest the top (" + N + @" )?cards? of (?<whose>your) library$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ManifestLine();
+
+    /// <summary>"~ endures 2" — counters or a Spirit, whichever its controller picks (CR 701.63a).</summary>
+    /// <remarks>
+    /// The subject is "~" or "it" and nothing else, because those are the only two spellings the
+    /// nine corpus cards use and the effect puts the counters on the <em>source</em>. "That
+    /// creature" is deliberately absent: it would mean whatever the trigger was about, which is a
+    /// different permanent, and admitting a word no card prints would be a reader that fires only
+    /// on the day it is wrong.
+    /// <para>
+    /// A digit rather than the shared number class, because the token's size is part of the
+    /// definition being built and an X has no size until the ability resolves.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^(?:~|it) endures? (?<n>\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex EndureLine();
 
     [GeneratedRegex(
         @"^" + T + @" blocks this (turn|combat) if able$", RegexOptions.IgnoreCase)]
@@ -7658,6 +7868,13 @@ public static partial class EffectPhrase
         @"^(?<who>you|each opponent|each player) gets? (?<e>(\{E\})+)$", RegexOptions.IgnoreCase)]
     private static partial Regex GetEnergyLine();
 
+    /// <remarks>
+    /// "Otherwise" would be a correct synonym for "if you lose the flip" — CR 705.2 gives a flip
+    /// exactly two outcomes — and is left out because <strong>one</strong> corpus card spells it
+    /// that way, Plasma Caster, whose other half ("choose target creature that's blocking equipped
+    /// creature") the compiler cannot read either. An alternation that no card can reach is a
+    /// reader that never fires, which looks exactly like a reader that works.
+    /// </remarks>
     [GeneratedRegex(
         @"^[Ff]lip a coin\.?"
             + @"(\s*If you win the flip, (?<won>[^.]+)\.?)?"
@@ -8029,6 +8246,16 @@ public static partial class EffectPhrase
     /// The deviation is the one evoke's sacrifice carries, and it is worth taking: the wording is
     /// on 43 cards whose effect the engine could already run.
     /// </remarks>
+    /// <remarks>
+    /// "Otherwise" is the other spelling of "if you don't" and is deliberately <em>not</em>
+    /// accepted here. It was, for one measurement: the two corpus cards it reached are Insatiable
+    /// Appetite and Pippin's Bravery, both of which write the decline branch as "…, target
+    /// creature gets +5/+5 until end of turn. Otherwise, <em>that creature</em> gets +3/+3", and
+    /// each branch is parsed on its own with an empty target list — so the pronoun in the second
+    /// found nothing to point at and compiled to <c>PumpSourceUntilEndOfTurn</c>, pumping the
+    /// instant. Two cards read, both of them silently inert on the branch that was added. The
+    /// word is only safe here once a branch can see the targets its sibling chose.
+    /// </remarks>
     [GeneratedRegex(
         @"^[Yy]ou may (pay (?<cost>(\{[^}]+\})+)|(?<free>[^.]+?))\.?"
             + @"(\s*(If|When) you do,\s*(?<do>[^.]+)\.?)?"
@@ -8316,6 +8543,51 @@ public static partial class TriggerConditions
         {
             return damage.Groups["victim"].Value.Equals(
                 "a creature", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // An Aura or Equipment's trigger is about the permanent it is attached to, which is never
+        // the permanent with the ability - so "it" on one of these cards means the host and can
+        // never mean the source. Saying so here is what stops a reader that can only aim at the
+        // source from taking the sentence: Fiendlash ("whenever equipped creature is dealt damage,
+        // it deals damage equal to its power to target player") compiled with the *Equipment* as
+        // the damage source and the Equipment's power as the amount, which is no power at all, and
+        // dealt nothing.
+        //
+        // Same allow-list discipline as the family below: a verb here may return true only where
+        // Game.SubjectObjectOf really answers with the host, so that a pronoun the flag admits has
+        // something to resolve to.
+        var attached = AttachedCreature().Match(condition);
+        if (attached.Success)
+        {
+            return attached.Groups["verb"].Value.ToLowerInvariant() switch
+            {
+                // One object each, and it is the host: the card that reached the graveyard, the
+                // permanent that turned, the permanent the damage was marked on. Checked against
+                // Game.SubjectObjectOf one event at a time - ObjectMoved, PermanentTapped and
+                // DamageMarked all answer with the id this pronoun means.
+                "dies" => true,
+                "becomes tapped" => true,
+                "is dealt damage" => true,
+
+                // Untapping is the one that looks like its twin and is not: PermanentsUntapped
+                // carries a set of ids and SubjectObjectOf answers nothing for it, so a pronoun
+                // admitted here would resolve to nothing and the sentence would compile into an
+                // effect that does nothing at all.
+                "becomes untapped" => false,
+
+                // Batches, exactly as below - a declaration names a set, and a set is what a
+                // pronoun cannot mean. Named rather than left to the default so that a verb added
+                // to the pattern has to be considered here.
+                "attacks" => false,
+                "blocks" => false,
+                "attacks or blocks" => false,
+                "becomes blocked" => false,
+
+                // The damage verbs name the host as the *source* of the damage, and the event's
+                // object is whoever took it - two different permanents, and this question is
+                // about neither reliably. Refused rather than guessed.
+                _ => false,
+            };
         }
 
         // The zone-change family, and it is admitted one verb at a time rather than whole. Most
