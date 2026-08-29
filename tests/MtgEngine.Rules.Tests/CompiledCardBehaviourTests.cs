@@ -17445,6 +17445,709 @@ public sealed class CompiledCardBehaviourTests
         Assert.Null(Stopped());
     }
 
+    /// <summary>
+    /// "If at least two white mana was spent to cast ~" � one colour of the record, not the total.
+    /// </summary>
+    /// <remarks>
+    /// The symbol form beside it cannot say this: "{W}{W}" asks for exactly two symbols and a
+    /// number written as a word has none to repeat, so "at least three" and "these three" are not
+    /// the same question. Every row here spends two mana, which is the point � a reader that
+    /// answered from the total would pass all four with the colour ignored.
+    /// <para>
+    /// "Of the same color" names no colour at all, so it is the largest single colour rather than
+    /// the coloured total: two mana of two colours is not two of one.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("if at least two white mana was spent to cast it", "Plains", "Plains", true)]
+    [InlineData("if at least two white mana was spent to cast it", "Plains", "Island", false)]
+    [InlineData("if at least two mana of the same color was spent to cast it", "Island", "Island", true)]
+    [InlineData("if at least two mana of the same color was spent to cast it", "Island", "Forest", false)]
+    public void A_clause_about_one_colour_of_mana_spent_reads_that_colour(
+        string clause, string first, string second, bool fires)
+    {
+        var tag = clause.Contains("same color", StringComparison.Ordinal) ? "Same" : "White";
+
+        var spell = new CardDefinition
+        {
+            OracleId = "oracle-colour-spent-" + tag + first + second,
+            Name = "Colour Spend Test " + tag + " " + first + " " + second,
+            OracleText = "When ~ enters, " + clause + ", you gain 4 life.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+            Power = 1,
+            Toughness = 1,
+        };
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, spell);
+
+        foreach (var basic in new[] { first, second })
+        {
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var before = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Equal(before + (fires ? 4 : 0), game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "As long as ~ has no shell counters on it" � the counter clause read the other way round.
+    /// </summary>
+    /// <remarks>
+    /// Both spellings of absence are here because they are not one spelling: "has no charge
+    /// counters" puts the zero in the quantifier and "doesn't have a +1/+1 counter" negates the
+    /// verb and keeps the article, so folding the second onto the first would need "a" to mean
+    /// none. The counter of a different name is what separates this from "has no counters at
+    /// all", and taking the counter off again is what separates a static from a latch.
+    /// </remarks>
+    [Theory]
+    [InlineData("~ has flying as long as ~ has no shell counters on it.", "shell")]
+    [InlineData("~ has flying as long as ~ doesn't have a +1/+1 counter on it.", "+1/+1")]
+    public void An_absent_counter_condition_is_on_until_that_counter_arrives(
+        string oracle, string kind)
+    {
+        var hatchling = Card(
+            "Absent Counter Test " + kind, oracle, CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(hatchling);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, hatchling, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Assert.True(Flies());
+
+        // A counter of another name buys nothing. A reader asking "any counter at all" passes
+        // the assertions on either side of this one.
+        game.AddCounters(creature, "quest", 1);
+        Settle(game);
+
+        Assert.True(Flies());
+
+        game.AddCounters(creature, kind, 1);
+        Settle(game);
+
+        Assert.False(Flies());
+
+        game.AddCounters(creature, kind, -1);
+        Settle(game);
+
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// "If three or more creatures are attacking" � a count of the declaration, and a description
+    /// of what is in it.
+    /// </summary>
+    /// <remarks>
+    /// Every watcher here is on the defending player's side, because that is who prints this: the
+    /// Trap cycle asks about the attack being made against it, and a reading scoped to the asker
+    /// would be true exactly when the printed card is false.
+    /// <para>
+    /// Two declarations, because a single one cannot say both halves of any of these. The second
+    /// combat is what turns "exactly one" on and "two or more" off, and a reader that answered
+    /// "one or more" to both would need it to be caught.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attacking_condition_counts_and_describes_the_declaration()
+    {
+        // The printed frame is a Trap's alternative cost, which is where the corpus puts this
+        // clause; the statics below are the same condition somewhere a static can be measured.
+        var trap = Card(
+            "Attacking Trap Test",
+            "If three or more creatures are attacking, you may pay {U} rather than pay ~'s mana cost."
+                + (char)10 + "Draw two cards.");
+
+        Assert.True(CardCompiler.Compile(trap).IsComplete);
+
+        CardDefinition Watcher(string name, string condition) => Card(
+            name,
+            "~ gets +2/+2 as long as " + condition + ".",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var two = Watcher("Attacking Two Test", "two or more creatures are attacking");
+        var three = Watcher("Attacking Three Test", "three or more creatures are attacking");
+        var zombies = Watcher("Attacking Zombie Watch Test", "a Zombie is attacking");
+        var vampires = Watcher("Attacking Vampire Watch Test", "a Vampire is attacking");
+        var lone = Watcher("Attacking Lone Test", "exactly one creature is attacking");
+
+        foreach (var watcher in new[] { two, three, zombies, vampires, lone })
+        {
+            var built = CardCompiler.Compile(watcher);
+            Assert.True(built.IsComplete, string.Join(" | ", built.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+
+        var watchers = new[] { two, three, zombies, vampires, lone }
+            .Select(card => game.Create(bob, card, Zone.Battlefield))
+            .ToList();
+
+        var zombie = game.Create(
+            alice,
+            Card("Attacking Zombie Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Zombie"),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Attacking Bear Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        int Power(int which) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(watchers[which])).Power ?? 0;
+
+        // Nothing is attacking yet, so every one of them is off.
+        for (var i = 0; i < watchers.Count; i++)
+            Assert.Equal(1, Power(i));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [zombie] = AttackTarget.Player(bob),
+            [bear] = AttackTarget.Player(bob),
+        });
+
+        Assert.Equal(3, Power(0));
+        Assert.Equal(1, Power(1));
+        Assert.Equal(3, Power(2));
+        Assert.Equal(1, Power(3));
+        Assert.Equal(1, Power(4));
+
+        // A second declaration, one attacker this time, and every answer above that could have
+        // been a constant changes.
+        PassTo(game, 5, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [bear] = AttackTarget.Player(bob),
+        });
+
+        Assert.Equal(1, Power(0));
+        Assert.Equal(1, Power(2));
+        Assert.Equal(3, Power(4));
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "~ is blocked" � one or more blockers were declared for it (CR 509.1h).
+    /// </summary>
+    /// <remarks>
+    /// Not the negation of "~ is blocking" beside it: those are opposite sides of the same
+    /// combat and a creature can be neither. The printed frame is an activation restriction,
+    /// which is asserted to compile; the static is where the condition can be watched turning on.
+    /// </remarks>
+    [Fact]
+    public void A_blocked_condition_waits_for_blockers_to_be_declared()
+    {
+        var crawler = Card(
+            "Blocked Crawler Test",
+            "{R}: ~ gets +1/+0 until end of turn. Activate only if ~ is blocked.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var printed = CardCompiler.Compile(crawler);
+        Assert.True(printed.IsComplete, string.Join(" | ", printed.Unhandled));
+
+        var lurker = Card(
+            "Blocked Static Test",
+            "~ gets +2/+0 as long as ~ is blocked.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(lurker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, lurker, Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Blocked Wall Test", 0, 4), Zone.Battlefield);
+        Settle(game);
+
+        int Power() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power ?? 0;
+
+        Assert.Equal(2, Power());
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        // Attacking is not being blocked, which is the half a reader keyed on combat alone
+        // would get wrong.
+        Assert.Equal(2, Power());
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [attacker] = [wall],
+        });
+
+        Assert.Equal(4, Power());
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Four or more permanent types among cards in your graveyard" � a narrower list than
+    /// delirium's (CR 110.4 against CR 205.2a).
+    /// </summary>
+    /// <remarks>
+    /// The instant and the sorcery are the whole test. They are two card types and no permanent
+    /// types at all, so a reader that shared delirium's list would open this door on a graveyard
+    /// the printed card leaves it shut on � and the delirium card beside it, which really is on
+    /// with those two, is what proves the two lists are still different.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_type_count_does_not_count_the_types_that_are_never_permanents()
+    {
+        var door = Card(
+            "Permanent Types Test",
+            "~ has flying as long as there are two or more permanent types among cards in "
+                + "your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var delirium = Card(
+            "Delirium Types Test",
+            "~ has flying as long as there are two or more card types among cards in "
+                + "your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        foreach (var card in new[] { door, delirium })
+        {
+            var built = CardCompiler.Compile(card);
+            Assert.True(built.IsComplete, string.Join(" | ", built.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var permanents = game.Create(alice, door, Zone.Battlefield);
+        var types = game.Create(alice, delirium, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        Assert.False(Flies(permanents));
+        Assert.False(Flies(types));
+
+        game.Create(alice, Card("Graveyard Bolt Test", "~ deals 1 damage to any target."), Zone.Graveyard);
+        game.Create(
+            alice,
+            Card("Graveyard Ritual Test", "You gain 1 life.", CardType.Sorcery),
+            Zone.Graveyard);
+
+        Settle(game);
+
+        // Two card types and no permanent types, so the two cards disagree � which is the only
+        // arrangement that can tell the lists apart.
+        Assert.False(Flies(permanents));
+        Assert.True(Flies(types));
+
+        game.Create(alice, TestCards.Creature("Graveyard Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Graveyard);
+        Settle(game);
+
+        Assert.True(Flies(permanents));
+    }
+
+    /// <summary>
+    /// "You had another creature enter the battlefield under your control this turn" � the same
+    /// fact as the clause beside it, with the subject moved to the front.
+    /// </summary>
+    /// <remarks>
+    /// English turns the verb into an infinitive when it does that, and a parser cannot, so the
+    /// two word orders had to be one pattern rather than two readers. "Another" is asserted in
+    /// both: the permanent asking arrives like any other and would otherwise answer yes about
+    /// itself (CR 109.5).
+    /// </remarks>
+    [Theory]
+    [InlineData("you had another creature enter the battlefield under your control this turn")]
+    [InlineData("another creature entered the battlefield under your control this turn")]
+    public void An_arrival_condition_reads_both_word_orders(string condition)
+    {
+        var stag = Card(
+            "Arrival Wording Test " + condition.Length,
+            "~ gets +2/+2 as long as " + condition + ".",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(stag);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var counter = game.Create(alice, stag, Zone.Battlefield);
+        Settle(game);
+
+        int Power() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(counter)).Power ?? 0;
+
+        // Its own arrival is in the list and "another" takes it out again.
+        Assert.Equal(1, Power());
+
+        game.Create(alice, TestCards.Creature("Arrival Friend Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, Power());
+    }
+
+    /// <summary>
+    /// An arrival clause that names a creature type, and one that names an opponent's board.
+    /// </summary>
+    /// <remarks>
+    /// The type table this reader used to be given knows only card types, so a creature type
+    /// reached it, came back null, and took the whole line away from every reader below �
+    /// claiming a clause and then refusing it. The noun now falls through to the shared
+    /// card-filter vocabulary, and the Bear arriving first is what proves the filter is real.
+    /// <para>
+    /// Whose board is the other half, and the artifact Alice plays is what proves it: a reader
+    /// that ignored the side would be turned on by the asker's own permanent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_arrival_condition_can_name_a_creature_type_and_an_opponents_board()
+    {
+        var cavalier = Card(
+            "Arrival Tribe Test",
+            "~ gets +2/+2 as long as another Knight entered the battlefield under your control "
+                + "this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var trap = Card(
+            "Arrival Opponent Test",
+            "~ gets +2/+2 as long as an opponent had an artifact enter the battlefield under "
+                + "their control this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        foreach (var card in new[] { cavalier, trap })
+        {
+            var built = CardCompiler.Compile(card);
+            Assert.True(built.IsComplete, string.Join(" | ", built.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+        var knightWatch = game.Create(alice, cavalier, Zone.Battlefield);
+        var artifactWatch = game.Create(alice, trap, Zone.Battlefield);
+        Settle(game);
+
+        int Power(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power ?? 0;
+
+        Assert.Equal(1, Power(knightWatch));
+        Assert.Equal(1, Power(artifactWatch));
+
+        // A creature that is not a Knight, so the filter has something to refuse.
+        game.Create(alice, TestCards.Creature("Arrival Peasant Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(1, Power(knightWatch));
+
+        game.Create(
+            alice,
+            Card("Arrival Knight Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Knight"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(3, Power(knightWatch));
+
+        // Alice's own artifact is on the wrong side of the table for the second card.
+        game.Create(
+            alice, Card("Arrival Mine Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(1, Power(artifactWatch));
+
+        game.Create(
+            alice, Card("Arrival Theirs Test", string.Empty, CardType.Artifact), Zone.Battlefield,
+            controllerId: bob);
+
+        Settle(game);
+
+        Assert.Equal(3, Power(artifactWatch));
+    }
+
+    /// <summary>
+    /// "If a creature died under your control this turn" � a death on one side of the table.
+    /// </summary>
+    /// <remarks>
+    /// Not the game-wide death count this file already reads. Bob's creature dying is the
+    /// assertion that separates them: answered without the side, the card would be turned on by
+    /// the opponent's loss, which is strictly better than printed and would still play.
+    /// <para>
+    /// The exiled creature is the second narrowing. Dying is battlefield to graveyard and nothing
+    /// else (CR 700.4), so a creature that left the battlefield another way must not count.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_death_condition_can_be_scoped_to_your_own_side()
+    {
+        var steward = Card(
+            "Died Under Control Test",
+            "~ gets +2/+2 as long as a creature died under your control this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var gourmand = Card(
+            "Died Human Test",
+            "~ gets +2/+2 as long as another Human died under your control this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        foreach (var card in new[] { steward, gourmand })
+        {
+            var built = CardCompiler.Compile(card);
+            Assert.True(built.IsComplete, string.Join(" | ", built.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+        var anyDeath = game.Create(alice, steward, Zone.Battlefield);
+        var humanDeath = game.Create(alice, gourmand, Zone.Battlefield);
+        Settle(game);
+
+        int Power(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power ?? 0;
+
+        Assert.Equal(1, Power(anyDeath));
+        Assert.Equal(1, Power(humanDeath));
+
+        // The opponent's loss is not yours.
+        var theirs = game.Create(bob, TestCards.Creature("Died Theirs Test", 2, 2), Zone.Battlefield);
+        game.Move(theirs, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(1, Power(anyDeath));
+
+        // Nor is leaving the battlefield some other way.
+        var exiled = game.Create(alice, TestCards.Creature("Died Exiled Test", 2, 2), Zone.Battlefield);
+        game.Move(exiled, Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(1, Power(anyDeath));
+
+        var bear = game.Create(alice, TestCards.Creature("Died Bear Test", 2, 2), Zone.Battlefield);
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, Power(anyDeath));
+
+        // A Bear is not a Human, so the named half is still off.
+        Assert.Equal(1, Power(humanDeath));
+
+        var human = game.Create(
+            alice,
+            Card("Died Human Villager Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Human"),
+            Zone.Battlefield);
+
+        game.Move(human, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, Power(humanDeath));
+    }
+
+    /// <summary>
+    /// "As long as an opponent owns a card in exile" � exile is shared, so this asks whose card.
+    /// </summary>
+    /// <remarks>
+    /// A card in exile has no controller to ask (CR 400.1 makes the zone a shared one), so
+    /// ownership is the only question there is. Both halves are asserted against the same two
+    /// exiled cards: a reader that ignored the owner would turn both cards on at the first one.
+    /// </remarks>
+    [Fact]
+    public void An_exile_condition_asks_who_owns_the_card_rather_than_who_exiled_it()
+    {
+        var warden = Card(
+            "Exile Theirs Test",
+            "~ gets +2/+2 as long as an opponent owns a card in exile.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var monstrosity = Card(
+            "Exile Yours Test",
+            "~ gets +2/+2 as long as you own a card in exile.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        foreach (var card in new[] { warden, monstrosity })
+        {
+            var built = CardCompiler.Compile(card);
+            Assert.True(built.IsComplete, string.Join(" | ", built.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(alice, warden, Zone.Battlefield);
+        var mine = game.Create(alice, monstrosity, Zone.Battlefield);
+        Settle(game);
+
+        int Power(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power ?? 0;
+
+        Assert.Equal(1, Power(theirs));
+        Assert.Equal(1, Power(mine));
+
+        // Alice's own card. She exiles it herself, so a reader keyed on who did the exiling
+        // rather than on who owns the card would answer this the same way for both.
+        game.Move(game.State.GetPlayer(alice).Hand[0], Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(1, Power(theirs));
+        Assert.Equal(3, Power(mine));
+
+        game.Move(game.State.GetPlayer(bob).Hand[0], Zone.Exile, MoveCause.Exile);
+        Settle(game);
+
+        Assert.Equal(3, Power(theirs));
+    }
+
+    /// <summary>
+    /// "Unless an opponent has been dealt damage this turn" � the perfect tense of a fact this
+    /// file already reads.
+    /// </summary>
+    /// <remarks>
+    /// A tense is not a question, so it belongs in the existing pattern rather than in a reader
+    /// of its own � and it is the whole of what one <c>unless</c> tail needed to become readable.
+    /// The refusal before the damage is the half that matters: an attack restriction whose
+    /// condition never reads is a creature that can always attack.
+    /// </remarks>
+    [Fact]
+    public void An_attack_restriction_reads_the_perfect_tense_of_damage_dealt()
+    {
+        // Haste, because the card that prints this clause has it — and without it the refusal
+        // before the damage would be summoning sickness rather than the condition, which is a
+        // test that passes whether the condition reads or not.
+        var goblin = Card(
+            "Bloodcrazed Test",
+            "Haste" + (char)10
+                + "~ can't attack unless an opponent has been dealt damage this turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(goblin);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, goblin, Zone.Battlefield);
+
+        string? Stopped() => CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(attacker), alice, bob);
+
+        Assert.NotNull(Stopped());
+
+        var bolt = TestCards.PutInHand(
+            game, alice, Card("Bloodcrazed Bolt Test", "~ deals 2 damage to any target."));
+
+        var mountain = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.ActivateAbility(alice, mountain, "mana");
+        game.CastSpell(alice, bolt, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Null(Stopped());
+    }
+
+    /// <summary>
+    /// "Unless you have max speed" — speed 4 and nothing less (CR 702.179e).
+    /// </summary>
+    /// <remarks>
+    /// The three assertions on the way up are the point. Speed rises one step a turn at most
+    /// (CR 702.179b), so a reader that answered "you have any speed at all" — which is what
+    /// "start your engines" gives you for free — would pass a test that only looked at the two
+    /// ends, and the card would be unrestricted from the moment its engine started.
+    /// </remarks>
+    [Fact]
+    public void A_max_speed_condition_waits_for_the_top_of_the_range()
+    {
+        var godseeker = Card(
+            "Max Speed Test",
+            "Haste" + (char)10 + "~ can't attack or block unless you have max speed.",
+            CardType.Creature,
+            power: 5,
+            toughness: 4,
+            keywords: KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(godseeker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var hazoret = game.Create(alice, godseeker, Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card("Max Speed Racer Test", "Start your engines!", CardType.Creature, 2, 2),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        string? Stopped() => CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(hazoret), alice, bob);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).Speed);
+        Assert.NotNull(Stopped());
+
+        // One step a turn, and only on the turns Alice is the active player.
+        foreach (var turn in (int[])[1, 3, 5])
+        {
+            if (turn > 1)
+            {
+                TestCards.PassUntil(
+                    game,
+                    () => game.State.TurnNumber >= turn
+                        && game.State.CurrentStep == TurnStep.PrecombatMain
+                        && game.State.Priority.Holder == alice);
+            }
+
+            var drain = TestCards.PutInHand(
+                game, alice, Card("Max Speed Drain Test", "Each opponent loses 1 life."));
+
+            game.CastSpell(alice, drain, targets: null);
+            Settle(game);
+
+            // Two, then three: neither is max speed, and both are more than none.
+            if (game.State.GetPlayer(alice).Speed < 4)
+                Assert.NotNull(Stopped());
+        }
+
+        Assert.Equal(4, game.State.GetPlayer(alice).Speed);
+        Assert.Null(Stopped());
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {

@@ -333,9 +333,18 @@ public static partial class BoardConditions
             var orMoreKinds = kinds.Groups["dir"].Value
                 .StartsWith("more", StringComparison.OrdinalIgnoreCase);
 
+            // "Four or more permanent types" is a narrower list than delirium's, not a synonym
+            // for it (CR 110.4 against CR 205.2a): an instant and a sorcery are two card types
+            // and no permanent types at all, so counting them here would open the door on a
+            // graveyard the printed card leaves it shut on.
+            var tallied = kinds.Groups["kind"].Value
+                .StartsWith("permanent", StringComparison.OrdinalIgnoreCase)
+                ? PermanentCardTypes
+                : CardTypesForDelirium;
+
             return (state, _, source) =>
             {
-                var seen = CardTypesForDelirium.Count(
+                var seen = tallied.Count(
                     type => state.GetPlayer(source.ControllerId).Graveyard.Any(
                         id => state.GetObject(id).Card.CardTypes.HasFlag(type)));
 
@@ -425,20 +434,7 @@ public static partial class BoardConditions
                 if (word.Length == 0)
                     continue;
 
-                // Written out rather than shared with the filter vocabulary, for the reason the
-                // mana-spent reader gives: that vocabulary reads colour words attached to a
-                // noun, and this reads a colour standing on its own.
-                var colour = word.ToLowerInvariant() switch
-                {
-                    "white" => Domain.Enums.ManaColor.White,
-                    "blue" => Domain.Enums.ManaColor.Blue,
-                    "black" => Domain.Enums.ManaColor.Black,
-                    "red" => Domain.Enums.ManaColor.Red,
-                    "green" => Domain.Enums.ManaColor.Green,
-                    _ => (Domain.Enums.ManaColor?)null,
-                };
-
-                if (colour is not { } named)
+                if (ColourNamed(word) is not { } named)
                     return null;
 
                 wantedColours.Add(named);
@@ -618,36 +614,32 @@ public static partial class BoardConditions
                 state.PermanentsLeftBattlefieldThisTurn(source.ControllerId) >= 1;
         }
 
-        // "Two or more nonland permanents entered the battlefield under your control this turn."
-        // One reader for the whole family: the count, the type and the word "another" are the only
-        // things that vary across it.
+        // "Two or more nonland permanents entered the battlefield under your control this turn",
+        // "you had another creature enter the battlefield under your control this turn", "an
+        // opponent had an artifact enter the battlefield under their control this turn". One
+        // reader for the whole family: the count, the noun, the word "another" and whose board it
+        // is are the only things that vary across it, and the two word orders say the same thing.
         if (EnteredUnderYourControlLine().Match(text) is { Success: true } arrived)
         {
-            var wanted = arrived.Groups["n"].Success ? Number(arrived.Groups["n"].Value) : 1;
-            var noun = arrived.Groups["what"].Value.Trim();
-            var nonlandOnly = noun.StartsWith("nonland", StringComparison.OrdinalIgnoreCase);
-
-            if (nonlandOnly)
-                noun = noun["nonland".Length..].Trim();
-
-            // Through the shared type table, so "artifact" means here exactly what it means
-            // everywhere else. A noun it does not know - a creature type, on five cards - leaves
-            // the line unread rather than counting every permanent that arrived.
-            if (EffectPhrase.Specs.PermanentTypes(noun) is not { } arrivedTypes)
+            if (Crossings(arrived) is not { } arrival)
                 return null;
 
-            var types = arrivedTypes.Aggregate(
-                Domain.Enums.CardType.None, (running, one) => running | one);
+            return (state, _, source) => arrival.Happened(state.ArrivalsThisTurn, state, source);
+        }
 
-            // "Another" excludes the permanent asking (CR 109.5), which is the difference between
-            // a card that turns itself on as it arrives and one that needs company.
-            var excludesSelf = arrived.Groups["another"].Success;
+        // "If a creature died under your control this turn", "if another Human died under your
+        // control this turn". Not the game-wide death count above: these name a side, and
+        // answering them game-wide turns the card on when an opponent's creature dies - strictly
+        // better than printed, and it would still play (CR 700.4).
+        if (DiedUnderControlLine().Match(text) is { Success: true } lost)
+        {
+            if (Crossings(lost) is not { } death)
+                return null;
 
-            return (state, _, source) => state.PermanentsEnteredThisTurn(
-                source.ControllerId,
-                types,
-                nonlandOnly,
-                excludesSelf ? source.Id : null) >= wanted;
+            return (state, _, source) => death.Happened(
+                state.DeparturesThisTurn.Where(gone => gone.To == Zone.Graveyard),
+                state,
+                source);
         }
 
         // "You descended this turn" (CR 700.11): a permanent card was put into your graveyard from
@@ -690,6 +682,24 @@ public static partial class BoardConditions
             var none = spending.Groups["none"].Success;
             var noColour = spending.Groups["nocolour"].Success;
 
+            // "If at least three white mana was spent to cast ~" - the same record asked for one
+            // colour rather than for the total, and the symbol form above cannot express it: a
+            // number in words has no {W} to repeat, and spelling it out as three symbols would
+            // make "at least three" into "exactly these three".
+            var onlyColour = spending.Groups["colour"].Success
+                ? ColourNamed(spending.Groups["colour"].Value)
+                : null;
+
+            if (spending.Groups["colour"].Success && onlyColour is null)
+                return null;
+
+            // "If at least three mana of the same color was spent to cast it" - which colour is
+            // not named, so it is the largest single colour rather than the coloured total: three
+            // mana of three different colours is not three of the same one.
+            var sameColour = spending.Groups["same"].Success
+                ? Number(spending.Groups["same"].Value)
+                : 0;
+
             return (state, abilities, source) =>
             {
                 if (!state.TryGetObject(source.Id, out var self))
@@ -704,6 +714,15 @@ public static partial class BoardConditions
 
                 if (noColour)
                     return coloured == 0;
+
+                if (onlyColour is { } single)
+                    return spent.Colored.GetValueOrDefault(single) >= least;
+
+                if (sameColour > 0)
+                {
+                    return spent.Colored.Count > 0
+                        && spent.Colored.Values.Max() >= sameColour;
+                }
 
                 if (least > 0)
                     return total >= least;
@@ -757,6 +776,49 @@ public static partial class BoardConditions
                 state.Combat.Attackers.Count == 1
                 && state.Combat.Attackers.ContainsKey(source.Id);
         }
+
+        // "If a white creature is attacking", "if three or more creatures are attacking" - the
+        // Trap cycle's alternative cost, and a question about the declaration rather than about
+        // the board. Nobody's side is named and none of these cards names one: the trap is cast
+        // by whoever is being attacked, so a reading scoped to the asker would be true exactly
+        // when the printed card is false.
+        var assault = AttackingNounLine().Match(text);
+        if (assault.Success)
+        {
+            var many = assault.Groups["n"].Success ? Number(assault.Groups["n"].Value) : 1;
+
+            // "Exactly one creature is attacking" is a window rather than a threshold, and the
+            // card asking it - a trap that punishes a lone attacker - is turned off by a second
+            // one arriving. "Or more" would leave it on for a whole team.
+            var exactly = assault.Groups["exactly"].Success;
+
+            // The noun goes through the shared target grammar, so every filter it knows arrives
+            // here already working and a word it cannot name leaves the clause unread.
+            var noun = PluralNoun().Replace(assault.Groups["what"].Value.Trim(), "$1");
+
+            if (EffectPhrase.Specs.Parse("target " + noun) is not
+                { Kind: Abilities.TargetKind.Permanent } attacking)
+            {
+                return null;
+            }
+
+            return (state, abilities, source) =>
+            {
+                var count = state.Combat.Attackers.Keys.Count(id =>
+                    state.TryGetObject(id, out var attacker)
+                    && attacker.Zone == Zone.Battlefield
+                    && attacking.ObjectFilter?.Invoke(
+                        state, abilities, attacker, source.ControllerId) != false);
+
+                return exactly ? count == many : count >= many;
+            };
+        }
+
+        // "If ~ is blocked" (CR 509.1h): an attacking creature with one or more blockers declared
+        // for it. Not the negation of "~ is blocking" beside it - that is the other side of the
+        // same combat, and a creature can be neither.
+        if (SelfBlockedLine().IsMatch(text))
+            return (state, _, source) => !state.Combat.BlockersOf(source.Id).IsEmpty;
 
         // "An opponent has three or more poison counters" - the tally is in the state for the
         // rule that ends the game at ten (CR 704.5c); nothing could ask it short of that.
@@ -989,6 +1051,28 @@ public static partial class BoardConditions
             return (state, abilities, source) =>
                 state.TryGetObject(source.Id, out var self)
                 && self.CastBy == source.ControllerId;
+        }
+
+        // "Unless you have max speed" (CR 702.179e): a player has max speed when their speed is
+        // exactly the ceiling, which is 4. Read as the comparison rather than as a flag, because
+        // speed is a number the game already keeps and a second field for the top of its range
+        // would be a place for the two to disagree.
+        if (MaxSpeedLine().IsMatch(text))
+            return (state, _, source) => state.GetPlayer(source.ControllerId).Speed >= 4;
+
+        // "As long as an opponent owns a card in exile" - exile is a shared zone (CR 400.1), so
+        // the question is whose card it is rather than whose pile: an opponent's card you exiled
+        // yourself is still theirs. Asked of the owner and never of a controller, because an
+        // exiled card has no controller to ask.
+        var banished = OwnsExiledLine().Match(text);
+        if (banished.Success)
+        {
+            var mine = banished.Groups["who"].Value
+                .StartsWith("you", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) => state.Exile.Any(id =>
+                state.TryGetObject(id, out var card)
+                && (card.OwnerId == source.ControllerId) == mine);
         }
 
         // "As long as you have the city's blessing" (CR 702.131a). A designation rather than a
@@ -1620,6 +1704,103 @@ public static partial class BoardConditions
             && (exactly ? count == wanted : orMore ? count >= wanted : count <= wanted);
     }
 
+    /// <summary>
+    /// A question about permanents that crossed the battlefield's edge this turn (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// Arriving and dying are one question over two lists, and the difference between them is
+    /// which list is handed in. Written once because the four things that vary — how many, whose,
+    /// which noun, and whether the asking permanent counts — are the same four either way, and a
+    /// second copy of them is a second place for "another" to be forgotten.
+    /// </remarks>
+    /// <param name="Wanted">How many crossings the clause is satisfied by.</param>
+    /// <param name="ExcludesSelf">Whether "another" took the asking permanent out (CR 109.5).</param>
+    /// <param name="NonlandOnly">Whether the noun was "nonland", which no type table holds.</param>
+    /// <param name="TheirBoard">
+    /// Whether the clause names an opponent's side. Counted per opponent rather than across all
+    /// of them, because "an opponent had two or more creatures enter" is any one of them having
+    /// two (CR 102.1) and a sum would fire on two opponents with one each.
+    /// </param>
+    /// <param name="Types">Any of these printed card types, or <c>None</c> for any permanent.</param>
+    /// <param name="Filter">
+    /// The shared card-filter vocabulary's answer for a noun the type table cannot name — a
+    /// creature type, or a list of them. Null when the types above are the whole question.
+    /// </param>
+    private sealed record Crossing(
+        int Wanted,
+        bool ExcludesSelf,
+        bool NonlandOnly,
+        bool TheirBoard,
+        Domain.Enums.CardType Types,
+        string? Filter)
+    {
+        public bool Happened(
+            IEnumerable<BattlefieldCrossing> crossings, GameState state, GameObject source)
+        {
+            var seen = crossings.ToList();
+
+            int For(Guid who) => seen.Count(one =>
+                one.ControllerId == who
+                && (!ExcludesSelf || one.Id != source.Id)
+                && !(NonlandOnly && one.Card.CardTypes.HasFlag(Domain.Enums.CardType.Land))
+                && (Types == Domain.Enums.CardType.None
+                    || (one.Card.CardTypes & Types) != Domain.Enums.CardType.None)
+                && (Filter is null || Abilities.SearchFilters.Matches(Filter, one.Card)));
+
+            if (!TheirBoard)
+                return For(source.ControllerId) >= Wanted;
+
+            return state.TurnOrder
+                .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                .Any(id => For(id) >= Wanted);
+        }
+    }
+
+    /// <summary>The crossing question a matched clause asks, or null if its noun is unreadable.</summary>
+    /// <remarks>
+    /// The type table is tried before the card filter and not instead of it. That order is the
+    /// whole fix to a reader that had been claiming clauses and then refusing them: "another
+    /// Knight entered the battlefield under your control this turn" reached a table that knows
+    /// only card types, which returned null and took the line away from everything below.
+    /// </remarks>
+    private static Crossing? Crossings(Match m)
+    {
+        var noun = m.Groups["what"].Value.Trim();
+
+        var nonlandOnly = noun.StartsWith("nonland", StringComparison.OrdinalIgnoreCase);
+        if (nonlandOnly)
+            noun = noun["nonland".Length..].Trim();
+
+        var types = Domain.Enums.CardType.None;
+        string? filter = null;
+
+        if (EffectPhrase.Specs.PermanentTypes(noun) is { } named)
+        {
+            types = named.Aggregate(
+                Domain.Enums.CardType.None, (running, one) => running | one);
+        }
+        else
+        {
+            filter = EffectPhrase.CardFilterNamed(Either().Replace(noun, " or "));
+            if (filter is null)
+                return null;
+        }
+
+        // Which side is said twice on this family - once by the subject and once by the
+        // possessive - and either alone is enough, because "an opponent had a creature enter"
+        // and "a creature entered under an opponent's control" are the same sentence.
+        var theirs = m.Groups["theirs"].Success
+            || m.Groups["who"].Value.StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+
+        return new Crossing(
+            m.Groups["n"].Success ? Number(m.Groups["n"].Value) : 1,
+            m.Groups["another"].Success,
+            nonlandOnly,
+            theirs,
+            types,
+            filter);
+    }
+
     private static int Number(string word) =>
         int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
             ? n
@@ -1816,6 +1997,12 @@ public static partial class BoardConditions
         // are only distinguishable here: every other clause this reads asks for "at least".
         var none = m.Groups["none"].Success;
 
+        // "~ doesn't have a +1/+1 counter on it" is the same threshold with the verb negated.
+        // Applied after the comparison rather than folded into it, so the fail-closed answer
+        // below stays false in both directions - a permanent that is gone must not satisfy a
+        // clause about what it is not carrying either.
+        var negated = m.Groups["not"].Success;
+
         return (state, _, source) =>
         {
             // No subject is no answer, in both directions. Reading a permanent that has left
@@ -1827,7 +2014,7 @@ public static partial class BoardConditions
 
             var held = self.Permanent?.Counters.GetValueOrDefault(kind) ?? 0;
 
-            return none ? held == 0 : held >= least;
+            return (none ? held == 0 : held >= least) != negated;
         };
     }
 
@@ -1841,10 +2028,17 @@ public static partial class BoardConditions
     /// counters on it" falls past it and arrives here. Widening its class instead would have made
     /// it claim every clause this one reads and lose the host redirect below with them.
     /// </para>
+    /// <para>
+    /// The two ways a card says the counter is absent are both here and neither can be dropped.
+    /// "~ has no charge counters on it" is the count at zero; "~ doesn't have a +1/+1 counter on
+    /// it" is the ordinary clause with the verb negated, and it carries the article rather than
+    /// the word "no" - so folding it onto the <c>none</c> group would need the article to mean
+    /// zero, which it does not anywhere else in this file.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^((~|(this|the) [a-z]+)|(?<it>it)) has "
-            + @"(an?|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+        @"^((~|(this|the) [a-z]+)|(?<it>it)) (has|(?<not>doesn't have)) "
+            + @"(an?|(?<none>no)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
             + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on it$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCounterLine();
@@ -1902,13 +2096,38 @@ public static partial class BoardConditions
     /// <remarks>
     /// "Mana from a Treasure was spent" is deliberately not admitted: where a mana came from is
     /// not on this record, and answering it from the colours would be a guess.
+    /// <para>
+    /// The two counted arms are written before the plain one for readability rather than for
+    /// correctness - "at least three white mana" cannot reach the plain arm, whose word class
+    /// stops at a space - and each has its own group, because a shared one would leave the
+    /// handler unable to tell "three mana" from "three white mana" and it would answer the
+    /// first question with the second's number.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^((?<none>no) mana|(?<nocolour>no colored) mana"
+            + @"|at least (?<n>[a-z]+|\d+) (?<colour>white|blue|black|red|green) mana"
+            + @"|at least (?<same>[a-z]+|\d+) mana of the same color"
             + @"|at least (?<n>[a-z]+|\d+) mana|(?<symbols>(\{[WUBRG]\})+))"
             + @" was spent to cast (it|~|this spell)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ManaSpentLine();
+
+    /// <summary>One of the five colours by its printed word, or null (CR 105.1).</summary>
+    /// <remarks>
+    /// Shared by the devotion reader and the mana-spent one because they ask the same question of
+    /// the same five words. It is deliberately not the filter vocabulary's table: that one reads
+    /// a colour attached to a noun, and both of these read a colour standing on its own.
+    /// </remarks>
+    private static Domain.Enums.ManaColor? ColourNamed(string word) => word.ToLowerInvariant() switch
+    {
+        "white" => Domain.Enums.ManaColor.White,
+        "blue" => Domain.Enums.ManaColor.Blue,
+        "black" => Domain.Enums.ManaColor.Black,
+        "red" => Domain.Enums.ManaColor.Red,
+        "green" => Domain.Enums.ManaColor.Green,
+        _ => null,
+    };
 
     [GeneratedRegex(@"\{(?<c>[WUBRG])\}", RegexOptions.IgnoreCase)]
     private static partial Regex ManaSymbolsIn();
@@ -1975,6 +2194,24 @@ public static partial class BoardConditions
     [GeneratedRegex(
         @"^(~|it|this creature)('s| is) attacking alone$", RegexOptions.IgnoreCase)]
     private static partial Regex AttackingAloneLine();
+
+    /// <summary>"Three or more creatures are attacking" — a described attacker, not the source.</summary>
+    /// <remarks>
+    /// Sits behind the clause above rather than widening it: "attacking alone" is a fact about
+    /// <em>this</em> permanent and this is a count of the declaration, and a pattern that read
+    /// both would have to be trusted to know which - the near-identical pair that reads correctly
+    /// and plays wrong.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(an?|(?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+            + @"(?<what>[a-z][a-z ]*?) (is|are) attacking$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttackingNounLine();
+
+    /// <summary>"~ is blocked" — one or more blockers were declared for it (CR 509.1h).</summary>
+    [GeneratedRegex(@"^(~|it|this creature)('s| is) blocked$", RegexOptions.IgnoreCase)]
+    private static partial Regex SelfBlockedLine();
 
 
     /// <summary>"It has a depletion counter on it", and its numbered form.</summary>
@@ -2067,11 +2304,37 @@ public static partial class BoardConditions
     private static partial Regex LeftBattlefieldThisTurnLine();
 
     /// <summary>"Two or more nonland permanents entered the battlefield under your control."</summary>
+    /// <remarks>
+    /// Both word orders are one pattern. English moves the subject to the front and turns the
+    /// verb into an infinitive - "you had another creature <em>enter</em> the battlefield under
+    /// your control this turn" - and that is a rephrasing of the same fact, not a second one; a
+    /// reader each would be two places for "another" to be dropped.
+    /// <para>
+    /// The noun class admits commas so a list of creature types reaches the shared card-filter
+    /// vocabulary whole. It cannot swallow the count in front of it: every alternative there is
+    /// anchored at the start of the clause and the noun is lazy, so "two or more creatures" takes
+    /// the counted branch before the noun is looked at.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(an?|(?<another>another)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or more) (?<what>[a-z ]+?)s? entered the battlefield under your control this turn$",
+        @"^((?<who>you|an opponent) had )?"
+            + @"(an?|(?<another>another)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or more) (?<what>[a-z][a-z, ]*?)s? enter(ed)? the battlefield under "
+            + @"(your|(?<theirs>an opponent's)|their) control this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EnteredUnderYourControlLine();
+
+    /// <summary>"Another Human died under your control this turn" (CR 700.4).</summary>
+    /// <remarks>
+    /// Distinct from the game-wide death count, and the word "your" is the whole distinction:
+    /// these cards reward you for your own losses, and a reading that counted everybody's would
+    /// be turned on by an opponent's creature dying.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(an?|(?<another>another)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or more) (?<what>[a-z][a-z, ]*?)s? died under your control this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DiedUnderControlLine();
 
     /// <summary>"You descended this turn" (CR 700.11).</summary>
     [GeneratedRegex(@"^you descended this turn$", RegexOptions.IgnoreCase)]
@@ -2121,9 +2384,22 @@ public static partial class BoardConditions
         Domain.Enums.CardType.Battle,
     ];
 
+    /// <summary>The six types a permanent can have, for counting them (CR 110.4).</summary>
+    /// <remarks>
+    /// Battle is on this list and Tribal is not, which is the whole difference from the delirium
+    /// list beside it: a kindred card is only ever a permanent by virtue of its other types, so
+    /// counting it would be counting a type the card asking has excluded.
+    /// </remarks>
+    private static readonly Domain.Enums.CardType[] PermanentCardTypes =
+    [
+        Domain.Enums.CardType.Artifact, Domain.Enums.CardType.Battle,
+        Domain.Enums.CardType.Creature, Domain.Enums.CardType.Enchantment,
+        Domain.Enums.CardType.Land, Domain.Enums.CardType.Planeswalker,
+    ];
+
     [GeneratedRegex(
         @"^there are (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir>more|fewer) card types among cards in your graveyard$",
+            + @"or (?<dir>more|fewer) (?<kind>card|permanent) types among cards in your graveyard$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GraveyardTypeCountLine();
 
@@ -2211,8 +2487,15 @@ public static partial class BoardConditions
         @"^~ is an? (?<what>[a-z]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex SourceIsTypeLine();
 
+    /// <remarks>
+    /// The perfect tense is the same fact in different words - "an opponent <em>has been</em>
+    /// dealt damage this turn" - and it is the whole of what an <c>unless</c> tail needed to
+    /// become readable on one card. A tense is not a question, so it belongs in this pattern
+    /// rather than in a reader of its own.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>an opponent|you) (was|were) dealt damage this turn$", RegexOptions.IgnoreCase)]
+        @"^(?<who>an opponent|you) (was|were|has been|have been) dealt damage this turn$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex DamagedThisTurnLine();
 
     [GeneratedRegex(
@@ -2238,6 +2521,20 @@ public static partial class BoardConditions
     [GeneratedRegex(
         @"^(?<who>you|an opponent) ha(ve|s) the city's blessing$", RegexOptions.IgnoreCase)]
     private static partial Regex CitysBlessingLine();
+
+    /// <summary>"An opponent owns a card in exile" — a card in the shared zone, by owner.</summary>
+    [GeneratedRegex(
+        @"^(?<who>you|an opponent) owns? a card in exile$", RegexOptions.IgnoreCase)]
+    private static partial Regex OwnsExiledLine();
+
+    /// <summary>"You have max speed" — speed 4 (CR 702.179e).</summary>
+    /// <remarks>
+    /// Only the controller's own speed is admitted, because that is the only side the corpus
+    /// asks about: the cards naming somebody else's say "each player who doesn't have max speed",
+    /// which is a group filter and belongs to the effect grammar rather than here.
+    /// </remarks>
+    [GeneratedRegex(@"^you have max speed$", RegexOptions.IgnoreCase)]
+    private static partial Regex MaxSpeedLine();
 
     [GeneratedRegex(
         @"^((?<who>you|an opponent) ?(are|'re|’re|is) the monarch"
