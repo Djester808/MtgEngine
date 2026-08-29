@@ -13366,6 +13366,482 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(chance).IsComplete);
     }
 
+    // ---- Where a card is, and what is on it ---------------------------------
+
+    /// <summary>
+    /// "If ~ is on the battlefield", "if ~ is on the stack", "if ~ is in the command zone or on
+    /// the battlefield" — one reader for all seven zones (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// The preposition was the whole of what was missing. The vocabulary read "in your
+    /// graveyard" and nothing else, so a card asking about the battlefield, the stack or the
+    /// command zone went unread while the same card asking about a graveyard was answered — and
+    /// the battlefield arm that was written could never fire, because it wanted the words "in
+    /// the the battlefield".
+    /// <para>
+    /// Asserted with two zones the permanent is not in as well as the one it is. A condition
+    /// silently defaulted to true — the failure this whole file exists to avoid — passes the
+    /// first assertion and fails the second, and the negated form is the same trap reversed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_zone_condition_reads_the_preposition_the_card_prints()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        int Drawn(string name, string condition)
+        {
+            var card = Card(
+                name, $"When ~ enters, if {condition}, draw a card.", CardType.Enchantment);
+
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+            var before = game.State.GetPlayer(alice).Hand.Count;
+
+            game.Create(alice, card, Zone.Battlefield);
+            Settle(game);
+
+            return game.State.GetPlayer(alice).Hand.Count - before;
+        }
+
+        // Where it is: the intervening-if is asked as the permanent arrives, and it has arrived.
+        Assert.Equal(1, Drawn("Zone Battlefield Test", "~ is on the battlefield"));
+
+        // Where it is not. A spell is on the stack and a permanent is not (CR 400.1), so this
+        // is the assertion that a reader answering "true" to everything cannot pass.
+        Assert.Equal(0, Drawn("Zone Stack Test", "~ is on the stack"));
+
+        // Either of two zones, and it is the second one that answers. The disjunction is read
+        // here rather than by the and/or combinator, which needs both halves to stand alone.
+        Assert.Equal(
+            1, Drawn("Zone Command Test", "~ is in the command zone or on the battlefield"));
+
+        // The same question inverted. Reading the negation as the affirmative draws here.
+        Assert.Equal(0, Drawn("Zone Absent Test", "~ isn't on the battlefield"));
+    }
+
+    /// <summary>
+    /// "As long as ~ is attached to a creature" — an attachment asking about its host (CR 701.3a).
+    /// </summary>
+    /// <remarks>
+    /// The opposite end of the question the adjectives already answered: "~ is equipped" asks
+    /// what is attached to this permanent, and this asks what this permanent is attached to. An
+    /// Equipment cannot ask the first about itself at all, so the two are not one reader.
+    /// <para>
+    /// The second card is what proves the noun is read rather than merely the attachment. "A
+    /// creature you control" is off on an opponent's creature, and a reader that answered
+    /// "attached to anything" passes every assertion the first card makes.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attachment_can_ask_what_it_is_attached_to()
+    {
+        var blade = Card(
+            "Attached Host Test",
+            "~ has flying as long as ~ is attached to a creature.",
+            CardType.Artifact, null, null, KeywordAbility.None, "Equipment");
+
+        var banner = Card(
+            "Attached Ally Test",
+            "~ has flying as long as ~ is attached to a creature you control.",
+            CardType.Artifact, null, null, KeywordAbility.None, "Equipment");
+
+        foreach (var card in new[] { blade, banner })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(alice, blade, Zone.Battlefield);
+        var ours = game.Create(alice, banner, Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Attached Rival Test", 2, 2), Zone.Battlefield);
+        var friend = game.Create(
+            alice, TestCards.Creature("Attached Friend Test", 2, 2), Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+
+        Assert.False(Flies(mine));
+        Assert.False(Flies(ours));
+
+        // An Equipment may equip any creature, so on an opponent's one "a creature" is true and
+        // "a creature you control" is not — the whole of the difference between the two clauses.
+        game.Attach(mine, theirs);
+        game.Attach(ours, theirs);
+        Settle(game);
+
+        Assert.True(Flies(mine));
+        Assert.False(Flies(ours));
+
+        game.Attach(ours, friend);
+        Settle(game);
+
+        Assert.True(Flies(ours));
+
+        // And off again when the host goes, because a static is not a one-way switch.
+        game.Move(theirs, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Flies(mine));
+    }
+
+    /// <summary>"Whenever ~ attacks, if it's modified" — CR 700.9.</summary>
+    /// <remarks>
+    /// One printed word for three facts, none of which any card spells out: a counter on it, an
+    /// Equipment attached to it, or an Aura attached to it that its own controller controls. All
+    /// three were already askable one at a time, so this composes them rather than adding state.
+    /// <para>
+    /// The Aura half is the narrow one and its assertion is an opponent's Aura, which modifies
+    /// nothing however much it changes the creature. A reader that treated any attachment as a
+    /// modification passes every other assertion here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_can_ask_whether_it_is_modified()
+    {
+        var knight = Card(
+            "Modified Knight Test",
+            "~ has flying as long as it's modified.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(knight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, knight, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+        Assert.False(Flies());
+
+        // A counter of any kind (CR 122.1), and off again when it goes.
+        game.AddCounters(creature, CounterKinds.PlusOnePlusOne, 1);
+        Assert.True(Flies());
+
+        game.AddCounters(creature, CounterKinds.PlusOnePlusOne, -1);
+        Assert.False(Flies());
+
+        // An opponent's Aura is not a modification, which is the one asymmetry in the rule.
+        var theirAura = game.Create(
+            bob,
+            Card(
+                "Modified Rival Aura Test", "Enchant creature", CardType.Enchantment,
+                null, null, KeywordAbility.None, "Aura"),
+            Zone.Battlefield);
+
+        game.Attach(theirAura, creature);
+        Settle(game);
+        Assert.False(Flies());
+
+        // An Equipment counts whoever controls it, which is where the rule stops being symmetric.
+        var sword = game.Create(
+            alice,
+            Card(
+                "Modified Sword Test", "Equip {2}", CardType.Artifact,
+                null, null, KeywordAbility.None, "Equipment"),
+            Zone.Battlefield);
+
+        game.Attach(sword, creature);
+        Settle(game);
+        Assert.True(Flies());
+
+        // Take the Equipment away and the opponent's Aura is still attached and still does not
+        // count, which is what says the Equipment arm was carrying that assertion and not the
+        // Aura beside it.
+        game.Move(sword, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+        Assert.False(Flies());
+
+        // Your own Aura does count. Without this the controller test could be inverted, or
+        // simply never true, and every other assertion here would still pass.
+        var myAura = game.Create(
+            alice,
+            Card(
+                "Modified Own Aura Test", "Enchant creature", CardType.Enchantment,
+                null, null, KeywordAbility.None, "Aura"),
+            Zone.Battlefield);
+
+        game.Attach(myAura, creature);
+        Settle(game);
+        Assert.True(Flies());
+    }
+
+    /// <summary>"At the beginning of combat on your turn, if ~ has counters on it, ..."</summary>
+    /// <remarks>
+    /// Any counter of any kind, which the two named readers beside it cannot ask because each is
+    /// given a name to look for. The cards printing this are the ones that then move or remove
+    /// <em>all</em> of them, so the kind is exactly what they do not care about.
+    /// </remarks>
+    [Fact]
+    public void An_unnamed_counter_condition_is_true_of_any_kind()
+    {
+        var monolith = Card(
+            "Any Counter Test",
+            "~ has flying as long as ~ has counters on it.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(monolith);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, monolith, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+        Assert.False(Flies());
+
+        // A kind nothing else in this file asks for, because the reader is not allowed to have
+        // a list of kinds: a card that had one would be asking the named question instead.
+        game.AddCounters(creature, "quest", 1);
+        Assert.True(Flies());
+
+        game.AddCounters(creature, "quest", -1);
+        Assert.False(Flies());
+    }
+
+    /// <summary>"~ has infect as long as an opponent is poisoned" — CR 122.1f.</summary>
+    /// <remarks>
+    /// The word rather than the count: the rule defines "poisoned" as one or more poison
+    /// counters, so this is the tally the vocabulary already keeps at a threshold of one. Your
+    /// own poison is the assertion that matters — a reader that asked the controller instead of
+    /// the opponents is right exactly half the time, and a test that only poisoned the opponent
+    /// could not tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void A_poison_condition_can_be_asked_as_a_word_rather_than_a_count()
+    {
+        var stalker = Card(
+            "Poisoned Word Test",
+            "~ has flying as long as an opponent is poisoned.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(stalker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, stalker, Zone.Battlefield);
+
+        var carrier = game.Create(
+            alice,
+            Card(
+                "Poisoned Word Carrier Test", "Infect", CardType.Creature, 2, 2,
+                keywords: KeywordAbility.Infect),
+            Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+        Assert.False(Flies());
+
+        // Poisoning yourself is not poisoning an opponent (CR 102.1).
+        game.MarkDamageToPlayer(alice, carrier, 1, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).PoisonCounters);
+        Assert.False(Flies());
+
+        game.MarkDamageToPlayer(bob, carrier, 1, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetPlayer(bob).PoisonCounters);
+        Assert.True(Flies());
+    }
+
+    /// <summary>"Whenever ~ attacks, if defending player is poisoned, ..."</summary>
+    /// <remarks>
+    /// "Defending player" is one particular opponent rather than any of them, and which one is
+    /// knowable only from the combat state: it is whoever this permanent is attacking. Outside
+    /// combat it names nobody and the condition is false, which is the right answer for a bonus
+    /// that only exists while the creature is attacking somebody — and it is the assertion that
+    /// separates this reader from the one above, since the same poisoned opponent is on the
+    /// board throughout.
+    /// </remarks>
+    [Fact]
+    public void A_defending_player_condition_names_nobody_outside_combat()
+    {
+        var rat = Card(
+            "Defender Poison Test",
+            "~ gets +1/+1 as long as defending player is poisoned.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(rat);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, rat, Zone.Battlefield);
+
+        var carrier = game.Create(
+            alice,
+            Card(
+                "Defender Poison Carrier Test", "Infect", CardType.Creature, 2, 2,
+                keywords: KeywordAbility.Infect),
+            Zone.Battlefield);
+
+        game.MarkDamageToPlayer(bob, carrier, 1, isCombat: false);
+        Settle(game);
+
+        int Power() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power ?? 0;
+
+        // Bob is poisoned and nobody is defending, so the condition has no player to ask about.
+        Assert.Equal(1, game.State.GetPlayer(bob).PoisonCounters);
+        Assert.Equal(2, Power());
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [creature] = AttackTarget.Player(bob),
+        });
+
+        Assert.Equal(3, Power());
+    }
+
+    /// <summary>
+    /// "As long as your opponents control no creatures", "as long as no opponent controls a
+    /// creature" — one question printed two ways round.
+    /// </summary>
+    /// <remarks>
+    /// The two wordings are the same question at any number of seats, so the second is rewritten
+    /// onto the first rather than given a reader: the noun keeps going through one filter
+    /// vocabulary and the negation keeps one place to live.
+    /// <para>
+    /// Your own creature is the assertion that matters. The subject test in this reader was a
+    /// three-letter prefix, and "your opponents control" begins with the same three letters as
+    /// "you control" — so the obvious spelling of it reads a card about their board as one about
+    /// yours and inverts every card that says it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_opponents_emptiness_condition_ignores_your_own_board()
+    {
+        var ward = Card(
+            "Opponents Empty Test",
+            "~ has flying as long as your opponents control no creatures.",
+            CardType.Creature, 2, 2);
+
+        var mirror = Card(
+            "No Opponent Controls Test",
+            "~ has flying as long as no opponent controls a creature.",
+            CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var first = game.Create(alice, ward, Zone.Battlefield);
+        var second = game.Create(alice, mirror, Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        foreach (var card in new[] { ward, mirror })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        // Two creatures of Alice's own are on the board already, and neither card cares.
+        Settle(game);
+
+        Assert.True(Flies(first));
+        Assert.True(Flies(second));
+
+        var rival = game.Create(
+            bob, TestCards.Creature("Opponents Empty Rival Test", 1, 1), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.False(Flies(first));
+        Assert.False(Flies(second));
+
+        // And on again when their board empties: a static re-asks its question.
+        game.Move(rival, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.True(Flies(first));
+        Assert.True(Flies(second));
+    }
+
+    /// <summary>
+    /// "As long as no creatures attacked this turn", "if you didn't attack with a creature this
+    /// turn" — the attack flag read the other way round.
+    /// </summary>
+    /// <remarks>
+    /// Declaring no attackers is not attacking (CR 508.1), and the flag the reducer sets says
+    /// so, which is what makes a negation of it meaningful at all. The two clauses are not each
+    /// other: one player not having attacked says nothing about the other seats, so "no
+    /// creatures attacked" asks the whole table and is a separate arm rather than a negation of
+    /// the single-player one.
+    /// </remarks>
+    [Fact]
+    public void A_negated_attack_condition_reads_the_flag_the_declaration_sets()
+    {
+        var watcher = Card(
+            "Nobody Attacked Test",
+            "~ has flying as long as no creatures attacked this turn.",
+            CardType.Creature, 2, 2);
+
+        var pacifist = Card(
+            "You Didnt Attack Test",
+            "~ has flying as long as you didn't attack with a creature this turn.",
+            CardType.Creature, 2, 2);
+
+        foreach (var card in new[] { watcher, pacifist })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+
+        var first = game.Create(alice, watcher, Zone.Battlefield);
+        var second = game.Create(alice, pacifist, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Nobody Attacked Bear Test", 2, 2), Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+
+        Assert.True(Flies(first));
+        Assert.True(Flies(second));
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        // Still nobody: a turn has gone by in which no attack was declared, and the flag is
+        // cleared at the start of each turn rather than accumulating.
+        Assert.True(Flies(first));
+        Assert.True(Flies(second));
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [bear] = AttackTarget.Player(bob),
+        });
+
+        Assert.False(Flies(first));
+        Assert.False(Flies(second));
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {

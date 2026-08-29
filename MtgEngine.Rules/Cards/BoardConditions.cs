@@ -60,6 +60,14 @@ public static partial class BoardConditions
         if (emptyBoard.Success)
             text = $"you control 0 or fewer {emptyBoard.Groups["what"].Value}";
 
+        // "No opponent controls a white or blue creature" is "your opponents control no ..."
+        // in the words a card happens to use, and the two are the same question at any number of
+        // seats. Rewritten rather than given a reader, so the noun keeps going through one filter
+        // vocabulary and the negation keeps one place to live.
+        var noneOfTheirs = NoOpponentControlsLine().Match(text);
+        if (noneOfTheirs.Success)
+            text = "your opponents control no " + noneOfTheirs.Groups["what"].Value;
+
         // Rewritten for the same reason: one reader for a count, whatever words ask for it.
         var oneInGraveyard = OneInGraveyardLine().Match(text);
         if (oneInGraveyard.Success)
@@ -570,6 +578,20 @@ public static partial class BoardConditions
                 source.Permanent?.Counters.GetValueOrDefault(kind) >= least;
         }
 
+        // "If ~ has counters on it" - any counter at all, of any kind, which the readers on
+        // either side of it cannot ask: both are given a name to look for, and a card that moves
+        // "all counters from ~" does not care which kinds they are (CR 122.1).
+        var bearingAny = AnyCounterLine().Match(text);
+        if (bearingAny.Success)
+        {
+            var pronoun = bearingAny.Groups["it"].Success;
+
+            return (state, _, source) =>
+                Subject(state, source, pronoun) is { } self
+                && self.Permanent is { } carried
+                && carried.Counters.Values.Any(held => held > 0);
+        }
+
         // "There are three or more brick counters on ~" - the same question as the line above
         // with the subject moved to the back, and thirty-nine lines print it that way: every
         // permanent that accumulates counters and then does something at a threshold. Nothing
@@ -602,6 +624,34 @@ public static partial class BoardConditions
                 ? state.TurnOrder.Any(id => id != source.ControllerId
                     && state.GetPlayer(id).PoisonCounters >= wantedPoison)
                 : state.GetPlayer(source.ControllerId).PoisonCounters >= wantedPoison;
+        }
+
+        // "If defending player is poisoned" - CR 122.1f defines the word as one or more poison
+        // counters, so this is the tally above at a threshold of one rather than a second record.
+        // It is a reader of its own because of the subject: these are the only cards that ask a
+        // poison question of the player this permanent is attacking, and that player is knowable
+        // only from the combat state.
+        var envenomed = PoisonedLine().Match(text);
+        if (envenomed.Success)
+        {
+            var defending = envenomed.Groups["who"].Value
+                .StartsWith("defending", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) =>
+            {
+                if (defending)
+                {
+                    // Outside combat "defending player" names nobody, so the condition is simply
+                    // false - which is the right answer for a bonus that only applies while this
+                    // creature is attacking somebody.
+                    return state.Combat.Attackers.TryGetValue(source.Id, out var attacking)
+                        && state.GetPlayer(attacking.DefendingPlayer).PoisonCounters > 0;
+                }
+
+                return state.TurnOrder.Any(
+                    id => id != source.ControllerId
+                        && state.GetPlayer(id).PoisonCounters > 0);
+            };
         }
 
         // "You've drawn your second card this turn" as the cards usually spell it: a count of
@@ -645,27 +695,51 @@ public static partial class BoardConditions
             };
         }
 
-        // "If this card is in your graveyard" - asked by cards that trigger from there, and the
-        // answer is where the source is now rather than anything the event said.
+        // "If this card is in your graveyard", "as long as ~ is on the battlefield", "if ~ is
+        // exiled", "only if ~ is on the stack" - a card asking where it is. The answer is where
+        // the source is now rather than anything the event said, and it is one reader for all
+        // seven zones (CR 400.1) because the preposition is the only thing that varies between
+        // them. A reader per preposition would be a second place for that answer to drift.
         var where = InZoneLine().Match(text);
         if (where.Success)
         {
-            var zone = where.Groups["zone"].Value.ToLowerInvariant() switch
-            {
-                "graveyard" => Zone.Graveyard,
-                "hand" => Zone.Hand,
-                "exile" => Zone.Exile,
-                "the battlefield" => Zone.Battlefield,
-                _ => (Zone?)null,
-            };
-
-            if (zone is not { } wanted)
+            if (ZoneNamed(where.Groups["z1"].Value) is not { } one)
                 return null;
 
+            // "~ is in the command zone or on the battlefield" is one question about one object,
+            // so the "or" is read here rather than left to the disjunction combinator: that one
+            // needs both halves to stand alone, and "on the battlefield" is not a clause.
+            Zone? second = null;
+
+            if (where.Groups["z2"].Success)
+            {
+                second = ZoneNamed(where.Groups["z2"].Value);
+                if (second is null)
+                    return null;
+            }
+
+            // "Your graveyard" is a possessive and "exile" is not: a library, a hand and a
+            // graveyard belong to a player while the battlefield, the stack, exile and the
+            // command zone are shared (CR 400.1). So whose pile it is, is asked only where the
+            // card says whose - asking it of a shared zone would answer a question nobody put.
+            var mine = where.Groups["z1"].Value.StartsWith(
+                "in your", StringComparison.OrdinalIgnoreCase);
+
+            var negated = where.Groups["not"].Success;
+
             return (state, abilities, source) =>
-                state.TryGetObject(source.Id, out var self)
-                && self.Zone == wanted
-                && (wanted == Zone.Battlefield || self.OwnerId == source.ControllerId);
+            {
+                // No object is no answer, in both directions: reading a card that has ceased to
+                // exist as one that "isn't on the battlefield" is the fail-open half of this
+                // pair, and it is the half that turns a static on for a permanent that is gone.
+                if (!state.TryGetObject(source.Id, out var self))
+                    return false;
+
+                var here = (self.Zone == one || (second is { } other && self.Zone == other))
+                    && (!mine || self.OwnerId == source.ControllerId);
+
+                return here != negated;
+            };
         }
 
         // "If an opponent controls more lands than you" - two counts compared rather than one
@@ -845,12 +919,23 @@ public static partial class BoardConditions
         var attacked = AttackedThisTurnLine().Match(text);
         if (attacked.Success)
         {
+            // "No creatures attacked this turn" is the whole table's flags rather than one
+            // seat's, and it cannot be reached by negating a single player: at three seats, one
+            // player not having attacked says nothing about the other two.
+            if (attacked.Groups["nobody"].Success)
+            {
+                return (state, _, _) => state.TurnOrder.All(
+                    id => !state.GetPlayer(id).AttackedThisTurn);
+            }
+
             var theirs = attacked.Groups["who"].Value
                 .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
 
+            var negated = attacked.Groups["not"].Success;
+
             return (state, _, source) => state.TurnOrder
                 .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
-                .Any(id => state.GetPlayer(id).AttackedThisTurn);
+                .Any(id => state.GetPlayer(id).AttackedThisTurn) != negated;
         }
 
         // "If you gained 3 or more life this turn", "if an opponent lost life this turn" - one
@@ -988,6 +1073,61 @@ public static partial class BoardConditions
             };
         }
 
+        // "As long as ~ is attached to a creature" - an Aura or an Equipment asking about its
+        // own host (CR 701.3a). It is the opposite end of the question the adjectives above
+        // answer: "~ is equipped" asks what is attached to this permanent, and this asks what
+        // this permanent is attached to. The noun goes through the shared target grammar, so
+        // every filter that grammar knows arrives here already working.
+        var carriedBy = AttachedToLine().Match(text);
+        if (carriedBy.Success)
+        {
+            if (EffectPhrase.Specs.Parse("target " + carriedBy.Groups["what"].Value.Trim()) is not
+                { Kind: Abilities.TargetKind.Permanent } host)
+            {
+                return null;
+            }
+
+            return (state, abilities, source) =>
+                source.Permanent?.AttachedTo is { } worn
+                && state.TryGetObject(worn, out var wearer)
+                && wearer.Zone == Zone.Battlefield
+                && host.ObjectFilter?.Invoke(
+                    state, abilities, wearer, source.ControllerId) != false;
+        }
+
+        // "Whenever ~ attacks, if it's modified" - CR 700.9, which is three facts this file can
+        // already ask one at a time and no card ever spells out: a counter on it, an Equipment
+        // attached to it, or an Aura attached to it that its own controller controls.
+        var altered = ModifiedLine().Match(text);
+        if (altered.Success)
+        {
+            var pronoun = altered.Groups["it"].Success;
+
+            return (state, abilities, source) =>
+            {
+                if (Subject(state, source, pronoun) is not { } self)
+                    return false;
+
+                if (self.Permanent?.Counters.Values.Any(held => held > 0) == true)
+                    return true;
+
+                // The Aura half is narrower than the Equipment half, and CR 700.9 is why: an
+                // Equipment modifies whoever it is attached to, an Aura only when its controller
+                // is that permanent's. An opponent's Pacifism does not modify your creature.
+                var owner = Characteristics.Of(state, abilities, self).ControllerId;
+
+                return state.Battlefield
+                    .Select(state.GetObject)
+                    .Any(other => other.Permanent?.AttachedTo == self.Id
+                        && (other.Card.Subtypes.Contains(
+                                "Equipment", StringComparer.OrdinalIgnoreCase)
+                            || (other.Card.Subtypes.Contains(
+                                    "Aura", StringComparer.OrdinalIgnoreCase)
+                                && Characteristics.Of(state, abilities, other).ControllerId
+                                    == owner)));
+            };
+        }
+
         // "As long as enchanted permanent is a creature", "as long as equipped creature is a
         // Human", "as long as enchanted creature is red". The subject is the Aura's host rather
         // than the Aura, which is the only difference from the question below - and the whole
@@ -1056,8 +1196,11 @@ public static partial class BoardConditions
             // that turns itself on and one that needs a friend.
             var excludesSelf = controls.Groups["another"].Success;
             var noun = PluralNoun().Replace(controls.Groups["what"].Value.Trim(), "$1");
+            // Matched against the whole subject and not its first word: "your opponents
+            // control" also begins with "you", so a prefix test on three letters read it as your
+            // own board and inverted every card that says it.
             var theirBoard = !controls.Groups["who"].Value
-                .StartsWith("you", StringComparison.OrdinalIgnoreCase);
+                .StartsWith("you control", StringComparison.OrdinalIgnoreCase);
 
             // "A player controls" and "there are ... on the battlefield" name no side at all, so
             // the ownership test is skipped rather than answered — asking whose it is would make
@@ -1602,6 +1745,33 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex PoisonCountLine();
 
+    /// <summary>"~ has counters on it" - any counter of any kind (CR 122.1).</summary>
+    /// <remarks>
+    /// Deliberately has no count and no name. A card asking this is one that then moves or
+    /// removes <em>all</em> of them, and giving the pattern a name slot would have it claim the
+    /// named clauses beside it and answer a narrower question with a wider number.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+)|(?<it>it)) has (an? |one or more )?counters? on it$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AnyCounterLine();
+
+    /// <summary>"An opponent is poisoned" - one or more poison counters (CR 122.1f).</summary>
+    [GeneratedRegex(
+        @"^(?<who>an opponent|defending player) is poisoned$", RegexOptions.IgnoreCase)]
+    private static partial Regex PoisonedLine();
+
+    /// <summary>"~ is attached to a creature" - the attachment asking about its host.</summary>
+    [GeneratedRegex(
+        @"^(~|(?<it>it))(?:'s| is) attached to an? (?<what>[A-Za-z][A-Za-z ]*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedToLine();
+
+    /// <summary>"If it's modified" (CR 700.9).</summary>
+    [GeneratedRegex(
+        @"^((~|(this|the) [a-z]+)|(?<it>it))(?:'s| is) modified$", RegexOptions.IgnoreCase)]
+    private static partial Regex ModifiedLine();
+
     /// <summary>"It's attacking alone" — the only attacker in this declaration (CR 506.5).</summary>
     [GeneratedRegex(
         @"^(~|it|this creature)('s| is) attacking alone$", RegexOptions.IgnoreCase)]
@@ -1615,10 +1785,38 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex HasCounterLine();
 
+    /// <summary>Where a card is asking whether it is (CR 400.1).</summary>
+    /// <remarks>
+    /// The zone phrase carries its own preposition, because the preposition is part of how each
+    /// zone is named: a card is <em>in</em> a graveyard and <em>on</em> the battlefield, and a
+    /// pattern that read the preposition separately would accept "in the battlefield", which is
+    /// not English any card prints.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(~|this card|it) is in (your|the) (?<zone>graveyard|hand|exile|the battlefield)$",
+        @"^(~|this card|it)(?:'s| is)(?<not>n't| not)? "
+            + @"(?<z1>in your graveyard|in your hand|in exile|exiled|on the battlefield"
+            + @"|on the stack|in the command zone)"
+            + @"( or (?<z2>in your graveyard|in your hand|in exile|exiled|on the battlefield"
+            + @"|on the stack|in the command zone))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex InZoneLine();
+
+    /// <summary>A printed zone phrase as the zone it names (CR 400.1).</summary>
+    private static Zone? ZoneNamed(string phrase) => phrase.ToLowerInvariant() switch
+    {
+        "in your graveyard" => Zone.Graveyard,
+        "in your hand" => Zone.Hand,
+        "in exile" or "exiled" => Zone.Exile,
+        "on the battlefield" => Zone.Battlefield,
+        "on the stack" => Zone.Stack,
+        "in the command zone" => Zone.Command,
+        _ => null,
+    };
+
+    /// <summary>"No opponent controls a Wall" - the negation said from the other end.</summary>
+    [GeneratedRegex(
+        @"^no opponent controls an? (?<what>[A-Za-z][A-Za-z0-9 ]*)$", RegexOptions.None)]
+    private static partial Regex NoOpponentControlsLine();
 
     [GeneratedRegex(
         @"^(?<who>an opponent|you) controls? (?<dir>more|fewer) (?<what>[a-z]+( [a-z]+)*)"
@@ -1633,8 +1831,16 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex LifeMovedThisTurnLine();
 
+    /// <remarks>
+    /// The negated arm admits only "you", and that is a refusal rather than an omission. "An
+    /// opponent hasn't attacked this turn" would mean <em>some</em> opponent has not, which is
+    /// not the negation of "an opponent attacked" and would need a different loop - and no card
+    /// prints it, so the branch would exist to be wrong in.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) (have |has |'ve )?attacked this turn$",
+        @"^((?<who>you|an opponent) (have |has |'ve )?attacked this turn"
+            + @"|(?<who>you) (?<not>didn't|haven't) attack(ed)? (with a creature )?this turn"
+            + @"|(?<nobody>no creatures attacked) this turn)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttackedThisTurnLine();
 
@@ -1706,7 +1912,8 @@ public static partial class BoardConditions
     /// that reads correctly and plays inverted.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you control|an opponent controls|another player controls"
+        @"^(?<who>you control|your opponents control|an opponent controls"
+            + @"|another player controls"
             + @"|defending player controls|(?<anyone>an?y? ?player controls)) "
             + @"(an?|(?<none>no)|(?<another>another)) (?<what>[A-Za-z][A-Za-z0-9 ]*)$",
         RegexOptions.None)]
