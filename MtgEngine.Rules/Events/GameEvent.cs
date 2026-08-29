@@ -859,7 +859,29 @@ public sealed record MonarchChanged(Guid PlayerId) : GameEvent
     public override string Describe() => $"{PlayerId:N} became the monarch.";
 }
 
-/// <summary>A prevention shield was created, or spent (CR 615.1).</summary>
+/// <summary>
+/// A prevention effect was created by a resolving spell or ability (CR 615.1).
+/// </summary>
+/// <remarks>
+/// CR 615.3: nothing restricts casting a spell that generates one, and the effect lasts until it
+/// is used up or its duration expires — which for these is the turn (CR 514.2).
+/// <para>
+/// The whole effect travels on the event rather than an id into a registry, because unlike a
+/// continuous effect there is nothing about it that a delegate has to answer — what it shields
+/// and what it prevents are both data. That keeps the fold a copy rather than a lookup, so the
+/// state and the log cannot describe different shields.
+/// </para>
+/// </remarks>
+public sealed record PreventionEffectCreated(PreventionEffect Effect) : GameEvent
+{
+    public override string Rule => "615.1";
+
+    public override string Describe() =>
+        (Effect?.Amount is { } amount ? $"{amount} damage" : "All damage")
+        + " will be prevented.";
+}
+
+/// <summary>A prevention shield was created, or spent (CR 615.7).</summary>
 public sealed record PreventionChanged(ObjectId Id, int Delta) : GameEvent
 {
     public override string Rule => "615.1";
@@ -2014,17 +2036,35 @@ public sealed record CharacteristicChosen(ObjectId Id, string Value) : GameEvent
 }
 
 /// <summary>Mana was added to a player's pool (CR 106.1).</summary>
+/// <param name="RestrictedTo">
+/// A card filter the mana may only be spent on, beyond the type mask on
+/// <paramref name="Restriction"/> — "only to cast Dragon spells".
+/// </param>
+/// <param name="RestrictedToZone">
+/// The zone a spell has to be cast from — "only to cast spells from your graveyard".
+/// </param>
+/// <param name="RestrictedToCommander">
+/// Whether it may only pay for the payer's own commander (CR 903.3).
+/// </param>
 /// <remarks>
 /// The restriction, when there is one, is part of the event rather than something worked out
 /// again on replay: it came from the ability that produced the mana, and by the time the log is
 /// replayed that ability may be on a permanent that has left the battlefield.
+/// <para>
+/// The three narrowings sit on the event rather than inside <see cref="ManaRestriction"/> because
+/// the pool is what has to remember them: the restriction travels with the individual mana
+/// (CR 106.6), and the pool is folded from this event.
+/// </para>
 /// </remarks>
 public sealed record ManaAdded(
     Guid PlayerId,
     ManaColor? Color,
     int Amount,
     ManaRestriction? Restriction = null,
-    ObjectId? SourceId = null) : GameEvent
+    ObjectId? SourceId = null,
+    string? RestrictedTo = null,
+    Zone? RestrictedToZone = null,
+    bool RestrictedToCommander = false) : GameEvent
 {
     public override string Rule => "106.1";
 

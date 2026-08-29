@@ -5,6 +5,7 @@ using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Cards;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
+using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
 
 namespace MtgEngine.Rules.Tests;
@@ -12290,6 +12291,740 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Equal(2, game.State.GetPlayer(alice).ExperienceCounters);
         Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    // ---- Cost modification, prevention, and restricted mana ------------------
+
+    /// <summary>
+    /// A card pool written out rather than compiled, for engine capability with no reader yet.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="HandBuilt"/> above answers about spells and nothing else; these tests need
+    /// activated abilities and cost modifiers as well, which is the whole of the difference.
+    /// <para>
+    /// Every other test in this file compiles real oracle wording, which is the right way to test
+    /// a template: the card the engine plays is the card that was printed. These capabilities
+    /// have no template yet — reading the sentences is the other half of the work — so what is
+    /// under test here is the engine's answer once it has been told, and the wording each
+    /// definition stands for is quoted on the card it is attached to.
+    /// </para>
+    /// </remarks>
+    private sealed class HandWritten : IAbilitySource, ICostModifierSource
+    {
+        private readonly Dictionary<string, List<ActivatedAbilityDefinition>> _activated = [];
+        private readonly Dictionary<string, List<CostModifier>> _modifiers = [];
+        private readonly Dictionary<string, SpellDefinition> _spells = [];
+
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) => [];
+
+        public SpellDefinition? SpellOf(CardDefinition card) =>
+            _spells.GetValueOrDefault(card.OracleId);
+
+        public IReadOnlyList<ActivatedAbilityDefinition> ActivatedOf(CardDefinition card) =>
+            _activated.TryGetValue(card.OracleId, out var abilities) ? abilities : [];
+
+        public IReadOnlyList<CostModifier> CostModifiersOf(CardDefinition card) =>
+            _modifiers.TryGetValue(card.OracleId, out var found) ? found : [];
+
+        public HandWritten Give(CardDefinition card, ActivatedAbilityDefinition ability)
+        {
+            if (!_activated.TryGetValue(card.OracleId, out var abilities))
+                _activated[card.OracleId] = abilities = [];
+
+            abilities.Add(ability);
+            return this;
+        }
+
+        public HandWritten Give(CardDefinition card, CostModifier modifier)
+        {
+            if (!_modifiers.TryGetValue(card.OracleId, out var found))
+                _modifiers[card.OracleId] = found = [];
+
+            found.Add(modifier);
+            return this;
+        }
+
+        public HandWritten Give(CardDefinition card, SpellDefinition spell)
+        {
+            _spells[card.OracleId] = spell;
+            return this;
+        }
+    }
+
+    /// <summary>A land with nothing printed on it, so only the hand-written ability speaks.</summary>
+    private static readonly CardDefinition HandLand = new()
+    {
+        OracleId = "oracle-hand-written-land",
+        Name = "Hand Written Land Test",
+        CardTypes = CardType.Land,
+    };
+
+    private static readonly ActivatedAbilityDefinition TapsForGreen = new()
+    {
+        Id = "mana",
+        Text = "{T}: Add {G}.",
+        RequiresTap = true,
+        Produces = [new ManaProduction(ManaColor.Green)],
+    };
+
+    /// <summary>An ability priced at {2}, so a discount of {1} is visible in the pool.</summary>
+    private static readonly ActivatedAbilityDefinition PricedAtTwo = new()
+    {
+        Id = "ping",
+        Text = "{2}: Nothing happens.",
+        ManaCost = ManaCostSpec.Parse("{2}"),
+    };
+
+    /// <summary>Puts lands on the battlefield and taps them, so a cost has something to pay it.</summary>
+    private static void TapForGreen(Game game, Guid playerId, int count)
+    {
+        for (var i = 0; i < count; i++)
+            game.ActivateAbility(playerId, game.Create(playerId, HandLand, Zone.Battlefield), "mana");
+    }
+
+    private static void PassToMainPhaseOf(Game game, Guid playerId) =>
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == playerId
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+    /// <summary>
+    /// "Spells your opponents cast cost {1} more to cast" — 24 corpus lines (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The assertion that catches the wrong reading is the first one, not the second. The only
+    /// cost modification the engine had walked the <em>caster's own</em> battlefield and applied
+    /// whatever it found there, so a modifier scoped to opponents would have taxed its own
+    /// controller — a card that reads as printed and plays as its own opposite.
+    /// </remarks>
+    [Fact]
+    public void A_tax_on_your_opponents_spells_leaves_your_own_alone()
+    {
+        var statue = new CardDefinition
+        {
+            OracleId = "oracle-opponent-tax-test",
+            Name = "Opponent Tax Test",
+            OracleText = "Spells your opponents cast cost {1} more to cast.",
+            CardTypes = CardType.Artifact,
+        };
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(statue, new CostModifier
+            {
+                Amount = 1,
+                Change = CostChange.Increase,
+                Who = PlayerScope.EachOpponent,
+            });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        game.Create(alice, statue, Zone.Battlefield);
+
+        var mine = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Untaxed Bear Test", "{G}", 1));
+
+        TapForGreen(game, alice, 1);
+        game.CastSpell(alice, mine, []);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        // Bob is the opponent the statue names, so the same spell costs him {1}{G}.
+        PassToMainPhaseOf(game, bob);
+        var theirs = TestCards.PutInHand(
+            game, bob, TestCards.Costed("Taxed Bear Test", "{G}", 1));
+
+        TapForGreen(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs, []));
+
+        TapForGreen(game, bob, 1);
+        game.CastSpell(bob, theirs, []);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Activated abilities of creatures you control cost {2} less to activate" (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// An activated ability's cost had no modifier hook at all — it went straight from the
+    /// definition to the pool — so all 55 corpus lines of this shape were inert.
+    /// <para>
+    /// Two scopes rather than one, and this is the test that tells them apart. "Abilities
+    /// <em>you activate</em>" asks who is paying; "abilities <em>of creatures you control</em>"
+    /// asks whose permanent the ability sits on, and says nothing about who activates it. Bob
+    /// activating his own creature's ability answers yes to neither.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_discount_on_abilities_of_creatures_you_control_misses_an_opponents_creature()
+    {
+        var familiar = new CardDefinition
+        {
+            OracleId = "oracle-ability-discount-test",
+            Name = "Ability Discount Test",
+            OracleText = "Activated abilities of creatures you control cost {1} less to activate.",
+            CardTypes = CardType.Artifact,
+        };
+
+        var pinger = TestCards.Costed("Discounted Pinger Test", "{1}", 1);
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(pinger, PricedAtTwo)
+            .Give(familiar, new CostModifier
+            {
+                Amount = 1,
+                Kind = CostModifierKind.ActivatedAbilities,
+                FilterId = "creature",
+                Who = PlayerScope.EachPlayer,
+                SourceController = PlayerScope.You,
+            });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        game.Create(alice, familiar, Zone.Battlefield);
+        var hers = game.Create(alice, pinger, Zone.Battlefield);
+
+        TapForGreen(game, alice, 1);
+        game.ActivateAbility(alice, hers, "ping");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        PassToMainPhaseOf(game, bob);
+        var theirs = game.Create(bob, pinger, Zone.Battlefield);
+
+        TapForGreen(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(bob, theirs, "ping"));
+
+        TapForGreen(game, bob, 1);
+        game.ActivateAbility(bob, theirs, "ping");
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "This ability costs {1} less to activate" is a permanent talking about itself.
+    /// </summary>
+    /// <remarks>
+    /// Read as "abilities you activate cost {1} less" it would discount every other permanent its
+    /// controller has, which is a strictly better card — the failure this file exists to catch.
+    /// </remarks>
+    [Fact]
+    public void A_self_discount_reaches_no_other_permanents_abilities()
+    {
+        var machine = TestCards.Costed("Self Discount Test", "{1}", 1);
+        var other = TestCards.Costed("Undiscounted Pinger Test", "{1}", 1);
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(machine, PricedAtTwo)
+            .Give(other, PricedAtTwo)
+            .Give(machine, new CostModifier
+            {
+                Amount = 1,
+                Kind = CostModifierKind.ActivatedAbilities,
+                SourceOnly = true,
+            });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var itself = game.Create(alice, machine, Zone.Battlefield);
+        var neighbour = game.Create(alice, other, Zone.Battlefield);
+
+        TapForGreen(game, alice, 1);
+        game.ActivateAbility(alice, itself, "ping");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        // The permanent beside it pays the printed price.
+        TapForGreen(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, neighbour, "ping"));
+
+        TapForGreen(game, alice, 1);
+        game.ActivateAbility(alice, neighbour, "ping");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// CR 601.2f states the order: increases first, then reductions.
+    /// </summary>
+    /// <remarks>
+    /// The other order is not a rounding difference. A {1}{G} spell taxed {2} and discounted {2}
+    /// costs {1}{G} the way the rule says it; reducing first floors the discount against a cost
+    /// that only has {1} of generic in it and then charges the whole tax on top, leaving {2}{G}.
+    /// Two green mana is exactly the amount that tells the two apart.
+    /// </remarks>
+    [Fact]
+    public void A_cost_increase_is_applied_before_a_cost_reduction()
+    {
+        var tax = new CardDefinition
+        {
+            OracleId = "oracle-order-tax-test",
+            Name = "Order Tax Test",
+            OracleText = "Spells cost {2} more to cast.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var rebate = new CardDefinition
+        {
+            OracleId = "oracle-order-rebate-test",
+            Name = "Order Rebate Test",
+            OracleText = "Spells you cast cost {2} less to cast.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(tax, new CostModifier
+            {
+                Amount = 2,
+                Change = CostChange.Increase,
+                Who = PlayerScope.EachPlayer,
+            })
+            .Give(rebate, new CostModifier { Amount = 2, Who = PlayerScope.You });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        game.Create(alice, tax, Zone.Battlefield);
+        game.Create(alice, rebate, Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Balanced Bear Test", "{1}{G}", 2));
+
+        TapForGreen(game, alice, 2);
+        game.CastSpell(alice, spell, []);
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Spells you cast from your graveyard cost {1} less to cast" (CR 601.2f, 400.1).
+    /// </summary>
+    /// <remarks>
+    /// The zone has to be read on the modifier <em>and</em> at the payment, or not at all. A
+    /// modifier carrying a zone that nothing consulted applies its reduction from every zone,
+    /// which makes a narrow card into a broad one — worse than leaving the line unread.
+    /// <para>
+    /// Both halves are on the board at once, so the assertion is what is left in the pool rather
+    /// than whether the spell was castable: a zone that went unread would take {2} off a {2}{G}
+    /// spell instead of {1}, and both readings can pay for it out of three mana.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_reduction_that_names_a_zone_applies_only_from_that_zone()
+    {
+        var fromHand = new CardDefinition
+        {
+            OracleId = "oracle-zone-hand-test",
+            Name = "Zone Hand Test",
+            OracleText = "Spells you cast from your hand cost {1} less to cast.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var fromGraveyard = new CardDefinition
+        {
+            OracleId = "oracle-zone-graveyard-test",
+            Name = "Zone Graveyard Test",
+            OracleText = "Spells you cast from your graveyard cost {1} less to cast.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(fromHand, new CostModifier { Amount = 1, FromZone = Zone.Hand })
+            .Give(fromGraveyard, new CostModifier { Amount = 1, FromZone = Zone.Graveyard });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        game.Create(alice, fromHand, Zone.Battlefield);
+        game.Create(alice, fromGraveyard, Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Zoned Bear Test", "{2}{G}", 3));
+
+        TapForGreen(game, alice, 3);
+        game.CastSpell(alice, spell, []);
+
+        // One reduction, not two: the spell was cast from hand and cost {1}{G}.
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Settle(game);
+    }
+
+    /// <summary>A three-damage instant, for the prevention effects to be measured against.</summary>
+    private static CardDefinition BurnCard(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = "~ deals 3 damage to any target.",
+        CardTypes = CardType.Instant,
+    };
+
+    private static SpellDefinition BurnAPlayer() => new()
+    {
+        Targets = [new TargetSpec { Kind = TargetKind.Player, Description = "any player" }],
+        Effects = [new DealDamage(new Amount(3))],
+    };
+
+    private static SpellDefinition BurnACreature() => new()
+    {
+        Targets =
+        [
+            new TargetSpec
+            {
+                Kind = TargetKind.Permanent,
+                Description = "target creature",
+                ObjectFilter = (state, abilities, obj, _) =>
+                    Characteristics.Of(state, abilities, obj).IsCreature,
+            },
+        ],
+        Effects = [new DealDamage(new Amount(3))],
+    };
+
+    private static CardDefinition WardCard(string name, string text) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = text,
+        CardTypes = CardType.Instant,
+    };
+
+    /// <summary>
+    /// "Prevent all combat damage that would be dealt this turn" is not a fog for burn.
+    /// </summary>
+    /// <remarks>
+    /// Fifteen corpus lines print exactly that sentence, and it is the commonest prevention
+    /// wording there is. One word separates it from the shield that stops everything, and a
+    /// prevention effect that ignored the word would turn every fog into a blanket ward.
+    /// </remarks>
+    [Fact]
+    public void A_prevention_of_combat_damage_lets_a_burn_spell_through()
+    {
+        var combatWard = WardCard(
+            "Combat Ward Test", "Prevent all combat damage that would be dealt this turn.");
+        var anyWard = WardCard(
+            "Any Ward Test", "Prevent all damage that would be dealt this turn.");
+        var burn = BurnCard("Prevention Burn Test");
+
+        var pool = new HandWritten()
+            .Give(burn, BurnAPlayer())
+            .Give(combatWard, new SpellDefinition
+            {
+                Effects =
+                [
+                    new PreventDescribedDamage { Kind = DamageKind.Combat },
+                ],
+            })
+            .Give(anyWard, new SpellDefinition
+            {
+                Effects = [new PreventDescribedDamage()],
+            });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, combatWard), []);
+        Settle(game);
+
+        game.CastSpell(
+            game.State.Priority.Holder ?? alice,
+            TestCards.PutInHand(game, alice, burn),
+            [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        // Not combat damage, so the combat shield never watched for it.
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, anyWard), []);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Prevent all damage that would be dealt to creatures you control" (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// The shape the engine's only prevention could not express at all. A countdown shield
+    /// (CR 615.7) is created per target, so a sentence that names a described group rather than a
+    /// target had nowhere to be put — and there are 97 such cards.
+    /// <para>
+    /// Bob's creature is the case that catches the wrong reading: a prevention that forgot whose
+    /// creatures it named would fog the whole board, which is a different and much stronger card.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_prevention_for_creatures_you_control_does_not_shield_an_opponents()
+    {
+        var ward = WardCard(
+            "Group Ward Test", "Prevent all damage that would be dealt to creatures you control.");
+        var burn = BurnCard("Group Burn Test");
+
+        var pool = new HandWritten()
+            .Give(burn, BurnACreature())
+            .Give(ward, new SpellDefinition
+            {
+                Effects =
+                [
+                    new PreventDescribedDamage
+                    {
+                        PermanentFilter = "creature",
+                        PermanentController = PlayerScope.You,
+                    },
+                ],
+            });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        var hers = game.Create(alice, TestCards.Creature("Warded Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Exposed Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ward), []);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPermanent(hers)]);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetObject(hers).Permanent?.DamageMarked);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.DoesNotContain(theirs, game.State.Battlefield);
+
+        // Written and read back while the shield is still standing, so a field lost on the way
+        // through - the filter, the scope - shows up as two states that disagree rather than as a
+        // card that quietly stops being narrow.
+        Assert.Single(game.State.Preventions);
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// CR 615.10: a numbered prevention from a static effect caps each damage event separately.
+    /// </summary>
+    /// <remarks>
+    /// The distinction the engine did not have. CR 615.7's shield is a pool of points that runs
+    /// out; this is a cap that applies again to the next event, which is why Daunting Defender
+    /// keeps saving its Clerics all game. Two identical burn spells tell the two apart: a shield
+    /// of one prevents one damage once, and this prevents one from each.
+    /// </remarks>
+    [Fact]
+    public void A_numbered_prevention_applies_again_to_the_next_damage_event()
+    {
+        var ward = WardCard(
+            "Capped Ward Test",
+            "If a source would deal damage to you, prevent 1 of that damage.");
+        var burn = BurnCard("Capped Burn Test");
+
+        var pool = new HandWritten()
+            .Give(burn, BurnAPlayer())
+            .Give(ward, new SpellDefinition
+            {
+                Effects =
+                [
+                    new PreventDescribedDamage { Amount = 1, Players = PlayerScope.You },
+                ],
+            });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ward), []);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        // Two, not three: nothing was spent the first time.
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A prevention effect that says "this turn" ends with the turn (CR 514.2).
+    /// </summary>
+    /// <remarks>
+    /// The failure this guards against has already happened once here, on the countdown shield:
+    /// cleanup took the damage off and left the shield standing, so a fog bought on one turn went
+    /// on fogging every turn afterwards. It is derived from the turn the effect was made on
+    /// rather than announced by an event of its own, so there is nothing to forget to emit.
+    /// </remarks>
+    [Fact]
+    public void A_prevention_that_says_this_turn_is_gone_next_turn()
+    {
+        var ward = WardCard(
+            "Expiring Ward Test", "Prevent all damage that would be dealt this turn.");
+        var burn = BurnCard("Expiring Burn Test");
+
+        var pool = new HandWritten()
+            .Give(burn, BurnAPlayer())
+            .Give(ward, new SpellDefinition { Effects = [new PreventDescribedDamage()] });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ward), []);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        PassToMainPhaseOfTurn(game, 3);
+        Assert.Empty(game.State.Preventions);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, burn), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+
+        // The new event carries a whole record rather than a name into a registry, so the one
+        // thing that could go wrong quietly is the way back in: a log that writes and will not
+        // read is a saved game the players lose.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast Dragon spells" (CR 106.6) — the tribe the type mask cannot say.
+    /// </summary>
+    /// <remarks>
+    /// A restriction could name a purpose and a mask of card types and nothing else, which reads
+    /// about half the wordings the corpus prints. The filter is the shared vocabulary, so the
+    /// tribe, a negation, a supertype and a colour count all arrive together.
+    /// <para>
+    /// The Human is the case that catches the wrong reading: it is a creature spell, which is
+    /// everything the type mask could ask about, and it is not a Dragon.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_a_tribe_refuses_a_creature_of_another_one()
+    {
+        var dragon = new CardDefinition
+        {
+            OracleId = "oracle-restricted-dragon-test",
+            Name = "Restricted Dragon Test",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Dragon"],
+            ManaCostRaw = "{G}",
+            Cmc = 1,
+        };
+
+        var human = TestCards.Costed("Restricted Human Test", "{G}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(
+                ManaColor.Green,
+                new ManaRestriction(ManaPurpose.CastSpell, CardType.Creature))
+            {
+                FilterId = "Dragon",
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(dragon, Zone.Hand)));
+
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(human, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast a noncreature spell", and the colour counts beside it.
+    /// </summary>
+    /// <remarks>
+    /// A negation cannot be said with a type mask at all: the mask is a set of types the card has
+    /// to have one of, and "noncreature" is the one it must not. Both go through the same filter
+    /// vocabulary the tutors use, so neither needed a reader of its own.
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_noncreature_spells_refuses_a_creature()
+    {
+        var bolt = new CardDefinition
+        {
+            OracleId = "oracle-restricted-noncreature-test",
+            Name = "Restricted Noncreature Test",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{G}",
+            Cmc = 1,
+            Colors = [ManaColor.Green, ManaColor.Red],
+        };
+
+        var bear = TestCards.Costed("Restricted Noncreature Bear Test", "{G}", 1);
+
+        var noncreature = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(ManaColor.Green, new ManaRestriction(ManaPurpose.CastSpell, default))
+            {
+                FilterId = "noncreature",
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            noncreature, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bolt, Zone.Hand)));
+
+        Assert.Null(ManaPayment.Pay(
+            noncreature, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bear, Zone.Hand)));
+
+        // "Spend this mana only to cast a multicolored spell": two colours, not two of anything
+        // else, which is why it could not go in the colour table (CR 105.4).
+        var multicoloured = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(ManaColor.Green, new ManaRestriction(ManaPurpose.CastSpell, default))
+            {
+                FilterId = "multicolored",
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            multicoloured, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bolt, Zone.Hand)));
+
+        Assert.Null(ManaPayment.Pay(
+            multicoloured, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bear, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast spells from your graveyard" (CR 106.6, 400.1).
+    /// </summary>
+    [Fact]
+    public void Mana_restricted_to_a_zone_refuses_a_spell_cast_from_anywhere_else()
+    {
+        var bear = TestCards.Costed("Restricted Zone Bear Test", "{G}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(ManaColor.Green, new ManaRestriction(ManaPurpose.CastSpell, default))
+            {
+                FromZone = Zone.Graveyard,
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bear, Zone.Graveyard)));
+
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(bear, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast your commander" (CR 903.3) — Jeweled Lotus.
+    /// </summary>
+    /// <remarks>
+    /// Not something a card filter can answer. Which card is a commander is a fact about this
+    /// game and this player, and the same card in somebody else's deck is not one — so it is
+    /// asked of the payment rather than of the card.
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_your_commander_pays_for_nothing_else()
+    {
+        var general = TestCards.Costed("Restricted Commander Test", "{G}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(ManaColor.Green, new ManaRestriction(ManaPurpose.CastSpell, default))
+            {
+                CommanderOnly = true,
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool,
+            ManaCostSpec.Parse("{G}"),
+            spend: ManaSpend.Casting(general, Zone.Command, isCommander: true)));
+
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(general, Zone.Command)));
     }
 
     /// <summary>

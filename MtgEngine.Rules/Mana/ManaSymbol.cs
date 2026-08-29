@@ -157,6 +157,22 @@ public sealed record ManaCostSpec
     }
 
     /// <summary>
+    /// This cost with <paramref name="amount"/> more generic mana in it (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="WithoutGeneric"/>, and the reason "spells your opponents cast
+    /// cost {1} more" could not be said: the engine's only cost modification accumulated a
+    /// discount and subtracted, so there was nothing for an increase to call.
+    /// <para>
+    /// A tax is generic mana (CR 107.4b) whatever the cost it lands on: "cost {2} more to cast"
+    /// is paid with anything, which is why this appends a generic symbol rather than trying to
+    /// deepen a coloured one.
+    /// </para>
+    /// </remarks>
+    public ManaCostSpec PlusGeneric(int amount) =>
+        amount <= 0 ? this : this with { Symbols = Symbols.Add(ManaSymbol.Generic0(amount)) };
+
+    /// <summary>
     /// Parses a Scryfall-style cost such as <c>{2}{W/U}{X}</c>.
     /// </summary>
     /// <remarks>

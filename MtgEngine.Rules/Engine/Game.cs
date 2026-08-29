@@ -1233,26 +1233,17 @@ public sealed class Game
             cost = cost with { Symbols = cost.Symbols.AddRange(buybackCost.Symbols) };
         }
 
-        // CR 601.2f: what the caster's own permanents take off, worked out once here and never
-        // recomputed - a discount changes what the spell costs to cast, not what it is. It comes
-        // off the generic part only, because a reduction cannot pay a coloured pip; letting it
-        // would make a Dragon castable off two Islands.
-        var discount = 0;
-        foreach (var id in State.Battlefield)
-        {
-            var permanent = State.GetObject(id);
-            if (ControllerOf(permanent) != playerId)
-                continue;
-
-            foreach (var reducer in _abilities.CostReducersOf(permanent.Card))
-            {
-                if (SearchFilters.Matches(reducer.FilterId, card.Card))
-                    discount += reducer.Amount;
-            }
-        }
-
-        if (discount > 0)
-            cost = cost.WithoutGeneric(discount);
+        // CR 601.2f: what the board does to this spell's cost, worked out once here and never
+        // recomputed - a modifier changes what the spell costs to cast, not what it is. It moves
+        // the generic part only, because neither half can pay or demand a coloured pip; letting a
+        // reduction would make a Dragon castable off two Islands.
+        //
+        // The whole battlefield is walked, not the caster's half of it: "spells your opponents
+        // cast cost {1} more to cast" is printed by a permanent the caster does not control, and
+        // reading only their own permanents is exactly why that cell of the grid was unread.
+        cost = CostModification.Apply(
+            cost,
+            CostModifiersFor(CostModifierKind.Spells, card.Card, playerId, castFrom, null, false));
 
         // CR 601.2h: the whole cost is worked out and checked before any of it is paid, so a
         // spell whose additional cost cannot be met is refused with nothing spent.
@@ -1295,11 +1286,14 @@ public sealed class Game
             var helped = RequireAssist(definition, card.Card.Name, playerId, helping, cost);
             if (helped > 0)
             {
+                // The helper pays out of their own pool, so a restriction on their mana is asked
+                // about their side of it: "spend this mana only to cast your commander" names
+                // whose commander it is, and a spell somebody else is casting is not theirs.
                 PayMana(
                     helping.Player,
                     ManaCostSpec.Parse($"{{{helped}}}"),
-                    purpose: ManaPurpose.CastSpell,
-                    paidFor: card.Card.CardTypes);
+                    spend: ManaSpend.Casting(
+                        card.Card, castFrom, IsCommanderOf(helping.Player, card)));
                 cost = cost.WithoutGeneric(helped);
             }
         }
@@ -1309,7 +1303,10 @@ public sealed class Game
         // printed for the same reason everything else is: a land animated into a creature spell
         // is not a thing, but a card whose type line an effect has changed is.
         var manaSpent = PayMana(
-            playerId, cost, variableValue, ManaPurpose.CastSpell, card.Card.CardTypes);
+            playerId,
+            cost,
+            variableValue,
+            ManaSpend.Casting(card.Card, castFrom, IsCommanderOf(playerId, card)));
 
         foreach (var helper in tapped)
             Emit(new PermanentTapped(helper.Id));
@@ -1650,11 +1647,21 @@ public sealed class Game
         var chosenTargets = (targets ?? []).ToImmutableList();
         RequireLegalTargets(ability.Targets, chosenTargets, playerId, ability.Text, source);
 
-        PayMana(
-            playerId,
+        // CR 602.2b: an activated ability's activation cost is the analogue of a spell's mana
+        // cost, so CR 601.2f's increases and reductions apply to it in the same way. This is the
+        // half that had no hook at all - the printed cost went straight to the pool - so every
+        // "abilities you activate cost {1} less to activate" on the board was inert.
+        var activationCost = CostModification.Apply(
             ability.ManaCost,
-            purpose: ManaPurpose.ActivateAbility,
-            paidFor: source.Card.CardTypes);
+            CostModifiersFor(
+                CostModifierKind.ActivatedAbilities,
+                source.Card,
+                playerId,
+                null,
+                sourceId,
+                ability.IsManaAbility));
+
+        PayMana(playerId, activationCost, spend: ManaSpend.Activating(source.Card));
 
         if (ability.LifeCost > 0)
         {
@@ -2159,6 +2166,175 @@ public sealed class Game
         return [.. division];
     }
 
+    /// <summary>Names a described prevention effect among the replacements (CR 615.1).</summary>
+    private const string PreventionKey = "prevent-effect:";
+
+    /// <summary>
+    /// Whether a prevention effect watches this damage at all — its kind and its source.
+    /// </summary>
+    /// <remarks>
+    /// CR 609.7: "damage from a source" is a question about the object dealing it, so a source
+    /// that has left the game answers nothing rather than everything. Preventing damage from a
+    /// source that cannot be examined would make "prevent all damage that would be dealt by
+    /// creatures" prevent a burn spell too.
+    /// </remarks>
+    private bool PreventionWatches(PreventionEffect effect, bool isCombat, ObjectId sourceId)
+    {
+        var kindMatches = effect.Kind switch
+        {
+            DamageKind.Combat => isCombat,
+            DamageKind.Noncombat => !isCombat,
+            _ => true,
+        };
+
+        if (!kindMatches)
+            return false;
+
+        if (effect.SourceFilter is null && effect.SourceController is null)
+            return true;
+
+        if (!State.TryGetObject(sourceId, out var source))
+            return false;
+
+        if (effect.SourceFilter is { } filter && !SearchFilters.Matches(filter, source.Card))
+            return false;
+
+        return effect.SourceController is not { } scope
+            || PlayerScopes.Around(scope, State, effect.ControllerId)
+                .Contains(ControllerOf(source));
+    }
+
+    /// <summary>Whether a prevention effect shields this permanent (CR 615.1).</summary>
+    /// <remarks>
+    /// The filter is asked of the printed card, as every other card-filter question at this level
+    /// is. That is a deviation worth naming: a land animated into a creature is not shielded by
+    /// "damage that would be dealt to creatures you control", where CR 613 layer 4 says it should
+    /// be. The alternative is a second filter vocabulary over computed characteristics, and the
+    /// cards that print this shield name a type the animation cases do not reach.
+    /// </remarks>
+    private bool PreventionCovers(PreventionEffect effect, GameObject damaged)
+    {
+        if (effect.ShieldsEverything || effect.Permanent == damaged.Id)
+            return true;
+
+        if (effect.PermanentFilter is not { } filter
+            || !SearchFilters.Matches(filter, damaged.Card))
+        {
+            return false;
+        }
+
+        return effect.PermanentController is not { } scope
+            || PlayerScopes.Around(scope, State, effect.ControllerId)
+                .Contains(ControllerOf(damaged));
+    }
+
+    /// <summary>Whether a prevention effect shields this player (CR 615.1).</summary>
+    private bool PreventionCoversPlayer(PreventionEffect effect, Guid playerId) =>
+        effect.ShieldsEverything
+        || effect.Player == playerId
+        || (effect.Players is { } scope
+            && PlayerScopes.Around(scope, State, effect.ControllerId).Contains(playerId));
+
+    /// <summary>
+    /// Every cost modifier on the battlefield that applies to this payment (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The whole battlefield, because a modifier is printed by whoever controls the permanent and
+    /// aimed at whoever it names. Reading only the payer's own permanents is the mistake that
+    /// left four of the grid's five real cells unread — "spells your opponents cast cost {1}
+    /// more" is on somebody else's board by definition.
+    /// </remarks>
+    /// <param name="kind">Whether a spell is being cast or an ability activated (CR 602.2b).</param>
+    /// <param name="paying">
+    /// The card being cast, or the card whose ability is being activated — what the filter is
+    /// asked about either way.
+    /// </param>
+    /// <param name="payerId">Who is paying, which is who the scope has to name.</param>
+    /// <param name="castFrom">The zone the spell is being cast from, or null for an ability.</param>
+    /// <param name="abilitySourceId">Which permanent's ability, for a self-modifier.</param>
+    /// <param name="isManaAbility">Whether it is a mana ability (CR 605.1a).</param>
+    private IEnumerable<CostModifier> CostModifiersFor(
+        CostModifierKind kind,
+        CardDefinition paying,
+        Guid payerId,
+        Zone? castFrom,
+        ObjectId? abilitySourceId,
+        bool isManaAbility)
+    {
+        foreach (var id in State.Battlefield)
+        {
+            var permanent = State.GetObject(id);
+            var controller = ControllerOf(permanent);
+
+            foreach (var modifier in ModifiersOn(permanent.Card))
+            {
+                if (modifier.Kind != kind)
+                    continue;
+
+                // "This ability costs {1} less to activate" is a permanent talking about its own
+                // abilities. Read as "abilities you activate" it would discount every other
+                // permanent its controller has, which is a different and much better card.
+                if (modifier.SourceOnly)
+                {
+                    if (abilitySourceId != id)
+                        continue;
+                }
+                else if (!PlayerScopes.Around(modifier.Who, State, controller).Contains(payerId))
+                {
+                    continue;
+                }
+
+                // "Activated abilities of creatures you control" is about whose permanent the
+                // ability is on, which is a different player from whoever is activating it and a
+                // different question from the scope above.
+                if (modifier.SourceController is { } whose
+                    && !(abilitySourceId is { } activating
+                        && State.TryGetObject(activating, out var abilitySource)
+                        && PlayerScopes.Around(whose, State, controller)
+                            .Contains(ControllerOf(abilitySource))))
+                {
+                    continue;
+                }
+
+                // CR 605.1a: "unless they're mana abilities" exempts the abilities that never use
+                // the stack, which is the only exclusion these cards print.
+                if (modifier.ExceptManaAbilities && isManaAbility)
+                    continue;
+
+                // The zone is read on both halves or on neither. A modifier carrying a zone that
+                // nothing consulted would apply its reduction from every zone, which is a worse
+                // card than the unread one.
+                if (modifier.FromZone is { } only && only != castFrom)
+                    continue;
+
+                if (!SearchFilters.Matches(modifier.FilterId, paying))
+                    continue;
+
+                yield return modifier;
+            }
+        }
+    }
+
+    /// <summary>
+    /// What one card says about costs — old reducers and new modifiers read as one list.
+    /// </summary>
+    /// <remarks>
+    /// A <c>CostReducer</c> is exactly one cell of the modifier grid: your spells, less, from
+    /// anywhere. It is translated here rather than applied by a second path, because two paths
+    /// for one rule are two chances to disagree about the order CR 601.2f states.
+    /// </remarks>
+    private IEnumerable<CostModifier> ModifiersOn(CardDefinition card)
+    {
+        foreach (var reducer in _abilities.CostReducersOf(card))
+            yield return new CostModifier { FilterId = reducer.FilterId, Amount = reducer.Amount };
+
+        if (_abilities is ICostModifierSource source)
+        {
+            foreach (var modifier in source.CostModifiersOf(card))
+                yield return modifier;
+        }
+    }
+
     /// <summary>
     /// Pays a mana cost from the player's pool (CR 601.2h), or refuses if it cannot be paid.
     /// </summary>
@@ -2171,14 +2347,13 @@ public sealed class Game
         Guid playerId,
         ManaCostSpec cost,
         int variableValue = 0,
-        ManaPurpose purpose = ManaPurpose.Other,
-        CardType paidFor = default)
+        ManaSpend spend = default)
     {
         if (cost.Symbols.IsEmpty && variableValue == 0)
             return ManaPool.Empty;
 
         var pool = State.GetPlayer(playerId).ManaPool;
-        var remaining = ManaPayment.Pay(pool, cost, variableValue, purpose, paidFor)
+        var remaining = ManaPayment.Pay(pool, cost, variableValue, spend)
             ?? throw new InvalidOperationException(
                 $"Not enough mana: {cost} needs more than {pool} (CR 601.2h).");
 
@@ -7433,6 +7608,62 @@ public sealed class Game
                         struck with { Amount = remaining },
                     ]
                     : [new PlayerPreventionChanged(struck.PlayerId, -soaked)], false, null);
+            }
+        }
+
+        // CR 615.1: a described prevention effect watches the same two events the shields above
+        // do and takes some or all of the damage away. Nothing is spent: CR 615.10's number caps
+        // each damage event and applies again to the next one, which is the whole difference
+        // between "prevent 1 of that damage" and "prevent the next 1 damage". So the replacement
+        // emits the remainder and writes no state back.
+        if (e is DamageMarked hit && State.TryGetObject(hit.Id, out var damaged))
+        {
+            foreach (var effect in State.Preventions)
+            {
+                var key = PreventionKey + effect.Id.ToString("N");
+                if (!PreventionWatches(effect, hit.IsCombat, hit.SourceId)
+                    || !PreventionCovers(effect, damaged)
+                    || applied.Contains((damaged.Id, key)))
+                {
+                    continue;
+                }
+
+                var left = hit.Amount - Math.Min(effect.Amount ?? hit.Amount, hit.Amount);
+
+                yield return (
+                    key,
+                    damaged,
+                    (_, _, _) => left > 0 ? [hit with { Amount = left }] : [],
+                    false,
+                    null);
+            }
+        }
+
+        // The same effects, for the other kind of victim. Damage to a player is its own event and
+        // shares none of the machinery above.
+        if (e is PlayerDamaged hitPlayerBySource
+            && State.TryGetObject(hitPlayerBySource.SourceId, out var dealing))
+        {
+            foreach (var effect in State.Preventions)
+            {
+                var key = PreventionKey + effect.Id.ToString("N");
+                if (!PreventionWatches(
+                        effect, hitPlayerBySource.IsCombat, hitPlayerBySource.SourceId)
+                    || !PreventionCoversPlayer(effect, hitPlayerBySource.PlayerId)
+                    || applied.Contains((dealing.Id, key)))
+                {
+                    continue;
+                }
+
+                var left = hitPlayerBySource.Amount
+                    - Math.Min(effect.Amount ?? hitPlayerBySource.Amount, hitPlayerBySource.Amount);
+
+                yield return (
+                    key,
+                    dealing,
+                    (_, _, _) => left > 0 ? [hitPlayerBySource with { Amount = left }] : [],
+                    false,
+                    null);
             }
         }
 
