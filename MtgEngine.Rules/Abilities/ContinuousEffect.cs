@@ -1,4 +1,5 @@
 using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -15,7 +16,15 @@ namespace MtgEngine.Rules.Abilities;
 /// </remarks>
 public enum EffectLayer
 {
-    /// <summary>Copiable values (CR 613.1a).</summary>
+    /// <summary>
+    /// Copiable values (CR 613.1a), which is where a copy effect applies (CR 613.2a).
+    /// </summary>
+    /// <remarks>
+    /// The first layer, and the only one that changes <em>which card</em> the rest of the
+    /// computation reads from: CR 613.2c says the object's characteristics are its copiable
+    /// values once layer 1 is done, and CR 707.2a derives the copy's abilities from the copied
+    /// card's rules text. Everything after this point is applied on top of the copy.
+    /// </remarks>
     Copy = 100,
 
     /// <summary>Control-changing effects (CR 613.1b).</summary>
@@ -61,6 +70,7 @@ public sealed class CharacteristicsBuilder
     internal CharacteristicsBuilder(GameObject obj)
     {
         Subject = obj;
+        Card = obj.Card;
         Power = obj.Card.Power;
         Toughness = obj.Card.Toughness;
         CardTypes = obj.Card.CardTypes;
@@ -73,6 +83,19 @@ public sealed class CharacteristicsBuilder
 
     /// <summary>The permanent being computed, with its printed card and its counters.</summary>
     public GameObject Subject { get; }
+
+    /// <summary>
+    /// The card the copiable values come from — the object's own, until a copy effect (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// Held here because a copy is not only a set of numbers. A permanent's abilities are looked
+    /// up from a <see cref="CardDefinition"/> and are not characteristics at all, so the thing
+    /// that has to change when one permanent becomes another is <em>which card is asked</em>.
+    /// Rewriting the power, toughness, types and colours alone produces a permanent the right
+    /// size with none of the copied card's behaviour, which is the failure this field exists to
+    /// prevent.
+    /// </remarks>
+    public CardDefinition Card { get; private set; }
 
     public int? Power { get; set; }
 
@@ -224,6 +247,48 @@ public sealed class CharacteristicsBuilder
         GrantedTriggers.Clear();
     }
 
+    /// <summary>
+    /// Takes another card's copiable values, which is layer 1a (CR 613.2a, 707.2).
+    /// </summary>
+    /// <remarks>
+    /// CR 707.2 lists exactly what is copied — name, mana cost, colour indicator, card type,
+    /// subtype, supertype, rules text, power and toughness — and exactly what is not: counters,
+    /// damage, status, and every other effect already applying to the object. So this replaces
+    /// each copiable value rather than adding to it, and touches nothing else. Control is
+    /// untouched because control is layer 2 (CR 613.1b) and a copy is not a change of
+    /// controller; the counters are untouched because layer 7c applies them on top of whatever
+    /// the copy left, which is how a 1/1 with a +1/+1 counter that copies a 3/3 comes out a 4/4.
+    /// <para>
+    /// It changes <see cref="Card"/> as well, and that is the half that matters. The copied
+    /// card's <em>abilities</em> are not characteristics: they are read from its rules text
+    /// (CR 707.2a) through an <see cref="IAbilitySource"/> keyed by card, so a copy that only
+    /// rewrote the numbers would have none of them.
+    /// </para>
+    /// </remarks>
+    public void BecomeCopyOf(CardDefinition card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        Card = card;
+        Power = card.Power;
+        Toughness = card.Toughness;
+        CardTypes = card.CardTypes;
+        Keywords = card.Keywords;
+
+        // A supertype is a copiable value (CR 707.2), so a copy of a legendary permanent is
+        // legendary and the legend rule sees two of them (CR 704.5j).
+        IsLegendary = card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase);
+
+        // Changeling is a characteristic-defining ability of the copied card, not of this one
+        // (CR 702.73a), so it is cleared here and re-asked of the copied text afterwards.
+        IsEveryCreatureType = false;
+
+        Subtypes.Clear();
+        Subtypes.AddRange(card.Subtypes);
+        Colors.Clear();
+        Colors.AddRange(card.Colors);
+    }
+
     public Guid ControllerId { get; set; }
 
     public List<string> Subtypes { get; }
@@ -271,6 +336,10 @@ public sealed class CharacteristicsBuilder
     {
         var copy = new CharacteristicsBuilder(Subject)
         {
+            // The copied card travels with the probe. One that fell back to the object's own
+            // card would decide dependency against text the object no longer has, the moment
+            // anything on the board is a copy (CR 613.8a).
+            Card = Card,
             Power = Power,
             Toughness = Toughness,
             CardTypes = CardTypes,
@@ -307,6 +376,7 @@ public sealed class CharacteristicsBuilder
 
     internal ComputedCharacteristics Build() => new()
     {
+        Card = Card,
         Power = Power,
         Toughness = Toughness,
         CardTypes = CardTypes,
@@ -409,6 +479,32 @@ public sealed record ContinuousEffectDefinition
     /// </para>
     /// </remarks>
     public bool RemovesAllAbilities { get; init; }
+
+    /// <summary>
+    /// The card whose copiable values this effect grants, for a copy effect (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// Declared rather than done inside <see cref="Apply"/>, for the reason
+    /// <see cref="RemovesAllAbilities"/> is declared: a copy is two things and only one of them
+    /// is a characteristic. The values it writes an <c>Apply</c> could write — but the copied
+    /// card's <em>static abilities</em> have to start being <em>offered</em>, and that decision
+    /// is made in <see cref="State.Characteristics"/> before any effect is applied, while
+    /// walking permanents that are not the one being computed. Nothing inside an <c>Apply</c>
+    /// can reach it.
+    /// <para>
+    /// The whole card travels on the definition rather than an id naming an object, because
+    /// CR 707.2b fixes the copiable values when the copy is made: the permanent that was copied
+    /// can be in a graveyard, or gone, the next time this effect is applied, and a copy that
+    /// looked its original up would stop being one.
+    /// </para>
+    /// <para>
+    /// The layer must be <see cref="EffectLayer.Copy"/> — CR 613.2a is the only place a copy
+    /// effect applies — and <see cref="State.Characteristics"/> refuses a definition that says
+    /// otherwise, for the reason it refuses an ability removal outside layer 6: applied in the
+    /// wrong layer it would look like a working card while getting the order wrong.
+    /// </para>
+    /// </remarks>
+    public CardDefinition? Copies { get; init; }
 
     /// <summary>
     /// While this has to stay true, for an effect that lasts "for as long as ..." (CR 611.2b).

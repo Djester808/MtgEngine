@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
 
 namespace MtgEngine.Rules.Cards;
@@ -57,6 +59,108 @@ public static partial class GenerativeEffects
 
     public static string BecomesId(CardType types) =>
         "becomes:" + ((int)types).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>The prefix a copy effect's name carries (CR 707.2).</summary>
+    private const string CopyPrefix = "copy:";
+
+    /// <summary>
+    /// The id for "becomes a copy of [card]" (CR 613.2a, 707.2).
+    /// </summary>
+    /// <remarks>
+    /// The copied card travels <em>whole</em> inside the name, which is the one id here that
+    /// carries more than a few numbers, and CR 707.2b is why: the copiable values are fixed when
+    /// the copy is made, so the effect may not go looking for the permanent it copied. That
+    /// permanent is very often gone by the next time this effect applies — a token that has
+    /// ceased to exist, or a creature whose old id stopped existing when it died (CR 400.7) —
+    /// and an effect holding only its id would quietly stop being a copy.
+    /// <para>
+    /// The fields are the ones a game log already records about a card (see
+    /// <c>EventLogSerializer.PrintedCard</c>): what the rules engine reads, and not the prices,
+    /// images or flavour text, which are no part of a game. Every copiable value CR 707.2 lists
+    /// is among them, and the rules text is what the copy's abilities are compiled from
+    /// (CR 707.2a) — a name carrying only power and toughness would produce a permanent the
+    /// right size and the wrong card.
+    /// </para>
+    /// </remarks>
+    public static string CopyId(CardDefinition card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        return CopyPrefix + JsonSerializer.Serialize(Copiable.Of(card), CopyFormat);
+    }
+
+    /// <summary>Compact, and stable across runs — the id has to compare and to replay.</summary>
+    private static readonly JsonSerializerOptions CopyFormat = new()
+    {
+        WriteIndented = false,
+    };
+
+    /// <summary>
+    /// A card as a copy effect's name records it — the copiable values, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately the same field list as the one a stored game keeps, for the same reason it
+    /// keeps that list: dropping a field here is invisible until the copy is played. The faces
+    /// are the field that proves it — a copy of a double-faced permanent uses the face that is
+    /// up (CR 707.8), and without them it would come back unable to turn over at all. That is
+    /// the exact field a stored game was once caught dropping, and 853 of the playable corpus
+    /// carry faces.
+    /// </remarks>
+    private sealed record Copiable(
+        string OracleId,
+        string Name,
+        string ManaCostRaw,
+        int Cmc,
+        CardType CardTypes,
+        IReadOnlyList<string> Subtypes,
+        IReadOnlyList<string> Supertypes,
+        string OracleText,
+        int? Power,
+        int? Toughness,
+        int? StartingLoyalty,
+        KeywordAbility Keywords,
+        IReadOnlyList<ManaColor> ColorIdentity,
+        IReadOnlyList<ManaColor> Colors,
+        IReadOnlyList<CardFace> Faces)
+    {
+        public static Copiable Of(CardDefinition card) => new(
+            card.OracleId,
+            card.Name,
+            card.ManaCostRaw,
+            card.Cmc,
+            card.CardTypes,
+            card.Subtypes,
+            card.Supertypes,
+            card.OracleText,
+            card.Power,
+            card.Toughness,
+            card.StartingLoyalty,
+            card.Keywords,
+            card.ColorIdentity,
+            card.Colors,
+            card.Faces);
+
+        public CardDefinition ToDefinition() => new()
+        {
+            // The copied card's own oracle id, so an ability source keyed by it serves the
+            // abilities it has already compiled rather than compiling a second, equal card.
+            OracleId = OracleId,
+            Name = Name,
+            ManaCostRaw = ManaCostRaw,
+            Cmc = Cmc,
+            CardTypes = CardTypes,
+            Subtypes = [.. Subtypes],
+            Supertypes = [.. Supertypes],
+            OracleText = OracleText,
+            Power = Power,
+            Toughness = Toughness,
+            StartingLoyalty = StartingLoyalty,
+            Keywords = Keywords,
+            ColorIdentity = [.. ColorIdentity],
+            Colors = [.. Colors],
+            Faces = [.. Faces],
+        };
+    }
 
     /// <summary>
     /// The id for "gain control until end of turn" (CR 613.1b, layer 2).
@@ -257,6 +361,28 @@ public static partial class GenerativeEffects
     public static ContinuousEffectDefinition? Resolve(string definitionId)
     {
         ArgumentNullException.ThrowIfNull(definitionId);
+
+        // First, and by prefix rather than by regex: the payload is a card, not a number, and
+        // no pattern below could match it anyway.
+        if (definitionId.StartsWith(CopyPrefix, StringComparison.Ordinal))
+        {
+            if (CopiedCard(definitionId[CopyPrefix.Length..]) is not { } copied)
+                return null;
+
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+
+                // CR 613.2a. The copy is *declared* rather than applied - see
+                // ContinuousEffectDefinition.Copies: the copied card's static abilities have to
+                // start being offered from the battlefield, which nothing inside an Apply can
+                // reach. Everything a copy does to the object it applies to is done from there.
+                Layer = EffectLayer.Copy,
+                Copies = copied,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, _) => { },
+            };
+        }
 
         var granted = GrantName().Match(definitionId);
         if (granted.Success)
@@ -651,6 +777,25 @@ public static partial class GenerativeEffects
             Applies = (_, _, _) => true,
             Apply = (_, _, builder) => builder.Modify(power, toughness),
         };
+    }
+
+    /// <summary>The card a copy effect's name carries, or null if it carries no readable one.</summary>
+    /// <remarks>
+    /// Null rather than a throw, because <see cref="Resolve"/>'s contract is that an id naming
+    /// nothing resolves to nothing: an effect whose definition cannot be found simply does not
+    /// apply, and a game that cannot be replayed at all is a worse answer than a permanent that
+    /// is not a copy.
+    /// </remarks>
+    private static CardDefinition? CopiedCard(string payload)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<Copiable>(payload, CopyFormat)?.ToDefinition();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     [GeneratedRegex(@"^pump:(?<p>[+-]\d+)/(?<t>[+-]\d+)$")]

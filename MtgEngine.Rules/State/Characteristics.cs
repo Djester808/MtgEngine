@@ -8,6 +8,34 @@ namespace MtgEngine.Rules.State;
 /// <summary>An object's characteristics after every continuous effect has been applied.</summary>
 public sealed record ComputedCharacteristics
 {
+    /// <summary>
+    /// The card these characteristics were computed from, after layer 1 (CR 613.2c).
+    /// </summary>
+    /// <remarks>
+    /// The object's own printed card nearly always, and something else in the two cases the
+    /// rules say an object's copiable values are not its card's: a permanent under a copy effect
+    /// has the copied card's (CR 707.2), and a face-down one has the characteristics the rules
+    /// give it rather than any card's (CR 708.2a).
+    /// <para>
+    /// It is here because a permanent's <em>abilities</em> are not characteristics and cannot be
+    /// made into them. Activated abilities, triggered abilities, replacement effects and static
+    /// abilities are all looked up from <see cref="Abilities.IAbilitySource"/> <em>by card</em>,
+    /// so every reader that asks a card what a permanent can do has to ask this instead of
+    /// asking <see cref="GameObject.Card"/> — the same correction every reader of a stored
+    /// controller had to make when control turned out to be layer 2.
+    /// </para>
+    /// </remarks>
+    public required CardDefinition Card { get; init; }
+
+    /// <summary>The name the object has right now (CR 707.2).</summary>
+    /// <remarks>
+    /// Computed rather than read off the printed card because a name is a copiable value: a
+    /// permanent that has become a copy answers to the copied card's name, which is what the
+    /// legend rule (CR 704.5j) and every "another permanent with the same name" check are asking
+    /// about.
+    /// </remarks>
+    public string Name => Card.Name;
+
     public int? Power { get; init; }
 
     public int? Toughness { get; init; }
@@ -354,6 +382,13 @@ public static class Characteristics
                 // same layer may have just brought this one into range.
                 ApplyCandidate(state, candidate, builder);
             }
+
+            // CR 613.2c: once layer 1 is over, the object's characteristics *are* its copiable
+            // values — so this is the moment the copied card's own text is read, before any
+            // layer that could add or remove an ability has run. Hung on the layer rather than
+            // done unconditionally so that a board with no copy effect on it pays nothing.
+            if (layer.Key == EffectLayer.Copy)
+                ReadCopiedCard(abilities, obj, builder);
         }
 
         // CR 701.54c: the Ring is an emblem rather than a permanent, so its abilities have no
@@ -363,6 +398,64 @@ public static class Characteristics
         ApplyTheRing(state, obj, builder);
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Reads a copied card's text once layer 1 has settled which card that is (CR 707.2a).
+    /// </summary>
+    /// <remarks>
+    /// A copy's abilities are copiable values — CR 707.2a says they are derived from the copied
+    /// card's rules text — but nothing in this file holds a permanent's abilities: they are
+    /// looked up from an <see cref="IAbilitySource"/> by card, keyed on the card the object
+    /// <em>has</em>. So the copied card's activated and triggered abilities are put where a
+    /// permanent's non-printed abilities already live, which is the only place a permanent can
+    /// hold an ability its own card does not have.
+    /// <para>
+    /// Done here, at the end of layer 1, rather than in layer 6: an effect that removes every
+    /// ability (CR 613.1f) must take a copy's abilities with it whenever it applies, and layer 6
+    /// clears these because they were already in the list when it ran. Added in layer 6 instead,
+    /// a copy made after a Humility resolved would keep them — timestamp order within the layer
+    /// would let the later grant survive, and copiable values do not work that way.
+    /// </para>
+    /// <para>
+    /// The copied card's <em>static</em> abilities are not read here; they are gathered from the
+    /// battlefield with every other permanent's, in <see cref="Candidates"/>, because a static
+    /// ability is an effect on other objects rather than a characteristic of this one.
+    /// </para>
+    /// <para>
+    /// <b>One thing this does not do, and where it has to be fixed.</b> The permanent keeps its
+    /// own printed abilities as well, because those are looked up from
+    /// <see cref="GameObject.Card"/> in <c>Game.ActivatedAbilitiesOf</c> and
+    /// <c>Game.TriggersWatching</c>, which nothing here can reach. CR 707.2a says a copy has the
+    /// copied card's abilities and not both. The fix is one line in each of those two readers —
+    /// look the printed abilities up from <see cref="ComputedCharacteristics.Card"/> instead —
+    /// and the two <c>AddRange</c> calls below <b>must be deleted in the same change</b>, or
+    /// every copied ability is offered twice.
+    /// </para>
+    /// </remarks>
+    private static void ReadCopiedCard(
+        IAbilitySource abilities, GameObject obj, CharacteristicsBuilder builder)
+    {
+        // CR 613.2b: layer 1b is applied after the copy and leaves a face-down permanent with no
+        // abilities whatever the copy said (CR 707.3's own worked example).
+        if (obj.Permanent is { IsFaceDown: true })
+            return;
+
+        var copied = builder.Card;
+        if (string.Equals(copied.OracleId, obj.Card.OracleId, StringComparison.Ordinal))
+            return;
+
+        // A keyword the copied card's text grants stands exactly as a printed one does
+        // (CR 702.1), the same way the object's own text is read before the layers begin.
+        builder.Keywords |= abilities.GrantedKeywords(copied);
+
+        // CR 702.73a: changeling is characteristic-defining, so it belongs to whichever card the
+        // characteristics are now being read from.
+        if (builder.Keywords.HasFlag(KeywordAbility.Changeling))
+            builder.IsEveryCreatureType = true;
+
+        builder.GrantedActivated.AddRange(abilities.ActivatedOf(copied));
+        builder.GrantedTriggers.AddRange(abilities.TriggersOf(copied));
     }
 
     /// <summary>
@@ -430,18 +523,77 @@ public static class Characteristics
     private static ComputedCharacteristics FaceDown(
         GameState state, IAbilitySource abilities, GameObject obj)
     {
-        var builder = new CharacteristicsBuilder(obj)
-        {
-            Power = 2,
-            Toughness = 2,
-            CardTypes = CardType.Creature,
-            Keywords = KeywordAbility.None,
-        };
+        var builder = new CharacteristicsBuilder(obj);
 
-        builder.Subtypes.Clear();
-        builder.Colors.Clear();
+        // CR 708.2a gives the values, and CR 708.2 says those values *are* the object's copiable
+        // ones — which is why this is written as becoming a copy of a card with nothing on it
+        // rather than as four assignments. The name goes with them, and so does the legendary
+        // supertype: a face-down permanent has no name to be a second copy of (CR 704.5j).
+        builder.BecomeCopyOf(FaceDownSpell);
 
         return ApplyLayers(state, abilities, obj, builder);
+    }
+
+    /// <summary>
+    /// Which card an object's characteristics are read from, without running the layers.
+    /// </summary>
+    /// <remarks>
+    /// The same answer as <c>Of(state, abilities, obj).Card</c> and much cheaper, because layer
+    /// 1 is the only layer that can change it (CR 613.2c). It exists because the full
+    /// computation cannot be used here: <see cref="Candidates"/> asks this of every permanent on
+    /// the battlefield while gathering their static abilities, and asking
+    /// <see cref="Of(GameState, IAbilitySource, GameObject)"/> there would recurse without
+    /// bottom.
+    /// <para>
+    /// Only floating copy effects are consulted (CR 613.7b) — a copy created by a resolved spell
+    /// or ability, which is every copy effect the engine can produce. A copy effect generated by
+    /// a <em>static</em> ability (CR 707.2c) would need this to ask the battlefield what it is
+    /// while it is deciding what the battlefield is, and the answer to that is the recursion
+    /// above rather than a deeper limit.
+    /// </para>
+    /// </remarks>
+    public static CardDefinition CardOf(
+        GameState state, IAbilitySource abilities, GameObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(obj);
+
+        // CR 708.2: a face-down permanent's characteristics come from the rules, not from the
+        // card underneath — which is what keeps the card safe to reveal later.
+        if (obj.Permanent is { IsFaceDown: true })
+            return FaceDownSpell;
+
+        if (state.FloatingEffects.IsEmpty)
+            return obj.Card;
+
+        CardDefinition? copied = null;
+        var latest = long.MinValue;
+
+        foreach (var floating in state.FloatingEffects)
+        {
+            if (!floating.AffectedIds.Contains(obj.Id))
+                continue;
+
+            // Through the same guard the layers use, so a definition that copies in the wrong
+            // layer is refused here as well rather than being quietly honoured by one of the two
+            // readers and thrown out by the other.
+            if (abilities.FloatingEffect(floating.DefinitionId) is not { } definition
+                || Copies(definition) is not { } card)
+            {
+                continue;
+            }
+
+            // CR 613.7: within a layer, timestamp order — so the last copy effect to have been
+            // created is the one whose values survive.
+            if (floating.Timestamp >= latest)
+            {
+                latest = floating.Timestamp;
+                copied = card;
+            }
+        }
+
+        return copied ?? obj.Card;
     }
 
     /// <summary>Current power (CR 208, 613.4).</summary>
@@ -491,7 +643,12 @@ public static class Characteristics
         foreach (var id in state.Battlefield)
         {
             var source = state.GetObject(id);
-            foreach (var effect in abilities.StaticsOf(source.Card))
+
+            // Asked of the card the permanent *is*, not the one it was printed as. A permanent
+            // that has become a copy of a lord has the lord's static ability (CR 707.2a), and a
+            // card-keyed lookup on its own printed card reports no such ability - the same trap
+            // the activated abilities were in before Game.ActivatedAbilitiesOf existed.
+            foreach (var effect in abilities.StaticsOf(CardOf(state, abilities, source)))
             {
                 if (effect.Layer >= EffectLayer.Ability)
                     (silenceable ??= []).Add(source.Id);
@@ -557,6 +714,29 @@ public static class Characteristics
         }
 
         return true;
+    }
+
+    /// <summary>The card a copy effect grants, refusing one outside layer 1 (CR 613.2a).</summary>
+    /// <remarks>
+    /// Layer 1 is where copiable values are modified and there is no other (CR 613.1a). A
+    /// definition saying otherwise is a mistake in whatever built it, and an invisible one: the
+    /// copy would land after some of the layers that are meant to apply on top of it, so a
+    /// creature that became a copy would lose the pump it was given a moment earlier and the
+    /// card would still look as though it worked.
+    /// </remarks>
+    private static CardDefinition? Copies(ContinuousEffectDefinition effect)
+    {
+        if (effect.Copies is not { } card)
+            return null;
+
+        if (effect.Layer != EffectLayer.Copy)
+        {
+            throw new InvalidOperationException(
+                $"'{effect.Id}' copies a card in layer {effect.Layer}; "
+                + "copy effects are layer 1 (CR 613.2a).");
+        }
+
+        return card;
     }
 
     /// <summary>
@@ -696,6 +876,21 @@ public static class Characteristics
     {
         if (!candidate.Effect.Applies(state, candidate.Source, builder))
             return false;
+
+        // CR 613.2a, and declared on the definition rather than done inside its Apply — see
+        // ContinuousEffectDefinition.Copies. Refused outside layer 1 for the reason an ability
+        // removal is refused outside layer 6.
+        //
+        // Skipped for a face-down permanent, which is not an exception to the rule but the rest
+        // of it: layer 1b runs after the copy and replaces every value it set (CR 613.2b), so
+        // the object shows the rules' 2/2 whatever it is a copy of — CR 707.3 works the case
+        // through, and the only thing lost by not applying the copy at all is what the permanent
+        // would become if it were later turned face up.
+        if (Copies(candidate.Effect) is { } copied
+            && builder.Subject.Permanent is not { IsFaceDown: true })
+        {
+            builder.BecomeCopyOf(copied);
+        }
 
         // CR 613.1f, and declared on the definition rather than done inside its Apply — see
         // ContinuousEffectDefinition.RemovesAllAbilities for why it cannot be.
