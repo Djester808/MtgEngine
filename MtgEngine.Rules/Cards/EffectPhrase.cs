@@ -4984,12 +4984,14 @@ public static partial class EffectPhrase
     /// play differently.
     /// <para>
     /// A keyword belongs in the table only if the engine reads it off <em>computed</em>
-    /// characteristics. Changeling is the instructive omission: the flag exists and the engine
-    /// honours it, but one of the places that asks reads the printed card, so a granted
-    /// changeling would be every creature type in some questions and none in others. Fear,
-    /// intimidate, shadow and skulk have no flag at all; prowess, persist, undying, annihilator
-    /// and banding are triggered abilities rather than flags, and cannot be granted by setting
-    /// one. Ward takes a cost, which a flag cannot carry.
+    /// characteristics, and the table is the whole of what a granting line may say. What is
+    /// left out is left out for a reason, not for want of a word: prowess, persist, undying
+    /// and annihilator are triggered abilities rather than flags and cannot be granted by
+    /// setting one; ward takes a cost and protection takes a quality, neither of which a flag
+    /// can carry; banding's attacking half is not modelled, so the flag would be half the
+    /// ability. A word absent for any other reason is a gap to close, not a boundary — this
+    /// list has twice been extended by diffing it against the enum, so nothing should treat a
+    /// missing word here as a fact that will keep.
     /// </para>
     /// </remarks>
     internal static KeywordAbility? Keywords(string words)

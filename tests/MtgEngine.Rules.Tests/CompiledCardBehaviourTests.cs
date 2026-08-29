@@ -9724,9 +9724,16 @@ public sealed class CompiledCardBehaviourTests
     /// 37 more in the pronoun form below. Both halves are asserted, because a reader that took
     /// the sentence and dropped the grant would compile perfectly and still be a weaker card.
     /// <para>
-    /// The refusal is asserted beside it. Phasing is a real keyword the engine cannot grant, and
-    /// a card that got the +2/+2 without the rest of what it said would look implemented; leaving
-    /// the line unread is the honest answer, and it is the one the targeted reader already gives.
+    /// The refusal is asserted beside it: a card that got the +2/+2 without the rest of what it
+    /// said would look implemented, so the reader has to drop the whole line, and that is the
+    /// answer the targeted reader already gives. The grant it refuses is chosen deliberately.
+    /// This control first named phasing, which was ungrantable only because the word was missing
+    /// from <c>EffectPhrase.Keywords</c>; when a later round wrote that word down for
+    /// "enchanted permanent has phasing", the control failed while nothing about this reader had
+    /// changed. A negative control anchored to a gap in that table re-arms every time the table
+    /// grows, and it is under active expansion. Protection from a creature type cannot be closed
+    /// that way: the table holds one flag per colour and the ability takes a quality, so no
+    /// dictionary line can carry it. Diregraf Escort is short on exactly this line and no other.
     /// </para>
     /// </remarks>
     [Fact]
@@ -9756,13 +9763,17 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(computed.Has(KeywordAbility.Flying));
 
         var unreadable = CardCompiler.Compile(Card(
-            "Self Pump Phasing Test",
-            "{2}{U}{U}: ~ gets +2/+2 and gains phasing until end of turn.",
+            "Self Pump Refusal Test",
+            "{2}{U}{U}: ~ gets +2/+2 and gains protection from Zombies until end of turn.",
             CardType.Creature,
             power: 2,
             toughness: 2));
 
+        // Whole or nothing: the size is not kept without the grant that shared its sentence.
         Assert.False(unreadable.IsComplete);
+        Assert.Contains(
+            unreadable.Unhandled,
+            line => line.Contains("protection from Zombies", StringComparison.Ordinal));
     }
 
     /// <summary>
