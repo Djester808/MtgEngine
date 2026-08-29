@@ -5291,6 +5291,76 @@ public sealed record IfKicked(ImmutableList<IEffect> Effects) : IEffect
 }
 
 /// <summary>
+/// "Each opponent attacking that player does the same" — the Curse family (CR 508.1b).
+/// </summary>
+/// <remarks>
+/// The sentence before this one said what "the same" is, so the wrapper holds a copy of that
+/// sentence's effects and runs them once per qualifying player with that player as "you" —
+/// which is all "does the same" means, and why the head effects need no re-aiming: the four
+/// cards that print it gain life, draw, or create a token, none of which reads a target. A
+/// compile that would put a targeted effect in here is refused at the reader, because re-running
+/// somebody else's choice for another player is not what any card says.
+/// <para>
+/// "That player" is the player the source enchants, read at resolution; "attacking" is read
+/// off the live combat, which is still in the declare-attackers step when the trigger resolves.
+/// A creature attacking that player's planeswalker is not attacking the player (CR 506.2 keeps
+/// the two apart), and the attacker's controller is the computed one, so a creature stolen
+/// mid-combat repeats the effect for its thief. The enchanted player is never an opponent
+/// "attacking that player" — nobody attacks themself — and the controller already did the head
+/// effect once, so both are excluded by the word "opponent".
+/// </para>
+/// </remarks>
+public sealed record RepeatForOpponentsAttackingEnchanted(ImmutableList<IEffect> Inner) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // The Curse names "that player" through its own attachment. Unattached — it left the
+        // battlefield in response, or was never on a player — there is nobody to repeat for,
+        // which is CR 608.2b's "do as much as it can" rather than an error.
+        if (!context.State.TryGetObject(context.PhysicalSourceId, out var source)
+            || source.Permanent?.AttachedToPlayer is not { } enchanted)
+        {
+            return [];
+        }
+
+        var attacking = new HashSet<Guid>();
+
+        foreach (var (attackerId, attack) in context.State.Combat.Attackers)
+        {
+            if (attack.IsPlaneswalker || attack.DefendingPlayer != enchanted)
+                continue;
+
+            if (context.State.TryGetObject(attackerId, out var attacker))
+            {
+                attacking.Add(State.Characteristics
+                    .Of(context.State, context.Abilities, attacker).ControllerId);
+            }
+        }
+
+        var events = new List<GameEvent>();
+
+        foreach (var opponent in context.State.ApnapOrder())
+        {
+            if (opponent == context.ControllerId
+                || !attacking.Contains(opponent)
+                || context.State.GetPlayer(opponent).HasLost)
+            {
+                continue;
+            }
+
+            var theirs = context with { ControllerId = opponent };
+
+            foreach (var effect in Inner)
+                events.AddRange(effect.Resolve(theirs));
+        }
+
+        return events;
+    }
+}
+
+/// <summary>
 /// Does something, and does the rest only if the first part actually happened.
 /// </summary>
 /// <remarks>

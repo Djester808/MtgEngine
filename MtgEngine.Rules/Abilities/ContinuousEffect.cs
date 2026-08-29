@@ -85,6 +85,27 @@ public sealed class CharacteristicsBuilder
     public GameObject Subject { get; }
 
     /// <summary>
+    /// The ability source the computation is running under, for a filter that has to ask a
+    /// question about a permanent that is not the one being computed.
+    /// </summary>
+    /// <remarks>
+    /// Carried on the builder rather than threaded through
+    /// <see cref="ContinuousEffectDefinition.Applies"/>, because that delegate is constructed in
+    /// over a hundred places and nearly none of them want it. What the ones that do want is
+    /// narrow — the <em>source's</em> controller is layer 2, so "creatures you control" cannot
+    /// be answered from the raw object without repeating the stolen-lord bug — and they must ask
+    /// it through <see cref="State.Characteristics.ControllerOf"/>, never through a full
+    /// <c>Characteristics.Of</c>: computing one lord's characteristics from inside another's is
+    /// a loop (CR 613.8's hazard), and the controller question is answerable from layer 2 alone.
+    /// <para>
+    /// Internal and not part of the characteristics: it is the computation's context, set by
+    /// <see cref="State.Characteristics"/> on the way in and carried by <see cref="Copy"/> so a
+    /// dependency probe answers with the same vocabulary as the real pass.
+    /// </para>
+    /// </remarks>
+    internal IAbilitySource Abilities { get; set; } = Cards.EmptyAbilities.Instance;
+
+    /// <summary>
     /// The card the copiable values come from — the object's own, until a copy effect (CR 707.2).
     /// </summary>
     /// <remarks>
@@ -340,6 +361,7 @@ public sealed class CharacteristicsBuilder
             // card would decide dependency against text the object no longer has, the moment
             // anything on the board is a copy (CR 613.8a).
             Card = Card,
+            Abilities = Abilities,
             Power = Power,
             Toughness = Toughness,
             CardTypes = CardTypes,
