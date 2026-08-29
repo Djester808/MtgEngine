@@ -705,6 +705,62 @@ public sealed record CoinFlipped(Guid PlayerId, bool Won) : GameEvent
     public override string Describe() => $"{PlayerId:N} {(Won ? "won" : "lost")} the flip.";
 }
 
+/// <summary>A die roll is owed, and will be made at the next settle (CR 706.1).</summary>
+/// <param name="Sides">How many sides the die has — 20 for a d20 (CR 706.1a).</param>
+public sealed record DiceRollRequested(
+    Guid PlayerId, ObjectId SourceId, string? AbilityId, int EffectIndex, int Sides) : GameEvent
+{
+    /// <summary>The object the trigger that called for the roll was about (CR 603.2).</summary>
+    /// <remarks>Carried for the reason <see cref="CoinFlipRequested"/> carries its twin.</remarks>
+    public ObjectId? SubjectObject { get; init; }
+
+    /// <summary>
+    /// What the ability that called for the roll was aimed at (CR 601.2c, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Carried rather than looked up, which is the same lesson
+    /// <see cref="OptionalPaymentRequested.Targets"/> records and the same way it was learnt.
+    /// The rows are run after the ability has resolved, against the <em>permanent</em> whose
+    /// ability it was — and a permanent carries no targets, because the ability on the stack
+    /// did. "Choose target creature, then roll a d20" therefore rolled its die, ran the row the
+    /// number landed in, and dealt its damage to nobody: a Treasure appeared, the creature
+    /// stood there, and no event in the log said anything had gone wrong.
+    /// </remarks>
+    public ImmutableList<Target> Targets { get; init; } = [];
+
+    /// <summary>
+    /// How many extra dice replacement effects have added to this roll (CR 706.2b). Each extra
+    /// die is rolled alongside the printed one and the lowest results are ignored, which per
+    /// CR 706.6 means they never happened: one die comes out of the roll however many went in.
+    /// </summary>
+    public int ExtraDice { get; init; }
+
+    public override string Rule => "706.1";
+
+    public override string Describe() => $"{PlayerId:N} rolls a d{Sides}.";
+}
+
+/// <summary>
+/// A die came down (CR 706.2).
+/// </summary>
+/// <remarks>
+/// The outcome is in the log, not the roll that produced it — the same rule the shuffle and the
+/// coin flip follow. A replay reads the number rather than re-rolling, so a stored game cannot
+/// come out differently on a different machine or a different .NET version.
+/// </remarks>
+/// <param name="Natural">
+/// The number on the die's face before any modifier (CR 706.2). No modifier machinery exists yet,
+/// so this always equals <paramref name="Result"/> today — both are recorded so that the day
+/// modifiers land, "a die's highest natural result" keeps reading the face and not the sum.
+/// </param>
+/// <param name="Result">The final result of the roll, after every modifier (CR 706.2).</param>
+public sealed record DiceRolled(Guid PlayerId, int Sides, int Natural, int Result) : GameEvent
+{
+    public override string Rule => "706.2";
+
+    public override string Describe() => $"{PlayerId:N} rolled a d{Sides}: {Result}.";
+}
+
 /// <summary>Energy counters gained or spent by a player (CR 122.1, 107.14).</summary>
 /// <param name="TurnIncrease">
 /// Whether this is the once-a-turn automatic increase, which may not happen twice (CR 702.179b).

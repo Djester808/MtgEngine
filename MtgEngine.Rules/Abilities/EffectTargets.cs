@@ -358,6 +358,23 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
+        // Aims at nothing itself, but its rows may refer back to a target the ability chose
+        // before rolling — "1—9 | Tap that creature." — so a fold that renumbers targets has to
+        // reach inside and move every row's references with it. Reading is left to the tree
+        // walk: RollBranch is itself an effect precisely so the rows' contents are visible.
+        Add<RollDice>(
+            _ => null,
+            (e, n) => e with
+            {
+                Rows =
+                [
+                    .. e.Rows.Select(row => row with
+                    {
+                        Effects = [.. row.Effects.Select(inner => Shift(inner, n))],
+                    }),
+                ],
+            });
+
         Add<ExileGraveyard>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 

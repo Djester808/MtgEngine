@@ -6189,6 +6189,90 @@ public sealed record FlipCoin(
     }
 }
 
+/// <summary>One striation of a results table (CR 706.3a), or a sentence after the roll.</summary>
+/// <param name="From">The first result the row covers.</param>
+/// <param name="To">The last result it covers, or null for the open-ended "N+" row.</param>
+/// <remarks>
+/// An <see cref="IEffect"/> that never resolves on its own: the engine reads the rows out of the
+/// <see cref="RollDice"/> that holds them and runs the ones the result lands in. It wears the
+/// interface anyway because that is what makes its contents visible — the effect tree walks
+/// properties typed as effects, and rows hidden behind any other type would carry targets the
+/// structural checks could not see were read.
+/// <para>
+/// A sentence that simply uses the result — "you gain life equal to the result" — is a row
+/// covering every result, which is what CR 706.3a's "if any" collapses to when the table has no
+/// striations. One shape, so the settle runs the whole answer in printed order.
+/// </para>
+/// </remarks>
+public sealed record RollBranch(int From, int? To, ImmutableList<IEffect> Effects) : IEffect
+{
+    /// <summary>Whether a result falls inside this row (CR 706.3a).</summary>
+    public bool Covers(int result) => result >= From && (To is null || result <= To);
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context) => [];
+}
+
+/// <summary>
+/// Roll a die and do what the results table says (CR 706).
+/// </summary>
+/// <remarks>
+/// Deferred exactly as the coin flip is, and for the same reason: an effect returns events and
+/// cannot reach the randomness, which lives on the game so that every random outcome in a match
+/// comes from one seeded source and lands in the log as its outcome. The engine rolls at the next
+/// settle, records the number, and runs every row of the table the result falls in — with the
+/// result as the branch's subject amount, so "equal to the result" inside a row reads the number
+/// that actually came up.
+/// </remarks>
+public sealed record RollDice(
+    int Sides, ImmutableList<RollBranch> Rows, int EffectIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var abilityId = context.AbilityId
+            ?? (context.State.TryGetObject(context.SourceId, out var onStack)
+                ? onStack.Ability?.AbilityId
+                : null);
+
+        return
+        [
+            new DiceRollRequested(
+                context.ControllerId, context.PhysicalSourceId, abilityId, EffectIndex, Sides)
+            {
+                SubjectObject = context.SubjectObject,
+                Targets = context.Targets,
+            },
+        ];
+    }
+}
+
+/// <summary>
+/// "If the roll was N or higher, ..." — a clause of a dice trigger's effect (CR 706.4).
+/// </summary>
+/// <remarks>
+/// Not an <see cref="OnlyIf"/>, because the number it tests is nowhere on the board: the result
+/// travels with the trigger as its subject amount (CR 603.2's "that many"), and a board condition
+/// is handed a state and a permanent, neither of which remembers what was rolled. Reading the
+/// context is the whole of the difference.
+/// </remarks>
+public sealed record OnlyIfRollAtLeast(int Least, ImmutableList<IEffect> Effects) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.SubjectAmount is not { } rolled || rolled < Least)
+            return [];
+
+        var events = new List<GameEvent>();
+        foreach (var effect in Effects)
+            events.AddRange(effect.Resolve(context));
+
+        return events;
+    }
+}
+
 /// <summary>Makes a permanent monstrous, with the counters that come with it (CR 701.32a).</summary>
 /// <remarks>
 /// One effect and not two, because the rule is one action: a creature that is already monstrous

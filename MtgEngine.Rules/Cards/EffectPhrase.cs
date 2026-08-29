@@ -94,6 +94,17 @@ public static partial class EffectPhrase
             return true;
         }
 
+        if (TryRollDice(text, targets, effects, objectNamedByTrigger))
+        {
+            parsed = new ParsedPhrase
+            {
+                Targets = targets.ToImmutable(),
+                Effects = effects.ToImmutable(),
+            };
+
+            return true;
+        }
+
         // Read before the text is split into sentences, because the split happens on ", then"
         // and this phrase is written across one: "exile target creature you control, then return
         // that card to the battlefield". Split, the second half is a sentence about a card that
@@ -885,6 +896,265 @@ public static partial class EffectPhrase
     }
 
     /// <summary>
+    /// "Roll a d20." with its results table, and the sentences before and after it (CR 706).
+    /// </summary>
+    /// <remarks>
+    /// Read across the whole effect like the coin flip, because a roll and its consequences only
+    /// mean anything together — CR 706.3b says in as many words that the instruction, the table
+    /// and any sentence using the result are one ability. The rows arrive on this line because
+    /// <see cref="CardCompiler.Lines"/> folds a results row into the line above it: a row alone
+    /// is half a sentence, and the compiler reads whole ones.
+    /// <para>
+    /// All or nothing. One row this cannot read refuses the whole roll, because a table missing a
+    /// row is a different card — a die that only ever does the good rows was printed by nobody.
+    /// </para>
+    /// </remarks>
+    private static bool TryRollDice(
+        string text,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        var m = RollDieLine().Match(text.Trim());
+        if (!m.Success)
+            return false;
+
+        // A roll inside quotation marks belongs to an ability this line grants, not to this
+        // line; reading across the quote would hand the granted ability's table to the grantor.
+        if (m.Groups["before"].Value.Contains('"', StringComparison.Ordinal))
+            return false;
+
+        var sides = m.Groups["sides"].Success
+            ? int.Parse(m.Groups["sides"].Value, CultureInfo.InvariantCulture)
+            : m.Groups["worded"].Value.ToLowerInvariant() switch
+            {
+                "four" => 4,
+                "six" => 6,
+                "eight" => 8,
+                "ten" => 10,
+                "twelve" => 12,
+                _ => 20,
+            };
+
+        var targetsBefore = targets.Count;
+        var effectsBefore = effects.Count;
+
+        void Rewind()
+        {
+            while (targets.Count > targetsBefore)
+                targets.RemoveAt(targets.Count - 1);
+            while (effects.Count > effectsBefore)
+                effects.RemoveAt(effects.Count - 1);
+        }
+
+        // The sentences before the roll are ordinary effects, and they may target: targets are
+        // chosen as the spell is cast (CR 601.2c), long before the die comes down, which is
+        // exactly why the rows below may only refer back to them.
+        //
+        // Read sentence by sentence into this line's own builders rather than through TryParse,
+        // and that is the whole of the difference: TryParse refuses a phrase that chooses and
+        // does nothing, because a line that only chooses is not a line — and "Choose target
+        // creature, then roll a d20" is exactly that phrase, with the doing printed in the rows
+        // underneath. Sharing the builders is also what keeps the target indices right, since a
+        // nested parse numbers its own targets from zero.
+        var before = m.Groups["before"].Value.Trim().TrimEnd(',');
+        if (before.Length > 0)
+        {
+            foreach (var sentence in Sentences(before))
+            {
+                if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                {
+                    Rewind();
+                    return false;
+                }
+            }
+
+            if (effects.Skip(effectsBefore).Any(FindsItselfByIndex))
+            {
+                Rewind();
+                return false;
+            }
+        }
+
+        // What the rows may refer back to and may not add to. Counted after the preamble rather
+        // than before it: a row saying "that creature" points at the target the preamble chose,
+        // and measuring from before the preamble read every such row as choosing one of its own
+        // — which refused the whole table on every card that names its victim first.
+        var chosen = targets.Count;
+
+        var rows = ImmutableList.CreateBuilder<RollBranch>();
+
+        foreach (var (from, to, body) in RollSegments(m.Groups["rest"].Value))
+        {
+            if (!TryRollBranch(body, targets, chosen, out var branch, objectNamedByTrigger))
+            {
+                Rewind();
+                return false;
+            }
+
+            rows.Add(new RollBranch(from, to, branch));
+        }
+
+        effects.Add(new RollDice(sides, rows.ToImmutable(), effects.Count));
+        return true;
+    }
+
+    /// <summary>
+    /// Cuts the text after a roll instruction into rows: the striations of a results table
+    /// (CR 706.3a), a conditional sentence about the result, or a plain sentence that covers
+    /// every result.
+    /// </summary>
+    /// <remarks>
+    /// A malformed piece is returned as a row whose body will not parse rather than being
+    /// skipped, so the caller's all-or-nothing rule sees it.
+    /// </remarks>
+    private static IEnumerable<(int From, int? To, string Body)> RollSegments(string rest)
+    {
+        foreach (var piece in ResultsRowStart().Split(rest.Trim()))
+        {
+            var segment = piece.Trim();
+            if (segment.Length == 0)
+                continue;
+
+            var head = ResultsRowHead().Match(segment);
+            if (head.Success)
+            {
+                var body = segment[head.Length..].Trim();
+                var first = int.Parse(head.Groups["from"].Value, CultureInfo.InvariantCulture);
+
+                // "9 or less" covers everything up from 1 (CR 706.3a's single number, said the
+                // other way around); "N+" and a bare number are the two ends of the same shape.
+                if (head.Groups["less"].Success)
+                    yield return (1, first, body);
+                else if (head.Groups["to"].Success)
+                {
+                    yield return (
+                        first,
+                        int.Parse(head.Groups["to"].Value, CultureInfo.InvariantCulture),
+                        body);
+                }
+                else if (head.Groups["plus"].Success)
+                    yield return (first, null, body);
+                else
+                    yield return (first, first, body);
+
+                continue;
+            }
+
+            // Sentences with no row head: each "If the result is N …" sentence is a row of its
+            // own, and the plain sentences around them cover every result. Consecutive plain
+            // sentences stay together so a template written across two of them is still seen.
+            var plain = new List<string>();
+
+            foreach (var sentence in SplitOutsideQuotes(segment))
+            {
+                var s = sentence.Trim();
+                if (s.Length == 0)
+                    continue;
+
+                var iffy = ResultConditionSentence().Match(s);
+                if (!iffy.Success)
+                {
+                    plain.Add(s);
+                    continue;
+                }
+
+                if (plain.Count > 0)
+                {
+                    yield return (1, null, string.Join(". ", plain) + ".");
+                    plain.Clear();
+                }
+
+                var n = int.Parse(iffy.Groups["n"].Value, CultureInfo.InvariantCulture);
+                var eff = iffy.Groups["eff"].Value.Trim();
+
+                yield return iffy.Groups["dir"].Value.ToLowerInvariant() switch
+                {
+                    "less" or "lower" => (1, (int?)n, eff),
+                    "higher" or "greater" or "more" => (n, null, eff),
+                    _ => (n, (int?)n, eff),
+                };
+            }
+
+            if (plain.Count > 0)
+                yield return (1, null, string.Join(". ", plain) + ".");
+        }
+    }
+
+    /// <summary>Reads one row's effects, refusing anything the settle could not run (CR 706.3a).</summary>
+    /// <remarks>
+    /// A row may refer back to a target the ability already chose — that is why the caller's
+    /// list is shared — but may not choose one of its own: targets are chosen as the spell is
+    /// cast (CR 601.2c), long before the die decides whether the row happens.
+    /// </remarks>
+    private static bool TryRollBranch(
+        string body,
+        ImmutableList<TargetSpec>.Builder targets,
+        int chosenBefore,
+        out ImmutableList<IEffect> branch,
+        bool objectNamedByTrigger)
+    {
+        branch = [];
+
+        if (RewriteRollResult(body) is not { } rewritten)
+            return false;
+
+        // Whole-text first, so a template written across sentences — "exile the top card of
+        // your library. You may play it this turn." — is still seen whole.
+        if (TryParse(rewritten, out var parsed, objectNamedByTrigger)
+            && parsed.Targets.IsEmpty
+            && !parsed.Effects.IsEmpty
+            && !parsed.Effects.Any(FindsItselfByIndex))
+        {
+            branch = parsed.Effects;
+            return true;
+        }
+
+        // Sentence by sentence against the shared target list, which is what lets "tap that
+        // creature" in a row find the creature the preamble targeted.
+        var built = ImmutableList.CreateBuilder<IEffect>();
+
+        foreach (var sentence in Sentences(rewritten))
+        {
+            if (!TryOne(sentence, targets, built, objectNamedByTrigger)
+                || targets.Count != chosenBefore)
+            {
+                while (targets.Count > chosenBefore)
+                    targets.RemoveAt(targets.Count - 1);
+
+                return false;
+            }
+        }
+
+        if (built.Count == 0 || built.Any(FindsItselfByIndex))
+            return false;
+
+        branch = built.ToImmutable();
+        return true;
+    }
+
+    /// <summary>
+    /// Rewrites "equal to the result" into the "that many" the vocabulary already reads, or
+    /// null when some spelling of the result would be left behind.
+    /// </summary>
+    /// <remarks>
+    /// The number these words name is the roll's result, which the settle hands the branch as
+    /// its subject amount — the same channel "that many" reads in a trigger. Rewriting is safe
+    /// precisely because it happens only inside a roll's own rows; anywhere else "the result"
+    /// stays unread, and a sentence still saying it after the rewrite refuses the row rather
+    /// than compiling into an amount of nothing.
+    /// </remarks>
+    private static string? RewriteRollResult(string body)
+    {
+        var s = ScryTheResult().Replace(body, "scry that many");
+        s = ANumberOfEqualToResult().Replace(s, "that many ${what}");
+        s = CardsEqualToResult().Replace(s, "that many cards");
+        s = LifeEqualToResult().Replace(s, "that much life");
+
+        return s.Contains("the result", StringComparison.OrdinalIgnoreCase) ? null : s;
+    }
+
+    /// <summary>
     /// Whether an effect finds itself again by position in its ability's effect list.
     /// </summary>
     /// <remarks>
@@ -900,7 +1170,7 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     internal static bool FindsItselfByIndex(IEffect effect) =>
-        effect is MayPay or ChooseAndMove or FlipCoin;
+        effect is MayPay or ChooseAndMove or FlipCoin or RollDice;
 
     /// <summary>
     /// "Target opponent reveals their hand. You choose a card from it. That player discards
@@ -1203,6 +1473,45 @@ public static partial class EffectPhrase
         // them because it never happens on the sentences they take.
         if (targets.Count == 0 && objectNamedByTrigger)
             sentence = SubjectControllerPhrase().Replace(sentence, SubjectControllerWord, 1);
+
+        // "Choose target creature an opponent controls" — a sentence that is all choosing and no
+        // doing. The choice is made as the spell or ability is put on the stack (CR 601.2c), so
+        // the sentence compiles to a target and no effect, and the sentences after it say what
+        // happens — "then roll a d20", with rows referring back to "that creature". A line whose
+        // later sentences cannot be read still refuses whole, so the target is never left chosen
+        // with nothing reading it.
+        var pick = ChooseTargetSentence().Match(sentence);
+        if (pick.Success)
+        {
+            if (Specs.Parse(pick.Groups["t"].Value.Trim()) is not { } spec)
+                return false;
+
+            targets.Add(spec);
+            return true;
+        }
+
+        // "If the roll was 4 or higher, it gains menace until end of turn." — a clause of a dice
+        // ability's effect, testing the number the trigger carried (CR 706.4). Not a board
+        // condition: nothing on the board remembers what was rolled, the trigger's subject
+        // amount does, so the guard reads the context where OnlyIf reads the state.
+        var wasRolled = RollWasSentence().Match(sentence);
+        if (wasRolled.Success)
+        {
+            var guarded = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(wasRolled.Groups["eff"].Value.Trim(), targets, guarded, objectNamedByTrigger)
+                || guarded.Count == 0
+                || guarded.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIfRollAtLeast(
+                int.Parse(wasRolled.Groups["n"].Value, CultureInfo.InvariantCulture),
+                guarded.ToImmutable()));
+
+            return true;
+        }
 
         // Every effect below that takes a target reads the phrase through Specs.Parse rather
         // than matching it: "destroy target creature" and "destroy target artifact an opponent
@@ -9736,6 +10045,94 @@ public static partial class EffectPhrase
     private static partial Regex FlipCoinLine();
 
     /// <remarks>
+    /// The full stop straight after the die is load-bearing: "roll a d20 and add the number of
+    /// cards in your hand" is a roll with a modifier (CR 706.2), machinery that does not exist,
+    /// and the sentence shape is what keeps every modified roll honestly unread. "Roll two d6"
+    /// and "roll X six-sided dice" fail the "a" for the same reason — nothing reads a
+    /// multi-dice roll's aggregate yet.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<before>.+?[.,!] )??(?:[Tt]hen )?[Rr]oll a (?:d(?<sides>4|6|8|10|12|20)"
+            + @"|(?<worded>four|six|eight|ten|twelve|twenty)-sided die)\.(?<rest>.*)$")]
+    private static partial Regex RollDieLine();
+
+    /// <summary>Where the next results-table row begins (CR 706.3a).</summary>
+    /// <remarks>
+    /// The pipe is what makes this safe to split on: no playable card's rules text contains
+    /// " | " anywhere but a results row — measured across the corpus, not assumed. The
+    /// lookbehind is start-or-space rather than <c>\b</c>, because a word boundary also sits
+    /// between "1—" and "9" — and a split there hands the reader a row head torn in half.
+    /// </remarks>
+    [GeneratedRegex(@"(?=(?<=^| )\d+(?:[—–-]\d+|\+| or less)? \| )")]
+    private static partial Regex ResultsRowStart();
+
+    [GeneratedRegex(@"^(?<from>\d+)(?:[—–-](?<to>\d+)|(?<plus>\+)| or (?<less>less))? \| ")]
+    private static partial Regex ResultsRowHead();
+
+    /// <remarks>
+    /// "If the result is equal to or less than the number of Robots you control" fails the
+    /// digit and is meant to: a row's edges are literal numbers or they are not a row.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^[Ii]f the result is (?<n>\d+)(?: or (?<dir>less|lower|higher|greater|more))?, (?<eff>.+)$")]
+    private static partial Regex ResultConditionSentence();
+
+    [GeneratedRegex(@"[Ss]cry (?:a number of cards equal to the result|X, where X is the result)")]
+    private static partial Regex ScryTheResult();
+
+    [GeneratedRegex(@"a number of (?<what>[^.]+?) equal to the result")]
+    private static partial Regex ANumberOfEqualToResult();
+
+    [GeneratedRegex(@"\bcards equal to the result")]
+    private static partial Regex CardsEqualToResult();
+
+    [GeneratedRegex(@"\blife equal to the result")]
+    private static partial Regex LifeEqualToResult();
+
+    /// <remarks>
+    /// Only the bare "choose target": "choose up to two target cards" and "choose any number of"
+    /// are counts the downstream sentences then distribute over, which is different machinery.
+    /// </remarks>
+    [GeneratedRegex(@"^[Cc]hoose (?<t>target [a-z0-9' ,-]+)$")]
+    private static partial Regex ChooseTargetSentence();
+
+    /// <remarks>
+    /// "Any of those results" alongside "the roll", because a card that watches "one or more
+    /// dice" speaks of its results in the plural even when one die was rolled — and one die is
+    /// all a roll produces until the multi-dice instructions compile.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^[Ii]f (?:the roll was|any of those results was|the result was) "
+            + @"(?<n>\d+) or (?:higher|greater), (?<eff>.+)$")]
+    private static partial Regex RollWasSentence();
+
+    /// <summary>Whether a line is a results-table row, for the line reader's fold (CR 706.3b).</summary>
+    internal static bool IsResultsRow(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        return ResultsRowHead().IsMatch(line);
+    }
+
+    /// <summary>Whether a line instructs somebody to roll dice, however it is worded.</summary>
+    /// <remarks>
+    /// Deliberately broader than <see cref="RollDieLine"/>: a results table under a roll this
+    /// cannot read yet — "roll two d20 and ignore the lower roll" — still belongs to that roll
+    /// (CR 706.3b), and folding it there reports one unread ability rather than three unread
+    /// fragments. The planar die is excluded because its faces are symbols, not numbers
+    /// (CR 901.4), and no results table has ever ridden under one.
+    /// </remarks>
+    internal static bool CallsForDice(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        return RollAnywhere().IsMatch(line) && !line.Contains("planar", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [GeneratedRegex(@"\broll(s|ed)? .{0,80}?\b(?:die|dice|d4|d6|d8|d10|d12|d20)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex RollAnywhere();
+
+    /// <remarks>
     /// Only "an opponent". "Clash with defending player" names somebody the clash machinery does
     /// not take, and at a table of more than two "an opponent" is a choice this does not ask -
     /// the settle refuses there rather than clashing with whoever came first.
@@ -10841,6 +11238,42 @@ public static partial class TriggerConditions
             return (e, _, source) =>
                 e is AbilityActivated { AbilityId: "cycling" } cycled
                 && cycled.SourceId == source.Id;
+        }
+
+        // "You roll one or more dice" and "you roll a die" are one event here: a roll
+        // instruction rolls one die for as long as nothing reads the multi-dice instructions,
+        // so the two wordings cannot yet come apart. The day "roll two d6" compiles, the
+        // per-die wording fires once per die kept (CR 706.6 - ignored dice never happened).
+        if (RollsDiceCondition().IsMatch(condition))
+            return (e, _, source) => e is DiceRolled rolled && rolled.PlayerId == source.ControllerId;
+
+        // "You roll a die's highest natural result" - the face, not the modified result
+        // (CR 706.2), which is why the event records both.
+        if (RollsHighestCondition().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is DiceRolled rolled
+                && rolled.PlayerId == source.ControllerId
+                && rolled.Natural == rolled.Sides;
+        }
+
+        // "You roll a 6", "you roll a 1 or 2", "you roll a 3 or higher" - conditions on the
+        // number that came up (CR 706.4).
+        var rolledN = RollsNumberCondition().Match(condition);
+        if (rolledN.Success)
+        {
+            var wanted = int.Parse(rolledN.Groups["n"].Value, CultureInfo.InvariantCulture);
+            var orAlso = rolledN.Groups["m"].Success
+                ? int.Parse(rolledN.Groups["m"].Value, CultureInfo.InvariantCulture)
+                : (int?)null;
+            var orMore = rolledN.Groups["dir"].Success;
+
+            return (e, _, source) =>
+                e is DiceRolled rolled
+                && rolled.PlayerId == source.ControllerId
+                && (orMore
+                    ? rolled.Result >= wanted
+                    : rolled.Result == wanted || rolled.Result == orAlso);
         }
 
         if (TryZoneChange(condition) is { } zoneChange)
@@ -12786,6 +13219,23 @@ public static partial class TriggerConditions
     [GeneratedRegex(
         @"^you (cycle or discard|discard or cycle) an? card$", RegexOptions.IgnoreCase)]
     private static partial Regex CycleOrDiscardLine();
+
+    [GeneratedRegex(@"^you roll (one or more dice|a die)$", RegexOptions.IgnoreCase)]
+    private static partial Regex RollsDiceCondition();
+
+    [GeneratedRegex(@"^you roll a die's highest natural result$", RegexOptions.IgnoreCase)]
+    private static partial Regex RollsHighestCondition();
+
+    /// <remarks>
+    /// "A natural 20" is deliberately absent: the one card watching for it does so from the
+    /// graveyard (Critical Hit), and a trigger compiled here functions from the battlefield —
+    /// the wording would read cleanly into an ability that never fires, which is the compile
+    /// this vocabulary exists to refuse.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you roll a (?<n>\d+)( or (?<m>\d+)| or (?<dir>higher|greater))?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex RollsNumberCondition();
 
     [GeneratedRegex(
         @"^~ and at least (?<n>\d+|one|two|three|four|five) other creatures attack$",

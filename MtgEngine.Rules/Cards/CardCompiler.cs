@@ -1398,6 +1398,9 @@ public static partial class CardCompiler
             if (TryDiesReplacement(line, replacements))
                 continue;
 
+            if (TryExtraDie(line, replacements))
+                continue;
+
             if (TryShockland(line, replacements))
                 continue;
 
@@ -2944,6 +2947,9 @@ public static partial class CardCompiler
 
         var selfNames = SelfNames(card.Name);
 
+        // The line a results row is being folded into, when the line above called for a roll.
+        string? held = null;
+
         foreach (var line in text.Split('\n'))
         {
             var cleaned = Reminder().Replace(line, string.Empty);
@@ -3033,9 +3039,29 @@ public static partial class CardCompiler
             // plainly that the card is not implemented, which is what the legality gate is for.
             // 103 cards read every other line and are held back by this one alone.
 
-            if (cleaned.Length > 0)
-                yield return cleaned;
+            if (cleaned.Length == 0)
+                continue;
+
+            // CR 706.3b: a roll instruction, its modifiers and its results table are one
+            // ability, printed across several lines. A row alone is half a sentence — "1—9 |
+            // Scry 1." says nothing without the roll above it — so rows are folded into the
+            // line that called for the roll and the compiler reads the ability whole. The guard
+            // is one-way and deliberate: a Spacecraft's station bar shares the row shape exactly
+            // ("10+ | Flying") and folds into nothing, because the line above it rolls no dice.
+            if (held is not null && EffectPhrase.IsResultsRow(cleaned) && EffectPhrase.CallsForDice(held))
+            {
+                held = held + " " + cleaned;
+                continue;
+            }
+
+            if (held is not null)
+                yield return held;
+
+            held = cleaned;
         }
+
+        if (held is not null)
+            yield return held;
     }
 
     // ---- Matchers ---------------------------------------------------------------------------
@@ -12006,6 +12032,44 @@ public static partial class CardCompiler
                         gained.PlayerId,
                         much,
                         state.GetPlayer(gained.PlayerId).Life + much)];
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "If you would roll one or more dice, instead roll that many dice plus one and ignore the
+    /// lowest roll." — the grant-an-advantage replacement (CR 706.2b, 706.6).
+    /// </summary>
+    /// <remarks>
+    /// Compared rather than matched, because every printing spells it exactly this way and there
+    /// is no variable part. The replacement rewrites the roll request on its way into the log —
+    /// one more die goes in, the settle keeps the highest and the ignored dice never happened,
+    /// which is why the logged outcome is still one number. Two copies stack the way CR 614.5
+    /// makes them: each applies once, each adds a die.
+    /// </remarks>
+    private static bool TryExtraDie(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        if (!line.Equals(
+            "If you would roll one or more dice, instead roll that many dice plus one and"
+                + " ignore the lowest roll.",
+            StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "extra-die",
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, _, source) =>
+                e is Events.DiceRollRequested roll && roll.PlayerId == source.ControllerId,
+            Replace = (e, _, _) =>
+            {
+                var roll = (Events.DiceRollRequested)e;
+                return [roll with { ExtraDice = roll.ExtraDice + 1 }];
             },
         });
 

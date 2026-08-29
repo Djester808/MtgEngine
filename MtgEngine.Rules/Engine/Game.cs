@@ -3877,6 +3877,11 @@ public sealed class Game
     private readonly List<(CoinFlipRequested Request, FlipCoin Effect, ImmutableList<Target> Targets)>
         _flipsOwed = [];
 
+    /// <summary>Die rolls owed, with the effect and targets they belong to (CR 706.1).</summary>
+    /// <remarks>The coin flip's list, for the same reasons.</remarks>
+    private readonly List<(DiceRollRequested Request, RollDice Effect, ImmutableList<Target> Targets)>
+        _rollsOwed = [];
+
     private readonly List<(ClashRequested Request, Clash Effect, ImmutableList<Target> Targets)>
         _clashesOwed = [];
 
@@ -4116,7 +4121,8 @@ public sealed class Game
         ImmutableList<IEffect> branch,
         ImmutableList<Target> aimedAt,
         ObjectId? subjectObject,
-        string? abilityId = null)
+        string? abilityId = null,
+        int? subjectAmount = null)
     {
         if (branch.IsEmpty)
             return;
@@ -4146,14 +4152,14 @@ public sealed class Game
 
         if (State.TryGetObject(sourceId, out var source))
         {
-            RunEffects(branch, Wearing(source), subjectObject);
+            RunEffects(branch, Wearing(source), subjectObject, subjectAmount);
             return;
         }
 
         if (_resolvedSources.TryGetValue(sourceId, out var moved)
             && State.TryGetObject(moved, out var landed))
         {
-            RunEffects(branch, Wearing(landed), subjectObject);
+            RunEffects(branch, Wearing(landed), subjectObject, subjectAmount);
         }
     }
 
@@ -4541,6 +4547,59 @@ public sealed class Game
         // locator effect can sit inside another effect's branch, and indexing the outer list
         // there finds the branch's owner instead of the thing that asked.
         return EffectTree.Locate<FlipCoin>(effects, owed.EffectIndex);
+    }
+
+    /// <summary>Makes the oldest owed die roll, if any (CR 706.2, 706.3a).</summary>
+    /// <remarks>
+    /// The outcome goes in the log, not the roll — a replay reads the number that came up rather
+    /// than rolling again, exactly as a shuffle records its order. The result then picks the rows
+    /// of the table that cover it, and every covered row runs in printed order with the result as
+    /// its subject amount, which is what "equal to the result" inside a row reads.
+    /// </remarks>
+    private bool SettleOwedRoll()
+    {
+        if (_rollsOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var (owed, effect, aimedAt) = _rollsOwed[0];
+        _rollsOwed.RemoveAt(0);
+
+        // CR 706.2b then 706.6: an extra die granted by a replacement effect is rolled with the
+        // printed one and the lowest results are ignored — ignored rolls never happened, so one
+        // die comes out and one number goes in the log however many dice went in.
+        var natural = 0;
+        for (var die = 0; die <= Math.Max(0, owed.ExtraDice); die++)
+            natural = Math.Max(natural, _random.Choose(Enumerable.Range(1, effect.Sides).ToList()));
+
+        // No modifier machinery exists yet, so the result is the natural result (CR 706.2).
+        var result = natural;
+        Emit(new DiceRolled(owed.PlayerId, effect.Sides, natural, result));
+
+        var branch = effect.Rows
+            .Where(row => row.Covers(result))
+            .SelectMany(row => row.Effects)
+            .ToImmutableList();
+
+        if (branch.IsEmpty)
+            return true;
+
+        RunDeferredBranch(
+            owed.SourceId, branch, aimedAt, owed.SubjectObject, subjectAmount: result);
+
+        return true;
+    }
+
+    /// <summary>Reads the roll's table back out of the card that called for it.</summary>
+    private RollDice? FindRoll(DiceRollRequested owed)
+    {
+        if (CardBehind(owed.SourceId) is not { } behind)
+            return null;
+
+        var effects = owed.AbilityId is { } abilityId
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
+            : _abilities.SpellOf(behind)?.Effects ?? [];
+
+        return EffectTree.Locate<RollDice>(effects, owed.EffectIndex);
     }
 
     /// <summary>
@@ -8033,6 +8092,18 @@ public sealed class Game
             if (SettleOwedFlip())
                 return true;
 
+            // A roll asks nobody anything - there is no modifier to choose between (CR 706.2b
+            // is a replacement, applied on the way in) - so it is made here and the sweep goes
+            // round again, the way a seek does. Returning as though a question were pending
+            // handed priority back with the state-based actions unchecked: a creature the row
+            // had just dealt lethal damage to went on standing there, alive, on a board where
+            // the damage was plainly marked on it.
+            if (SettleOwedRoll())
+            {
+                didSomething = true;
+                continue;
+            }
+
             if (AskOwedLook())
                 return true;
 
@@ -8174,6 +8245,9 @@ public sealed class Game
         // to the wrong person whenever it arrived on somebody else's turn.
         ObjectCreated made => made.ControllerId,
         LifeChanged life => life.PlayerId,
+
+        // CR 706.2b: the player who rolls chooses among effects modifying the roll.
+        DiceRollRequested rolling => rolling.PlayerId,
         _ => State.ActivePlayerId,
     };
 
@@ -8727,6 +8801,11 @@ public sealed class Game
         // each opponent loses 2 life and you gain that much life" - and no corpus card is shaped
         // that way, checked rather than assumed.
         AttackersDeclared declared => declared.Attackers.Count,
+
+        // The number that came up. "Whenever you roll a 1 or 2, put that many +1/+1 counters on
+        // this creature" and "put a number of charge counters on this artifact equal to the
+        // result" are both this event's number asked for by a different name (CR 706.4).
+        DiceRolled rolled => rolled.Result,
 
         _ => null,
     };
@@ -10752,10 +10831,18 @@ public sealed class Game
     /// the trigger knew about the event that fired it has to be handed back in.
     /// </remarks>
     private void RunEffects(
-        ImmutableList<IEffect> effects, GameObject source, ObjectId? subjectObject = null)
+        ImmutableList<IEffect> effects,
+        GameObject source,
+        ObjectId? subjectObject = null,
+        int? subjectAmount = null)
     {
         if (effects.Count == 0)
             return;
+
+        // A deferred branch can know how much its question was about — the number a die roll
+        // came up — when the object it runs against remembers nothing, having never been the
+        // ability that asked. Handed in for the same reason the subject object is.
+        var about = subjectAmount ?? source.Ability?.SubjectAmount;
 
         var context = new ResolutionContext
         {
@@ -10768,7 +10855,7 @@ public sealed class Game
             VariableValue = source.VariableValue,
             DamageDivision = source.DamageDivision,
             SubjectPlayer = source.Ability?.SubjectPlayer,
-            SubjectAmount = source.Ability?.SubjectAmount,
+            SubjectAmount = about,
             SubjectObject = subjectObject ?? source.Ability?.SubjectObject,
             ControllerBehind = ControllerBehind,
             ObjectBehind = ObjectBehind,
@@ -10778,7 +10865,7 @@ public sealed class Game
         // triggering event's — a spell has no triggering event — it is what the sentence before
         // this one just did. Carried forward here rather than looked up afterwards, because by
         // then the life totals have moved on and the number is gone.
-        var produced = source.Ability?.SubjectAmount;
+        var produced = about;
 
         foreach (var effect in effects)
         {
@@ -10792,7 +10879,7 @@ public sealed class Game
             // Only when the ability had no amount of its own: a trigger that says how much it
             // was about keeps saying so for every clause, and a running total would quietly
             // replace it partway down the card.
-            if (source.Ability?.SubjectAmount is not null)
+            if (about is not null)
                 continue;
 
             // Life lost and damage dealt, which is what "that much" is written about. A life
@@ -10943,6 +11030,11 @@ public sealed class Game
             var aimed = State.TryGetObject(flip.SourceId, out var flipper) ? flipper.Targets : [];
             _flipsOwed.Add((flip, coin, aimed));
         }
+
+        // Off the request and not off the source: the source named here is the permanent whose
+        // ability rolled, and the targets were chosen by the ability on the stack (CR 601.2c).
+        if (e is DiceRollRequested roll && FindRoll(roll) is { } dice)
+            _rollsOwed.Add((roll, dice, roll.Targets));
 
         // Resolved here, while the source is still where the locator says it is — and its
         // targets are taken with it, because a spell loses them when it leaves the stack and the
