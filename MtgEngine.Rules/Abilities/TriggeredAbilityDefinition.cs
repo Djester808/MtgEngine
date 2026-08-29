@@ -203,6 +203,18 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>What the Adventure half costs, exactly as printed (CR 715.3a).</summary>
     string? AdventureCostOf(CardDefinition card) => null;
 
+    /// <summary>The cleaved reading of a cleave card, if it has one (CR 702.148a).</summary>
+    SpellDefinition? CleaveSpellOf(CardDefinition card) => null;
+
+    /// <summary>What the cleaved cast costs, exactly as printed (CR 702.148a).</summary>
+    string? CleaveCostOf(CardDefinition card) => null;
+
+    /// <summary>The promised reading of an instant or sorcery with gift (CR 702.174).</summary>
+    SpellDefinition? GiftSpellOf(CardDefinition card) => null;
+
+    /// <summary>Whether this card offers a gift as it is cast (CR 702.174a).</summary>
+    bool HasGift(CardDefinition card) => false;
+
     /// <summary>The spell a prepared permanent offers a copy of, if it has one.</summary>
     SpellDefinition? PreparedSpellOf(CardDefinition card) => null;
 

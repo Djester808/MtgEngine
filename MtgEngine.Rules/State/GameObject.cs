@@ -883,6 +883,31 @@ public sealed record GameObject
     /// </remarks>
     public bool WasBargained { get; init; }
 
+    /// <summary>
+    /// Whether this spell's cleave cost was paid as it was cast (CR 702.148a).
+    /// </summary>
+    /// <remarks>
+    /// The fact that chooses which of the card's two readings resolves: paying the cleave cost
+    /// removes the words in square brackets, and the engine holds that as a second compiled
+    /// spell rather than as edited text. Recorded on the object so the choice survives every
+    /// response between casting and resolving — and so a resumed game still resolves the reading
+    /// that was paid for, which the code-only <c>_castAs</c> table cannot promise.
+    /// </remarks>
+    public bool WasCleaved { get; init; }
+
+    /// <summary>
+    /// The opponent this spell's gift was promised to, or null when it was not (CR 702.174k).
+    /// </summary>
+    /// <remarks>
+    /// One field for two facts, because the rules never separate them: promising the gift
+    /// <em>is</em> choosing an opponent (CR 702.174a), so a promise with nobody chosen cannot
+    /// exist. The player rather than a flag, because the delivery — "the chosen player creates a
+    /// Food token" — happens at resolution, chosen at cast, and the two are separated by every
+    /// response either player cares to make. Deliberately not a target: nothing about the choice
+    /// uses targeting rules, and hexproof does not refuse a present.
+    /// </remarks>
+    public Guid? GiftedTo { get; init; }
+
     /// <summary>Which colours of mana paid for this (CR 202.2).</summary>
     /// <remarks>
     /// Survives resolution the way the kicker flag does, because sunburst is asked as the
@@ -1001,6 +1026,8 @@ public sealed record GameObject
         ExiledBy == other.ExiledBy &&
         WasKicked == other.WasKicked &&
         WasBargained == other.WasBargained &&
+        WasCleaved == other.WasCleaved &&
+        GiftedTo == other.GiftedTo &&
         CastBy == other.CastBy &&
         CastFromZone == other.CastFromZone &&
         ManaSpent == other.ManaSpent;

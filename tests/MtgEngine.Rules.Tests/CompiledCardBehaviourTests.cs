@@ -47733,6 +47733,504 @@ public sealed class CompiledCardBehaviourTests
         Assert.DoesNotContain("Seekable Dear Relic Test", held);
     }
 
+    // ---- Cleave, gift, and the bracket rule (CR 702.148, 702.174) ------------
+
+    /// <summary>
+    /// A line containing square brackets that no cleave-aware reader claimed is refused, not
+    /// silently read without its brackets.
+    /// </summary>
+    /// <remarks>
+    /// Before the guard, this exact sentence compiled as the flier-less draw — a card read
+    /// <em>better</em> than printed, which is the one class of error the fail-closed rule
+    /// exists to prevent. Nothing playable was affected only because every bracketed line sat
+    /// on an incomplete card; that was luck, and this assertion is the lock.
+    /// </remarks>
+    [Fact]
+    public void A_bracketed_line_is_refused_rather_than_read_without_its_brackets()
+    {
+        var sneaky = Card(
+            "Bracket Refusal Test",
+            "Draw a card for each creature you control [with flying].");
+
+        var compiled = CardCompiler.Compile(sneaky);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, l => l.Contains("[with flying]", StringComparison.Ordinal));
+        Assert.Null(compiled.Spell);
+    }
+
+    /// <summary>
+    /// A cleave card carries two readings, and the one that resolves is the one that was paid
+    /// for (CR 702.148a).
+    /// </summary>
+    /// <remarks>
+    /// Winged Portent's wording, with a board built so the two readings must answer
+    /// differently: one flier among two creatures, so the printed reading draws one card and
+    /// the cleaved reading draws two. The middle refusal is the cost half of the rule — cleave
+    /// is an alternative cost, and the printed mana must not buy the cleaved text.
+    /// </remarks>
+    [Fact]
+    public void A_cleave_card_resolves_the_reading_that_was_paid_for()
+    {
+        var portent = new CardDefinition
+        {
+            OracleId = "oracle-cleave-portent-test",
+            Name = "Cleave Portent Test",
+            ManaCostRaw = "{1}{U}{U}",
+            Cmc = 3,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {4}{G}{U} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Draw a card for each creature you control [with flying].",
+        };
+
+        var compiled = CardCompiler.Compile(portent);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.CleaveSpell);
+        Assert.Equal("{4}{G}{U}", compiled.CleaveCostRaw);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Cleave Grounded Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Cleave Flier Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.Flying),
+            Zone.Battlefield);
+
+        // Printed, the words in brackets are on the card: only the flier counts.
+        var printedCast = TestCards.PutInHand(game, alice, portent);
+        game.AddMana(alice, ManaColor.Blue, 3);
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, printedCast);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+
+        // The printed mana does not buy the cleaved reading: cleave replaces the cost.
+        var cleavedCast = TestCards.PutInHand(game, alice, portent);
+        game.AddMana(alice, ManaColor.Blue, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, cleavedCast, cleaved: true));
+
+        // Paid for, the bracketed words come off and every creature counts.
+        game.AddMana(alice, ManaColor.Green, 5);
+        before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, cleavedCast, cleaved: true);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The chosen reading decides what the spell may even target (CR 702.148a, 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// Fierce Retribution's wording. "Destroy target [attacking] creature" printed takes only
+    /// an attacker, so aiming it at an idle creature is refused at cast — and the same aim is
+    /// legal the moment the cleave cost removes the word. A swap that only reached the effects
+    /// would pass the first half of this test and fail the second.
+    /// </remarks>
+    [Fact]
+    public void The_reading_chooses_what_a_cleave_card_may_target()
+    {
+        var retribution = new CardDefinition
+        {
+            OracleId = "oracle-cleave-retribution-test",
+            Name = "Cleave Retribution Test",
+            ManaCostRaw = "{1}{W}",
+            Cmc = 2,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {5}{W} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Destroy target [attacking] creature.",
+        };
+
+        var compiled = CardCompiler.Compile(retribution);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var idler = game.Create(bob, TestCards.Creature("Cleave Idler Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, retribution);
+
+        // Printed, the spell wants an attacking creature and the idler is not one.
+        game.AddMana(alice, ManaColor.White, 2);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(idler)]));
+
+        // Cleaved, "attacking" is one of the removed words.
+        game.AddMana(alice, ManaColor.White, 4);
+        game.CastSpell(alice, card, [Target.ToPermanent(idler)], cleaved: true);
+        Settle(game);
+
+        Assert.DoesNotContain(idler, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Cleave Idler Test");
+    }
+
+    /// <summary>
+    /// A cleave card either of whose readings has an unreadable line stays unread, and reports
+    /// only the sentence that actually blocks it.
+    /// </summary>
+    /// <remarks>
+    /// Wash Away's wording: the cleaved reading is a plain counterspell the compiler knows,
+    /// and the printed reading's "wasn't cast from its owner's hand" is not yet vocabulary.
+    /// Shipping the readable half would sell a strictly smaller card as the printed one, so
+    /// the whole card refuses — with no <see cref="CompiledCard.CleaveSpell"/> for a cast to
+    /// reach past the deck gate.
+    /// </remarks>
+    [Fact]
+    public void A_cleave_card_with_an_unreadable_reading_stays_unread()
+    {
+        var washAway = new CardDefinition
+        {
+            OracleId = "oracle-cleave-wash-test",
+            Name = "Cleave Wash Test",
+            ManaCostRaw = "{U}",
+            Cmc = 1,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Cleave {1}{U}{U} (You may cast this spell for its cleave cost. If you do, "
+                + "remove the words in square brackets.)\n"
+                + "Counter target spell [that wasn't cast from its owner's hand].",
+        };
+
+        var compiled = CardCompiler.Compile(washAway);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Null(compiled.CleaveSpell);
+
+        var blocker = Assert.Single(compiled.Unhandled);
+        Assert.Contains("wasn't cast from its owner's hand", blocker, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A promised gift swaps in the promised reading, and the present is delivered before the
+    /// spell's own effects (CR 702.174j, 702.174m).
+    /// </summary>
+    /// <remarks>
+    /// Into the Flood Maw's wording, whose two readings take different targets: unpromised it
+    /// bounces only a creature, promised any nonland permanent. Aiming the unpromised cast at
+    /// an artifact is refused — CR 702.174m says those targets exist only if the gift was
+    /// promised — and the promised cast bounces it while the chosen opponent's Fish arrives
+    /// tapped, and arrives <em>first</em>.
+    /// </remarks>
+    [Fact]
+    public void A_promised_gift_delivers_first_and_swaps_in_the_promised_reading()
+    {
+        var maw = new CardDefinition
+        {
+            OracleId = "oracle-gift-maw-test",
+            Name = "Gift Maw Test",
+            ManaCostRaw = "{U}",
+            Cmc = 1,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Gift a tapped Fish (You may promise an opponent a gift as you cast this "
+                + "spell. If you do, they create a tapped 1/1 blue Fish creature token before "
+                + "its other effects.)\n"
+                + "Return target creature an opponent controls to its owner's hand. If the "
+                + "gift was promised, instead return target nonland permanent an opponent "
+                + "controls to its owner's hand.",
+        };
+
+        var compiled = CardCompiler.Compile(maw);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasGift);
+        Assert.NotNull(compiled.GiftSpell);
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(
+            bob, Card("Gift Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, maw);
+        game.AddMana(alice, ManaColor.Blue);
+
+        // Unpromised, the spell takes only a creature (CR 702.174m).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(relic)]));
+
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, card, [Target.ToPermanent(relic)], giftTo: bob);
+        Settle(game);
+
+        // The artifact went home, and the present arrived - tapped, Bob's, and 1/1.
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(bob).Hand.Count);
+
+        var fish = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Subtypes.Contains("Fish", StringComparer.Ordinal));
+        var present = game.State.GetObject(fish);
+        Assert.Equal(bob, present.ControllerId);
+        Assert.True(present.Permanent?.IsTapped);
+        Assert.Equal(1, present.Card.Power);
+        Assert.Equal(1, present.Card.Toughness);
+
+        // CR 702.174j: the gift happens before any other spell ability - so the Fish was
+        // created before the artifact left the battlefield.
+        var log = game.Log.ToList();
+        var delivered = log.FindIndex(e => e is ObjectCreated made && made.Id == fish);
+        var bounced = log.FindIndex(e =>
+            e is ObjectMoved moved && moved.From == Zone.Battlefield && moved.To == Zone.Hand);
+
+        Assert.True(delivered >= 0 && bounced >= 0);
+        Assert.True(
+            delivered < bounced,
+            "the spell's own effect resolved before the gift was delivered (CR 702.174j).");
+    }
+
+    /// <summary>
+    /// Declining the gift is what costs, and a promise names one opponent at a table of three
+    /// (CR 702.174a-b).
+    /// </summary>
+    /// <remarks>
+    /// Nocturnal Hunger's wording. Unpromised, the rider "if the gift wasn't promised, you
+    /// lose 2 life" fires; promised, it does not, and only the opponent chosen at cast gets
+    /// the Food — who receives is a cast-time choice, not "an opponent" resolved later. The
+    /// two refusals pin the promise down as a real cost declaration: no promising yourself,
+    /// and no promising on a card that offers nothing.
+    /// </remarks>
+    [Fact]
+    public void Declining_the_gift_costs_and_a_promise_names_one_opponent()
+    {
+        var hunger = new CardDefinition
+        {
+            OracleId = "oracle-gift-hunger-test",
+            Name = "Gift Hunger Test",
+            ManaCostRaw = "{2}{B}",
+            Cmc = 3,
+            CardTypes = CardType.Instant,
+            OracleText =
+                "Gift a Food (You may promise an opponent a gift as you cast this spell. If "
+                + "you do, they create a Food token before its other effects. It's an artifact "
+                + "with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n"
+                + "Destroy target creature. If the gift wasn't promised, you lose 2 life.",
+        };
+
+        var compiled = CardCompiler.Compile(hunger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var carol = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+                new PlayerSetup(carol, "Carol", 20, TestCards.Deck(40, "Carol")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var first = game.Create(bob, TestCards.Creature("Gift Victim One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Gift Victim Two Test", 2, 2), Zone.Battlefield);
+
+        // Unpromised: the creature dies and Alice pays the printed price.
+        var declined = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        var life = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, declined, [Target.ToPermanent(first)]);
+        Settle(game);
+
+        Assert.DoesNotContain(first, game.State.Battlefield);
+        Assert.Equal(life - 2, game.State.GetPlayer(alice).Life);
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Food");
+
+        // Promised to Carol: no life lost, and the Food is Carol's alone.
+        var promised = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        life = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, promised, [Target.ToPermanent(second)], giftTo: carol);
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(alice).Life);
+
+        var food = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Food");
+        Assert.Equal(carol, game.State.GetObject(food).ControllerId);
+
+        // A gift is promised to an opponent - not to yourself, and not off a card that
+        // offers none.
+        var third = TestCards.PutInHand(game, alice, hunger);
+        game.AddMana(alice, ManaColor.Black, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, third, [Target.ToPermanent(second)], giftTo: alice));
+
+        var giftless = TestCards.PutInHand(
+            game, alice, Card("Gift Murder Test", "Destroy target creature."));
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, giftless, [Target.ToPermanent(second)], giftTo: bob));
+    }
+
+    /// <summary>
+    /// A permanent's gift rides the resolution onto the battlefield, where the enters trigger
+    /// CR 702.174b defines reads it - and so does the card's own intervening-if.
+    /// </summary>
+    /// <remarks>
+    /// Scrapshooter's wording. The promise is made on the spell and asked about on the
+    /// permanent, which is a different object (CR 400.7); the fact rides the one move that
+    /// turns one into the other, exactly as kicker's flag does (CR 607.2). Cast plain, the
+    /// creature arrives and neither trigger fires; cast promising, the chosen opponent draws
+    /// and the printed trigger destroys their artifact.
+    /// </remarks>
+    [Fact]
+    public void A_permanents_gift_rides_the_resolution_into_its_enters_trigger()
+    {
+        var shooter = new CardDefinition
+        {
+            OracleId = "oracle-gift-shooter-test",
+            Name = "Gift Shooter Test",
+            ManaCostRaw = "{1}{G}{G}",
+            Cmc = 3,
+            CardTypes = CardType.Creature,
+            Power = 4,
+            Toughness = 3,
+            Keywords = KeywordAbility.Reach,
+            OracleText =
+                "Gift a card (You may promise an opponent a gift as you cast this spell. If "
+                + "you do, when it enters, they draw a card.)\n"
+                + "Reach\n"
+                + "When this creature enters, if the gift was promised, destroy target "
+                + "artifact or enchantment an opponent controls.",
+        };
+
+        var compiled = CardCompiler.Compile(shooter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasGift);
+
+        // The permanent route: no second spell, a synthesized delivery trigger instead.
+        Assert.Null(compiled.GiftSpell);
+        Assert.Contains(compiled.Triggers, t => t.Id == "gift");
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(
+            bob, Card("Gift Shooter Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        // Cast plain: it arrives, nobody draws, nothing is destroyed.
+        var plain = TestCards.PutInHand(game, alice, shooter);
+        game.AddMana(alice, ManaColor.Green, 3);
+        var handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, plain);
+        Settle(game);
+
+        Assert.Equal(handBefore, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Contains(relic, game.State.Battlefield);
+
+        // Cast promising Bob: he draws, and the trigger takes his artifact.
+        var promising = TestCards.PutInHand(game, alice, shooter);
+        game.AddMana(alice, ManaColor.Green, 3);
+        handBefore = game.State.GetPlayer(bob).Hand.Count;
+        game.CastSpell(alice, promising, giftTo: bob);
+        Settle(game);
+
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(bob).Hand.Count);
+        Assert.DoesNotContain(relic, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The aftermath and fuse flags are read through the reminder text every real printing
+    /// carries.
+    /// </summary>
+    /// <remarks>
+    /// The fixtures above say a bare "Aftermath" and "Fuse", and the cardboard never does -
+    /// it says "Aftermath (Cast this spell only from your graveyard. ...)". The bare-word
+    /// match read raw face text, found nothing on any of the 27 real aftermath cards, and
+    /// thirteen "complete" split cards were quietly castable from hand twice; the 22 fuse
+    /// cards lost their fused cast the same way. So this fixture is shaped exactly like the
+    /// printing, and the play half proves the flag bites: the aftermath half refuses to cast
+    /// from hand.
+    /// </remarks>
+    [Fact]
+    public void Aftermath_and_fuse_are_read_through_the_printed_reminder_text()
+    {
+        var split = new CardDefinition
+        {
+            OracleId = "oracle-test-aftermath-reminder",
+            Name = "Reminder Strike Test // Reminder Echo Test",
+            ManaCostRaw = "{R}",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Sorcery,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Reminder Strike Test",
+                    ManaCostRaw = "{R}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText = "You gain 1 life.",
+                },
+                new CardFace
+                {
+                    Name = "Reminder Echo Test",
+                    ManaCostRaw = "{2}{R}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText =
+                        "You gain 5 life.\n"
+                        + "Aftermath (Cast this spell only from your graveyard. Then exile it.)",
+                },
+            ],
+        };
+
+        var compiled = CardCompiler.Compile(split);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Halves[1].HasAftermath);
+
+        var fused = new CardDefinition
+        {
+            OracleId = "oracle-test-fuse-reminder",
+            Name = "Reminder Pull Test // Reminder Push Test",
+            ManaCostRaw = "{G}",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Sorcery,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Reminder Pull Test",
+                    ManaCostRaw = "{G}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText =
+                        "You gain 1 life.\n"
+                        + "Fuse (You may cast one or both halves of this card from your hand.)",
+                },
+                new CardFace
+                {
+                    Name = "Reminder Push Test",
+                    ManaCostRaw = "{1}{G}",
+                    TypeLine = "Sorcery",
+                    CardTypes = CardType.Sorcery,
+                    OracleText = "You gain 2 life.",
+                },
+            ],
+        };
+
+        Assert.True(CardCompiler.Compile(fused).HasFuse);
+
+        // The flag bites: from hand the aftermath half refuses (CR 702.127a).
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, split);
+        game.AddMana(alice, ManaColor.Red, 3);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], half: 1));
+
+        game.CastSpell(alice, card, [], half: 0);
+        Settle(game);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

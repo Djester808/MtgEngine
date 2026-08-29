@@ -671,7 +671,9 @@ public sealed class Game
         bool mutateOnTop = true,
         bool awakened = false,
         bool sneaked = false,
-        bool teamwork = false)
+        bool teamwork = false,
+        bool cleaved = false,
+        Guid? giftTo = null)
     {
         RequirePriority(playerId);
 
@@ -857,6 +859,50 @@ public sealed class Game
                     $"{card.Card.Name} has no Adventure to cast (CR 715.3).")
             : null;
 
+        // CR 702.148a: paying the cleave cost removes the words in square brackets, which the
+        // engine holds as a second compiled spell rather than as edited text. From here down a
+        // cleaved casting is that reading's - its targets and its effects - and the printed
+        // reading is not consulted.
+        var cleaveSpell = cleaved
+            ? _abilities.CleaveSpellOf(card.Card)
+                ?? throw new InvalidOperationException(
+                    $"{card.Card.Name} has no cleave (CR 702.148a).")
+            : null;
+
+        // CR 702.174a: promising the gift is choosing an opponent, and both happen here or not
+        // at all. The choice is validated now because it is a cost being declared (CR 702.174k),
+        // not a target - nothing re-checks it later, and hexproof does not refuse a present.
+        SpellDefinition? giftSpell = null;
+
+        if (giftTo is { } recipient)
+        {
+            if (!_abilities.HasGift(card.Card))
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no gift to promise (CR 702.174a).");
+            }
+
+            if (recipient == playerId
+                || !State.Players.TryGetValue(recipient, out var promisee)
+                || promisee.HasLost)
+            {
+                throw new InvalidOperationException(
+                    "A gift is promised to an opponent (CR 702.174a).");
+            }
+
+            // On an instant or sorcery the promise selects the promised reading - the delivery,
+            // the promised sentences, and their targets (CR 702.174m). A permanent keeps its own
+            // spell, and the promise rides the object into the enters trigger CR 702.174b gives
+            // it.
+            if (card.Card.CardTypes.HasFlag(CardType.Instant)
+                || card.Card.CardTypes.HasFlag(CardType.Sorcery))
+            {
+                giftSpell = _abilities.GiftSpellOf(card.Card)
+                    ?? throw new InvalidOperationException(
+                        $"{card.Card.Name}'s promised reading is not implemented (CR 702.174).");
+            }
+        }
+
         // CR 709.4: a player choosing to cast a split card chooses which half, and the spell on
         // the stack is that half alone. Same shape as the Adventure below it, and the same
         // consequence: from here down this casting is the chosen half's.
@@ -929,7 +975,8 @@ public sealed class Game
         // creature half has no spell definition at all, because a creature spell is not a list of
         // effects. Falling through to the card's own spell gave it the *other* half's - so
         // casting the creature side of a split card demanded the instant side's target.
-        var definition = preparedSpell ?? adventure ?? (fused || half > 0 ? halfSpell : normal);
+        var definition = preparedSpell ?? adventure ?? cleaveSpell ?? giftSpell
+            ?? (fused || half > 0 ? halfSpell : normal);
 
         // CR 601.3e: a restriction the card prints on top of its ordinary timing. Checked after
         // the type's own timing rather than instead of it, because "cast this only during
@@ -1105,6 +1152,14 @@ public sealed class Game
             : half > 0
             ? ManaCostSpec.Parse(
                 _abilities.HalvesOf(card.Card).First(h => h.Index == half).ManaCostRaw)
+
+            // CR 702.148a: "you may cast this spell by paying [cost] rather than paying its
+            // mana cost" - an alternative cost, so it replaces the printed one outright.
+            : cleaved
+            ? ManaCostSpec.Parse(
+                _abilities.CleaveCostOf(card.Card)
+                    ?? throw new InvalidOperationException(
+                        $"{card.Card.Name} has no cleave (CR 702.148a)."))
             : definition?.AlternateCost ?? ManaCostSpec.Parse(card.Card.ManaCostRaw);
 
         // CR 903.8: {2} more for each previous cast from the command zone — the commander tax.
@@ -1585,6 +1640,12 @@ public sealed class Game
                 adventure, IsPermanent: false, ExileOnResolve: true, OnAdventure: true);
         else if (chosenHalf is { } picked)
             _castAs[stackId] = picked;
+        else if (cleaveSpell is not null)
+            _castAs[stackId] = new CastAs(
+                cleaveSpell, IsPermanentCard(card.Card), ExileOnResolve: false);
+        else if (giftSpell is not null)
+            _castAs[stackId] = new CastAs(
+                giftSpell, IsPermanentCard(card.Card), ExileOnResolve: false);
 
         if (half > 0 || _abilities.HalvesOf(card.Card).Count > 1)
             _halfCast[stackId] = half;
@@ -1608,6 +1669,18 @@ public sealed class Game
 
         if (bargained)
             Emit(new SpellBargained(stackId));
+
+        // The fact that chooses which reading resolves, in the log rather than only in the
+        // in-process table: a resumed game rebuilds nothing but the events, and the reading
+        // that was paid for has to survive the trip (CR 702.148a).
+        if (cleaved)
+            Emit(new SpellCleaved(stackId));
+
+        // The promise and the chosen opponent are one event, because CR 702.174a makes them
+        // one act. Recorded here because this is the only moment that knows: the delivery
+        // resolves later, a permanent's trigger later still.
+        if (giftTo is { } promisedTo)
+            Emit(new GiftPromised(stackId, promisedTo));
 
         // Both, for a multikicked spell: the flag every "if this was kicked" card reads, and the
         // number the few that say "for each time it was kicked" need.
@@ -10245,9 +10318,19 @@ public sealed class Game
     /// <summary>
     /// The spell a stack object actually is - its Adventure, if it was cast as one (CR 715.3b).
     /// </summary>
+    /// <remarks>
+    /// The table answers first; the two facts after it are the same answer read from the state,
+    /// so a game resumed with a cleaved or promised spell still on the stack resolves the
+    /// reading that was paid for. The adventure and split-card choices have no such fact yet,
+    /// which is a recorded gap and not a licence to guess here.
+    /// </remarks>
     private SpellDefinition? SpellBeingCast(GameObject spell) =>
         _castAs.TryGetValue(spell.Id, out var chosen)
             ? chosen.Spell
+            : spell.WasCleaved && _abilities.CleaveSpellOf(spell.Card) is { } cloven
+            ? cloven
+            : spell.GiftedTo is not null && _abilities.GiftSpellOf(spell.Card) is { } promised
+            ? promised
             : _abilities.SpellOf(spell.Card);
 
     /// <summary>

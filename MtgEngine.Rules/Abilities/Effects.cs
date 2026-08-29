@@ -3184,6 +3184,19 @@ public enum PlayerScope
     DefendingPlayer,
 
     /// <summary>
+    /// The opponent this spell's gift was promised to — "the chosen player" (CR 702.174a).
+    /// </summary>
+    /// <remarks>
+    /// Chosen as the spell was cast and read off the source when the delivery resolves, which
+    /// for a spell is the object on the stack and for a permanent's gift trigger is the
+    /// permanent the fact rode in on. A scope rather than a target because the rules never
+    /// target the recipient: nothing checks the choice twice, and hexproof does not refuse a
+    /// present. Names nobody when no gift was promised — the delivery is gated on the promise
+    /// anyway, so an empty answer is a second lock rather than a decision point.
+    /// </remarks>
+    GiftRecipient,
+
+    /// <summary>
     /// The player the source is attached to — "enchanted player" (CR 303.4b).
     /// </summary>
     /// <remarks>
@@ -3221,6 +3234,21 @@ internal static class PlayerScopes
                 && context.State.Players.ContainsKey(subject)
                 ? [subject]
                 : [],
+
+            // Read off the physical source — the spell on the stack while it resolves, or the
+            // permanent its gift trigger belongs to — and followed behind if the object has
+            // since moved on, because the promise was made to a player and not to a zone. A
+            // recipient who has left the game is nobody: the gift is not delivered to an empty
+            // seat, and CR 800.4a has already taken everything else of theirs with them.
+            PlayerScope.GiftRecipient =>
+                (context.State.TryGetObject(context.PhysicalSourceId, out var gifting)
+                    ? gifting
+                    : context.ObjectBehind?.Invoke(context.PhysicalSourceId))
+                        is { GiftedTo: { } chosen }
+                && context.State.Players.TryGetValue(chosen, out var recipient)
+                && !recipient.HasLost
+                    ? [chosen]
+                    : [],
             PlayerScope.DefendingPlayer =>
                 context.State.Combat.Attackers.TryGetValue(
                     context.PhysicalSourceId, out var attacking)

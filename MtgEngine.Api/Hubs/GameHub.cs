@@ -135,7 +135,9 @@ public sealed class GameHub : Hub
                 chosen.WithFlash,
                 chosen.Prototyped,
                 chosen.Mutated,
-                chosen.MutateOnTop);
+                chosen.MutateOnTop,
+                cleaved: chosen.Cleaved,
+                giftTo: chosen.GiftTo);
         });
     }
 
@@ -354,7 +356,21 @@ public sealed record CastOptionsDto(
     /// new card's name, size and types; under, and it keeps its own and gains only the abilities.
     /// Ignored unless <see cref="Mutated"/> is set.
     /// </remarks>
-    bool MutateOnTop = true)
+    bool MutateOnTop = true,
+
+    /// <summary>
+    /// Whether the cleave cost is being paid, removing the bracketed words (CR 702.148a).
+    /// </summary>
+    bool Cleaved = false,
+
+    /// <summary>
+    /// The opponent a gift is promised to, or null for no promise (CR 702.174a).
+    /// </summary>
+    /// <remarks>
+    /// The promise and the choice are one field because the rules make them one act: promising
+    /// the gift <em>is</em> choosing an opponent, and a promise with nobody chosen cannot exist.
+    /// </remarks>
+    Guid? GiftTo = null)
 {
     /// <summary>A spell cast for exactly what is printed on it, choosing nothing.</summary>
     public static readonly CastOptionsDto Printed = new();

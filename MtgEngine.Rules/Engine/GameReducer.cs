@@ -567,6 +567,10 @@ public static class GameReducer
                 state, kicked.StackId, o => o with { WasKicked = true }),
             SpellBargained bargained => Changing(
                 state, bargained.StackId, o => o with { WasBargained = true }),
+            SpellCleaved cloven => Changing(
+                state, cloven.StackId, o => o with { WasCleaved = true }),
+            GiftPromised promised => Changing(
+                state, promised.StackId, o => o with { GiftedTo = promised.Opponent }),
             SpellMultikicked many => Changing(
                 state, many.Id, o => o with { TimesKicked = many.Times }),
             ManaColorsSpent spent => Changing(
@@ -794,6 +798,13 @@ public static class GameReducer
             // to survive exactly one move - the resolution - and no other.
             WasKicked = resolving && moving.WasKicked,
             WasBargained = resolving && moving.WasBargained,
+
+            // The gift is kicker's exception again (CR 607.2): a permanent's gift trigger reads
+            // "if its gift cost was paid" of the spell that became it, so the chosen opponent
+            // rides the one move that turns a spell into a permanent. The cleave flag is
+            // deliberately not carried — CR 702.148a's two abilities function only "while a
+            // spell with cleave is on the stack", and nothing printed asks about it afterwards.
+            GiftedTo = resolving ? moving.GiftedTo : null,
 
             // The same exception, one announcement along: "if X is 5 or more" on a ravenous
             // creature is linked to the X announced for the spell that became it (CR 607.2), and

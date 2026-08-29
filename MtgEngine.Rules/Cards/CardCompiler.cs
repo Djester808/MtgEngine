@@ -97,6 +97,18 @@ public static partial class CardCompiler
         if (CompileLeveler(card) is { } levelled)
             return levelled;
 
+        // A cleave card is one card carrying two spells - the printed reading and the cleaved
+        // one - so it is the adventurer problem again and gets the adventurer answer: compile
+        // each reading as a card of its own, and record which is on the stack as it is cast.
+        if (CompileCleave(card) is { } cloven)
+            return cloven;
+
+        // An instant or sorcery with gift is the same shape one mechanic along: the promise is
+        // declared as the spell is cast (CR 702.174k), and everything it changes - the delivery,
+        // the promised sentences, their targets - is a fact about which spell is on the stack.
+        if (CompileGiftSpell(card) is { } gifted)
+            return gifted;
+
         if (card.Faces.Count > 1 && !card.OracleId.Contains('#', StringComparison.Ordinal))
         {
             var front = Compile(FrontOnly(card));
@@ -177,10 +189,16 @@ public static partial class CardCompiler
                     {
                         // Per line, because the keyword is one line of several and the pattern
                         // is anchored: matched against the whole face it found nothing, and the
-                        // half compiled as an ordinary one that could be cast from hand.
+                        // half compiled as an ordinary one that could be cast from hand. The
+                        // reminder text comes off first, because this reads the face's raw text
+                        // rather than Lines' cleaned output - every real printing says
+                        // "Aftermath (Cast this spell only from your graveyard. ...)", so the
+                        // bare-word match set the flag on zero corpus cards while fourteen
+                        // "complete" split cards quietly became castable from hand twice.
                         HasAftermath = printed.OracleText
                             .Split('\n')
-                            .Any(l => AftermathLine().IsMatch(l.Trim())),
+                            .Any(l => AftermathLine().IsMatch(
+                                Reminder().Replace(l, string.Empty).Trim())),
                     });
                 }
             }
@@ -258,9 +276,13 @@ public static partial class CardCompiler
                 PreparedCostRaw = preparedCost,
                 PreparedIsInstant = preparedInstant,
                 Halves = halves.Count > 1 ? halves.ToImmutable() : [],
+
+                // Reminder text off first, as the aftermath flag above: every printing says
+                // "Fuse (You may cast one or both halves ...)", and the bare-word match read
+                // raw text and found nothing.
                 HasFuse = card.Faces.Any(f => f.OracleText
                     .Split('\n')
-                    .Any(l => FuseLine().IsMatch(l.Trim()))),
+                    .Any(l => FuseLine().IsMatch(Reminder().Replace(l, string.Empty).Trim()))),
             };
         }
 
@@ -388,9 +410,28 @@ public static partial class CardCompiler
         // better card than the one printed. Reading them independently would risk exactly that,
         // so either both are read or neither is.
         var paired = PairExileAndReturn(card, triggers);
+        var hasGift = false;
 
         foreach (var line in Lines(card))
         {
+            // Square brackets are cleave's marker (CR 702.148a): words a paid cost removes. The
+            // cleave path strips them before either reading is compiled, so a bracket that
+            // reaches this loop is on a line no cleave-aware reader claimed - and it must be
+            // refused, not ignored. Ignored, "draw a card for each creature you control [with
+            // flying]" read as the flier-less sentence: a card compiled better than printed,
+            // which is the one class of error the fail-closed rule exists to prevent. The
+            // corpus's only other brackets are loyalty costs inside granted-ability quotes and
+            // dice results, and every one of those lines is unread anyway.
+            if (line.Contains('[', StringComparison.Ordinal)
+                || line.Contains(']', StringComparison.Ordinal))
+            {
+                unhandled.Add(line);
+                continue;
+            }
+
+            if (TryGiftLine(line, triggers, ref hasGift))
+                continue;
+
             if (paired.Contains(line))
                 continue;
 
@@ -1560,6 +1601,7 @@ public static partial class CardCompiler
             Statics = statics.ToImmutable(),
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
+            HasGift = hasGift,
             Unhandled = unhandled.ToImmutable(),
         };
     }
@@ -1598,6 +1640,348 @@ public static partial class CardCompiler
         Power = card.Power,
         Toughness = card.Toughness,
     };
+
+    /// <summary>
+    /// The same card saying something else: one reading of a card that carries more than one.
+    /// </summary>
+    /// <remarks>
+    /// The oracle id gains a marker so the recursion guards in <see cref="Lines"/> and the
+    /// compiled pool's cache never mistake a reading for the card itself.
+    /// </remarks>
+    private static CardDefinition WithText(CardDefinition card, string text, string reading) =>
+        new()
+        {
+            OracleId = card.OracleId + "#" + reading,
+            Name = card.Name,
+            OracleText = text,
+            ManaCostRaw = card.ManaCostRaw,
+            Cmc = card.Cmc,
+            CardTypes = card.CardTypes,
+            Subtypes = card.Subtypes,
+            Supertypes = card.Supertypes,
+            Keywords = card.Keywords,
+            Colors = card.Colors,
+            ColorIdentity = card.ColorIdentity,
+            Power = card.Power,
+            Toughness = card.Toughness,
+        };
+
+    /// <summary>
+    /// Compiles a cleave card as its two readings (CR 702.148a).
+    /// </summary>
+    /// <remarks>
+    /// "Cleave [cost]" is an alternative cost plus a text-changing effect: paying it removes
+    /// every word in square brackets. So the card is compiled twice - once with the brackets
+    /// dropped and the words kept, once with the bracketed words gone - and each reading goes
+    /// through every matcher this file has, exactly as an Adventure's two faces do. The printed
+    /// reading is the card; the cleaved one is swapped onto the stack only when the cleave cost
+    /// was paid.
+    /// <para>
+    /// Fail-closed on both halves: a card either of whose readings has a line the compiler
+    /// cannot read stays incomplete, because a cleave card that could only be cast one way is
+    /// not the card that was printed. And a cleaved reading that compiled to anything besides a
+    /// spell is refused outright - what is swapped in at cast is the spell alone, so an ability
+    /// only that reading had would be silently lost.
+    /// </para>
+    /// </remarks>
+    private static CompiledCard? CompileCleave(CardDefinition card)
+    {
+        if (card.Faces.Count > 1 || string.IsNullOrEmpty(card.OracleText))
+            return null;
+
+        var lines = card.OracleText.Split('\n');
+        var costLine = lines
+            .Select(l => CleaveLine().Match(Reminder().Replace(l, string.Empty).Trim()))
+            .FirstOrDefault(m => m.Success);
+
+        if (costLine is not { Success: true })
+            return null;
+
+        var rest = string.Join(
+            '\n',
+            lines.Where(l => !CleaveLine().IsMatch(Reminder().Replace(l, string.Empty).Trim())));
+
+        var printed = Compile(WithText(
+            card,
+            rest.Replace("[", string.Empty, StringComparison.Ordinal)
+                .Replace("]", string.Empty, StringComparison.Ordinal),
+            "printed"));
+
+        var cleaved = Compile(WithText(card, BracketedWords().Replace(rest, string.Empty), "cleaved"));
+
+        var unhandled = printed.Unhandled.AddRange(
+            cleaved.Unhandled.Where(l => !printed.Unhandled.Contains(l, StringComparer.Ordinal)));
+
+        // The swap carries a spell and nothing else, so a reading whose text compiled into a
+        // trigger, a static or an activated ability has nowhere to put it - and a reading that
+        // compiled to no spell at all would resolve as nothing. Both are refused rather than
+        // shipped smaller than printed.
+        if (unhandled.IsEmpty
+            && (cleaved.Spell is null
+                || !cleaved.Activated.IsEmpty
+                || !cleaved.Triggers.IsEmpty
+                || !cleaved.Statics.IsEmpty
+                || !cleaved.Replacements.IsEmpty))
+        {
+            unhandled = unhandled.Add(
+                "(cleave - the cleaved reading is not a single spell: " + rest + ")");
+        }
+
+        return printed with
+        {
+            Name = card.Name,
+            CleaveSpell = unhandled.IsEmpty ? cleaved.Spell : null,
+            CleaveCostRaw = costLine.Groups["cost"].Value,
+            Unhandled = unhandled,
+        };
+    }
+
+    /// <summary>
+    /// What each kind of gift delivers, in the sentence CR 702.174d-j defines for it.
+    /// </summary>
+    /// <remarks>
+    /// The delivery is synthesized from the rule's own sentence and parsed by the ordinary
+    /// phrase grammar, so a token here is the same token the sentence would make anywhere else.
+    /// "Gift an extra turn" (one card, blocked by its other text regardless) and "Gift a
+    /// Rhystic Study" (one card; the kind is not defined by CR 702.174 at all) are deliberately
+    /// absent - an absent kind leaves the gift line unread rather than delivering the wrong
+    /// present.
+    /// </remarks>
+    private static readonly Dictionary<string, string> GiftDeliveries =
+        new(StringComparer.Ordinal)
+        {
+            ["a card"] = "Draw a card.",
+            ["a Food"] = "Create a Food token.",
+            ["a tapped Fish"] = "Create a tapped 1/1 blue Fish creature token.",
+            ["a Treasure"] = "Create a Treasure token.",
+            ["an Octopus"] = "Create an 8/8 blue Octopus creature token.",
+        };
+
+    /// <summary>
+    /// The effects that hand a promised gift to the chosen opponent, or null for a kind the
+    /// engine cannot deliver.
+    /// </summary>
+    /// <remarks>
+    /// Parsed as the controller's own sentence and then re-aimed, because "the chosen player"
+    /// is not a phrase any printed rules text contains - it lives in reminder text and in
+    /// CR 702.174, so teaching the shared grammar the words would teach it something no card
+    /// says. Only the two effect shapes the six defined kinds produce are re-aimed; anything
+    /// else refuses, so a future kind cannot quietly deliver to the caster instead.
+    /// </remarks>
+    private static ImmutableList<IEffect>? GiftDelivery(string what)
+    {
+        if (!GiftDeliveries.TryGetValue(what, out var sentence)
+            || !EffectPhrase.TryParse(sentence, out var parsed)
+            || !parsed.Targets.IsEmpty)
+        {
+            return null;
+        }
+
+        var delivery = ImmutableList.CreateBuilder<IEffect>();
+
+        foreach (var effect in parsed.Effects)
+        {
+            switch (effect)
+            {
+                case DrawCards draws:
+                    delivery.Add(draws with { Scope = PlayerScope.GiftRecipient });
+                    break;
+                case CreateToken token:
+                    delivery.Add(token with { Scope = PlayerScope.GiftRecipient });
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return delivery.ToImmutable();
+    }
+
+    /// <summary>
+    /// Compiles an instant or sorcery with gift as its two readings (CR 702.174).
+    /// </summary>
+    /// <remarks>
+    /// The promise is declared as the spell is cast (CR 702.174k), and everything it changes is
+    /// a fact about which spell ends up on the stack: whether the delivery happens, whether the
+    /// "if the gift was promised" sentences run, and whether their targets are even chosen
+    /// (CR 702.174m). So the text is rewritten into an unpromised reading and a promised one,
+    /// each compiled through every matcher this file has, with the delivery placed first in the
+    /// promised reading because CR 702.174j puts the gift before anything else the spell does.
+    /// A permanent with gift takes the other route - <see cref="TryGiftLine"/> builds its
+    /// delivery as the enters trigger CR 702.174b spells out - because its own abilities have
+    /// to read the promise later, off the permanent, rather than at cast.
+    /// </remarks>
+    private static CompiledCard? CompileGiftSpell(CardDefinition card)
+    {
+        if (card.Faces.Count > 1
+            || string.IsNullOrEmpty(card.OracleText)
+            || !(card.CardTypes.HasFlag(CardType.Instant) || card.CardTypes.HasFlag(CardType.Sorcery)))
+        {
+            return null;
+        }
+
+        var lines = card.OracleText.Split('\n');
+        var giftLine = lines
+            .Select(l => GiftLine().Match(Reminder().Replace(l, string.Empty).Trim()))
+            .FirstOrDefault(m => m.Success);
+
+        if (giftLine is not { Success: true })
+            return null;
+
+        // A kind CR 702.174 does not define, or a delivery the engine cannot make, leaves the
+        // whole card to the ordinary loop: the gift line lands in Unhandled there, which is the
+        // honest report.
+        if (GiftDelivery(giftLine.Groups["what"].Value.Trim()) is not { } delivery)
+            return null;
+
+        var rest = Reminder().Replace(
+            string.Join(
+                '\n',
+                lines.Where(l => !GiftLine().IsMatch(Reminder().Replace(l, string.Empty).Trim()))),
+            string.Empty);
+
+        if (GiftReadings(rest) is not { } readings)
+            return null;
+
+        var unpromised = Compile(WithText(card, readings.Unpromised, "unpromised"));
+        var promised = Compile(WithText(card, readings.Promised, "promised"));
+
+        var unhandled = unpromised.Unhandled.AddRange(
+            promised.Unhandled.Where(l => !unpromised.Unhandled.Contains(l, StringComparer.Ordinal)));
+
+        // The same guard the cleave swap makes, for the same reason: only a spell rides the
+        // swap, so a promised reading that compiled into anything else would lose it silently.
+        if (unhandled.IsEmpty
+            && (!promised.Activated.IsEmpty
+                || !promised.Triggers.IsEmpty
+                || !promised.Statics.IsEmpty
+                || !promised.Replacements.IsEmpty))
+        {
+            unhandled = unhandled.Add(
+                "(gift - the promised reading is not a single spell: " + rest + ")");
+        }
+
+        // CR 702.174j: the delivery is the first thing the promised spell does. Prepending an
+        // effect moves no target index - effects hold indices into the target list, and the
+        // delivery has no targets to add.
+        var promisedSpell = (promised.Spell ?? new SpellDefinition()) with
+        {
+            Effects = [.. delivery, .. promised.Spell?.Effects ?? []],
+        };
+
+        return unpromised with
+        {
+            Name = card.Name,
+            HasGift = true,
+            GiftSpell = unhandled.IsEmpty ? promisedSpell : null,
+            Unhandled = unhandled,
+        };
+    }
+
+    /// <summary>
+    /// A gift card's text as its two readings: what resolves unpromised, and what resolves
+    /// promised (CR 702.174b, 702.174m).
+    /// </summary>
+    /// <remarks>
+    /// Sentence surgery, done by shape rather than by grammar: "If the gift was promised,
+    /// instead X" replaces the sentence before it, the bare forms keep or drop their clause,
+    /// and "Then if the gift was promised and C, X" keeps its real condition in the promised
+    /// reading. Null when any mention of the gift survives the rewrite - a shape this does not
+    /// know goes unread rather than half-read.
+    /// </remarks>
+    private static (string Unpromised, string Promised)? GiftReadings(string rest)
+    {
+        var unpromised = rest;
+        var promised = rest;
+
+        // "A. If the gift was promised, instead B." / "A. If the gift was promised, B instead."
+        // - the promise swaps one instruction for another, targets included.
+        var instead = GiftInstead().Match(unpromised);
+        if (instead.Success)
+        {
+            var swapped = instead.Groups["b1"].Success
+                ? instead.Groups["b1"].Value
+                : instead.Groups["b2"].Value;
+
+            unpromised = unpromised.Replace(
+                instead.Value, instead.Groups["base"].Value + ".", StringComparison.Ordinal);
+            promised = promised.Replace(
+                instead.Value, Capitalise(swapped) + ".", StringComparison.Ordinal);
+        }
+
+        // "Then if the gift was promised and C, X." - the promise is settled at cast, the rest
+        // of the condition is not, so the promised reading keeps the rest.
+        unpromised = GiftCompoundIf().Replace(unpromised, string.Empty);
+        promised = GiftCompoundIf().Replace(promised, m => "Then if " + m.Groups["kept"].Value);
+
+        // "If the gift was promised, X." - an extra instruction the promise buys.
+        unpromised = GiftIf().Replace(unpromised, string.Empty);
+        promised = GiftIf().Replace(promised, m => Capitalise(m.Groups["then"].Value) + ".");
+
+        // "If the gift wasn't promised, X." - the cost of declining, read the other way round.
+        unpromised = GiftIfNot().Replace(unpromised, m => Capitalise(m.Groups["then"].Value) + ".");
+        promised = GiftIfNot().Replace(promised, string.Empty);
+
+        // "X if the gift was promised." - the same clause printed trailing.
+        unpromised = GiftTrailingIf().Replace(unpromised, string.Empty);
+        promised = GiftTrailingIf().Replace(promised, m => m.Groups["effect"].Value + ".");
+
+        if (unpromised.Contains("gift", StringComparison.OrdinalIgnoreCase)
+            || promised.Contains("gift", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return (unpromised.Trim(), promised.Trim());
+    }
+
+    private static string Capitalise(string sentence) =>
+        sentence.Length == 0 ? sentence : char.ToUpperInvariant(sentence[0]) + sentence[1..];
+
+    /// <summary>
+    /// "Gift a [something]" on a permanent: the promise delivered by the enters trigger
+    /// CR 702.174b spells out.
+    /// </summary>
+    /// <remarks>
+    /// "When this permanent enters, if its gift cost was paid, [effect]" - the predicate is the
+    /// ordinary arrival, the intervening-if reads the promise off the arriving permanent (the
+    /// chosen opponent rode the resolution move, as kicker's flag does), and the effect is the
+    /// delivery aimed at that opponent. Wrapped in <see cref="OnlyIf"/> exactly as a printed
+    /// intervening-if would be, so CR 603.4's second check happens here too.
+    /// </remarks>
+    private static bool TryGiftLine(
+        string line,
+        ImmutableList<TriggeredAbilityDefinition>.Builder into,
+        ref bool hasGift)
+    {
+        var m = GiftLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // An instant or sorcery never reaches here - CompileGiftSpell intercepts it - so this
+        // is the permanent route or a kind nothing can deliver.
+        if (GiftDelivery(m.Groups["what"].Value.Trim()) is not { } delivery)
+            return false;
+
+        var arrival = TriggerConditions.Parse("~ enters");
+        var promised = BoardConditions.Parse("the gift was promised");
+
+        if (arrival is null || promised is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "gift",
+            Text = line,
+            Triggers = (e, state, source) =>
+                arrival(e, state, source) && promised(state, source.Abilities, source),
+            Effects = [new OnlyIf(promised, delivery)],
+            FunctionsFrom = Zone.Battlefield,
+        });
+
+        hasGift = true;
+        return true;
+    }
 
     /// <summary>
     /// Compiles one face of a card that has more than one (CR 712.8d).
@@ -12494,6 +12878,39 @@ public static partial class CardCompiler
     [GeneratedRegex(@"\([^)]*\)")]
     private static partial Regex Reminder();
 
+    /// <summary>"Cleave {1}{B}{B}" (CR 702.148a), with the reminder text already stripped.</summary>
+    [GeneratedRegex(@"^Cleave (?<cost>(?:\{[^}]+\})+)$")]
+    private static partial Regex CleaveLine();
+
+    /// <summary>
+    /// A bracketed span and the space before it, so removing "[with flying]" from "you control
+    /// [with flying]." leaves "you control." rather than "you control .".
+    /// </summary>
+    [GeneratedRegex(@"\s*\[[^\]\[]*\]")]
+    private static partial Regex BracketedWords();
+
+    /// <summary>"Gift a card", "Gift a tapped Fish" (CR 702.174a), reminder text stripped.</summary>
+    [GeneratedRegex(@"^Gift (?<what>an? [^.(]+?)\s*$")]
+    private static partial Regex GiftLine();
+
+    /// <summary>"A. If the gift was promised, instead B." — a swap, not an addition.</summary>
+    [GeneratedRegex(
+        @"(?<base>[^.\n]+)\. If the gift was promised, (?:instead (?<b1>[^.\n]+)|(?<b2>[^.\n]+) instead)\.")]
+    private static partial Regex GiftInstead();
+
+    /// <summary>"Then if the gift was promised and C, X." — half the condition is settled at cast.</summary>
+    [GeneratedRegex(@"\s*Then if the gift was promised and (?<kept>[^\n]+?\.)")]
+    private static partial Regex GiftCompoundIf();
+
+    [GeneratedRegex(@"\s*If the gift was promised, (?<then>[^.\n]+)\.")]
+    private static partial Regex GiftIf();
+
+    [GeneratedRegex(@"\s*If the gift wasn't promised, (?<then>[^.\n]+)\.")]
+    private static partial Regex GiftIfNot();
+
+    [GeneratedRegex(@"\s*(?<effect>[^.\n]+) if the gift was promised\.")]
+    private static partial Regex GiftTrailingIf();
+
     /// <summary>
     /// Prefixes that look exactly like an ability word and are not one.
     /// </summary>
@@ -14112,6 +14529,45 @@ public sealed record CompiledCard
     /// <see cref="Halves"/>, which is otherwise exactly what a second costed face compiles to.
     /// </remarks>
     public SpellDefinition? PreparedSpell { get; init; }
+
+    /// <summary>
+    /// The cleaved reading — this card's text with the bracketed words removed (CR 702.148a).
+    /// </summary>
+    /// <remarks>
+    /// A cleave card is one card carrying two spells, exactly as an adventurer card is, and it
+    /// gets the same answer: each reading is compiled as a card of its own, and which one is on
+    /// the stack is decided as it is cast. Held as a compiled spell rather than as edited text
+    /// because CR 702.148b calls the removal a text-changing effect, and the engine's texts are
+    /// code — the change has to happen at compile time or not at all.
+    /// </remarks>
+    public SpellDefinition? CleaveSpell { get; init; }
+
+    /// <summary>What the cleaved cast costs, exactly as printed (CR 702.148a).</summary>
+    public string? CleaveCostRaw { get; init; }
+
+    /// <summary>
+    /// The promised reading of an instant or sorcery with gift (CR 702.174).
+    /// </summary>
+    /// <remarks>
+    /// The promise is made as the spell is cast (CR 702.174k) and settles three things at once:
+    /// the delivery happens, the "if the gift was promised" sentences run, and their targets are
+    /// chosen (CR 702.174m says only then). All three are questions about which spell is on the
+    /// stack, so the card is compiled twice the way a cleave card is — <see cref="Spell"/> is
+    /// the unpromised reading, this is the promised one, and the delivery is its first effect
+    /// because CR 702.174j puts the gift before everything else the spell does.
+    /// </remarks>
+    public SpellDefinition? GiftSpell { get; init; }
+
+    /// <summary>
+    /// Whether this card offers a gift as it is cast (CR 702.174a).
+    /// </summary>
+    /// <remarks>
+    /// True for permanents as well as spells, which is why it is not simply
+    /// <c>GiftSpell is not null</c>: a permanent's delivery is a compiled enters trigger rather
+    /// than a second spell, and the cast still has to know the offer exists to accept a chosen
+    /// opponent.
+    /// </remarks>
+    public bool HasGift { get; init; }
 
     /// <summary>What a prepared permanent's spell costs, exactly as printed.</summary>
     public string? PreparedCostRaw { get; init; }
