@@ -369,6 +369,12 @@ public static class Characteristics
     private static ComputedCharacteristics ApplyLayers(
         GameState state, IAbilitySource abilities, GameObject obj, CharacteristicsBuilder builder)
     {
+        // The computation's own ability source rides on the builder, so a filter inside an
+        // effect can ask a bounded question about another permanent — the source's layer-2
+        // controller through ControllerOf below — without the Applies delegate growing an
+        // argument that a hundred construction sites would have to carry and ignore.
+        builder.Abilities = abilities;
+
         // CR 613.2c: once layer 1 is over, the object's characteristics *are* its copiable
         // values — so this is the moment the copied card's own text is read, and the moment the
         // cards under a mutated permanent contribute their abilities (CR 730.2a makes the merge a
@@ -722,6 +728,110 @@ public static class Characteristics
         }
 
         return copied ?? printed;
+    }
+
+    /// <summary>
+    /// Whether a controller-of question is already being answered, so one cannot recurse.
+    /// </summary>
+    /// <remarks>
+    /// A control effect that asked who controls something while that question was being
+    /// answered would recurse without bottom. CR 613.8b resolves a dependency loop by falling
+    /// back rather than looping, and so does this: the nested ask is answered with the stored
+    /// controller, which is where layer 2 starts from. No control effect in the engine asks one
+    /// today — all three producers read raw state — so the bound is a guarantee rather than a
+    /// behaviour anything reaches.
+    /// </remarks>
+    [ThreadStatic]
+    private static bool _askingWhoControls;
+
+    /// <summary>
+    /// Who controls a permanent, asking only layer 2 (CR 613.1b) — safe from inside the layers.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Of(GameState, IAbilitySource, GameObject)"/> answers the same question and
+    /// cannot be used where this one is needed: a mass static's <c>Applies</c> has to know its
+    /// <em>source's</em> controller, and computing the source's full characteristics from inside
+    /// another permanent's computation recurses — lord A's filter computes lord B, whose filter
+    /// computes lord A (the CR 613.8 hazard). Control is settled in layer 2 and nothing after
+    /// layer 2 changes it, so the question is answerable from the control-layer effects alone,
+    /// none of whose predicates re-enter the layers.
+    /// <para>
+    /// This is the fix for the stolen-lord defect: reading <c>source.ControllerId</c> raw is
+    /// where control <em>started</em> (CR 613.1b), so a stolen lord kept buffing its old
+    /// controller's creatures. Reading it here follows the theft.
+    /// </para>
+    /// </remarks>
+    public static Guid ControllerOf(GameState state, IAbilitySource abilities, GameObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(obj);
+
+        // Control-changing effects apply to permanents; everywhere else the stored controller
+        // is the whole answer (CR 108.4).
+        if (obj.Zone != Zone.Battlefield)
+            return obj.ControllerId;
+
+        if (_askingWhoControls)
+            return obj.ControllerId;
+
+        _askingWhoControls = true;
+        try
+        {
+            List<Candidate>? candidates = null;
+
+            // Static control effects — "you control enchanted creature" — gathered the way the
+            // full computation gathers them, through the card the permanent *is* (CR 707.2a).
+            foreach (var id in state.Battlefield)
+            {
+                var source = state.GetObject(id);
+
+                foreach (var effect in abilities.StaticsOf(CardOf(state, abilities, source)))
+                {
+                    if (effect.Layer == EffectLayer.Control)
+                        (candidates ??= []).Add(new Candidate(effect, source, source.Timestamp));
+                }
+
+                foreach (var component in source.MergedComponents)
+                {
+                    foreach (var effect in abilities.StaticsOf(component))
+                    {
+                        if (effect.Layer == EffectLayer.Control)
+                            (candidates ??= []).Add(
+                                new Candidate(effect, source, source.Timestamp));
+                    }
+                }
+            }
+
+            // Floating control effects — a resolved Act of Treason (CR 613.7b).
+            foreach (var floating in state.FloatingEffects)
+            {
+                if (!floating.AffectedIds.Contains(obj.Id))
+                    continue;
+
+                if (abilities.FloatingEffect(floating.DefinitionId) is
+                    { Layer: EffectLayer.Control } definition)
+                {
+                    (candidates ??= []).Add(new Candidate(definition, null, floating.Timestamp));
+                }
+            }
+
+            // The ordinary board: nothing anywhere moves control, so the stored controller is
+            // the computed one and no builder has to be made.
+            if (candidates is null)
+                return obj.ControllerId;
+
+            var builder = new CharacteristicsBuilder(obj) { Abilities = abilities };
+
+            foreach (var candidate in InDependencyOrder(state, candidates, builder))
+                ApplyCandidate(state, candidate, builder);
+
+            return builder.ControllerId;
+        }
+        finally
+        {
+            _askingWhoControls = false;
+        }
     }
 
     /// <summary>Current power (CR 208, 613.4).</summary>

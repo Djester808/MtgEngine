@@ -2720,24 +2720,56 @@ public static partial class CardCompiler
             ? ManaCostSpec.Parse(string.Empty)
             : ManaCostSpec.Parse(m.Groups["cost"].Value);
 
-        // CR 702.21a: only an opponent's spell taxes. Your own targeting is free, which is what
-        // makes ward a defensive ability rather than a drawback.
-        bool Triggers(GameEvent e, GameState state, TriggerSource source) =>
-            e is TargetsChosen aimed
-            && aimed.Targets.Any(t => t.Subject == source.Id)
-            && state.TryGetObject(aimed.StackId, out var aiming)
-            && aiming.ControllerId != source.ControllerId;
-
-        into.Add(new TriggeredAbilityDefinition
-        {
-            Id = "ward",
-            Text = $"Whenever {card.Name} becomes the target of a spell or ability an opponent "
+        into.Add(WardTrigger(
+            "ward",
+            $"Whenever {card.Name} becomes the target of a spell or ability an opponent "
                 + "controls, counter it unless that player "
                 + (wardKind is not null
                     ? $"{m.Groups["verb"].Value.ToLowerInvariant()}s a {wardFilter}."
                     : wardLife > 0
                         ? $"pays {wardLife} life."
                         : $"pays {m.Groups["cost"].Value}."),
+            cost,
+            wardLife,
+            wardKind,
+            wardFilter));
+
+        return true;
+    }
+
+    /// <summary>
+    /// The ward triggered ability itself (CR 702.21a), shared by the printed keyword and the
+    /// statics that grant it.
+    /// </summary>
+    /// <remarks>
+    /// One construction rather than a copy per site, because the awkward parts travel with it:
+    /// ward does not target — hexproof and shroud must not turn it off — so its "counter it" is
+    /// the subject-spell counter and not the ordinary counter-target, and the tax is asked of
+    /// the <em>subject</em> player, the one who aimed the spell, not of the ward's controller.
+    /// A second copy is where one of those halves would go missing.
+    /// </remarks>
+    private static TriggeredAbilityDefinition WardTrigger(
+        string id,
+        string text,
+        ManaCostSpec cost,
+        int life,
+        ChosenCostKind? kind,
+        string filter)
+    {
+        // CR 702.21a: only an opponent's spell taxes. Your own targeting is free, which is what
+        // makes ward a defensive ability rather than a drawback. For a granted ward the source
+        // is the permanent the trigger was granted to, so a Star Whale's ward taxes spells
+        // aimed at the creature standing under it rather than at the whale.
+        static bool Triggers(GameEvent e, GameState state, TriggerSource source) =>
+            e is TargetsChosen aimed
+            && aimed.Targets.Any(t => t.Subject == source.Id)
+            && state.TryGetObject(aimed.StackId, out var aiming)
+            && aiming.ControllerId != source.ControllerId;
+
+        return new TriggeredAbilityDefinition
+        {
+            Id = id,
+            Text = text,
             Triggers = Triggers,
             Effects =
             [
@@ -2747,14 +2779,71 @@ public static partial class CardCompiler
                     IfYouDont: [new CounterSubjectSpell()],
                     EffectIndex: 0,
                     AskSubjectPlayer: true,
-                    LifeCost: wardLife,
-                    ChosenKind: wardKind,
-                    ChosenFilterId: wardFilter),
+                    LifeCost: life,
+                    ChosenKind: kind,
+                    ChosenFilterId: filter),
             ],
-        });
+        };
+    }
 
+    /// <summary>
+    /// Reads a granted keyword list that may end in a ward cost — "flying and ward {2}".
+    /// </summary>
+    /// <remarks>
+    /// Ward takes a cost, which a <see cref="KeywordAbility"/> flag cannot carry, so the grant
+    /// slots that read a keyword list through <see cref="EffectPhrase.Keywords"/> could never
+    /// say it — "Enchanted creature has ward {2}" and "Other creatures you control have ward
+    /// {2}" were unread whole. The list is cut at its printed joins and each part is read as a
+    /// flag or as a ward cost; a part that is neither leaves the whole line unread, which is
+    /// the rule every keyword list here already keeps (half a list is a card that does half of
+    /// what it prints).
+    /// <para>
+    /// Only the mana-cost shape of ward is granted. "Ward — pay 3 life" and the chosen-cost
+    /// forms exist on printed cards and on no grant in the corpus, so admitting them here would
+    /// be surface nothing reaches.
+    /// </para>
+    /// </remarks>
+    private static bool TryKeywordsAndWard(
+        string printed, out KeywordAbility keywords, out string? wardCost)
+    {
+        keywords = KeywordAbility.None;
+        wardCost = null;
+
+        // The plain list first, exactly as every caller read it before — so nothing the flag
+        // vocabulary already understands changes hands, multi-word entries included.
+        if (EffectPhrase.Keywords(printed) is { } plain)
+        {
+            keywords = plain;
+            return true;
+        }
+
+        // Then the same list with a ward cost on the end, which is where the cards put it:
+        // "ward {2}" alone, "deathtouch and ward {1}", "flying, ward {2}". Whatever stands in
+        // front of the ward still has to read as a whole list, or the line stays unread.
+        var ward = GrantedWardPart().Match(printed);
+        if (!ward.Success)
+            return false;
+
+        wardCost = ward.Groups["cost"].Value;
+
+        var rest = ward.Groups["rest"].Value.Trim().TrimEnd(',');
+        if (rest.Length == 0)
+            return true;
+
+        if (EffectPhrase.Keywords(rest) is not { } flags)
+        {
+            wardCost = null;
+            return false;
+        }
+
+        keywords = flags;
         return true;
     }
+
+    [GeneratedRegex(
+        @"^(?:(?<rest>.+?)(?:,? and |,\s*))?ward (?<cost>(\{[^}]+\})+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GrantedWardPart();
 
     /// <summary>
     /// "Toxic N" — combat damage also gives poison counters (CR 702.164a).
@@ -6526,12 +6615,21 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        var keywords = m.Groups["kw"].Success ? EffectPhrase.Keywords(m.Groups["kw"].Value) : null;
+        KeywordAbility? keywords = null;
+        string? wardCost = null;
 
         // A keyword the engine cannot grant leaves the whole line unread: an Equipment that gave
-        // the bonus but not the ability would look implemented and play as a weaker card.
-        if (m.Groups["kw"].Success && keywords is null)
-            return false;
+        // the bonus but not the ability would look implemented and play as a weaker card. Ward
+        // is the one entry in this slot that is not a flag — it carries a cost — so the list is
+        // read through the reader that knows both.
+        if (m.Groups["kw"].Success)
+        {
+            if (!TryKeywordsAndWard(m.Groups["kw"].Value, out var flags, out wardCost))
+                return false;
+
+            if (flags != KeywordAbility.None)
+                keywords = flags;
+        }
 
         // "Can't attack or block" is a pair of restrictions the engine already models as
         // keywords: defender is exactly "can't attack" (CR 702.3b), and can't-block has its own
@@ -6628,6 +6726,57 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = OnTheHost,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "Enchanted creature is goaded" — the Impetus cycle. Goaded is a designation with a
+        // player in it (CR 701.15b): goaded *by the Aura's controller*, who is the one player
+        // the creature may not attack. That player is asked of layer 2 through the control-only
+        // reader, because an Impetus that changes hands goads for its new controller and a full
+        // computation from inside the layers is the CR 613.8 loop. The static form has no
+        // duration — it lasts exactly as long as the attachment — which is what separates it
+        // from the goad verb's floating effect and its "until your next turn".
+        if (m.Groups["goaded"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = "attached:goaded",
+                Layer = EffectLayer.Ability,
+                Applies = OnTheHost,
+                Apply = (state, source, builder) =>
+                {
+                    if (source is null)
+                        return;
+
+                    builder.GoadedBy.Add(
+                        Characteristics.ControllerOf(state, builder.Abilities, source));
+                    builder.Keywords |= KeywordAbility.MustAttack;
+                },
+            });
+        }
+
+        // "Enchanted creature has ward {2}" — a whole triggered ability granted in layer 6, the
+        // way a quoted one is, because ward is a triggered ability and not a flag (CR 702.21a).
+        // Granting it was measured inert once — the trigger fired and its deferred question
+        // found no definition — and the granted-ability lookups have since learned the source
+        // id, so the grant goes through the same door and the behaviour test plays it.
+        if (wardCost is { } tax)
+        {
+            var trigger = WardTrigger(
+                "granted-ward:" + tax,
+                "Whenever this permanent becomes the target of a spell or ability an opponent "
+                    + $"controls, counter it unless that player pays {tax}.",
+                ManaCostSpec.Parse(tax),
+                life: 0,
+                kind: null,
+                SearchFilters.AnyCard);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = "attached:ward:" + tax,
+                Layer = EffectLayer.Ability,
+                Applies = OnTheHost,
+                Apply = (_, _, builder) => builder.GrantedTriggers.Add(trigger),
             });
         }
 
@@ -7563,7 +7712,7 @@ public static partial class CardCompiler
     /// refuses is a card somebody notices.
     /// </para>
     /// </remarks>
-    private static StaticGroup? ReadStaticGroup(string printed)
+    private static StaticGroup? ReadStaticGroup(string printed, bool singularNoun = false)
     {
         var words = printed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
@@ -7607,8 +7756,12 @@ public static partial class CardCompiler
             var one = EffectPhrase.SingularWord(words[0]);
 
             // Spelled the same in both numbers, and the singulariser leaves it alone, so it would
-            // otherwise fail the plural test that keeps adjectives out.
-            if (string.Equals(one, words[0], StringComparison.Ordinal)
+            // otherwise fail the plural test that keeps adjectives out. A caller that says the
+            // noun arrives singular by grammar — "each other Human", where "each" takes the
+            // singular — vouches for it instead, because a singular tribe fails the plural test
+            // by construction and the test is guarding against something else.
+            if (!singularNoun
+                && string.Equals(one, words[0], StringComparison.Ordinal)
                 && !string.Equals(words[0], "Merfolk", StringComparison.Ordinal))
             {
                 return null;
@@ -7761,7 +7914,12 @@ public static partial class CardCompiler
         // creatures you control get +1/+1" compiled to a lord for the creature type "Artifact",
         // which no card in the game has. 27 corpus lines buffed nothing while reading as
         // complete, and a reader that never fires looks exactly like a reader that works.
-        if (ReadStaticGroup(m.Groups["noun"].Value.Trim()) is not { } group)
+        // "Each" takes a singular noun — "Each other Human you control" — so a bare tribe under
+        // it arrives without the plural the tribe arm otherwise demands.
+        var scopeSaysEach = m.Groups["scope"].Value
+            .StartsWith("each", StringComparison.OrdinalIgnoreCase);
+
+        if (ReadStaticGroup(m.Groups["noun"].Value.Trim(), scopeSaysEach) is not { } group)
             return false;
 
         var subtype = group.Subtype;
@@ -7773,7 +7931,12 @@ public static partial class CardCompiler
         var chosenType = m.Groups["chosen"].Value.Equals("type", StringComparison.OrdinalIgnoreCase);
         var chosenColor = m.Groups["chosen"].Value.Equals("color", StringComparison.OrdinalIgnoreCase);
         var side = m.Groups["side"].Value.Trim().ToLowerInvariant();
-        var otherOnly = m.Groups["scope"].Value.StartsWith("other", StringComparison.OrdinalIgnoreCase);
+
+        // "Each other Human you control" spells the exclusion with two words, and the scope
+        // slot read only one — so the line fell through with "other Human" for a noun and was
+        // refused. Both spellings mean the same thing: not the permanent whose ability this is.
+        var scopeWord = m.Groups["scope"].Value.ToLowerInvariant();
+        var otherOnly = scopeWord is "other" or "each other";
 
         // "Other" is what makes a lord not pump itself, and a lord that pumps itself is a
         // different card — so an unrecognised scope word has to leave the line unread.
@@ -7790,7 +7953,15 @@ public static partial class CardCompiler
         var everyone = side.Length == 0;
         var yours = side is "you control";
         var theirs = side is "your opponents control" or "an opponent controls";
-        if (!everyone && !yours && !theirs)
+
+        // "Creatures enchanted player controls get -1/-1" - a group defined by a relation to
+        // the source rather than by anybody's seat at the table. The attachment is raw state,
+        // not a characteristic (CR 303.4), so the filter can read it straight off the source
+        // with no layer question asked; an unattached Curse names nobody and the group is
+        // empty, which is the honest answer rather than everything.
+        var enchantedPlayers = side is "enchanted player controls";
+
+        if (!everyone && !yours && !theirs && !enchantedPlayers)
             return false;
 
         // "Other creatures you control with flying get +1/+1" - a keyword the creature has to
@@ -7811,12 +7982,23 @@ public static partial class CardCompiler
             ? m.Groups["counter"].Value.Trim()
             : null;
 
-        var keywords = m.Groups["kw"].Success
-            ? EffectPhrase.Keywords(m.Groups["kw"].Value)
-            : null;
+        // "With a counter on it" names no kind and means any at all (CR 122.1) — a different
+        // question from the named form, not a default for it.
+        var anyCounter = m.Groups["withcounter"].Success && needsCounter is null;
 
-        if (m.Groups["kw"].Success && keywords is null)
-            return false;
+        KeywordAbility? keywords = null;
+        string? massWard = null;
+
+        if (m.Groups["kw"].Success)
+        {
+            // Through the reader that knows ward as well as the flags, because "Other creatures
+            // you control have ward {2}" is this slot and a flag cannot carry a cost.
+            if (!TryKeywordsAndWard(m.Groups["kw"].Value, out var flags, out massWard))
+                return false;
+
+            if (flags != KeywordAbility.None)
+                keywords = flags;
+        }
 
         // "Other Goblin creatures you control attack each combat if able" — the requirement the
         // single-creature form already reads, applied to a group (CR 508.1d). It joins the
@@ -7877,17 +8059,39 @@ public static partial class CardCompiler
                 return false;
             }
 
+            if (anyCounter
+                && target.Subject.Permanent?.Counters.Any(held => held.Value > 0) != true)
+            {
+                return false;
+            }
+
             // Nobody's in particular: the description is the whole question, and who controls
             // the permanent does not come into it.
             if (everyone)
                 return true;
 
-            // The *computed* controller, not the one stored on the object. Control-changing
-            // effects are layer 2 and this is layer 6 or 7, so by the time a lord asks whose
-            // creatures it sees, a theft has already happened (CR 613.1b). Reading the stored
-            // controller made every control-change invisible to every lord — a creature stolen
-            // and then looked at was still counted as its old controller's.
-            var controller = source?.ControllerId ?? target.ControllerId;
+            // Whoever the source is enchanting, read off the attachment rather than computed —
+            // what an Aura is on is a fact of the state, not a characteristic.
+            if (enchantedPlayers)
+            {
+                return source?.Permanent?.AttachedToPlayer is { } enchanted
+                    && target.ControllerId == enchanted;
+            }
+
+            // The *computed* controller on both sides of the comparison. The target's is the
+            // builder's — layer 2 has already run over it by the time a layer 6 or 7 effect
+            // asks. The source's has to be asked of the layers too (CR 613.1b), and it is asked
+            // through the control-only reader rather than a full computation, because computing
+            // one lord's characteristics from inside another's is the CR 613.8 loop: with two
+            // lords on the battlefield each filter would compute the other without bottom.
+            // Reading the stored controller instead was the recorded defect — a stolen lord
+            // kept buffing its old controller's creatures.
+            var controller = source is null
+                ? target.ControllerId
+                : source.Id == target.Subject.Id
+                    ? target.ControllerId
+                    : Characteristics.ControllerOf(state, target.Abilities, source);
+
             return yours
                 ? target.ControllerId == controller
                 : target.ControllerId != controller;
@@ -7900,8 +8104,10 @@ public static partial class CardCompiler
         var describedAs = (chosenType || chosenColor
             ? "chosen-" + m.Groups["chosen"].Value.ToLowerInvariant()
             : group.Described)
+            + (enchantedPlayers ? ":enchanted-player" : string.Empty)
             + (needs is { } named ? ":with-" + named : string.Empty)
-            + (needsCounter is { } counted ? ":counter-" + counted : string.Empty);
+            + (needsCounter is { } counted ? ":counter-" + counted : string.Empty)
+            + (anyCounter ? ":counter-any" : string.Empty);
 
         // "All creatures lose all abilities and have base power and toughness 1/1" — Humility, in
         // layer 6 and then in layer 7b (CR 613.1f, 613.4b). Declared rather than applied, because
@@ -7967,6 +8173,29 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = Matches,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "Other creatures you control have ward {2}" — the whole triggered ability granted to
+        // each member of the group in layer 6, the way the attached form grants it to its host
+        // (CR 702.21a, 613.1f).
+        if (massWard is { } wardTax)
+        {
+            var trigger = WardTrigger(
+                "granted:" + card.Name + ":ward",
+                "Whenever this permanent becomes the target of a spell or ability an opponent "
+                    + $"controls, counter it unless that player pays {wardTax}.",
+                ManaCostSpec.Parse(wardTax),
+                life: 0,
+                kind: null,
+                SearchFilters.AnyCard);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:ward-{wardTax}",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (_, _, builder) => builder.GrantedTriggers.Add(trigger),
             });
         }
 
@@ -8113,9 +8342,11 @@ public static partial class CardCompiler
                 {
                     // "You own", not "you control": a commander stolen by an opponent is still
                     // its owner's commander, and a Background follows the card rather than the
-                    // board.
+                    // board. "You" is the Background's controller, asked of layer 2 the same
+                    // way the group side below is.
                     return target.IsCreature
-                        && target.Subject.OwnerId == source.ControllerId
+                        && target.Subject.OwnerId
+                            == Characteristics.ControllerOf(state, target.Abilities, source)
                         && string.Equals(
                             state.GetPlayer(target.Subject.OwnerId).CommanderOracleId,
                             target.Subject.Card.OracleId,
@@ -8125,11 +8356,18 @@ public static partial class CardCompiler
                 if (everyone)
                     return true;
 
-                // Computed, for the same reason the mass statics use it: a granted ability has
-                // to follow the creature to whoever controls it now.
+                // Computed on both sides, for the same reason the mass statics compute both: a
+                // granted ability has to follow the creature to whoever controls it now, and
+                // "you" is whoever controls the *granting* permanent now (CR 613.1b) — through
+                // the control-only reader, because a full computation from inside the layers is
+                // the CR 613.8 loop.
+                var granter = source.Id == target.Subject.Id
+                    ? target.ControllerId
+                    : Characteristics.ControllerOf(state, target.Abilities, source);
+
                 return yours
-                    ? target.ControllerId == source.ControllerId
-                    : target.ControllerId != source.ControllerId;
+                    ? target.ControllerId == granter
+                    : target.ControllerId != granter;
             }
         }
 
@@ -12808,15 +13046,16 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(enchanted|equipped) " + AttachedSubject + " "
             + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
-            + @"( and (has (?<kw>[a-z ,]+?)"
+            + @"( and (has (?<kw>[a-z0-9{} ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)))?"
             + @"|has base power and toughness (?<basep>\d+)/(?<baset>\d+)"
-            + @"|has (?<kw>[a-z ,]+?)"
+            + @"|has (?<kw>[a-z0-9{} ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
-            + @"|(?<must>attacks each combat if able))\.?$",
+            + @"|(?<must>attacks each combat if able)"
+            + @"|(?<goaded>is goaded))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedBuffLine();
 
@@ -12832,14 +13071,23 @@ public static partial class CardCompiler
         // has trample" - and the consumer has always emitted the two independently. Only
         // the pattern could not capture both at once, so a card that granted both went
         // unread while either alone was fine.
+        //
+        // "Gets an additional +1/+0" is the wording a card uses when its base bonus is printed
+        // a sentence earlier - "Equipped creature gets +2/+0. As long as equipped creature is a
+        // Human, it gets an additional +1/+0." The word changes nothing about what the effect
+        // does: every 7c modification is additional (CR 613.4c), so it is admitted and the
+        // numbers are read as they stand.
         @"^(?:[Dd]uring (?<cond>your turn), (?<subject>~|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) "
-                + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF + @"|has (?<kw>[a-z ,]+))"
+                + @"(gets (an additional )?(?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF
+                + @"|has (?<kw>[a-z ,]+))"
             + @"|[Aa]s long as (?<cond>[^,]+), "
                 + @"(?<subject>~|it|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) "
-                + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF + @"|has (?<kw>[a-z ,]+)"
+                + @"(gets (an additional )?(?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF
+                + @"|has (?<kw>[a-z ,]+)"
                 + @"|can't (?<cant>attack or block|attack|block|be blocked))"
             + @"|(?<subject>~|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) "
-                + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF + @"|has (?<kw>[a-z ,]+?)"
+                + @"(gets (an additional )?(?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF
+                + @"|has (?<kw>[a-z ,]+?)"
                 + @"|can't (?<cant>attack or block|attack|block|be blocked)) "
                 + @"(as long as|if|(?<unless>unless)) (?<cond>[^.]+))\.?$",
         RegexOptions.None)]
@@ -12909,16 +13157,17 @@ public static partial class CardCompiler
     /// type "Artifact", read as complete, and buffed nothing.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<scope>all|other|each)?\s*"
+        @"^(?<scope>all|other|each other|each)?\s*"
             + @"(?<noun>[A-Za-z]+(?:\s+[a-z]+){0,3}?)"
-            + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls)?"
+            + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls"
+            + @"|\s+enchanted player controls)?"
             + @"(\s+of the chosen (?<chosen>type|color))?"
-            + @"(\s+with a (?<counter>[+-]\d/[+-]\d) counter on (it|them)"
+            + @"(?<withcounter>\s+with (an? )?((?<counter>[+-]\d/[+-]\d) )?counters? on (it|them)"
             + @"|\s+with (?<needs>[a-z ]+?))?\s+"
             + @"(gets? (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
-            + @"( and (has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?)?"
+            + @"( and (has|have) (?<kw>[a-z0-9{} ,]+?)( and (?<must>attacks? each combat if able))?)?"
             + @"|(has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+)"
-            + @"|(has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?"
+            + @"|(has|have) (?<kw>[a-z0-9{} ,]+?)( and (?<must>attacks? each combat if able))?"
             + @"|(?<lose>loses? all abilities)"
             + @"( and (has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+))?"
             + @"|(?<must>attacks? each combat if able))\.?$",

@@ -44865,10 +44865,14 @@ public sealed class CompiledCardBehaviourTests
     /// A clause the compiler cannot read leaves the whole line unread, bonus included.
     /// </summary>
     /// <remarks>
-    /// Goad is not modelled here, so this Aura says one thing the engine knows and one it does
-    /// not. The fold refuses the line rather than keeping the half it understood: a creature that
-    /// got +2/+2 and was never goaded is a better card than the one printed, and a card that is
-    /// merely unread is refused by the deck gate where a card that is quietly wrong is not.
+    /// The clause is invented — no rule says "is beguiled" — so this Aura says one thing the
+    /// engine knows and one nothing ever will. It used to say "is goaded", and implementing the
+    /// Impetus cycle turned that half real; a fail-closed fixture written in words a future
+    /// mechanic can claim is a test that a feature quietly turns green, which has happened here
+    /// twice before. The fold refuses the line rather than keeping the half it understood: a
+    /// creature that got +2/+2 without the rest is a better card than the one printed, and a
+    /// card that is merely unread is refused by the deck gate where a card that is quietly
+    /// wrong is not.
     /// <para>
     /// Playing it is the half that earns the test. <c>IsComplete</c> alone would still pass if
     /// the refused clause had already been added to the card's statics on the way out.
@@ -44879,7 +44883,7 @@ public sealed class CompiledCardBehaviourTests
     {
         var taunt = AttachedAura(
             "Fold Taunt Test",
-            "Enchanted creature gets +2/+2 and is goaded.");
+            "Enchanted creature gets +2/+2 and is beguiled.");
 
         var compiled = CardCompiler.Compile(taunt);
         Assert.False(compiled.IsComplete);
@@ -45454,6 +45458,407 @@ public sealed class CompiledCardBehaviourTests
             CardType.Enchantment);
 
         Assert.True(CardCompiler.Compile(anybody).IsComplete);
+    }
+
+    // ---- Source-scoped groups and grants (CR 613.1b, 613.8) -------------------
+
+    /// <summary>
+    /// "Creatures enchanted player controls get -1/-1" — a group defined by the source's own
+    /// attachment (CR 303.4), not by anybody's seat.
+    /// </summary>
+    /// <remarks>
+    /// Four seats, because at two players "enchanted player controls" and "an opponent controls"
+    /// pick out the same person and a filter that read the wrong relation would pass. The
+    /// bystander's untouched bear is what carries the test.
+    /// </remarks>
+    [Fact]
+    public void A_curse_shrinks_only_the_creatures_the_enchanted_player_controls()
+    {
+        var curse = Card(
+            "Deaths Hold Curse Test",
+            "Enchant player\nCreatures enchanted player controls get -1/-1.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        var casters = game.Create(
+            seats[0], TestCards.Creature("Caster Bear Test", 2, 2), Zone.Battlefield);
+        var held = game.Create(
+            seats[1], TestCards.Creature("Held Bear Test", 2, 2), Zone.Battlefield);
+        var frail = game.Create(
+            seats[1], TestCards.Creature("Frail Goat Test", 1, 1), Zone.Battlefield);
+        var bystanders = game.Create(
+            seats[2], TestCards.Creature("Bystander Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            seats[0], TestCards.PutInHand(game, seats[0], curse), [Target.ToPlayer(seats[1])]);
+        Settle(game);
+
+        // The 1/1 died to the shrink (CR 704.5f) — the effect reached the game, not only the
+        // characteristics read below.
+        Assert.Contains(
+            game.State.GetPlayer(seats[1]).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Frail Goat Test");
+        Assert.DoesNotContain(frail, game.State.Battlefield);
+
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(held)));
+
+        // The caster's own creature and the third seat's — an opponent of the caster, and not
+        // the enchanted player — are untouched. Either wrong relation fails here.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(casters)));
+        Assert.Equal(
+            2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bystanders)));
+    }
+
+    /// <summary>
+    /// A stolen lord buffs its thief's creatures and stops buffing its old controller's
+    /// (CR 613.1b) — and two lords on one battlefield do not loop (CR 613.8).
+    /// </summary>
+    /// <remarks>
+    /// The board is the loop hazard on purpose. A lord's filter needs its own controller, and
+    /// the obvious fix — computing the source's full characteristics from inside the layers —
+    /// recurses without bottom the moment two lords can see each other: computing either lord
+    /// applies the other's effect, whose filter computes the first again. Under that
+    /// implementation this test does not fail an assertion, it kills the test host. The engine
+    /// answers the controller question from layer 2 alone, which nothing after layer 2 changes.
+    /// <para>
+    /// The theft is the recorded stolen-lord defect: the filter read the controller stored on
+    /// the object, which is only where control started, so a Threaten on a lord moved every
+    /// creature it pumps except its own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_stolen_lord_buffs_its_new_controllers_creatures_and_two_lords_do_not_loop()
+    {
+        var mine = Card(
+            "Marching Lord Test", "Creatures you control get +1/+1.", CardType.Creature, 2, 2);
+        var theirs = Card(
+            "Rallying Lord Test", "Creatures you control get +1/+1.", CardType.Creature, 2, 2);
+        var theft = Card(
+            "Lord Theft Test",
+            "Gain control of target creature until end of turn. Untap that creature. "
+                + "It gains haste until end of turn.");
+
+        Assert.True(CardCompiler.Compile(mine).IsComplete);
+        Assert.True(CardCompiler.Compile(theirs).IsComplete);
+        Assert.True(CardCompiler.Compile(theft).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var marching = game.Create(alice, mine, Zone.Battlefield);
+        var myBear = game.Create(
+            alice, TestCards.Creature("Marching Bear Test", 2, 2), Zone.Battlefield);
+        var rallying = game.Create(bob, theirs, Zone.Battlefield);
+        var theirBear = game.Create(
+            bob, TestCards.Creature("Rallying Bear Test", 2, 2), Zone.Battlefield);
+
+        // Two lords, each pumping only its own side — and the computation terminating at all is
+        // half the claim.
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(myBear)));
+        Assert.Equal(
+            3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirBear)));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, theft), [Target.ToPermanent(rallying)]);
+        Settle(game);
+
+        // The stolen lord pumps Alice's side now: her bear stands under both lords, Bob's under
+        // none, and the lord itself — a creature its new controller controls — is in its own
+        // group and her other lord's.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(myBear)));
+        Assert.Equal(
+            2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirBear)));
+        Assert.Equal(
+            4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(rallying)));
+        Assert.Equal(
+            4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(marching)));
+
+        // Until end of turn (CR 611.2a): the theft ends at cleanup and the lord goes home.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(myBear)));
+        Assert.Equal(
+            3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirBear)));
+    }
+
+    /// <summary>
+    /// "It gets an additional +1/+0" is the pump it says — every 7c bonus is additional
+    /// (CR 613.4c) — and the condition is asked of the host.
+    /// </summary>
+    [Fact]
+    public void An_additional_bonus_applies_while_the_equipped_creature_answers_the_condition()
+    {
+        var censer = Card(
+            "Faith Censer Test",
+            "Equipped creature gets +1/+1 and has vigilance.\n"
+                + "As long as equipped creature is a Human, it gets an additional +1/+0.\n"
+                + "Equip {2}",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(censer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(alice, censer, Zone.Battlefield);
+        var human = game.Create(
+            alice,
+            Card("Censer Human Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Human", "Soldier"),
+            Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Censer Bear Test", 2, 2), Zone.Battlefield);
+
+        game.Attach(relic, human);
+        Settle(game);
+
+        var faithful = Characteristics.Of(game.State, Pool, game.State.GetObject(human));
+        Assert.Equal(4, faithful.Power);
+        Assert.Equal(3, faithful.Toughness);
+
+        // On a creature that is not a Human, only the unconditional line applies — a reader
+        // that dropped the condition with the word "additional" would give 4 here too.
+        game.Attach(relic, bear);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(human)));
+    }
+
+    /// <summary>
+    /// A granted ward taxes and counters like the printed keyword (CR 702.21a).
+    /// </summary>
+    /// <remarks>
+    /// Granting ward was measured inert once — the spell resolved untaxed and no question was
+    /// asked — and reverted rather than shipped, so the assertions here are the question being
+    /// asked at all and the counter landing when it is declined. The lord itself is the "other"
+    /// control: a grant that leaked onto its own source would tax the second bolt too.
+    /// </remarks>
+    [Fact]
+    public void A_granted_ward_taxes_an_opponents_spell_and_counters_it_when_unpaid()
+    {
+        var herald = Card(
+            "Ward Herald Test",
+            "Other creatures you control have ward {2}.",
+            CardType.Creature,
+            3,
+            3);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var lord = game.Create(alice, herald, Zone.Battlefield);
+        var shielded = game.Create(
+            alice, TestCards.Creature("Ward Shielded Bear Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = Card("Ward Probe Bolt Test", "~ deals 3 damage to any target.");
+        game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(shielded)]);
+
+        // The granted trigger fires and asks the player who aimed the spell, exactly as a
+        // printed ward would.
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+
+        game.Choose(bob, ["no"]);
+        Settle(game);
+
+        // Unpaid, the spell is countered: the bear stands, the bolt is in its owner's graveyard.
+        Assert.Contains(shielded, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Ward Probe Bolt Test");
+
+        // "Other creatures" leaves the herald itself outside its own grant: the second bolt is
+        // never taxed and kills it.
+        var second = Card("Ward Second Bolt Test", "~ deals 3 damage to any target.");
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, second), [Target.ToPermanent(lord)]);
+        Settle(game);
+
+        Assert.DoesNotContain(lord, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Ward Herald Test");
+    }
+
+    /// <summary>
+    /// The printed mana ward beside the granted one — the neighbouring wording as a control,
+    /// and the paying branch of the same question.
+    /// </summary>
+    [Fact]
+    public void The_printed_ward_cost_is_paid_in_mana_and_the_spell_resolves()
+    {
+        var sentinel = Card(
+            "Ward Cost Sentinel Test", "Ward {2}", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(sentinel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var warded = game.Create(alice, sentinel, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var one = game.Create(bob, TestCards.BasicLand("Ward Peak Test"), Zone.Battlefield);
+        var two = game.Create(bob, TestCards.BasicLand("Ward Crag Test"), Zone.Battlefield);
+        game.ActivateAbility(bob, one, "mana");
+        game.ActivateAbility(bob, two, "mana");
+
+        var bolt = Card("Ward Paid Bolt Test", "~ deals 3 damage to any target.");
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPermanent(warded)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        // Paid, the spell does its work — and the tax actually left the pool.
+        Assert.DoesNotContain(warded, game.State.Battlefield);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+    }
+
+    /// <summary>
+    /// "Enchanted creature gets +2/+2 and is goaded" — the Impetus cycle. Goaded is a
+    /// designation with a player in it (CR 701.15b), and the static form lasts exactly as long
+    /// as the attachment.
+    /// </summary>
+    [Fact]
+    public void An_impetus_goads_its_host_for_as_long_as_it_is_attached()
+    {
+        var impetus = Card(
+            "Shiny Impetus Test",
+            "Enchant creature\nEnchanted creature gets +2/+2 and is goaded.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(impetus);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Impetus Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, impetus), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var goaded = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(4, goaded.Power);
+        Assert.True(goaded.Has(KeywordAbility.MustAttack));
+
+        // Goaded *by the Aura's controller*: Alice is off the menu while anybody else is on it
+        // (CR 701.15b), which is why this needs four seats.
+        Assert.Contains(alice, goaded.GoadedBy);
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, alice));
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, carol));
+
+        // The static ends with the attachment — no duration, no memory. The goad verb's
+        // floating effect would keep this true until the goader's next turn; the Aura's stops
+        // the moment it leaves.
+        var aura = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name == "Shiny Impetus Test").Id;
+
+        game.Move(aura, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var released = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(2, released.Power);
+        Assert.Empty(released.GoadedBy);
+        Assert.False(released.Has(KeywordAbility.MustAttack));
+    }
+
+    /// <summary>
+    /// "Each opponent attacking that player does the same" repeats the sentence before it for
+    /// each opponent attacking the enchanted player, as that opponent (CR 508.1b, 506.2).
+    /// </summary>
+    /// <remarks>
+    /// Four seats, because the sentence needs three distinct people to mean anything: the
+    /// Curse's controller (paid by the head effect), an opponent attacking the enchanted player
+    /// (paid by the repeat), and one who is attacking nobody (paid by neither). The second
+    /// combat — an attack on a player the Curse does not enchant — is what proves the trigger
+    /// is scoped by the attachment rather than firing on every declaration.
+    /// </remarks>
+    [Fact]
+    public void Each_opponent_attacking_the_enchanted_player_repeats_the_effect_as_themselves()
+    {
+        var curse = Card(
+            "Vitality Curse Test",
+            "Enchant player\nWhenever enchanted player is attacked, you gain 2 life. "
+                + "Each opponent attacking that player does the same.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        var rider = game.Create(
+            seats[2], TestCards.Creature("Vitality Rider Test", 2, 2), Zone.Battlefield);
+        var raider = game.Create(
+            seats[3], TestCards.Creature("Vitality Raider Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            seats[0], TestCards.PutInHand(game, seats[0], curse), [Target.ToPlayer(seats[1])]);
+        Settle(game);
+
+        // Seat 2 attacks the enchanted player: the controller gains 2 by the head sentence and
+        // seat 2 gains 2 as themselves by the repeat. Nobody else moves — the enchanted player
+        // is not an opponent attacking themself, and seat 3 is attacking nobody.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[2]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            seats[2],
+            new Dictionary<ObjectId, AttackTarget> { [rider] = AttackTarget.Player(seats[1]) });
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(22, game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[3]).Life);
+
+        // Seat 3 attacks the *caster*: the Curse enchants somebody else, so the trigger does
+        // not fire and nobody gains anything.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[3]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var casterBefore = game.State.GetPlayer(seats[0]).Life;
+        var attackerBefore = game.State.GetPlayer(seats[3]).Life;
+
+        game.DeclareAttackers(
+            seats[3],
+            new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(seats[0]) });
+        Settle(game);
+
+        Assert.Equal(casterBefore, game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(attackerBefore, game.State.GetPlayer(seats[3]).Life);
+        Assert.Equal(22, game.State.GetPlayer(seats[2]).Life);
     }
 
     // ---- Backgrounds (CR 702.123) --------------------------------------------

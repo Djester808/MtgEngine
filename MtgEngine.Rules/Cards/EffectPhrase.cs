@@ -261,6 +261,9 @@ public static partial class EffectPhrase
         // life" is an instruction with no question attached to it.
         var sentences = Sentences(text).ToList();
 
+        // Where the previous sentence's effects begin, for the one sentence that repeats them.
+        var lastSentenceStart = 0;
+
         for (var i = 0; i < sentences.Count; i++)
         {
             if (i + 1 < sentences.Count
@@ -275,6 +278,24 @@ public static partial class EffectPhrase
                 i++;
                 continue;
             }
+
+            // "Each opponent attacking that player does the same." — the Curse family's second
+            // sentence, which is not an instruction of its own: "the same" is whatever the
+            // sentence before it did, so the wrapper holds a copy of that sentence's effects
+            // and re-runs them per attacking opponent. Only when the phrase has chosen no
+            // target — repeating an effect that reads a choice made once would re-spend the
+            // choice for players who never made it, and no card that prints this targets.
+            if (i > 0
+                && targets.Count == 0
+                && effects.Count > lastSentenceStart
+                && DoesTheSameSentence().IsMatch(sentences[i]))
+            {
+                effects.Add(new RepeatForOpponentsAttackingEnchanted(
+                    [.. effects.Skip(lastSentenceStart)]));
+                continue;
+            }
+
+            lastSentenceStart = effects.Count;
 
             if (!TryOne(sentences[i], targets, effects, objectNamedByTrigger))
                 return false;
@@ -9039,6 +9060,16 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^otherwise, (?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex OtherwiseSentence();
 
+    /// <summary>The Curse family's repeat, which names no instruction of its own.</summary>
+    /// <remarks>
+    /// Matched only as a sentence <em>after</em> one that did something, the way the otherwise
+    /// branch above is: "the same" is the sentence before it, and reading it first would be an
+    /// instruction with nothing to repeat.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^each opponent attacking that player does the same\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex DoesTheSameSentence();
+
     [GeneratedRegex(@"^untap ~$", RegexOptions.IgnoreCase)]
     private static partial Regex UntapSelfLine();
 
@@ -10579,6 +10610,22 @@ public static partial class TriggerConditions
                 e is AttackersDeclared only
                 && only.Attackers.Count == 1
                 && only.Attackers.ContainsKey(source.Id);
+        }
+
+        // "Whenever enchanted player is attacked" - the Curse family. Attackers are declared as
+        // one batch saying who each was declared against (CR 508.1b), so the trigger fires on
+        // the declaration when any of them was aimed at the player the source enchants - once
+        // per declaration however many attackers, the same simplification every batch trigger
+        // here makes. Aimed at the *player*: a creature attacking their planeswalker is not
+        // attacking them, the same line the "attacks you" family draws. An Aura on nobody
+        // enchants no player, and then nothing in the declaration can answer.
+        if (EnchantedPlayerAttackedLine().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is AttackersDeclared declared
+                && source.Permanent?.AttachedToPlayer is { } enchanted
+                && declared.Attackers.Values.Any(
+                    attack => !attack.IsPlaneswalker && attack.DefendingPlayer == enchanted);
         }
 
         if (AttacksLine().IsMatch(condition))
@@ -12548,6 +12595,9 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^~ attacks alone$", RegexOptions.IgnoreCase)]
     private static partial Regex AttacksAloneLine();
+
+    [GeneratedRegex(@"^enchanted player is attacked$", RegexOptions.IgnoreCase)]
+    private static partial Regex EnchantedPlayerAttackedLine();
 
     /// <remarks>
     /// Case-sensitive on the type list, because a capital is what separates a creature type from
