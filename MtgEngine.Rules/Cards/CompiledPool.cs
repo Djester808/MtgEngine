@@ -65,6 +65,14 @@ public sealed class CompiledPool : IAbilitySource
 
     public string? AdventureCostOf(CardDefinition card) => For(card).AdventureCostRaw;
 
+    public SpellDefinition? CleaveSpellOf(CardDefinition card) => For(card).CleaveSpell;
+
+    public string? CleaveCostOf(CardDefinition card) => For(card).CleaveCostRaw;
+
+    public SpellDefinition? GiftSpellOf(CardDefinition card) => For(card).GiftSpell;
+
+    public bool HasGift(CardDefinition card) => For(card).HasGift;
+
     public SpellDefinition? PreparedSpellOf(CardDefinition card) => For(card).PreparedSpell;
 
     public string? PreparedCostOf(CardDefinition card) => For(card).PreparedCostRaw;

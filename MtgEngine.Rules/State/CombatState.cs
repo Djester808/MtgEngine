@@ -3,11 +3,19 @@ using System.Collections.Immutable;
 namespace MtgEngine.Rules.State;
 
 /// <summary>
-/// What a creature is attacking: a player, or a planeswalker they control (CR 508.1b).
+/// What a creature is attacking: a player, a planeswalker they control, or a battle they
+/// protect (CR 508.1b).
 /// </summary>
 /// <remarks>
 /// The defending player is carried either way, because damage that gets past a planeswalker —
-/// trample over it, or the planeswalker leaving combat — has to know whose it was.
+/// trample over it, or the planeswalker leaving combat — has to know whose it was. For a battle
+/// the defending player is its <em>protector</em>, not its controller (CR 310.9d) — which is how
+/// a Siege's own controller attacks it (CR 310.9b).
+/// <para>
+/// The permanent slot keeps the name it was born with: it held only planeswalkers until battles
+/// existed, and thirty call sites read it. What it holds is "the permanent being attacked", and
+/// a reader that cares which kind asks the state what the object is.
+/// </para>
 /// </remarks>
 public readonly record struct AttackTarget(Guid DefendingPlayer, ObjectId Planeswalker)
 {
@@ -16,7 +24,7 @@ public readonly record struct AttackTarget(Guid DefendingPlayer, ObjectId Planes
     public static AttackTarget At(Guid defendingPlayer, ObjectId planeswalker) =>
         new(defendingPlayer, planeswalker);
 
-    /// <summary>True when a planeswalker is being attacked rather than its controller.</summary>
+    /// <summary>True when a permanent — a planeswalker or a battle — is being attacked.</summary>
     public bool IsPlaneswalker => Planeswalker != default;
 }
 

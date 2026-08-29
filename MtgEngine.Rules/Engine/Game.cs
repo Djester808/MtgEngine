@@ -671,7 +671,9 @@ public sealed class Game
         bool mutateOnTop = true,
         bool awakened = false,
         bool sneaked = false,
-        bool teamwork = false)
+        bool teamwork = false,
+        bool cleaved = false,
+        Guid? giftTo = null)
     {
         RequirePriority(playerId);
 
@@ -857,6 +859,50 @@ public sealed class Game
                     $"{card.Card.Name} has no Adventure to cast (CR 715.3).")
             : null;
 
+        // CR 702.148a: paying the cleave cost removes the words in square brackets, which the
+        // engine holds as a second compiled spell rather than as edited text. From here down a
+        // cleaved casting is that reading's - its targets and its effects - and the printed
+        // reading is not consulted.
+        var cleaveSpell = cleaved
+            ? _abilities.CleaveSpellOf(card.Card)
+                ?? throw new InvalidOperationException(
+                    $"{card.Card.Name} has no cleave (CR 702.148a).")
+            : null;
+
+        // CR 702.174a: promising the gift is choosing an opponent, and both happen here or not
+        // at all. The choice is validated now because it is a cost being declared (CR 702.174k),
+        // not a target - nothing re-checks it later, and hexproof does not refuse a present.
+        SpellDefinition? giftSpell = null;
+
+        if (giftTo is { } recipient)
+        {
+            if (!_abilities.HasGift(card.Card))
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no gift to promise (CR 702.174a).");
+            }
+
+            if (recipient == playerId
+                || !State.Players.TryGetValue(recipient, out var promisee)
+                || promisee.HasLost)
+            {
+                throw new InvalidOperationException(
+                    "A gift is promised to an opponent (CR 702.174a).");
+            }
+
+            // On an instant or sorcery the promise selects the promised reading - the delivery,
+            // the promised sentences, and their targets (CR 702.174m). A permanent keeps its own
+            // spell, and the promise rides the object into the enters trigger CR 702.174b gives
+            // it.
+            if (card.Card.CardTypes.HasFlag(CardType.Instant)
+                || card.Card.CardTypes.HasFlag(CardType.Sorcery))
+            {
+                giftSpell = _abilities.GiftSpellOf(card.Card)
+                    ?? throw new InvalidOperationException(
+                        $"{card.Card.Name}'s promised reading is not implemented (CR 702.174).");
+            }
+        }
+
         // CR 709.4: a player choosing to cast a split card chooses which half, and the spell on
         // the stack is that half alone. Same shape as the Adventure below it, and the same
         // consequence: from here down this casting is the chosen half's.
@@ -929,7 +975,8 @@ public sealed class Game
         // creature half has no spell definition at all, because a creature spell is not a list of
         // effects. Falling through to the card's own spell gave it the *other* half's - so
         // casting the creature side of a split card demanded the instant side's target.
-        var definition = preparedSpell ?? adventure ?? (fused || half > 0 ? halfSpell : normal);
+        var definition = preparedSpell ?? adventure ?? cleaveSpell ?? giftSpell
+            ?? (fused || half > 0 ? halfSpell : normal);
 
         // CR 601.3e: a restriction the card prints on top of its ordinary timing. Checked after
         // the type's own timing rather than instead of it, because "cast this only during
@@ -1105,6 +1152,14 @@ public sealed class Game
             : half > 0
             ? ManaCostSpec.Parse(
                 _abilities.HalvesOf(card.Card).First(h => h.Index == half).ManaCostRaw)
+
+            // CR 702.148a: "you may cast this spell by paying [cost] rather than paying its
+            // mana cost" - an alternative cost, so it replaces the printed one outright.
+            : cleaved
+            ? ManaCostSpec.Parse(
+                _abilities.CleaveCostOf(card.Card)
+                    ?? throw new InvalidOperationException(
+                        $"{card.Card.Name} has no cleave (CR 702.148a)."))
             : definition?.AlternateCost ?? ManaCostSpec.Parse(card.Card.ManaCostRaw);
 
         // CR 903.8: {2} more for each previous cast from the command zone — the commander tax.
@@ -1585,6 +1640,12 @@ public sealed class Game
                 adventure, IsPermanent: false, ExileOnResolve: true, OnAdventure: true);
         else if (chosenHalf is { } picked)
             _castAs[stackId] = picked;
+        else if (cleaveSpell is not null)
+            _castAs[stackId] = new CastAs(
+                cleaveSpell, IsPermanentCard(card.Card), ExileOnResolve: false);
+        else if (giftSpell is not null)
+            _castAs[stackId] = new CastAs(
+                giftSpell, IsPermanentCard(card.Card), ExileOnResolve: false);
 
         if (half > 0 || _abilities.HalvesOf(card.Card).Count > 1)
             _halfCast[stackId] = half;
@@ -1608,6 +1669,18 @@ public sealed class Game
 
         if (bargained)
             Emit(new SpellBargained(stackId));
+
+        // The fact that chooses which reading resolves, in the log rather than only in the
+        // in-process table: a resumed game rebuilds nothing but the events, and the reading
+        // that was paid for has to survive the trip (CR 702.148a).
+        if (cleaved)
+            Emit(new SpellCleaved(stackId));
+
+        // The promise and the chosen opponent are one event, because CR 702.174a makes them
+        // one act. Recorded here because this is the only moment that knows: the delivery
+        // resolves later, a permanent's trigger later still.
+        if (giftTo is { } promisedTo)
+            Emit(new GiftPromised(stackId, promisedTo));
 
         // Both, for a multikicked spell: the flag every "if this was kicked" card reads, and the
         // number the few that say "for each time it was kicked" need.
@@ -1702,6 +1775,14 @@ public sealed class Game
         // departure it is about, and it stops existing when the spell does.
         if (fromElsewhere && alternative!.ExileOnResolve)
             _exileOnLeavingStack.Add(stackId);
+
+        // CR 712.11a: a card cast "transformed" is put on the stack with its back face up, and
+        // from then on it has only that face's characteristics (CR 712.8c) — a defeated Siege's
+        // flip side is a creature spell here, is countered as one, and resolves as one, while
+        // its mana value stays the front face's (CR 712.8e). Emitted before the cast is
+        // announced so anything that triggers on the cast sees the face that is actually up.
+        if (onTheHouse && card.CastsTransformed && card.Card.Faces.Count > 1)
+            Emit(new PermanentTransformed(stackId, 1));
 
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name, castFrom));
         // CR 117.3c: the caster receives priority again.
@@ -2692,6 +2773,24 @@ public sealed class Game
             if (!target.IsPlaneswalker)
                 continue;
 
+            // CR 508.1b: what the slot names may be a battle. It is attacked through its
+            // protector, not its controller (CR 310.9b) — which is what lets a Siege's own
+            // controller attack it: the protector is an opponent, so the defending player check
+            // above already passed for exactly the player the rule wants.
+            if (State.TryGetObject(target.Planeswalker, out var siege)
+                && siege.Card.CardTypes.HasFlag(CardType.Battle)
+                && siege.Zone == Zone.Battlefield)
+            {
+                if (siege.Permanent?.ProtectorId != target.DefendingPlayer)
+                {
+                    throw new InvalidOperationException(
+                        "A battle can only be attacked through the player who protects it "
+                            + "(CR 310.9b).");
+                }
+
+                continue;
+            }
+
             // CR 508.1b: a planeswalker may be attacked, and only one the defending player
             // controls — attacking your own is not a thing, and neither is attacking one that
             // belongs to a third player you are not attacking.
@@ -3048,6 +3147,13 @@ public sealed class Game
 
             case ChoiceKind.Devour:
                 ResolveDevour(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.ChooseProtector:
+                ResolveProtector(choice, picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -4756,6 +4862,113 @@ public sealed class Game
     private readonly HashSet<ObjectId> _devourAsked = [];
 
     private (ObjectId Id, int Each)? _devourBeingAsked;
+
+    /// <summary>
+    /// Battles whose protector has to be designated, answered or asked (CR 310.9a, 704.5x).
+    /// </summary>
+    /// <remarks>
+    /// One sweep serves both moments the rules name — the choice as the battle enters
+    /// (CR 310.9a) and the re-choice when its protector stops being eligible (CR 704.5x,
+    /// 704.5y) — because they are the same question with the same candidates. It runs in the
+    /// settle loop before the state-based actions, which is where every owed choice runs, so a
+    /// battle reaching the actions with no protector is one with nobody left to choose.
+    /// <para>
+    /// With exactly one eligible player the choice is forced and made rather than offered —
+    /// every Siege at a two-player table (CR 310.12a) — so a duel never stops to ask a question
+    /// with one answer. A battle currently being attacked keeps its state as it is (CR 704.5x
+    /// defers even the re-choice); one that has never had a protector cannot be under attack, so
+    /// the entry choice is never deferred by this.
+    /// </para>
+    /// </remarks>
+    /// <returns>True when a protector was designated without asking; the settle goes round.</returns>
+    private bool ChooseForcedProtectors()
+    {
+        foreach (var (id, obj) in ProtectorsOwed())
+        {
+            var eligible = StateBasedActions.EligibleProtectors(State, _abilities, obj).ToList();
+
+            if (eligible.Count == 1)
+            {
+                Emit(new ProtectorChosen(id, eligible[0]));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Asks the controller which player protects their battle (CR 310.9a).</summary>
+    /// <returns>True when a question was asked and the settle has to stop.</returns>
+    private bool AskOwedProtector()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        foreach (var (id, obj) in ProtectorsOwed())
+        {
+            var eligible = StateBasedActions.EligibleProtectors(State, _abilities, obj).ToList();
+            if (eligible.Count < 2)
+                continue;
+
+            Ask(new PendingChoice
+            {
+                Id = "protector:" + id.Value.ToString("N"),
+                PlayerId = ControllerOf(obj),
+                Kind = ChoiceKind.ChooseProtector,
+                Prompt = $"Choose a player to protect {obj.Card.Name} (CR 310.9a).",
+                Options = [.. eligible.Select(player => new ChoiceOption(
+                    player.ToString("N"), State.GetPlayer(player).Name))],
+                MinPicks = 1,
+                MaxPicks = 1,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The battles on the battlefield with no eligible protector designated.</summary>
+    private IEnumerable<(ObjectId Id, GameObject Battle)> ProtectorsOwed()
+    {
+        foreach (var id in State.Battlefield)
+        {
+            var obj = State.GetObject(id);
+            if (!obj.Card.CardTypes.HasFlag(CardType.Battle) || obj.Permanent is null)
+                continue;
+
+            // CR 704.5x: while creatures are attacking the battle, its protector is not
+            // re-chosen. A battle that has never had one cannot be under attack.
+            if (State.Combat.Attackers.Values.Any(at => at.Planeswalker == id))
+                continue;
+
+            var standing = obj.Permanent.ProtectorId;
+            var fine = standing is { } chosen
+                && !State.GetPlayer(chosen).HasLost
+                && StateBasedActions.EligibleProtectors(State, _abilities, obj).Contains(chosen);
+
+            if (!fine)
+                yield return (id, obj);
+        }
+    }
+
+    /// <summary>Records the protector the controller picked (CR 310.9a).</summary>
+    private void ResolveProtector(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        if (picks.Count == 0)
+            return;
+
+        var battleId = new ObjectId(Guid.ParseExact(
+            choice.Id["protector:".Length..], "N"));
+
+        if (!State.TryGetObject(battleId, out var battle)
+            || battle.Zone != Zone.Battlefield)
+        {
+            return;
+        }
+
+        Emit(new ProtectorChosen(battleId, Guid.ParseExact(picks[0], "N")));
+    }
 
     /// <summary>Eats what was chosen and puts the counters on (CR 702.81a).</summary>
     private void ResolveDevour(IReadOnlyList<string> picks)
@@ -6550,6 +6763,12 @@ public sealed class Game
         if (top.Count == 0)
             return false;
 
+        // "Reveal the top ten cards of your library" - the same look with the cards face up, so
+        // the log and every opponent see which cards the choice was made from. The flag clears
+        // itself: each revealed card becomes a new object when it moves on (CR 400.7).
+        if (owed.Reveal)
+            Emit(new CardsRevealed(owed.PlayerId, [.. top]));
+
         // "You may reveal a creature card from among them" - the same look, with only some of
         // what was seen worth offering. The filter vocabulary is the one searching already uses,
         // rather than a second one that would drift away from it.
@@ -6564,7 +6783,10 @@ public sealed class Game
             Id = $"take:{owed.PlayerId:N}",
             PlayerId = owed.PlayerId,
             Kind = ChoiceKind.LookAndTake,
-            Prompt = $"Choose one to put into your {owed.Destination}; the rest go on the bottom.",
+            Prompt = owed.ShuffleAfter
+                ? $"Choose one to put into your {owed.Destination}; "
+                    + "the rest are shuffled into your library."
+                : $"Choose one to put into your {owed.Destination}; the rest go on the bottom.",
             Options = [.. takeable.Select(id => new ChoiceOption(
                 id.Value.ToString("N"), State.GetObject(id).Card.Name))],
             // Taking nothing is legal, and is the right answer when none of them is worth having.
@@ -6598,7 +6820,34 @@ public sealed class Game
         }
 
         if (taken != default && top.Contains(taken))
-            Move(taken, owed.Destination, MoveCause.Other, owed.PlayerId);
+        {
+            var landed = Move(taken, owed.Destination, MoveCause.Other, owed.PlayerId);
+
+            // "With three +1/+1 counters on it. It gains hexproof until your next turn." — the
+            // dressing on the taking, done here because only the move knows the id the card
+            // lands under (CR 400.7). Battlefield only: counters live on permanents, and the
+            // reducer refuses one anywhere else.
+            if (owed.Destination == Zone.Battlefield)
+            {
+                if (owed.CountersOnTaken > 0)
+                {
+                    Emit(new CountersChanged(
+                        landed, CounterKinds.PlusOnePlusOne, owed.CountersOnTaken));
+                }
+
+                if (owed.TakenGrantId is { } granted)
+                {
+                    Emit(new ContinuousEffectCreated(
+                        Guid.NewGuid(),
+                        granted,
+                        [landed],
+                        owed.GrantUntilTakersNextTurn ? null : State.TurnNumber)
+                    {
+                        UntilTurnOf = owed.GrantUntilTakersNextTurn ? owed.PlayerId : null,
+                    });
+                }
+            }
+        }
 
         var rest = top.Where(id => id != taken).ToList();
 
@@ -6608,6 +6857,18 @@ public sealed class Game
             foreach (var id in rest)
                 Move(id, owed.RestTo, MoveCause.Other, owed.PlayerId);
 
+            return;
+        }
+
+        // "Then shuffle" - the rest go back and the whole library is shuffled, which is a
+        // different instruction from burying them on the bottom: a card that was near the top
+        // before the reveal can be anywhere afterwards.
+        if (owed.ShuffleAfter)
+        {
+            foreach (var id in rest)
+                Move(id, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Bottom);
+
+            Shuffle(owed.PlayerId, _random);
             return;
         }
 
@@ -6835,6 +7096,45 @@ public sealed class Game
             return;
 
         Emit(new MonarchChanged(dealing.ControllerId));
+    }
+
+    /// <summary>
+    /// The second of the initiative's three inherent abilities (CR 726.2).
+    /// </summary>
+    /// <remarks>
+    /// "Whenever one or more creatures a player controls deal combat damage to the player who
+    /// has the initiative, the controller of those creatures takes the initiative" — the
+    /// monarch's hook a rule over, in the same place for the same reason: this is where every
+    /// <see cref="PlayerDamaged"/> passes, including the ones combat builds itself.
+    /// <para>
+    /// "One or more creatures" is one trigger for the whole batch, and the guard is what batches
+    /// it: the first creature's damage moves the initiative to its controller, after which the
+    /// holder is no longer the player being damaged and the remaining creatures' damage falls
+    /// through the second check. One taking, one venture — which is what the rule's wording is
+    /// for. The taking itself triggers the third inherent ability, so the taker ventures into
+    /// Undercity here too, with the same stated simplification every sourceless trigger in this
+    /// engine makes: it happens directly, and the window is what is lost.
+    /// </para>
+    /// </remarks>
+    private void TakeTheInitiativeFromCombat(PlayerDamaged damaged)
+    {
+        if (!damaged.IsCombat
+            || State.InitiativeId != damaged.PlayerId
+            || !State.TryGetObject(damaged.SourceId, out var dealer))
+        {
+            return;
+        }
+
+        // Both questions are about the permanent as it is now (CR 613.1b for control, layer 4
+        // for the type), exactly as the crown's hook asks them.
+        var dealing = Characteristics.Of(State, _abilities, dealer);
+        if (!dealing.IsCreature || dealing.ControllerId == damaged.PlayerId)
+            return;
+
+        Emit(new InitiativeTaken(dealing.ControllerId));
+
+        foreach (var e in Dungeons.VentureEvents(State, dealing.ControllerId, Dungeons.Undercity))
+            Emit(e);
     }
 
     /// <summary>
@@ -7548,6 +7848,18 @@ public sealed class Game
                 return true;
 
             if (AskOwedAmplify())
+                return true;
+
+            // CR 310.9a: a battle's protector is designated by its controller. A forced
+            // designation is an event rather than a question, so the sweep goes round again;
+            // a real one stops the settle the way every question does.
+            if (ChooseForcedProtectors())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            if (AskOwedProtector())
                 return true;
 
             if (AskOwedReadAhead())
@@ -9048,6 +9360,23 @@ public sealed class Game
                 // CR 702.62a: the countdown runs at the beginning of the active player's upkeep,
                 // before anyone receives priority.
                 TickSuspendedCards(State.ActivePlayerId);
+
+                // CR 726.2, the first of the initiative's three inherent abilities: "at the
+                // beginning of the upkeep of the player who has the initiative, that player
+                // ventures into Undercity." The same stated simplification the monarch's end
+                // step draw makes: the rules give this trigger no source, this engine keys
+                // pending triggers to a permanent, so the venture happens directly. The room the
+                // marker enters is a real triggered ability on the dungeon card and uses the
+                // stack as normal — only the venture itself skips it.
+                if (State.InitiativeId == State.ActivePlayerId)
+                {
+                    foreach (var owed in Dungeons.VentureEvents(
+                        State, State.ActivePlayerId, Dungeons.Undercity))
+                    {
+                        Emit(owed);
+                    }
+                }
+
                 break;
 
             case TurnStep.Cleanup:
@@ -10211,9 +10540,19 @@ public sealed class Game
     /// <summary>
     /// The spell a stack object actually is - its Adventure, if it was cast as one (CR 715.3b).
     /// </summary>
+    /// <remarks>
+    /// The table answers first; the two facts after it are the same answer read from the state,
+    /// so a game resumed with a cleaved or promised spell still on the stack resolves the
+    /// reading that was paid for. The adventure and split-card choices have no such fact yet,
+    /// which is a recorded gap and not a licence to guess here.
+    /// </remarks>
     private SpellDefinition? SpellBeingCast(GameObject spell) =>
         _castAs.TryGetValue(spell.Id, out var chosen)
             ? chosen.Spell
+            : spell.WasCleaved && _abilities.CleaveSpellOf(spell.Card) is { } cloven
+            ? cloven
+            : spell.GiftedTo is not null && _abilities.GiftSpellOf(spell.Card) is { } promised
+            ? promised
             : _abilities.SpellOf(spell.Card);
 
     /// <summary>
@@ -10758,6 +11097,7 @@ public sealed class Game
             TrackCommanderDamage(damaged);
             GainForLifelink(damaged.SourceId, damaged.Amount);
             StealTheCrown(damaged);
+            TakeTheInitiativeFromCombat(damaged);
             OfferCipheredCopies(damaged);
             NoteFreerunning(damaged);
         }

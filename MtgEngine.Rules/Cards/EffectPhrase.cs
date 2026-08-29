@@ -3916,10 +3916,14 @@ public static partial class EffectPhrase
 
         // "Venture into the dungeon" (CR 701.49). One sentence for the whole keyword action,
         // which is what the cards print: 46 of them say it and none says what a dungeon is,
-        // because the dungeon is a rules object and its rooms live in Dungeons.cs.
-        if (VentureLine().IsMatch(sentence))
+        // because the dungeon is a rules object and its rooms live in Dungeons.cs. "Venture
+        // into Undercity" is CR 701.49d's named variant and compiles to the same effect
+        // carrying the name - the two arms stay one alternation so no looser pattern can ever
+        // send a named venture into the wrong dungeon.
+        if (VentureLine().Match(sentence) is { Success: true } ventured)
         {
-            effects.Add(new VentureIntoTheDungeon());
+            effects.Add(new VentureIntoTheDungeon(
+                ventured.Groups["named"].Success ? Dungeons.Undercity : null));
             return true;
         }
 
@@ -3929,6 +3933,16 @@ public static partial class EffectPhrase
         if (BecomeMonarchLine().IsMatch(sentence))
         {
             effects.Add(new BecomeTheMonarch());
+            return true;
+        }
+
+        // "You take the initiative" (CR 726.1). The monarch's twin a rule over, and the same
+        // steep distribution: nineteen cards say exactly this after an enters trigger and
+        // nothing else about the initiative. The venturing it causes is inside the effect,
+        // because taking the initiative is venturing into Undercity (CR 726.2).
+        if (TakeInitiativeLine().IsMatch(sentence))
+        {
+            effects.Add(new TakeTheInitiative());
             return true;
         }
 
@@ -9564,13 +9578,19 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^you become the monarch$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomeMonarchLine();
 
-    /// <summary>"Venture into the dungeon" (CR 701.49).</summary>
+    /// <summary>"You take the initiative" (CR 726.1).</summary>
+    [GeneratedRegex(@"^you take the initiative$", RegexOptions.IgnoreCase)]
+    private static partial Regex TakeInitiativeLine();
+
+    /// <summary>"Venture into the dungeon" (CR 701.49), or into Undercity (CR 701.49d).</summary>
     /// <remarks>
-    /// Anchored at both ends deliberately. "Venture into Undercity" is a different instruction
-    /// (CR 701.49d) that names a dungeon this engine does not ship, and a pattern loose enough to
-    /// admit it would send those cards into the wrong dungeon while looking implemented.
+    /// Anchored at both ends, and the named arm names Undercity <em>exactly</em> — the two
+    /// instructions start the venturing player in different dungeons with different rooms, so a
+    /// pattern loose enough to admit any name after "into" would send a card into the wrong one
+    /// while looking implemented. A named dungeon the engine does not ship stays unread.
     /// </remarks>
-    [GeneratedRegex(@"^venture into the dungeon$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"^venture into (the dungeon|(?<named>Undercity))$", RegexOptions.IgnoreCase)]
     private static partial Regex VentureLine();
 
     /// <summary>"Creature cards in your graveyard" - counting a zone rather than the board.</summary>
