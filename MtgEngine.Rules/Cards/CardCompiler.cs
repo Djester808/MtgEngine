@@ -3627,12 +3627,18 @@ public static partial class CardCompiler
         {
             Id = $"vanishing-counters:{many}",
             FunctionsFrom = null,
-            Applies = (e, _, source) =>
-                e is Events.ObjectMoved { To: Zone.Battlefield } moved && moved.OldId == source.Id,
-            Replace = (e, _, _) =>
+
+            // Through the shared reader, like every other entry replacement here. Matching the
+            // move alone accepts a card that arrived from another zone and refuses a permanent
+            // created on the battlefield (CR 111.1) - so this was correct in a real game and
+            // silently did nothing whenever a board was set up with `Game.Create`, which is the
+            // path the behaviour suite and the corpus soak both take. Nothing failed: the
+            // permanent simply arrived with no counters and then never left.
+            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Replace = (e, _, source) =>
             {
-                var move = (Events.ObjectMoved)e;
-                return [move, new Events.CountersChanged(move.NewId, CounterKinds.Time, many)];
+                var arrived = Arriving(e, source)!.Value;
+                return [e, new Events.CountersChanged(arrived, CounterKinds.Time, many)];
             },
         });
 

@@ -23309,9 +23309,13 @@ public sealed class CompiledCardBehaviourTests
 
         var (game, alice, _) = InMainPhase();
 
-        // Cast rather than created: entering with counters is a replacement on the move from the
-        // stack (CR 614.1c), and a permanent put straight onto the battlefield never made that
-        // move for it to replace.
+        // Cast, because that is the ordinary way one of these reaches the battlefield. It is not
+        // the only way it works, and the comment that used to stand here said it was - that
+        // "a permanent put straight onto the battlefield never made the move for the replacement
+        // to replace". That is not a rule: a permanent arrives either by moving or by being
+        // created (CR 111.1, 400.7), the compiler reads both through one helper, and the reason
+        // this test could not have been written the other way was a defect rather than CR 614.1c.
+        // Vanishing_arrives_on_its_clock_however_the_permanent_got_here takes the other path.
         var card = TestCards.PutInHand(game, alice, ghost);
         game.CastSpell(alice, card, targets: null);
         Settle(game);
@@ -23353,6 +23357,42 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         Assert.Equal(3, game.State.GetObject(creature).Permanent!.Counters[CounterKinds.Time]);
+    }
+
+    /// <summary>A vanishing permanent put straight onto the battlefield still arrives on a clock.</summary>
+    /// <remarks>
+    /// CR 614.1c is about a permanent <em>entering</em>, and a permanent arrives two ways the card
+    /// cannot tell apart: a card moves there and becomes a new object (CR 400.7), or a token is
+    /// created there and was never anywhere else (CR 111.1). <c>Arriving</c> exists to read both,
+    /// and every entry replacement in the compiler goes through it — except this one, which
+    /// matched the move alone.
+    /// <para>
+    /// So vanishing was right in a real game and silently did nothing whenever a permanent was
+    /// placed by <c>Game.Create</c>, which is how the behaviour suite and the corpus soak set up a
+    /// board. Nothing failed: the permanent simply arrived with no counters and never left. This
+    /// is the path that was blind, which is why the test takes it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Vanishing_arrives_on_its_clock_however_the_permanent_got_here()
+    {
+        var statue = Card("Vanishing Statue Test", "Vanishing 3", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(statue);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, statue, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(creature).Permanent!.Counters[CounterKinds.Time]);
+
+        // And the clock it arrived on is a real one: the next upkeep of its controller's takes
+        // one off, which is the half that would look identical if it had entered with none.
+        PassTo(game, 3, TurnStep.Upkeep);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(creature).Permanent!.Counters[CounterKinds.Time]);
     }
 
     // ---- Squad (CR 702.157) --------------------------------------------------
