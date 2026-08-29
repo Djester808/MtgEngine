@@ -266,12 +266,20 @@ public static partial class GenerativeEffects
 
         // "Gets +1/+1 until end of turn for each creature you control" — a pump whose size is
         // not known until it applies. The group phrase rides in the id because the id is all a
-        // generated definition gets, and it is parsed back through the same target grammar the
-        // sweepers use, so any group that grammar reads works here.
+        // generated definition gets, and it is read back through the compiler's own counting
+        // vocabulary, so every phrase that vocabulary knows — a board group, a player count, a
+        // pile, a party — works here without this knowing how any of them are counted.
+        //
+        // Asked without a source, and that is the honest answer rather than a convenience: a
+        // floating effect made by a spell is handed a null source when characteristics are
+        // computed (see Characteristics.CandidatesFor), so a phrase reading "it" has nothing
+        // to read. Those are refused at compile time by the same call, which is what keeps the
+        // two ends in step: a sentence this cannot count is a sentence the compiler leaves
+        // unread, rather than one that compiles and then quietly pumps by zero.
         var perEach = PerEachPumpName().Match(definitionId);
         if (perEach.Success
-            && EffectPhrase.Specs.ParseGroup(perEach.Groups["group"].Value) is
-            { Kind: Abilities.TargetKind.Permanent } counted)
+            && EffectPhrase.Counting(perEach.Groups["group"].Value, hasSource: false) is
+            { } counted)
         {
             var perPower = int.Parse(
                 perEach.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
@@ -285,12 +293,8 @@ public static partial class GenerativeEffects
                 Applies = (_, _, _) => true,
                 Apply = (state, _, builder) =>
                 {
-                    var many = state.Battlefield.Count(
-                        id => counted.ObjectFilter?.Invoke(
-                            state,
-                            EmptyAbilities.Instance,
-                            state.GetObject(id),
-                            builder.ControllerId) != false);
+                    var many = counted(
+                        state, EmptyAbilities.Instance, builder.ControllerId, default);
 
                     builder.Modify(perPower * many, perToughness * many);
                 },

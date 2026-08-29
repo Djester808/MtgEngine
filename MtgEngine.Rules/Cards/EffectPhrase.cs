@@ -1768,8 +1768,7 @@ public static partial class EffectPhrase
         var perPump = PerEachPumpLine().Match(sentence);
         if (perPump.Success
             && Specs.Parse(perPump.Groups["t"].Value.Trim()) is { } perPumped
-            && Specs.ParseGroup(perPump.Groups["group"].Value.Trim()) is
-            { Kind: TargetKind.Permanent })
+            && Counting(perPump.Groups["group"].Value.Trim(), hasSource: false) is not null)
         {
             targets.Add(perPumped);
             effects.Add(new PumpUntilEndOfTurn(
@@ -3031,6 +3030,21 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "You get an experience counter" (CR 122.1) - energy's twin, and the effect for it
+        // has been in the engine since before anything printed the sentence. Sixteen
+        // commanders hand these out and every one of them is the reason the count beside it
+        // in the counting vocabulary has anything to multiply by: without this line no
+        // compiled card could ever give a player one.
+        var experience = GetExperienceLine().Match(sentence);
+        if (experience.Success)
+        {
+            effects.Add(new GainExperience(
+                Number(experience.Groups["n"].Value),
+                ScopeOf(experience.Groups["who"].Value)));
+
+            return true;
+        }
+
         if (ProliferateLine().IsMatch(sentence))
         {
             effects.Add(new Proliferate());
@@ -3632,8 +3646,7 @@ public static partial class EffectPhrase
         // counted when the layer applies, so a Goblin that dies in response makes it smaller.
         m = ItPumpsPerEach().Match(sentence);
         if (m.Success
-            && Specs.ParseGroup(m.Groups["group"].Value.Trim()) is
-            { Kind: TargetKind.Permanent })
+            && Counting(m.Groups["group"].Value.Trim(), hasSource: false) is not null)
         {
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.PerEachPumpId(
@@ -5003,8 +5016,44 @@ public static partial class EffectPhrase
             ? Domain.Enums.CardType.Artifact | Domain.Enums.CardType.Creature
             : Domain.Enums.CardType.Creature;
 
-    private static Amount? CountingAmount(Amount each, string groupPhrase)
+    /// <summary>
+    /// How many a counted phrase comes to, whatever it is counting (CR 107.3).
+    /// </summary>
+    /// <param name="you">Who the phrase means by "you" - the controller of what is counting.</param>
+    /// <param name="source">
+    /// The permanent a phrase saying "it" points at. Only meaningful when the caller had one to
+    /// give; see the <c>hasSource</c> argument of <see cref="Counting"/>.
+    /// </param>
+    internal delegate int CountFn(
+        GameState state, IAbilitySource abilities, Guid you, ObjectId source);
+
+    private static Amount? CountingAmount(Amount each, string groupPhrase) =>
+        Counting(groupPhrase, hasSource: true) is not { } count
+            ? null
+            : each with
+            {
+                Counter = context => count(
+                    context.State,
+                    context.Abilities,
+                    context.ControllerId,
+                    context.PhysicalSourceId),
+            };
+
+    /// <summary>
+    /// Reads a counted group phrase, or null when it names something this cannot count.
+    /// </summary>
+    /// <param name="hasSource">
+    /// Whether the caller can say which permanent the phrase means by "it". A resolution always
+    /// can; a generated continuous effect cannot, because a floating effect made by a spell is
+    /// handed a <c>null</c> source when characteristics are computed. The phrases that read the
+    /// source are refused outright when it is false rather than answered with zero - a count
+    /// that quietly comes out as nought is the failure this whole vocabulary exists to avoid,
+    /// and it compiles as a complete card while doing nothing.
+    /// </param>
+    internal static CountFn? Counting(string groupPhrase, bool hasSource)
     {
+        ArgumentNullException.ThrowIfNull(groupPhrase);
+
         var phrase = groupPhrase.Trim();
 
         // "For each creature on the battlefield" is "for each creature". The count at the bottom
@@ -5045,21 +5094,61 @@ public static partial class EffectPhrase
         if (people.Equals("opponent", StringComparison.OrdinalIgnoreCase)
             || people.Equals("opponents", StringComparison.OrdinalIgnoreCase))
         {
-            return each with
-            {
-                Counter = context => context.State.TurnOrder.Count(
-                    id => id != context.ControllerId && !context.State.GetPlayer(id).HasLost),
-            };
+            return (state, _, you, _) => state.TurnOrder.Count(
+                id => id != you && !state.GetPlayer(id).HasLost);
         }
 
         if (people.Equals("player", StringComparison.OrdinalIgnoreCase)
             || people.Equals("players", StringComparison.OrdinalIgnoreCase))
         {
-            return each with
-            {
-                Counter = context => context.State.TurnOrder.Count(
-                    id => !context.State.GetPlayer(id).HasLost),
-            };
+            return (state, _, _, _) => state.TurnOrder.Count(
+                id => !state.GetPlayer(id).HasLost);
+        }
+
+        // "For each experience counter you have" - a counter on the player rather than on a
+        // permanent (CR 122.1), which is why it is answered here and not by the counter phrase
+        // below: that one looks for "counters on" something, and this one has nothing to be on.
+        // The "you have" has already come off with the possessive tail above.
+        if (ExperienceCountersLine().IsMatch(people))
+            return (state, _, you, _) => state.GetPlayer(you).ExperienceCounters;
+
+        // "For each card you've drawn this turn" (CR 121.1). The player already keeps the tally,
+        // because a draw is an event and the fold counts them; nothing here has to remember which
+        // cards they were, and a card that has since been discarded still counts.
+        if (CardsDrawnThisTurnLine().IsMatch(people))
+            return (state, _, you, _) => state.GetPlayer(you).CardsDrawnThisTurn;
+
+        // "For each creature that died this turn" (CR 700.4) - battlefield to graveyard and
+        // nothing else, so a creature exiled or bounced this turn is not counted. Game-wide and
+        // not "yours": no corpus card asking this names a player, and narrowing it to one would
+        // answer a smaller number than the card says.
+        var died = CreaturesDiedThisTurnLine().Match(people);
+        if (died.Success)
+        {
+            // "Nontoken" is printed on its own cards, and a token dying would otherwise inflate
+            // every one of them.
+            var nontokenOnly = died.Groups["nontoken"].Success;
+
+            return (state, _, _, _) => state.CreaturesDiedThisTurn(nontokenOnly);
+        }
+
+        // "For each creature in your party" (CR 700.8) - not a count of creatures at all: a party
+        // is at most one Cleric, one Rogue, one Warrior and one Wizard, so eight Clerics are a
+        // party of one. Answered here rather than through the noun grammar, which counts what it
+        // matches and would say eight.
+        if (PartyCountLine().IsMatch(people))
+            return PartySize;
+
+        // "For each creature attacking you" - attacking the player, and not a planeswalker they
+        // control. Only a player, a planeswalker or a battle can be attacked (CR 506.3), and they
+        // are three different things to attack: a creature aimed at your planeswalker is not
+        // attacking you, even though the defending player is you either way.
+        if (CreaturesAttackingYouLine().IsMatch(people))
+        {
+            return (state, _, you, _) => state.Battlefield.Count(
+                id => state.Combat.Attackers.TryGetValue(id, out var at)
+                    && at.DefendingPlayer == you
+                    && !at.IsPlaneswalker);
         }
 
         // "For each +1/+1 counter on ~", "for each charge counter on it" - counting what is on
@@ -5070,27 +5159,27 @@ public static partial class EffectPhrase
         var counters = CountersOnLine().Match(people);
         if (counters.Success)
         {
+            if (!hasSource)
+                return null;
+
             var kind = counters.Groups["kind"].Value.Trim();
 
-            return each with
+            return (state, _, _, source) =>
             {
-                Counter = context =>
+                if (!state.TryGetObject(source, out var bearing)
+                    || bearing.Permanent is not { } onIt)
                 {
-                    if (!context.State.TryGetObject(context.PhysicalSourceId, out var bearing)
-                        || bearing.Permanent is not { } onIt)
-                    {
-                        return 0;
-                    }
+                    return 0;
+                }
 
-                    // "The number of counters on it" names no kind and means all of them
-                    // (CR 122.1) - one number over every kind the permanent has, which is why it
-                    // sums rather than looking one up. A card asking this is usually a proliferate
-                    // or a charge payoff, where the counters really are of several kinds.
-                    if (kind.Length == 0)
-                        return onIt.Counters.Values.Sum();
+                // "The number of counters on it" names no kind and means all of them
+                // (CR 122.1) - one number over every kind the permanent has, which is why it
+                // sums rather than looking one up. A card asking this is usually a proliferate
+                // or a charge payoff, where the counters really are of several kinds.
+                if (kind.Length == 0)
+                    return onIt.Counters.Values.Sum();
 
-                    return onIt.Counters.TryGetValue(kind, out var many) ? many : 0;
-                },
+                return onIt.Counters.TryGetValue(kind, out var many) ? many : 0;
             };
         }
 
@@ -5105,91 +5194,119 @@ public static partial class EffectPhrase
         var attached = AttachedToSourceLine().Match(people);
         if (attached.Success)
         {
+            if (!hasSource)
+                return null;
+
             var kinds = AndOrSplit()
                 .Split(attached.Groups["kinds"].Value)
                 .Select(word => SingularWord(word.Trim()))
                 .Where(word => word.Length > 0)
                 .ToArray();
 
-            return each with
+            return (state, abilities, _, source) => state.Battlefield.Count(id =>
             {
-                Counter = context => context.State.Battlefield.Count(id =>
-                {
-                    var onIt = context.State.GetObject(id);
+                var onIt = state.GetObject(id);
 
-                    if (onIt.Permanent?.AttachedTo != context.PhysicalSourceId)
-                        return false;
+                if (onIt.Permanent?.AttachedTo != source)
+                    return false;
 
-                    // Computed subtypes, not printed: an Equipment that has been made an Aura, or
-                    // a permanent given a subtype by a layer, is what it is now (CR 613.1d).
-                    var now = Characteristics.Of(context.State, context.Abilities, onIt);
+                // Computed subtypes, not printed: an Equipment that has been made an Aura, or
+                // a permanent given a subtype by a layer, is what it is now (CR 613.1d).
+                var now = Characteristics.Of(state, abilities, onIt);
 
-                    return Array.Exists(
-                        kinds, kind => now.Subtypes.Contains(kind, StringComparer.OrdinalIgnoreCase));
-                }),
-            };
+                return Array.Exists(
+                    kinds, kind => now.Subtypes.Contains(kind, StringComparer.OrdinalIgnoreCase));
+            });
         }
 
-        // Domain (CR 702.x reminder: "count the number of basic land types among lands you
-        // control"). It counts *types*, not lands: five Forests are one, and a single Stomping
-        // Ground is two. That is why it cannot be written as a permanent group like everything
-        // else here - the group grammar counts permanents, and this counts something about them.
+        // Domain. It counts *types*, not lands: the basic land types are the five at CR 305.6,
+        // so five Forests are one and a single Stomping Ground is two. That is why it cannot be
+        // written as a permanent group like everything else here - the group grammar counts
+        // permanents, and this counts something about them.
+        //
+        // No rule of its own to cite: domain is an ability word, and those have no rules meaning
+        // (CR 207.2c). What the phrase means is CR 305.6 and nothing else.
         //
         // Read off the computed characteristics rather than the printed card, because a land that
         // has been given a basic land type counts for it (CR 305.7), which is exactly what the
         // dual-land cycles these appear beside are for.
         if (DomainPhrase().IsMatch(people))
         {
-            return each with
-            {
-                Counter = context => BasicLandTypes.Count(
-                    type => context.State.Battlefield.Any(id =>
-                    {
-                        var land = context.State.GetObject(id);
-                        var now = Characteristics.Of(context.State, context.Abilities, land);
+            return (state, abilities, you, _) => BasicLandTypes.Count(
+                type => state.Battlefield.Any(id =>
+                {
+                    var land = state.GetObject(id);
+                    var now = Characteristics.Of(state, abilities, land);
 
-                        return now.ControllerId == context.ControllerId
-                            && now.Subtypes.Contains(type, StringComparer.OrdinalIgnoreCase);
-                    })),
-            };
+                    return now.ControllerId == you
+                        && now.Subtypes.Contains(type, StringComparer.OrdinalIgnoreCase);
+                }));
         }
 
         // "The number of colors among permanents you control" - like domain above, this counts
         // something *about* the permanents rather than the permanents themselves, so the group
         // grammar cannot express it. Colour is read from the computed characteristics, because a
         // permanent that has been made another colour counts as that colour (CR 105.2, 613.1e).
+        //
+        // The noun is singular as often as it is plural - "for each color among permanents you
+        // control" against "where X is the number of colors among permanents you control" - and
+        // the two say the same thing, so the pattern takes the s or leaves it.
         if (ColorsAmongLine().Match(people) is { Success: true } hues
             && Specs.ParseGroup("each " + hues.Groups["group"].Value.Trim()) is
             { Kind: TargetKind.Permanent } among)
         {
-            return each with
+            return (state, abilities, you, _) =>
             {
-                Counter = context =>
+                var seen = new HashSet<ManaColor>();
+
+                foreach (var id in state.Battlefield)
                 {
-                    var seen = new HashSet<ManaColor>();
+                    var permanent = state.GetObject(id);
 
-                    foreach (var id in context.State.Battlefield)
+                    if (among.ObjectFilter?.Invoke(state, abilities, permanent, you) == false)
+                        continue;
+
+                    foreach (var colour in Characteristics
+                        .Of(state, abilities, permanent).Colors)
                     {
-                        var permanent = context.State.GetObject(id);
-
-                        if (among.ObjectFilter?.Invoke(
-                                context.State,
-                                context.Abilities,
-                                permanent,
-                                context.ControllerId) == false)
-                        {
-                            continue;
-                        }
-
-                        foreach (var colour in Characteristics
-                            .Of(context.State, context.Abilities, permanent).Colors)
-                        {
-                            seen.Add(colour);
-                        }
+                        seen.Add(colour);
                     }
+                }
 
-                    return seen.Count;
-                },
+                return seen.Count;
+            };
+        }
+
+        // "The number of differently named lands you control" - how many *names* there are, not
+        // how many permanents, which is the same shape as domain and colours above. The tail is
+        // an ordinary group phrase, so the words in front are lifted off and everything the group
+        // grammar reads works behind them.
+        if (DifferentlyNamedLine().Match(people) is { Success: true } distinct
+            && Specs.ParseGroup("each " + distinct.Groups["group"].Value.Trim()) is
+            { Kind: TargetKind.Permanent } byName)
+        {
+            return (state, abilities, you, _) =>
+            {
+                var names = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var id in state.Battlefield)
+                {
+                    var permanent = state.GetObject(id);
+
+                    // A face-down permanent has no name at all (CR 708.2), so it is not one more
+                    // name - and reading the card underneath would count a name no player can
+                    // see. Two face-down permanents are not "differently named"; they are two
+                    // things with no name.
+                    if (permanent.Permanent?.IsFaceDown == true)
+                        continue;
+
+                    if (byName.ObjectFilter?.Invoke(state, abilities, permanent, you) == false)
+                        continue;
+
+                    names.Add(permanent.Card.Name);
+                }
+
+                return names.Count;
             };
         }
 
@@ -5236,41 +5353,98 @@ public static partial class EffectPhrase
 
             var named = pile.Groups["zone"].Value.ToLowerInvariant();
 
-            return each with
-            {
-                Counter = context => context.State.TurnOrder
-                    .Where(who => !mine || who == context.ControllerId)
-                    .Sum(who =>
+            return (state, _, you, _) => state.TurnOrder
+                .Where(who => !mine || who == you)
+                .Sum(who =>
+                {
+                    var player = state.GetPlayer(who);
+
+                    var zone = named switch
                     {
-                        var player = context.State.GetPlayer(who);
+                        "hand" => player.Hand,
+                        "library" => player.Library,
+                        _ => player.Graveyard,
+                    };
 
-                        var zone = named switch
-                        {
-                            "hand" => player.Hand,
-                            "library" => player.Library,
-                            _ => player.Graveyard,
-                        };
-
-                        return zone.Count(id =>
-                            context.State.TryGetObject(id, out var card)
-                            && types.Exists(set => set.All(
-                                type => card.Card.CardTypes.HasFlag(type))));
-                    }),
-            };
+                    return zone.Count(id =>
+                        state.TryGetObject(id, out var card)
+                        && types.Exists(set => set.All(
+                            type => card.Card.CardTypes.HasFlag(type))));
+                });
         }
 
         if (Specs.ParseGroup(phrase) is not { Kind: TargetKind.Permanent } counted)
             return null;
 
-        return each with
+        return (state, abilities, you, _) => state.Battlefield.Count(
+            id => counted.ObjectFilter?.Invoke(
+                state, abilities, state.GetObject(id), you) != false);
+    }
+
+    /// <summary>The four creature types a party is made of (CR 700.8).</summary>
+    private static readonly string[] PartyRoles = ["Cleric", "Rogue", "Warrior", "Wizard"];
+
+    /// <summary>
+    /// How many creatures are in a player's party (CR 700.8a).
+    /// </summary>
+    /// <remarks>
+    /// CR 700.8b is the whole of the difficulty: a creature that could fill two of the roles
+    /// fills only one, and the number is taken the way that produces the highest result. So this
+    /// is a matching and not a tally, and a greedy assignment is wrong exactly where it matters -
+    /// a Cleric Rogue beside a plain Rogue is half a party, and a reader that spent the Cleric
+    /// Rogue on the Rogue slot would report one.
+    /// <para>
+    /// Types are computed rather than printed (CR 613.1d, layer 4), because the cards that make a
+    /// creature "a Cleric in addition to its other types" are printed alongside the ones asking
+    /// this question.
+    /// </para>
+    /// </remarks>
+    private static int PartySize(GameState state, IAbilitySource abilities, Guid you, ObjectId _)
+    {
+        var candidates = state.Battlefield
+            .Select(state.GetObject)
+            .Select(obj => Characteristics.Of(state, abilities, obj))
+            .Where(now => now.IsCreature && now.ControllerId == you)
+            .ToList();
+
+        // Which creature each role has been given, as the search reassigns them.
+        var filled = new int[PartyRoles.Length];
+        Array.Fill(filled, -1);
+
+        bool Fill(int role, bool[] tried)
         {
-            Counter = context => context.State.Battlefield.Count(
-                id => counted.ObjectFilter?.Invoke(
-                    context.State,
-                    context.Abilities,
-                    context.State.GetObject(id),
-                    context.ControllerId) != false),
-        };
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (tried[i]
+                    || !candidates[i].Subtypes.Contains(
+                        PartyRoles[role], StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                tried[i] = true;
+
+                // Free, or the role holding it can be re-housed somewhere else - which is the
+                // step that makes this a maximum rather than a first-come assignment.
+                var heldBy = Array.IndexOf(filled, i);
+                if (heldBy < 0 || Fill(heldBy, tried))
+                {
+                    filled[role] = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        var size = 0;
+        for (var role = 0; role < PartyRoles.Length; role++)
+        {
+            if (Fill(role, new bool[candidates.Count]))
+                size++;
+        }
+
+        return size;
     }
 
     /// <summary>
@@ -5286,8 +5460,13 @@ public static partial class EffectPhrase
     private static partial Regex DomainPhrase();
 
     /// <summary>"Colors among permanents you control" - how many colours, not how many things.</summary>
+    /// <remarks>
+    /// Singular or plural, because the two word orders disagree about it and mean the same
+    /// thing: "for each color among permanents you control" is the same count as "the number
+    /// of colors among permanents you control".
+    /// </remarks>
     [GeneratedRegex(
-        @"^colou?rs among (?<group>[A-Za-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
+        @"^colou?rs? among (?<group>[A-Za-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ColorsAmongLine();
 
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
@@ -5315,6 +5494,37 @@ public static partial class EffectPhrase
     /// <summary>The "and" that joins two card types into alternatives, not one type line.</summary>
     [GeneratedRegex(@"\s+and\s+", RegexOptions.IgnoreCase)]
     private static partial Regex AndSplit();
+
+    /// <summary>"Creatures that died this turn" (CR 700.4).</summary>
+    /// <remarks>
+    /// The tense is spelled three ways across the corpus and means one thing, so all three are
+    /// one pattern rather than three entries that could fall out of step.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<nontoken>nontoken )?creatures? that (?:died|have died|has died) this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CreaturesDiedThisTurnLine();
+
+    /// <summary>"Creatures in your party" (CR 700.8).</summary>
+    [GeneratedRegex(@"^creatures? in your party$", RegexOptions.IgnoreCase)]
+    private static partial Regex PartyCountLine();
+
+    /// <summary>"Experience counters" - a counter a player has, not one on a permanent (CR 122.1).</summary>
+    [GeneratedRegex(@"^experience counters?$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExperienceCountersLine();
+
+    /// <summary>"Cards you've drawn this turn" (CR 121.1), with either apostrophe.</summary>
+    [GeneratedRegex(@"^cards? you(?:'|\u2019)ve drawn this turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex CardsDrawnThisTurnLine();
+
+    /// <summary>"Creatures attacking you" - the player, not a planeswalker they control (CR 506.3).</summary>
+    [GeneratedRegex(
+        @"^creatures? (?:that(?:'|\u2019)s |that are )?attacking you$", RegexOptions.IgnoreCase)]
+    private static partial Regex CreaturesAttackingYouLine();
+
+    /// <summary>"Differently named lands you control" - how many names (CR 201.1).</summary>
+    [GeneratedRegex(@"^differently named (?<group>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex DifferentlyNamedLine();
 
 
     /// <summary>
@@ -7914,6 +8124,18 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(?<who>you|each opponent|each player) gets? (?<e>(\{E\})+)$", RegexOptions.IgnoreCase)]
     private static partial Regex GetEnergyLine();
+
+    /// <summary>"You get an experience counter" (CR 122.1).</summary>
+    /// <remarks>
+    /// Every printed line is exactly one, and the number is read rather than assumed for the
+    /// same reason the amount on the effect is an <c>Amount</c>: a card that ever prints two
+    /// then needs nothing new.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you|each opponent|each player) gets? "
+            + @"(?<n>an|one|two|three|\d+) experience counters?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GetExperienceLine();
 
     /// <remarks>
     /// "Otherwise" would be a correct synonym for "if you lose the flip" — CR 705.2 gives a flip

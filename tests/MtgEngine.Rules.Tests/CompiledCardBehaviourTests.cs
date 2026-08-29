@@ -11538,6 +11538,352 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(reads.IsComplete, string.Join(" | ", reads.Unhandled));
     }
 
+    // ---- Counted amounts: what the number is counting ------------------------
+
+    /// <summary>
+    /// "You gain 2 life for each creature that died this turn" (CR 700.4).
+    /// </summary>
+    /// <remarks>
+    /// Nineteen corpus cards multiply by the graveyard's intake rather than by the board, and
+    /// the two are different numbers on every turn anything has died. The survivor on the
+    /// battlefield is what separates them: a reader that counted creatures would say one.
+    /// <para>
+    /// Game-wide and not "yours", because none of those cards names a player — CR 700.4 defines
+    /// "dies" and says nothing about whose creature it was.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_of_creatures_that_died_this_turn_counts_the_deaths()
+    {
+        var wake = Card("Died Count Test", "You gain 2 life for each creature that died this turn.");
+        var shrink = Card("Died Shrink Test", "Target creature gets -3/-3 until end of turn.");
+
+        var compiled = CardCompiler.Compile(wake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var first = game.Create(bob, TestCards.Creature("Died One Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Died Two Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Died Survivor Test", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shrink), [Target.ToPermanent(first)]);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shrink), [Target.ToPermanent(second)]);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wake));
+        Settle(game);
+
+        // Two died and one is still standing. 24 is the deaths, 22 would be the board, and 20 is
+        // the answer a count that came out at nought gives — which is the failure this whole
+        // vocabulary is written to avoid, because the card compiles either way.
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "You gain 2 life for each creature in your party" (CR 700.8).
+    /// </summary>
+    /// <remarks>
+    /// A party is up to one Cleric, one Rogue, one Warrior and one Wizard, so it is not a count
+    /// of creatures at all — eight Clerics are a party of one.
+    /// <para>
+    /// CR 700.8b is what the board here is built for: a creature that could fill two of the roles
+    /// fills only one, and the number is taken the way that gives the highest result. Assigned in
+    /// board order, the Cleric Rogue takes the Cleric slot and the plain Cleric is left with
+    /// nowhere to go — a party of one, where the rules say two. So the reader is a matching and
+    /// not a first-come assignment, and 22 rather than 24 is what the greedy walk would leave.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_party_is_counted_as_the_assignment_that_fills_the_most_roles()
+    {
+        var feast = Card("Party Feast Test", "You gain 2 life for each creature in your party.");
+
+        var compiled = CardCompiler.Compile(feast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice,
+            Card(
+                "Party Duelist Test", string.Empty, CardType.Creature,
+                power: 2, toughness: 2, keywords: KeywordAbility.None, "Cleric", "Rogue"),
+            Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Healer Test", string.Empty, CardType.Creature,
+                power: 1, toughness: 1, keywords: KeywordAbility.None, "Cleric"),
+            Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card(
+                "Party Ox Test", string.Empty, CardType.Creature,
+                power: 3, toughness: 3, keywords: KeywordAbility.None, "Ox"),
+            Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, feast));
+        Settle(game);
+
+        // Two roles filled from three creatures: 26 would be a count of creatures, 22 a greedy
+        // assignment, 20 no count at all.
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "You gain 2 life for each experience counter you have" (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// A counter on the <em>player</em>, so the counter phrase beside it in the vocabulary cannot
+    /// answer it: that one looks for "counters on" a permanent, and this has nothing to be on.
+    /// Sixteen corpus cards read the total back this way.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_experience_counters_multiplies_by_what_the_player_has()
+    {
+        var rite = Card("Experience Count Rite Test", "You get an experience counter.");
+        var feast = Card(
+            "Experience Count Test", "You gain 2 life for each experience counter you have.");
+
+        var compiled = CardCompiler.Compile(feast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rite));
+        Settle(game);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rite));
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).ExperienceCounters);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, feast));
+        Settle(game);
+
+        // Two counters at two life each. 20 is the count coming out at nought, which is what a
+        // card that reads the phrase and cannot answer it would leave behind.
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "You gain 2 life for each card you've drawn this turn" (CR 121.1).
+    /// </summary>
+    /// <remarks>
+    /// The player already keeps the tally, because a draw is an event and the fold counts them.
+    /// Nothing here has to remember which cards they were — a card drawn and then discarded still
+    /// counts, which is why the hand is the wrong pile to look in and this is not that count.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_cards_drawn_this_turn_counts_the_draws_and_not_the_hand()
+    {
+        var ledger = Card(
+            "Drawn Ledger Test", "You gain 2 life for each card you've drawn this turn.");
+
+        var study = Card("Drawn Study Test", "Draw two cards.");
+
+        var compiled = CardCompiler.Compile(ledger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, study));
+        Settle(game);
+
+        var drawn = game.State.GetPlayer(alice).CardsDrawnThisTurn;
+        Assert.Equal(2, drawn);
+
+        // The hand is a different number from the draws by now — the two spells put into it
+        // by hand were never drawn — so a reader that counted the hand cannot pass this.
+        Assert.NotEqual(drawn, game.State.GetPlayer(alice).Hand.Count);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ledger));
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "You gain 3 life for each creature attacking you" — Blessed Reversal (CR 506.3).
+    /// </summary>
+    /// <remarks>
+    /// Only a player, a planeswalker or a battle can be attacked, and they are three different
+    /// things to attack: a creature aimed at your planeswalker is not attacking <em>you</em>, even
+    /// though you are the defending player either way. The board here has one of each, so a reader
+    /// that counted every attacker whose defending player is you would say nine rather than six.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_creatures_attacking_you_leaves_out_the_one_on_a_planeswalker()
+    {
+        var reversal = Card(
+            "Attacking Count Test", "You gain 3 life for each creature attacking you.");
+
+        var compiled = CardCompiler.Compile(reversal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var walker = game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-attacking-count-walker",
+                Name = "Attacking Count Walker Test",
+                CardTypes = CardType.Planeswalker,
+                StartingLoyalty = 5,
+            },
+            Zone.Battlefield);
+
+        var one = game.Create(bob, TestCards.Creature("Attacking One Test", 1, 1), Zone.Battlefield);
+        var two = game.Create(bob, TestCards.Creature("Attacking Two Test", 1, 1), Zone.Battlefield);
+        var atWalker = game.Create(
+            bob, TestCards.Creature("Attacking Walker Test", 1, 1), Zone.Battlefield);
+
+        game.Create(bob, TestCards.Creature("Attacking Homebody Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [one] = AttackTarget.Player(alice),
+                [two] = AttackTarget.Player(alice),
+                [atWalker] = AttackTarget.At(alice, walker),
+            });
+
+        // Blockers are not declared yet, so nobody has priority in the blockers step; the
+        // attackers step gives it back to the active player first and then round to Alice.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reversal));
+        Settle(game);
+
+        // Two are attacking Alice; the third is attacking her planeswalker and the fourth stayed
+        // home. 26 is the two, 29 would be all three attackers, and 20 a count of nought.
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Draw a card for each color among permanents you control" — Chromatic Orrery (CR 105.2).
+    /// </summary>
+    /// <remarks>
+    /// The same count that "the number of colors among permanents you control" asks for, written
+    /// singular — thirteen corpus cards say it that way and the pattern was plural-only, so the
+    /// difference between the two was one letter. It counts <em>colours</em> and not permanents,
+    /// which the colourless artifact on the board is there to prove: three permanents, two
+    /// colours, and a reader counting the group would draw three.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_colours_among_permanents_counts_colours_and_not_permanents()
+    {
+        var orrery = Card(
+            "Colour Draw Test", "Draw a card for each color among permanents you control.");
+
+        var compiled = CardCompiler.Compile(orrery);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, Coloured("Colour Count White Test", ManaColor.White), Zone.Battlefield);
+        game.Create(alice, Coloured("Colour Count Green Test", ManaColor.Green), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Colour Count Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, orrery));
+        Settle(game);
+
+        Assert.Equal(before - 2, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// "Draw cards equal to the number of differently named lands you control" (CR 201.1).
+    /// </summary>
+    /// <remarks>
+    /// Audience with Trostani and All-Fates Scroll ask this about tokens and about lands, and it
+    /// is a count of names rather than of permanents — so the second Forest adds nothing. Three
+    /// lands and two names: a reader that ignored the words in front would draw three.
+    /// </remarks>
+    [Fact]
+    public void A_count_of_differently_named_permanents_counts_the_names()
+    {
+        var scroll = Card(
+            "Named Count Test",
+            "Draw cards equal to the number of differently named lands you control.");
+
+        var compiled = CardCompiler.Compile(scroll);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Named Count Forest Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Named Count Forest Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Named Count Island Test"), Zone.Battlefield);
+
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, scroll));
+        Settle(game);
+
+        Assert.Equal(before - 2, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// "Target creature gets +1/+1 until end of turn for each basic land type among lands you
+    /// control" - Power Armor, and a counted pump that is not counting permanents.
+    /// </summary>
+    /// <remarks>
+    /// A pump whose size is not known until it applies carries its group phrase inside the
+    /// generated effect's id, and the id is all the definition gets - so both ends have to read
+    /// that phrase the same way. They now read it with the <em>same</em> function, which is what
+    /// lets a count that is not a walk of the battlefield reach a pump at all: domain counts basic
+    /// land types (CR 305.6), so five Forests are one and this board of three lands is two.
+    /// <para>
+    /// The counts that read "it" are refused at both ends instead, and deliberately: a floating
+    /// effect made by a spell is handed a null source when characteristics are computed, so a
+    /// pump counting "the +1/+1 counters on it" would have nothing to read and would quietly come
+    /// out at nought on a card that compiled clean.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_pump_can_count_something_that_is_not_a_group_of_permanents()
+    {
+        var armour = Card(
+            "Domain Pump Test",
+            "Target creature gets +1/+1 until end of turn for each basic land type among "
+                + "lands you control.");
+
+        var compiled = CardCompiler.Compile(armour);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Domain Pump Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, armour), [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        // Three lands and two basic land types. 4/4 is the types, 5/5 would be the lands, and
+        // 2/2 is the count coming out at nought on a card that compiled complete.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(4, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
     /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>
