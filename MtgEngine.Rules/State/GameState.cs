@@ -531,6 +531,12 @@ public sealed record GameState
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
         Structural.Same(Preventions, other.Preventions) &&
+
+        // Delayed triggers were missing from this comparison, which is the one omission
+        // that hides itself: two states differing only in what is waiting to happen
+        // compared equal, so Replay(log) == State - the invariant every behaviour test
+        // leans on - would have passed straight through a divergence in them (CR 603.7).
+        Structural.Same(Delayed, other.Delayed) &&
         Structural.Same(ArrivalsThisTurn, other.ArrivalsThisTurn) &&
         Structural.Same(DeparturesThisTurn, other.DeparturesThisTurn) &&
         MonarchId == other.MonarchId &&

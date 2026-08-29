@@ -35,8 +35,14 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     /// Raise it when coverage improves; never lower it to make a build pass. It was first set to
     /// an aspirational 30% before anything had been measured, which failed the build on the day
     /// it was written — a ratchet records what is true and fails only on a regression.
+    /// <para>
+    /// A ratchet nobody ratchets stops being one. This sat at 23.5% while coverage reached 46.6%,
+    /// so it would have watched half the cards stop compiling without failing the build. Set just
+    /// under the measured figure: close enough to catch a real regression, with enough slack that
+    /// a card the corpus gains does not fail an unrelated commit.
+    /// </para>
     /// </remarks>
-    private const double MinimumCoverage = 0.235;
+    private const double MinimumCoverage = 0.460;
 
     /// <summary>The corpus, or null when the bulk file has not been downloaded.</summary>
     /// <remarks>
