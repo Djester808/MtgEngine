@@ -43505,6 +43505,329 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Equal(start + 2, game.State.GetPlayer(alice).Life);
     }
+
+    // ---- Prevention described rather than aimed (CR 615.1) --------------------
+
+    /// <summary>
+    /// "Prevent all damage that would be dealt this turn by creatures" (CR 615.1, 609.7).
+    /// </summary>
+    /// <remarks>
+    /// The whole described-prevention engine — <see cref="PreventDescribedDamage"/>,
+    /// <see cref="PreventionEffect"/>, the two arms in the replacement pass — was built, tested
+    /// and unreachable: nothing in the compiler emitted one, so every card of this shape was
+    /// unread while the machinery that answers it sat finished. A hundred and eighteen corpus
+    /// lines start "Prevent all".
+    /// <para>
+    /// The burn spell is the control. A shield that forgot the "by creatures" half would stop
+    /// everything, which is a strictly better card than Ethereal Haze — and the countdown shield
+    /// the compiler already had could not have asked the question at all, because a shield
+    /// sitting on the thing being hit cannot see what is hitting it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_prevention_that_names_the_dealer_stops_creatures_and_not_burn()
+    {
+        var haze = Card(
+            "Ethereal Haze Test",
+            "Prevent all damage that would be dealt this turn by creatures.");
+
+        var bolt = Card("Haze Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(haze).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(haze).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(
+            alice, TestCards.Creature("Hazed Attacker Test", 3, 3), Zone.Battlefield);
+
+        // Cast on the turn it is going to matter: the shield says "this turn" and is gone by the
+        // next one, which the expiry test elsewhere in this file proves on its own.
+        PassToMainPhaseOfTurn(game, 3);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, haze), []);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The creature's combat damage never landed.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        // The same shield, on the same turn, asked about a spell. It is not a creature, so
+        // nothing stops it.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Prevent all damage that would be dealt to creatures you control this turn."
+    /// </summary>
+    /// <remarks>
+    /// The other half of the grammar: a described set of victims rather than a described dealer.
+    /// Bob's creature is what catches the wrong reading — a shield that lost the possessive
+    /// would fog the whole board, and the card would compile just as cleanly.
+    /// </remarks>
+    [Fact]
+    public void A_prevention_for_your_own_creatures_leaves_an_opponents_exposed()
+    {
+        var light = Card(
+            "Divine Light Test",
+            "Prevent all damage that would be dealt to creatures you control this turn.");
+
+        var bolt = Card("Light Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(light).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(light).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var hers = game.Create(alice, TestCards.Creature("Lit Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Dark Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, light), []);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(hers)]);
+        Settle(game);
+
+        Assert.Contains(hers, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(hers).Permanent?.DamageMarked);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.DoesNotContain(theirs, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Prevent all damage that would be dealt to creatures this turn" is every creature.
+    /// </summary>
+    /// <remarks>
+    /// The same sentence without the possessive, and the control for the test above it. A reader
+    /// that defaulted the missing "you control" to "you" compiles Forfend perfectly and plays it
+    /// as a narrower card — which is the quiet direction of the fail-closed rule, and just as
+    /// wrong as the loud one.
+    /// </remarks>
+    [Fact]
+    public void A_prevention_naming_no_controller_covers_every_creature()
+    {
+        var forfend = Card(
+            "Forfend Test",
+            "Prevent all damage that would be dealt to creatures this turn.");
+
+        var bolt = Card("Forfend Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(forfend).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(forfend).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.Creature("Forfend Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, forfend), []);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Contains(theirs, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(theirs).Permanent?.DamageMarked);
+
+        // A player is not a creature, so the same shield does nothing for Bob's life total.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Fog Bank: "Prevent all combat damage that would be dealt to and dealt by ~."
+    /// </summary>
+    /// <remarks>
+    /// The static half of prevention, and the reason it compiles to a replacement effect rather
+    /// than to the described prevention above: a described prevention is state the engine keeps
+    /// until the turn ends, and this one has no duration at all, so it would still be shielding
+    /// after the permanent holding it had been destroyed. A replacement functions from the
+    /// battlefield and therefore stops when its permanent does (CR 611.2c).
+    /// <para>
+    /// The burn spell is again the control, for the word "combat": a shield that dropped it
+    /// would make this creature immortal.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_stops_combat_damage_both_ways_and_nothing_else()
+    {
+        var bank = Card(
+            "Fog Bank Test",
+            "Defender\nPrevent all combat damage that would be dealt to and dealt by ~.",
+            CardType.Creature,
+            0,
+            2,
+            KeywordAbility.Defender);
+
+        var bolt = Card("Bank Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(bank).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(bank).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(alice, bank, Zone.Battlefield);
+        var attacker = game.Create(
+            bob, TestCards.Creature("Bank Attacker Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [wall] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Neither direction: the 3/3 marked nothing on the wall, and the wall is still 0 power
+        // so the attacker was never going to take any either.
+        Assert.Contains(wall, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(wall).Permanent?.DamageMarked);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // Noncombat damage is not what the card names, and it kills a 0/2 outright.
+        PassToMainPhaseOfTurn(game, 3);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        Assert.DoesNotContain(wall, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Defang: an Aura whose shield goes away with it.
+    /// </summary>
+    /// <remarks>
+    /// The assertion that pays for the whole design decision. The same words compiled as a
+    /// described prevention would have left a shield standing on a creature whose Aura was in
+    /// the graveyard — the card would look implemented, play correctly all game, and be wrong
+    /// exactly once.
+    /// </remarks>
+    [Fact]
+    public void An_auras_shield_is_gone_when_the_aura_is()
+    {
+        var defang = Card(
+            "Defang Test",
+            "Enchant creature\nPrevent all combat damage that would be dealt by enchanted creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(
+            CardCompiler.Compile(defang).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(defang).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var brute = game.Create(bob, TestCards.Creature("Defanged Brute Test", 3, 3), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, defang), [Target.ToPermanent(brute)]);
+        Settle(game);
+
+        var aura = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Defang Test");
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [brute] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // Take the Aura away and the creature is a 3/3 again.
+        game.Move(aura, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [brute] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- Rules that are settled before a game starts (CR 100.2a, 903.3a) -----
+
+    /// <summary>
+    /// "A deck can have any number of cards named ~" is read, and builds nothing.
+    /// </summary>
+    /// <remarks>
+    /// Partner's siblings. These say nothing about a game in progress, so the honest reading is
+    /// to record them and produce no ability at all — and the assertion that matters is the
+    /// second one: a no-op reader that quietly built something would be worse than leaving the
+    /// line unread, because the card would report itself understood either way.
+    /// <para>
+    /// <strong>The Leyline line is deliberately absent from this list.</strong> "If ~ is in your
+    /// opening hand, you may begin the game with it on the battlefield" is CR 103.6 and a real
+    /// game rule — eighteen corpus cards genuinely start in play — so reading it as a no-op
+    /// would file them as understood while removing the only thing they do. It stays unread
+    /// until the engine offers an opening-hand decision to hang it on.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_deck_construction_rule_is_read_and_produces_no_ability()
+    {
+        var rat = Card(
+            "Rat Colony Test",
+            "A deck can have any number of cards named ~.",
+            CardType.Creature,
+            1,
+            1,
+            subtypes: "Rat");
+
+        var compiled = CardCompiler.Compile(rat);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Contains("A deck can have any number of cards named ~", compiled.DeckRules);
+
+        var planeswalker = CardCompiler.Compile(Card(
+            "Commodore Guff Test",
+            "~ can be your commander.",
+            CardType.Planeswalker,
+            subtypes: "Guff"));
+
+        Assert.True(planeswalker.IsComplete, string.Join(" | ", planeswalker.Unhandled));
+        Assert.Contains("~ can be your commander", planeswalker.DeckRules);
+
+        // Nothing was built from it: no spell, no ability, no replacement.
+        Assert.False(planeswalker.HasAbilities);
+        Assert.Null(planeswalker.Spell);
+
+        var leyline = CardCompiler.Compile(Card(
+            "Leyline Test",
+            "If ~ is in your opening hand, you may begin the game with it on the battlefield.",
+            CardType.Enchantment));
+
+        Assert.False(leyline.IsComplete);
+        Assert.Empty(leyline.DeckRules);
+    }
+
     // ---- Aftermath (CR 702.127) ----------------------------------------------
 
     /// <summary>A split card whose second half is cast from the graveyard.</summary>
