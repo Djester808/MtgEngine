@@ -2347,15 +2347,13 @@ public sealed class Game
     /// anywhere. It is translated here rather than applied by a second path, because two paths
     /// for one rule are two chances to disagree about the order CR 601.2f states.
     /// <para>
-    /// <strong>The second arm reaches nothing in a played game, measured rather than assumed.</strong>
-    /// Of the five ability sources in the repository - <c>CardPool</c>, <c>PlayableCards</c>,
-    /// <c>CompiledPool</c>, <c>EmptyAbilities</c>, <c>NoAbilities</c> - none implements
-    /// <see cref="ICostModifierSource"/>, so the pattern is a silent <c>false</c> everywhere
-    /// except the hand-written pool in the behaviour tests, and 0 of the 32,765 corpus cards can
-    /// produce a modifier. The reducer arm above is the whole of what a real game sees today: 92
-    /// corpus cards print one. Everything below the seam is built and played; the cell the
-    /// compiler fills is what is missing, and it is a change to <c>CompiledCard</c> and
-    /// <c>CompiledPool</c> rather than to anything here.
+    /// The second arm was a silent <c>false</c> in every real game for a while: nothing
+    /// implemented <see cref="ICostModifierSource"/>, so the whole grid reached only the
+    /// hand-written pool in the behaviour tests while 0 of the 32,765 corpus cards could produce a
+    /// modifier. <see cref="IAbilitySource"/> now extends it and <c>CompiledPool</c> answers it,
+    /// so the arm carries what the compiler reads. The note is kept because the shape of that
+    /// failure is this project's most expensive one - a mechanism built, tested and reachable from
+    /// nothing - and this seam is where it would happen again.
     /// </para>
     /// </remarks>
     private IEnumerable<CostModifier> ModifiersOn(CardDefinition card)

@@ -14640,6 +14640,44 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, now.Colors.Count);
     }
 
+    /// <summary>
+    /// A cost modifier the compiler reads reaches a game that is actually played (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The end-to-end assertion for a seam this project has already been caught on twice. The
+    /// grid, the interface and <c>Game</c>'s use of it were all built and tested before anything
+    /// implemented <c>ICostModifierSource</c> — so every corpus card that printed a discount
+    /// compiled one, and no game ever applied it. Compiling a modifier is not the claim; casting
+    /// a two-drop for one mana is.
+    /// </remarks>
+    [Fact]
+    public void A_compiled_cost_modifier_reaches_a_played_game()
+    {
+        var rock = Card(
+            "Cost Modifier Reach Test",
+            "Creature spells you cast cost {1} less to cast.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(rock);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotEmpty(compiled.CostModifiers);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, rock, Zone.Battlefield);
+
+        var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        // {1}{G} discounted to {G}: one Forest pays for it, and would not otherwise.
+        var bear = TestCards.Costed("Cost Modifier Bear Test", "{1}{G}", 2);
+        var cast = game.CastSpell(alice, TestCards.PutInHand(game, alice, bear));
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Cost Modifier Bear Test");
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {
