@@ -3050,6 +3050,23 @@ public enum PlayerScope
     /// and an effect scoped to it then does nothing rather than picking someone.
     /// </remarks>
     DefendingPlayer,
+
+    /// <summary>
+    /// The player the source is attached to — "enchanted player" (CR 303.4b).
+    /// </summary>
+    /// <remarks>
+    /// A Curse is an Aura whose host is a player rather than a permanent, and every ability on
+    /// one names that player: "enchanted player mills two cards", "~ deals damage to enchanted
+    /// player". It is a scope rather than a target because nothing about the ability chooses it —
+    /// it is decided once, when the Aura is attached, and CR 303.4m says the same word means the
+    /// same player on any permanent attached to one, Aura or not.
+    /// <para>
+    /// Names nobody when the source is attached to nothing, which is the honest answer for an
+    /// Aura that has come unattached rather than a reason to fall back to its controller. The
+    /// state-based action puts it in the graveyard shortly afterwards anyway (CR 704.5n).
+    /// </para>
+    /// </remarks>
+    EnchantedPlayer,
 }
 
 /// <summary>The players a scope names, in turn order (CR 101.4).</summary>
@@ -3077,6 +3094,17 @@ internal static class PlayerScopes
                     context.PhysicalSourceId, out var attacking)
                 && context.State.Players.ContainsKey(attacking.DefendingPlayer)
                     ? [attacking.DefendingPlayer]
+                    : [],
+
+            // The permanent rather than the ability, because an ability on the stack is its own
+            // object and is attached to nothing (CR 303.4b). A player who has left the game is
+            // no longer one to be enchanted, so the scope names nobody rather than an empty seat.
+            PlayerScope.EnchantedPlayer =>
+                context.State.TryGetObject(context.PhysicalSourceId, out var attachedSource)
+                && attachedSource.Permanent?.AttachedToPlayer is { } enchanted
+                && context.State.Players.TryGetValue(enchanted, out var host)
+                && !host.HasLost
+                    ? [enchanted]
                     : [],
             PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer => context.State.ApnapOrder()
                 .Where(id => id != context.ControllerId && !context.State.GetPlayer(id).HasLost),

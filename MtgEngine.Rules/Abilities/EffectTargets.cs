@@ -253,7 +253,14 @@ public static class EffectTargets
             (e, n) => e.Subject == EffectSubject.Target
                 ? e with { TargetIndex = e.TargetIndex + n }
                 : e);
-        Add<PumpUntilEndOfTurn>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+        // Only when it is about a target, for the same reason PutCounters is: "it gets -1/-0"
+        // in a trigger names the object the trigger was about, and the index it carries then
+        // means nothing.
+        Add<PumpUntilEndOfTurn>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
         Add<PumpTargetByVariable>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<AttachSourceTo>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
