@@ -14017,10 +14017,20 @@ public sealed class CompiledCardBehaviourTests
     private sealed class HandWrittenStatics : IAbilitySource
     {
         private readonly Dictionary<string, List<ContinuousEffectDefinition>> _statics = [];
+        private readonly Dictionary<string, List<TriggeredAbilityDefinition>> _triggers = [];
+        private readonly Dictionary<string, List<ActivatedAbilityDefinition>> _activated = [];
+        private readonly Dictionary<string, List<ReplacementEffectDefinition>> _replacements = [];
         private readonly Dictionary<string, SpellDefinition> _spells = [];
         private readonly Dictionary<string, ContinuousEffectDefinition> _floating = [];
 
-        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) => [];
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) =>
+            _triggers.TryGetValue(card.OracleId, out var found) ? found : [];
+
+        public IReadOnlyList<ActivatedAbilityDefinition> ActivatedOf(CardDefinition card) =>
+            _activated.TryGetValue(card.OracleId, out var found) ? found : [];
+
+        public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
+            _replacements.TryGetValue(card.OracleId, out var found) ? found : [];
 
         public IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) =>
             _statics.TryGetValue(card.OracleId, out var found) ? found : [];
@@ -14035,6 +14045,33 @@ public sealed class CompiledCardBehaviourTests
         {
             if (!_statics.TryGetValue(card.OracleId, out var found))
                 _statics[card.OracleId] = found = [];
+
+            found.Add(effect);
+            return this;
+        }
+
+        public HandWrittenStatics Give(CardDefinition card, TriggeredAbilityDefinition trigger)
+        {
+            if (!_triggers.TryGetValue(card.OracleId, out var found))
+                _triggers[card.OracleId] = found = [];
+
+            found.Add(trigger);
+            return this;
+        }
+
+        public HandWrittenStatics Give(CardDefinition card, ActivatedAbilityDefinition ability)
+        {
+            if (!_activated.TryGetValue(card.OracleId, out var found))
+                _activated[card.OracleId] = found = [];
+
+            found.Add(ability);
+            return this;
+        }
+
+        public HandWrittenStatics Give(CardDefinition card, ReplacementEffectDefinition effect)
+        {
+            if (!_replacements.TryGetValue(card.OracleId, out var found))
+                _replacements[card.OracleId] = found = [];
 
             found.Add(effect);
             return this;
@@ -14146,6 +14183,117 @@ public sealed class CompiledCardBehaviourTests
     /// outright a moment before.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Losing all abilities takes the printed activated, triggered and replacement abilities too
+    /// (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The layers alone are not the whole rule. Keywords and static abilities are characteristics
+    /// and were removed by the layer work; the other three kinds are read from the <em>card</em>
+    /// at three separate sites in <c>Game</c>, and each had to be told to ask the computed
+    /// characteristics first. Until they were, a silenced permanent kept its button, still
+    /// triggered, and still replaced events — while reporting no keywords, which is the kind of
+    /// half-applied rule that is harder to notice than an unapplied one.
+    /// <para>
+    /// CR 603.2b gives the trigger case as its own example: with "all creatures lose all
+    /// abilities" on the battlefield, a creature entering does not trigger its own enters ability.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Losing_all_abilities_silences_the_button_the_trigger_and_the_replacement()
+    {
+        var bearer = new CardDefinition
+        {
+            OracleId = "oracle-silenced-bearer",
+            Name = "Silenced Bearer Test",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var silencer = new CardDefinition
+        {
+            OracleId = "oracle-silencer-enchantment",
+            Name = "Silencer Enchantment Test",
+            CardTypes = CardType.Enchantment,
+        };
+
+        // The replacement lives on a second creature, because a permanent that replaces its own
+        // death with exile has not died (CR 700.4) and its own dies trigger correctly does not
+        // fire - which would leave the trigger half of this test proving nothing.
+        var shield = new CardDefinition
+        {
+            OracleId = "oracle-silenced-shield",
+            Name = "Silenced Shield Test",
+            CardTypes = CardType.Creature,
+            Power = 1,
+            Toughness = 1,
+        };
+
+        var pool = new HandWrittenStatics()
+            .Give(bearer, new ActivatedAbilityDefinition
+            {
+                Id = "gain",
+                Text = "You gain 2 life.",
+                Effects = [new ChangeLife(new Amount(2))],
+            })
+            .Give(bearer, new TriggeredAbilityDefinition
+            {
+                Id = "dies",
+                Text = "When this creature dies, you gain 5 life.",
+                Triggers = TriggerConditions.Parse("~ dies")!,
+                Effects = [new ChangeLife(new Amount(5))],
+            })
+            .Give(shield, new ReplacementEffectDefinition
+            {
+                Id = "shield",
+                FunctionsFrom = Zone.Battlefield,
+                Applies = (e, _, source) =>
+                    e is ObjectMoved { To: Zone.Graveyard } gone && gone.OldId == source.Id,
+                Replace = (e, _, _) => [((ObjectMoved)e) with { To = Zone.Exile }],
+            })
+            .Give(silencer, CreaturesLoseAllAbilities);
+
+        // ---- with their abilities: the button pays, the death pays, the shield exiles.
+        var (loud, alice, _) = InMainPhaseWith(pool);
+        var speaker = loud.Create(alice, bearer, Zone.Battlefield);
+        var guard = loud.Create(alice, shield, Zone.Battlefield);
+        var life = loud.State.GetPlayer(alice).Life;
+
+        loud.ActivateAbility(alice, speaker, "gain");
+        Settle(loud);
+        Assert.Equal(life + 2, loud.State.GetPlayer(alice).Life);
+
+        loud.Move(speaker, Zone.Graveyard, MoveCause.Destroy);
+        Settle(loud);
+        Assert.Equal(life + 7, loud.State.GetPlayer(alice).Life);
+
+        loud.Move(guard, Zone.Graveyard, MoveCause.Destroy);
+        Settle(loud);
+        Assert.Single(loud.State.Exile);
+
+        // ---- silenced: none of the three speaks.
+        var (quiet, bob, _) = InMainPhaseWith(pool);
+        var muted = quiet.Create(bob, bearer, Zone.Battlefield);
+        var mutedGuard = quiet.Create(bob, shield, Zone.Battlefield);
+        quiet.Create(bob, silencer, Zone.Battlefield);
+        var before = quiet.State.GetPlayer(bob).Life;
+
+        Assert.Throws<InvalidOperationException>(
+            () => quiet.ActivateAbility(bob, muted, "gain"));
+
+        quiet.Move(muted, Zone.Graveyard, MoveCause.Destroy);
+        Settle(quiet);
+        Assert.Equal(before, quiet.State.GetPlayer(bob).Life);
+
+        quiet.Move(mutedGuard, Zone.Graveyard, MoveCause.Destroy);
+        Settle(quiet);
+
+        // No replacement, so it is in the graveyard beside the other one rather than in exile.
+        Assert.Empty(quiet.State.Exile);
+        Assert.Equal(2, quiet.State.GetPlayer(bob).Graveyard.Count);
+    }
+
     [Fact]
     public void A_creature_that_loses_all_abilities_stops_flying_and_stops_being_a_lord()
     {

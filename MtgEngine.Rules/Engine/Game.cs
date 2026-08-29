@@ -7788,6 +7788,15 @@ public sealed class Game
         // replacement effect there is. FunctionsFrom is what decides, so it has to be asked.
         foreach (var (id, source) in State.Objects)
         {
+            // CR 613.1f: a permanent that has lost all abilities offers no replacement effects
+            // either. Asked only of the battlefield, because that is the only zone the layers are
+            // computed for - a card on the stack still has everything its card says.
+            if (source.Zone == Zone.Battlefield
+                && Characteristics.Of(State, _abilities, source).HasLostAllAbilities)
+            {
+                continue;
+            }
+
             foreach (var effect in _abilities.ReplacementsOf(source.Card))
             {
                 if (applied.Contains((id, effect.Id)))
@@ -8976,7 +8985,16 @@ public sealed class Game
         if (obj.Zone != Zone.Battlefield)
             return printed;
 
-        var granted = Characteristics.Of(state, abilities, obj).GrantedActivated;
+        var now = Characteristics.Of(state, abilities, obj);
+
+        // CR 613.1f: an effect that removes all abilities takes the printed ones with it. The
+        // granted ones are not cleared here - the layers have already settled which of those
+        // survive, because a grant that applied after the removal still applies and one that
+        // applied before does not (CR 613.7). Same shape as the face-down rule above.
+        if (now.HasLostAllAbilities)
+            printed = [];
+
+        var granted = now.GrantedActivated;
         return granted.IsEmpty ? printed : [.. printed, .. granted];
     }
 
@@ -9002,7 +9020,18 @@ public sealed class Game
         if (obj.Zone != Zone.Battlefield)
             return printed;
 
-        var granted = Characteristics.Of(state, _abilities, obj).GrantedTriggers;
+        var now = Characteristics.Of(state, _abilities, obj);
+
+        // CR 613.1f: an effect that removes all abilities takes the printed ones with it. The
+        // granted ones are not cleared here - the layers have already settled which of those
+        // survive, because a grant that applied after the removal still applies and one that
+        // applied before does not (CR 613.7). Same shape as the face-down rule above.
+        if (now.HasLostAllAbilities)
+            printed = [];
+
+        // CR 603.2b gives this as its own example: with "all creatures lose all abilities" on
+        // the battlefield, a creature entering does not trigger its own enters ability.
+        var granted = now.GrantedTriggers;
         if (granted.IsEmpty)
             return printed;
 
