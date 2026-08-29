@@ -15588,6 +15588,562 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Cost Modifier Bear Test");
     }
 
+    // ---- Layer 1: copiable values (CR 613.2a, 707) --------------------------
+
+    /// <summary>
+    /// The real compiled pool with one hand-written spell in front of it.
+    /// </summary>
+    /// <remarks>
+    /// Everything on the board in the copy tests below is read by the actual compiler from
+    /// actual oracle wording; the single thing written by hand is the sentence the compiler
+    /// cannot yet read — "becomes a copy of target creature until end of turn". So what is under
+    /// test is the engine half arriving in a real game with real compiled cards on the
+    /// battlefield, rather than a pool of hand-built abilities agreeing with itself: the copy's
+    /// abilities are the ones <see cref="CardCompiler"/> produced for the copied card, and if
+    /// they were not, no assertion below would hold.
+    /// <para>
+    /// Every member is delegated, including the ones that look irrelevant. A pool that answered
+    /// "no" to a question the engine asks would change how the game plays for reasons that have
+    /// nothing to do with copying, which is the kind of test-only difference this file has been
+    /// caught by before.
+    /// </para>
+    /// </remarks>
+    private sealed class CompiledWithSpell : IAbilitySource, ICostModifierSource
+    {
+        private readonly CompiledPool _compiled = new();
+        private readonly Dictionary<string, SpellDefinition> _spells = [];
+        private readonly Dictionary<string, List<ReplacementEffectDefinition>> _replacements = [];
+
+        public CompiledWithSpell Give(CardDefinition card, SpellDefinition spell)
+        {
+            _spells[card.OracleId] = spell;
+            return this;
+        }
+
+        public CompiledWithSpell Give(CardDefinition card, ReplacementEffectDefinition effect)
+        {
+            if (!_replacements.TryGetValue(card.OracleId, out var found))
+                _replacements[card.OracleId] = found = [];
+
+            found.Add(effect);
+            return this;
+        }
+
+        public SpellDefinition? SpellOf(CardDefinition card) =>
+            _spells.GetValueOrDefault(card.OracleId) ?? _compiled.SpellOf(card);
+
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) =>
+            _compiled.TriggersOf(card);
+
+        public IReadOnlyList<ActivatedAbilityDefinition> ActivatedOf(CardDefinition card) =>
+            _compiled.ActivatedOf(card);
+
+        public IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) =>
+            _compiled.StaticsOf(card);
+
+        public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
+            _replacements.TryGetValue(card.OracleId, out var found)
+                ? [.. found, .. _compiled.ReplacementsOf(card)]
+                : _compiled.ReplacementsOf(card);
+
+        public KeywordAbility GrantedKeywords(CardDefinition card) =>
+            _compiled.GrantedKeywords(card);
+
+        public SpellDefinition? AdventureOf(CardDefinition card) => _compiled.AdventureOf(card);
+
+        public string? AdventureCostOf(CardDefinition card) => _compiled.AdventureCostOf(card);
+
+        public SpellDefinition? PreparedSpellOf(CardDefinition card) =>
+            _compiled.PreparedSpellOf(card);
+
+        public string? PreparedCostOf(CardDefinition card) => _compiled.PreparedCostOf(card);
+
+        public bool PreparedIsInstantOf(CardDefinition card) =>
+            _compiled.PreparedIsInstantOf(card);
+
+        public int DevourCountOf(CardDefinition card) => _compiled.DevourCountOf(card);
+
+        public ManaCostSpec? MiracleCostOf(CardDefinition card) => _compiled.MiracleCostOf(card);
+
+        public IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => _compiled.HalvesOf(card);
+
+        public bool HasFuse(CardDefinition card) => _compiled.HasFuse(card);
+
+        public IReadOnlyList<CostModifier> CostModifiersOf(CardDefinition card) =>
+            _compiled.CostModifiersOf(card);
+
+        public bool ShowsTopOfLibrary(CardDefinition card) => _compiled.ShowsTopOfLibrary(card);
+
+        public bool RemovesHandLimit(CardDefinition card) => _compiled.RemovesHandLimit(card);
+
+        public ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => _compiled.ChoosesOnEntry(card);
+
+        public int ExtraLandDrops(CardDefinition card) => _compiled.ExtraLandDrops(card);
+
+        public bool MayDeclineUntap(CardDefinition card) => _compiled.MayDeclineUntap(card);
+
+        public bool SkipsDrawStep(CardDefinition card) => _compiled.SkipsDrawStep(card);
+
+        public bool RevealsTopOfLibrary(CardDefinition card) =>
+            _compiled.RevealsTopOfLibrary(card);
+
+        public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
+            _compiled.AttacksOnlyIfDefenderControls(card);
+
+        public ContinuousEffectDefinition? FloatingEffect(string definitionId) =>
+            _compiled.FloatingEffect(definitionId);
+    }
+
+    /// <summary>
+    /// "Target creature becomes a copy of another target creature until end of turn" — the
+    /// spell half of a copy effect, written out because no template reads it yet.
+    /// </summary>
+    /// <remarks>
+    /// It is <see cref="PumpUntilEndOfTurn"/> carrying a definition id, which is what every
+    /// until-end-of-turn continuous effect in the engine already is; the copy needed no new
+    /// effect and no new event. What a reader has to do beyond this is choose the card at
+    /// resolution time — <c>GenerativeEffects.CopyId(Characteristics.CardOf(state, abilities,
+    /// original))</c> rather than a card fixed when the pool was built — which is a second
+    /// target and an <c>IEffect</c>, and lives in <c>Effects.cs</c>.
+    /// </remarks>
+    private static SpellDefinition BecomesACopyOf(CardDefinition card) => new()
+    {
+        Targets = [EffectPhrase.Specs.TargetCreature],
+        Effects = [new PumpUntilEndOfTurn(GenerativeEffects.CopyId(card))],
+    };
+
+    /// <summary>The id a permanent is about to have, whichever way it is arriving (CR 111.1).</summary>
+    /// <remarks>
+    /// The same two shapes <c>CardCompiler.Arriving</c> reads, written out because that one is
+    /// internal to the engine. A permanent created on the battlefield never moved there, which
+    /// is the half every entry replacement in this engine was once missing.
+    /// </remarks>
+    private static ObjectId? ArrivingAs(GameEvent e, GameObject source) => e switch
+    {
+        ObjectMoved { To: Zone.Battlefield } moved when moved.OldId == source.Id => moved.NewId,
+        ObjectCreated { Zone: Zone.Battlefield } made when made.Id == source.Id => made.Id,
+        _ => null,
+    };
+
+    /// <summary>
+    /// "You may have this creature enter as a copy of any creature on the battlefield" — the
+    /// replacement half of a copy effect, written out because no template reads it yet.
+    /// </summary>
+    /// <remarks>
+    /// It needs no machinery the engine did not have: a replacement effect returns events, and
+    /// one of them is the copy. What it does need is the <em>order</em> — the copy effect is
+    /// emitted before the arrival it replaces. Triggers are collected against the state as it
+    /// stands just after the event that caused them (CR 603.6), so a permanent that becomes a
+    /// copy in the event <em>after</em> its own arrival has already been asked what its enters
+    /// abilities are and answered with the copying card's. CR 707.5 says the copy's
+    /// enters-the-battlefield abilities have a chance to trigger, and gives Wall of Omens as the
+    /// example.
+    /// <para>
+    /// Written as "you may" in the printed text and taken unconditionally here, because what a
+    /// reader has to add is the question — which creature, and whether to copy at all — and that
+    /// is <c>ChoiceOnEntry</c> plus an effect, not anything about the copy.
+    /// </para>
+    /// </remarks>
+    private static ReplacementEffectDefinition EntersAsACopyOf(CardDefinition card) => new()
+    {
+        Id = "enters-as-a-copy",
+
+        // Null, not Battlefield: a permanent created on the battlefield was never anywhere else,
+        // and one that resolves off the stack is replaced while it is still a spell (CR 614.6).
+        FunctionsFrom = null,
+        Applies = (e, _, source) => ArrivingAs(e, source) is not null,
+        Replace = (e, _, source) =>
+        [
+            // Before the arrival, not after it. Reversed, the permanent is still a copy with the
+            // right name and the right size and the copied card's enters ability simply never
+            // fires — measured, not assumed: the test below reads 20 life instead of 22 and
+            // every other assertion in it stays green.
+            new ContinuousEffectCreated(
+                Guid.NewGuid(),
+                GenerativeEffects.CopyId(card),
+                [ArrivingAs(e, source)!.Value],
+
+                // No duration: this is what the permanent is, not something done to it for a
+                // turn (CR 707.5).
+                UntilEndOfTurn: null),
+            e,
+        ],
+    };
+
+    /// <summary>
+    /// A copy of a two-faced permanent still has both faces (CR 707.8).
+    /// </summary>
+    /// <remarks>
+    /// The copiable values travel inside the effect's name, so every field left out of that name
+    /// is a field the copy silently does not have — and the faces are the field this repository
+    /// has already been caught dropping once, in the game log, where it cost every transform in
+    /// every stored game. A copy that came back with no faces would be a permanent that can
+    /// never turn over, and nothing else about it would look wrong.
+    /// </remarks>
+    [Fact]
+    public void A_copy_of_a_two_faced_permanent_keeps_both_faces()
+    {
+        var twoFaced = new CardDefinition
+        {
+            OracleId = "oracle-copy-two-faced-test",
+            Name = "Copy Two Faced Test",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Copy Two Faced Test",
+                    CardTypes = CardType.Creature,
+                    Power = 2,
+                    Toughness = 2,
+                },
+                new CardFace
+                {
+                    Name = "Copy Two Faced Back Test",
+                    CardTypes = CardType.Creature,
+                    Power = 5,
+                    Toughness = 5,
+                },
+            ],
+        };
+
+        var shape = Card(
+            "Copy Two Faced Shape Test",
+            "Target creature becomes a copy of another target creature until end of turn.");
+
+        var pool = new CompiledWithSpell().Give(shape, BecomesACopyOf(twoFaced));
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        var shifter = game.Create(
+            alice, TestCards.Creature("Copy Two Faced Shifter Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shape), [Target.ToPermanent(shifter)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, pool, game.State.GetObject(shifter));
+
+        Assert.Equal("Copy Two Faced Test", now.Name);
+        Assert.Equal(2, now.Card.Faces.Count);
+        Assert.Equal("Copy Two Faced Back Test", now.Card.Faces[1].Name);
+    }
+
+    /// <summary>
+    /// A permanent can enter the battlefield already a copy, and the copied card's own enters
+    /// ability triggers (CR 707.5).
+    /// </summary>
+    /// <remarks>
+    /// The other half of the family, and the larger one: measured on the corpus, 73 cards say
+    /// "as a copy of" against 76 that say "becomes a copy of".
+    /// <para>
+    /// The life total is the assertion that matters. Every characteristic below would be just as
+    /// green if the copy had been applied one event too late — the permanent would still be a
+    /// 4/4 with the right name, and the trigger the rule promises would simply never have
+    /// existed. That is the failure mode this whole family has: correct-looking and silent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_can_enter_already_a_copy_and_its_enters_ability_fires()
+    {
+        var original = Card(
+            "Enter Copy Original Test",
+            "When ~ enters, you gain 2 life.",
+            CardType.Creature,
+            4,
+            4);
+
+        var compiled = CardCompiler.Compile(original);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var clone = Card(
+            "Enter Copy Clone Test",
+            "You may have this creature enter as a copy of any creature on the battlefield.",
+            CardType.Creature,
+            0,
+            0);
+
+        var pool = new CompiledWithSpell().Give(clone, EntersAsACopyOf(original));
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        var arrived = game.Create(alice, clone, Zone.Battlefield);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, pool, game.State.GetObject(arrived));
+
+        Assert.Equal("Enter Copy Original Test", now.Name);
+        Assert.Equal(4, now.Power);
+        Assert.Equal(4, now.Toughness);
+
+        // The rule's own worked example: the copy has the copied card's enters trigger, so its
+        // controller gains the life (CR 707.5).
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        // Nothing ends it, so it is still a copy two turns later. This is what the permanent is
+        // rather than a spell's until-end-of-turn effect on it.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        Assert.Equal(
+            "Enter Copy Original Test",
+            Characteristics.Of(game.State, pool, game.State.GetObject(arrived)).Name);
+    }
+
+    /// <summary>
+    /// A permanent that becomes a copy has the copied card's abilities, and they play
+    /// (CR 707.2a).
+    /// </summary>
+    /// <remarks>
+    /// The assertion that earns its place is not the size. A copy effect that got power,
+    /// toughness, types and colours right and gave the permanent none of the copied card's
+    /// behaviour would pass every characteristic check and be the wrong card at the only moment
+    /// anybody notices — so the trigger is made to fire and the activated ability is made to
+    /// resolve, in one turn, on two creatures that printed nothing at all.
+    /// <para>
+    /// The two life totals are the whole test: 1 from the copied <c>{T}</c> ability and 3 from
+    /// the copied attack trigger, against a starting 20. An engine that copied the numbers and
+    /// dropped the abilities leaves Alice on 20 with every other assertion still green.
+    /// </para>
+    /// <para>
+    /// The copy is asserted to have gone at the start of the next turn as well. The effect is a
+    /// layer, not a rewrite of the object (CR 613.1): nothing was written into the permanent, so
+    /// nothing has to be taken back off it when the duration runs out.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_that_becomes_a_copy_has_the_copied_cards_abilities()
+    {
+        var original = Card(
+            "Copy Original Test",
+            "Whenever ~ attacks, you gain 3 life.\n{T}: You gain 1 life.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.Flying,
+            "Bird");
+
+        var compiled = CardCompiler.Compile(original);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var shape = Card(
+            "Copy Shape Test",
+            "Target creature becomes a copy of another target creature until end of turn.");
+
+        var pool = new CompiledWithSpell().Give(shape, BecomesACopyOf(original));
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        // The card being copied, on the battlefield — which is where a reader would take the
+        // copiable values from (CR 707.2).
+        game.Create(alice, original, Zone.Battlefield);
+
+        // Two creatures with nothing printed on them, so every ability either of them uses below
+        // can only have come from the copy.
+        var attacker = game.Create(
+            alice, TestCards.Creature("Copy Blank Attacker Test", 1, 1), Zone.Battlefield);
+        var tapper = game.Create(
+            alice, TestCards.Creature("Copy Blank Tapper Test", 1, 1), Zone.Battlefield);
+
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, pool, game.State.GetObject(tapper)));
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shape), [Target.ToPermanent(attacker)]);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shape), [Target.ToPermanent(tapper)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, pool, game.State.GetObject(attacker));
+
+        // The name is a copiable value, and the one the legend rule and every "same name" check
+        // are asking about (CR 707.2).
+        Assert.Equal("Copy Original Test", now.Name);
+        Assert.Equal(original.OracleId, now.Card.OracleId);
+        Assert.Equal(3, now.Power);
+        Assert.Equal(3, now.Toughness);
+        Assert.True(now.Has(KeywordAbility.Flying));
+        Assert.Contains("Bird", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // A subtype and a colour are replaced rather than added to: the blank creature was a
+        // green Bear, and the copied card is a colourless Bird (CR 707.2, 105.2).
+        Assert.DoesNotContain("Bear", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Empty(now.Colors);
+
+        // The cheap reader agrees with the full computation, which is what lets the statics
+        // gatherer use it without recursing.
+        Assert.Equal(
+            now.Card.OracleId,
+            Characteristics.CardOf(game.State, pool, game.State.GetObject(attacker)).OracleId);
+
+        // The copied card rides inside the effect's name, which makes it much the largest thing
+        // this engine puts in a log. Asserted through the persistence door as well as through
+        // the fold, because a name that cannot be stored and read back is a saved game whose
+        // permanent comes back as itself.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+
+        // The copied activated ability is offered, and resolves: 20 -> 21.
+        var granted = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, pool, game.State.GetObject(tapper)));
+
+        game.ActivateAbility(alice, tapper, granted.Id);
+        Settle(game);
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+
+        // The copied trigger fires: 21 -> 24, and the 1/1 hits for 3.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+
+        // The duration runs out and the permanent is simply itself again (CR 514.2).
+        PassTo(game, 4, TurnStep.Upkeep);
+        Settle(game);
+
+        var after = Characteristics.Of(game.State, pool, game.State.GetObject(attacker));
+        Assert.Equal("Copy Blank Attacker Test", after.Name);
+        Assert.Equal(1, after.Power);
+        Assert.False(after.Has(KeywordAbility.Flying));
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, pool, game.State.GetObject(tapper)));
+    }
+
+    /// <summary>
+    /// A copy of a lord brings the lord's static ability with it (CR 707.2a).
+    /// </summary>
+    /// <remarks>
+    /// The half that no amount of care inside the copied permanent could produce. A static
+    /// ability is not a characteristic of the permanent that has it — it is an effect on
+    /// everything else — so the copy is asserted on a <em>third</em> creature that the spell
+    /// never touched. Nothing about that creature knows a copy happened.
+    /// <para>
+    /// This is the assertion that fails when the layers gather static abilities from each
+    /// permanent's printed card instead of the card it currently is, which is what they did:
+    /// the copy came out the right size, with the right name, and quietly anthem-less.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_copy_of_a_lord_brings_the_anthem_with_it()
+    {
+        var lord = Card(
+            "Copy Lord Test",
+            "Other creatures you control get +2/+2.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var shape = Card(
+            "Copy Lord Shape Test",
+            "Target creature becomes a copy of another target creature until end of turn.");
+
+        var pool = new CompiledWithSpell().Give(shape, BecomesACopyOf(lord));
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        var shifter = game.Create(
+            alice, TestCards.Creature("Copy Lord Shifter Test", 1, 1), Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Copy Lord Grunt Test", 1, 1), Zone.Battlefield);
+
+        Assert.Equal(1, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shape), [Target.ToPermanent(shifter)]);
+        Settle(game);
+
+        // The bystander is pumped by an ability that belongs to a card nobody put on the
+        // battlefield.
+        Assert.Equal(3, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+
+        // "Other creatures", so the copy does not pump itself — the anthem is being read from
+        // the copy's perspective rather than blanket-applied.
+        Assert.Equal(2, Characteristics.Of(game.State, pool, game.State.GetObject(shifter)).Power);
+
+        PassTo(game, 4, TurnStep.Upkeep);
+        Settle(game);
+
+        Assert.Equal(1, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+    }
+
+    /// <summary>
+    /// A copy takes the copiable values and leaves everything else where it was (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// CR 707.2's second half is a list of what is <em>not</em> copied, and two of its entries
+    /// are checkable on one permanent: counters and status. The counters are the interesting
+    /// one, because getting them right is a statement about the layers rather than about
+    /// copying — a +1/+1 counter applies in layer 7c (CR 613.4c), long after the copy has
+    /// rewritten the printed numbers in layer 1a, so a 1/1 that entered with a counter and then
+    /// copies a 3/3 is a 4/4 and not a 3/3.
+    /// <para>
+    /// An implementation that wrote the copied values into the permanent would answer 3/3 here
+    /// and look entirely reasonable doing it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_copy_keeps_its_own_counters_and_its_own_tapped_status()
+    {
+        var original = Card("Copy Counter Original Test", string.Empty, CardType.Creature, 3, 3);
+
+        var grown = Card(
+            "Copy Counter Shifter Test",
+            "~ enters with a +1/+1 counter on it.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(grown);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var shape = Card(
+            "Copy Counter Shape Test",
+            "Target creature becomes a copy of another target creature until end of turn.");
+
+        var pool = new CompiledWithSpell().Give(shape, BecomesACopyOf(original));
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        var shifter = game.Create(alice, grown, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, pool, game.State.GetObject(shifter)).Power);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.Tap(shifter);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shape), [Target.ToPermanent(shifter)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, pool, game.State.GetObject(shifter));
+
+        // 3/3 printed on the copied card, plus the counter this permanent already had.
+        Assert.Equal(4, now.Power);
+        Assert.Equal(4, now.Toughness);
+        Assert.Equal("Copy Counter Original Test", now.Name);
+
+        // Status is not a copiable value: it was tapped before it was anything else.
+        Assert.True(game.State.GetObject(shifter).Permanent!.IsTapped);
+        Assert.Equal(
+            1,
+            game.State.GetObject(shifter).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {
