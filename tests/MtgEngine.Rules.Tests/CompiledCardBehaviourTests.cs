@@ -47530,6 +47530,64 @@ public sealed class CompiledCardBehaviourTests
     }
 
     [Fact]
+    public void A_partner_that_stops_being_a_creature_ends_the_pairing_for_good()
+    {
+        // CR 702.95e's third arm, and the only one nothing but the sweep can see: leaving the
+        // battlefield and changing controller are both events, while ceasing to be a creature
+        // is a computed characteristic that simply stops being true. A land animated until end
+        // of turn is a legal partner while it is animated - CR 702.95a asks about creatures,
+        // not about cards - and takes the bond with it when the animation wears off. Permanent,
+        // like every break-up: animating it again does not restore the pairing, because only a
+        // soulbond trigger ever pairs.
+        var awaken = Card(
+            "Bond Animation Test",
+            "Target land you control becomes a 3/3 Elemental creature until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(awaken);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, awaken), [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        var flier = game.Create(alice, Wingcrafter(), Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Soulbond });
+
+        // The land is on the menu because it is a creature right now.
+        Assert.Contains(game.State.Choice!.Options, o => o.Id == forest.Value.ToString("N"));
+        game.Choose(alice, [forest.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(flier, game.State.GetObject(forest).Permanent!.PairedWithId);
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(forest))
+            .Has(KeywordAbility.Flying));
+
+        // Cleanup ends the animation, so the bond has nothing left to stand on.
+        PassTo(game, 2, TurnStep.Upkeep);
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(forest))
+            .CardTypes.HasFlag(CardType.Creature));
+        Assert.Null(game.State.GetObject(flier).Permanent!.PairedWithId);
+        Assert.Null(game.State.GetObject(forest).Permanent!.PairedWithId);
+        Assert.Single(game.Log.OfType<CreaturesUnpaired>());
+
+        // Animated again two turns on: a creature once more, and still unpaired.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, awaken), [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(forest))
+            .CardTypes.HasFlag(CardType.Creature));
+        Assert.Null(game.State.GetObject(forest).Permanent!.PairedWithId);
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(forest))
+            .Has(KeywordAbility.Flying));
+    }
+
+    [Fact]
     public void A_quoted_ability_is_granted_to_both_halves_while_paired()
     {
         // "Each of those creatures has ..." is layer 6 for two permanents at once: the quoted

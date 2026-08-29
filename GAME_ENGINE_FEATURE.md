@@ -6656,3 +6656,67 @@ so the fixture blindspot cannot reopen.
 **15,899 → 15,916 complete cards, the set diffed and none lost:** 7 cleave (Winged Portent,
 Fierce Retribution, Alchemist's Retrieval, Dig Up, Lunar Rejection, Path of Peril, Parasitic
 Grasp) and 10 gift, as named above.
+
+### Soulbond, and the negative control that was standing on a gap
+
+Soulbond was declined in an earlier round because the paired status on its own is coverage for a
+fact no card can observe. It ships now because both halves are here: the status (CR 702.95a-e)
+and the payoff (CR 702.95b), which every one of the 24 printings spells `As long as ~ is paired
+with another creature, ...` -- a conditional static, which is the mechanism 32 other cards
+already reach through `ContinuousEffectDefinition`.
+
+The status is a designation held on both creatures, each pointing at the other, and read only
+where the two agree. That redundancy is what lets `GameState.PairedPartnerOf` be shallow enough
+to call from inside layer 6: it reads the stored pairing and the partner's zone and nothing
+computed, because computing the partner's characteristics while computing your own is re-entrant.
+The questions the shallow reader cannot ask -- is either half still a creature, do they still
+share a controller -- are asked from outside, by a sweep beside the state-based actions, which
+severs the pairing for good (CR 702.95e: a creature that qualifies again later has still stopped
+being paired, and only a new soulbond trigger pairs it again). Pairing itself is a *choice*, so
+each of the two entry triggers resolves into one question answered by naming a creature or
+declining, exactly as exploit's does; the intervening if is on the trigger predicate and CR
+702.95c's re-check happens where the question is asked.
+
+**The regression that parked this branch was not soulbond.** The round-ten record above says it
+"breaks a self-pump keyword grant", and it does, through one line that has nothing to do with
+pairing: the branch added `["phasing"] = KeywordAbility.Phasing` to `EffectPhrase`'s grantable
+vocabulary so that "Enchanted permanent has phasing" could be read at all. `A_self_pump_grants_
+its_keyword_in_the_same_sentence` proves the whole-or-nothing rule -- a sentence whose grant half
+is unreadable must leave the *whole* line unread, size included -- and it proved it with a card
+saying "gains phasing", which was refused only because that word was missing from the table.
+Deleting the one dictionary line makes the control pass and Teferi's Curse unreadable; restoring
+it does the reverse. The two tests were arguing over a gap, not over the reader, and the reader
+was never touched.
+
+So the control was repointed rather than the vocabulary reverted, because the vocabulary
+addition is real: the untap step already read the *computed* keyword and already took everything
+attached along with its host, so a granted phasing plays in full, and a game is now played that
+phases an enchanted creature out on one untap step and back on the next. What the control names
+now is protection from a creature type -- the table holds one flag per colour and the ability
+takes a quality, so no dictionary line can carry it, and Diregraf Escort is short on exactly that
+sentence and no other. A negative control anchored to a missing word re-arms every time the word
+gets written down, and that table has twice been extended by diffing it against the enum. The
+`Keywords` remark was corrected in the same change; it still called fear, intimidate, shadow,
+skulk and changeling omissions long after all five had been added, which is the reading that made
+a gap look like a boundary in the first place.
+
+One arm of CR 702.95e had a sweep and no game behind it. Leaving the battlefield and changing
+controller are both events with tests; ceasing to be a creature is a computed characteristic that
+simply stops being true, and nothing played it. A land animated until end of turn is a legal
+partner while it is animated -- 702.95a asks about creatures, not about cards -- and the test now
+pairs one, watches the bond come apart at cleanup, and animates it again to confirm the pairing
+does not come back with it. Removing the `IsCreature` test from the sweep fails it.
+
+Declined, and why, out of 27 cards that mention the pairing: Diregraf Escort (protection from a
+creature type), Doom Weaver and Imperious Mindbreaker (their quoted grants count "cards equal to
+its power/toughness"), Breathkeeper Seraph (a delayed return), Mirage Phalanx (a token copy with
+exceptions) and Donna Noble (a trigger watching damage to either half). All six are short on
+that line alone -- the `Soulbond` line itself reads on every card that prints it, which the shelf
+test asserts card by card.
+
+**15,935 -> 15,958 complete cards, the set diffed and none lost:** 21 soulbond (Wingcrafter,
+Nearheath Pilgrim, Spectral Gateguards, Hanweir Lancer, Lightning Mauler, Geist Trappers, Elgaud
+Shieldmate, Pathbreaker Wurm, Nightshade Peddler, Silverblade Paladin, Trusted Forcemage, Druid's
+Familiar, Wolfir Silverheart, Stonewright, Galvanic Alchemist, Stern Mentor, Thundering
+Mightmare, Tandem Lookout, Deadeye Navigator, Flowering Lumberknot, Joint Assault) and the 2 the
+phasing word unlocked (Teferi's Curse, Cloak of Invisibility).
