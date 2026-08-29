@@ -43547,7 +43547,7 @@ public sealed class CompiledCardBehaviourTests
         var compiled = CardCompiler.Compile(keeper);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        var (game, alice, bob) = InMainPhase();
+        var (game, alice, _) = InMainPhase();
         var breeze = game.Create(alice, keeper, Zone.Battlefield);
 
         Assert.Contains(breeze, game.State.Battlefield);
@@ -43574,8 +43574,6 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(breeze, game.State.Battlefield);
         Assert.Empty(game.State.PhasedOut);
         Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(breeze)));
-
-        _ = bob;
     }
 
     /// <summary>
