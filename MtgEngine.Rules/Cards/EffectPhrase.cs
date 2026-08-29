@@ -887,6 +887,131 @@ public static partial class EffectPhrase
         return true;
     }
 
+    /// <summary>
+    /// "Target X and each other Y that shares a color with it" — a target and a group described
+    /// by comparing against it (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// Radiance and Bile Blight are the same sentence with different comparisons, and both
+    /// halves of it are already sentences this parser reads: "destroy target land" and "destroy
+    /// all lands" are two readers that exist, and what was missing was only the conjunction and
+    /// the comparison between them. So the sentence is cut apart, each half is offered to the
+    /// ordinary vocabulary, and the group is told which target to look at — which is why every
+    /// verb in the family arrives at once rather than one reader per printed line.
+    /// <para>
+    /// Nothing is written into the caller's builders until both halves have read. A helper that
+    /// half-parses and then returns false leaves the readers below it working on a sentence that
+    /// has already contributed effects, and the line after it compiles into something no card
+    /// prints.
+    /// </para>
+    /// </remarks>
+    private static bool TryPeerGroup(
+        string sentence,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        var m = PeerGroupLine().Match(sentence);
+        if (!m.Success)
+            return false;
+
+        // Only as the first thing on its line. The two halves are parsed into their own builders
+        // and joined back together by target index, and the index is the same number in both
+        // only when nothing has been targeted yet. No corpus card prints this shape second.
+        if (targets.Count > 0)
+            return false;
+
+        // The group half is read on its own, so it may only name an owner that half can answer
+        // by itself. "All other creatures that player controls" parses perfectly and asks the
+        // ability for a subject player — which a spell does not have, so the sweep would find
+        // nobody while the card compiled complete. Four corpus cards print such a clause and
+        // every one of them carries other unread text as well, so refusing it costs nothing and
+        // keeps the reader from growing a hole that nothing would report.
+        if (GroupOwnerClause().IsMatch(m.Groups["g"].Value))
+            return false;
+
+        var comparison = m.Groups["colour"].Success
+            ? PeerFilters.SharesAColour
+            : (Func<GameState, IAbilitySource, GameObject, GameObject, Guid, bool>)
+                PeerFilters.HasTheSameName;
+
+        var head = m.Groups["head"].Value;
+        var tail = m.Groups["tail"].Value;
+        var determiner = m.Groups["det"].Value;
+
+        // The printed verb agrees with the whole conjunction, so it is plural; each half on its
+        // own needs its own agreement. "Target creature ... get +1/+1" is not a sentence this
+        // parser reads, and neither is "all creatures gets +1/+1".
+        var aimed = head + "target " + m.Groups["t"].Value + Agreeing(tail, singular: true);
+
+        // "Other" is dropped rather than carried into the group phrase. There it means "not the
+        // permanent whose ability this is", and on these cards it means "not the one that was
+        // targeted" — Wojek Embermage damages every creature sharing a colour with its target,
+        // itself included. The exclusion the card prints is the peer one, supplied below.
+        var group = head + determiner + " " + m.Groups["g"].Value + Agreeing(
+            tail, singular: !determiner.Equals("all", StringComparison.OrdinalIgnoreCase));
+
+        var aimedTargets = ImmutableList.CreateBuilder<TargetSpec>();
+        var aimedEffects = ImmutableList.CreateBuilder<IEffect>();
+
+        if (!TryOne(aimed, aimedTargets, aimedEffects, objectNamedByTrigger)
+            || aimedTargets is not [{ Kind: TargetKind.Permanent }])
+        {
+            return false;
+        }
+
+        var groupTargets = ImmutableList.CreateBuilder<TargetSpec>();
+        var groupEffects = ImmutableList.CreateBuilder<IEffect>();
+
+        // A group names no target of its own, and exactly one effect: anything else means the
+        // half was read as something other than the sweep this sentence describes.
+        if (!TryOne(group, groupTargets, groupEffects, objectNamedByTrigger)
+            || groupTargets.Count > 0
+            || groupEffects.Count != 1)
+        {
+            return false;
+        }
+
+        // Index 0 because the guard above makes the targeted half's spec the first one there is.
+        var peered = groupEffects[0] switch
+        {
+            ToEachPermanent swept => swept with
+            {
+                What = swept.What with { PeerFilter = PeerFilters.Other(comparison) },
+                PeerIndex = 0,
+            },
+            PumpGroup boosted => boosted with
+            {
+                What = boosted.What with { PeerFilter = PeerFilters.Other(comparison) },
+                PeerIndex = 0,
+            },
+            _ => (IEffect?)null,
+        };
+
+        if (peered is null)
+            return false;
+
+        targets.AddRange(aimedTargets);
+        effects.AddRange(aimedEffects);
+        effects.Add(peered);
+        return true;
+    }
+
+    /// <summary>One half of a conjunction, with the shared verb made to agree with it.</summary>
+    /// <remarks>
+    /// Only the two verbs the family prints, and only towards the singular. Adding an "s" to
+    /// anything else would be a guess, and a tail this does not recognise is handed on unchanged
+    /// so that the half either reads as printed or does not read at all.
+    /// </remarks>
+    private static string Agreeing(string tail, bool singular)
+    {
+        if (!singular || PluralVerbTail().Match(tail) is not { Success: true } verb)
+            return tail;
+
+        var word = verb.Groups["verb"];
+        return tail[..(word.Index + word.Length)] + "s" + tail[(word.Index + word.Length)..];
+    }
+
     private static bool TryOne(
         string sentence,
         ImmutableList<TargetSpec>.Builder targets,
@@ -991,6 +1116,13 @@ public static partial class EffectPhrase
             effects.Add(new WithCountedVariable(measure, scratch.ToImmutable()));
             return true;
         }
+
+        // "~ deals 2 damage to target creature and each other creature that shares a color with
+        // it" - one sentence about two things: a target, and a group described by looking at
+        // that target. Read before the verbs below, because each of them would take the head of
+        // this sentence and then choke on the conjunction.
+        if (TryPeerGroup(sentence, targets, effects, objectNamedByTrigger))
+            return true;
 
         // "~ deals damage equal to the number of Elves you control to target creature" - the
         // same effect as the sentence below with the count written the other way round, and the
@@ -7760,6 +7892,27 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(@"^untap them$", RegexOptions.IgnoreCase)]
     private static partial Regex UntapThemLine();
+
+    /// <remarks>
+    /// The two comparisons are the whole list, and both are printed with "other" every time —
+    /// 10 radiance cards and 18 same-name ones, counted rather than assumed. "Shares a card type
+    /// with it" is deliberately absent: its 8 cards name a card to cast or a second target to
+    /// exchange, and not one of them is this shape.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.*?)target (?<t>[a-z0-9'’ ]+?)"
+            + @" and (?<det>each|all) other (?<g>[a-z0-9'’ ]+?)"
+            + @" (?:(?<colour>that shares a color with it)"
+            + @"|with the same name as that [a-z]+)"
+            + @"(?<tail>.*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PeerGroupLine();
+
+    [GeneratedRegex(@"^\s*(?<verb>get|gain)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PluralVerbTail();
+
+    [GeneratedRegex(@"\bcontrols?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex GroupOwnerClause();
 
     /// <remarks>
     /// "You may attach ~ to it" is deliberately not read here. Those cards say it of a creature

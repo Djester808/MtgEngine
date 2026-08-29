@@ -12225,6 +12225,118 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// Radiance: "~ deals 2 damage to target creature and each other creature that shares a
+    /// color with it" (CR 608.2h, 105.2).
+    /// </summary>
+    /// <remarks>
+    /// One sentence about two things, and the reader cuts it into the two sentences the parser
+    /// already reads — "deals 2 damage to target creature" and "deals 2 damage to each creature"
+    /// — then tells the group which target to compare against.
+    /// <para>
+    /// Four wrong readings are asserted against, and each has its own creature on the board. The
+    /// target must take 2 and not 4: the printed word is "each <em>other</em>", so the group has
+    /// to leave the sibling out or the card doubles its own damage. A creature of another colour
+    /// must take none, which is what fails if the comparison is dropped and the sweep becomes a
+    /// board wipe. A colourless creature must take none either, because CR 105.2c gives it no
+    /// colour to share. And the second red creature must take 2, which is what fails if the
+    /// group half is never built at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Radiance_reaches_every_creature_sharing_the_targets_colour()
+    {
+        var beam = Card(
+            "Peer Colour Beam Test",
+            "~ deals 2 damage to target creature and each other creature that shares a color "
+                + "with it.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(beam);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        static CardDefinition Painted(string name, ManaColor? colour) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 4,
+            Toughness = 4,
+            Colors = colour is { } shade ? [shade] : [],
+            ColorIdentity = colour is { } identity ? [identity] : [],
+        };
+
+        var (game, alice, bob) = InMainPhase();
+
+        var aimed = game.Create(
+            bob, Painted("Peer Colour Aimed Test", ManaColor.Red), Zone.Battlefield);
+
+        var alsoRed = game.Create(
+            bob, Painted("Peer Colour Also Red Test", ManaColor.Red), Zone.Battlefield);
+
+        var green = game.Create(
+            bob, Painted("Peer Colour Green Test", ManaColor.Green), Zone.Battlefield);
+
+        var colourless = game.Create(
+            bob, Painted("Peer Colour Void Test", null), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, beam), [Target.ToPermanent(aimed)]);
+
+        Settle(game);
+
+        int Damage(ObjectId id) => game.State.GetObject(id).Permanent!.DamageMarked;
+
+        Assert.Equal(2, Damage(aimed));
+        Assert.Equal(2, Damage(alsoRed));
+        Assert.Equal(0, Damage(green));
+        Assert.Equal(0, Damage(colourless));
+    }
+
+    /// <summary>
+    /// "Target creature and all other creatures with the same name as that creature get -3/-3
+    /// until end of turn" (CR 201.2a).
+    /// </summary>
+    /// <remarks>
+    /// The same reader with the other comparison, and the half it exercises is the pump rather
+    /// than the sweep — the group becomes a <c>PumpGroup</c> here and a <c>ToEachPermanent</c>
+    /// above, so between them both arms of the decoration are played. The stranger on the board
+    /// is the wrong reading: a group with no comparison is a one-sided board wipe.
+    /// </remarks>
+    [Fact]
+    public void A_group_can_be_named_by_the_targets_name()
+    {
+        var blight = Card(
+            "Peer Name Blight Test",
+            "Target creature and all other creatures with the same name as that creature get "
+                + "-3/-3 until end of turn.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(blight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var twin = TestCards.Creature("Peer Name Twin Test", 2, 2);
+        var aimed = game.Create(bob, twin, Zone.Battlefield);
+        var sibling = game.Create(bob, twin, Zone.Battlefield);
+
+        var stranger = game.Create(
+            bob, TestCards.Creature("Peer Name Stranger Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, blight), [Target.ToPermanent(aimed)]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(aimed, game.State.Battlefield);
+        Assert.DoesNotContain(sibling, game.State.Battlefield);
+
+        Assert.Contains(stranger, game.State.Battlefield);
+        Assert.Equal(
+            2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(stranger)));
+    }
+
+    /// <summary>
     /// "Destroy target creature that was dealt damage this turn" (CR 120.3, 514.2).
     /// </summary>
     /// <remarks>
