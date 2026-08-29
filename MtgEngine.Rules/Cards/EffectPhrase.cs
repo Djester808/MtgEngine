@@ -2924,6 +2924,18 @@ public static partial class EffectPhrase
             effects.Add(new PumpUntilEndOfTurn(
                 GenerativeEffects.BecomesId(AnimatedTypes(m)), index));
 
+            foreach (var subtype in AnimatedSubtypes(m))
+            {
+                effects.Add(new PumpUntilEndOfTurn(
+                    GenerativeEffects.BecomesCreatureTypeId(subtype), index));
+            }
+
+            if (AnimatedColors(m).ToList() is { Count: > 0 } becomes)
+            {
+                effects.Add(new PumpUntilEndOfTurn(
+                    GenerativeEffects.BecomesColorsId(becomes), index));
+            }
+
             effects.Add(new PumpUntilEndOfTurn(
                 GenerativeEffects.SetPowerToughnessId(
                     int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
@@ -2949,6 +2961,18 @@ public static partial class EffectPhrase
 
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.BecomesId(AnimatedTypes(m))));
+
+            foreach (var subtype in AnimatedSubtypes(m))
+            {
+                effects.Add(new PumpSourceUntilEndOfTurn(
+                    GenerativeEffects.BecomesCreatureTypeId(subtype)));
+            }
+
+            if (AnimatedColors(m).ToList() is { Count: > 0 } becomesSelf)
+            {
+                effects.Add(new PumpSourceUntilEndOfTurn(
+                    GenerativeEffects.BecomesColorsId(becomesSelf)));
+            }
 
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.SetPowerToughnessId(
@@ -5007,10 +5031,49 @@ public static partial class EffectPhrase
     /// "Becomes a 3/3 Elemental creature" and "becomes a 3/3 Soldier artifact creature" differ by
     /// one word, and the word is not decoration: an animated permanent that is also an artifact
     /// answers to artifact removal, and one that quietly was not would be a better card than the
-    /// printed one. The subtype beside it is still ignored - the engine has no use for
-    /// "Elemental" here, and inventing a creature type the card does not otherwise reference
-    /// would assert something it cannot check.
+    /// printed one.
+    /// <para>
+    /// This used to say the subtype beside it was ignored because the engine had no use for
+    /// "Elemental" and could not check it. That was wrong on both counts by the time it was
+    /// written: <c>CharacteristicsBuilder.Subtypes</c> exists and every lord reads it, so
+    /// "Elemental creatures you control get +1/+1" is a question a Keyrune can be asked. The
+    /// colour was dropped without even that argument. Azorius Keyrune printed "a 2/2 white and
+    /// blue Bird artifact creature" and became a colourless, typeless 2/2 - which is a different
+    /// card in front of protection from blue, in front of removal that names a Bird, and in front
+    /// of any lord. 264 corpus cards print that shape, 202 naming a type and 72 a colour.
+    /// </para>
     /// </remarks>
+    /// <summary>The creature types an animation confers (CR 205.3m, layer 4).</summary>
+    /// <remarks>
+    /// Capitalised words in the modifier run, which is how the printed line spells a subtype and
+    /// how every other reader here tells one from an adjective. "Artifact" is excluded because it
+    /// is a card type and is answered by <see cref="AnimatedTypes"/>.
+    /// </remarks>
+    private static IEnumerable<string> AnimatedSubtypes(Match m) =>
+        m.Groups["mods"].Value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(word => word.Length > 1 && char.IsUpper(word[0]));
+
+    /// <summary>The colours an animation confers (CR 105.2, layer 5).</summary>
+    /// <remarks>
+    /// Printed lower-case and joined by "and", so the words are taken individually and anything
+    /// that is not a colour name is left alone - the same run carries "artifact" and the subtype.
+    /// </remarks>
+    private static IEnumerable<ManaColor> AnimatedColors(Match m) =>
+        m.Groups["mods"].Value
+            .Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word.ToLowerInvariant() switch
+            {
+                "white" => (ManaColor?)ManaColor.White,
+                "blue" => ManaColor.Blue,
+                "black" => ManaColor.Black,
+                "red" => ManaColor.Red,
+                "green" => ManaColor.Green,
+                _ => null,
+            })
+            .Where(colour => colour is not null)
+            .Select(colour => colour!.Value);
+
     private static Domain.Enums.CardType AnimatedTypes(Match m) =>
         m.Groups["mods"].Value.Contains("artifact", StringComparison.OrdinalIgnoreCase)
             ? Domain.Enums.CardType.Artifact | Domain.Enums.CardType.Creature

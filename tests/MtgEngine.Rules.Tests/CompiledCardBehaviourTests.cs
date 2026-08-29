@@ -14322,6 +14322,64 @@ public sealed class CompiledCardBehaviourTests
             2, Characteristics.Of(game.State, Pool, game.State.GetObject(idol)).Power);
     }
 
+    /// <summary>
+    /// An animation confers the colours and the creature type it prints, not only the P/T
+    /// (CR 105.2, 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// Azorius Keyrune prints "a 2/2 white and blue Bird artifact creature" and became a
+    /// colourless, typeless 2/2 that compiled as a complete card. That is a different card in
+    /// front of protection from blue, in front of removal naming a Bird, and in front of any lord.
+    /// 264 corpus cards print the shape, 202 naming a type and 72 a colour.
+    /// <para>
+    /// The colours arrive as one effect rather than one each, because becoming a colour
+    /// <em>sets</em> the colours rather than adding to them — two effects in the same layer each
+    /// cleared what the last wrote, and the first pass at this fix produced a Bird that was blue
+    /// and not white. Asserting both colours is what caught that.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_animation_confers_the_colours_and_type_it_prints()
+    {
+        var keyrune = Card(
+            "Keyrune Identity Test",
+            "{W}{U}: ~ becomes a 2/2 white and blue Bird artifact creature with flying until "
+                + "end of turn.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(keyrune);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var rune = game.Create(alice, keyrune, Zone.Battlefield);
+
+        var before = Characteristics.Of(game.State, Pool, game.State.GetObject(rune));
+        Assert.Empty(before.Subtypes);
+
+        foreach (var basic in new[] { "Plains", "Island" })
+        {
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.ActivateAbility(alice, rune, "a");
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(rune));
+
+        Assert.Equal(2, now.Power);
+        Assert.True(now.CardTypes.HasFlag(CardType.Creature));
+        Assert.True(now.CardTypes.HasFlag(CardType.Artifact));
+        Assert.True(now.Has(KeywordAbility.Flying));
+
+        Assert.Contains("Bird", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // Both colours, not the last one written.
+        Assert.Contains(ManaColor.White, now.Colors);
+        Assert.Contains(ManaColor.Blue, now.Colors);
+        Assert.Equal(2, now.Colors.Count);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {

@@ -180,6 +180,18 @@ public static partial class GenerativeEffects
     public static string BecomesColorId(ManaColor colour) =>
         string.Create(CultureInfo.InvariantCulture, $"becomes-color:{Named(colour)}");
 
+    /// <summary>
+    /// The id for "becomes white and blue" — every colour it becomes, in one effect (CR 105.2).
+    /// </summary>
+    /// <remarks>
+    /// One effect and not one per colour, because becoming a colour <em>sets</em> the colours
+    /// rather than adding to them: two effects in the same layer each clear what the last wrote,
+    /// so a permanent that printed "a 2/2 white and blue Bird" came out blue. Azorius Keyrune is
+    /// the card that showed it.
+    /// </remarks>
+    public static string BecomesColorsId(IEnumerable<ManaColor> colours) =>
+        "becomes-color:" + string.Join(',', colours.Select(Named));
+
     /// <summary>The condition's name as it appears in an id — lower case, so ids compare.</summary>
     private static string Named(ControlHeldWhile until) =>
         until.ToString().ToLowerInvariant();
@@ -507,20 +519,40 @@ public static partial class GenerativeEffects
         }
 
         var recoloured = BecomesColorName().Match(definitionId);
-        if (recoloured.Success
-            && Enum.TryParse<ManaColor>(recoloured.Groups["c"].Value, true, out var only))
+        if (recoloured.Success)
         {
-            return new ContinuousEffectDefinition
+            var become = new List<ManaColor>();
+            var readable = true;
+
+            foreach (var name in recoloured.Groups["c"].Value.Split(
+                ',', StringSplitOptions.RemoveEmptyEntries))
             {
-                Id = definitionId,
-                Layer = EffectLayer.Color,
-                Applies = (_, _, _) => true,
-                Apply = (_, _, builder) =>
+                if (Enum.TryParse<ManaColor>(name, true, out var one))
+                    become.Add(one);
+                else
+                    readable = false;
+            }
+
+            if (readable && become.Count > 0)
+            {
+                return new ContinuousEffectDefinition
                 {
-                    builder.Colors.Clear();
-                    builder.Colors.Add(only);
-                },
-            };
+                    Id = definitionId,
+                    Layer = EffectLayer.Color,
+                    Applies = (_, _, _) => true,
+
+                    // Setting, not adding (CR 105.2), so the whole set arrives at once. Written as
+                    // one effect for that reason: a colour per effect meant the second cleared
+                    // what the first wrote and a two-colour animation came out one colour.
+                    Apply = (_, _, builder) =>
+                    {
+                        builder.Colors.Clear();
+
+                        foreach (var colour in become)
+                            builder.Colors.Add(colour);
+                    },
+                };
+            }
         }
 
         var setPt = SetPowerToughnessName().Match(definitionId);
@@ -589,7 +621,7 @@ public static partial class GenerativeEffects
     [GeneratedRegex(@"^becomes-pt:(?<p>\d+)/(?<t>\d+)$")]
     private static partial Regex SetPowerToughnessName();
 
-    [GeneratedRegex(@"^becomes-color:(?<c>[a-z]+)$")]
+    [GeneratedRegex(@"^becomes-color:(?<c>[a-z]+(,[a-z]+)*)$")]
     private static partial Regex BecomesColorName();
 
     [GeneratedRegex(@"^becomes-type:(?<t>[A-Za-z' -]+)$")]
