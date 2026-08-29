@@ -1636,7 +1636,7 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
                 || !compiled.Triggers.IsEmpty
                 || !compiled.Statics.IsEmpty
                 || !compiled.Replacements.IsEmpty
-                || !compiled.CostReducers.IsEmpty
+                || !compiled.CostModifiers.IsEmpty
                 || compiled.GrantedKeywords != MtgEngine.Domain.Enums.KeywordAbility.None
                 || card.Keywords != MtgEngine.Domain.Enums.KeywordAbility.None
                 || compiled.DevourCount > 0

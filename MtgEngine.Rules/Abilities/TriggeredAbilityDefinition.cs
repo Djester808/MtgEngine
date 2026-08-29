@@ -192,7 +192,7 @@ public sealed record TriggeredAbilityDefinition
 /// settled before card behaviour exists, and this is the shape the card definitions of slice 8
 /// will plug into.
 /// </remarks>
-public interface IAbilitySource : ISpellSource
+public interface IAbilitySource : ISpellSource, ICostModifierSource
 {
     /// <summary>The triggered abilities of a card, or an empty list if it has none.</summary>
     IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card);
@@ -246,6 +246,14 @@ public interface IAbilitySource : ISpellSource
     /// <summary>
     /// What this permanent takes off the cost of its controller's spells (CR 601.2f).
     /// </summary>
+    /// <remarks>
+    /// The one cell of the modifier grid a hand-written script can say in two words, and the
+    /// only reason it survives <see cref="CostModifier"/>: nothing compiled emits one any more.
+    /// The compiler reads every cell it can read into <see cref="ICostModifierSource"/>, which
+    /// this interface now extends, and <c>Game</c> translates a reducer into the modifier it is
+    /// exactly equal to rather than applying it down a second path. Emitting both for one card
+    /// would discount it twice.
+    /// </remarks>
     IReadOnlyList<CostReducer> CostReducersOf(CardDefinition card) => [];
 
     /// <summary>

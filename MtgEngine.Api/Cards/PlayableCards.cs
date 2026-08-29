@@ -73,6 +73,16 @@ public sealed class PlayableCards : IAbilitySource
     public IReadOnlyList<CostReducer> CostReducersOf(CardDefinition card) =>
         For(card).CostReducersOf(card);
 
+    /// <summary>What a card does to somebody's spell or ability costs (CR 601.2f, 602.2b).</summary>
+    /// <remarks>
+    /// The member this class exists for. <see cref="CompiledPool"/> answers it and
+    /// <c>Game</c> reads it through an <c>is ICostModifierSource</c> test — which this class
+    /// fails unless it is here, so without this line the compiler would emit a modifier for
+    /// every card that prints one and the running game would apply none of them.
+    /// </remarks>
+    public IReadOnlyList<CostModifier> CostModifiersOf(CardDefinition card) =>
+        For(card).CostModifiersOf(card);
+
     public SpellDefinition? AdventureOf(CardDefinition card) => For(card).AdventureOf(card);
 
     public string? AdventureCostOf(CardDefinition card) => For(card).AdventureCostOf(card);

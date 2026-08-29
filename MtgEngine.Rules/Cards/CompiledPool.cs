@@ -91,8 +91,21 @@ public sealed class CompiledPool : IAbilitySource
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 
-    public IReadOnlyList<CostReducer> CostReducersOf(CardDefinition card) =>
-        For(card).CostReducers;
+    /// <summary>
+    /// What this card does to somebody's spell or ability costs (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The seam the engine half was built against and nothing implemented, so every
+    /// <c>CostModifier</c> the engine could apply was one no card could ever say. Answering it
+    /// here is what connects the two.
+    /// <para>
+    /// <c>CostReducersOf</c> is deliberately left to its default: the compiler now emits
+    /// modifiers for every cell it reads, the old reducer's single cell included, and a card
+    /// answering both would be discounted twice by <c>Game.ModifiersOn</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CostModifier> CostModifiersOf(CardDefinition card) =>
+        For(card).CostModifiers;
 
     public bool ShowsTopOfLibrary(CardDefinition card) => For(card).ShowsTopOfLibrary;
 

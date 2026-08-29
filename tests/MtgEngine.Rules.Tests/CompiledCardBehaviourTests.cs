@@ -15273,6 +15273,241 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Island");
     }
 
+    // ---- Cost modifiers, read off the card (CR 601.2f, 602.2b) --------------
+
+    /// <summary>A land the compiler reads, so nothing on the path under test is hand written.</summary>
+    private static readonly CardDefinition ModifierForest = new()
+    {
+        OracleId = "oracle-cost-modifier-forest-test",
+        Name = "Cost Modifier Forest Test",
+        OracleText = "{T}: Add {G}.",
+        CardTypes = CardType.Land,
+    };
+
+    /// <summary>Adds one more green to the pool, from a land whose text was compiled.</summary>
+    private static void TapCompiledForest(Game game, Guid playerId, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            game.ActivateAbility(
+                playerId,
+                game.Create(playerId, ModifierForest, Zone.Battlefield),
+                "mana");
+        }
+    }
+
+    /// <summary>
+    /// "Spells your opponents cast cost {2} more to cast" — God-Pharaoh's Statue (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The engine could apply every cell of the cost grid and no card could say any of them:
+    /// nothing implemented <c>ICostModifierSource</c>, so <c>Game</c>'s pattern match found no
+    /// source and the whole capability was unreachable from a printed line. This is the compiled
+    /// half of that seam, played through a real cast.
+    /// <para>
+    /// The first assertion is the one that catches the wrong reading. The only cost modification
+    /// this engine used to have walked the <em>caster's own</em> battlefield, so a tax scoped to
+    /// opponents read that way is a card that prints one thing and plays its opposite.
+    /// </para>
+    /// <para>
+    /// The compiled card carries a modifier and no reducer, and that is asserted rather than
+    /// assumed: <c>Game.ModifiersOn</c> reads both lists and translates a reducer into the
+    /// modifier it equals, so a card emitting both would be taxed or discounted twice.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_compiled_tax_on_opponents_spells_spares_its_own_controller()
+    {
+        var statue = Card(
+            "Compiled Opponent Tax Test",
+            "Spells your opponents cast cost {2} more to cast.",
+            CardType.Artifact);
+
+        Assert.Single(Pool.CostModifiersOf(statue));
+        Assert.Empty(((IAbilitySource)Pool).CostReducersOf(statue));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, statue, Zone.Battlefield);
+
+        // Alice controls it, so Alice is not among the opponents it names.
+        var hers = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Untaxed Compiled Bear Test", "{G}", 1));
+
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, hers, []);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        PassToMainPhaseOf(game, bob);
+        var theirs = TestCards.PutInHand(
+            game, bob, TestCards.Costed("Taxed Compiled Bear Test", "{G}", 1));
+
+        TapCompiledForest(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs, []));
+
+        // {G} plus the {2} it is taxed, and no more: the increase touches generic mana only.
+        TapCompiledForest(game, bob, 2);
+        game.CastSpell(bob, theirs, []);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Noncreature spells cost {1} more to cast" — Thorn of Amethyst (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The bare form names nobody, and naming nobody means everybody — its own controller
+    /// included. That is the entire difference between this card and the one above, and reading
+    /// the two the same way turns a symmetrical prison into a one-sided one.
+    /// </remarks>
+    [Fact]
+    public void A_compiled_bare_tax_is_paid_by_its_own_controller()
+    {
+        var thorn = Card(
+            "Compiled Bare Tax Test",
+            "Noncreature spells cost {1} more to cast.",
+            CardType.Artifact);
+
+        var gain = new CardDefinition
+        {
+            OracleId = "oracle-compiled-taxed-instant-test",
+            Name = "Compiled Taxed Instant Test",
+            OracleText = "You gain 1 life.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{G}",
+        };
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, thorn, Zone.Battlefield);
+
+        // A creature spell is not what the line names, so it costs what it prints.
+        var bear = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Compiled Unnamed Bear Test", "{G}", 1));
+
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, bear, []);
+        Settle(game);
+
+        var instant = TestCards.PutInHand(game, alice, gain);
+
+        TapCompiledForest(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, instant, []));
+
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, instant, []);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Activated abilities of lands you control cost {1} less to activate" — Blossoming
+    /// Tortoise (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// Two scopes, and this is what tells them apart on a compiled card. "Lands you control"
+    /// says whose permanent the ability sits on and nothing at all about who activates it, so it
+    /// is read as <c>SourceController</c> and not as <c>Who</c>. Bob's land is the same card
+    /// with the same ability and pays the printed price, because it is not one Alice controls.
+    /// </remarks>
+    [Fact]
+    public void A_compiled_discount_on_your_lands_abilities_misses_an_opponents_land()
+    {
+        var tortoise = Card(
+            "Compiled Land Discount Test",
+            "Activated abilities of lands you control cost {1} less to activate.",
+            CardType.Creature,
+            3,
+            3);
+
+        var well = new CardDefinition
+        {
+            OracleId = "oracle-compiled-discounted-well-test",
+            Name = "Compiled Discounted Well Test",
+            OracleText = "{2}: You gain 1 life.",
+            CardTypes = CardType.Land,
+        };
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, tortoise, Zone.Battlefield);
+        var hers = game.Create(alice, well, Zone.Battlefield);
+
+        TapCompiledForest(game, alice, 1);
+        game.ActivateAbility(alice, hers, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        PassToMainPhaseOf(game, bob);
+        var theirs = game.Create(bob, well, Zone.Battlefield);
+
+        TapCompiledForest(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(bob, theirs, "a"));
+
+        TapCompiledForest(game, bob, 1);
+        game.ActivateAbility(bob, theirs, "a");
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Spells you cast from your graveyard cost {1} less to cast" — Patrician Geist (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// The zone has to be read on the modifier and on the cost together. A reduction that
+    /// carried the words and then applied from anywhere would make every spell in hand cheaper
+    /// as well, which is a strictly better card than the unread one — so the assertion that
+    /// earns this its place is the one about the spell still in hand.
+    /// </remarks>
+    [Fact]
+    public void A_compiled_graveyard_discount_does_not_reach_a_spell_cast_from_hand()
+    {
+        var geist = Card(
+            "Compiled Graveyard Discount Test",
+            "Spells you cast from your graveyard cost {1} less to cast.",
+            CardType.Creature,
+            2,
+            2);
+
+        var flashback = new CardDefinition
+        {
+            OracleId = "oracle-compiled-flashback-discount-test",
+            Name = "Compiled Flashback Discount Test",
+            OracleText = "You gain 3 life.\nFlashback {2}",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{4}",
+        };
+
+        var fromHand = new CardDefinition
+        {
+            OracleId = "oracle-compiled-undiscounted-hand-test",
+            Name = "Compiled Undiscounted Hand Test",
+            OracleText = "You gain 3 life.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{2}",
+        };
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, geist, Zone.Battlefield);
+
+        // Flashback for {2}, less the {1} the graveyard is worth.
+        var buried = game.Create(alice, flashback, Zone.Graveyard);
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, buried);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        // The same discount does not follow a spell cast from hand (CR 400.1).
+        var held = TestCards.PutInHand(game, alice, fromHand);
+        TapCompiledForest(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, held));
+
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, held);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+    }
+
     /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
@@ -29374,7 +29609,7 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(altar);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-        Assert.Single(compiled.CostReducers);
+        Assert.Single(compiled.CostModifiers);
 
         var bear = new CardDefinition
         {

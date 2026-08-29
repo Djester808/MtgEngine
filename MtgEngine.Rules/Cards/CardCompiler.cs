@@ -282,7 +282,7 @@ public static partial class CardCompiler
         ManaCostSpec? entwine = null;
         ManaCostSpec? splice = null;
         ManaCostSpec? squad = null;
-        var reducers = ImmutableList.CreateBuilder<CostReducer>();
+        var costModifiers = ImmutableList.CreateBuilder<CostModifier>();
         var showsTop = false;
         var noHandLimit = false;
         var chooses = ChoiceOnEntry.None;
@@ -577,7 +577,7 @@ public static partial class CardCompiler
                 continue;
             }
 
-            if (TryCostReducer(line, reducers))
+            if (TryCostModifier(line, costModifiers))
                 continue;
 
             if (TryVanishing(line, card, triggers, replacements))
@@ -1293,7 +1293,7 @@ public static partial class CardCompiler
             Activated = activated.ToImmutable(),
             Triggers = triggers.ToImmutable(),
             Replacements = replacements.ToImmutable(),
-            CostReducers = reducers.ToImmutable(),
+            CostModifiers = costModifiers.ToImmutable(),
             ShowsTopOfLibrary = showsTop,
             RemovesHandLimit = noHandLimit,
             ChoosesOnEntry = chooses,
@@ -3563,33 +3563,152 @@ public static partial class CardCompiler
     }
 
     /// <summary>
-    /// "Creature spells you cast cost {1} less to cast" (CR 601.2f).
+    /// What a permanent does to somebody's spell or ability costs (CR 601.2f, 602.2b).
     /// </summary>
     /// <remarks>
     /// Not a continuous effect: what a spell costs is worked out once as it is cast and never
-    /// recomputed, so this is read at cast time from whatever the caster controls then. The
+    /// recomputed, so this is read at cast time from whatever is on the battlefield then. The
     /// filter is the vocabulary searching already uses, which is what lets "instant and sorcery"
     /// be two filters rather than a phrase needing its own reader.
+    /// <para>
+    /// The grid is (whose) × (more or less) × (spells or abilities), and this reads five of its
+    /// six cells. The sixth — <em>your opponents' spells cost less</em> — has no printing in the
+    /// corpus, so there is nothing to read and no pattern for it. Two families that look like
+    /// they belong here are refused instead, because the only available reading of each makes
+    /// the card better than printed:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>
+    /// A modifier naming a <em>keyword</em> ability — "Equip abilities you activate cost {1}
+    /// less to activate", and the same for ninjutsu, cycling, boast, exhaust and loyalty (12
+    /// cards). <see cref="CostModifier.FilterId"/> asks about the card the ability sits on, so
+    /// the nearest thing it can say is "abilities you activate", which discounts every ability
+    /// its controller has.
+    /// </item>
+    /// <item>
+    /// "This ability costs {1} less to activate", which <see cref="CostModifier.SourceOnly"/>
+    /// exists for. Every printing of it in the corpus carries a counted or conditional tail —
+    /// "for each Shrine you control", "if you control a legendary creature" — and the bare
+    /// sentence the flag models is printed on no card at all, so it stays unread rather than
+    /// being read off a line that says something else.
+    /// </item>
+    /// </list>
     /// </remarks>
-    private static bool TryCostReducer(string line, ImmutableList<CostReducer>.Builder into)
+    private static bool TryCostModifier(string line, ImmutableList<CostModifier>.Builder into)
     {
-        var m = CostReducerLine().Match(line);
-        if (!m.Success)
+        if (SpellCostModifierLine().Match(line) is { Success: true } spell)
+            return ReadSpellCostModifier(spell, into);
+
+        if (AbilityCostModifierLine().Match(line) is { Success: true } ability)
+            return ReadAbilityCostModifier(ability, into);
+
+        return false;
+    }
+
+    /// <summary>"Creature spells you cast cost {1} less to cast" and its five siblings.</summary>
+    private static bool ReadSpellCostModifier(
+        Match m, ImmutableList<CostModifier>.Builder into)
+    {
+        if (CostFilterFor(m.Groups["what"].Value) is not { } filter)
             return false;
 
-        var what = m.Groups["what"].Value.Trim();
-        var filter = what.Length == 0
-            ? SearchFilters.AnyCard
-            : EffectPhrase.SearchFilterFor(what.Replace(" and ", " or ", StringComparison.OrdinalIgnoreCase));
+        // Who pays. The bare form names nobody and so taxes everybody, its own controller
+        // included — that is the whole difference between Sphere of Resistance and a card that
+        // says "your opponents".
+        var who = m.Groups["who"].Value.Trim().ToLowerInvariant() switch
+        {
+            "you cast" => PlayerScope.You,
+            "your opponents cast" => PlayerScope.EachOpponent,
+            _ => PlayerScope.EachPlayer,
+        };
 
-        if (filter is null)
-            return false;
+        // CR 400.1. The zone goes on the modifier, which is the half the consumer reads; a
+        // reduction carrying a zone nothing checked would come off from every zone at once.
+        Zone? from = m.Groups["zone"].Success
+            ? m.Groups["zone"].Value.ToLowerInvariant() switch
+            {
+                "graveyard" => Zone.Graveyard,
+                "exile" => Zone.Exile,
+                _ => Zone.Hand,
+            }
+            : null;
 
-        into.Add(new CostReducer(
-            filter, int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture)));
+        into.Add(new CostModifier
+        {
+            FilterId = filter,
+            Amount = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture),
+            Change = ChangeFor(m.Groups["dir"].Value),
+            Kind = CostModifierKind.Spells,
+            Who = who,
+            FromZone = from,
+        });
 
         return true;
     }
+
+    /// <summary>
+    /// "Activated abilities of Foods you control cost {1} less to activate" (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The two scopes answer different questions and both are set deliberately.
+    /// <see cref="CostModifier.SourceController"/> is whose permanent the ability is printed on,
+    /// which is what "you control" says; <see cref="CostModifier.Who"/> is who is paying, and
+    /// this wording says nothing about that, so it stays <see cref="PlayerScope.EachPlayer"/>.
+    /// Narrowing it to <see cref="PlayerScope.You"/> would answer the wrong question and stop
+    /// applying the moment somebody else activated an ability of a permanent you control.
+    /// </remarks>
+    private static bool ReadAbilityCostModifier(
+        Match m, ImmutableList<CostModifier>.Builder into)
+    {
+        // "Foods", "lands", "white enchantments" — the template is always plural, and the filter
+        // vocabulary names kinds in the singular. A plural left as printed would read "Foods" as
+        // a subtype, which nothing has: the modifier would compile, the card would look finished
+        // and no ability would ever be cheaper.
+        var what = m.Groups["what"].Value.Trim();
+        var filter = CostFilterFor(Singular(what)) ?? CostFilterFor(what);
+        if (filter is null)
+            return false;
+
+        into.Add(new CostModifier
+        {
+            FilterId = filter,
+            Amount = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture),
+            Change = ChangeFor(m.Groups["dir"].Value),
+            Kind = CostModifierKind.ActivatedAbilities,
+            Who = PlayerScope.EachPlayer,
+            SourceController = m.Groups["whose"].Success ? PlayerScope.You : null,
+        });
+
+        return true;
+    }
+
+    /// <summary>Which way a printed modifier moves the cost (CR 601.2f).</summary>
+    private static CostChange ChangeFor(string printed) =>
+        printed.Equals("more", StringComparison.OrdinalIgnoreCase)
+            ? CostChange.Increase
+            : CostChange.Reduction;
+
+    /// <summary>
+    /// What a cost modifier says it applies to, in the shared filter vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// An empty phrase is every card — "Spells cost {1} more to cast" names no kind at all. The
+    /// "and" is turned into an "or" for the reason the filter grammar gives: nothing is an
+    /// instant and a sorcery at once, so "instant and sorcery spells" means either.
+    /// </remarks>
+    private static string? CostFilterFor(string phrase)
+    {
+        var what = phrase.Trim();
+
+        return what.Length == 0
+            ? SearchFilters.AnyCard
+            : EffectPhrase.SearchFilterFor(
+                what.Replace(" and ", " or ", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The same phrase with its last word singular, for a template printed plural.</summary>
+    private static string Singular(string phrase) =>
+        phrase.EndsWith('s') && phrase.Length > 1 ? phrase[..^1] : phrase;
 
     /// <summary>
     /// "Vanishing N" - it arrives on a clock (CR 702.63a).
@@ -11353,10 +11472,37 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Vanishing (?<n>\d+)[.]?$", RegexOptions.IgnoreCase)]
     private static partial Regex VanishingLine();
 
+    /// <remarks>
+    /// One pattern for every cell of the spell half of the cost grid, because the cells differ
+    /// by two words each and splitting them into four patterns is four places to disagree about
+    /// what "spells" means. <c>who</c> absent is the bare "Noncreature spells cost {1} more to
+    /// cast", which taxes its own controller too (CR 601.2f).
+    /// <para>
+    /// Everything the anchors reject is rejected on purpose: "Spells your opponents cast
+    /// <em>that target this creature</em> cost {2} more" is a condition on the spell rather than
+    /// a filter on the card, and "spells you cast from <em>anywhere other than your hand</em>" is
+    /// not a zone (CR 400.1). Both would have to be read as the unconditional form, which is a
+    /// better card than the printed one.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<what>[A-Za-z ]+?)? ?spells you cast cost \{(?<n>\d+)\} less to cast\.?$",
+        @"^(?<what>[A-Za-z ]+?)? ?spells(?<who> you cast| your opponents cast)?"
+            + @"(?: from your (?<zone>graveyard|hand|exile))? cost \{(?<n>\d+)\} "
+            + @"(?<dir>less|more) to cast\.?$",
         RegexOptions.IgnoreCase)]
-    private static partial Regex CostReducerLine();
+    private static partial Regex SpellCostModifierLine();
+
+    /// <remarks>
+    /// "Activated abilities of Foods you control cost {1} less to activate" (CR 602.2b). Only
+    /// the word <em>Activated</em> opens this: "Loyalty abilities", "Equip abilities" and
+    /// "Exhaust abilities" name a kind of ability rather than a kind of permanent, and
+    /// <see cref="CostModifier.FilterId"/> is asked about the card the ability sits on.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Activated abilities of (?<what>[A-Za-z ]+?)(?<whose> you control)? cost "
+            + @"\{(?<n>\d+)\} (?<dir>less|more) to activate\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AbilityCostModifierLine();
 
     /// <remarks>
     /// A permission, not an action: nothing happens when it is granted, and the only thing that
@@ -11566,8 +11712,15 @@ public sealed record CompiledCard
 
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
-    /// <summary>What this permanent takes off its controller's spells (CR 601.2f).</summary>
-    public ImmutableList<CostReducer> CostReducers { get; init; } = [];
+    /// <summary>
+    /// What this permanent does to somebody's spell or ability costs (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// This replaced <c>CostReducers</c> rather than joining it. A card that emitted both would
+    /// be read down both of <c>Game.ModifiersOn</c>'s paths and discounted twice, and a doubled
+    /// discount is exactly the kind of quietly-wrong game that is hardest to notice from a test.
+    /// </remarks>
+    public ImmutableList<CostModifier> CostModifiers { get; init; } = [];
 
     /// <summary>
     /// Whether it lets its controller look at the top of their library (CR 401.2).
@@ -11621,7 +11774,7 @@ public sealed record CompiledCard
         Spell is not null || !Activated.IsEmpty || !Triggers.IsEmpty
         || !Statics.IsEmpty || !Replacements.IsEmpty
         || GrantedKeywords != KeywordAbility.None
-        || !CostReducers.IsEmpty
+        || !CostModifiers.IsEmpty
         || ShowsTopOfLibrary
         || RemovesHandLimit
         || ChoosesOnEntry != ChoiceOnEntry.None
