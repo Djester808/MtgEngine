@@ -1578,6 +1578,91 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
                 + "and do nothing:\n  " + string.Join("\n  ", faults.Take(40)));
     }
 
+    /// <summary>
+    /// A card that reads as complete must declare some behaviour.
+    /// </summary>
+    /// <remarks>
+    /// The cheapest guard against this project's worst failure mode, which is not an unread card
+    /// but a card that reads as understood and does nothing. An unread card is refused by the
+    /// legality gate and says so; an inert one is legal, playable, and silently wrong, and no
+    /// other test in the suite can see it. Two have shipped and been found by hand — a mass static
+    /// that became a lord for the creature type "Artifact" (129 cards), and a counting phrase that
+    /// resolved "Equipment" to a creature subtype nothing has, so the card gained 0 life instead
+    /// of 2.
+    /// <para>
+    /// This catches only the blunt case: printed rules text, no keyword flags, and nothing at all
+    /// declared. It is green today across every complete card and costs almost nothing to keep,
+    /// which is the whole argument for it — the subtler forms need a witness board or a behavioural
+    /// mutation, and neither is cheap enough to run on every build.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_complete_card_with_rules_text_declares_some_behaviour()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        var inert = new List<string>();
+        var inspected = 0;
+
+        foreach (var card in corpus)
+        {
+            // Asked of the lines the compiler actually reads, not of the printed text. A vanilla
+            // creature is correctly inert, and so is Icehide Golem, whose whole oracle text is the
+            // reminder "({S} can be paid with one mana from a snow source.)" - reminder text has no
+            // rules meaning (CR 207.2), the compiler strips it, and there is nothing left to
+            // declare behaviour from. That card is the only one in the corpus this distinction
+            // separates, and getting it wrong would have meant either a permanently red guard or a
+            // named exception for a card that has done nothing wrong.
+            if (!CardCompiler.Lines(card).Any())
+                continue;
+
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            inspected++;
+
+            var declares =
+                compiled.Spell is not null
+                || compiled.Adventure is not null
+                || compiled.PreparedSpell is not null
+                || !compiled.Halves.IsEmpty
+                || !compiled.Activated.IsEmpty
+                || !compiled.Triggers.IsEmpty
+                || !compiled.Statics.IsEmpty
+                || !compiled.Replacements.IsEmpty
+                || !compiled.CostReducers.IsEmpty
+                || compiled.GrantedKeywords != MtgEngine.Domain.Enums.KeywordAbility.None
+                || card.Keywords != MtgEngine.Domain.Enums.KeywordAbility.None
+                || compiled.DevourCount > 0
+                || compiled.ExtraLandDrops > 0
+                || compiled.HasFuse
+                || compiled.ShowsTopOfLibrary
+                || compiled.RevealsTopOfLibrary
+                || compiled.RemovesHandLimit
+                || compiled.MayDeclineUntap
+                || compiled.SkipsDrawStep
+                || compiled.ChoosesOnEntry != ChoiceOnEntry.None
+                || compiled.AttacksOnlyIfDefenderControls is not null
+                || compiled.PartnerRule is not null;
+
+            if (!declares)
+                inert.Add($"{card.Name}: \"{card.OracleText.Replace('\n', ' ')}\"");
+        }
+
+        output.WriteLine($"complete cards with rules text inspected: {inspected}");
+
+        Assert.True(
+            inert.Count == 0,
+            "these cards read as complete and declare no behaviour at all, so they are legal, "
+                + "playable and inert:\n  " + string.Join("\n  ", inert.Take(40)));
+    }
+
     [Fact]
     public void Every_targeting_effect_is_listed_in_EffectTargets()
     {
