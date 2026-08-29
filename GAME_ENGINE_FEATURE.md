@@ -6310,9 +6310,9 @@ that number was one rather than three.
 | dungeon | the room that blocks it |
 |---|---|
 | Lost Mine of Phandelver | *(none — Fungi Cavern needed a duration, which was built)* |
-| Undercity | Throne of the Dead Three: reveal ten, put a creature from among them onto the battlefield with three counters, hexproof until your next turn, then shuffle |
-| Dungeon of the Mad Mage | Twisted Caverns ("can't attack until your next turn"), Mad Wizard's Lair ("draw three, cast one free") |
-| Tomb of Annihilation | three of five rooms are "each player loses N life unless they …" |
+| Undercity | *(none since the initiative round — Throne of the Dead Three's four welded instructions became the look-and-take with the taking dressed, and it ships)* |
+| Dungeon of the Mad Mage | Mad Wizard's Lair ("draw three, cast one free" — and it is the bottommost room), Runestone Caverns ("you may play them", a play permission with no duration where both stored permissions expire). Twisted Caverns no longer blocks: defender is exactly "can't attack" (CR 702.3b) and the until-your-next-turn duration carries it |
+| Tomb of Annihilation | two of five rooms (a re-measurement — Trapped Entry is a plain "each player loses 1 life") are "each player loses 2 life unless they …", an offer to every player at once whose decline falls on the decliner, which `MayPay` cannot say for more than one player |
 
 A dungeon with a room that does nothing would be worse than a dungeon nobody owns, and it does not
 cost the cards anything: **a player who brought one dungeon card is playing a legal game of Magic**,
@@ -6343,7 +6343,9 @@ Stalker, Dungeon Crawler, Fifty Feet of Rope and the rest.
 
 Three families were sized in the same pass and none of them is built. The numbers are the argument.
 
-**The initiative (CR 726) — 26 cards touching, 13 reachable, declined for one room.** Not for want
+**The initiative (CR 726) — 26 cards touching, 13 reachable, declined for one room.** *(Taken the
+round after — see "The initiative ships, and Undercity with it" below. The decline was correct when
+it was made and its reasoning is why the next round was cheap.)* Not for want
 of machinery: it is the monarch's twin. One designation at most one player holds, moving on combat
 damage, with an inherent upkeep trigger — and the monarch is already built exactly that way, down to
 the stated simplification about sourceless triggers. What stops it is that **all three of CR 726.2's
@@ -6479,3 +6481,72 @@ Declined here, with the count behind each:
   checked, and a trigger that fired for damage dealt to anybody is a strictly better card than the
   one printed. The recipient is admitted on the singular sentence only, and there is a test holding
   the refusal.
+
+
+### The initiative ships, and Undercity with it
+
+The decline the round before named its own price of admission: all three of CR 726.2's inherent
+abilities venture into Undercity by name, and Undercity's bottommost room - reveal ten, put a
+creature from among them onto the battlefield with three +1/+1 counters, it gains hexproof until
+your next turn, then shuffle - could not be said. **Every piece of that sentence existed within a
+round.** The until-your-next-turn duration was built for Fungi Cavern; the reveal, the counters,
+the grant and the shuffle are one look-and-take with the taking dressed. The dressing rides the
+request rather than becoming separate effects, for the reason unearth is one effect: only the move
+knows the id the taken card lands under (CR 400.7), so a second effect running afterwards could
+not name the thing that just arrived.
+
+So Undercity is the second dungeon in `Dungeons.cs`, nine rooms of existing vocabulary plus that
+one, and the initiative sits on top exactly as the monarch does: one nullable field on the state
+(CR 726.3), an upkeep hook beside the suspend tick, and a combat-damage hook beside the crown's -
+in the one place every `PlayerDamaged` passes, because the crown's first version taught what
+happens when the hook watches a door combat does not use. Two behaviours are the initiative's own
+rather than the monarch's, and each has a test that plays it:
+
+- **Taking it while holding it ventures again** (CR 726.5). `TakeTheInitiative` never
+  short-circuits the way `BecomeTheMonarch` does; the designation re-assigns harmlessly and the
+  venture happens every time.
+- **"One or more creatures" is one trigger** (CR 726.2). The batching costs nothing: the first
+  creature's damage moves the designation, after which the holder is no longer the player being
+  damaged and the rest of the batch fails the guard. Two unblocked attackers, one venture - the
+  test asserts the marker sits on the topmost room, because a double-take would have walked past it.
+
+**"Venture into Undercity" reads now** (CR 701.49d), as one alternation with the plain venture so
+no looser pattern can ever send a named venture into the wrong dungeon, and the test that held the
+line unread flipped to assert both halves: Undercity's name reads, any other name still refuses the
+card. The variant differs from the plain instruction only in what it *starts* - a player already in
+any dungeon advances it, which the "taking the initiative mid-Lost-Mine" test plays out. And the
+plain venture still has exactly one answer with two dungeons shipped, because the restriction is
+printed on the card: "You can't enter this dungeon unless you 'venture into Undercity.'"
+CR 701.49a's choice never offers it, which is the rule as written rather than a simplification.
+
+**15,899 -> 15,908 complete cards, +9, none lost, measured by set difference**: Aarakocra Sneak,
+Avenging Hunter, Bloodboil Sorcerer, Feywild Caretaker, Goliath Paladin, Passageway Seer, Stirring
+Bard, Underdark Explorer, Undermountain Adventurer. The 19-card estimate for `When ~ enters, you
+take the initiative.` was the line's frequency, not its sole-blocker count: the enters line now
+reads on every card that prints it, and the other ten are each one *different* line short -
+attack-and-blocked triggers, "draw another card if" tails, a free-cast offer - none of them
+initiative-shaped. `you have the initiative` joined the board conditions (the "you" arm only;
+no corpus card prints the opponent arm as a bare condition, and an arm no card exercises is an arm
+no test keeps honest), which is what Passageway Seer's and Feywild Caretaker's end-step triggers
+needed beside the enters line.
+
+**Checked against the vocabulary and still declined, with the stale notes corrected:**
+
+- **Dungeon of the Mad Mage.** The recorded blocker list was half stale: Twisted Caverns
+  ("target creature can't attack until your next turn") stopped blocking the day the duration
+  was built, because defender *is* "can't attack" (CR 702.3b) and a floating grant carries it.
+  What actually blocks is **Mad Wizard's Lair** - "draw three cards and reveal them, you may cast
+  one of them without paying its mana cost" needs a reference to the cards a draw just drew,
+  which nothing has - and it is the *bottommost* room, the exact place a dungeon must not stop
+  working. **Runestone Caverns** is the subtler one: "exile the top two cards of your library,
+  you may play them" grants a permission with no duration, and both permissions the engine stores
+  expire (`MayPlayUntilTurn`, `MayPlayThroughOwnersNextTurn`) - reading it as either would be
+  a room that quietly takes the cards back.
+- **Tomb of Annihilation.** Two of five rooms, not the recorded three - Trapped Entry is a plain
+  "each player loses 1 life", sayable today. Veils of Fear and Sandfall Cell are "each player
+  loses 2 life unless they [discard / sacrifice]": an offer put to every player at once, with the
+  decline consequence falling on the decliner. `MayPay` asks exactly one player and resolves its
+  branches as the room controller's, so each opponent's decline would drain the venturing player.
+  Oubliette's mandatory discard-and-sacrifices became sayable while nobody was looking
+  (`ChooseAndMove` asks the owner of the board it picks from), and Cradle of the Death God is a
+  token - the family is down to one missing shape used twice.

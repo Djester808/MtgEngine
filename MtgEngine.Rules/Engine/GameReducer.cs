@@ -177,6 +177,11 @@ public static class GameReducer
             // previous monarch stops being one by the same assignment.
             MonarchChanged crowned => state with { MonarchId = crowned.PlayerId },
 
+            // CR 726.3: only one player can have the initiative, so this is the same single
+            // assignment the monarch's is - the previous holder ceases to have it by the same
+            // event, and taking it while already holding it re-assigns the same value (CR 726.5).
+            InitiativeTaken took => state with { InitiativeId = took.PlayerId },
+
             CitysBlessingGained blessed => state.WithPlayer(
                 state.GetPlayer(blessed.PlayerId) with { HasCitysBlessing = true }),
             SpellCopied copied => CopyOnStack(state, copied),

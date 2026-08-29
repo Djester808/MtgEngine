@@ -133,6 +133,7 @@ public static class EventLogSerializer
             ["SpellBlitzed"] = typeof(SpellBlitzed),
             ["CitysBlessingGained"] = typeof(CitysBlessingGained),
             ["MonarchChanged"] = typeof(MonarchChanged),
+            ["InitiativeTaken"] = typeof(InitiativeTaken),
             ["PermanentTransformed"] = typeof(PermanentTransformed),
             ["DayNightChanged"] = typeof(DayNightChanged),
             ["PermanentSaddled"] = typeof(PermanentSaddled),

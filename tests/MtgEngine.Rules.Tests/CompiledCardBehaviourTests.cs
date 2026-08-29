@@ -43670,6 +43670,355 @@ public sealed class CompiledCardBehaviourTests
             Assert.Single(reloaded.GetObject(host).MergedComponents).Name);
     }
 
+    // ---- The initiative and Undercity (CR 726, CR 701.49d) --------------------
+
+    /// <summary>
+    /// "Venture into Undercity" starts Undercity, not the default dungeon (CR 701.49d).
+    /// </summary>
+    /// <remarks>
+    /// The line this round exists for: it was deliberately unread while Undercity's bottommost
+    /// room could not be said, because a pattern loose enough to admit it would have sent
+    /// nineteen cards into Lost Mine of Phandelver — a different dungeon with different rooms —
+    /// while looking implemented. Now that Undercity ships, the named venture has to prove it
+    /// arrives in the dungeon it names.
+    /// </remarks>
+    [Fact]
+    public void A_named_venture_enters_Undercity_not_the_default_dungeon()
+    {
+        var delver = Card(
+            "Undercity Delver Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(delver);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, delver, Zone.Battlefield);
+        Settle(game);
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+        Assert.Equal(Dungeons.Undercity, dungeon.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Entering it grants no designation: venturing into Undercity and taking the
+        // initiative are different instructions, and only the second confers the first.
+        Assert.Null(game.State.InitiativeId);
+    }
+
+    /// <summary>
+    /// "When ~ enters, you take the initiative." — nineteen cards say exactly this, and taking
+    /// the initiative is venturing into Undercity (CR 726.1, CR 726.2).
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_ventures_into_Undercity()
+    {
+        var herald = Card(
+            "Initiative Herald Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        Assert.Null(game.State.InitiativeId);
+
+        game.Create(alice, herald, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.InitiativeId);
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+        Assert.Equal(Dungeons.Undercity, dungeon.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// Taking the initiative while already in a dungeon advances that dungeon (CR 701.49d): a
+    /// named venture decides what is started, never what is advanced.
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_while_already_in_a_dungeon_advances_that_dungeon()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        Venture(game, alice);
+        Assert.Equal(
+            Dungeons.LostMineOfPhandelver, DungeonOf(game, alice)?.Card.Name);
+
+        game.Create(alice, Card(
+            "Initiative Spelunker Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        // The venture followed Lost Mine's arrows out of Cave Entrance — the settled game
+        // answered the fork with its first arrow — and no Undercity appeared beside it: a
+        // player owns one dungeon at a time (CR 309.3).
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal(
+            Dungeons.LostMineOfPhandelver, DungeonOf(game, alice)?.Card.Name);
+        Assert.Equal("Goblin Lair", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// A holder instructed to take the initiative takes it again: no second designation, but
+    /// the venture happens all the same (CR 726.5).
+    /// </summary>
+    [Fact]
+    public void Taking_the_initiative_again_ventures_again_without_a_second_designation()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Initiative Repeat Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        game.Create(alice, Card(
+            "Initiative Repeat Two Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        // Still one holder, and the marker moved: the second taking ventured out of Secret
+        // Entrance along its first arrow.
+        Assert.Equal(alice, game.State.InitiativeId);
+        Assert.Equal("Forge", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// The first inherent ability (CR 726.2): at the beginning of the upkeep of the player who
+    /// has the initiative, that player ventures into Undercity. Nobody else's upkeep does.
+    /// </summary>
+    [Fact]
+    public void The_initiative_holder_ventures_at_their_own_upkeep()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Initiative Watch Test",
+            "When ~ enters, you take the initiative.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Bob's whole turn passes: his upkeep ventures nothing, because the ability belongs to
+        // the upkeep of the player who has the initiative.
+        TestCards.PassToTurn(game, 2);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PrecombatMain);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Alice's upkeep ventures, and Secret Entrance forks, so the venture is mid-question
+        // when her turn begins — the room choice is the proof the venture ran with no card cast.
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.VentureRoom });
+        Assert.Equal(3, game.State.TurnNumber);
+
+        game.Choose(alice, ["Lost Well"]);
+        Settle(game);
+
+        Assert.Equal("Lost Well", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// The second inherent ability (CR 726.2): combat damage to the holder hands the initiative
+    /// to the attacker — once for the whole batch, however many creatures connected — and the
+    /// taker ventures into their own Undercity for it.
+    /// </summary>
+    /// <remarks>
+    /// "One or more creatures a player controls" is one trigger, so two unblocked attackers must
+    /// produce one taking and one venture: a marker past Secret Entrance would mean the batch
+    /// was taken twice, the second of them a CR 726.5 re-take the rule does not have. The test
+    /// also holds the condition vocabulary to account: Alice's herald watches her own end step
+    /// for "if you have the initiative", which is true the turn she takes it and false after
+    /// Bob's raiders take it away.
+    /// </remarks>
+    [Fact]
+    public void Combat_damage_to_the_holder_takes_the_initiative_once_per_batch()
+    {
+        var seer = Card(
+            "Initiative Seer Test",
+            "When ~ enters, you take the initiative.\n"
+                + "At the beginning of your end step, if you have the initiative, "
+                + "put a +1/+1 counter on this creature.",
+            CardType.Creature,
+            power: 1,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(seer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, seer, Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(alice, game.State.InitiativeId);
+
+        var first = game.Create(
+            bob, TestCards.Creature("Initiative Raider Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            bob, TestCards.Creature("Initiative Raider Two Test", 2, 2), Zone.Battlefield);
+
+        // Alice's own end step, while she still holds it: the condition is true and the
+        // counter lands.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+        Assert.Equal(
+            1,
+            game.State.GetObject(watcher).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        TestCards.PassUntil(game, () => game.State.TurnNumber == 2
+            && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(bob, new Dictionary<ObjectId, AttackTarget>
+        {
+            [first] = AttackTarget.Player(alice),
+            [second] = AttackTarget.Player(alice),
+        });
+
+        // Nothing blocks, the damage lands, and the venture's search finds nothing in an
+        // all-creature library, so no question interrupts the walk to end of combat.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Bob took it exactly once: he owns his own Undercity with the marker still on the
+        // topmost room, and Alice's dungeon did not move.
+        Assert.Equal(bob, game.State.InitiativeId);
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+        Assert.Equal(Dungeons.Undercity, DungeonOf(game, bob)?.Card.Name);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(bob).DungeonRoom);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Alice's next end step: the condition is false now, and the counter count holds.
+        TestCards.PassUntil(game, () => game.State.TurnNumber == 3
+            && game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+        Assert.Equal(
+            1,
+            game.State.GetObject(watcher).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// A room ability can target a player, chosen as the ability goes on the stack (CR 603.3d):
+    /// Undercity's other side, down through Forge and Trap!.
+    /// </summary>
+    /// <remarks>
+    /// Trap! is the only room in either shipped dungeon that targets a player, and a granted
+    /// trigger's targets are the lookup that was blind once already — found by card and ability
+    /// id with no source, so the trigger resolved with nothing to aim at. The life has to move,
+    /// or that hole has quietly reopened for the player-shaped target.
+    /// </remarks>
+    [Fact]
+    public void A_room_that_targets_a_player_drains_whoever_was_chosen()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Trapfinder Bear Test"), Zone.Battlefield);
+
+        game.Create(alice, Card(
+            "Trapfinder Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+
+        VentureTo(game, alice, "Forge", "Trap!");
+
+        // Forge put its two counters on whichever creature the settled game chose.
+        Assert.Equal(
+            2,
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Sum(o => o.Permanent is { } p
+                    ? p.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne)
+                    : 0));
+        Assert.Contains(bear, game.State.Battlefield);
+
+        // Trap! took 5 life from exactly one player — whichever was picked, the total says the
+        // room's target resolved rather than fizzling.
+        Assert.Equal(
+            35,
+            game.State.GetPlayer(alice).Life + game.State.GetPlayer(bob).Life);
+        Assert.Equal("Trap!", game.State.GetPlayer(alice).DungeonRoom);
+    }
+
+    /// <summary>
+    /// Undercity's bottommost room, the one that blocked the whole mechanic: reveal the top
+    /// ten, put a creature from among them onto the battlefield with three +1/+1 counters, it
+    /// gains hexproof until your next turn, then shuffle — and completing the dungeon happens
+    /// after all of that (CR 309.6, CR 309.7).
+    /// </summary>
+    [Fact]
+    public void The_bottom_of_Undercity_puts_a_revealed_creature_out_dressed_and_shuffles()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Card(
+            "Throne Walker Test",
+            "When ~ enters, venture into Undercity.",
+            CardType.Creature, power: 2, toughness: 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal("Secret Entrance", game.State.GetPlayer(alice).DungeonRoom);
+
+        // Down the token side of the dungeon: Lost Well scries, Stash makes a Treasure,
+        // Catacombs a 4/1 menace Skeleton — all plain ventures advancing Undercity (CR 701.49d).
+        VentureTo(game, alice, "Lost Well", "Stash", "Catacombs");
+
+        Assert.Equal(Dungeons.Undercity, DungeonOf(game, alice)?.Card.Name);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Treasure");
+
+        var skeleton = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Skeleton");
+        Assert.True(Now(game, skeleton.Id).Has(KeywordAbility.Menace));
+
+        var inLibrary = game.State.GetPlayer(alice).Library.Count;
+
+        VentureTo(game, alice, "Throne of the Dead Three");
+
+        // One creature came out of the ten revealed; the other nine were shuffled back in.
+        Assert.Equal(inLibrary - 1, game.State.GetPlayer(alice).Library.Count);
+
+        var throned = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Permanent is { } p
+                && p.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne) == 3);
+        Assert.StartsWith("Alice", throned.Card.Name, StringComparison.Ordinal);
+        Assert.True(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+
+        // The Throne is the bottommost room, so the dungeon completed as its ability finished —
+        // after the creature arrived, or the room would have done nothing (CR 309.6).
+        Assert.Null(DungeonOf(game, alice));
+        Assert.Contains(
+            Dungeons.Undercity, game.State.GetPlayer(alice).CompletedDungeons);
+
+        // "Until your next turn" (CR 611.2b): hexproof holds through Bob's whole turn and is
+        // gone as Alice's next begins.
+        TestCards.PassToTurn(game, 2);
+        Assert.Equal(bob, game.State.ActivePlayerId);
+        Assert.True(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+
+        TestCards.PassToTurn(game, 3);
+        Assert.Equal(alice, game.State.ActivePlayerId);
+        Assert.False(Now(game, throned.Id).Has(KeywordAbility.Hexproof));
+    }
+
     // ---- Classes (CR 716) ----------------------------------------------------
 
     /// <summary>Enough untapped basics for a generic cost, tapped for mana.</summary>
@@ -48307,29 +48656,41 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "Venture into Undercity" is not read, because Undercity is not a dungeon this engine has
-    /// (CR 701.49d).
+    /// "Venture into Undercity" reads now that Undercity ships (CR 701.49d) — and only that
+    /// name: a venture naming a dungeon the engine does not have is still left unread.
     /// </summary>
     /// <remarks>
-    /// The fail-closed half of the same reader, and it has a test because the alternative is
-    /// silent: a pattern loose enough to admit it would send the initiative's cards into Lost
-    /// Mine of Phandelver, which is a different dungeon with different rooms, and every one of
-    /// those cards would look implemented.
+    /// This test held the opposite until the initiative round: the line was deliberately
+    /// refused while Undercity's bottommost room could not be said, because a pattern loose
+    /// enough to admit it would have sent the initiative's cards into Lost Mine of Phandelver —
+    /// a different dungeon with different rooms — while looking implemented. The named arm now
+    /// exists because the named dungeon does. The second half is the fail-closed property that
+    /// survives the flip: the pattern admits Undercity exactly, so a venture naming anything
+    /// else still leaves its card unread rather than guessing a dungeon.
     /// </remarks>
     [Fact]
-    public void Venturing_into_a_named_dungeon_the_engine_does_not_have_is_left_unread()
+    public void Venturing_into_a_named_dungeon_reads_exactly_when_the_engine_ships_it()
     {
-        var compiled = CardCompiler.Compile(Card(
+        var read = CardCompiler.Compile(Card(
             "Initiative Test",
             "When ~ enters, venture into Undercity.",
             CardType.Creature,
             2,
             2));
 
-        Assert.False(compiled.IsComplete);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+
+        var unread = CardCompiler.Compile(Card(
+            "Mad Mage Test",
+            "When ~ enters, venture into Dungeon of the Mad Mage.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.False(unread.IsComplete);
         Assert.Contains(
-            "Undercity",
-            string.Join(" | ", compiled.Unhandled),
+            "Mad Mage",
+            string.Join(" | ", unread.Unhandled),
             StringComparison.Ordinal);
     }
 

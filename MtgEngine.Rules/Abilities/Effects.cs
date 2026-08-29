@@ -3490,55 +3490,26 @@ public sealed record Incubate(Amount Count) : IEffect
     }
 }
 
-/// <summary>"Venture into the dungeon" (CR 701.49).</summary>
+/// <summary>"Venture into the dungeon" (CR 701.49), or into a dungeon named by the card.</summary>
 /// <remarks>
-/// Three cases in the rule and all three are here, because they are one instruction and a card
-/// that could only do the second would stall the first time anybody played it:
-/// <list type="bullet">
-/// <item>No dungeon in the command zone (CR 701.49a): one is put there and the marker goes on its
-/// topmost room. The dungeon is a real object in the command zone, so its room abilities are
-/// found by the ordinary trigger scan rather than being run from inside this resolution - which
-/// is what lets a room target something.</item>
-/// <item>One arrow out of the current room (CR 701.49b): the marker moves.</item>
-/// <item>Several arrows: the player chooses, and the venture finishes when they answer. The
-/// question is emitted rather than resolved here for the reason every deferred question is - an
-/// effect cannot stop half way through and wait.</item>
-/// </list>
-/// The fourth case in the rule, venturing while already on the bottommost room (CR 701.49c),
-/// cannot be reached in a settled game: CR 309.6 removes that dungeon from the game as a
-/// state-based action before anybody has priority again, so the player owns none by the time the
-/// next venture happens and the first case applies. It returns nothing rather than guessing.
+/// The dungeon is a real object in the command zone, so its room abilities are found by the
+/// ordinary trigger scan rather than being run from inside this resolution — which is what lets
+/// a room target something. The cases of the rule itself live in
+/// <see cref="Dungeons.VentureEvents"/>, shared with the initiative's inherent abilities so the
+/// printed keyword action and the engine's own hooks cannot drift apart.
 /// </remarks>
-public sealed record VentureIntoTheDungeon : IEffect
+/// <param name="Into">
+/// The dungeon CR 701.49d's variant names — "venture into Undercity" — or null for the plain
+/// instruction. A named dungeon decides only what is <em>started</em>: a player already in any
+/// dungeon follows its arrows exactly as a plain venture would (CR 701.49d).
+/// </param>
+public sealed record VentureIntoTheDungeon(string? Into = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var who = context.ControllerId;
-        var state = context.State;
-
-        if (Dungeons.OwnedBy(state, who) is not { } owned)
-        {
-            var card = Dungeons.CardFor(Dungeons.Default);
-
-            return
-            [
-                new ObjectCreated(ObjectId.New(), card, who, who, Zone.Command),
-                new VentureMarkerMoved(
-                    who, card.Name, Dungeons.Definition(card.Name)!.Top.Name),
-            ];
-        }
-
-        var dungeon = owned.Card.Name;
-        var next = Dungeons.RoomsAfter(dungeon, state.GetPlayer(who).DungeonRoom);
-
-        return next.Count switch
-        {
-            0 => [],
-            1 => [new VentureMarkerMoved(who, dungeon, next[0])],
-            _ => [new VentureRoomRequested(who, dungeon, next)],
-        };
+        return Dungeons.VentureEvents(context.State, context.ControllerId, Into);
     }
 }
 
@@ -4337,6 +4308,29 @@ public sealed record LookAndTake(
     Zone RestTo = Zone.Library,
     string FilterId = SearchFilters.AnyCard) : IEffect
 {
+    /// <summary>Whether the cards are revealed to everybody rather than looked at (CR 701.16a).</summary>
+    public bool Reveal { get; init; }
+
+    /// <summary>+1/+1 counters the taken card arrives with, when it lands on the battlefield.</summary>
+    /// <remarks>
+    /// Undercity's Throne of the Dead Three is why these three exist: "put a creature card from
+    /// among them onto the battlefield with three +1/+1 counters on it, it gains hexproof until
+    /// your next turn, then shuffle" is the same look with the taking dressed. They ride the
+    /// request rather than becoming separate effects because only the resolution knows the id
+    /// the taken card lands under (CR 400.7) — a second effect running afterwards could not name
+    /// the thing that just arrived.
+    /// </remarks>
+    public int CountersOnTaken { get; init; }
+
+    /// <summary>A generated continuous effect the taken card gains as it lands, or null.</summary>
+    public string? TakenGrantId { get; init; }
+
+    /// <summary>Whether the grant lasts until the taker's next turn rather than this one (CR 611.2b).</summary>
+    public bool GrantUntilTakersNextTurn { get; init; }
+
+    /// <summary>"Then shuffle" — the rest go back and the library is shuffled (CR 701.20a).</summary>
+    public bool ShuffleAfter { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -4344,7 +4338,14 @@ public sealed record LookAndTake(
         return
         [
             new LookAndTakeRequested(
-                context.ControllerId, Count.In(context), Destination, RestTo, FilterId),
+                context.ControllerId, Count.In(context), Destination, RestTo, FilterId)
+            {
+                Reveal = Reveal,
+                CountersOnTaken = CountersOnTaken,
+                TakenGrantId = TakenGrantId,
+                GrantUntilTakersNextTurn = GrantUntilTakersNextTurn,
+                ShuffleAfter = ShuffleAfter,
+            },
         ];
     }
 }
@@ -6299,6 +6300,34 @@ public sealed record BecomeTheMonarch : IEffect
         return context.State.MonarchId == context.ControllerId
             ? []
             : [new MonarchChanged(context.ControllerId)];
+    }
+}
+
+/// <summary>
+/// The controller takes the initiative (CR 726.1) and ventures into Undercity for it.
+/// </summary>
+/// <remarks>
+/// Deliberately <em>not</em> the monarch's no-op when the controller already holds it: CR 726.5
+/// says a holder instructed to take the initiative takes it again — no second designation, but
+/// the "whenever a player takes the initiative" inherent ability (CR 726.2) triggers and they
+/// venture into Undercity all the same. So the taking is always emitted and the venture always
+/// follows, with the same stated simplification the monarch's inherent abilities make: the rules
+/// give these triggers no source, this engine keys pending triggers to a permanent, so the
+/// venture happens directly and the window between trigger and venture is what is lost. The
+/// <em>room</em> the marker then enters is a real triggered ability on the dungeon card and uses
+/// the stack as normal.
+/// </remarks>
+public sealed record TakeTheInitiative : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new InitiativeTaken(context.ControllerId),
+            .. Dungeons.VentureEvents(context.State, context.ControllerId, Dungeons.Undercity),
+        ];
     }
 }
 

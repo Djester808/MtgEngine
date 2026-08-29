@@ -418,6 +418,32 @@ public sealed record LookAndTakeRequested(
     string FilterId = "any")
     : GameEvent
 {
+    /// <summary>Whether the cards are revealed to everybody rather than looked at (CR 701.16a).</summary>
+    /// <remarks>
+    /// "Reveal the top ten cards of your library. Put a creature card from among them onto the
+    /// battlefield" — the same question with the cards face up, which matters because a look kept
+    /// private would hide from the opponents which ten cards the choice was made from.
+    /// </remarks>
+    public bool Reveal { get; init; }
+
+    /// <summary>+1/+1 counters the taken card arrives with, when it lands on the battlefield.</summary>
+    public int CountersOnTaken { get; init; }
+
+    /// <summary>
+    /// A generated continuous effect given to the taken card as it lands, or null for none —
+    /// "it gains hexproof until your next turn" as a <c>grant:</c> definition id.
+    /// </summary>
+    public string? TakenGrantId { get; init; }
+
+    /// <summary>Whether the grant lasts until the taker's next turn rather than this one (CR 611.2b).</summary>
+    public bool GrantUntilTakersNextTurn { get; init; }
+
+    /// <summary>
+    /// Whether the library is shuffled after the rest go back — "then shuffle" — instead of the
+    /// rest going to the bottom in a random order (CR 701.20a).
+    /// </summary>
+    public bool ShuffleAfter { get; init; }
+
     public override string Rule => "701.20a";
 
     public override string Describe() =>
@@ -884,6 +910,21 @@ public sealed record MonarchChanged(Guid PlayerId) : GameEvent
     public override string Rule => "725.3";
 
     public override string Describe() => $"{PlayerId:N} became the monarch.";
+}
+
+/// <summary>A player took the initiative (CR 726.3).</summary>
+/// <remarks>
+/// The monarch's twin: one event for the whole change, because taking the initiative is also the
+/// previous holder ceasing to have it (CR 726.3). It is emitted even when the taker already has
+/// it — CR 726.5 says taking it again is a real taking that triggers the Undercity venture, just
+/// not a second designation — so the log records the taking and the fold makes the re-assignment
+/// harmless.
+/// </remarks>
+public sealed record InitiativeTaken(Guid PlayerId) : GameEvent
+{
+    public override string Rule => "726.3";
+
+    public override string Describe() => $"{PlayerId:N} took the initiative.";
 }
 
 /// <summary>

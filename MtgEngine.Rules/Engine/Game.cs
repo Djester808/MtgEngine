@@ -6491,6 +6491,12 @@ public sealed class Game
         if (top.Count == 0)
             return false;
 
+        // "Reveal the top ten cards of your library" - the same look with the cards face up, so
+        // the log and every opponent see which cards the choice was made from. The flag clears
+        // itself: each revealed card becomes a new object when it moves on (CR 400.7).
+        if (owed.Reveal)
+            Emit(new CardsRevealed(owed.PlayerId, [.. top]));
+
         // "You may reveal a creature card from among them" - the same look, with only some of
         // what was seen worth offering. The filter vocabulary is the one searching already uses,
         // rather than a second one that would drift away from it.
@@ -6505,7 +6511,10 @@ public sealed class Game
             Id = $"take:{owed.PlayerId:N}",
             PlayerId = owed.PlayerId,
             Kind = ChoiceKind.LookAndTake,
-            Prompt = $"Choose one to put into your {owed.Destination}; the rest go on the bottom.",
+            Prompt = owed.ShuffleAfter
+                ? $"Choose one to put into your {owed.Destination}; "
+                    + "the rest are shuffled into your library."
+                : $"Choose one to put into your {owed.Destination}; the rest go on the bottom.",
             Options = [.. takeable.Select(id => new ChoiceOption(
                 id.Value.ToString("N"), State.GetObject(id).Card.Name))],
             // Taking nothing is legal, and is the right answer when none of them is worth having.
@@ -6539,7 +6548,34 @@ public sealed class Game
         }
 
         if (taken != default && top.Contains(taken))
-            Move(taken, owed.Destination, MoveCause.Other, owed.PlayerId);
+        {
+            var landed = Move(taken, owed.Destination, MoveCause.Other, owed.PlayerId);
+
+            // "With three +1/+1 counters on it. It gains hexproof until your next turn." — the
+            // dressing on the taking, done here because only the move knows the id the card
+            // lands under (CR 400.7). Battlefield only: counters live on permanents, and the
+            // reducer refuses one anywhere else.
+            if (owed.Destination == Zone.Battlefield)
+            {
+                if (owed.CountersOnTaken > 0)
+                {
+                    Emit(new CountersChanged(
+                        landed, CounterKinds.PlusOnePlusOne, owed.CountersOnTaken));
+                }
+
+                if (owed.TakenGrantId is { } granted)
+                {
+                    Emit(new ContinuousEffectCreated(
+                        Guid.NewGuid(),
+                        granted,
+                        [landed],
+                        owed.GrantUntilTakersNextTurn ? null : State.TurnNumber)
+                    {
+                        UntilTurnOf = owed.GrantUntilTakersNextTurn ? owed.PlayerId : null,
+                    });
+                }
+            }
+        }
 
         var rest = top.Where(id => id != taken).ToList();
 
@@ -6549,6 +6585,18 @@ public sealed class Game
             foreach (var id in rest)
                 Move(id, owed.RestTo, MoveCause.Other, owed.PlayerId);
 
+            return;
+        }
+
+        // "Then shuffle" - the rest go back and the whole library is shuffled, which is a
+        // different instruction from burying them on the bottom: a card that was near the top
+        // before the reveal can be anywhere afterwards.
+        if (owed.ShuffleAfter)
+        {
+            foreach (var id in rest)
+                Move(id, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Bottom);
+
+            Shuffle(owed.PlayerId, _random);
             return;
         }
 
@@ -6776,6 +6824,45 @@ public sealed class Game
             return;
 
         Emit(new MonarchChanged(dealing.ControllerId));
+    }
+
+    /// <summary>
+    /// The second of the initiative's three inherent abilities (CR 726.2).
+    /// </summary>
+    /// <remarks>
+    /// "Whenever one or more creatures a player controls deal combat damage to the player who
+    /// has the initiative, the controller of those creatures takes the initiative" — the
+    /// monarch's hook a rule over, in the same place for the same reason: this is where every
+    /// <see cref="PlayerDamaged"/> passes, including the ones combat builds itself.
+    /// <para>
+    /// "One or more creatures" is one trigger for the whole batch, and the guard is what batches
+    /// it: the first creature's damage moves the initiative to its controller, after which the
+    /// holder is no longer the player being damaged and the remaining creatures' damage falls
+    /// through the second check. One taking, one venture — which is what the rule's wording is
+    /// for. The taking itself triggers the third inherent ability, so the taker ventures into
+    /// Undercity here too, with the same stated simplification every sourceless trigger in this
+    /// engine makes: it happens directly, and the window is what is lost.
+    /// </para>
+    /// </remarks>
+    private void TakeTheInitiativeFromCombat(PlayerDamaged damaged)
+    {
+        if (!damaged.IsCombat
+            || State.InitiativeId != damaged.PlayerId
+            || !State.TryGetObject(damaged.SourceId, out var dealer))
+        {
+            return;
+        }
+
+        // Both questions are about the permanent as it is now (CR 613.1b for control, layer 4
+        // for the type), exactly as the crown's hook asks them.
+        var dealing = Characteristics.Of(State, _abilities, dealer);
+        if (!dealing.IsCreature || dealing.ControllerId == damaged.PlayerId)
+            return;
+
+        Emit(new InitiativeTaken(dealing.ControllerId));
+
+        foreach (var e in Dungeons.VentureEvents(State, dealing.ControllerId, Dungeons.Undercity))
+            Emit(e);
     }
 
     /// <summary>
@@ -8978,6 +9065,23 @@ public sealed class Game
                 // CR 702.62a: the countdown runs at the beginning of the active player's upkeep,
                 // before anyone receives priority.
                 TickSuspendedCards(State.ActivePlayerId);
+
+                // CR 726.2, the first of the initiative's three inherent abilities: "at the
+                // beginning of the upkeep of the player who has the initiative, that player
+                // ventures into Undercity." The same stated simplification the monarch's end
+                // step draw makes: the rules give this trigger no source, this engine keys
+                // pending triggers to a permanent, so the venture happens directly. The room the
+                // marker enters is a real triggered ability on the dungeon card and uses the
+                // stack as normal — only the venture itself skips it.
+                if (State.InitiativeId == State.ActivePlayerId)
+                {
+                    foreach (var owed in Dungeons.VentureEvents(
+                        State, State.ActivePlayerId, Dungeons.Undercity))
+                    {
+                        Emit(owed);
+                    }
+                }
+
                 break;
 
             case TurnStep.Cleanup:
@@ -10671,6 +10775,7 @@ public sealed class Game
             TrackCommanderDamage(damaged);
             GainForLifelink(damaged.SourceId, damaged.Amount);
             StealTheCrown(damaged);
+            TakeTheInitiativeFromCombat(damaged);
             OfferCipheredCopies(damaged);
             NoteFreerunning(damaged);
         }

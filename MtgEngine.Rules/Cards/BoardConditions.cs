@@ -1263,6 +1263,14 @@ public static partial class BoardConditions
                 : state.MonarchId is { } held && held != source.ControllerId;
         }
 
+        // "If you have the initiative" (CR 726.1) - the monarch's twin, held the same way: one
+        // designation on the state, at most one holder (CR 726.3). Only the "you" arm is read,
+        // because that is the only arm the corpus prints - every "an opponent has it" wording
+        // arrives inside a longer clause this vocabulary does not read, and an arm no card
+        // exercises is an arm no test can keep honest.
+        if (InitiativeLine().IsMatch(text))
+            return (state, _, source) => state.InitiativeId == source.ControllerId;
+
         // "If it's night", "if it's neither day nor night" (CR 731.1). A designation the game
         // itself has rather than a player, so it sits beside the monarch — and it has three
         // states where the monarch has two: a game begins as neither and stays that way until
@@ -2822,6 +2830,10 @@ public static partial class BoardConditions
             + @"|(?<nobody>there is no monarch))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
+
+    /// <summary>"You have the initiative" (CR 726.1).</summary>
+    [GeneratedRegex(@"^you have the initiative$", RegexOptions.IgnoreCase)]
+    private static partial Regex InitiativeLine();
 
     /// <summary>"You've completed a dungeon" (CR 309.7).</summary>
     /// <remarks>
