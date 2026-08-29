@@ -54,6 +54,14 @@ public sealed class CardPool : IAbilitySource
     /// <summary>Whether a specific card can be played, by name.</summary>
     public bool Knows(string name) => _byName.ContainsKey(name);
 
+    /// <summary>Whether this pool has a hand-written script for a specific card.</summary>
+    /// <remarks>
+    /// Asked per card rather than per name, because the lookup that matters at play time is
+    /// by oracle id - a deck stores that, and it survives a card being renamed. Exposed so a
+    /// composite source can prefer a written script over a compiled one for the same card.
+    /// </remarks>
+    public bool Knows(CardDefinition card) => Find(card) is not null;
+
     /// <summary>How many of them have been tied to an oracle id.</summary>
     public int ResolvedCount => _byOracleId.Count;
 

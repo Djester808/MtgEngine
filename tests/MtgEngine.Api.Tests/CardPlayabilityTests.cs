@@ -46,7 +46,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     private const int CorpusCards = 32_765;
 
     /// <summary>The "fully read" count <c>CardCompilerCoverageTests</c> reports (45.9%).</summary>
-    private const int CompleteCards = 15_036;
+    private const int CompleteCards = 15_262;
 
     /// <summary>How many cards share a battlefield, as the soak does it.</summary>
     private const int PerGame = 12;
@@ -170,25 +170,29 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         foreach (var card in corpus.Complete.Where(c => !compiled.Contains(c.Name)).Take(12))
             output.WriteLine($"  {card.Name}");
 
-        // As shipped, the gate has never heard of the compiler: CardPool answers from
-        // StarterCards, so the only cards it admits are the ones CardCoverage would have admitted
-        // anyway (vanilla and honoured-keyword) plus the hand-written ones. This is the real
-        // playable count, and it is not 15,036.
+        // This measures the two sources on their own, which is what makes the shape of the old
+        // defect visible: for most of this engine's life `Program.cs` registered CardPool as the
+        // only IAbilitySource, so the gate had never heard of the compiler and admitted 917 cards
+        // while every line of 15,262 read. That is now fixed - PlayableCards composes the two and
+        // GameTableService asks it - and the numbers below are kept because they are what the fix
+        // has to keep beating.
         Assert.Equal(ShippedGateAdmits, shippedAll);
         Assert.Equal(ShippedGateAdmitsComplete, shippedComplete);
 
-        // With the compiled pool wired in the gate would be much closer - and would still ask the
-        // wrong question, in both directions.
+        // Wiring the compiled pool in was necessary and not sufficient: on its own it still asks
+        // the wrong question, in both directions, which is why PlayableCards.Refuses exists rather
+        // than a plain "does this pool know the card".
         //
         // Under-admits: it asks whether any of five ability collections is non-empty, and a card
         // whose whole text compiles into something else - an adventure, a cost reducer, granted
         // keywords, a split card's halves, an "enters with counters" that lands elsewhere - has
         // all five empty and is refused although the compiler read every line of it.
         //
-        // Over-admits, which is the dangerous half: it never asks CompiledPool.Refuses, so a card
-        // with one ability that compiled and three lines that did not is admitted. That is the
-        // quietly-wrong game the gate exists to prevent, and the method written to prevent it is
-        // called from nowhere in the repository.
+        // Over-admits, which is the dangerous half: asking "did any ability compile" admits a card
+        // with one ability read and three lines unread. That is the quietly-wrong game the gate
+        // exists to prevent, and CompiledPool.Refuses - written for exactly this and, until the
+        // wiring landed, called from nowhere in the repository - is what PlayableCards asks
+        // instead. PlayableCardsTests holds that behaviour directly.
         Assert.Equal(CompiledGateAdmitsComplete, compiledComplete);
         Assert.Equal(CompiledGateRefusesComplete, compiledRefusesComplete);
         Assert.Equal(CompiledGateAdmitsHalfRead, compiledHalfRead);
@@ -203,13 +207,13 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
 
     private const int ShippedGateAdmitsComplete = 916;
 
-    private const int CompiledGateAdmitsComplete = 14_640;
+    private const int CompiledGateAdmitsComplete = 14_866;
 
     /// <summary>Fully read and refused anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateRefusesComplete = 396;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
-    private const int CompiledGateAdmitsHalfRead = 6_815;
+    private const int CompiledGateAdmitsHalfRead = 6_759;
 
     /// <summary>
     /// How many fully read cards no soak ever selects, and what they are.
@@ -262,7 +266,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     }
 
     /// <summary>Fully read permanents the permanent soak puts on a battlefield.</summary>
-    private const int SoakPlaysPermanents = 11_334;
+    private const int SoakPlaysPermanents = 11_531;
 
     /// <summary>
     /// Fully read instants and sorceries the spell soak <em>selects</em>.
@@ -273,7 +277,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// moment. Attempted-and-refused is weaker than played and stronger than untouched;
     /// PLAYABILITY.md keeps the three apart rather than adding them up.
     /// </remarks>
-    private const int SoakCastsSpells = 2_943;
+    private const int SoakCastsSpells = 2_960;
 
     /// <summary>
     /// Fully read cards no soak selects at all - the ones nothing has ever played.
@@ -284,7 +288,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// planeswalker, and a land is none of those. They are not instants or sorceries either, so
     /// the spell soak does not see them. See <see cref="SoakPermanent"/>.
     /// </remarks>
-    private const int SoakSelectsNeither = 759;
+    private const int SoakSelectsNeither = 771;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.

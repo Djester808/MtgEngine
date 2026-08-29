@@ -155,7 +155,14 @@ builder.Services.AddScoped<CommanderDeckSeeder>();
 // The card pool is what the engine knows how to play; a deck holding anything outside it is
 // refused by GameTableService rather than played wrong.
 builder.Services.AddSingleton<CardPool>();
-builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<CardPool>());
+builder.Services.AddSingleton<MtgEngine.Rules.Cards.CompiledPool>();
+
+// The compiler and the playable game used to have no wire between them: this line registered
+// CardPool - five basic lands and a small curated set - as the engine's only ability source,
+// while CompiledPool, which reads a card's printed text, was built in the test projects and
+// nowhere else. The deck gate admitted 917 cards while the compiler read every line of 15,262.
+builder.Services.AddSingleton<PlayableCards>();
+builder.Services.AddSingleton<IAbilitySource>(sp => sp.GetRequiredService<PlayableCards>());
 builder.Services.AddHostedService<CardPoolResolver>();
 builder.Services.AddScoped<GameCardArt>();
 builder.Services.AddSingleton<IGameStore, SqliteGameStore>();

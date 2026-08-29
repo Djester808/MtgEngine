@@ -169,6 +169,17 @@ public sealed class GameTableService
         if (CardCoverage.IsFullyCovered(card))
             return true;
 
+        // "Any ability compiled" was the wrong question in both directions, and it was measured:
+        // it turned away 396 cards whose whole text lands somewhere this list does not name - a
+        // cost reduction, a keyword flag, a combat restriction - and it let in 6,815 cards with
+        // one ability read and the rest of their text unread, which is exactly the quietly-wrong
+        // game this gate exists to prevent.
+        //
+        // PlayableCards.Refuses asks the only question that matters: is there a written script,
+        // or did the compiler read every line?
+        if (_abilities is PlayableCards playable)
+            return !playable.Refuses(card);
+
         return _abilities.SpellOf(card) is not null
             || _abilities.TriggersOf(card).Count > 0
             || _abilities.StaticsOf(card).Count > 0
