@@ -46,7 +46,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     private const int CorpusCards = 32_765;
 
     /// <summary>The "fully read" count <c>CardCompilerCoverageTests</c> reports (45.9%).</summary>
-    private const int CompleteCards = 15_262;
+    private const int CompleteCards = 15_424;
 
     /// <summary>How many cards share a battlefield, as the soak does it.</summary>
     private const int PerGame = 12;
@@ -207,13 +207,13 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
 
     private const int ShippedGateAdmitsComplete = 916;
 
-    private const int CompiledGateAdmitsComplete = 14_866;
+    private const int CompiledGateAdmitsComplete = 15_014;
 
     /// <summary>Fully read and refused anyway. Should be 0; see PLAYABILITY.md.</summary>
-    private const int CompiledGateRefusesComplete = 396;
+    private const int CompiledGateRefusesComplete = 410;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
-    private const int CompiledGateAdmitsHalfRead = 6_759;
+    private const int CompiledGateAdmitsHalfRead = 6_709;
 
     /// <summary>
     /// How many fully read cards no soak ever selects, and what they are.
@@ -266,7 +266,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     }
 
     /// <summary>Fully read permanents the permanent soak puts on a battlefield.</summary>
-    private const int SoakPlaysPermanents = 11_531;
+    private const int SoakPlaysPermanents = 11_643;
 
     /// <summary>
     /// Fully read instants and sorceries the spell soak <em>selects</em>.
@@ -277,7 +277,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// moment. Attempted-and-refused is weaker than played and stronger than untouched;
     /// PLAYABILITY.md keeps the three apart rather than adding them up.
     /// </remarks>
-    private const int SoakCastsSpells = 2_960;
+    private const int SoakCastsSpells = 3_006;
 
     /// <summary>
     /// Fully read cards no soak selects at all - the ones nothing has ever played.
@@ -288,7 +288,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// planeswalker, and a land is none of those. They are not instants or sorceries either, so
     /// the spell soak does not see them. See <see cref="SoakPermanent"/>.
     /// </remarks>
-    private const int SoakSelectsNeither = 771;
+    private const int SoakSelectsNeither = 775;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.
