@@ -95,6 +95,10 @@ public sealed class PlayableCards : IAbilitySource
 
     public int DevourCountOf(CardDefinition card) => For(card).DevourCountOf(card);
 
+    public int AmplifyCountOf(CardDefinition card) => For(card).AmplifyCountOf(card);
+
+    public bool HasReadAhead(CardDefinition card) => For(card).HasReadAhead(card);
+
     public Rules.Mana.ManaCostSpec? MiracleCostOf(CardDefinition card) =>
         For(card).MiracleCostOf(card);
 

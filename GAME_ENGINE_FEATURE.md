@@ -486,8 +486,25 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **48.6% of playable cards fully read** (15,910 of 32,765), 65.6% of all lines
-(40,553 of 61,846 lines of rules text).
+Coverage is **48.6% of playable cards fully read** (15,901 of 32,717), 65.6% of lines.
+
+### What the round-end gate caught that no agent could
+
+Running the full suite once at merge, on the whole merged tip, found four things the per-agent
+gates could not have. `PlayableCards` was not delegating `AmplifyCountOf` and `HasReadAhead`,
+so both mechanics worked in every test and would have silently vanished in production - the
+reflection test exists for exactly this and fired. Ten battles compiled "complete" while the
+engine has no CR 310 at all - no defense counters, no protector, no defeat - so the compiler
+now refuses the battle type outright, fail-closed, until the engine can play what the type
+line promises. The 48 Unfinity sticker sheets left the corpus: they are supplements with
+ticket costs that no deck may contain, and four of them had become "complete cards" nothing
+could ever cast. And four reversible cards - the same card printed on both physical sides -
+arrived typeless because their type line lives on the faces, so no soak would ever have
+selected them.
+
+The census assertion that flagged it ("a card kind has appeared that nothing plays") now
+names the cards it cannot classify, because the bucket label alone sent the first
+investigation to battles when the residents were reversible printings of ordinary cards.
 
 ### Rounds eight and nine: ten agents, +410 cards, and what the denominator hides
 

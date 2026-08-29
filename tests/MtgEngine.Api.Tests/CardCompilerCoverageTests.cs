@@ -102,6 +102,19 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
         if (layout is "token" or "emblem" or "art_series" or "double_faced_token")
             return null;
 
+        // Unfinity sticker sheets are supplements, not cards: type line "Stickers", costs paid
+        // in tickets, no mana cost, and no deck may contain one - yet Scryfall marks them legal,
+        // so the legality test below let all 48 through. Four of them happened to read fully and
+        // became "complete cards" nothing can cast, which is how they were caught: the soak
+        // census flagged four complete objects that no soak could ever select. Excluded here for
+        // exactly the reason tokens are - the corpus is what a deck could contain.
+        if (json.TryGetProperty("type_line", out var sheet)
+            && sheet.GetString() is { } sheetType
+            && sheetType.StartsWith("Stickers", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         if (!json.TryGetProperty("legalities", out var legal))
             return null;
 
@@ -164,6 +177,20 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
 
         var types = CardType.None;
         var typeLine = json.TryGetProperty("type_line", out var tl) ? tl.GetString() ?? string.Empty : string.Empty;
+
+        // A reversible card - the same card printed on both physical sides - keeps its type line
+        // on the faces and has none at the top level, so four real cards arrived typeless: no
+        // soak would select them, and a battle-style refusal keyed on the type could never fire.
+        // The front face answers for the card here for the same reason it answers for the cost
+        // below - it is the face that is cast.
+        if (typeLine.Length == 0
+            && json.TryGetProperty("card_faces", out var typeFaces)
+            && typeFaces.ValueKind == JsonValueKind.Array
+            && typeFaces.GetArrayLength() > 0
+            && typeFaces[0].TryGetProperty("type_line", out var faceType))
+        {
+            typeLine = faceType.GetString() ?? string.Empty;
+        }
         foreach (var (word, flag) in TypeWords)
         {
             if (typeLine.Contains(word, StringComparison.OrdinalIgnoreCase))
@@ -443,6 +470,13 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
         ("Enchantment", CardType.Enchantment),
         ("Land", CardType.Land),
         ("Planeswalker", CardType.Planeswalker),
+
+        // Battles were missing from this table, so a battle arrived with no card type at all -
+        // which meant the compiler's fail-closed refusal of the type (CR 310 is unimplemented)
+        // never fired, and four battles whose text happened to read were counted complete and
+        // admitted to decks as cards the engine cannot play. The production parser had the
+        // mapping all along; this harness had drifted from it.
+        ("Battle", CardType.Battle),
     ];
 
     [Fact]

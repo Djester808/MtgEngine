@@ -59,6 +59,23 @@ public static partial class CardCompiler
         // They are compiled as their own little cards instead and the abilities gated on the
         // way back, which reuses every matcher in this file rather than teaching each of them
         // what a level is.
+        // A battle is refused whole, before any line is read, because the type itself is the
+        // unimplemented mechanic: CR 310 gives every battle defense counters on entry, a
+        // protector, the ability to be attacked, and a defeat that exiles or transforms it, and
+        // the engine has none of that. Four battles' rules text compiled cleanly, which made
+        // them "complete" - and a complete battle is worse than an unread one, since the deck
+        // gate admits it and the card then sits on the battlefield inert: never attackable,
+        // never defeated, its back face unreachable. The refusal keeps them out of decks until
+        // the engine can play what the type line promises.
+        if ((card.CardTypes & CardType.Battle) != 0)
+        {
+            return new CompiledCard
+            {
+                Name = card.Name,
+                Unhandled = ["(battle - CR 310 is not implemented)"],
+            };
+        }
+
         if (IsClassWithLevels(card))
             return CompileClass(card);
 

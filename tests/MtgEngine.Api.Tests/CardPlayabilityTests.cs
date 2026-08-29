@@ -43,7 +43,11 @@ namespace MtgEngine.Api.Tests;
 public sealed class CardPlayabilityTests(ITestOutputHelper output)
 {
     /// <summary>The corpus size <c>CardCompilerCoverageTests</c> reports.</summary>
-    private const int CorpusCards = 32_765;
+    // 32,717 rather than 32,765: the 48 Unfinity sticker sheets left the corpus when the
+    // loader learned they are supplements, not cards - type line "Stickers", ticket costs, and
+    // no deck may contain one, though Scryfall marks them legal. Four of them read fully and
+    // were "complete cards" nothing could ever cast, which is how the census caught it.
+    private const int CorpusCards = 32_717;
 
     /// <summary>The "fully read" count <c>CardCompilerCoverageTests</c> reports (45.9%).</summary>
     private const int CompleteCards = 15_500;
@@ -234,7 +238,13 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     private const int CompiledGateAdmitsComplete = 15_090;
 
     /// <summary>Fully read and refused anyway. Should be 0; see PLAYABILITY.md.</summary>
-    private const int CompiledGateRefusesComplete = 410;
+    // Re-recorded 410 -> 418 after investigation, not as drift: the eight newcomers are
+    // cards whose whole text lands outside the five collections this naive question counts -
+    // granted keywords, cost modifiers - so the number rises precisely when such a card becomes
+    // fully read. The production gate asks PlayableCards.Refuses, which admits all of them and
+    // is held by PlayableCardsTests; this row documents the naive question's gap, and the
+    // ratchet stays because it forces exactly the investigation that wrote this comment.
+    private const int CompiledGateRefusesComplete = 418;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
@@ -279,6 +289,12 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         {
             output.WriteLine($"  {count,6}  {line}");
         }
+
+        // The typeless bucket is named card by card, because "a card kind has appeared that
+        // nothing plays" is only actionable when it says which cards: the label alone sent one
+        // investigation to battles when the four residents were something else entirely.
+        foreach (var card in neither.Where(c => TypeWord(c.CardTypes).StartsWith('(')))
+            output.WriteLine($"          ? {card.Name}  [{card.CardTypes}]");
 
         // Ratchets, same reasoning: what the soak reaches may only grow, and the residue it
         // reaches by neither route may only shrink. An exact pin here recorded a moment rather
