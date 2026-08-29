@@ -286,6 +286,18 @@ public sealed record PermanentState
     /// <summary>Where redirected damage goes, while there is any left to redirect.</summary>
     public ObjectId? RedirectDamageTo { get; init; }
 
+    /// <summary>
+    /// The player designated to protect this battle (CR 310.9).
+    /// </summary>
+    /// <remarks>
+    /// Null on everything that is not a battle, and on a battle that has just entered and not
+    /// yet had its controller choose (CR 310.9a) — the settle sweep asks, or answers for them
+    /// when only one player may be chosen. The protector decides who the battle may be attacked
+    /// through (CR 310.9b) and who may block for it (CR 310.9c); "defending player" relative to
+    /// an attacked battle means this player, not its controller (CR 310.9d).
+    /// </remarks>
+    public Guid? ProtectorId { get; init; }
+
     // Records compare collections by reference; see Structural.
     public bool Equals(PermanentState? other) =>
         other is not null &&
@@ -311,6 +323,7 @@ public sealed record PermanentState
         Level == other.Level &&
         IsSolved == other.IsSolved &&
         IsRenowned == other.IsRenowned &&
+        ProtectorId == other.ProtectorId &&
         UnlockedHalves.SetEquals(other.UnlockedHalves) &&
         Structural.Same(Counters, other.Counters);
 
@@ -781,6 +794,18 @@ public sealed record GameObject
     public string OfferedCost { get; init; } = string.Empty;
 
     /// <summary>
+    /// Whether taking the standing offer casts this card transformed (CR 712.11a).
+    /// </summary>
+    /// <remarks>
+    /// A defeated Siege's offer is "you may cast it transformed without paying its mana cost"
+    /// (CR 310.12b): the card goes on the stack with its back face up and only that face's
+    /// characteristics. On the offer rather than derived from the card, because the same battle
+    /// in exile under a cascade offer is cast as its front face — only the offer knows which
+    /// cast it bought. Cleared with <see cref="MayCastFree"/> when the offer lapses.
+    /// </remarks>
+    public bool CastsTransformed { get; init; }
+
+    /// <summary>
     /// The permanent whose ability exiled this card, when it is coming back (CR 400.7).
     /// </summary>
     /// <remarks>
@@ -1023,6 +1048,7 @@ public sealed record GameObject
         MayPlayThroughOwnersNextTurn == other.MayPlayThroughOwnersNextTurn &&
         ToHandIfCastDeclined == other.ToHandIfCastDeclined &&
         string.Equals(OfferedCost, other.OfferedCost, StringComparison.Ordinal) &&
+        CastsTransformed == other.CastsTransformed &&
         ExiledBy == other.ExiledBy &&
         WasKicked == other.WasKicked &&
         WasBargained == other.WasBargained &&

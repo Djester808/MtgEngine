@@ -59,20 +59,20 @@ public static partial class CardCompiler
         // They are compiled as their own little cards instead and the abilities gated on the
         // way back, which reuses every matcher in this file rather than teaching each of them
         // what a level is.
-        // A battle is refused whole, before any line is read, because the type itself is the
-        // unimplemented mechanic: CR 310 gives every battle defense counters on entry, a
-        // protector, the ability to be attacked, and a defeat that exiles or transforms it, and
-        // the engine has none of that. Four battles' rules text compiled cleanly, which made
-        // them "complete" - and a complete battle is worse than an unread one, since the deck
-        // gate admits it and the card then sits on the battlefield inert: never attackable,
-        // never defeated, its back face unreachable. The refusal keeps them out of decks until
-        // the engine can play what the type line promises.
-        if ((card.CardTypes & CardType.Battle) != 0)
+        // A battle that is not a Siege is still refused whole, fail-closed. The engine now plays
+        // CR 310 — defense counters on entry, a protector, being attacked, the defeat that
+        // exiles and recasts — but the protector rules vary by battle type (CR 310.9a, 310.12a)
+        // and only the Siege's are implemented, because every battle printed into any legal
+        // format is one. The two non-Siege printings (both "Battle — Control Point") are legal
+        // nowhere, so their provisions are skipped the way the Ring and the dungeons skipped
+        // unprintable rules — with this comment rather than with a guess.
+        if ((card.CardTypes & CardType.Battle) != 0
+            && !card.Subtypes.Contains("Siege", StringComparer.Ordinal))
         {
             return new CompiledCard
             {
                 Name = card.Name,
-                Unhandled = ["(battle - CR 310 is not implemented)"],
+                Unhandled = ["(battle - only the Siege battle type is implemented; CR 310.9a)"],
             };
         }
 
@@ -315,6 +315,19 @@ public static partial class CardCompiler
                 RequiresTap = true,
                 Produces = [colour.Production],
             });
+        }
+
+        // CR 310.12b: every Siege has "When the last defense counter is removed from this
+        // permanent, exile it, then you may cast it transformed without paying its mana cost."
+        // Intrinsic, like the basic land types above: it is printed only as reminder text, which
+        // this compiler strips as noise, so without this a defeated Siege would simply sit at
+        // zero until the state-based action buried it and no flip side was ever cast. The rest
+        // of CR 310 — entering with defense counters, the protector, being attacked — is what
+        // the rules do for every battle and lives in the engine, not on the card.
+        if (card.CardTypes.HasFlag(CardType.Battle)
+            && card.Subtypes.Contains("Siege", StringComparer.Ordinal))
+        {
+            triggers.Add(SiegeRules.DefeatTrigger);
         }
 
         var isSpell = card.CardTypes.HasFlag(CardType.Instant)
@@ -1639,6 +1652,7 @@ public static partial class CardCompiler
         ColorIdentity = card.ColorIdentity,
         Power = card.Power,
         Toughness = card.Toughness,
+        Defense = card.Defense,
     };
 
     /// <summary>

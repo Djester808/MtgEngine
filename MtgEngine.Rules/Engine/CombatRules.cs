@@ -39,6 +39,12 @@ public static class CombatRules
         if (creature.Zone != Zone.Battlefield || !computed.IsCreature)
             return "only a creature on the battlefield can attack";
 
+        // CR 508.1a: the chosen creatures "can't also be battles". Nothing prints one; only an
+        // animated battle reaches this, and the rule shuts it out rather than letting a battle
+        // attack itself.
+        if (computed.CardTypes.HasFlag(CardType.Battle))
+            return "a creature that is also a battle cannot attack (CR 508.1a)";
+
         // CR 613.1b: control is layer 2, so the controller stored on the object is only where
         // the permanent started. Threaten took a creature, untapped it and gave it haste, and
         // this then refused the attack because the stored value was still its owner's.
@@ -128,6 +134,10 @@ public static class CombatRules
 
         if (blocker.Zone != Zone.Battlefield || !blocking.IsCreature)
             return "only a creature on the battlefield can block";
+
+        // CR 509.1a: the chosen creatures "can't also be battles" — the attack rule's twin.
+        if (blocking.CardTypes.HasFlag(CardType.Battle))
+            return "a creature that is also a battle cannot block (CR 509.1a)";
 
         // The same read as in CannotAttack, and the same bug: a creature taken with a
         // "you control enchanted creature" Aura could not be blocked with (CR 613.1b).

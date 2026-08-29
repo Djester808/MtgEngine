@@ -1776,6 +1776,14 @@ public sealed class Game
         if (fromElsewhere && alternative!.ExileOnResolve)
             _exileOnLeavingStack.Add(stackId);
 
+        // CR 712.11a: a card cast "transformed" is put on the stack with its back face up, and
+        // from then on it has only that face's characteristics (CR 712.8c) — a defeated Siege's
+        // flip side is a creature spell here, is countered as one, and resolves as one, while
+        // its mana value stays the front face's (CR 712.8e). Emitted before the cast is
+        // announced so anything that triggers on the cast sees the face that is actually up.
+        if (onTheHouse && card.CastsTransformed && card.Card.Faces.Count > 1)
+            Emit(new PermanentTransformed(stackId, 1));
+
         Emit(new SpellCastEvent(playerId, stackId, card.Card.Name, castFrom));
         // CR 117.3c: the caster receives priority again.
         _priorityRecipient = playerId;
@@ -2765,6 +2773,24 @@ public sealed class Game
             if (!target.IsPlaneswalker)
                 continue;
 
+            // CR 508.1b: what the slot names may be a battle. It is attacked through its
+            // protector, not its controller (CR 310.9b) — which is what lets a Siege's own
+            // controller attack it: the protector is an opponent, so the defending player check
+            // above already passed for exactly the player the rule wants.
+            if (State.TryGetObject(target.Planeswalker, out var siege)
+                && siege.Card.CardTypes.HasFlag(CardType.Battle)
+                && siege.Zone == Zone.Battlefield)
+            {
+                if (siege.Permanent?.ProtectorId != target.DefendingPlayer)
+                {
+                    throw new InvalidOperationException(
+                        "A battle can only be attacked through the player who protects it "
+                            + "(CR 310.9b).");
+                }
+
+                continue;
+            }
+
             // CR 508.1b: a planeswalker may be attacked, and only one the defending player
             // controls — attacking your own is not a thing, and neither is attacking one that
             // belongs to a third player you are not attacking.
@@ -3121,6 +3147,13 @@ public sealed class Game
 
             case ChoiceKind.Devour:
                 ResolveDevour(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.ChooseProtector:
+                ResolveProtector(choice, picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -4770,6 +4803,113 @@ public sealed class Game
     private readonly HashSet<ObjectId> _devourAsked = [];
 
     private (ObjectId Id, int Each)? _devourBeingAsked;
+
+    /// <summary>
+    /// Battles whose protector has to be designated, answered or asked (CR 310.9a, 704.5x).
+    /// </summary>
+    /// <remarks>
+    /// One sweep serves both moments the rules name — the choice as the battle enters
+    /// (CR 310.9a) and the re-choice when its protector stops being eligible (CR 704.5x,
+    /// 704.5y) — because they are the same question with the same candidates. It runs in the
+    /// settle loop before the state-based actions, which is where every owed choice runs, so a
+    /// battle reaching the actions with no protector is one with nobody left to choose.
+    /// <para>
+    /// With exactly one eligible player the choice is forced and made rather than offered —
+    /// every Siege at a two-player table (CR 310.12a) — so a duel never stops to ask a question
+    /// with one answer. A battle currently being attacked keeps its state as it is (CR 704.5x
+    /// defers even the re-choice); one that has never had a protector cannot be under attack, so
+    /// the entry choice is never deferred by this.
+    /// </para>
+    /// </remarks>
+    /// <returns>True when a protector was designated without asking; the settle goes round.</returns>
+    private bool ChooseForcedProtectors()
+    {
+        foreach (var (id, obj) in ProtectorsOwed())
+        {
+            var eligible = StateBasedActions.EligibleProtectors(State, _abilities, obj).ToList();
+
+            if (eligible.Count == 1)
+            {
+                Emit(new ProtectorChosen(id, eligible[0]));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Asks the controller which player protects their battle (CR 310.9a).</summary>
+    /// <returns>True when a question was asked and the settle has to stop.</returns>
+    private bool AskOwedProtector()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        foreach (var (id, obj) in ProtectorsOwed())
+        {
+            var eligible = StateBasedActions.EligibleProtectors(State, _abilities, obj).ToList();
+            if (eligible.Count < 2)
+                continue;
+
+            Ask(new PendingChoice
+            {
+                Id = "protector:" + id.Value.ToString("N"),
+                PlayerId = ControllerOf(obj),
+                Kind = ChoiceKind.ChooseProtector,
+                Prompt = $"Choose a player to protect {obj.Card.Name} (CR 310.9a).",
+                Options = [.. eligible.Select(player => new ChoiceOption(
+                    player.ToString("N"), State.GetPlayer(player).Name))],
+                MinPicks = 1,
+                MaxPicks = 1,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The battles on the battlefield with no eligible protector designated.</summary>
+    private IEnumerable<(ObjectId Id, GameObject Battle)> ProtectorsOwed()
+    {
+        foreach (var id in State.Battlefield)
+        {
+            var obj = State.GetObject(id);
+            if (!obj.Card.CardTypes.HasFlag(CardType.Battle) || obj.Permanent is null)
+                continue;
+
+            // CR 704.5x: while creatures are attacking the battle, its protector is not
+            // re-chosen. A battle that has never had one cannot be under attack.
+            if (State.Combat.Attackers.Values.Any(at => at.Planeswalker == id))
+                continue;
+
+            var standing = obj.Permanent.ProtectorId;
+            var fine = standing is { } chosen
+                && !State.GetPlayer(chosen).HasLost
+                && StateBasedActions.EligibleProtectors(State, _abilities, obj).Contains(chosen);
+
+            if (!fine)
+                yield return (id, obj);
+        }
+    }
+
+    /// <summary>Records the protector the controller picked (CR 310.9a).</summary>
+    private void ResolveProtector(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        if (picks.Count == 0)
+            return;
+
+        var battleId = new ObjectId(Guid.ParseExact(
+            choice.Id["protector:".Length..], "N"));
+
+        if (!State.TryGetObject(battleId, out var battle)
+            || battle.Zone != Zone.Battlefield)
+        {
+            return;
+        }
+
+        Emit(new ProtectorChosen(battleId, Guid.ParseExact(picks[0], "N")));
+    }
 
     /// <summary>Eats what was chosen and puts the counters on (CR 702.81a).</summary>
     private void ResolveDevour(IReadOnlyList<string> picks)
@@ -7649,6 +7789,18 @@ public sealed class Game
                 return true;
 
             if (AskOwedAmplify())
+                return true;
+
+            // CR 310.9a: a battle's protector is designated by its controller. A forced
+            // designation is an event rather than a question, so the sweep goes round again;
+            // a real one stops the settle the way every question does.
+            if (ChooseForcedProtectors())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            if (AskOwedProtector())
                 return true;
 
             if (AskOwedReadAhead())

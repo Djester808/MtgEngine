@@ -727,6 +727,50 @@ public sealed record FlickerSource(bool Transformed = false) : IEffect
 }
 
 /// <summary>
+/// Defeats the Siege this ability belongs to: exile it, then its controller may cast it
+/// transformed without paying its mana cost (CR 310.12b).
+/// </summary>
+/// <remarks>
+/// The resolution half of the intrinsic trigger every Siege has — see <c>SiegeRules</c>. The
+/// exile and the offer are one effect for the reason <see cref="FlickerSource"/> is one: the
+/// exiled card is a different object (CR 400.7), and only the effect that names the new id can
+/// put the offer on it. The offer itself is the standing free-cast machinery — permission on the
+/// exiled card, taken through the ordinary cast path, revoked when its window passes — with
+/// <c>Transformed</c> set, so taking it puts the back face on the stack (CR 712.11a).
+/// <para>
+/// A Siege that is no longer on the battlefield folds to nothing: there is nothing to exile, and
+/// the flip side is not offered off a battle that already left some other way.
+/// </para>
+/// </remarks>
+public sealed record DefeatSiege : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var subject = context.PhysicalSourceId;
+
+        if (!context.State.TryGetObject(subject, out var battle)
+            || battle.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        var exiled = ObjectId.New();
+
+        return
+        [
+            new ObjectMoved(
+                subject, exiled, Zone.Battlefield, Zone.Exile,
+                battle.OwnerId, MoveCause.Exile,
+                LeavingControllerId: Characteristics.Of(
+                    context.State, context.Abilities, battle).ControllerId),
+            new FreeCastOffered(exiled, context.ControllerId, Transformed: true),
+        ];
+    }
+}
+
+/// <summary>
 /// Exiles a permanent and brings it back at the next end step (CR 603.7b).
 /// </summary>
 /// <remarks>

@@ -41,6 +41,7 @@ public static class StateBasedActions
         CheckPlayers(state, events);
         CheckCreatures(state, abilities, events);
         CheckPlaneswalkers(state, events);
+        CheckBattles(state, abilities, events);
         CheckAuras(state, abilities, events);
         CheckEquipment(state, events);
         CheckTokens(state, events);
@@ -270,6 +271,102 @@ public static class StateBasedActions
                 id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
                 obj.ControllerId, MoveCause.StateBasedAction));
         }
+    }
+
+    /// <summary>
+    /// A battle out of defense counters, or out of anyone to protect it, leaves (CR 704.5v–y).
+    /// </summary>
+    /// <remarks>
+    /// The defense half is the planeswalker rule with the Saga's guard: a Siege at defense 0 is
+    /// put into its owner's graveyard (CR 704.5v) <em>unless</em> it is the source of an ability
+    /// that has triggered but not yet left the stack — its own defeat trigger fires on the last
+    /// counter leaving (CR 310.12b), and a Siege buried before that trigger resolves is a Siege
+    /// that never flips. Waiting triggers count as well as stacked ones, because state-based
+    /// actions run before waiting triggers are put on the stack (CR 704.3, 603.3b).
+    /// <para>
+    /// The protector half only buries. Choosing a replacement protector when one can be chosen
+    /// (CR 704.5x, 704.5y) is a question, and questions are asked by the settle sweep before the
+    /// actions run — so a battle reaching here with no protector is one nobody eligible is left
+    /// for, and CR 704.5x's own last sentence says where it goes.
+    /// </para>
+    /// </remarks>
+    private static void CheckBattles(
+        GameState state, IAbilitySource abilities, List<GameEvent> events)
+    {
+        foreach (var id in state.Battlefield)
+        {
+            var obj = state.GetObject(id);
+            if (!obj.Card.CardTypes.HasFlag(CardType.Battle) || obj.Permanent is null)
+                continue;
+
+            if (obj.Permanent.Counters.GetValueOrDefault(CounterKinds.Defense) <= 0)
+            {
+                // CR 704.5v for a Siege; CR 704.5w, without the guard, for anything else. The
+                // guard covers every ability of the battle rather than naming the defeat
+                // trigger, which is the rule's own wording.
+                var pending = state.PendingTriggers.Any(t => t.SourceId == id)
+                    || state.Stack.Any(stacked =>
+                        state.TryGetObject(stacked, out var waiting)
+                        && waiting.Ability is { } ability
+                        && ability.SourceId == id);
+
+                var siege = obj.Card.Subtypes.Contains("Siege", StringComparer.Ordinal);
+
+                if (!siege || !pending)
+                {
+                    events.Add(new ObjectMoved(
+                        id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                        obj.ControllerId, MoveCause.StateBasedAction));
+                }
+
+                continue;
+            }
+
+            // CR 704.5x, 704.5y: a battle whose designated protector is gone, or was never
+            // chosen, and for whom no eligible player remains. The settle sweep already asked
+            // whenever somebody could be chosen, so reaching here with candidates would mean the
+            // question is on its way — being attacked is the one state that defers even that
+            // (CR 704.5x).
+            var protector = obj.Permanent.ProtectorId;
+            var protectorFine = protector is { } chosen
+                && !state.GetPlayer(chosen).HasLost
+                && EligibleProtectors(state, abilities, obj).Contains(chosen);
+
+            if (protectorFine)
+                continue;
+
+            var underAttack = state.Combat.Attackers.Values.Any(at => at.Planeswalker == id);
+            if (underAttack)
+                continue;
+
+            if (!EligibleProtectors(state, abilities, obj).Any())
+            {
+                events.Add(new ObjectMoved(
+                    id, ObjectId.New(), Zone.Battlefield, Zone.Graveyard,
+                    obj.ControllerId, MoveCause.StateBasedAction));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Who may be designated a battle's protector (CR 310.9a).
+    /// </summary>
+    /// <remarks>
+    /// Determined by its battle type: only an opponent of a Siege's controller (CR 310.12a), and
+    /// only the controller for a battle with no battle type. The controller is read computed
+    /// rather than stored because control is layer 2 (CR 613.1b) — a stolen Siege must be
+    /// protected by an opponent of whoever holds it now.
+    /// </remarks>
+    internal static IEnumerable<Guid> EligibleProtectors(
+        GameState state, IAbilitySource abilities, GameObject battle)
+    {
+        var controller = Characteristics.Of(state, abilities, battle).ControllerId;
+
+        if (!battle.Card.Subtypes.Contains("Siege", StringComparer.Ordinal))
+            return state.GetPlayer(controller).HasLost ? [] : [controller];
+
+        return state.TurnOrder.Where(
+            player => player != controller && !state.GetPlayer(player).HasLost);
     }
 
     private static void CheckSagas(

@@ -48728,6 +48728,367 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(leyline.DeckRules);
     }
 
+    // ---- Battles (CR 310) ----------------------------------------------------
+
+    /// <summary>
+    /// A Siege from the real printed wording of Invasion of Moag, faces and all.
+    /// </summary>
+    /// <remarks>
+    /// One of the ten battles the round-end gate found compiling "complete" against an engine
+    /// with no CR 310 — the shape this section exists to make true. The front's reminder text is
+    /// the printed reminder verbatim, because the intrinsic abilities it describes are exactly
+    /// the ones nothing on the card carries: entering with defense counters (CR 310.4b), the
+    /// protector (CR 310.9a), and the defeat that exiles and recasts (CR 310.12b).
+    /// </remarks>
+    private static CardDefinition MoagSiege() => new()
+    {
+        OracleId = "oracle-r10-moag-siege",
+        Name = "Invasion of Moag Test",
+        CardTypes = CardType.Battle,
+        Subtypes = ["Siege"],
+        Defense = 5,
+        OracleText = "When this Siege enters, put a +1/+1 counter on each creature you control.",
+        Faces =
+        [
+            new CardFace
+            {
+                Name = "Invasion of Moag Test",
+                TypeLine = "Battle — Siege",
+                CardTypes = CardType.Battle,
+                Subtypes = ["Siege"],
+                Defense = 5,
+                ManaCostRaw = "{2}{G}{W}",
+                OracleText = "(As a Siege enters, choose an opponent to protect it. You and "
+                    + "others can attack it. When it's defeated, exile it, then cast it "
+                    + "transformed.)\nWhen this Siege enters, put a +1/+1 counter on each "
+                    + "creature you control.",
+            },
+            new CardFace
+            {
+                Name = "Bloomwielder Dryads Test",
+                TypeLine = "Creature — Dryad",
+                CardTypes = CardType.Creature,
+                Subtypes = ["Dryad"],
+                Power = 3,
+                Toughness = 3,
+                OracleText = "Ward {2} (Whenever this creature becomes the target of a spell or "
+                    + "ability an opponent controls, counter it unless that player pays {2}.)\n"
+                    + "At the beginning of your end step, put a +1/+1 counter on target "
+                    + "creature you control.",
+            },
+        ],
+    };
+
+    private static int DefenseOf(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent!.Counters.GetValueOrDefault(CounterKinds.Defense);
+
+    private static Guid? ProtectorOf(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent!.ProtectorId;
+
+    [Fact]
+    public void A_siege_enters_with_defense_counters_and_a_forced_duel_protector()
+    {
+        var compiled = CardCompiler.Compile(MoagSiege());
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Moag Bear Test", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, MoagSiege());
+
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        var siege = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+
+        // CR 310.4b: it entered with defense counters equal to its printed defense, and its
+        // printed enters trigger played alongside the intrinsic rules.
+        Assert.Equal(5, DefenseOf(game, siege));
+        Assert.Equal(
+            1,
+            game.State.GetObject(bear).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // CR 310.12a at two players: the only opponent is the only legal protector, so the
+        // choice is forced — made, never asked.
+        Assert.Equal(bob, ProtectorOf(game, siege));
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(),
+            asked => asked.Choice.Kind == ChoiceKind.ChooseProtector);
+
+        // The board is told all three facts, in the opponent's own view: what it is, who
+        // protects it, and what its defense is — a battle shown without its counters is a board
+        // lying about the number the fight is about.
+        var seen = Views.PlayerViewProjector.Project(game.State, bob, Pool)
+            .Battlefield.Single(o => o.Name == "Invasion of Moag Test");
+        Assert.True(seen.IsBattle);
+        Assert.Equal(bob, seen.ProtectorId);
+        Assert.Equal(5, seen.Counters!.GetValueOrDefault(CounterKinds.Defense));
+    }
+
+    [Fact]
+    public void A_bigger_table_asks_the_sieges_controller_to_choose_its_protector()
+    {
+        // CR 310.9a, 310.12a: any opponent may protect it, so at four seats the designation is a
+        // real question — asked of the controller, answered like any other choice.
+        var (game, seats) = FourPlayers();
+        var (alice, carol) = (seats[0], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+
+        var choice = Assert.IsType<PendingChoice>(game.State.Choice);
+        Assert.Equal(ChoiceKind.ChooseProtector, choice.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+        Assert.Equal(3, choice.Options.Count);
+
+        game.Choose(alice, [carol.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(carol, ProtectorOf(game, siege));
+    }
+
+    [Fact]
+    public void A_sieges_own_controller_attacks_it_and_combat_damage_removes_defense()
+    {
+        // CR 310.9b: a battle is attacked by any player for whom its protector is a defending
+        // player — "notably, a Siege battle can be attacked by its own controller", which is the
+        // whole play pattern of the type. CR 120.3h, 310.6: the damage removes defense counters;
+        // nothing reaches the protector's life.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The Siege's own enters trigger made the runner a 3/3 — its counter fell on "each
+        // creature you control" — so three counters came off, not two. The battle plays its own
+        // besieger up, which is the printed card working, not a test convenience.
+        Assert.Equal(2, DefenseOf(game, siege));
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Contains(siege, game.State.Battlefield);
+    }
+
+    [Fact]
+    public void The_protector_blocks_for_a_battle_it_does_not_control()
+    {
+        // CR 310.9c: the protector may block creatures attacking the battle with creatures they
+        // control — the defending player for the attack is the protector (CR 310.9d), and a
+        // blocked attacker deals its damage to the blocker rather than the battle.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+        var warden = game.Create(
+            bob, Card("Moag Warden Test", string.Empty, CardType.Creature, 1, 4), Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassToStep(game, TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+        {
+            [runner] = [warden],
+        });
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        // The block stood between the attacker and the battle: full defense, traded damage —
+        // three from the runner, which the Siege's own enters trigger had made a 3/3.
+        Assert.Equal(5, DefenseOf(game, siege));
+        Assert.Equal(3, game.State.GetObject(warden).Permanent!.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(runner).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_battle_is_attacked_only_through_its_protector()
+    {
+        // CR 310.9b's other half: a player for whom the protector is not a defending player
+        // cannot send an attack at the battle — naming anyone else is refused whole.
+        var (game, seats) = FourPlayers();
+        var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+        game.Choose(alice, [bob.ToString("N")]);
+
+        var runner = game.Create(
+            alice,
+            Card("Siege Runner Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+
+        var refused = Assert.Throws<InvalidOperationException>(() =>
+            game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+            {
+                [runner] = AttackTarget.At(carol, siege),
+            }));
+        Assert.Contains("protects it", refused.Message, StringComparison.Ordinal);
+
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [runner] = AttackTarget.At(bob, siege),
+        });
+        Assert.True(game.State.Combat.Attackers.ContainsKey(runner));
+    }
+
+    [Fact]
+    public void Removing_the_last_defense_counter_exiles_the_siege_and_casts_the_back_face_free()
+    {
+        // CR 310.12b: "When the last defense counter is removed from this permanent, exile it,
+        // then you may cast it transformed without paying its mana cost." The offer is the
+        // standing free-cast machinery; taking it puts the back face up on the stack
+        // (CR 712.11a) and it resolves as that face alone (CR 712.8c).
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var breaker = game.Create(
+            alice,
+            Card("Siege Breaker Test", string.Empty, CardType.Creature, 6, 6, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [breaker] = AttackTarget.At(bob, siege),
+        });
+
+        // Six damage takes all five counters; the defeat trigger fires, resolves, and leaves
+        // the card in exile under a standing offer to its controller.
+        TestCards.PassUntil(game, () => game.State.Exile
+            .Select(game.State.GetObject)
+            .Any(o => o.Card.Name == "Invasion of Moag Test" && o.MayCastFree));
+
+        Assert.DoesNotContain(siege, game.State.Battlefield);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+
+        var exiled = game.State.Exile
+            .Single(id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+
+        // Cast it, mid-combat and with an empty mana pool: the offer covers both.
+        game.CastSpell(alice, exiled);
+
+        var onStack = game.State.GetObject(Assert.Single(game.State.Stack));
+        Assert.Equal("Bloomwielder Dryads Test", onStack.Card.Name);
+
+        Settle(game);
+
+        var flipped = Assert.Single(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Bloomwielder Dryads Test");
+        var dryads = game.State.GetObject(flipped);
+        Assert.Equal(1, dryads.Permanent!.FaceIndex);
+        Assert.Equal(0, dryads.Permanent.Counters.GetValueOrDefault(CounterKinds.Defense));
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, dryads).Power);
+
+        // The whole exchange — the protector, the defeat, the transformed cast — survives the
+        // written log, not only the in-memory fold Settle already asserted.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    [Fact]
+    public void A_defeat_offer_declined_lapses_and_the_siege_stays_in_exile()
+    {
+        // CR 310.12b says "may": passing priority is declining, the window closes, and the card
+        // is simply an exiled card for the rest of the game.
+        var (game, alice, bob) = InMainPhase();
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        var breaker = game.Create(
+            alice,
+            Card("Siege Breaker Test", string.Empty, CardType.Creature, 6, 6, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [breaker] = AttackTarget.At(bob, siege),
+        });
+        TestCards.PassUntil(game, () => game.State.Exile
+            .Select(game.State.GetObject)
+            .Any(o => o.Card.Name == "Invasion of Moag Test" && o.MayCastFree));
+
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Single(id => game.State.GetObject(id).Card.Name == "Invasion of Moag Test");
+        var declined = game.State.GetObject(exiled);
+        Assert.False(declined.MayCastFree);
+        Assert.False(declined.CastsTransformed);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, exiled));
+    }
+
+    [Fact]
+    public void A_siege_at_zero_defense_with_no_defeat_trigger_pending_is_buried()
+    {
+        // CR 704.5v: a Siege whose defense is 0 and which is not the source of an ability that
+        // has triggered but not yet left the stack goes to its owner's graveyard. No printed
+        // Siege has defense 0, but the rule contemplates reaching it without a removal — enter
+        // that way and nothing was ever removed, so the defeat trigger (CR 310.12b) never fired
+        // and the state-based action is all that speaks.
+        var collapsed = new CardDefinition
+        {
+            OracleId = "oracle-r10-collapsed-siege",
+            Name = "Collapsed Siege Test",
+            CardTypes = CardType.Battle,
+            Subtypes = ["Siege"],
+            Defense = 0,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var siege = game.Create(alice, collapsed, Zone.Battlefield);
+        Settle(game);
+
+        Assert.DoesNotContain(siege, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Collapsed Siege Test");
+    }
+
+    [Fact]
+    public void A_protector_who_leaves_the_game_is_replaced_by_the_controllers_choice()
+    {
+        // CR 704.5y: a battle whose protector can no longer be its protector has a new one
+        // chosen by its controller — a question again at a table where the answer could differ.
+        var (game, seats) = FourPlayers();
+        var (alice, bob, carol) = (seats[0], seats[1], seats[2]);
+
+        var siege = game.Create(alice, MoagSiege(), Zone.Battlefield);
+        game.PassPriority(game.State.Priority.Holder!.Value);
+        game.Choose(alice, [bob.ToString("N")]);
+        Assert.Equal(bob, ProtectorOf(game, siege));
+
+        // The choice resumed priority onward; the burn is an instant, so any window of Alice's
+        // will do.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var burn = Card("Overwhelm Protector Test", "~ deals 20 damage to any target.");
+        var card = TestCards.PutInHand(game, alice, burn);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Bob is gone; the settle asked again and the harness answered with the first eligible
+        // player in turn order, which is Carol.
+        Assert.True(game.State.GetPlayer(bob).HasLost);
+        Assert.Equal(carol, ProtectorOf(game, siege));
+        Assert.Equal(
+            2,
+            game.Log.OfType<ChoiceRequested>()
+                .Count(asked => asked.Choice.Kind == ChoiceKind.ChooseProtector));
+    }
+
     // ---- Aftermath (CR 702.127) ----------------------------------------------
 
     /// <summary>A split card whose second half is cast from the graveyard.</summary>
