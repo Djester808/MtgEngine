@@ -486,7 +486,50 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **48.9% of playable cards fully read** (15,990 of 32,717), 66.1% of lines.
+Coverage is **49.3% of playable cards fully read** (16,140 of 32,717), 66.6% of lines.
+
+### Round eleven: finishing interrupted work, and four instrument defects
+
+Seven branches landed, +203 cards, none losing a card. Four of the seven were resumed from work
+a session limit had cut off mid-debug, and the resumption is the part worth recording: every one
+of those four failures turned out to be **the instrument, not the engine**.
+
+- The soulbond regression was two tests arguing over a missing dictionary word.
+  `A_self_pump_grants_its_keyword_in_the_same_sentence` is a negative control proving that a
+  sentence whose grant half is unreadable leaves the *whole* line unread - and it happened to
+  prove it with a card granting phasing, which that branch had just added to the grantable
+  table. The control is now anchored to `protection from Zombies`, a quality that table
+  structurally cannot hold, so it cannot be armed by accident again.
+- The scopes regression was a misplaced parenthesis: a `withcounter` capture group opened before
+  an alternation and closed after it, so every keyword-qualified lord ("other creatures you
+  control **with flying** get +2/+2") read the qualifier as a counter requirement and buffed
+  nothing. Both lord tests were right and the reader was wrong.
+- Three of the dice branch's four failures were the tests: one had been overtaken by station
+  thresholds landing on the trunk, one forgot that `PutInHand` adds a card, one had already
+  passed priority away before the activation it was testing.
+- The spellfacts branch failed nothing but `MechanicCoverageTests`, which refused five reader
+  shapes no played game exercised. Writing those five games then exposed a real gap in
+  `CardCompilerInvariantTests`: it called a modal card broken when its mode floor was zero, and
+  two printed headers - "choose up to four" and "choose X" - legitimately have one.
+
+**The stolen-lord defect is closed**, and the CR 613.8 loop this document recorded as the reason
+not to attempt it is real rather than theoretical: using computed characteristics at those call
+sites aborts the test host with a stack overflow, `DependsOn -> Matches -> Of -> ApplyLayers`
+repeating, because Alice's bear needs Bob's lord which needs Alice's lord. The safe shape
+gathers only layer-2 control candidates and guards a nested ask.
+
+### Two corrections to how this effort measures itself
+
+**The work queue overstates a family whose blocker is a block.** It promised 119 completable
+dice cards; the honest number was 29, because it ranks *lines* and one line of a dice card is an
+entire results table, unread the moment anything inside it is. The 66 still one line short have
+66 distinct blockers between them.
+
+**A whole-line ranking overstates a permission by an order of magnitude.** `"You may choose new
+targets for the copy"` is the sole unread line on 104 cards and would complete **8**; on the
+other 96 it is the rest of the sentence that defeats the compiler. Those 8 would only complete
+by dropping the printed permission, which needs a question asked mid-resolution - the one thing
+this engine has nothing to ask with - so they stay unread.
 
 ### Round ten, and what an interrupted round leaves behind
 
