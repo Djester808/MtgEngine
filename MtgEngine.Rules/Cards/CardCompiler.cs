@@ -734,6 +734,9 @@ public static partial class CardCompiler
             if (TryAttachedBuff(line, statics))
                 continue;
 
+            if (TryAttachedAnimation(line, statics))
+                continue;
+
             if (TryGrantedAbility(line, card, statics))
                 continue;
 
@@ -5005,6 +5008,60 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Enchanted artifact is a creature with base power and toughness 5/5 in addition to its
+    /// other types" — the animation grammar, entered through an attachment (CR 613.1d, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// Two layers and so two effects, exactly as the station reader builds them: the type is
+    /// added in layer 4 and the power and toughness are <em>set</em> in 7b, so a +1/+1 counter on
+    /// the animated artifact counts on top rather than being overwritten.
+    /// <para>
+    /// "In addition to its other types" is required by the pattern rather than assumed. The same
+    /// family printed without it replaces the types instead, and an Ensoul Artifact that quietly
+    /// stopped being an artifact would dodge artifact removal — the reading that makes the card
+    /// better than printed, which is the one this compiler refuses.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedAnimation(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedAnimationLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var power = int.Parse(m.Groups["p"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+        var toughness = int.Parse(
+            m.Groups["tough"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+        // The effect belongs to the Aura and changes something else, keyed on what it is attached
+        // to rather than on the source (CR 701.3c) - the same predicate the attached buffs use.
+        static bool OnTheHost(GameState _, GameObject? source, CharacteristicsBuilder target) =>
+            source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "attached:animates",
+            Layer = EffectLayer.Type,
+            Applies = OnTheHost,
+            Apply = (_, _, builder) => builder.CardTypes |= CardType.Creature,
+        });
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"attached:animates:{power}/{toughness}",
+            Layer = EffectLayer.PowerToughnessSet,
+            Applies = OnTheHost,
+            Apply = (_, _, builder) =>
+            {
+                builder.Power = power;
+                builder.Toughness = toughness;
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "Enchant creature" — what an Aura spell targets, and what it will be attached to.
     /// </summary>
     /// <remarks>
@@ -5117,6 +5174,29 @@ public static partial class CardCompiler
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = OnTheHost,
                 Apply = (_, _, builder) => builder.Modify(power, toughness),
+            });
+        }
+
+        // "Enchanted creature has base power and toughness 0/1" — layer 7b, which is the whole
+        // difference from the pump above: setting comes before modifying, so a +1/+1 counter on
+        // the shrunk creature still counts on top of it (CR 613.4b, 613.4c).
+        if (m.Groups["basep"].Success)
+        {
+            var basePower = int.Parse(
+                m.Groups["basep"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            var baseToughness = int.Parse(
+                m.Groups["baset"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"attached:base-pt:{basePower}/{baseToughness}",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = OnTheHost,
+                Apply = (_, _, builder) =>
+                {
+                    builder.Power = basePower;
+                    builder.Toughness = baseToughness;
+                },
             });
         }
 
@@ -6256,9 +6336,20 @@ public static partial class CardCompiler
 
         // "Other" is what makes a lord not pump itself, and a lord that pumps itself is a
         // different card — so an unrecognised scope word has to leave the line unread.
-        var yours = side is "" or "you control";
+        //
+        // A line with no ownership clause at all means every permanent that answers the
+        // description, an opponent's included: Muscle Sliver's "All Sliver creatures get +1/+1"
+        // pumps the Slivers across the table, Crusade pumps every white creature in the game and
+        // Illness in the Ranks shrinks every token. This defaulted to "you control", which is the
+        // identical bug already found and fixed in the granted-ability reader beside it — "a hive
+        // lord that quietly stopped at the table edge" — and it was still here. **83 corpus cards
+        // print a mass static with no ownership clause**, and every one of them was compiling as
+        // complete and applying to half the board, which is worse than not reading the line:
+        // nothing refuses, it just quietly does the wrong half.
+        var everyone = side.Length == 0;
+        var yours = side is "you control";
         var theirs = side is "your opponents control" or "an opponent controls";
-        if (!yours && !theirs)
+        if (!everyone && !yours && !theirs)
             return false;
 
         // "Other creatures you control with flying get +1/+1" - a keyword the creature has to
@@ -6345,6 +6436,11 @@ public static partial class CardCompiler
                 return false;
             }
 
+            // Nobody's in particular: the description is the whole question, and who controls
+            // the permanent does not come into it.
+            if (everyone)
+                return true;
+
             // The *computed* controller, not the one stored on the object. Control-changing
             // effects are layer 2 and this is layer 6 or 7, so by the time a lord asks whose
             // creatures it sees, a theft has already happened (CR 613.1b). Reading the stored
@@ -6379,6 +6475,29 @@ public static partial class CardCompiler
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = Matches,
                 Apply = (_, _, builder) => builder.Modify(power, toughness),
+            });
+        }
+
+        // "Other creatures have base power and toughness 1/1" — layer 7b rather than the 7c the
+        // pump above uses, which is the difference between setting and modifying: a creature
+        // shrunk this way and then given a +1/+1 counter is 2/2 (CR 613.4b, 613.4c).
+        if (m.Groups["basep"].Success)
+        {
+            var basePower = int.Parse(
+                m.Groups["basep"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            var baseToughness = int.Parse(
+                m.Groups["baset"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:base-pt:{basePower}/{baseToughness}",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = Matches,
+                Apply = (_, _, builder) =>
+                {
+                    builder.Power = basePower;
+                    builder.Toughness = baseToughness;
+                },
             });
         }
 
@@ -6504,11 +6623,11 @@ public static partial class CardCompiler
         // discarded in the same place for the same reason.
         var otherOnly = scope is "other";
 
-        into.Add(new ContinuousEffectDefinition
+        // Hoisted out of the effect below so the bonus that may ride with the ability can be
+        // asked the same question. One predicate and two effects, because a bonus is layer 7c
+        // and an ability is layer 6, and one effect cannot be in two (CR 613.1f, 613.4c).
+        bool Receives(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
-            Id = "grants:" + card.Name,
-            Layer = EffectLayer.Ability,
-            Applies = (state, source, target) =>
             {
                 if (source is null)
                     return false;
@@ -6553,13 +6672,41 @@ public static partial class CardCompiler
                 return yours
                     ? target.ControllerId == source.ControllerId
                     : target.ControllerId != source.ControllerId;
-            },
+            }
+        }
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "grants:" + card.Name,
+            Layer = EffectLayer.Ability,
+            Applies = Receives,
             Apply = (_, _, builder) =>
             {
                 builder.GrantedActivated.AddRange(granted);
                 builder.GrantedTriggers.AddRange(grantedTriggers);
             },
         });
+
+        // "Enchanted creature gets +2/+2 and has "{T}: Add {B}"" — the bonus and the quoted
+        // ability, which the cards print together on 52 of them and which two complete grammars
+        // could not say jointly: the attached-buff reader's keyword slot has no quotation mark in
+        // it, and this reader's pattern went straight from the group to the word "has". Neither
+        // needed anything new, only the same sentence read once instead of twice.
+        if (m.Groups["p"].Success)
+        {
+            var power = int.Parse(
+                m.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            var toughness = int.Parse(
+                m.Groups["tough"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"grants:{card.Name}:{GenerativeEffects.PumpId(power, toughness)}",
+                Layer = EffectLayer.PowerToughnessModify,
+                Applies = Receives,
+                Apply = (_, _, builder) => builder.Modify(power, toughness),
+            });
+        }
 
         return true;
     }
@@ -8310,24 +8457,15 @@ public static partial class CardCompiler
 
         if (ActivationTimingLine().Match(line) is { Success: true } gated)
         {
-            var when = gated.Groups["when"].Value.Trim();
-
             // "Activate only as a sorcery" is a phase restriction and belongs in the same field
             // it does on every other ability. It was refused here for the same reason the cap
             // was, and with the same result.
-            if (TimingNamed(when) is { } named)
-            {
-                timing = named;
-            }
-            else if (when.StartsWith("if ", StringComparison.OrdinalIgnoreCase)
-                && BoardConditions.Parse(when[3..]) is { } asked)
-            {
-                onlyIf = asked;
-            }
-            else
-            {
+            if (ReadActivationRestrictions(gated.Groups["when"].Value.Trim()) is not { } read)
                 return false;
-            }
+
+            timing = read.Timing;
+            onlyIf = read.OnlyIf;
+            manaLimit = read.Limit ?? manaLimit;
 
             line = ActivationTimingLine().Replace(line, string.Empty).Trim();
         }
@@ -8477,26 +8615,20 @@ public static partial class CardCompiler
         var restricted = ActivationTimingLine().Match(effectText);
         if (restricted.Success)
         {
-            var when = restricted.Groups["when"].Value.Trim();
-
-            if (TimingNamed(when) is { } named)
-            {
-                timing = named;
-            }
-            else if (when.StartsWith("if ", StringComparison.OrdinalIgnoreCase)
-                && BoardConditions.Parse(when[3..]) is { } asked)
-            {
-                // "Activate only if you control a Plains" is a question about the board rather
-                // than about the phase, so it lands beside the timing rule instead of in it.
-                onlyIf = asked;
-            }
-            else
+            // "Activate only if you control a Plains" is a question about the board rather than
+            // about the phase, so it lands beside the timing rule instead of in it — and a line
+            // may carry both at once, which is what the conjunction reader is for.
+            if (ReadActivationRestrictions(restricted.Groups["when"].Value.Trim()) is not { } read)
             {
                 // A restriction that cannot be honoured must not be dropped: an ability with no
                 // rule where the card prints one is a strictly better card.
                 unhandled.Add(line);
                 return true;
             }
+
+            timing = read.Timing;
+            onlyIf = read.OnlyIf;
+            limit = read.Limit ?? limit;
 
             effectText = ActivationTimingLine().Replace(effectText, string.Empty).Trim();
         }
@@ -8771,6 +8903,86 @@ public static partial class CardCompiler
         "during your upkeep" => ActivationTiming.YourUpkeepOnly,
         _ => null,
     };
+
+    /// <summary>What one "Activate only …" sentence restricts, however many clauses it has.</summary>
+    /// <param name="Timing">The phase restriction, or <see cref="ActivationTiming.AnyTime"/>.</param>
+    /// <param name="Limit">How often each turn, or null for no cap.</param>
+    /// <param name="OnlyIf">The board question that has to answer yes, or null.</param>
+    private readonly record struct ActivationRestrictions(
+        ActivationTiming Timing,
+        int? Limit,
+        Func<GameState, IAbilitySource, GameObject, bool>? OnlyIf);
+
+    /// <summary>
+    /// "Activate only as a sorcery and only once each turn" — one sentence, two rules
+    /// (CR 602.5b, 602.5d).
+    /// </summary>
+    /// <remarks>
+    /// Each half of the conjunction reads perfectly well on its own and the join did not, so 92
+    /// corpus lines carrying both went unread over the word "and". They are folded rather than
+    /// alternated because the three things a clause can be — a phase, a cap, a board question —
+    /// already live in three separate fields on the ability, and a card may print any two of them
+    /// in either order.
+    /// <para>
+    /// Null when any clause names something that cannot be kept, which leaves the whole line
+    /// unread: an ability that honours one of its two restrictions is a strictly better card than
+    /// the one printed, and nothing downstream would notice. "Activate only … and only once" —
+    /// nine corpus lines — is refused for exactly that reason: bare "once" is once per
+    /// <em>game</em>, and <see cref="ActivatedAbilityDefinition.MaxActivationsPerTurn"/> can only
+    /// say once per turn, which would hand the card an activation every turn after the first.
+    /// </para>
+    /// </remarks>
+    private static ActivationRestrictions? ReadActivationRestrictions(string when)
+    {
+        var timing = ActivationTiming.AnyTime;
+        int? limit = null;
+        Func<GameState, IAbilitySource, GameObject, bool>? onlyIf = null;
+
+        foreach (var clause in ActivationConjunction().Split(when))
+        {
+            var part = clause.Trim().TrimEnd('.');
+            if (part.Length == 0)
+                return null;
+
+            if (ActivationLimitClause().Match(part) is { Success: true } capped)
+            {
+                // Two caps in one sentence is a shape no card prints, and folding them by taking
+                // the smaller would be inventing a rule rather than reading one.
+                if (limit is not null)
+                    return null;
+
+                limit = NumberWord(capped.Groups["n"].Value);
+                continue;
+            }
+
+            if (TimingNamed(part) is { } named)
+            {
+                if (timing != ActivationTiming.AnyTime)
+                    return null;
+
+                timing = named;
+                continue;
+            }
+
+            if (part.StartsWith("if ", StringComparison.OrdinalIgnoreCase)
+                && BoardConditions.Parse(part[3..]) is { } asked)
+            {
+                // Both questions have to answer yes, which is what "and" means. Anded here rather
+                // than kept as a list because everything downstream asks one predicate.
+                var earlier = onlyIf;
+                onlyIf = earlier is null
+                    ? asked
+                    : (state, abilities, self) =>
+                        earlier(state, abilities, self) && asked(state, abilities, self);
+
+                continue;
+            }
+
+            return null;
+        }
+
+        return new ActivationRestrictions(timing, limit, onlyIf);
+    }
 
     /// <summary>
     /// What a sacrifice cost accepts — "a creature", "an artifact" — or null if it names
@@ -9117,6 +9329,19 @@ public static partial class CardCompiler
     /// </remarks>
     private const string AttachedSubject =
         "(creature|land|permanent|artifact|planeswalker|player)";
+
+    /// <remarks>
+    /// A subtype in the phrase — "is a Golem creature with base power and toughness 5/4" — leaves
+    /// the line unread rather than being dropped: nothing here validates a printed word against
+    /// the type table, and a creature quietly missing the type its Aura names is the shape of
+    /// mistake this compiler has already paid for twice.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @" is an? creature with base power and toughness (?<p>\d+)/(?<tough>\d+) "
+            + @"in addition to its other types\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedAnimationLine();
 
     /// <summary>The ability that may ride along with a conditional bonus.</summary>
     private const string BUFF =
@@ -9511,6 +9736,7 @@ public static partial class CardCompiler
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)))?"
+            + @"|has base power and toughness (?<basep>\d+)/(?<baset>\d+)"
             + @"|has (?<kw>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
@@ -9615,6 +9841,7 @@ public static partial class CardCompiler
             + @"|\s+with (?<needs>[a-z ]+?))?\s+"
             + @"(gets? (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
             + @"( and (has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?)?"
+            + @"|(has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+)"
             + @"|(has|have) (?<kw>[a-z ,]+?)( and (?<must>attacks? each combat if able))?"
             + @"|(?<must>attacks? each combat if able))\.?$",
         RegexOptions.IgnoreCase)]
@@ -9645,7 +9872,8 @@ public static partial class CardCompiler
             + @"|(?i:(?<type>creature|permanent|land|artifact|enchantment))s?"
             + @"|(?<subtype>[A-Z][a-z]+))"
             + @"(?<side>\s+you control|\s+your opponents control)?)"
-            + @"\s+ha(s|ve) ""(?<ability>[^""]+)""\.?$",
+            + @"\s+((?i:gets?|have|has) (?<p>[+-]\d+)/(?<tough>[+-]\d+) and )?"
+            + @"ha(s|ve) ""(?<ability>[^""]+)""\.?$",
         RegexOptions.None)]
     private static partial Regex GrantedAbilityLine();
 
@@ -9708,6 +9936,22 @@ public static partial class CardCompiler
         @"\s*Activate (only|no more than) (?<n>once|twice|three times)? ?each turn\.?\s*$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ActivationLimit();
+
+    /// <summary>One clause of a restriction sentence, as a cap on how often (CR 602.5b).</summary>
+    /// <remarks>
+    /// The whole-sentence form above keeps its own pattern: it is anchored to the end of the line
+    /// and lifted before anything else reads it, while this one is handed a clause that has
+    /// already been cut out. The count is required here where the other makes it optional,
+    /// because a clause reading only "each turn" is not a printed phrase and defaulting it to
+    /// once would be reading a rule the card does not say.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>once|twice|three times) each turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex ActivationLimitClause();
+
+    /// <summary>What joins two restrictions in one "Activate only …" sentence (CR 602.5b).</summary>
+    [GeneratedRegex(@"\s+and only\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex ActivationConjunction();
 
     [GeneratedRegex(
         @"\s*Activate only (?<when>[^.]+?)\.?\s*$", RegexOptions.IgnoreCase)]
