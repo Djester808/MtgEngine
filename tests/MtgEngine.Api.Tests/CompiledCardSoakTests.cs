@@ -5,6 +5,7 @@ using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Cards;
 using MtgEngine.Rules.Engine;
+using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 using Xunit.Abstractions;
 
@@ -23,10 +24,22 @@ namespace MtgEngine.Api.Tests;
 /// what it does is to run it. So this runs thousands of them.
 /// </para>
 /// <para>
-/// It asserts the three things that must hold for <em>every</em> card, whatever it says:
-/// nothing throws, the layers can compute characteristics for everything on the battlefield, and
-/// <c>Replay(log)</c> still equals the state. That last is the invariant the whole engine rests
-/// on, and it is checked here against real text rather than against fixtures chosen to be easy.
+/// It asserts the things that must hold for <em>every</em> card, whatever it says: nothing
+/// throws, the layers can compute characteristics for every object in every zone, the board's
+/// view projects for every player, and <c>Replay(log)</c> still equals the state - sampled
+/// through the serializer as well, which is the door persistence actually uses. That last pair
+/// is the invariant the whole engine rests on, checked here against real text rather than against
+/// fixtures chosen to be easy. They live in one place, <see cref="Check"/>, because four copies
+/// had already drifted into asking less than they claimed.
+/// </para>
+/// <para>
+/// <strong>Playing a card is not the same as reaching its behaviour.</strong> Putting a permanent
+/// down runs its statics and offers its replacements; pressing its button runs an activated
+/// ability; casting it runs a spell. None of those makes a <em>trigger</em> fire, and a game of
+/// pure priority-passing is a game in which almost nothing happens - so every "whenever a
+/// creature dies", "whenever you draw", "whenever you gain life" and landfall in the corpus was
+/// compiled, played, and never once triggered. <see cref="Provoke"/> makes those things happen,
+/// and the count is asserted for the same reason the attack count is.
 /// </para>
 /// </remarks>
 public sealed class CompiledCardSoakTests(ITestOutputHelper output)
@@ -36,6 +49,286 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
     /// <summary>How many turns each game runs before it is called settled.</summary>
     private const int Turns = 10;
+
+    /// <summary>
+    /// Whether the expensive per-game checks run on every game rather than on a sample.
+    /// </summary>
+    /// <remarks>
+    /// The soaks already cost about twenty-five minutes. The persistence fold below roughly
+    /// doubles the price of a game, which would push that past the point where anybody runs it,
+    /// so by default it is taken on one game in <see cref="StorageSample"/> - which is still
+    /// hundreds of games per run, and enough that a systematically unwritable event shows up.
+    /// Set <c>MTG_SOAK_DEEP</c> to pay for all of them; the same environment-gate convention the
+    /// dump tests use.
+    /// </remarks>
+    private static readonly bool Deep =
+        Environment.GetEnvironmentVariable("MTG_SOAK_DEEP") is { Length: > 0 };
+
+    /// <summary>One game in this many is folded back through the persistence door as well.</summary>
+    private const int StorageSample = 16;
+
+    /// <summary>
+    /// Turns the provocations off, so the trigger count can be measured against a run without them.
+    /// </summary>
+    /// <remarks>
+    /// The floor asserted below is only meaningful next to the number the same games produce with
+    /// nothing provoked. Set <c>MTG_SOAK_QUIET</c> to take that measurement; it is not something
+    /// to run in a gate, because a soak with its provocations switched off is the soak this file
+    /// is trying to stop being.
+    /// </remarks>
+    private static readonly bool SkipProvocation =
+        Environment.GetEnvironmentVariable("MTG_SOAK_QUIET") is { Length: > 0 };
+
+    /// <summary>
+    /// How many turns of a game are provoked before it is left alone.
+    /// </summary>
+    /// <remarks>
+    /// A trigger that has fired has fired, and the yield falls off a cliff after the first few
+    /// rounds: measured on the four-turn slice, provoking took the firings from 1,733 to 2,545 and
+    /// the distinct cards from 1,255 to 1,408, and the rounds after the first few are almost all
+    /// the same cards going off again. Uncapped it cost the deep pass 44% of its runtime for that.
+    /// <para>
+    /// The cap is also what keeps the deep slice deep. Its last five turns exist so a Saga can
+    /// finish and a fading permanent run out, and a battery firing into them every turn buys
+    /// nothing those mechanics need.
+    /// </para>
+    /// </remarks>
+    private const int ProvokeTurns = 5;
+
+    /// <summary>
+    /// What share of the corpus each of these tests actually reaches, counted rather than assumed.
+    /// </summary>
+    /// <remarks>
+    /// The soaks below each print how many cards they played, and every one of those numbers is a
+    /// numerator with no denominator beside it. "Played 11,334 permanents" says nothing about
+    /// whether that is most of the corpus or a third of it, and it cannot say what the *rest* is
+    /// or why nothing touched it.
+    /// <para>
+    /// That gap hid a whole card type. <see cref="IsPermanent"/> does not count lands, the spell
+    /// soak takes only instants and sorceries, and nothing else selected anything - so **every
+    /// fully-compiled land in the corpus was in none of these tests**, including every mana
+    /// ability the compiler builds. Nothing said so, because nothing was counting the residue.
+    /// </para>
+    /// <para>
+    /// Calibrated against <see cref="CardCompilerCoverageTests"/> on purpose: it counts complete
+    /// cards the same way, off the same loader, so the two figures can be read next to each other.
+    /// An instrument that disagrees with the one already trusted is wrong before it has measured
+    /// anything.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void What_share_of_the_corpus_these_tests_reach_is_counted()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present - skipping.");
+            return;
+        }
+
+        var complete = 0;
+        var battlefield = 0;
+        var permanentsOnly = 0;
+        var lands = 0;
+        var spells = 0;
+        var untouched = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        // The four kinds of declaration a compiled card can carry. Playing a permanent runs its
+        // statics and offers its replacements every event; pressing a button runs an activated
+        // ability. Nothing in "play it, activate it, cast it" makes a *trigger* fire, which is
+        // why the count of cards carrying one is the number worth having here.
+        var activated = 0;
+        var triggers = 0;
+        var statics = 0;
+        var replacements = 0;
+        var vanilla = 0;
+        var activatedInPlay = 0;
+        var triggersInPlay = 0;
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            if (!compiled.IsComplete)
+                continue;
+
+            complete++;
+
+            if (compiled.Activated.Count > 0)
+                activated++;
+
+            if (compiled.Triggers.Count > 0)
+                triggers++;
+
+            if (compiled.Statics.Count > 0)
+                statics++;
+
+            if (compiled.Replacements.Count > 0)
+                replacements++;
+
+            if (!compiled.HasAbilities)
+                vanilla++;
+
+            // Not exclusive buckets, on purpose. A `Sorcery // Land` card is put on a battlefield
+            // by one soak and cast by another, and an if/else here would have hidden 19 of them
+            // from whichever arm came second.
+            var onBoard = GoesToBattlefield(card.CardTypes);
+            var asSpell = !IsPermanent(card.CardTypes)
+                && (card.CardTypes.HasFlag(CardType.Instant)
+                    || card.CardTypes.HasFlag(CardType.Sorcery));
+
+            if (onBoard)
+            {
+                battlefield++;
+
+                if (IsPermanent(card.CardTypes))
+                    permanentsOnly++;
+                else
+                    lands++;
+
+                if (compiled.Activated.Count > 0)
+                    activatedInPlay++;
+
+                if (compiled.Triggers.Count > 0)
+                    triggersInPlay++;
+            }
+
+            if (asSpell)
+                spells++;
+
+            if (!onBoard && !asSpell)
+            {
+                var shape = card.CardTypes.ToString();
+                untouched[shape] = untouched.GetValueOrDefault(shape) + 1;
+            }
+        }
+
+        output.WriteLine($"corpus: {corpus.Count} playable cards, {complete} of them fully compiled");
+        output.WriteLine($"  onto a battlefield: {battlefield}  ({permanentsOnly} permanents, {lands} lands)");
+        output.WriteLine($"  cast as a spell:    {spells}");
+        output.WriteLine($"  reached by nothing: {untouched.Values.Sum()}");
+
+        foreach (var (shape, n) in untouched.OrderByDescending(p => p.Value).Take(10))
+            output.WriteLine($"    {n,6}  {shape}");
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("what the complete cards declare (a card may carry several):");
+        output.WriteLine($"  activated abilities:  {activated,6}  ({activatedInPlay} on a battlefield)");
+        output.WriteLine($"  triggered abilities:  {triggers,6}  ({triggersInPlay} on a battlefield)");
+        output.WriteLine($"  static abilities:     {statics,6}");
+        output.WriteLine($"  replacement effects:  {replacements,6}");
+        output.WriteLine($"  nothing at all:       {vanilla,6}");
+
+        // The calibration. CardCompilerCoverageTests reports 15,036 complete cards against this
+        // corpus; a census that counts them a different way is measuring something else, and the
+        // numbers above would then be about a set nobody else has.
+        Assert.True(
+            complete > 15_000,
+            $"only {complete} complete cards - the coverage test counts over 15,000, so this "
+                + "census is reading a different corpus or a different compiler.");
+
+        // Every complete card is in exactly one of the three buckets, and the third one is meant
+        // to be empty. It was 759 lands before they were let in; if it grows again a card type
+        // has appeared that no soak plays.
+        Assert.True(
+            untouched.Values.Sum() == 0,
+            $"{untouched.Values.Sum()} complete cards are in no soak at all: "
+                + string.Join(", ", untouched.OrderByDescending(p => p.Value).Take(5)
+                    .Select(p => $"{p.Value} {p.Key}")));
+    }
+
+    /// <summary>
+    /// A permanent that has transformed forgets it when the game is stored and read back.
+    /// </summary>
+    /// <remarks>
+    /// <strong>This asserts a defect, not a rule.</strong> It is the smallest reproduction of what
+    /// the soak below found by folding its logs through the door persistence uses, and it is here
+    /// rather than as a red test because the fix is in <c>MtgEngine.Rules</c> and this file is a
+    /// test file.
+    /// <para>
+    /// <c>EventLogSerializer</c> writes a card as the fourteen printed fields the rules act on,
+    /// and <see cref="CardDefinition.Faces"/> is not one of them - so every card in a re-read log
+    /// comes back with no faces. <c>GameReducer.Transform</c> refuses an index the card does not
+    /// have, correctly, because a fold has to be total; with no faces at all there is no index it
+    /// has, so <em>every</em> <c>PermanentTransformed</c> event in a stored game is silently
+    /// dropped. The permanent comes back on its front face, with the front face's characteristics,
+    /// and nothing anywhere says so.
+    /// </para>
+    /// <para>
+    /// What that costs a player: <c>GameSessionService</c> saves a game by writing its log and
+    /// resumes it by reading one, so **every werewolf that had flipped to its night side is a day
+    /// creature again the moment the session is rehydrated**, and cannot flip back either - the
+    /// resumed object has no faces for <c>Game.Transform</c> to find. It is 837 cards of the
+    /// corpus, and the soak reached it because a four-player table happened to transform one.
+    /// </para>
+    /// <para>
+    /// What it should say: <c>Assert.Equal(1, ...)</c> - the same permanent, still on its back
+    /// face. Carrying <c>Faces</c> in <c>PrintedCard</c> is what would make it true.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_stored_game_forgets_that_a_permanent_had_transformed()
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, Filler("Alice")),
+                new PlayerSetup(bob, "Bob", 20, Filler("Bob")),
+            ],
+            new GameRandom(3),
+            startingPlayerId: alice,
+            abilities: new CompiledPool());
+
+        game.BeginPlay(withMulligans: false);
+
+        var werewolf = game.Create(alice, new CardDefinition
+        {
+            OracleId = "soak-two-faced",
+            Name = "Soak Daybound Wolf",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Soak Daybound Wolf",
+                    TypeLine = "Creature — Human",
+                    CardTypes = CardType.Creature,
+                    Power = 2,
+                    Toughness = 2,
+                },
+                new CardFace
+                {
+                    Name = "Soak Nightbound Wolf",
+                    TypeLine = "Creature — Werewolf",
+                    CardTypes = CardType.Creature,
+                    Power = 4,
+                    Toughness = 4,
+                },
+            ],
+        }, Zone.Battlefield);
+
+        game.Transform(werewolf);
+
+        // It really did turn over in the game that was played.
+        Assert.Equal(1, game.State.GetObject(werewolf).Permanent!.FaceIndex);
+
+        // And the in-memory fold agrees, which is why nothing had caught this: the invariant every
+        // other test asserts holds perfectly well.
+        Assert.Equal(
+            1,
+            GameReducer.Replay(game.Log).GetObject(werewolf).Permanent!.FaceIndex);
+
+        var stored = GameReducer.Replay(
+            EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
+
+        // Should be 1. It is 0, and the card is the front face again.
+        Assert.Equal(0, stored.GetObject(werewolf).Permanent!.FaceIndex);
+        Assert.Empty(stored.GetObject(werewolf).Card.Faces);
+    }
 
     /// <remarks>
     /// Run over several slices. The scatter groups the corpus reproducibly, which is what makes a
@@ -66,7 +359,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         // never meets card nine thousand. The seed is fixed so the run is reproducible, and the
         // ordering is by hash so it is nothing like alphabetical.
         var playable = corpus
-            .Where(c => IsPermanent(c.CardTypes))
+            .Where(c => GoesToBattlefield(c.CardTypes))
             .Where(c => CardCompiler.Compile(c).IsComplete)
             .OrderBy(c => Scatter(c.OracleId + slice.ToString(CultureInfo.InvariantCulture)))
             .ThenBy(c => c.OracleId, StringComparer.Ordinal)
@@ -97,14 +390,19 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 // The whole table is named: which of them did it is what the next run finds out
                 // by bisecting, and a fault that names nothing is a fault nobody can chase.
                 faults.Add(
-                    $"{broke.GetType().Name}: {broke.Message}\n      "
-                        + string.Join(", ", table.Select(c => c.Name)));
+                    string.Join(", ", table.Select(c => c.Name))
+                        + $"\n      {broke.GetType().Name}: {broke.Message}");
             }
         }
 
         output.WriteLine(
             $"played {played} compiled permanents across {playable.Count / PerGame} games, "
                 + $"with {Attacks} attacks and {Blocks} blocks declared");
+
+        output.WriteLine(
+            $"{Fired} triggered abilities fired, on {FiredOn.Count} distinct cards; "
+                + $"{Folded} games folded through storage, {Transformed} left out for having "
+                + "transformed something");
 
         // Combat is the half of a game that passing priority never reaches: attacking is a
         // turn-based action somebody has to take. Counted so that a soak which stops fighting
@@ -114,6 +412,23 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         Assert.True(
             Attacks > 500 && Blocks > 100,
             $"only {Attacks} attacks and {Blocks} blocks - combat is not being reached.");
+
+        // The same guard as the attack count, one mechanic along, and for the same reason. A
+        // trigger's condition is a closure and the only way to know it does anything is to fire
+        // it; a soak that stops provoking would keep playing every card and stop exercising the
+        // single largest body of card behaviour in the corpus, silently and green.
+        //
+        // The floor is set from a measured A/B on the shallow slice alone, so that whichever
+        // slice runs first has to clear it: the same 336 games fired 1,733 triggers on 1,255
+        // cards with the provocations off and 2,545 on 1,408 with them on. 2,200 sits between the
+        // two, which is the only place a floor is worth anything - above the number it is meant
+        // to catch and below the number it is meant to allow. The distinct-card count is the
+        // weaker of the pair (the two arms are 12% apart, not 47%) and is here as a sanity check
+        // rather than as the guard, because one card looping could carry the firing count alone.
+        Assert.True(
+            Fired > 2_200 && FiredOn.Count > 1_200,
+            $"only {Fired} triggers fired on {FiredOn.Count} cards - the provocations have "
+                + "stopped reaching them, whatever the rest of this test says.");
 
         Assert.True(
             faults.Count == 0,
@@ -149,7 +464,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         var pool = new CompiledPool();
 
         var buttons = corpus
-            .Where(c => IsPermanent(c.CardTypes))
+            .Where(c => GoesToBattlefield(c.CardTypes))
             .Select(c => (Card: c, Compiled: CardCompiler.Compile(c)))
             .Where(p => p.Compiled.IsComplete && p.Compiled.Activated.Count > 0)
             .OrderBy(p => Scatter(p.Card.OracleId))
@@ -173,8 +488,8 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             catch (Exception broke)
             {
                 faults.Add(
-                    $"{broke.GetType().Name}: {broke.Message}\n      "
-                        + string.Join(", ", table.Select(c => c.Name)));
+                    string.Join(", ", table.Select(c => c.Name))
+                        + $"\n      {broke.GetType().Name}: {broke.Message}");
             }
         }
 
@@ -245,8 +560,8 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             catch (Exception broke)
             {
                 faults.Add(
-                    $"{broke.GetType().Name}: {broke.Message}\n      "
-                        + string.Join(", ", hand.Select(c => c.Name)));
+                    string.Join(", ", hand.Select(c => c.Name))
+                        + $"\n      {broke.GetType().Name}: {broke.Message}");
             }
         }
 
@@ -398,10 +713,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
         cast += InCombat(game, alice, bob, missed);
 
-        foreach (var id in game.State.Battlefield)
-            Characteristics.Of(game.State, pool, game.State.GetObject(id));
-
-        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+        Check(game, pool);
         return cast;
     }
 
@@ -652,10 +964,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             }
         }
 
-        foreach (var id in game.State.Battlefield)
-            Characteristics.Of(game.State, pool, game.State.GetObject(id));
-
-        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+        Check(game, pool);
         return used;
     }
 
@@ -766,10 +1075,15 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
         var pool = new CompiledPool();
 
+        // Scattered, for the reason the two-player soaks were: batched in oracle-id order the
+        // same twelve cards shared every four-player table on every run, which is the exact fault
+        // this file recorded fixing everywhere else and then left standing here. A hash of the id
+        // is reproducible and nothing like alphabetical, and it costs a sort key.
         var playable = corpus
-            .Where(c => IsPermanent(c.CardTypes))
+            .Where(c => GoesToBattlefield(c.CardTypes))
             .Where(c => CardCompiler.Compile(c).IsComplete)
-            .OrderBy(c => c.OracleId, StringComparer.Ordinal)
+            .OrderBy(c => Scatter(c.OracleId + "four"))
+            .ThenBy(c => c.OracleId, StringComparer.Ordinal)
             .Where((_, i) => i % 3 == 0)
             .ToImmutableList();
 
@@ -790,12 +1104,14 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             catch (Exception broke)
             {
                 faults.Add(
-                    $"{broke.GetType().Name}: {broke.Message}\n      "
-                        + string.Join(", ", table.Select(c => c.Name)));
+                    string.Join(", ", table.Select(c => c.Name))
+                        + $"\n      {broke.GetType().Name}: {broke.Message}");
             }
         }
 
-        output.WriteLine($"played {played} compiled permanents at four-player tables");
+        output.WriteLine(
+            $"played {played} compiled permanents at four-player tables, "
+                + $"{Fired} triggers fired on {FiredOn.Count} distinct cards");
 
         Assert.True(
             faults.Count == 0,
@@ -826,8 +1142,10 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         Settle(game);
 
         var until = game.State.TurnNumber + Turns;
+        var provokedOn = 0;
+        var rounds = 0;
 
-        for (var guard = 0; guard < 8000 && game.State.TurnNumber < until; guard++)
+        for (var guard = 0; guard < 10_000 && game.State.TurnNumber < until; guard++)
         {
             if (game.State.IsOver)
                 break;
@@ -835,6 +1153,18 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             if (game.State.Choice is { } choice)
             {
                 Decide(game, choice);
+                continue;
+            }
+
+            // Provoked here as well, and this is the table where it says the most: four seats
+            // each drawing, gaining life and losing a creature in the same round is four
+            // controllers with simultaneous triggers, which is the APNAP ordering (CR 603.3b)
+            // that four players exists to test and that nothing had ever put a real card through.
+            if (ShouldProvoke(game, provokedOn, rounds))
+            {
+                provokedOn = game.State.TurnNumber;
+                rounds++;
+                Provoke(game);
                 continue;
             }
 
@@ -850,10 +1180,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             break;
         }
 
-        foreach (var id in game.State.Battlefield)
-            Characteristics.Of(game.State, pool, game.State.GetObject(id));
-
-        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+        Check(game, pool);
     }
 
     private static void Play(ImmutableList<CardDefinition> table, CompiledPool pool, int turns)
@@ -885,8 +1212,10 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         Settle(game);
 
         var until = game.State.TurnNumber + turns;
+        var provokedOn = 0;
+        var rounds = 0;
 
-        for (var guard = 0; guard < 4000 && game.State.TurnNumber < until; guard++)
+        for (var guard = 0; guard < 6000 && game.State.TurnNumber < until; guard++)
         {
             if (game.State.IsOver)
                 break;
@@ -894,6 +1223,16 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             if (game.State.Choice is { } choice)
             {
                 Decide(game, choice);
+                continue;
+            }
+
+            // Once a turn, in a clean main phase, something happens. Anywhere else it would be
+            // an illegal moment for the spell and a lie about when a trigger's event occurs.
+            if (ShouldProvoke(game, provokedOn, rounds))
+            {
+                provokedOn = game.State.TurnNumber;
+                rounds++;
+                Provoke(game);
                 continue;
             }
 
@@ -909,14 +1248,336 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             break;
         }
 
-        // The layers have to be able to answer for everything still standing. A card whose
-        // static ability throws when asked is a card that cannot be looked at, let alone played.
-        foreach (var id in game.State.Battlefield)
-            Characteristics.Of(game.State, pool, game.State.GetObject(id));
-
-        // And the invariant the engine rests on, against real text.
-        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+        Check(game, pool);
     }
+
+    /// <summary>
+    /// Everything that has to be true of a finished game, whatever its cards said.
+    /// </summary>
+    /// <remarks>
+    /// One place rather than four copies, because the four had drifted: each soak asked the
+    /// layers about the battlefield and folded the log, and that was all any of them asked.
+    /// <para>
+    /// Three of these are new and each closes a way a card can be broken without failing
+    /// anything. The layers are asked about <em>every zone</em>, because a characteristic-defining
+    /// ability functions everywhere (CR 604.3) and the card whose power is defined by one spends
+    /// most of a game in a graveyard or a hand. The view is projected for every player, because
+    /// that is the board's whole contract and no other test has ever handed the projector a card
+    /// out of the corpus. And the log is folded a second time through the door persistence
+    /// actually uses - <c>GameSessionService</c> stores a game by writing its log and resumes one
+    /// by reading it, so an event that does not round-trip is a game the players lose, and
+    /// <c>Replay(log)</c> on the in-memory objects cannot see that.
+    /// </para>
+    /// </remarks>
+    private static void Check(Game game, CompiledPool pool)
+    {
+        // A card whose static ability throws when asked is a card that cannot be looked at, let
+        // alone played.
+        foreach (var (_, obj) in game.State.Objects)
+            Characteristics.Of(game.State, pool, obj);
+
+        foreach (var player in game.State.TurnOrder)
+            game.ViewFor(player);
+
+        // The invariant the engine rests on, against real text.
+        var folded = GameReducer.Replay(game.Log);
+        Assert.True(
+            game.State.Equals(folded),
+            "Replay(log) does not equal the state: " + Divergence(game.State, folded));
+
+        var transformed = CountTriggers(game);
+
+        // Sampled rather than universal: writing and re-reading the log roughly doubles the cost
+        // of a game, and a systematically unwritable event shows up in one game out of sixteen
+        // just as surely as in all of them. MTG_SOAK_DEEP pays for the rest.
+        //
+        // A game in which something transformed is left out, and that is a defect being routed
+        // around rather than a rule: the serializer does not carry a card's faces, so the fold of
+        // a re-read log drops every transform in it. See
+        // A_stored_game_forgets_that_a_permanent_had_transformed, which is the whole of it in
+        // twenty lines. Take this exclusion out the day PrintedCard carries Faces - it is the
+        // only thing standing between this check and every game in the run.
+        if ((++Stored % StorageSample == 0 || Deep) && !transformed)
+        {
+            var stored = GameReducer.Replay(
+                EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
+
+            Folded++;
+
+            Assert.True(
+                game.State.Equals(stored),
+                "a stored and re-read log does not fold to the same state: "
+                    + Divergence(game.State, stored));
+        }
+        else if (transformed)
+        {
+            Transformed++;
+        }
+    }
+
+    /// <summary>How many games were written out and read back in.</summary>
+    private static int Folded;
+
+    /// <summary>How many games were left out of the storage fold because something transformed.</summary>
+    private static int Transformed;
+
+    /// <summary>
+    /// Which part of two states differs, for a divergence whose printed form is identical.
+    /// </summary>
+    /// <remarks>
+    /// <c>Assert.Equal</c> on a <see cref="GameState"/> prints four kilobytes of type names -
+    /// <c>Objects = ImmutableDictionary`2[ObjectId,GameObject]</c> - twice, and the two dumps are
+    /// character-for-character the same however far apart the states are, because everything that
+    /// can differ lives inside a collection that does not print itself. A run of this soak
+    /// produced exactly that: a real divergence, reported as two identical walls of text, with
+    /// the twelve card names that would have identified it pushed off the end.
+    /// <para>
+    /// So the comparison is done here instead, field by field, and the answer is one line naming
+    /// the object or the player that moved. It is only ever called on a state that has already
+    /// failed to compare equal, so its cost is nothing.
+    /// </para>
+    /// </remarks>
+    private static string Divergence(GameState expected, GameState actual)
+    {
+        foreach (var (id, mine) in expected.Objects)
+        {
+            if (!actual.Objects.TryGetValue(id, out var theirs))
+                return $"{mine.Card.Name} ({mine.Zone}) is not in the replayed state at all";
+
+            if (!mine.Equals(theirs))
+                return $"{mine.Card.Name}: {Short(mine.ToString())}  ||  {Short(theirs.ToString())}";
+        }
+
+        foreach (var (id, theirs) in actual.Objects)
+        {
+            if (!expected.Objects.ContainsKey(id))
+                return $"the replay has an extra object: {theirs.Card.Name} ({theirs.Zone})";
+        }
+
+        foreach (var (id, mine) in expected.Players)
+        {
+            if (!actual.Players.TryGetValue(id, out var theirs))
+                return $"player {mine.Name} is not in the replayed state";
+
+            if (!mine.Equals(theirs))
+                return $"player {mine.Name}: {Short(mine.ToString())}  ||  {Short(theirs.ToString())}";
+        }
+
+        foreach (var (what, mine, theirs) in Ordered(expected, actual))
+        {
+            if (!mine.SequenceEqual(theirs))
+                return $"{what} differs: [{string.Join(", ", mine)}]  ||  [{string.Join(", ", theirs)}]";
+        }
+
+        if (!expected.ArmedStateTriggers.SetEquals(actual.ArmedStateTriggers))
+            return "the armed state triggers differ";
+
+        if (!expected.Combat.Equals(actual.Combat))
+            return $"combat differs: {Short(expected.Combat.ToString())}  ||  {Short(actual.Combat.ToString())}";
+
+        if (!Equals(expected.Choice, actual.Choice))
+            return $"the pending choice differs: {expected.Choice?.Prompt} || {actual.Choice?.Prompt}";
+
+        return "in a field this comparison does not cover - widen it, that is what it is for";
+    }
+
+    /// <summary>The ordered collections on a state, which compare by sequence rather than by reference.</summary>
+    private static IEnumerable<(string What, IEnumerable<object> Mine, IEnumerable<object> Theirs)>
+        Ordered(GameState expected, GameState actual)
+    {
+        yield return ("battlefield", expected.Battlefield.Cast<object>(), actual.Battlefield.Cast<object>());
+        yield return ("stack", expected.Stack.Cast<object>(), actual.Stack.Cast<object>());
+        yield return ("exile", expected.Exile.Cast<object>(), actual.Exile.Cast<object>());
+        yield return ("command zone", expected.Command.Cast<object>(), actual.Command.Cast<object>());
+        yield return ("turn order", expected.TurnOrder.Cast<object>(), actual.TurnOrder.Cast<object>());
+        yield return ("extra turns", expected.ExtraTurns.Cast<object>(), actual.ExtraTurns.Cast<object>());
+        yield return ("pending triggers", expected.PendingTriggers.Cast<object>(), actual.PendingTriggers.Cast<object>());
+        yield return ("delayed triggers", expected.Delayed.Cast<object>(), actual.Delayed.Cast<object>());
+        yield return ("floating effects", expected.FloatingEffects.Cast<object>(), actual.FloatingEffects.Cast<object>());
+        yield return ("arrivals this turn", expected.ArrivalsThisTurn.Cast<object>(), actual.ArrivalsThisTurn.Cast<object>());
+        yield return ("departures this turn", expected.DeparturesThisTurn.Cast<object>(), actual.DeparturesThisTurn.Cast<object>());
+    }
+
+    private static string Short(string text) =>
+        text.Length <= 400 ? text : text[..400];
+
+    /// <summary>How many games have finished, so one in sixteen can be folded through storage.</summary>
+    private static int Stored;
+
+    /// <summary>
+    /// How many triggered abilities actually fired, and on how many distinct cards.
+    /// </summary>
+    /// <remarks>
+    /// The number this file most needed and did not have. A trigger's condition is a closure,
+    /// exactly like an activated ability's cost - and where the activated soak counts how many
+    /// buttons it managed to press, nothing counted how many triggers ever went off. A card whose
+    /// only behaviour is a trigger that never fires is compiled, played, asserted about, and
+    /// completely unverified.
+    /// </remarks>
+    private static int Fired;
+
+    private static readonly HashSet<string> FiredOn = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Walks a finished log for triggers, naming the card each one came off.
+    /// </summary>
+    /// <remarks>
+    /// The source is an <c>ObjectId</c> and an object gets a new one every time it changes zone
+    /// (CR 400.7), so the card is carried forward across moves rather than looked up in the final
+    /// state - by the end of the game a great many of the sources are in a graveyard under an id
+    /// nothing on the battlefield has. Cards dealt at the start are not in this map and do not
+    /// need to be: they are the filler, and the filler is a vanilla bear.
+    /// </remarks>
+    /// <returns>Whether anything in this game turned over, which the storage fold cannot survive.</returns>
+    private static bool CountTriggers(Game game)
+    {
+        var owners = new Dictionary<ObjectId, string>();
+        var turnedOver = false;
+
+        foreach (var e in game.Log)
+        {
+            switch (e)
+            {
+                case ObjectCreated made:
+                    owners[made.Id] = made.Card.Name;
+                    break;
+
+                case ObjectMoved moved when owners.TryGetValue(moved.OldId, out var carried):
+                    owners[moved.NewId] = carried;
+                    break;
+
+                case AbilityTriggered fired:
+                    Fired++;
+                    if (owners.TryGetValue(fired.SourceId, out var source))
+                        FiredOn.Add(source);
+                    break;
+
+                case PermanentTransformed:
+                    turnedOver = true;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        return turnedOver;
+    }
+
+    /// <summary>
+    /// Whether this is a legal and useful moment to make something happen.
+    /// </summary>
+    /// <remarks>
+    /// A clean precombat main phase held by the active player, which is the one moment where the
+    /// spell below can legally be cast. It is also the only moment where the direct emissions are
+    /// honest: a trigger reads the state the event happened in, and firing a battery in the middle
+    /// of combat would be telling every one of them something untrue about when it went off.
+    /// </remarks>
+    private static bool ShouldProvoke(Game game, int provokedOn, int rounds) =>
+        !SkipProvocation
+        && rounds < ProvokeTurns
+        && game.State.TurnNumber != provokedOn
+        && game.State.CurrentStep == TurnStep.PrecombatMain
+        && game.State.Stack.IsEmpty
+        && game.State.Priority.Holder == game.State.ActivePlayerId;
+
+    /// <summary>
+    /// Makes the things happen that triggers watch for.
+    /// </summary>
+    /// <remarks>
+    /// Ten turns of passing priority is ten turns in which almost nothing happens. The board is
+    /// built once and never changes, so after the arrival every "whenever another creature
+    /// enters", "whenever a creature dies", "whenever you draw a card", "whenever you gain life",
+    /// "landfall", "whenever you cast", "whenever this becomes tapped" and every counter or
+    /// damage trigger in the corpus watches a game in which its event never occurs. Combat was
+    /// added to this file for exactly that reason and closed exactly one of those families.
+    /// <para>
+    /// So each turn something happens, on a disposable object rather than on the table. That
+    /// matters: marking damage on the cards being tested would kill them, and the deep slice
+    /// exists so that a Saga has ten turns to finish and a fading permanent to run out. The bear
+    /// and the land below arrive, are counted and tapped and damaged, and leave again, while the
+    /// twelve cards under test stand and watch - which is what a trigger does.
+    /// </para>
+    /// <para>
+    /// Drawing and milling are gated on a library deep enough to survive it. Without that the
+    /// filler runs out around turn eight, a player loses to CR 704.5b, and the game ends early -
+    /// which would have quietly shortened the one pass that is long enough to matter.
+    /// </para>
+    /// </remarks>
+    private static void Provoke(Game game)
+    {
+        foreach (var player in game.State.TurnOrder)
+        {
+            var seat = game.State.GetPlayer(player);
+
+            if (seat.Library.Count > 12)
+            {
+                game.Draw(player);
+                game.Move(game.State.GetPlayer(player).Library[0], Zone.Graveyard, MoveCause.Mill);
+            }
+
+            // Gained and then lost, so both halves of the commonest pair of life triggers fire
+            // and the total is where it started.
+            game.ChangeLife(player, 3);
+            game.ChangeLife(player, -3);
+
+            if (game.State.GetPlayer(player).Hand is [var held, ..])
+                game.Discard(player, held);
+
+            if (game.State.GetPlayer(player).Graveyard is [var buried, ..])
+                game.Move(buried, Zone.Exile, MoveCause.Exile);
+
+            // A creature that enters, is counted, taps, takes damage and dies - five families of
+            // trigger on one throwaway body.
+            var bear = game.Create(player, ProvokeBear, Zone.Battlefield);
+
+            if (game.State.TryGetObject(bear, out var arrived) && arrived.Permanent is { } body)
+            {
+                game.ChangeCounters(bear, "+1/+1", 1);
+
+                if (!body.IsTapped)
+                    game.Tap(bear);
+
+                game.MarkDamage(bear, 1);
+
+                // Damage to a player that is not combat damage: a different question from the
+                // one the attack step asks, and one a great many triggers are written against.
+                // Dealt by the bear, because a source of no object is not a source a trigger can
+                // ask anything about.
+                game.MarkDamageToPlayer(player, bear, 1, isCombat: false);
+
+                game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+            }
+
+            // A land entering, which is landfall and every other "whenever a land enters" - and
+            // then sacrificed, so the board does not silently grow by a land a turn per seat.
+            var land = game.Create(player, ProvokeLand, Zone.Battlefield);
+            if (game.State.TryGetObject(land, out _))
+                game.Move(land, Zone.Graveyard, MoveCause.Sacrifice);
+        }
+
+        // And a spell cast, from the player who holds priority - the only one who may. That is
+        // "whenever you cast", "whenever an opponent casts", storm, prowess and magecraft, none
+        // of which a game of pure priority-passing ever shows.
+        Decoy(game, game.State.ActivePlayerId);
+    }
+
+    /// <summary>The body every provoked turn throws away. One definition, so the pool keeps one entry.</summary>
+    private static readonly CardDefinition ProvokeBear = new()
+    {
+        OracleId = "soak-provoke-bear",
+        Name = "Soak Provocation Bear",
+        CardTypes = CardType.Creature,
+        Power = 2,
+        Toughness = 2,
+    };
+
+    private static readonly CardDefinition ProvokeLand = new()
+    {
+        OracleId = "soak-provoke-land",
+        Name = "Soak Provocation Waste",
+        CardTypes = CardType.Land,
+    };
 
     /// <summary>
     /// Attacks with everything and blocks with everything, so that combat actually happens.
@@ -1199,5 +1860,25 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
     private static bool IsPermanent(CardType types) =>
         (types & (CardType.Creature | CardType.Artifact | CardType.Enchantment
             | CardType.Planeswalker)) != 0
+        && !types.HasFlag(CardType.Token);
+
+    /// <summary>
+    /// Everything that can be put onto a battlefield, which includes lands (CR 110.4a).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IsPermanent"/> leaves lands out and nothing else picked them up - they are not
+    /// instants or sorceries either - so **every fully-compiled land in the corpus was in none of
+    /// these tests**. That is 759 cards, the type a real game plays more of than any other, and
+    /// the one carrying most of the mana abilities the compiler builds. They were compiled,
+    /// counted, swept, and never put anywhere.
+    /// <para>
+    /// Kept as a second predicate rather than folded into <see cref="IsPermanent"/> because the
+    /// spell soak uses that one as a *negation* - "not a permanent, and an instant or a sorcery" -
+    /// and a land counted as a permanent there would have thrown the <c>Sorcery // Land</c> cards
+    /// out of the only test that casts them.
+    /// </para>
+    /// </remarks>
+    private static bool GoesToBattlefield(CardType types) =>
+        (IsPermanent(types) || types.HasFlag(CardType.Land))
         && !types.HasFlag(CardType.Token);
 }
