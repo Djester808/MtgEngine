@@ -4396,6 +4396,67 @@ the battlefield rather than of the permanent. The test attaches an Aura first an
 then an Equipment and asserts the bonus — a reader that only asked "is anything attached" passes a
 one-sided test and fails this one.
 
+### The attached-permanent family is flat, and the gap in it was the conjunction
+
+Measured before anything was built, because the family *looks* like a door. **1,234 Auras and 631
+Equipment**, of which 652 and 369 were incomplete. The blocking lines do not cluster: the 540 Auras
+blocked by exactly one line print **491 distinct shapes** between them, and the 288 Equipment print
+**276** - 1.10 and 1.04 cards per shape. Three further cuts agreed. Ranking the *count* phrases
+("for each ...") across the corpus gives 132 cards behind 103 distinct tails. Ranking the second
+clause of every conjoined attached line gives 131 lines behind 40-odd shapes whose head is `has
+ward {N}` at six. There is no head to attack.
+
+The attached *subject* was not the gap either, and had not been for some time: "enchanted creature"
+and "equipped creature" are already read as a subject by the buff, the base power and toughness,
+the granted ability, the untap restriction, the block restrictions, the conditional statics, the
+mana trigger and regeneration.
+
+What was missing is **composition**. The attached static line was one closed regex whose tail was an
+enumeration - `and has [keyword]`, `and can't attack or block`, `and attacks each combat if able` -
+grown by hand three times. So a clause the compiler read perfectly well on its own could not be
+joined to a bonus: `Enchanted creature doesn't untap during its controller's untap step` read,
+`Enchanted creature can't be blocked by creatures with flying` read, and neither could follow
+`gets +2/+2 and`. The mass-static sibling had learned to compose ("Creatures you control get +1/+1
+and have flying" reads); the attached one had not. That is the same one-vocabulary-in-two-places
+drift as the four-way split over what an Aura calls its host.
+
+**A conjoined static line now folds.** The subject is lifted out, the tail is cut at its commas and
+"and"s, and each clause is re-offered to the same static readers with the subject put back in front
+of it. The vocabulary is therefore whatever the compiler already reads, and a clause added in future
+joins the grammar with nobody coming back to the fold.
+
+Three things make it safe rather than clever:
+
+- **It runs last**, after every other matcher has refused the whole line, so it cannot take a clause
+  off a neighbour. That failure has happened here before - a new reader took 16 corpus lines off the
+  one below it and coverage still rose - and placement is the only fix that does not depend on
+  noticing. The neighbouring wordings are asserted READ on every run as well, not inferred.
+- **Every clause must read or the line stays unread.** An Aura that pumps and silently drops "and
+  doesn't untap" is a strictly better card than the printed one, and unlike an unread card the
+  legality gate would let it through.
+- **The longest join is tried first**, so `has flying, first strike, trample, and haste` is offered
+  whole before its commas are ever treated as joins.
+
+One clause was worth building alongside it because the two multiply: **`is a [Subtype] in addition to
+its other types`** (layer 4, CR 613.1d). Alone it completes almost nothing - every corpus line that
+prints it on an attached subject is a conjunction. With the fold it is worth 15 more cards than the
+fold alone - every corpus line that prints it on an attached subject is a conjunction, so on its
+own it completes nothing at all. The capital letter decides which half of CR 205.3 the word is, as everywhere else here,
+and a subtype is added *without* the card type it implies: "is a Knight in addition to its other
+types" says nothing about card types (CR 205.1a), and adding Creature would animate whatever the
+Equipment was on.
+
+**+36 complete cards - 21 from the fold alone, 15 more from the two together - and the set diff
+is a strict superset** - 36 gained, **0 lost**. Auras 582 ->
+601, Equipment 262 -> 279. Nothing outside the two families moved, which is what the fold requiring
+an attached subject predicts.
+
+Declined here, with the count: **goad** (10 cards, and CR 701.39 needs a goaded-by record with a
+duration), **granted ward** (13, and it was measured inert once already), **`loses [keyword]`** (94,
+but only 7 on an attached subject and the rest are one-shots on targets), **`for each [kind] counter
+on ~`** (30 mention it, 7 as a pump), **`is a black Zombie in addition to its other colors and
+types`** (a colour the fold would drop), and **`for each opponent`** (37 cards, none of them here).
+
 ### Measured and declined: goad
 
 Ninety cards mention it and no two phrase it alike; the most common single form is eight. Its rule is
