@@ -12222,6 +12222,188 @@ public sealed class CompiledCardBehaviourTests
         Assert.Single(game.State.Exile);
     }
 
+    /// <summary>
+    /// "As long as ~ entered this turn, ~ gets +2/+2."
+    /// </summary>
+    /// <remarks>
+    /// Summoning sickness is the tempting substitute and a different question. Sickness runs until
+    /// its controller's <em>next</em> untap step (CR 302.6), so a creature that arrived on your
+    /// turn still has it all through the opponent's turn, while "entered this turn" is already
+    /// false there. The assertion that separates them is the one worth having.
+    /// </remarks>
+    [Fact]
+    public void A_condition_can_ask_whether_the_permanent_arrived_this_turn()
+    {
+        var newcomer = Card(
+            "Entered This Turn Test",
+            "As long as ~ entered this turn, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(newcomer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var arrival = game.Create(alice, newcomer, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            3, Characteristics.Of(game.State, Pool, game.State.GetObject(arrival)).Power);
+
+        // The opponent's turn: still summoning sick, and no longer "entered this turn".
+        TestCards.PassToTurn(game, 2);
+
+        Assert.True(game.State.GetObject(arrival).Permanent!.HasSummoningSickness);
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(arrival)).Power);
+    }
+
+    /// <summary>
+    /// "As long as a permanent left the battlefield under your control this turn, ~ gets +2/+2."
+    /// </summary>
+    /// <remarks>
+    /// Every printed spelling of this scopes it to the asker's own permanents, so the case that
+    /// matters is an <em>opponent's</em> permanent dying: a game-wide reading answers yes there and
+    /// makes 25 cards strictly easier than they print. That is the assertion this test exists for;
+    /// the positive half would pass either way.
+    /// </remarks>
+    [Fact]
+    public void A_departure_condition_counts_only_your_own_permanents()
+    {
+        var revolt = Card(
+            "Departure Test",
+            "As long as a permanent left the battlefield under your control this turn, "
+                + "~ gets +2/+2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(revolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, revolt, Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Departure Theirs Test", 1, 1), Zone.Battlefield);
+
+        var yours = game.Create(
+            alice, TestCards.Creature("Departure Yours Test", 1, 1), Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+
+        // An opponent's permanent leaving must not switch it on.
+        game.Move(theirs, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+
+        // One of yours does.
+        game.Move(yours, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(
+            3, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+    }
+
+    /// <summary>
+    /// "As long as two or more nonland permanents entered the battlefield under your control this
+    /// turn, ~ gets +2/+2."
+    /// </summary>
+    /// <remarks>
+    /// The count, the type and the word "another" are the only things that vary across this
+    /// family, so one reader covers it. Both narrowings are asserted here: a land arriving does not
+    /// count towards "nonland", and the permanent asking counts towards its own condition — it is
+    /// "two or more permanents", not "two or more <em>other</em> permanents" (CR 109.5).
+    /// </remarks>
+    [Fact]
+    public void An_arrival_condition_counts_the_kind_it_names()
+    {
+        var landfall = Card(
+            "Arrival Count Test",
+            "As long as two or more nonland permanents entered the battlefield under your "
+                + "control this turn, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(landfall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var counter = game.Create(alice, landfall, Zone.Battlefield);
+        Settle(game);
+
+        // One nonland permanent so far - itself.
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(counter)).Power);
+
+        // A land is not a nonland permanent, so this changes nothing.
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(counter)).Power);
+
+        game.Create(alice, TestCards.Creature("Arrival Second Test", 1, 1), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            3, Characteristics.Of(game.State, Pool, game.State.GetObject(counter)).Power);
+    }
+
+    /// <summary>
+    /// "As long as you descended this turn, ~ gets +2/+2." (CR 700.11)
+    /// </summary>
+    /// <remarks>
+    /// Descending is a permanent card reaching your graveyard from <em>anywhere</em>, so a card
+    /// milled straight out of the library counts as much as one that died — which is the case
+    /// asserted here, because a reader built on death alone would pass every other arrangement.
+    /// An instant is not a permanent card (CR 110.4a) and must not count.
+    /// </remarks>
+    [Fact]
+    public void Descending_counts_a_permanent_card_reaching_the_graveyard_from_anywhere()
+    {
+        var crab = Card(
+            "Descend Crab Test",
+            "As long as you descended this turn, ~ gets +2/+2.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(crab);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var watcher = game.Create(alice, crab, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+
+        // An instant reaching the graveyard is not a permanent card, so it is not a descent.
+        var burn = game.Create(alice, Card("Descend Instant Test", "Draw a card."), Zone.Library);
+        game.Move(burn, Zone.Graveyard, MoveCause.Mill);
+        Settle(game);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+
+        // A creature card milled out of the library is.
+        var milled = game.Create(
+            alice, TestCards.Creature("Descend Milled Test", 1, 1), Zone.Library);
+
+        game.Move(milled, Zone.Graveyard, MoveCause.Mill);
+        Settle(game);
+
+        Assert.Equal(
+            3, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {

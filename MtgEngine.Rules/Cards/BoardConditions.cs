@@ -509,6 +509,74 @@ public static partial class BoardConditions
         if (DiedThisTurnLine().IsMatch(text))
             return (state, _, _) => state.CreatureDiedThisTurn;
 
+        // "Three or more creatures died this turn" - the same fact asked as a number. Read before
+        // nothing else claims it, and answered from the count rather than the flag: a bool says
+        // whether any died and these ask how many.
+        if (CreaturesDiedCountLine().Match(text) is { Success: true } toll)
+        {
+            var least = Number(toll.Groups["n"].Value);
+            return (state, _, _) => state.CreaturesDiedThisTurn() >= least;
+        }
+
+        // "~ entered this turn", and the pronoun that means the same permanent. Not summoning
+        // sickness, which is the tempting substitute and a different question: sickness runs until
+        // its controller's *next* untap step (CR 302.6), so a creature that arrived on your turn
+        // still has it all through the opponent's turn while this is already false.
+        //
+        // "That creature entered this turn" is deliberately not read. It names whatever the
+        // trigger was about, and a board condition is not given the trigger's subject - it would
+        // answer about the permanent asking instead, which is a different card.
+        if (SelfEnteredThisTurnLine().IsMatch(text))
+            return (state, _, source) => state.EnteredThisTurn(source.Id);
+
+        // "A permanent left the battlefield under your control this turn", and the same sentence
+        // with the possessive moved. Scoped to the asker's own permanents in both spellings,
+        // because that is what every printed one says - a game-wide reading would answer yes when
+        // an opponent's permanent died, which is a strictly easier card than the one printed.
+        if (LeftBattlefieldThisTurnLine().IsMatch(text))
+        {
+            return (state, _, source) =>
+                state.PermanentsLeftBattlefieldThisTurn(source.ControllerId) >= 1;
+        }
+
+        // "Two or more nonland permanents entered the battlefield under your control this turn."
+        // One reader for the whole family: the count, the type and the word "another" are the only
+        // things that vary across it.
+        if (EnteredUnderYourControlLine().Match(text) is { Success: true } arrived)
+        {
+            var wanted = arrived.Groups["n"].Success ? Number(arrived.Groups["n"].Value) : 1;
+            var noun = arrived.Groups["what"].Value.Trim();
+            var nonlandOnly = noun.StartsWith("nonland", StringComparison.OrdinalIgnoreCase);
+
+            if (nonlandOnly)
+                noun = noun["nonland".Length..].Trim();
+
+            // Through the shared type table, so "artifact" means here exactly what it means
+            // everywhere else. A noun it does not know - a creature type, on five cards - leaves
+            // the line unread rather than counting every permanent that arrived.
+            if (EffectPhrase.Specs.PermanentTypes(noun) is not { } arrivedTypes)
+                return null;
+
+            var types = arrivedTypes.Aggregate(
+                Domain.Enums.CardType.None, (running, one) => running | one);
+
+            // "Another" excludes the permanent asking (CR 109.5), which is the difference between
+            // a card that turns itself on as it arrives and one that needs company.
+            var excludesSelf = arrived.Groups["another"].Success;
+
+            return (state, _, source) => state.PermanentsEnteredThisTurn(
+                source.ControllerId,
+                types,
+                nonlandOnly,
+                excludesSelf ? source.Id : null) >= wanted;
+        }
+
+        // "You descended this turn" (CR 700.11): a permanent card was put into your graveyard from
+        // anywhere. Not the same question as descend 4, which reads the graveyard's contents now
+        // and needs no record of the turn at all.
+        if (DescendedThisTurnLine().IsMatch(text))
+            return (state, _, source) => state.GetPlayer(source.ControllerId).TimesDescendedThisTurn >= 1;
+
         // "If {U} was spent to cast this spell", "if {R}{R} was spent to cast it", "if at least
         // four mana was spent", "if no mana was spent". Four questions about one record - the
         // mana that actually paid, kept on the object since it was cast (CR 202.2) - so they are
@@ -1848,6 +1916,35 @@ public static partial class BoardConditions
         @"^a creature (died|was put into a graveyard from the battlefield) this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DiedThisTurnLine();
+
+    /// <summary>The same fact asked as a number rather than as a yes or no.</summary>
+    [GeneratedRegex(
+        @"^(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more creatures "
+            + @"(died|were put into graveyards from the battlefield) this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CreaturesDiedCountLine();
+
+    /// <summary>"~ entered this turn" - the permanent asking, not the trigger's subject.</summary>
+    [GeneratedRegex(@"^(~|it) entered (the battlefield )?this turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex SelfEnteredThisTurnLine();
+
+    /// <summary>Both spellings of "a permanent of yours left the battlefield this turn".</summary>
+    [GeneratedRegex(
+        @"^a permanent (left the battlefield under your control|you controlled left the "
+            + @"battlefield) this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LeftBattlefieldThisTurnLine();
+
+    /// <summary>"Two or more nonland permanents entered the battlefield under your control."</summary>
+    [GeneratedRegex(
+        @"^(an?|(?<another>another)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or more) (?<what>[a-z ]+?)s? entered the battlefield under your control this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex EnteredUnderYourControlLine();
+
+    /// <summary>"You descended this turn" (CR 700.11).</summary>
+    [GeneratedRegex(@"^you descended this turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex DescendedThisTurnLine();
 
     [GeneratedRegex(
         @"^you have (?<n>\d+|one|two|three|four|five) or (?<dir>more|fewer) opponents$",
