@@ -446,7 +446,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **45.4% of playable cards fully read** (14,879 of 32,765), 62.9% of all lines (38,927 of 61,846 lines of rules text).
+Coverage is **45.9% of playable cards fully read** (15,037 of 32,765), 63.2% of all lines (39,114 of 61,846 lines of rules text).
 
 ### What is actually left, measured rather than estimated
 
@@ -538,6 +538,45 @@ documented, and not running.
 The loop is now a separate method and the assertion follows it unconditionally. Proved by mutation:
 inverting it fails **805 of 1,350** tests, where before the change inverting it failed none.
 
+### Half a card is not a read card
+
+Three separate defects of the same shape were found in one pass, and none of them failed a test.
+
+**A mass static with no ownership clause applied only to its controller's permanents.** Muscle
+Sliver pumped no Sliver across the table; Crusade buffed only your white creatures; Illness in the
+Ranks shrank only your tokens. **83 corpus cards** print a line of that shape and every one was
+compiling as complete and doing half of what it says. The identical bug had already been found and
+fixed in `TryGrantedAbility` thirty lines away.
+
+**A `+X/+Y` counter on a group was silently read as `+1/+1`.** This engine reads exactly two counter
+names when computing power and toughness (CR 122.1a gives a `+X/+Y` counter its own X and Y), so any
+other P/T-shaped counter is now refused at `CounterKindNamed` — one place, so the group, targeted and
+subject verbs inherit it together. It was **not** latent: Essence Flare, Shield Sphere and Spirit
+Shackle were each putting a `-0/-N` counter recorded under its printed name and read by nothing.
+Refusing them costs three cards of coverage and stops three cards being quietly wrong.
+
+Worth recording how the second nearly escaped. A detector that mutates a printed digit and compares a
+reflective fingerprint catches the *group* form, whose compiled definition is byte-identical to the
+`+1/+1` version — and cannot catch the *targeted* form, where the counter keeps its printed name so
+the definitions genuinely differ. The instrument understated its own finding.
+
+### A granted ability could not ask a question
+
+Every deferred question is answered by finding the effect again on the card that asked. A granted
+ability is not on that card — it is held against the permanent it was granted to, keyed by (source,
+ability) — so the lookup needs the source id, and five call sites omitted it.
+
+The failure is silent the whole way down. The trigger fires, goes on the stack with the right source
+and subject, resolves, and emits its request; the locator then finds nothing, and the request is
+dropped with no choice, no log line and no error. It applied to optional payments, clashes, coin
+flips, hand choices and permanent choices alike — every deferred question any granted ability could
+raise.
+
+Found while building granted ward, which was played in a real game, **measured inert** — the spell
+resolved untaxed and no question was asked — and reverted rather than shipped. That is the discipline
+the whole compiler depends on: a mechanism that looks finished and does nothing is the thing this
+project is least able to detect on its own.
+
 ### Declined here, with the measurement behind each
 
 Recorded so the next pass does not re-spend the cycle. Each was probed or swept, not guessed.
@@ -574,6 +613,30 @@ Recorded so the next pass does not re-spend the cycle. Each was probed or swept,
   that is wrong: the cast path takes an alternative cost unconditionally whenever the card is in
   that zone, so the card could never be cast for its printed cost as its front face. Cheaper and a
   mode short of printed, so left unread.
+- **The cost-modifier grid — five of six cells.** Mapped and probed cell by cell: *spells you cast /
+  less* reads; *spells you cast / more* (1 card), *opponents cast / more* (24), *abilities / less*
+  (55, including `This ability costs {N} less to activate`) and *abilities / more* (6) do not; and
+  ***opponents cast / less* has zero corpus occurrences — that cell does not exist.** All five are
+  blocked on the same thing: the only cost modification the engine has walks the caster's own
+  battlefield and can only ever subtract, and an activated ability's cost is paid with no modifier
+  hook at all. Same for `Spells you cast from your graveyard cost {1} less`, which additionally
+  needs a zone on `CostReducer` *and* on its consumer — adding it to only one would apply the
+  reduction from every zone.
+- **`X target <noun>`** (55 cards) — a variable *number of targets* chosen as the spell is cast
+  (CR 601.2c), while `SpellDefinition.Targets` is a fixed list. **`mana value X or less`** (66) is
+  worse than unread if guessed: the cast-time filter check runs *before* the chosen X is recorded,
+  so any targeted form would become uncastable.
+- **`at random`** (36 cards) — randomness reaches an effect only through an event the `Game` handles.
+- **`destroy it at end of combat`** (4 cards) — the delayed vocabulary defaults an unknown verb to
+  *sacrifice*, and sacrificing is not destroying (CR 701.21a): regeneration and indestructible
+  cannot touch it, so that reading is harsher than printed.
+- **The initiative** (24 cards that take it, 8 that ask for it). CR 726.2 gives it three inherent
+  triggered abilities, two of which venture into Undercity — of which this engine has zero lines.
+  Modelling the designation alone would compile 24 cards that then skip most of what they say.
+- **Opening hand** (20 cards) — both printed shapes need a pre-game question, which needs a new
+  choice kind and a declaration on the compiled card. Remembering the hand alone would be a field no
+  reader could act on.
+
 - **`Craft with artifact`** (24 cards), **`Convert ~`** (39 lines across 22 cards, nearly all unique
   long sentences), **perpetual effects** (6 of 74).
 
