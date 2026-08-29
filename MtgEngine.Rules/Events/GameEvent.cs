@@ -1634,8 +1634,18 @@ public sealed record CardForetold(ObjectId Id, int Turn) : GameEvent
 /// is. Discover says so and cascade does not, and the difference is the whole of what separates
 /// the two (CR 701.57a, CR 702.85a).
 /// </param>
+/// <param name="Transformed">
+/// Whether taking the offer casts the card transformed (CR 712.11a) — a defeated Siege's
+/// "you may cast it transformed without paying its mana cost" (CR 310.12b). On the offer rather
+/// than derived from the card, because the same battle card in exile under a cascade offer is
+/// cast as its front face; only the offer knows which cast it bought.
+/// </param>
 public sealed record FreeCastOffered(
-    ObjectId Id, Guid PlayerId, string Cost = "", bool ToHandIfDeclined = false) : GameEvent
+    ObjectId Id,
+    Guid PlayerId,
+    string Cost = "",
+    bool ToHandIfDeclined = false,
+    bool Transformed = false) : GameEvent
 {
     public override string Rule => "601.2b";
 
@@ -1650,6 +1660,23 @@ public sealed record FreeCastLapsed(ObjectId Id) : GameEvent
     public override string Rule => "601.2b";
 
     public override string Describe() => $"The offer on {Id} lapsed.";
+}
+
+/// <summary>
+/// A player became a battle's protector (CR 310.9).
+/// </summary>
+/// <remarks>
+/// Chosen by the battle's controller as it enters (CR 310.9a) — forced when only one player may
+/// be chosen, which is every Siege at a two-player table (CR 310.12a) — and chosen again by the
+/// state-based action when the designated protector stops being eligible (CR 704.5x, 704.5y).
+/// A battle has one protector at a time (CR 310.9f), so folding this over an earlier choice
+/// replaces it.
+/// </remarks>
+public sealed record ProtectorChosen(ObjectId Id, Guid PlayerId) : GameEvent
+{
+    public override string Rule => "310.9";
+
+    public override string Describe() => $"{PlayerId:N} now protects {Id}.";
 }
 
 /// <summary>A cascading spell is looking for something cheaper (CR 702.85a).</summary>

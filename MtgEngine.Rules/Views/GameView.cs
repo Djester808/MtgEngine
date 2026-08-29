@@ -373,6 +373,27 @@ public sealed record ObjectView
     /// <summary>Whether it is a land, which is what a card face is coloured by first.</summary>
     public bool IsLand { get; init; }
 
+    /// <summary>
+    /// Whether this is a battle, so a client can offer it as something to attack (CR 310.5).
+    /// </summary>
+    /// <remarks>
+    /// A flag for the same reason <see cref="IsPlaneswalker"/> is one: the type line is display
+    /// text. Its defense is its defense counters (CR 310.4c), which arrive in
+    /// <see cref="Counters"/> under "defense" — a battle shown without them is a board lying
+    /// about the one number the fight over it is about.
+    /// </remarks>
+    public bool IsBattle { get; init; }
+
+    /// <summary>
+    /// The player protecting this battle (CR 310.9), or null while nobody is designated.
+    /// </summary>
+    /// <remarks>
+    /// Public information the board cannot work out for itself: who a battle may be attacked
+    /// through (CR 310.9b) and who may block for it (CR 310.9c) both follow from this, and only
+    /// the engine knows who was chosen.
+    /// </remarks>
+    public Guid? ProtectorId { get; init; }
+
     /// <summary>What this permanent can be asked to do (CR 602.1).</summary>
     public System.Collections.Immutable.ImmutableList<AbilityView> Abilities { get; init; } = [];
 
