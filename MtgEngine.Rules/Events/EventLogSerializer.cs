@@ -386,7 +386,16 @@ public static class EventLogSerializer
         int? StartingLoyalty,
         KeywordAbility Keywords,
         IReadOnlyList<ManaColor> ColorIdentity,
-        IReadOnlyList<ManaColor> Colors)
+        IReadOnlyList<ManaColor> Colors,
+
+        // Without this a stored game forgot every transform. A re-read card had no faces, so
+        // GameReducer.Transform - which correctly refuses a face index the card does not have -
+        // dropped every PermanentTransformed event in the log, and a saved game came back with its
+        // werewolves on their day faces and unable to flip again. 837 corpus cards carry faces.
+        //
+        // CardFace is already only what the compiler reads - no oracle id, no prices, no images -
+        // so it travels whole rather than being trimmed into a second shape that could drift.
+        IReadOnlyList<CardFace> Faces)
     {
         public static PrintedCard Of(CardDefinition card) => new(
             card.OracleId,
@@ -402,7 +411,8 @@ public static class EventLogSerializer
             card.StartingLoyalty,
             card.Keywords,
             card.ColorIdentity,
-            card.Colors);
+            card.Colors,
+            card.Faces);
 
         public CardDefinition ToDefinition() => new()
         {
@@ -420,6 +430,7 @@ public static class EventLogSerializer
             Keywords = Keywords,
             ColorIdentity = [.. ColorIdentity],
             Colors = [.. Colors],
+            Faces = [.. Faces],
         };
     }
 }

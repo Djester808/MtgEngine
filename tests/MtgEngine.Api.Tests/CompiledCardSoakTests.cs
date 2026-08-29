@@ -266,7 +266,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_stored_game_forgets_that_a_permanent_had_transformed()
+    public void A_stored_game_remembers_that_a_permanent_had_transformed()
     {
         var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -325,9 +325,17 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         var stored = GameReducer.Replay(
             EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
 
-        // Should be 1. It is 0, and the card is the front face again.
-        Assert.Equal(0, stored.GetObject(werewolf).Permanent!.FaceIndex);
-        Assert.Empty(stored.GetObject(werewolf).Card.Faces);
+        // The point of the test. PrintedCard carried fourteen printed fields and not Faces, so a
+        // re-read card had none - and GameReducer.Transform, which correctly refuses a face index
+        // the card does not have, dropped every PermanentTransformed event in a stored log. A
+        // saved game came back with its werewolves on their day faces and unable to flip again,
+        // on 837 corpus cards, while the in-memory fold above agreed perfectly. That is why
+        // nothing caught it: the invariant every other test asserts was never violated.
+        Assert.Equal(1, stored.GetObject(werewolf).Permanent!.FaceIndex);
+        Assert.Equal(2, stored.GetObject(werewolf).Card.Faces.Count);
+
+        // And it is still the back face's characteristics, not just the index.
+        Assert.Equal("Soak Nightbound Wolf", stored.GetObject(werewolf).Card.Name);
     }
 
     /// <remarks>
@@ -401,8 +409,8 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
         output.WriteLine(
             $"{Fired} triggered abilities fired, on {FiredOn.Count} distinct cards; "
-                + $"{Folded} games folded through storage, {Transformed} left out for having "
-                + "transformed something");
+                + $"{Folded} of the games were folded through storage; {Transformed} of the "
+                + "games played turned a permanent over");
 
         // Combat is the half of a game that passing priority never reaches: attacking is a
         // turn-based action somebody has to take. Counted so that a soak which stops fighting
@@ -1291,13 +1299,12 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         // of a game, and a systematically unwritable event shows up in one game out of sixteen
         // just as surely as in all of them. MTG_SOAK_DEEP pays for the rest.
         //
-        // A game in which something transformed is left out, and that is a defect being routed
-        // around rather than a rule: the serializer does not carry a card's faces, so the fold of
-        // a re-read log drops every transform in it. See
-        // A_stored_game_forgets_that_a_permanent_had_transformed, which is the whole of it in
-        // twenty lines. Take this exclusion out the day PrintedCard carries Faces - it is the
-        // only thing standing between this check and every game in the run.
-        if ((++Stored % StorageSample == 0 || Deep) && !transformed)
+        // Games in which something transformed used to be excluded here, because the serializer
+        // did not carry a card's faces and the fold of a re-read log dropped every transform in
+        // it. PrintedCard carries Faces now, so the exclusion is gone and this check sees every
+        // sampled game - which is what it was written to do. 43 of 105 sampled games in the deep
+        // slice were being skipped by it, so this is most of the coverage it was missing.
+        if (++Stored % StorageSample == 0 || Deep)
         {
             var stored = GameReducer.Replay(
                 EventLogSerializer.Read(EventLogSerializer.Write(game.Log)));
@@ -1309,16 +1316,24 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 "a stored and re-read log does not fold to the same state: "
                     + Divergence(game.State, stored));
         }
-        else if (transformed)
-        {
+
+        if (transformed)
             Transformed++;
-        }
     }
 
     /// <summary>How many games were written out and read back in.</summary>
     private static int Folded;
 
-    /// <summary>How many games were left out of the storage fold because something transformed.</summary>
+    /// <summary>
+    /// How many games turned a permanent over. Counted across every game, not only the sampled
+    /// ones, so it is not a subset of <see cref="Folded"/>.
+    /// </summary>
+    /// <remarks>
+    /// It used to decide which games were left out of the storage fold, because the serializer did
+    /// not carry a card's faces and a re-read log dropped every transform in it. It now reports
+    /// only how often the case arises - which is the number that says whether folding these games
+    /// is worth anything, and it plainly is.
+    /// </remarks>
     private static int Transformed;
 
     /// <summary>
