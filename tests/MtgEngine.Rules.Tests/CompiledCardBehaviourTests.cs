@@ -15255,6 +15255,464 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(Flies(second));
     }
 
+    /// <summary>
+    /// "Three or more instant and/or sorcery cards in your graveyard" — a pile named by a phrase.
+    /// </summary>
+    /// <remarks>
+    /// The noun in that slot had been a single word, which is one word short of the commonest
+    /// filtered pile the cards print: thirty-five corpus lines name two card types with the
+    /// cards' own "and/or". That shorthand means a card answering to <em>either</em> of them
+    /// (CR 109.4), so it is normalised to the "or" the shared filter vocabulary already spells
+    /// rather than taught to that vocabulary as a word of its own.
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_count_reads_a_pile_named_by_two_card_types()
+    {
+        var wolverine = Card(
+            "Spelleater Test",
+            "~ has double strike as long as there are three or more instant "
+                + "and/or sorcery cards in your graveyard.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(wolverine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var beast = game.Create(alice, wolverine, Zone.Battlefield);
+
+        bool Doubles() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(beast))
+                .Has(KeywordAbility.DoubleStrike);
+
+        void Bin(CardDefinition card) => game.Move(
+            TestCards.PutInHand(game, alice, card), Zone.Graveyard, MoveCause.Discard);
+
+        // Three cards in the graveyard and not one of them counts. An unfiltered count would
+        // already say yes here, which is the half a reader that dropped the phrase gets wrong.
+        for (var i = 0; i < 3; i++)
+            Bin(TestCards.Creature($"Spelleater Body {i} Test", 1, 1));
+
+        Assert.False(Doubles());
+
+        Bin(Card("Spelleater Bolt Test", "You gain 1 life."));
+        Bin(Card("Spelleater Ritual Test", "You gain 1 life.", CardType.Sorcery));
+
+        // One of each type and still short: "and/or" is a list a card answers any of, so both
+        // count towards one total rather than being asked for separately.
+        Assert.False(Doubles());
+
+        Bin(Card("Spelleater Shock Test", "You gain 1 life."));
+
+        Assert.True(Doubles());
+
+        // And off again when the pile shrinks below the threshold - a static is not a latch.
+        // The card is found by name rather than by position: a graveyard is a pile with the
+        // newest card on top, so the last index is the oldest card in it.
+        var shock = game.State.GetPlayer(alice).Graveyard
+            .Single(id => game.State.GetObject(id).Card.Name == "Spelleater Shock Test");
+
+        game.Move(shock, Zone.Exile, MoveCause.Exile);
+
+        Assert.False(Doubles());
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "An artifact card is in your graveyard" — the pile question with its subject at the front.
+    /// </summary>
+    /// <remarks>
+    /// The engine read "there's an artifact card in your graveyard" and not this, which is the
+    /// shape this file has been caught missing before: a condition with two printed word orders
+    /// and a reader for one of them. Both spellings now share one pattern and one rewrite, so
+    /// they cannot come to disagree about what an artifact card is.
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_condition_reads_the_word_order_that_leads_with_the_card()
+    {
+        var mage = Card(
+            "Windwright Test",
+            "~ has flying as long as an artifact card is in your graveyard.",
+            CardType.Creature,
+            power: 1,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(mage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var flier = game.Create(alice, mage, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(flier))
+                .Has(KeywordAbility.Flying);
+
+        // A card in the graveyard that is not an artifact: a reader that lost the noun on the
+        // way through the rewrite would already be answering yes.
+        var body = game.Create(
+            alice, TestCards.Creature("Windwright Body Test", 1, 1), Zone.Battlefield);
+
+        game.Move(body, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Flies());
+
+        var relic = Card(
+            "Windwright Relic Test", string.Empty, CardType.Artifact);
+
+        game.Move(
+            TestCards.PutInHand(game, alice, relic), Zone.Graveyard, MoveCause.Discard);
+
+        Settle(game);
+
+        Assert.True(Flies());
+    }
+
+    /// <summary>
+    /// "There are no cards in your graveyard" — the same count at zero, which is its own question.
+    /// </summary>
+    /// <remarks>
+    /// It cannot be folded into "one or fewer". The comparison the numbered arm builds is
+    /// at-most, and the cards printing this are turned <em>off</em> by a single card arriving —
+    /// so a threshold of one would leave the bonus on for a graveyard that is not empty.
+    /// </remarks>
+    [Fact]
+    public void An_empty_graveyard_is_a_condition_the_counting_reader_cannot_reach()
+    {
+        var titan = Card(
+            "Gorilla Titan Test",
+            "~ gets +4/+4 as long as there are no cards in your graveyard.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(titan);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ape = game.Create(alice, titan, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+        Assert.Equal(8, Characteristics.Of(game.State, Pool, game.State.GetObject(ape)).Power);
+
+        game.Move(
+            TestCards.PutInHand(game, alice, Card("Gorilla Fodder Test", "You gain 1 life.")),
+            Zone.Graveyard,
+            MoveCause.Discard);
+
+        Settle(game);
+
+        Assert.Single(game.State.GetPlayer(alice).Graveyard);
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(ape)).Power);
+    }
+
+    /// <summary>
+    /// "You've cast an instant or sorcery spell this turn" — a kind neither tally can be asked.
+    /// </summary>
+    /// <remarks>
+    /// The two counters beside this reader answer "spells" and "noncreature spells", and the
+    /// commonest kind the cards actually name is neither. The answer comes from the cards cast
+    /// this turn, which the state keeps for exactly this family (CR 601.2i), through the shared
+    /// card-filter vocabulary — so a phrase that vocabulary cannot name leaves the clause unread
+    /// rather than falling back to a wider count than the card asked for.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_spell_count_clause_can_name_a_kind_the_two_tallies_cannot(bool sorcerous)
+    {
+        var frog = Card(
+            "Leapfrog Test",
+            "~ has flying as long as you've cast an instant or sorcery spell this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(frog);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var spell = sorcerous
+            ? Card("Leapfrog Bolt Test", "You gain 1 life.")
+            : new CardDefinition
+            {
+                OracleId = "oracle-leapfrog-ogre-test",
+                Name = "Leapfrog Ogre Test",
+                OracleText = string.Empty,
+                CardTypes = CardType.Creature,
+                ManaCostRaw = "{1}",
+                Cmc = 1,
+                Power = 1,
+                Toughness = 1,
+            };
+
+        var (game, alice, _) = InMainPhase();
+        var swimmer = game.Create(alice, frog, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(swimmer))
+                .Has(KeywordAbility.Flying);
+
+        // Nothing cast yet, so the clause is off whichever spell is about to be cast. Asked
+        // without settling first: passing priority would move the game on, and this reader is
+        // about the turn rather than about anything waiting to happen.
+        Assert.False(Flies());
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell), []);
+        Settle(game);
+
+        // One spell either way, so the count is awake in both runs and only the kind differs -
+        // which is what tells this reader apart from the plain tally it sits beside.
+        Assert.Equal(1, game.State.GetPlayer(alice).SpellsCastThisTurn);
+        Assert.Equal(sorcerous, Flies());
+    }
+
+    /// <summary>
+    /// "There are five or more Islands on the battlefield" — everybody's permanents, not yours.
+    /// </summary>
+    /// <remarks>
+    /// The emptiness half of this sentence has been rewritten onto the ownership readers for as
+    /// long as they have existed; the counted and singular halves had not, so every card asking
+    /// about the whole board went unread. Both are rewritten onto a subject that names no side,
+    /// because a question about the battlefield is about everybody's permanents (CR 400.1) — and
+    /// the opponent's Islands are what a "you control" reading would silently drop.
+    /// </remarks>
+    [Fact]
+    public void A_battlefield_condition_counts_permanents_on_both_sides()
+    {
+        var serpent = Card(
+            "Harbor Serpent Test",
+            "~ can't attack unless there are five or more Islands on the battlefield.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var crasher = Card(
+            "Glacial Crasher Test",
+            "~ can't attack unless there is a Mountain on the battlefield.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        foreach (var card in new[] { serpent, crasher })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, bob) = InMainPhase();
+        var swimmer = game.Create(alice, serpent, Zone.Battlefield);
+        var walker = game.Create(alice, crasher, Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        string? Stopped(ObjectId id) => CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(id), alice, bob);
+
+        Assert.NotNull(Stopped(swimmer));
+        Assert.NotNull(Stopped(walker));
+
+        // Four is not five, and every one of them is Bob's - which is the point: a reader that
+        // asked whose permanents they were would never reach the number at all.
+        for (var i = 0; i < 4; i++)
+            game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.NotNull(Stopped(swimmer));
+
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Null(Stopped(swimmer));
+
+        // The singular arm is a different rewrite and needs its own land to prove it.
+        Assert.NotNull(Stopped(walker));
+
+        game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        Assert.Null(Stopped(walker));
+    }
+
+    /// <summary>
+    /// "Activate only if ~ entered this turn or if you control a basic land" — the repeated "if".
+    /// </summary>
+    /// <remarks>
+    /// English repeats the conjunction's "if" and a parser cannot, so the second half arrived at
+    /// the condition vocabulary still carrying a word no reader there expects and the whole
+    /// clause was refused. Both halves had worked on their own for rounds; the cycle of five
+    /// lands printing this sentence was unread for one repeated word.
+    /// </remarks>
+    [Fact]
+    public void A_condition_that_repeats_its_if_after_the_conjunction_is_read()
+    {
+        var gathering = Card(
+            "Gathering Place Test",
+            "{T}: Add {G} or {W}. Activate only if ~ entered this turn or if you control "
+                + "a basic land.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(gathering);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, gathering, Zone.Battlefield);
+
+        // The turn it arrived, the first half answers on its own and the second is not needed.
+        game.ActivateAbility(alice, land, compiled.Activated[0].Id);
+        Assert.False(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+
+        // CR 500.4 empties the pool as each step ends, so nothing is left over from above.
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        // A turn later neither half holds, and the ability is refused rather than quietly
+        // allowed - which is what an unread condition would have produced.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, land, compiled.Activated[0].Id));
+
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, land, compiled.Activated[0].Id);
+        Assert.False(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    /// <summary>
+    /// "If an opponent has more life than you" — two totals compared, not one against a number.
+    /// </summary>
+    /// <remarks>
+    /// The threshold reader beside it cannot answer this however alike the words look: there is
+    /// no number in the sentence at all. Equal totals are the case that separates a comparison
+    /// from a guess, and they are what the first run asserts.
+    /// </remarks>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(6, 5)]
+    public void A_life_comparison_asks_whether_an_opponent_is_ahead(int lose, int gain)
+    {
+        var angel = Card(
+            "Linvala Test",
+            "When ~ enters, if an opponent has more life than you, you gain 5 life.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(angel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        if (lose > 0)
+        {
+            game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, Card("Linvala Drain Test", "You lose 6 life.")),
+                []);
+
+            Settle(game);
+        }
+
+        var before = game.State.GetPlayer(alice).Life;
+        Assert.Equal(lose > 0, before < game.State.GetPlayer(bob).Life);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, angel), []);
+        Settle(game);
+
+        Assert.Equal(before + gain, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Then if you have more life than an opponent, draw a card" — the comparison the other way.
+    /// </summary>
+    /// <remarks>
+    /// Written as its own arm rather than as the sentence above with the direction flipped,
+    /// because the quantifier moves with it: "an opponent has more life than you" asks each of
+    /// them about my one total, and this asks my one total about each of them. Reading one as
+    /// the other is a pair of inversions that cancel at two seats and disagree at three.
+    /// </remarks>
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(6, 0)]
+    public void A_life_comparison_asks_whether_you_are_ahead(int lose, int drawn)
+    {
+        var cache = Card(
+            "Survival Cache Test",
+            "You gain 2 life. Then if you have more life than an opponent, draw a card.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(cache);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        if (lose > 0)
+        {
+            game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, Card("Survival Drain Test", "You lose 6 life.")),
+                []);
+
+            Settle(game);
+        }
+
+        var drewBefore = game.State.GetPlayer(alice).CardsDrawnThisTurn;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, cache), []);
+        Settle(game);
+
+        // The life gain lands either way, so the spell demonstrably resolved in both runs and
+        // only the second sentence's condition differs.
+        Assert.Equal(20 - lose + 2, game.State.GetPlayer(alice).Life);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(drewBefore + drawn, game.State.GetPlayer(alice).CardsDrawnThisTurn);
+    }
+
+    /// <summary>
+    /// "Unless a player has no cards in hand" — anybody at all, the asker included.
+    /// </summary>
+    /// <remarks>
+    /// A third answer rather than a synonym for either of the two beside it, and the board that
+    /// tells them apart is the one where the empty hand is your own: "an opponent has no cards
+    /// in hand" says no there, and the card says yes.
+    /// </remarks>
+    [Fact]
+    public void An_empty_hand_condition_can_ask_about_any_player_at_the_table()
+    {
+        var prototype = Card(
+            "Lupine Prototype Test",
+            "~ can't attack or block unless a player has no cards in hand.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(prototype);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var golem = game.Create(alice, prototype, Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        string? Stopped() => CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(golem), alice, bob);
+
+        Assert.NotEmpty(game.State.GetPlayer(alice).Hand);
+        Assert.NotEmpty(game.State.GetPlayer(bob).Hand);
+        Assert.NotNull(Stopped());
+
+        // Alice's own hand, which is the half that separates this from "an opponent has none".
+        foreach (var held in game.State.GetPlayer(alice).Hand.ToList())
+            game.Move(held, Zone.Graveyard, MoveCause.Discard);
+
+        Settle(game);
+
+        Assert.NotEmpty(game.State.GetPlayer(bob).Hand);
+        Assert.Null(Stopped());
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {

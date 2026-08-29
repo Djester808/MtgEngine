@@ -36,6 +36,17 @@ public static partial class BoardConditions
 
         var text = condition.Trim().TrimEnd('.');
 
+        // "Activate only if ~ entered this turn or if you control a basic land" - English repeats
+        // the conjunction's "if" and a parser cannot, so the second half arrives here still
+        // carrying it and every reader refuses a clause that begins with a word none of them
+        // expect. Stripped here rather than in the combinator because this method is what the
+        // combinator hands each half back to, so one strip covers a clause of any depth.
+        //
+        // It is meaning-preserving rather than a guess: the caller has already cut the clause
+        // out from behind its own "if", so a second one can only be this repeat.
+        if (text.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+            text = text["if ".Length..];
+
         return Single(text) ?? Joined(text);
     }
 
@@ -55,6 +66,21 @@ public static partial class BoardConditions
         var emptyEverywhere = NoneOnBattlefieldLine().Match(text);
         if (emptyEverywhere.Success)
             text = $"a player controls no {emptyEverywhere.Groups["what"].Value}";
+
+        // "There are five or more Islands on the battlefield", "there is a Mountain on the
+        // battlefield" - the counted and singular halves of the emptiness rewrite above, and the
+        // two nobody had written down. Rewritten onto the same two readers that answer "you
+        // control ..." so the noun keeps going through one filter vocabulary, and onto the
+        // subject that names no side, because a question about the battlefield is about
+        // everybody's permanents (CR 400.1).
+        var anywhere = OnBattlefieldLine().Match(text);
+        if (anywhere.Success)
+        {
+            text = anywhere.Groups["a"].Success
+                ? $"a player controls a {anywhere.Groups["what"].Value}"
+                : $"a player controls {anywhere.Groups["n"].Value} or more "
+                    + anywhere.Groups["what"].Value;
+        }
 
         var emptyBoard = NoneLine().Match(text);
         if (emptyBoard.Success)
@@ -237,10 +263,18 @@ public static partial class BoardConditions
             // about somebody else, and at more than two players "an opponent" means *any* of
             // them - so it is a search rather than a lookup, which is the only part that differs.
             var theirs = graveyard.Groups["who"].Success;
-            var wanted = Number(
-                theirs ? graveyard.Groups["n2"].Value : graveyard.Groups["n"].Value);
-            var orMore = (theirs ? graveyard.Groups["dir2"].Value : graveyard.Groups["dir"].Value)
-                .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+            // "No cards" is the numbered comparison with both halves at their limits: nothing
+            // wanted, and at most that. Written as the two values rather than as a third branch,
+            // so the counting below stays one expression - but written out here rather than left
+            // to the number reader, whose default for a word it does not recognise is one.
+            var emptyPile = graveyard.Groups["none"].Success;
+            var wanted = emptyPile
+                ? 0
+                : Number(theirs ? graveyard.Groups["n2"].Value : graveyard.Groups["n"].Value);
+            var orMore = !emptyPile
+                && (theirs ? graveyard.Groups["dir2"].Value : graveyard.Groups["dir"].Value)
+                    .StartsWith("more", StringComparison.OrdinalIgnoreCase);
             var anyOpponent = theirs
                 && graveyard.Groups["who"].Value.StartsWith("an", StringComparison.OrdinalIgnoreCase);
 
@@ -248,9 +282,14 @@ public static partial class BoardConditions
             // pile. The noun goes through the shared card-filter vocabulary, so a word that
             // vocabulary cannot name leaves the condition unread rather than counting the whole
             // graveyard and answering a question the card did not ask.
-            var noun = (theirs
-                ? graveyard.Groups["what2"].Value
-                : graveyard.Groups["what"].Value).Trim();
+            //
+            // "And/or" is the cards' own shorthand for a list a card answers any of, and the
+            // filter vocabulary spells that "or" (CR 109.4). Normalised here rather than taught
+            // to that vocabulary, because the slash is punctuation this sentence uses and not a
+            // word the filter grammar has any other use for.
+            var noun = Either().Replace(
+                (theirs ? graveyard.Groups["what2"].Value : graveyard.Groups["what"].Value).Trim(),
+                " or ");
 
             string? filter = null;
 
@@ -451,11 +490,51 @@ public static partial class BoardConditions
             var mine = emptyHand.Groups["who"].Value.StartsWith(
                 "you", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => mine
-                ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
-                : state.TurnOrder.Any(
-                    other => other != source.ControllerId
-                        && state.GetPlayer(other).Hand.IsEmpty);
+            // "A player has no cards in hand" is anybody at all, the asker included, which is a
+            // third answer rather than a synonym for either of the two above (CR 109.5) - and it
+            // differs from them at the only board that matters to the cards printing it, the one
+            // where the empty hand is your own.
+            var anyone = emptyHand.Groups["anyone"].Success;
+
+            return (state, abilities, source) => anyone
+                ? state.TurnOrder.Any(other => state.GetPlayer(other).Hand.IsEmpty)
+                : mine
+                    ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
+                    : state.TurnOrder.Any(
+                        other => other != source.ControllerId
+                            && state.GetPlayer(other).Hand.IsEmpty);
+        }
+
+        // "An opponent has more life than you", "you have more life than each opponent" - two
+        // life totals compared rather than one against a number, which is why it cannot go
+        // through the threshold reader above however alike the words look. "Each" is what the
+        // extra seats decide: it is true only when you are ahead of every one of them, and
+        // reading it as "any" would fire on the table's second-largest total.
+        var richer = LifeComparisonLine().Match(text);
+        if (richer.Success)
+        {
+            var theirs = richer.Groups["theirs"].Success;
+            var more = richer.Groups["dir"].Value
+                .StartsWith("more", StringComparison.OrdinalIgnoreCase);
+            var every = richer.Groups["each"].Value
+                .StartsWith("each", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, source) =>
+            {
+                var mine = state.GetPlayer(source.ControllerId).Life;
+
+                var others = state.TurnOrder
+                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                    .Select(id => state.GetPlayer(id).Life)
+                    .ToList();
+
+                if (theirs)
+                    return others.Any(life => more ? life > mine : life < mine);
+
+                bool Beats(int life) => more ? mine > life : mine < life;
+
+                return every ? others.Count > 0 && others.TrueForAll(Beats) : others.Exists(Beats);
+            };
         }
 
         // "If this permanent is an enchantment" — a question about the source's own computed
@@ -743,16 +822,42 @@ public static partial class BoardConditions
         if (castThisTurn.Success)
         {
             var least = castThisTurn.Groups["n"].Success ? Number(castThisTurn.Groups["n"].Value) : 1;
-            var kind = castThisTurn.Groups["kind"].Value.Trim().ToLowerInvariant();
+            var kind = castThisTurn.Groups["kind"].Value.Trim();
+
+            // "You've cast an instant or sorcery spell this turn" - a kind the two tallies below
+            // cannot express, answered from the cards themselves. The state keeps them for
+            // exactly this family (CR 601.2i), and the noun goes through the shared card-filter
+            // vocabulary, so a word that vocabulary cannot name leaves the condition unread
+            // rather than counting every spell and answering a wider question than was asked.
+            var named = kind.Length > 0
+                && !kind.Equals("noncreature", StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals("creature", StringComparison.OrdinalIgnoreCase);
+
+            string? filter = null;
+
+            if (named)
+            {
+                filter = EffectPhrase.CardFilterNamed(Either().Replace(kind, " or "));
+                if (filter is null)
+                    return null;
+            }
+
+            var lowered = kind.ToLowerInvariant();
 
             return (state, abilities, source) =>
             {
                 var player = state.GetPlayer(source.ControllerId);
 
+                if (filter is { } wanted)
+                {
+                    return player.SpellCardsCastThisTurn
+                        .Count(card => Abilities.SearchFilters.Matches(wanted, card)) >= least;
+                }
+
                 // Creature spells are the difference between the two counts rather than a third
                 // one. Naming the kind and then counting every spell would answer a narrower
                 // question with a wider number, which is worse than leaving the line unread.
-                var count = kind switch
+                var count = lowered switch
                 {
                     "noncreature" => player.NoncreatureSpellsCastThisTurn,
                     "creature" => player.SpellsCastThisTurn - player.NoncreatureSpellsCastThisTurn,
@@ -1468,6 +1573,11 @@ public static partial class BoardConditions
         // The two read alike and mean different things at more than two seats.
         var theirs = m.Groups["who"].Value.StartsWith("your opponents", StringComparison.OrdinalIgnoreCase);
 
+        // "A player controls" names nobody in particular, which is how a question about the
+        // battlefield reaches this reader: the ownership test is skipped rather than answered,
+        // because asking whose permanent it is would turn a count of the board into one side's.
+        var anyone = m.Groups["anyone"].Success;
+
         // The noun goes through the target grammar, so every filter that grammar understands —
         // types, subtypes, ownership — works here without a second vocabulary.
         // The target grammar is written around a singular noun, and a count is always plural.
@@ -1492,8 +1602,11 @@ public static partial class BoardConditions
             // counts towards the lands you control (CR 613.1b).
             var controller = Characteristics.Of(state, abilities, obj).ControllerId;
 
-            if (theirs ? controller == source.ControllerId : controller != source.ControllerId)
+            if (!anyone
+                && (theirs ? controller == source.ControllerId : controller != source.ControllerId))
+            {
                 return false;
+            }
 
             if (basicOnly && !obj.Card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase))
                 return false;
@@ -1569,9 +1682,16 @@ public static partial class BoardConditions
     /// halves it can each read, so a wording missed here silently costs every clause containing
     /// it as well.
     /// </para>
+    /// <para>
+    /// "An artifact card is in your graveyard" is the same sentence with the pile moved to the
+    /// back, which is the other half of a pair this file has been caught missing before. Both
+    /// spellings share one pattern, and therefore one rewrite, rather than getting a reader each:
+    /// the alternative is two places for the same answer to drift apart.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^there(?:'s| is) an? (?<what>[A-Za-z][A-Za-z ]*?) card in your graveyard$",
+        @"^(?:there(?:'s| is) an? (?<what>[A-Za-z][A-Za-z ]*?) card"
+            + @"|an? (?<what>[A-Za-z][A-Za-z ]*?) card is) in your graveyard$",
         RegexOptions.IgnoreCase)]
     private static partial Regex OneInGraveyardLine();
 
@@ -1598,9 +1718,15 @@ public static partial class BoardConditions
     /// count already reads it. It has to be its own arm and cannot be folded into "or fewer":
     /// the cards that ask it — the ones that pump your lone creature — are turned <em>off</em> by
     /// a second creature arriving, and "one or fewer" would leave them on with none at all.
+    /// <para>
+    /// "A player controls" names no side and is what the battlefield-wide rewrite above produces,
+    /// the way the emptiness rewrite already produces it for the ownership reader. It is a third
+    /// answer rather than the union of the two: at any number of seats, a count of everybody's
+    /// permanents is not either player's count and cannot be reached by inverting one.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|your opponents) control "
+        @"^(?<who>you|your opponents|(?<anyone>a player)) controls? "
             + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir>more|fewer)) "
@@ -1791,10 +1917,15 @@ public static partial class BoardConditions
     /// "From your hand" is deliberately not admitted: where a spell was cast from is on the cast
     /// event and not on this count, and answering it from the count would be wrong for anything
     /// flashed back or cast from exile.
+    /// <para>
+    /// The kind is a phrase rather than the two words the tallies answer, because the commonest
+    /// one printed is "an instant or sorcery spell" and neither tally can be asked it. Any phrase
+    /// the shared card-filter vocabulary cannot name still leaves the clause unread.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^you('ve| have) cast (an?|(?<n>\d+|one|two|three|four|five) or more) "
-            + @"(?<kind>noncreature |creature )?spells? this turn$",
+            + @"(?<kind>[A-Za-z][A-Za-z/ ]*? )?spells? this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SpellsCastThisTurnLine();
 
@@ -1951,12 +2082,34 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex OpponentsLine();
 
+    /// <remarks>
+    /// The noun is a phrase and not a word, because the commonest filtered pile in the corpus is
+    /// "instant and/or sorcery cards" and a single-word class could not name it. Every extra word
+    /// still has to be one the shared card-filter vocabulary knows, so widening the class costs
+    /// nothing in safety: a phrase it cannot name leaves the condition unread exactly as before.
+    /// <para>
+    /// "There are no cards in your graveyard" is the same count at zero and cannot be folded into
+    /// "one or fewer": the cards that ask it are turned <em>off</em> by a single card arriving,
+    /// and the comparison the numbered arm builds is at-most rather than exactly.
+    /// </para>
+    /// <para>
+    /// The noun may not contain "among", and the lookahead that says so is load-bearing. Delirium
+    /// asks for "four or more card <em>types</em> among cards in your graveyard" and the mana
+    /// value count asks the same shape about a different characteristic; a multi-word noun claims
+    /// both of those sentences, then refuses them for a filter it cannot name — so widening this
+    /// class without the guard cost six cards that had been read for months. A reader that claims
+    /// a clause and returns null takes it away from the readers below it.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(there are (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir>more|fewer) (?<what>[A-Za-z]+ )?cards in your graveyard"
+        @"^(there are ((?<none>no)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"or (?<dir>more|fewer)) "
+            + @"(?<what>(?!.*\bamong\b)[A-Za-z][A-Za-z/ ]*? )?cards in your graveyard"
             + @"|(?<who>an opponent|you) (has|have) "
             + @"(?<n2>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir2>more|fewer) (?<what2>[A-Za-z]+ )?cards in (their|your) graveyard)$",
+            + @"or (?<dir2>more|fewer) "
+            + @"(?<what2>(?!.*\bamong\b)[A-Za-z][A-Za-z/ ]*? )?cards in (their|your) graveyard)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GraveyardCountLine();
 
@@ -2000,8 +2153,46 @@ public static partial class BoardConditions
     private static partial Regex LifeLine();
 
     [GeneratedRegex(
-        @"^(?<who>you have|an opponent has) no cards in hand$", RegexOptions.IgnoreCase)]
+        @"^(?<who>you have|an opponent has|(?<anyone>a player has)) no cards in hand$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex EmptyHandLine();
+
+    /// <summary>"An opponent has more life than you" — two totals, not a threshold.</summary>
+    /// <remarks>
+    /// The two subjects are separate arms rather than one group with a comparison flipped
+    /// afterwards, because the thing that differs between them is <em>which</em> total the
+    /// quantifier is over: "an opponent has more life than you" asks each of them about my one
+    /// total, and "you have more life than an opponent" asks my one total about each of them.
+    /// Written as one arm, the direction and the quantifier would have to be flipped together
+    /// and the pair of them is exactly what plays inverted when it drifts.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((?<theirs>an opponent) has (?<dir>more|less|fewer) life than you"
+            + @"|you have (?<dir>more|less|fewer) life than (?<each>each opponent|an opponent))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LifeComparisonLine();
+
+    /// <summary>"There are five or more Islands on the battlefield" — everybody's permanents.</summary>
+    /// <remarks>
+    /// The emptiness half of this sentence has been rewritten onto the ownership readers since
+    /// they existed; the counted and singular halves had not, which is this file's own recurring
+    /// shape — a condition with two ways to be satisfied and a reader for only one of them.
+    /// <para>
+    /// "No" is deliberately absent from the quantifier: <see cref="NoneOnBattlefieldLine"/> runs
+    /// first and already reads it, and a second reader for it would be a second place for the
+    /// negation to drift.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^there (?:is|are) ((?<a>an?)"
+            + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*) on the battlefield$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OnBattlefieldLine();
+
+    /// <summary>The cards' "and/or", which the shared filter vocabulary spells "or" (CR 109.4).</summary>
+    [GeneratedRegex(@"\s*\band/or\b\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex Either();
 
     /// <remarks>
     /// "You control no creatures" is the same question asked backwards, so it shares the pattern
