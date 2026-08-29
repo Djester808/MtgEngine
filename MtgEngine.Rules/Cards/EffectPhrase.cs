@@ -142,7 +142,7 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (TryOptionalPayment(text, effects, targets))
+        if (TryOptionalPayment(text, effects, targets, objectNamedByTrigger))
         {
             parsed = new ParsedPhrase
             {
@@ -360,10 +360,20 @@ public static partial class EffectPhrase
     /// resolved in the wrong order.
     /// </para>
     /// </remarks>
+    /// <param name="objectNamedByTrigger">
+    /// Carried through to the branches, and it had been dropped here. An offer inside a trigger
+    /// is still inside that trigger: "whenever a Beast you control enters, you may have it deal 4
+    /// damage" and the same sentence without the offer are one question about what "it" means,
+    /// and the branches were being read as though there were no trigger at all. Passing it can
+    /// only widen what reads — with the flag false a pronoun with nothing targeted resolves to
+    /// nothing and the line is refused — except where a reader uses it to refuse, which is what
+    /// the optional-damage rewrite does.
+    /// </param>
     private static bool TryOptionalPayment(
         string text,
         ImmutableList<IEffect>.Builder effects,
-        ImmutableList<TargetSpec>.Builder targets)
+        ImmutableList<TargetSpec>.Builder targets,
+        bool objectNamedByTrigger)
     {
         var m = MayPayLine().Match(text.Trim());
         if (!m.Success)
@@ -400,7 +410,7 @@ public static partial class EffectPhrase
         // separate "if you do" clause to read.
         if (m.Groups["free"].Success && life == 0)
         {
-            if (!TryParse(m.Groups["free"].Value, out var freeBranch))
+            if (!TryParse(m.Groups["free"].Value, out var freeBranch, objectNamedByTrigger))
                 return false;
 
             ifYouDo = Hoist(freeBranch, targets);
@@ -408,7 +418,7 @@ public static partial class EffectPhrase
 
         if (m.Groups["do"].Success)
         {
-            if (!TryParse(m.Groups["do"].Value, out var thenBranch))
+            if (!TryParse(m.Groups["do"].Value, out var thenBranch, objectNamedByTrigger))
                 return false;
 
             // Added to whatever the offer itself was, not instead of it. "You may sacrifice a
@@ -420,7 +430,7 @@ public static partial class EffectPhrase
 
         if (m.Groups["dont"].Success)
         {
-            if (!TryParse(m.Groups["dont"].Value, out var elseBranch))
+            if (!TryParse(m.Groups["dont"].Value, out var elseBranch, objectNamedByTrigger))
                 return false;
 
             ifYouDont = Hoist(elseBranch, targets);
@@ -1061,6 +1071,20 @@ public static partial class EffectPhrase
         var counterEach = CounterOnEachLine().Match(sentence);
         if (counterEach.Success)
         {
+            // The group action names the counter it puts, so only the two it can name may be
+            // read. The pattern accepts any power/toughness counter and this arm accepted them
+            // all, taking nothing from the number but its sign: "put a +4/+4 counter on each
+            // creature you control" compiled to a definition byte-identical to the +1/+1 one,
+            // read as complete, and did a quarter of what it printed.
+            //
+            // Refused outright rather than narrowed in the pattern, so the shape is recognised
+            // and declined in one place where the reason can be written down.
+            if (CounterKindNamed(counterEach.Groups["kind"].Value) is not (
+                    CounterKinds.PlusOnePlusOne or CounterKinds.MinusOneMinusOne))
+            {
+                return false;
+            }
+
             var others = counterEach.Groups["other"].Success;
             var group = counterEach.Groups["t"].Value.Trim();
 
@@ -2603,12 +2627,41 @@ public static partial class EffectPhrase
 
         // "Sacrifice it at the beginning of the next end step" — a delayed triggered ability
         // (CR 603.7), not something that happens now.
+        //
+        // "At end of combat" is the same ability with a different moment (CR 511.1): the combat
+        // damage has been dealt, the attacker did its work, and then it goes. It is a separate
+        // arm rather than a step name because the cards do not spell it as one - nothing prints
+        // "at the beginning of the next end of combat step" - and inventing that phrase so the
+        // step table could take it would put a wording in the grammar that no card has.
         m = DelayedSelfLine().Match(sentence);
-        if (m.Success && TriggerConditions.StepNamed(m.Groups["step"].Value) is { } when)
+        if (m.Success)
         {
-            effects.Add(new DelaySourceAction(
-                m.Groups["verb"].Value.ToLowerInvariant(), when));
-            return true;
+            var when = m.Groups["combat"].Success
+                ? State.TurnStep.EndOfCombat
+                : TriggerConditions.StepNamed(m.Groups["step"].Value);
+
+            // The verb is mapped rather than passed through. The engine's delayed vocabulary
+            // spells the bounce "return-to-hand", and handing it the printed word would fall to
+            // the default arm - which is a sacrifice, and a sacrifice is not a bounce.
+            var doing = m.Groups["verb"].Value.ToLowerInvariant() switch
+            {
+                "sacrifice" => "sacrifice",
+                "exile" => "exile",
+                "return" => "return-to-hand",
+                _ => null,
+            };
+
+            // "Destroy it at end of combat" is printed on four cards and is deliberately not
+            // here. CR 701.21a says it outright: sacrificing a permanent does not destroy it, so
+            // regeneration and every other effect that replaces destruction cannot touch a
+            // sacrifice - and neither can indestructible (CR 702.12b). Reading the one as the
+            // other makes the drawback harsher than the card prints. There is no delayed destroy
+            // in the engine, so the line stays unread rather than becoming a stronger one.
+            if (when is { } moment && doing is not null)
+            {
+                effects.Add(new DelaySourceAction(doing, moment));
+                return true;
+            }
         }
 
         // "Search your library for a basic land card, put it onto the battlefield tapped, then
@@ -3065,7 +3118,8 @@ public static partial class EffectPhrase
         // one has gone.
         if (NoCountersLine().Match(sentence) is { Success: true } spent)
         {
-            var kind = CounterKindNamed(spent.Groups["kind"].Value.Trim());
+            if (CounterKindNamed(spent.Groups["kind"].Value.Trim()) is not { } kind)
+                return false;
 
             effects.Add(new OnlyIf(
                 (_, _, self) =>
@@ -3493,6 +3547,34 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "have it deal 2 damage to target creature" — the inside of "you may have it deal ...",
+        // which is how the cards spell an optional ping. The free-offer reader above strips the
+        // "you may" and hands the rest here, and what arrives is an ordinary damage sentence with
+        // its verb put in the bare infinitive: "have ~ deal" is "~ deals", one word apart.
+        //
+        // So it is rewritten rather than given its own effect. Every damage sentence the parser
+        // knows arrives here already working - a number, a count, a group, "damage equal to its
+        // power" - and none of them had to learn that the offer exists. Fourteen distinct
+        // wordings across the family were checked, and all fourteen read once the verb agrees.
+        //
+        // "It" is refused when the trigger names an object of its own. On "whenever a Beast you
+        // control enters, you may have it deal 4 damage" the pronoun is the Beast and not the
+        // enchantment that said so, and the source of damage is not a detail - lifelink,
+        // deathtouch and every "whenever this deals damage" trigger read it. The strict reading
+        // is to leave that line unread rather than attribute the damage to the wrong permanent.
+        var caused = HaveItDealLine().Match(sentence);
+        if (caused.Success)
+        {
+            var causer = caused.Groups["who"].Value.Trim();
+
+            return (causer.Equals("~", StringComparison.Ordinal) || !objectNamedByTrigger)
+                && TryOne(
+                    causer + " deals " + caused.Groups["rest"].Value,
+                    targets,
+                    effects,
+                    objectNamedByTrigger);
+        }
+
         // "it deals N damage to target opponent" — the tail of an enters trigger, where "it"
         // is the permanent that just arrived, so the source is the same either way.
         // "It deals 2 damage to each opponent" - the same sentence the source names itself in,
@@ -3545,8 +3627,11 @@ public static partial class EffectPhrase
                 putOn = EffectSubject.TriggerSubject;
             }
 
+            if (CounterKindNamed(onSomething.Groups["kind"].Value) is not { } kindOnSubject)
+                return false;
+
             effects.Add(new PutCounters(
-                CounterKindNamed(onSomething.Groups["kind"].Value),
+                kindOnSubject,
                 Number(onSomething.Groups["n"].Value),
                 index,
                 putOn));
@@ -3708,9 +3793,12 @@ public static partial class EffectPhrase
                 howMany = perThing;
             }
 
+            if (CounterKindNamed(m.Groups["kind"].Value) is not { } kindOnTarget)
+                return false;
+
             targets.Add(counted);
             effects.Add(new PutCounters(
-                CounterKindNamed(m.Groups["kind"].Value),
+                kindOnTarget,
                 howMany,
                 targets.Count - 1));
 
@@ -4435,12 +4523,37 @@ public static partial class EffectPhrase
     /// can hold "charge" as readily as "+1/+1". Only the compiler was pinned to the two that
     /// change power and toughness, which left every storage, depletion and age counter unread.
     /// </remarks>
-    private static string CounterKindNamed(string printed) => printed switch
+    private static string? CounterKindNamed(string printed)
     {
-        "+1/+1" => CounterKinds.PlusOnePlusOne,
-        "-1/-1" => CounterKinds.MinusOneMinusOne,
-        _ => printed.Trim().ToLowerInvariant(),
-    };
+        var word = printed.Trim();
+
+        if (string.Equals(word, "+1/+1", StringComparison.Ordinal))
+            return CounterKinds.PlusOnePlusOne;
+
+        if (string.Equals(word, "-1/-1", StringComparison.Ordinal))
+            return CounterKinds.MinusOneMinusOne;
+
+        // "+4/+4", "-0/-2", "+2/+0" — a counter shaped like the two the engine models and not
+        // one of them. CR 122.1a says a +X/+Y counter adds X to power and Y to toughness for any
+        // X and Y; this engine works power and toughness out from exactly the two names above, so
+        // any other one is refused rather than kept under its printed name. Keeping it is the
+        // failure this project most wants to avoid: the counter would be put on the permanent,
+        // recorded in the log, and change nothing at all, while the card compiled complete,
+        // passed the legality gate, and played as a weaker card than it prints.
+        //
+        // Nine corpus cards print one and all nine are incomplete for other reasons, so nothing
+        // is lost today. The refusal is what stops something being lost silently the day one of
+        // them is finished.
+        if (PowerToughnessCounter().IsMatch(word))
+            return null;
+
+        // Anything else is a named counter — charge, storage, depletion, age — and the engine
+        // has never cared which names exist. Those are kept exactly as printed.
+        return word.ToLowerInvariant();
+    }
+
+    [GeneratedRegex(@"^[+-]\d+/[+-]\d+$")]
+    private static partial Regex PowerToughnessCounter();
 
     /// <summary>Which players a printed group word names (CR 109.5).</summary>
     private static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch
@@ -7803,8 +7916,15 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex LookAndRevealLine();
 
+    /// <remarks>
+    /// The bounce is a third arm rather than a third verb in the first one, because it is the
+    /// only one of the three that names where the card goes: "sacrifice it" and "exile it" say
+    /// the whole instruction in two words and "return it" does not.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<verb>sacrifice|exile) (it|~) at the beginning of the next (?<step>[a-z ]+)$",
+        @"^((?<verb>sacrifice|exile) (it|~)"
+            + @"|(?<verb>return) (it|~) to its owner's hand)"
+            + @" (at the beginning of the next (?<step>[a-z ]+)|(?<combat>at end of combat))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DelayedSelfLine();
 
@@ -7993,6 +8113,21 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^it deals " + N + @" damage to " + W + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex ItDealsGroupDamage();
+
+    /// <remarks>
+    /// The tail is captured whole and handed back to the parser rather than described, because
+    /// the point of the rewrite is that it names nothing: every shape of damage sentence already
+    /// read - a number, "damage equal to its power", a group, a count - reaches this family for
+    /// free. Describing the tail here would be a second copy of the damage grammar, and a second
+    /// copy is a copy that falls behind.
+    /// <para>
+    /// Only the two subjects that can mean the source. "That creature" is printed too and is
+    /// deliberately absent: it names the permanent a trigger was about, which is not what deals
+    /// the damage in this engine.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^have (?<who>it|~) deal (?<rest>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex HaveItDealLine();
 
     [GeneratedRegex(
         @"^put " + N + @" (?<kind>\+1/\+1|-1/-1|[a-z]+) counters? on "

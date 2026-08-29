@@ -10820,6 +10820,356 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "When ~ dies, you may have it deal 1 damage to any target." — Goblin Arsonist.
+    /// </summary>
+    /// <remarks>
+    /// The optional ping, spelt the way the cards print it. "Have it deal" is "it deals" with the
+    /// verb in the bare infinitive, so the sentence is rewritten and handed back to the parser
+    /// rather than given an effect of its own: every damage wording already read arrives here
+    /// working, and fourteen distinct ones across the family were checked.
+    /// <para>
+    /// The decline half is what makes it a test. A reader that dropped the two words would deal
+    /// the damage every time and pass any assertion written only about accepting — and a trigger
+    /// that always pings is a different card from one that offers to.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 19)]
+    [InlineData(false, 20)]
+    public void An_optional_ping_is_only_dealt_when_the_offer_is_taken(bool accept, int life)
+    {
+        var arsonist = Card(
+            "Optional Ping Test",
+            "When ~ dies, you may have it deal 1 damage to any target.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(arsonist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var goblin = game.Create(alice, arsonist, Zone.Battlefield);
+
+        game.MarkDamage(goblin, 1);
+
+        // The target is chosen as the trigger goes on the stack (CR 603.3d); the offer is made
+        // when it resolves, which is why the two questions arrive in this order.
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var aiming = game.State.Choice!;
+        Assert.Equal(ChoiceKind.ChooseTriggerTargets, aiming.Kind);
+        game.Choose(alice, [aiming.Options!.Single(o => o.Id == $"player:{bob:N}").Id]);
+
+        // By hand rather than through Settle, which answers every question with its first option
+        // — and which of the two answers is taken is the whole of what this test is about.
+        for (var guard = 0; guard < 20 && game.State.Choice is null; guard++)
+        {
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        var offer = game.State.Choice;
+        Assert.NotNull(offer);
+        Assert.Equal(ChoiceKind.OptionalPayment, offer.Kind);
+
+        var no = offer.Options.Single(o => o.Label.Contains(
+            "decline", StringComparison.OrdinalIgnoreCase));
+
+        game.Choose(alice, [accept ? offer.Options.First(o => o.Id != no.Id).Id : no.Id]);
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Whenever a Beast you control enters, you may have it deal 4 damage to target opponent
+    /// or planeswalker." — Aether Charge, and the card the rewrite has to refuse.
+    /// </summary>
+    /// <remarks>
+    /// "It" is the Beast, not the enchantment that said so, and the source of damage is not a
+    /// detail: lifelink, deathtouch and every "whenever this deals damage" trigger read it. The
+    /// engine's damage effects deal from the permanent the ability is on, so the only reading
+    /// available here would attribute the ping to the wrong permanent — and an unread line is
+    /// better than a card that plays as a different one.
+    /// <para>
+    /// The refusal is decided by whether the trigger's own event carries an object, which is the
+    /// same allow-list "that creature" is resolved through. It needed the flag to be carried into
+    /// the offer's branches, where it had been dropped: an offer inside a trigger is still inside
+    /// that trigger, and until this the branches were read as though there were no trigger at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_optional_ping_is_refused_when_it_names_the_triggering_permanent()
+    {
+        var charge = Card(
+            "Optional Ping Refusal Test",
+            "Whenever a Beast you control enters, you may have it deal 4 damage to target "
+                + "opponent or planeswalker.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(charge);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("you may have it deal", StringComparison.Ordinal));
+
+        // The same sentence about the source reads, which is what makes the refusal a decision
+        // about the pronoun rather than about the shape.
+        var forerunner = Card(
+            "Optional Ping Source Test",
+            "Whenever a Beast you control enters, you may have ~ deal 4 damage to target "
+                + "opponent or planeswalker.",
+            CardType.Enchantment);
+
+        Assert.True(
+            CardCompiler.Compile(forerunner).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(forerunner).Unhandled));
+    }
+
+    /// <summary>
+    /// "When ~ attacks or blocks, sacrifice it at end of combat." — Mardu Blazebringer.
+    /// </summary>
+    /// <remarks>
+    /// A delayed triggered ability (CR 603.7) waiting for the end of combat step (CR 511.1)
+    /// rather than for an end step. The engine already fires delayed abilities as a step is
+    /// entered and already knows how to sacrifice the permanent that promised it, so the whole of
+    /// this is a moment the grammar could not name.
+    /// <para>
+    /// The assertion that it is still on the battlefield when combat damage is dealt is the one
+    /// that matters. Reading the tail as "sacrifice it now" also compiles, also plays, and takes
+    /// the attacker off the board before it has hit anything.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_delayed_sacrifice_waits_for_the_end_of_combat()
+    {
+        var brute = Card(
+            "End Of Combat Sacrifice Test",
+            "When ~ attacks or blocks, sacrifice it at end of combat.",
+            CardType.Creature,
+            power: 5,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(brute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ogre = game.Create(alice, brute, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [ogre] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.CombatDamage);
+
+        // Still attacking when the damage is dealt: the sacrifice is owed, not done.
+        Assert.Contains(ogre, game.State.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        // Five damage got through, and only then did it go. The card in the graveyard is a new
+        // object (CR 400.7), so it is found by what it is rather than by the id it used to have.
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+        Assert.DoesNotContain(ogre, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == brute.Name);
+    }
+
+    /// <summary>
+    /// "When ~ attacks or blocks, return it to its owner's hand at end of combat." — Phantom
+    /// Whelp.
+    /// </summary>
+    /// <remarks>
+    /// The same delay with a different verb, and the reason the verb is mapped rather than passed
+    /// through: the engine's delayed vocabulary spells the bounce "return-to-hand", and anything
+    /// it does not recognise falls to its default arm — which is a sacrifice. Handing it the
+    /// printed word would have put the creature in the graveyard, which is a card nobody would
+    /// play twice.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_bounce_puts_the_attacker_in_hand_and_not_in_the_graveyard()
+    {
+        var whelp = Card(
+            "End Of Combat Bounce Test",
+            "When ~ attacks or blocks, return it to its owner's hand at end of combat.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(whelp);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var pup = game.Create(alice, whelp, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [pup] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        // A card that changes zone becomes a new object (CR 400.7), so both halves are asked of
+        // what is there rather than of the id that attacked.
+        Assert.DoesNotContain(pup, game.State.Battlefield);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == whelp.Name);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == whelp.Name);
+    }
+
+    /// <summary>
+    /// "When ~ attacks or blocks, destroy it at end of combat." — Ceremonial Guard, and the arm
+    /// the delay deliberately does not have.
+    /// </summary>
+    /// <remarks>
+    /// There is no delayed <em>destroy</em> in the engine, and the vocabulary's default is a
+    /// sacrifice. The two are not the same instruction, and CR 701.21a says so in as many words:
+    /// sacrificing a permanent does not destroy it, so regeneration and everything else that
+    /// replaces destruction cannot affect it — and neither can indestructible (CR 702.12b).
+    /// Reading the one as the other makes the drawback harsher than the card prints. Four corpus
+    /// cards say it this way and all four stay unread.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_is_left_unread_rather_than_becoming_a_sacrifice()
+    {
+        var guard = Card(
+            "End Of Combat Destroy Test",
+            "When ~ attacks or blocks, destroy it at end of combat.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(guard);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("destroy it at end of combat", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "Put a +4/+4 counter on each creature you control" — the counter the engine cannot put.
+    /// </summary>
+    /// <remarks>
+    /// The group counter reader took the sign of the printed counter and nothing else, so every
+    /// power/toughness counter that was not +1/+1 or -1/-1 compiled to the +1/+1 one — a
+    /// definition byte-identical to the card that really does print +1/+1. It read as complete
+    /// and did a quarter of what it said.
+    /// <para>
+    /// CR 122.1a is what makes it wrong rather than merely approximate: a +X/+Y counter adds X to
+    /// power and Y to toughness, for any X and Y. This engine works power and toughness out from
+    /// exactly two counter names, so there is no honest way to put a +4/+4 counter yet — keeping
+    /// it under its printed name would put a counter on the permanent, write it to the log, and
+    /// change no characteristic at all. Refusing is the only reading that does not lie.
+    /// </para>
+    /// <para>
+    /// Latent when it was found — nine corpus cards print such a counter and all nine are
+    /// incomplete for other reasons — which is exactly why it is worth a test: the day one of
+    /// them is finished, nothing else would have noticed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_counter_the_engine_cannot_model_is_refused_rather_than_shrunk()
+    {
+        var chorus = Card(
+            "Group Counter Refusal Test",
+            "When ~ enters, put a +4/+4 counter on each creature you control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(chorus);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("+4/+4 counter on each creature", StringComparison.Ordinal));
+
+        // The same sentence with the counter the engine does model still reads, and still plays:
+        // a refusal that also broke the working sibling would pass the assertion above.
+        var anthem = Card(
+            "Group Counter Sibling Test",
+            "When ~ enters, put a +1/+1 counter on each creature you control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var works = CardCompiler.Compile(anthem);
+        Assert.True(works.IsComplete, string.Join(" | ", works.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Group Counter Bear Test", 2, 2), Zone.Battlefield);
+
+        game.Create(alice, anthem, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(bear).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>
+    /// "Put a +2/+2 counter on target creature" — the same refusal on the targeted verb.
+    /// </summary>
+    /// <remarks>
+    /// One vocabulary, so the refusal is made once where the printed counter is named and every
+    /// verb that puts one inherits it. The targeted form failed differently and just as quietly:
+    /// the counter kept its printed name, so the definition did differ from the +1/+1 one — a
+    /// fingerprint would not have flagged it — and the permanent ended up holding a counter
+    /// called "+2/+2" that nothing in the layers reads.
+    /// <para>
+    /// A named counter — charge, depletion, storage — is untouched by this, and the assertion
+    /// below is what keeps the refusal from swallowing them: the engine has never cared which
+    /// counter names exist, only which two change power and toughness.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_targeted_counter_the_engine_cannot_model_is_refused_but_a_named_one_is_not()
+    {
+        var swell = Card(
+            "Targeted Counter Refusal Test",
+            "Put a +2/+2 counter on target creature.",
+            CardType.Instant);
+
+        Assert.False(CardCompiler.Compile(swell).IsComplete);
+
+        var charging = Card(
+            "Targeted Named Counter Test",
+            "Put a charge counter on target artifact.",
+            CardType.Instant);
+
+        var works = CardCompiler.Compile(charging);
+        Assert.True(works.IsComplete, string.Join(" | ", works.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice,
+            Card("Named Counter Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, charging), [Target.ToPermanent(relic)]);
+
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(relic).Permanent!.Counters.GetValueOrDefault("charge"));
+    }
+
+    /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>
     /// <remarks>
