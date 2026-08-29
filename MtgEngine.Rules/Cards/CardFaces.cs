@@ -48,6 +48,7 @@ public static partial class CardFaces
             ColorIdentity = card.ColorIdentity,
             Power = face.Power,
             Toughness = face.Toughness,
+            Defense = face.Defense,
             Faces = card.Faces,
             ImageUriNormal = card.ImageUriNormal,
             ImageUriSmall = card.ImageUriSmall,
@@ -60,6 +61,31 @@ public static partial class CardFaces
     {
         var at = oracleId.IndexOf('#', StringComparison.Ordinal);
         return at < 0 ? oracleId : oracleId[..at];
+    }
+
+    /// <summary>
+    /// Which face a definition is, read back off the id suffix <see cref="Definition"/> writes.
+    /// </summary>
+    /// <remarks>
+    /// Zero for an ordinary card and for a front face. This exists for the one seam where a face
+    /// definition crosses onto the battlefield as a card in its own right — a spell cast
+    /// transformed (CR 712.11a) resolves carrying the back face's definition, and the permanent
+    /// it becomes has to record which face it is showing or the day/night rules and a later
+    /// transform would read it as its front.
+    /// </remarks>
+    public static int FaceIndexOf(string oracleId)
+    {
+        ArgumentNullException.ThrowIfNull(oracleId);
+
+        var at = oracleId.IndexOf('#', StringComparison.Ordinal);
+        return at >= 0
+            && int.TryParse(
+                oracleId[(at + 1)..],
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var index)
+            ? index
+            : 0;
     }
 
     /// <summary>

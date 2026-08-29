@@ -51,13 +51,22 @@ internal static class CardParser
                 mc = ParseManaCost(mcRaw);
             }
 
-            int? power = null, toughness = null, loyalty = null;
+            int? power = null, toughness = null, loyalty = null, defense = null;
             if (json.TryGetProperty("power", out var pw) && int.TryParse(pw.GetString(), out var p))
                 power = p;
             if (json.TryGetProperty("toughness", out var th) && int.TryParse(th.GetString(), out var t))
                 toughness = t;
             if (json.TryGetProperty("loyalty", out var lo) && int.TryParse(lo.GetString(), out var l))
                 loyalty = l;
+            // A battle's defense (CR 310.4a). Every printed battle is a transforming card, so the
+            // number lives on the front face rather than at the root - the face answers for the
+            // card, exactly as the mana cost above does.
+            if (json.TryGetProperty("defense", out var df) && int.TryParse(df.GetString(), out var d))
+                defense = d;
+            else if (json.TryGetProperty("card_faces", out var dfFaces) && dfFaces.GetArrayLength() > 0
+                     && dfFaces[0].TryGetProperty("defense", out var faceDf)
+                     && int.TryParse(faceDf.GetString(), out var fd))
+                defense = fd;
 
             string? imgNormal = null, imgLarge = null, imgSmall = null, imgArtCrop = null, imgNormalBack = null;
             if (json.TryGetProperty("image_uris", out var imgs))
@@ -136,6 +145,7 @@ internal static class CardParser
                 Power = power,
                 Toughness = toughness,
                 StartingLoyalty = loyalty,
+                Defense = defense,
                 Keywords = keywords,
                 ColorIdentity = colorId,
                 Colors = colors,
@@ -179,6 +189,7 @@ internal static class CardParser
             Power = oracle.Power,
             Toughness = oracle.Toughness,
             StartingLoyalty = oracle.StartingLoyalty,
+            Defense = oracle.Defense,
             Keywords = oracle.Keywords,
             ColorIdentity = oracle.ColorIdentity,
             Colors = oracle.Colors,

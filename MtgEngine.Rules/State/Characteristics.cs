@@ -1215,6 +1215,13 @@ public static class CounterKinds
     public const string Loyalty = "loyalty";
 
     /// <summary>
+    /// Defense counters, which are what a battle's defense is while it is on the battlefield
+    /// (CR 310.4c). It enters with its printed number of them (CR 310.4b), and damage dealt to
+    /// it removes that many (CR 310.6).
+    /// </summary>
+    public const string Defense = "defense";
+
+    /// <summary>
     /// Time counters, as vanishing and fading put them on a permanent (CR 702.63a).
     /// </summary>
     /// <remarks>

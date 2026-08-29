@@ -23,6 +23,17 @@ public sealed class CardDefinition
     public int? Power { get; init; }
     public int? Toughness { get; init; }
     public int? StartingLoyalty { get; init; }
+
+    /// <summary>
+    /// A battle's printed defense (CR 310.4a), from the number in its lower right corner.
+    /// </summary>
+    /// <remarks>
+    /// Null for everything that is not a battle, the way <see cref="StartingLoyalty"/> is null
+    /// off planeswalkers. Every printed battle is a two-faced card whose defense lives on the
+    /// front face, so the loaders read it the way they read a face's power: the front face
+    /// answers for the card.
+    /// </remarks>
+    public int? Defense { get; init; }
     public KeywordAbility Keywords { get; init; }
 
     // Scryfall image URIs and metadata -- populated by ScryfallService
@@ -80,8 +91,9 @@ public sealed class CardDefinition
     public bool IsEnchantment => CardTypes.HasFlag(CardType.Enchantment);
     public bool IsArtifact => CardTypes.HasFlag(CardType.Artifact);
     public bool IsPlaneswalker => CardTypes.HasFlag(CardType.Planeswalker);
+    public bool IsBattle => CardTypes.HasFlag(CardType.Battle);
     public bool IsNonland => !IsLand;
-    public bool IsPermanentType => IsCreature || IsEnchantment || IsArtifact || IsLand || IsPlaneswalker;
+    public bool IsPermanentType => IsCreature || IsEnchantment || IsArtifact || IsLand || IsPlaneswalker || IsBattle;
 
     public bool HasKeyword(KeywordAbility kw) => Keywords.HasFlag(kw);
 
@@ -124,6 +136,9 @@ public sealed record CardFace
     public int? Power { get; init; }
 
     public int? Toughness { get; init; }
+
+    /// <summary>This face's printed defense, when the face is a battle (CR 310.4a).</summary>
+    public int? Defense { get; init; }
 
     public IReadOnlyList<ManaColor> Colors { get; init; } = [];
 

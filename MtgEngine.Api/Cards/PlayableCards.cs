@@ -97,6 +97,14 @@ public sealed class PlayableCards : IAbilitySource
 
     public int AmplifyCountOf(CardDefinition card) => For(card).AmplifyCountOf(card);
 
+    public SpellDefinition? CleaveSpellOf(CardDefinition card) => For(card).CleaveSpellOf(card);
+
+    public string? CleaveCostOf(CardDefinition card) => For(card).CleaveCostOf(card);
+
+    public SpellDefinition? GiftSpellOf(CardDefinition card) => For(card).GiftSpellOf(card);
+
+    public bool HasGift(CardDefinition card) => For(card).HasGift(card);
+
     public bool HasReadAhead(CardDefinition card) => For(card).HasReadAhead(card);
 
     public Rules.Mana.ManaCostSpec? MiracleCostOf(CardDefinition card) =>

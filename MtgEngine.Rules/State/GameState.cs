@@ -365,6 +365,17 @@ public sealed record GameState
     public Guid? MonarchId { get; init; }
 
     /// <summary>
+    /// Who has the initiative, if anyone (CR 726.1).
+    /// </summary>
+    /// <remarks>
+    /// The monarch's structural twin, and stored the same way for the same reason: only one
+    /// player can have it at a time (CR 726.3), so it is one nullable field rather than a flag
+    /// per player, and taking it is the same assignment that takes it away from the previous
+    /// holder. There is no initiative in a game until an effect has somebody take it.
+    /// </remarks>
+    public Guid? InitiativeId { get; init; }
+
+    /// <summary>
     /// Whether it is day, night, or neither (CR 731.1).
     /// </summary>
     /// <remarks>
@@ -565,6 +576,7 @@ public sealed record GameState
         Structural.Same(ArrivalsThisTurn, other.ArrivalsThisTurn) &&
         Structural.Same(DeparturesThisTurn, other.DeparturesThisTurn) &&
         MonarchId == other.MonarchId &&
+        InitiativeId == other.InitiativeId &&
         IsDay == other.IsDay &&
         PreviousActivePlayerId == other.PreviousActivePlayerId &&
         Combat == other.Combat &&
