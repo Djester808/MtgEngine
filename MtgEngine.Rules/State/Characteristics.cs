@@ -941,4 +941,16 @@ public static class CounterKinds
 
     /// <summary>Charge counters, which are what a station card is charged with (CR 702.184a).</summary>
     public const string Charge = "charge";
+
+    /// <summary>
+    /// Level counters, which are how a leveler tracks how far it has been levelled (CR 711.2a).
+    /// </summary>
+    /// <remarks>
+    /// A real counter, unlike the class level beside it. CR 711.4 says level counters and class
+    /// levels are different things that do not interact, and this is the half that is a counter:
+    /// proliferate adds one, "remove a counter" takes one off, and a card that counts counters on
+    /// a permanent counts these. Putting a leveler's progress in <c>PermanentState.Level</c>
+    /// would have hidden it from all three.
+    /// </remarks>
+    public const string Level = "level";
 }

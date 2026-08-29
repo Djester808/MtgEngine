@@ -69,6 +69,17 @@ public static partial class CardCompiler
         if (IsCase(card))
             return CompileCase(card);
 
+        // A leveler is the Class problem with a different switch. Its bands are selected by a
+        // number of counters rather than a bought designation - CR 711.4 says the two do not
+        // interact - and the lines under a band must not function before the permanent has been
+        // levelled that far (CR 711.3), which is the same requirement and gets the same answer.
+        //
+        // It answers null rather than being guarded by a type line, because nothing about a
+        // leveler is a subtype: the only sign is the text, and a card whose bands this cannot
+        // read has to fall through to the ordinary loop and be reported unread.
+        if (CompileLeveler(card) is { } levelled)
+            return levelled;
+
         if (card.Faces.Count > 1 && !card.OracleId.Contains('#', StringComparison.Ordinal))
         {
             var front = Compile(FrontOnly(card));
@@ -1762,6 +1773,345 @@ public static partial class CardCompiler
     private static GameObject? SelfOf(GameState state, ObjectId id) =>
         state.TryGetObject(id, out var found) ? found : null;
 
+    /// <summary>One band of a leveler's text: the counts it covers and what it confers.</summary>
+    /// <remarks>
+    /// CR 711.3 makes each band a set of characteristics the permanent has while its level
+    /// counters fall inside the range, so the range and what it grants belong together. Mutable
+    /// because a band is filled in over three or four lines - the symbol, the size, then whatever
+    /// the band gives - and the lines arrive one at a time.
+    /// </remarks>
+    private sealed class LevelBand
+    {
+        public required int From { get; init; }
+
+        /// <summary>The last count in the band, or null for the open-ended "N+" one.</summary>
+        public required int? To { get; init; }
+
+        public int? Power { get; set; }
+
+        public int? Toughness { get; set; }
+
+        public KeywordAbility Keywords { get; set; }
+
+        public List<string> Lines { get; } = [];
+
+        /// <summary>Whether a permanent with this many level counters is in this band.</summary>
+        public bool Covers(int levels) => levels >= From && (To is null || levels <= To);
+    }
+
+    /// <summary>How many level counters a permanent has (CR 711.2a).</summary>
+    private static int LevelsOn(GameObject? permanent) =>
+        permanent?.Permanent?.Counters.GetValueOrDefault(CounterKinds.Level) ?? 0;
+
+    /// <summary>
+    /// Whether this card is a leveler: it can be levelled up, and it prints level symbols
+    /// (CR 711.1).
+    /// </summary>
+    /// <remarks>
+    /// Both halves are required, and that is what makes the guard safe to run over the whole
+    /// corpus. "Level up" without bands would be a permanent collecting counters that do
+    /// nothing; a band without the ability could never be reached. Exactly 25 playable cards
+    /// carry both, which is every leveler ever printed.
+    /// </remarks>
+    private static bool IsLeveler(CardDefinition card) =>
+        card.Faces.Count <= 1
+        && !card.OracleId.Contains('$', StringComparison.Ordinal)
+        && (card.OracleText ?? string.Empty).Contains(
+            "Level up", StringComparison.OrdinalIgnoreCase)
+        && Lines(card).Any(line => LevelUpLine().IsMatch(line))
+        && Lines(card).Any(line => LevelBandLine().IsMatch(line));
+
+    /// <summary>
+    /// Compiles a leveler: the level-up ability, and one section per level band (CR 711).
+    /// </summary>
+    /// <remarks>
+    /// Each band is compiled as a card of its own and the abilities that come back are wrapped in
+    /// a level test before they are merged, exactly as <see cref="CompileClass"/> does, so every
+    /// matcher in this file is reused unchanged. The synthetic oracle id carries a "$" so that
+    /// this does not recurse.
+    /// <para>
+    /// The one thing a Class does not need is the keywords, and without it this mechanic would
+    /// have made cards <em>better</em> than printed. A card database lists a card's keywords from
+    /// its whole rules text, so Student of Warfare arrives carrying first strike <em>and</em>
+    /// double strike as printed flags - and a 1/1 with both before it has been levelled once is
+    /// not the card anybody printed. The keywords named inside bands are therefore taken off in
+    /// layer 6 and given back one band at a time, which is what CR 711.3 says the permanent has.
+    /// </para>
+    /// <para>
+    /// Null when the card is not a leveler, and null again when it is one whose shape this cannot
+    /// read - a band with no printed size, a section carrying something a level gate cannot wrap.
+    /// The ordinary line loop then reports the level lines as unread, which is the honest answer:
+    /// a leveler compiled with one band missing plays as a card nobody printed either.
+    /// </para>
+    /// </remarks>
+    private static CompiledCard? CompileLeveler(CardDefinition card)
+    {
+        if (!IsLeveler(card))
+            return null;
+
+        var always = new List<string>();
+        var bands = new List<LevelBand>();
+        var levelUpCost = string.Empty;
+
+        foreach (var line in Lines(card))
+        {
+            if (LevelUpLine().Match(line) is { Success: true } up)
+            {
+                levelUpCost = up.Groups["cost"].Value;
+                continue;
+            }
+
+            if (LevelBandLine().Match(line) is { Success: true } symbol)
+            {
+                bands.Add(new LevelBand
+                {
+                    From = int.Parse(symbol.Groups["from"].Value, CultureInfo.InvariantCulture),
+                    To = symbol.Groups["to"].Success
+                        ? int.Parse(symbol.Groups["to"].Value, CultureInfo.InvariantCulture)
+                        : null,
+                });
+
+                continue;
+            }
+
+            if (bands.Count == 0)
+            {
+                always.Add(line);
+                continue;
+            }
+
+            var band = bands[^1];
+
+            // The size is printed on the line straight after the symbol and nowhere else, so the
+            // first bare "N/N" in a band is the band's own and anything later is a sentence.
+            if (band.Power is null && PrintedSize().Match(line) is { Success: true } size)
+            {
+                band.Power = int.Parse(size.Groups["p"].Value, CultureInfo.InvariantCulture);
+                band.Toughness = int.Parse(size.Groups["t"].Value, CultureInfo.InvariantCulture);
+                continue;
+            }
+
+            if (KeywordsOn(line, card) is { } printed)
+            {
+                band.Keywords |= printed;
+                continue;
+            }
+
+            band.Lines.Add(line);
+        }
+
+        // CR 711.3 gives every band of a leveler creature a printed size. A band without one is a
+        // shape this has misread, and merging the rest would leave the creature at its printed
+        // size in a band the card says it grows in.
+        if (card.CardTypes.HasFlag(CardType.Creature) && bands.Any(band => band.Power is null))
+            return null;
+
+        var inBands = KeywordAbility.None;
+        foreach (var band in bands)
+            inBands |= band.Keywords;
+
+        var outsideBands = KeywordAbility.None;
+        foreach (var line in always)
+            outsideBands |= KeywordsOn(line, card) ?? KeywordAbility.None;
+
+        // What only a band gives, the printed card must not have. A keyword named both inside a
+        // band and outside one is kept: the card has it at every level and the band is repeating
+        // it, so taking it off would lose it below the band.
+        var stripped = inBands & ~outsideBands;
+
+        var activated = ImmutableList.CreateBuilder<ActivatedAbilityDefinition>();
+        var triggers = ImmutableList.CreateBuilder<TriggeredAbilityDefinition>();
+        var statics = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        var replacements = ImmutableList.CreateBuilder<ReplacementEffectDefinition>();
+        var unhandled = ImmutableList.CreateBuilder<string>();
+
+        CompiledCard Section(IEnumerable<string> lines, string tag) => Compile(new CardDefinition
+        {
+            OracleId = card.OracleId + "$" + tag,
+            Name = card.Name,
+            OracleText = string.Join('\n', lines),
+            ManaCostRaw = card.ManaCostRaw,
+            Cmc = card.Cmc,
+            CardTypes = card.CardTypes,
+            Subtypes = card.Subtypes,
+            Supertypes = card.Supertypes,
+            Keywords = card.Keywords,
+            Colors = card.Colors,
+            ColorIdentity = card.ColorIdentity,
+            Power = card.Power,
+            Toughness = card.Toughness,
+        });
+
+        var granted = KeywordAbility.None;
+
+        if (always.Count > 0)
+        {
+            var plain = Section(always, "always");
+            if (!OnlyPermanentAbilities(plain))
+                return null;
+
+            unhandled.AddRange(plain.Unhandled);
+            activated.AddRange(plain.Activated);
+            triggers.AddRange(plain.Triggers);
+            statics.AddRange(plain.Statics);
+            replacements.AddRange(plain.Replacements);
+            granted |= plain.GrantedKeywords;
+        }
+
+        foreach (var band in bands)
+        {
+            if (band.Lines.Count == 0)
+                continue;
+
+            var floor = band.From.ToString(CultureInfo.InvariantCulture);
+            var section = Section(band.Lines, floor);
+
+            // A band contributes abilities to a permanent and nothing else. A section that came
+            // back carrying a spell, a cost modifier or one of the flat permissions has nowhere
+            // to go: merged, it would function at every level; dropped, it would be lost
+            // silently. Neither is worth having, so the card goes back unread instead.
+            if (!OnlyPermanentAbilities(section))
+                return null;
+
+            unhandled.AddRange(section.Unhandled);
+
+            // A sentence that means a keyword - "~ can't be blocked" - comes back as a granted
+            // keyword rather than as an ability, and a granted keyword has no gate of its own.
+            // It joins the band's own keywords, which the layer 6 effect below switches on and
+            // off with the level. Without this the sentence would be read and then thrown away.
+            band.Keywords |= section.GrantedKeywords;
+
+            var reached = band;
+
+            activated.AddRange(section.Activated.Select(a => a with
+            {
+                Id = "l" + floor + a.Id,
+                ActivateOnlyIf = (state, abilities, self) =>
+                    reached.Covers(LevelsOn(self))
+                    && a.ActivateOnlyIf?.Invoke(state, abilities, self) != false,
+            }));
+
+            triggers.AddRange(section.Triggers.Select(t => t with
+            {
+                Id = "l" + floor + t.Id,
+                Triggers = (e, state, source) =>
+                    reached.Covers(LevelsOn(SelfOf(state, source.Id) ?? source))
+                    && t.Triggers(e, state, source),
+            }));
+
+            statics.AddRange(section.Statics.Select(c => c with
+            {
+                Id = "l" + floor + c.Id,
+                Applies = (state, source, built) =>
+                    reached.Covers(LevelsOn(source)) && c.Applies(state, source, built),
+            }));
+
+            replacements.AddRange(section.Replacements.Select(r => r with
+            {
+                Id = "l" + floor + r.Id,
+                Applies = (e, state, source) =>
+                    reached.Covers(LevelsOn(source)) && r.Applies(e, state, source),
+            }));
+        }
+
+        // CR 711.2a. The reminder text spells the whole ability out and is stripped before this
+        // reads anything, so both halves of it are written here: the counter, and the timing.
+        activated.Add(new ActivatedAbilityDefinition
+        {
+            Id = "levelup",
+            Text = "Level up " + levelUpCost,
+            ManaCost = ManaCostSpec.Parse(levelUpCost),
+            Timing = ActivationTiming.SorceryOnly,
+            Effects = [new PutCountersOnSource(CounterKinds.Level, 1)],
+        });
+
+        var sized = bands.FindAll(band => band.Power is not null);
+
+        if (sized.Count > 0)
+        {
+            // CR 711.4 sets a level symbol's size in layer 7b, so a +1/+1 counter on a levelled
+            // creature still counts on top of the band's numbers rather than under them.
+            statics.Add(new ContinuousEffectDefinition
+            {
+                Id = "level:size",
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, source, target) =>
+                    source is not null
+                    && target.Subject.Id == source.Id
+                    && sized.Exists(band => band.Covers(LevelsOn(source))),
+                Apply = (_, source, target) =>
+                {
+                    if (sized.Find(band => band.Covers(LevelsOn(source))) is { } band)
+                        target.Set(band.Power!.Value, band.Toughness!.Value);
+                },
+            });
+        }
+
+        if (stripped != KeywordAbility.None
+            || bands.Exists(band => band.Keywords != KeywordAbility.None))
+        {
+            // One effect rather than one per band, because its two halves have to happen in this
+            // order and layer 6 offers no order between two effects of the same permanent: what
+            // the bands give is taken off first, and only the band the permanent has reached puts
+            // any of it back.
+            statics.Add(new ContinuousEffectDefinition
+            {
+                Id = "level:abilities",
+                Layer = EffectLayer.Ability,
+                Applies = (_, source, target) =>
+                    source is not null && target.Subject.Id == source.Id,
+                Apply = (_, source, target) =>
+                {
+                    target.Keywords &= ~stripped;
+
+                    foreach (var band in bands)
+                    {
+                        if (band.Covers(LevelsOn(source)))
+                            target.Keywords |= band.Keywords;
+                    }
+                },
+            });
+        }
+
+        return new CompiledCard
+        {
+            Name = card.Name,
+            Activated = activated.ToImmutable(),
+            Triggers = triggers.ToImmutable(),
+            Statics = statics.ToImmutable(),
+            Replacements = replacements.ToImmutable(),
+            GrantedKeywords = granted,
+            Unhandled = unhandled.ToImmutable(),
+        };
+    }
+
+    /// <summary>
+    /// Whether a compiled section holds only things a level gate can wrap.
+    /// </summary>
+    /// <remarks>
+    /// The four ability lists and the granted keywords are gated on the way back; everything else
+    /// a <see cref="CompiledCard"/> can carry is a fact about the card as a whole, with no level
+    /// to attach it to. Asked so that a section carrying one of them takes the card back to
+    /// unread rather than having it silently dropped - a card that compiles and plays as
+    /// something else is the failure this whole design exists to avoid.
+    /// </remarks>
+    private static bool OnlyPermanentAbilities(CompiledCard section) =>
+        section.Spell is null
+        && section.Adventure is null
+        && section.PreparedSpell is null
+        && section.Halves.Count == 0
+        && section.PartnerRule is null
+        && section.CostModifiers.IsEmpty
+        && section.DevourCount == 0
+        && !section.ShowsTopOfLibrary
+        && !section.RemovesHandLimit
+        && section.ChoosesOnEntry == ChoiceOnEntry.None
+        && section.ExtraLandDrops == 0
+        && !section.MayDeclineUntap
+        && !section.SkipsDrawStep
+        && !section.RevealsTopOfLibrary
+        && section.AttacksOnlyIfDefenderControls is null;
+
     public static CompiledCard CompileFace(CardDefinition card, CardFace face)
     {
         ArgumentNullException.ThrowIfNull(card);
@@ -1961,13 +2311,27 @@ public static partial class CardCompiler
     /// no compilation: the keyword is already a flag on the card, set from the card database.
     /// Recognising the line only stops it being reported as unread.
     /// </remarks>
-    private static bool IsKeywordLine(string line, CardDefinition card)
+    private static bool IsKeywordLine(string line, CardDefinition card) =>
+        KeywordsOn(line, card) is not null;
+
+    /// <summary>
+    /// The keywords a line is made of, or null when it is not made only of keywords.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IsKeywordLine"/> asks this same question and only wants a yes or a no, because
+    /// in the ordinary case there is nothing to do with the answer: the keyword is already a flag
+    /// on the card. A level band needs the flags themselves — it has to take them off the printed
+    /// card and hand them back one band at a time — so the reading lives here and the older
+    /// question is asked of it, rather than the two drifting apart.
+    /// </remarks>
+    private static KeywordAbility? KeywordsOn(string line, CardDefinition card)
     {
         var body = line.TrimEnd('.', ' ');
         if (body.Length == 0)
-            return false;
+            return null;
 
-        var sawOne = false;
+        var found = KeywordAbility.None;
+
         foreach (var part in body.Split(','))
         {
             var word = part.Trim();
@@ -1977,12 +2341,12 @@ public static partial class CardCompiler
             // A keyword the engine models, and one this card actually has — "Flying" on a card
             // without flying is granting it to something else, which is a different sentence.
             if (!KeywordNames.TryGetValue(word, out var flag) || !card.Keywords.HasFlag(flag))
-                return false;
+                return null;
 
-            sawOne = true;
+            found |= flag;
         }
 
-        return sawOne;
+        return found == KeywordAbility.None ? null : found;
     }
 
     /// <summary>
@@ -11228,6 +11592,22 @@ public static partial class CardCompiler
     /// <summary>A Class level bar: its cost and the level it reaches (CR 716.2a).</summary>
     [GeneratedRegex(@"^(?<cost>(\{[^}]+\})+): Level (?<n>[0-9]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ClassLevelBar();
+
+    /// <summary>The level up keyword and what it costs (CR 711.2a).</summary>
+    [GeneratedRegex(@"^Level up (?<cost>(\{[^}]+\})+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex LevelUpLine();
+
+    /// <summary>A leveler's level symbol: "LEVEL 2-4" or "LEVEL 5+" (CR 711.3).</summary>
+    /// <remarks>
+    /// Printed in capitals on every leveler ever made, and matched case-insensitively anyway
+    /// because both ends are anchored: no sentence in the corpus is the word "level" and a range.
+    /// </remarks>
+    [GeneratedRegex(@"^LEVEL (?<from>[0-9]+)(?:-(?<to>[0-9]+)|\+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex LevelBandLine();
+
+    /// <summary>A bare printed size, which is a line of its own under a level symbol.</summary>
+    [GeneratedRegex(@"^(?<p>[0-9]+)/(?<t>[0-9]+)$", RegexOptions.None)]
+    private static partial Regex PrintedSize();
 
     /// <summary>"To solve - [condition]" (CR 719.3a).</summary>
     [GeneratedRegex(@"^To solve [\u2014\u2015-] (?<cond>.+)$", RegexOptions.IgnoreCase)]
