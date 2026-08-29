@@ -6064,14 +6064,31 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
   controller and DataAnnotations never run on what it is sent.
 - **X spells, planeswalker attacks, and multiplayer** are unreached by the board: `castSpell`
   sends `0` for X, `planeswalker` is hardcoded null, and the layout assumes one opponent.
-- **`Apply` can count the board but `Applies` still cannot see the source's controller.** The
-  first half of this was fixed for "gets +1/+1 for each creature you control", which needed the
-  state at apply time; the second half below is the same signature problem one step further on.
-- **A stolen *lord* still buffs its old controller's creatures.** The `Applies` predicate of a
-  continuous effect is handed the source as a raw object and no ability source, so it cannot
-  compute the source's own controller — only its target's. Fixing it means widening that signature
-  and thinking carefully about CR 613.8 dependency, since computing one lord's characteristics
-  while computing another's can loop. Recorded rather than attempted.
+- ~~`Apply` can count the board but `Applies` still cannot see the source's controller.~~ ~~A
+  stolen *lord* still buffs its old controller's creatures.~~ Both fixed together in r10-scopes,
+  and the loop was real. The `Applies` predicate had the source as a raw object and no ability
+  source, so it could compute only its *target's* controller; reading `source.ControllerId`
+  instead is where control *started* (CR 613.1b), which is the tenth instance of this file's
+  recurring mistake. The signature was not widened — the computation's `IAbilitySource` now rides
+  on the `CharacteristicsBuilder`, because `Applies` is constructed in over a hundred places and
+  nearly none of them want another argument.
+
+  **What the fix could not be** is the obvious one. Asking `Characteristics.Of(source)` from
+  inside another permanent's computation is the CR 613.8 hazard exactly: with a lord on each side
+  of the table, computing Alice's bear evaluates Bob's lord's filter, which computes Bob's lord,
+  which evaluates Alice's lord's filter, which computes Alice's lord — unbounded. That is not a
+  deduction; swapping `ControllerOf` for `Of` at the two call sites and running
+  `A_stolen_lord_buffs_its_new_controllers_creatures_and_two_lords_do_not_loop` overflows the
+  stack and aborts the test host, with `DependsOn → Matches → Of → ApplyLayers → InDependencyOrder
+  → DependsOn` repeating down the trace.
+
+  So control is asked of **layer 2 alone**. `Characteristics.ControllerOf` gathers only
+  `EffectLayer.Control` candidates and applies those, which is the whole answer (CR 613.1b, and
+  nothing after layer 2 changes control), and none of their predicates re-enters the layers. A
+  thread-static guard makes a nested ask fall back to the stored controller rather than recurse,
+  the same way CR 613.8b breaks a dependency loop by falling back rather than looping. The test
+  above is the guard: two lords, opposite sides, then a theft — it asserts the four powers *and*
+  that the computation terminates at all.
 - **Landwalk reads computed land types, but nothing yet grants one.** The check is right; the
   template that would exercise it — "each land is a Swamp in addition to its other types" — does
   not compile, so that half is unverified and is not claimed by any test.
