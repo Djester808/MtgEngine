@@ -696,6 +696,21 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     {
         var shaped = System.Text.RegularExpressions.Regex.Replace(line, @"\b\d+\b", "N");
         shaped = System.Text.RegularExpressions.Regex.Replace(shaped, @"\{[^}]+\}", "{M}");
+
+        // A run of symbols is one cost, and blanking them one at a time filed the same keyword
+        // under as many rows as it has printed costs: "Disturb {1}{W}" and "Disturb {3}{U}{U}"
+        // became "{M}{M}" and "{M}{M}{M}". Collapsing the run merges 59 families and moves four
+        // rows into the top ten - which is to say the queue was recommending the wrong work, not
+        // by a little.
+        shaped = System.Text.RegularExpressions.Regex.Replace(shaped, @"(\{M\})+", "{M}");
+
+        // The same word said two ways is one shape: "two target creatures" and "3 target
+        // creatures" are the same problem, and the digit form was already folded to N.
+        shaped = System.Text.RegularExpressions.Regex.Replace(
+            shaped,
+            @"\b(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+            "N",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         // Long enough to tell the variants apart. At 96 the six shapes of the threaten effect
         // - the plain one, the two that also pump, the one that scries, the one about Goats -
         // collapsed into a single entry of eleven cards, and the plain one had compiled for

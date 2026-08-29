@@ -518,6 +518,16 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
     {
         var shaped = NumberRun().Replace(Normalise(line), "N");
         shaped = ManaSymbol().Replace(shaped, "{M}");
+
+        // A run of symbols is one cost, and blanking them one at a time filed the same keyword
+        // under as many rows as it has printed costs: "Disturb {1}{W}" and "Disturb {3}{U}{U}"
+        // became "{M}{M}" and "{M}{M}{M}". Collapsing the run merges 59 families and moves four
+        // rows into the top ten - which is to say the queue was recommending the wrong work, not
+        // by a little.
+        shaped = SymbolRun().Replace(shaped, "{M}");
+
+        // The same word said two ways is one shape; the digit form was already folded to N.
+        shaped = NumberWord().Replace(shaped, "N");
         // Long enough that two different lines are not filed as one. At 96 every Act of Treason
         // variant collapsed into a single row of 11 cards whose trailing clauses — scry, add two
         // mana, discard then draw — were all different problems, and the plain wording the row
@@ -603,4 +613,14 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
 
     [GeneratedRegex(@"\{[^}]+\}")]
     private static partial Regex ManaSymbol();
+
+    /// <summary>A run of blanked mana symbols, which is one cost however many symbols it had.</summary>
+    [GeneratedRegex(@"(\{M\})+")]
+    private static partial Regex SymbolRun();
+
+    /// <summary>A number written as a word, folded to the same N the digits already fold to.</summary>
+    [GeneratedRegex(
+        @"\b(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex NumberWord();
 }
