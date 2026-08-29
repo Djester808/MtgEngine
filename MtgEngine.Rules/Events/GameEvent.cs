@@ -571,6 +571,26 @@ public sealed record SpellKicked(ObjectId StackId) : GameEvent
     public override string Describe() => "The spell was kicked.";
 }
 
+/// <summary>
+/// Which of a spell's several kicker costs were paid, by their printed text (CR 702.33f).
+/// </summary>
+/// <remarks>
+/// "Kicker [A] and/or [B]" is two kicker abilities (CR 702.33b), and the clauses that read the
+/// payment back — "if it was kicked with its [A] kicker" — are each linked to one of them
+/// (CR 607.2). The flag <see cref="SpellKicked"/> records cannot answer <em>which</em>, so the
+/// costs paid ride here beside it, printed exactly as the card prints them, because the clause
+/// that asks names the cost in the same spelling. Emitted alongside the flag, never instead of
+/// it: every "if it was kicked" card reads the flag, and a spell kicked with either cost has
+/// been kicked (CR 702.33d).
+/// </remarks>
+public sealed record SpellKickedWith(ObjectId StackId, ImmutableList<string> Costs) : GameEvent
+{
+    public override string Rule => "702.33f";
+
+    public override string Describe() =>
+        $"The spell was kicked with {string.Join(" and ", Costs)}.";
+}
+
 /// <summary>Its controller declared they would pay the bargain cost (CR 702.166b).</summary>
 /// <remarks>
 /// Its own event rather than a second meaning for <see cref="SpellKicked"/>: the two are the same

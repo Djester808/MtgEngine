@@ -5444,18 +5444,81 @@ public sealed record IfItHappened(
 /// Kicker's wrapper with a different flag, and deliberately not the same one. The two abilities
 /// are linked to their own cost (CR 607.2), and a card that printed both would otherwise have
 /// each half answering for the other.
+/// <para>
+/// <see cref="Else"/> carries the sentence the clause replaces, for the cards that say
+/// "instead": "deals 3 damage to target creature. If this spell was bargained, destroy that
+/// creature instead" does exactly one of the two, decided by the flag as the spell resolves.
+/// Empty on the additive cards, where the clause's effects simply happen on top.
+/// </para>
 /// </remarks>
-public sealed record IfBargained(ImmutableList<IEffect> Effects) : IEffect
+public sealed record IfBargained(
+    ImmutableList<IEffect> Effects, ImmutableList<IEffect>? Else = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!context.State.TryGetObject(context.SourceId, out var spell) || !spell.WasBargained)
-            return [];
+        var bargained =
+            context.State.TryGetObject(context.SourceId, out var spell) && spell.WasBargained;
 
         var events = new List<GameEvent>();
-        foreach (var effect in Effects)
+        foreach (var effect in bargained ? Effects : Else ?? [])
+            events.AddRange(effect.Resolve(context));
+
+        return events;
+    }
+}
+
+/// <summary>
+/// Effects that happen only if the spell was cast using teamwork (CR 702.194b).
+/// </summary>
+/// <remarks>
+/// The bargain wrapper with teamwork's flag, kept apart for the same CR 607.2 reason: each
+/// clause is linked to its own cost, and a wrapper reading another ability's flag would have
+/// one half of a card answering for the other. <see cref="Else"/> is the "instead" branch,
+/// exactly as it is there — and it is also how "unless this spell was cast using teamwork"
+/// compiles: everything in the else arm, nothing in the main one.
+/// </remarks>
+public sealed record IfTeamwork(
+    ImmutableList<IEffect> Effects, ImmutableList<IEffect>? Else = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var together =
+            context.State.TryGetObject(context.SourceId, out var spell) && spell.WasTeamwork;
+
+        var events = new List<GameEvent>();
+        foreach (var effect in together ? Effects : Else ?? [])
+            events.AddRange(effect.Resolve(context));
+
+        return events;
+    }
+}
+
+/// <summary>
+/// Effects that happen only if the spell was kicked with one particular kicker cost
+/// (CR 702.33f).
+/// </summary>
+/// <remarks>
+/// <see cref="IfKicked"/> asks a yes-or-no; this asks <em>which</em>. The cost is compared by
+/// its printed text because that is how the clause names it — "if it was kicked with its
+/// {2}{R} kicker" — and how the payment was recorded (CR 607.2 carries the linked fact, and
+/// the spelling with it).
+/// </remarks>
+public sealed record IfKickedWith(
+    string Cost, ImmutableList<IEffect> Effects, ImmutableList<IEffect>? Else = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var paid = context.State.TryGetObject(context.SourceId, out var spell)
+            && spell.KickedWith.Contains(Cost, StringComparer.OrdinalIgnoreCase);
+
+        var events = new List<GameEvent>();
+        foreach (var effect in paid ? Effects : Else ?? [])
             events.AddRange(effect.Resolve(context));
 
         return events;

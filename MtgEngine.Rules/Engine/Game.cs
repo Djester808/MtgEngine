@@ -672,6 +672,7 @@ public sealed class Game
         bool awakened = false,
         bool sneaked = false,
         bool teamwork = false,
+        IReadOnlyList<int>? kickedWith = null,
         bool cleaved = false,
         Guid? giftTo = null)
     {
@@ -1040,7 +1041,15 @@ public sealed class Game
 
         // CR 601.2b then 601.2c: modes are chosen first, and only then the targets — because
         // which targets the spell even has depends on which modes were taken.
-        var chosenModes = RequireLegalModes(definition, modes, card.Card.Name, entwined, playerId);
+        var chosenModes = RequireLegalModes(
+            definition,
+            modes,
+            card.Card.Name,
+            entwined,
+            playerId,
+            kicked || kickedWith is { Count: > 0 },
+            teamwork,
+            variableValue);
 
         // The spell's own targets come first and the chosen modes' after, so the spell's own
         // effects keep the indices the compiler gave them and each mode gets a slice at a known
@@ -1185,6 +1194,13 @@ public sealed class Game
                 cost = cost with { Symbols = ReduceGeneric(cost.Symbols, less) };
         }
 
+        // "This spell costs {2} less to cast if it's bargained" — the same CR 601.2f reduction
+        // with its condition on the cast rather than the board: the intention to pay was
+        // declared a step earlier (CR 601.2b, 702.166b), so it is known here, where the total
+        // cost is determined.
+        if (bargained && definition is { BargainDiscount: > 0 })
+            cost = cost with { Symbols = ReduceGeneric(cost.Symbols, definition.BargainDiscount) };
+
         // CR 702.66a: delve exiles cards from the caster's graveyard, each paying for one
         // generic mana. Like convoke it is a way of paying rather than a discount, so the cards
         // go on the same footing as the mana and are checked before any of it is spent.
@@ -1223,6 +1239,38 @@ public sealed class Game
 
             foreach (var _ in Enumerable.Range(0, multikicked))
                 cost = cost with { Symbols = cost.Symbols.AddRange(multikickerCost.Symbols) };
+        }
+
+        // CR 702.33b: "Kicker [A] and/or [B]" is two kicker abilities, so each may be paid at
+        // most once and each payment adds its own price to the total (CR 601.2f). Refused by
+        // name when the card offers no such choice, exactly as the single form is.
+        if (kickedWith is { Count: > 0 })
+        {
+            if (definition is not { KickerCosts.Count: > 0 })
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no kicker costs to choose between (CR 702.33b).");
+            }
+
+            if (kickedWith.Distinct().Count() != kickedWith.Count)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name}'s kicker costs may each be paid once (CR 702.33b).");
+            }
+
+            foreach (var index in kickedWith)
+            {
+                if (index < 0 || index >= definition.KickerCosts.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"{card.Card.Name} has no kicker cost #{index} (CR 702.33b).");
+                }
+
+                cost = cost with
+                {
+                    Symbols = cost.Symbols.AddRange(definition.KickerCosts[index].Cost.Symbols),
+                };
+            }
         }
 
         if (overloaded && definition?.OverloadCost is { } overloadCost)
@@ -1688,6 +1736,21 @@ public sealed class Game
         {
             Emit(new SpellKicked(stackId));
             Emit(new SpellMultikicked(stackId, multikicked));
+        }
+
+        // CR 702.33d: paying either of an "and/or" card's kicker costs kicks the spell, and
+        // paying both kicks it twice. The flag, the count and the per-cost record all ride,
+        // because "if it was kicked", "for each time it was kicked" and "if it was kicked with
+        // its [A] kicker" are three different questions printed on these same cards
+        // (CR 702.33f) — and the count goes on even for one payment, since "each time" is a
+        // number, not a comparison.
+        if (kickedWith is { Count: > 0 } whichKickers)
+        {
+            Emit(new SpellKicked(stackId));
+            Emit(new SpellMultikicked(stackId, whichKickers.Count));
+            Emit(new SpellKickedWith(
+                stackId,
+                [.. whichKickers.Select(i => definition!.KickerCosts[i].Printed)]));
         }
 
         if (buyback)
@@ -7326,7 +7389,10 @@ public sealed class Game
         IReadOnlyList<int>? offered,
         string cardName,
         bool entwined,
-        Guid caster)
+        Guid caster,
+        bool kicked = false,
+        bool teamwork = false,
+        int variableValue = 0)
     {
         if (definition is null || definition.Modes.IsEmpty)
             return [];
@@ -7347,6 +7413,31 @@ public sealed class Game
             && wider.IsAvailable(State, _abilities, caster))
         {
             ceiling = wider.Max;
+        }
+
+        // CR 700.2d: a count the card swaps in while a cast fact holds — "choose both instead",
+        // "choose any number instead". It replaces the printed count rather than widening it,
+        // because the card says "instead": a teamwork caster of "choose both" must take both.
+        // The fact is known before anything else about the spell is checked, because it is an
+        // intention declared as part of this very cast (CR 601.2b).
+        if (definition.ModesOnFact is { } swapped
+            && swapped.Fact switch
+            {
+                CastFact.Kicked => kicked,
+                CastFact.Teamwork => teamwork,
+                _ => false,
+            })
+        {
+            least = swapped.Min;
+            ceiling = swapped.Max < 0 ? definition.Modes.Count : swapped.Max;
+        }
+
+        // CR 601.2b: "Choose X." — the count is the X announced with this cast, and there is
+        // nothing else it could be: the card gives the variable no definition of its own.
+        if (definition.ModesFromX)
+        {
+            least = Math.Max(0, variableValue);
+            ceiling = least;
         }
 
         var most = entwined

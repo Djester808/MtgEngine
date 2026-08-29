@@ -587,6 +587,8 @@ public static class GameReducer
                 state, promised.StackId, o => o with { GiftedTo = promised.Opponent }),
             SpellMultikicked many => Changing(
                 state, many.Id, o => o with { TimesKicked = many.Times }),
+            SpellKickedWith which => Changing(
+                state, which.StackId, o => o with { KickedWith = which.Costs }),
             ManaColorsSpent spent => Changing(
                 state, spent.StackId, o => o with { ManaSpent = spent.Spent }),
             OptionalPaymentRequested => state,
@@ -812,6 +814,13 @@ public static class GameReducer
             // to survive exactly one move - the resolution - and no other.
             WasKicked = resolving && moving.WasKicked,
             WasBargained = resolving && moving.WasBargained,
+
+            // "Kicked with its [A] kicker" and "cast using teamwork" are the same exception
+            // again: each clause is linked to the cost paid on the spell this permanent was
+            // (CR 607.2), so which kicker and whether teamwork ride the one move that turns a
+            // spell into a permanent, and no other.
+            KickedWith = resolving ? moving.KickedWith : [],
+            WasTeamwork = resolving && moving.WasTeamwork,
 
             // The gift is kicker's exception again (CR 607.2): a permanent's gift trigger reads
             // "if its gift cost was paid" of the spell that became it, so the chosen opponent

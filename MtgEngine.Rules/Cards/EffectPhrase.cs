@@ -1079,6 +1079,107 @@ public static partial class EffectPhrase
         return tail[..(word.Index + word.Length)] + "s" + tail[(word.Index + word.Length)..];
     }
 
+    /// <summary>
+    /// A sentence gated on a fact the cast recorded — bargained, cast using teamwork, or kicked
+    /// with one particular kicker cost (CR 702.166c, 702.194b, 702.33f).
+    /// </summary>
+    /// <returns>
+    /// True when the sentence is such a rider at all; <paramref name="read"/> says whether its
+    /// inner sentence parsed. A rider whose inner sentence nothing reads leaves the line unread
+    /// rather than half-run.
+    /// </returns>
+    /// <remarks>
+    /// "Instead" makes the clause a replacement: everything this phrase has read so far becomes
+    /// the other branch, which is exactly the sentence in front of it — every printed "instead"
+    /// rider is the second sentence of two. "Unless" is the same branch swap with nothing in the
+    /// main arm: the effect happens only when the fact does <em>not</em> hold. And "also" —
+    /// "that creature also gains trample" — is the additive relationship the wrapper already
+    /// expresses, so the word comes out before the inner readers, which do not know it.
+    /// </remarks>
+    private static bool TryCastFactRider(
+        string sentence,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger,
+        out bool read)
+    {
+        read = false;
+
+        string inner;
+        string? kickerCost = null;
+        var teamwork = false;
+        var instead = false;
+        var negated = false;
+
+        var leading = LeadingCastFactSentence().Match(sentence);
+        if (leading.Success)
+        {
+            teamwork = leading.Groups["team"].Success;
+            kickerCost = leading.Groups["cost"].Success
+                ? leading.Groups["cost"].Value.ToUpperInvariant()
+                : null;
+            inner = leading.Groups["effect"].Value.Trim();
+
+            // "..., instead it deals 3 damage" and "..., destroy that creature instead" are one
+            // replacement spelled two ways. The trailing form is anchored to the end so that
+            // "instead of putting it into your hand" mid-sentence stays what it is: unread.
+            if (inner.StartsWith("instead ", StringComparison.OrdinalIgnoreCase))
+            {
+                instead = true;
+                inner = inner["instead ".Length..].Trim();
+            }
+            else if (InsteadTail().Match(inner) is { Success: true } tail)
+            {
+                instead = true;
+                inner = inner[..tail.Index].Trim();
+            }
+        }
+        else if (TrailingTeamworkSentence().Match(sentence) is { Success: true } trailing)
+        {
+            teamwork = true;
+            negated = trailing.Groups["unless"].Success;
+            inner = trailing.Groups["effect"].Value.Trim();
+        }
+        else
+        {
+            return false;
+        }
+
+        if (inner.StartsWith("also ", StringComparison.OrdinalIgnoreCase))
+        {
+            inner = inner[5..].Trim();
+        }
+        else
+        {
+            var alsoAt = inner.IndexOf(" also ", StringComparison.OrdinalIgnoreCase);
+            if (alsoAt >= 0)
+                inner = inner.Remove(alsoAt, " also".Length);
+        }
+
+        var scratch = ImmutableList.CreateBuilder<IEffect>();
+        if (!TryOne(inner, targets, scratch, objectNamedByTrigger))
+            return true;
+
+        var other = ImmutableList<IEffect>.Empty;
+        if (instead)
+        {
+            other = effects.ToImmutable();
+            effects.Clear();
+        }
+
+        var then = scratch.ToImmutable();
+        var main = negated ? ImmutableList<IEffect>.Empty : then;
+        var alt = negated ? then : other;
+
+        effects.Add(
+            kickerCost is not null ? new IfKickedWith(kickerCost, main, alt)
+            : teamwork ? new IfTeamwork(main, alt)
+            : new IfBargained(main, alt));
+
+        read = true;
+        return true;
+    }
+
     private static bool TryOne(
         string sentence,
         ImmutableList<TargetSpec>.Builder targets,
@@ -3636,21 +3737,16 @@ public static partial class EffectPhrase
         if (TryUnlessTheyPay(sentence, effects, targets))
             return true;
 
-        // "If this spell was bargained, ..." (CR 702.166c). Read here rather than as a line of
-        // its own, because unlike kicker's clause this one is printed *inside* a line: "~ deals 4
-        // damage to target creature. If this spell was bargained, destroy that creature instead."
-        // A card with no bargain cost that says this is refused by the compiler afterwards - the
-        // sentence grammar cannot see the rest of the card, so the guard lives where it can.
-        var bargained = IfBargainedSentence().Match(sentence);
-        if (bargained.Success)
-        {
-            var scratch = ImmutableList.CreateBuilder<IEffect>();
-            if (!TryOne(bargained.Groups["effect"].Value.Trim(), targets, scratch, objectNamedByTrigger))
-                return false;
-
-            effects.Add(new IfBargained(scratch.ToImmutable()));
-            return true;
-        }
+        // "If this spell was bargained, ..." (CR 702.166c), "if this spell was cast using
+        // teamwork, ..." (CR 702.194b), "if it was kicked with its {2}{R} kicker, ..."
+        // (CR 702.33f) — one clause shape over three recorded facts, in both positions the cards
+        // print it: leading, and trailing ("... if this spell was cast using teamwork",
+        // "... unless ..."). Read here rather than as lines of their own, because unlike
+        // kicker's plain clause these are printed *inside* a line. A card that reads a fact back
+        // without having the ability is refused by the compiler afterwards — the sentence
+        // grammar cannot see the rest of the card, so that guard lives where it can.
+        if (TryCastFactRider(sentence, targets, effects, objectNamedByTrigger, out var rode))
+            return rode;
 
         // "Transform ~" (CR 701.27a). Only ever about the source: a card that transforms
         // something else names it, and no card in the corpus does.
@@ -6356,6 +6452,18 @@ public static partial class EffectPhrase
                 id => !state.GetPlayer(id).HasLost);
         }
 
+        // "For each time it was kicked" - not a count of the board at all, but a fact the cast
+        // recorded on the spell and CR 607.2 carried onto the permanent. Read off the source
+        // because that is where the number lives; a caller with no source to give cannot ask.
+        if (TimesKickedLine().IsMatch(people))
+        {
+            if (!hasSource)
+                return null;
+
+            return (state, _, _, source) =>
+                state.TryGetObject(source, out var kickedSpell) ? kickedSpell.TimesKicked : 0;
+        }
+
         // "For each experience counter you have" - a counter on the player rather than on a
         // permanent (CR 122.1), which is why it is answered here and not by the counter phrase
         // below: that one looks for "counters on" something, and this one has nothing to be on.
@@ -6770,6 +6878,11 @@ public static partial class EffectPhrase
     /// <summary>"Experience counters" - a counter a player has, not one on a permanent (CR 122.1).</summary>
     [GeneratedRegex(@"^experience counters?$", RegexOptions.IgnoreCase)]
     private static partial Regex ExperienceCountersLine();
+
+    /// <summary>"Time it was kicked" - the recorded kick count, not a board count (CR 702.33c).</summary>
+    [GeneratedRegex(
+        @"^times? (it|~|this spell|this creature) was kicked$", RegexOptions.IgnoreCase)]
+    private static partial Regex TimesKickedLine();
 
     /// <summary>"Cards you've drawn this turn" (CR 121.1), with either apostrophe.</summary>
     [GeneratedRegex(@"^cards? you(?:'|\u2019)ve drawn this turn$", RegexOptions.IgnoreCase)]
@@ -8860,7 +8973,7 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^(~|(?<pronoun>it|that creature)|(?<mine>target [a-z0-9'’ ]+)) "
-            + @"fights (?<theirs>target [a-z0-9'’ ]+)$",
+            + @"fights (?<theirs>(?:up to one )?target [a-z0-9'’ ]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FightLine();
 
@@ -9412,9 +9525,32 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^transform (~|it)$", RegexOptions.IgnoreCase)]
     private static partial Regex TransformSelfLine();
 
+    /// <remarks>
+    /// The subject alternation is broad because the printed subject varies with where the clause
+    /// sits — "this spell" on an instant, "it" inside a trigger — and the wrapper reads the
+    /// resolving source whichever word the card used. Bargain is the default arm: the absence of
+    /// both named groups.
+    /// </remarks>
     [GeneratedRegex(
-        @"^if (~|this spell) was bargained, (?<effect>.+)$", RegexOptions.IgnoreCase)]
-    private static partial Regex IfBargainedSentence();
+        @"^if (~|this spell|this creature|it) (was bargained"
+            + @"|(?<team>was cast using teamwork)"
+            + @"|was kicked with its (?<cost>(\{[^}]+\})+) kicker)"
+            + @", (?<effect>.+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingCastFactSentence();
+
+    /// <remarks>
+    /// Lazy on the effect and anchored on the tail, so the condition is taken off the end and
+    /// nothing shorter. Only teamwork prints the trailing spelling; the other facts' clauses
+    /// always lead.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<effect>.+?),? (?:(?<unless>unless)|if) (~|this spell) was cast using teamwork$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingTeamworkSentence();
+
+    [GeneratedRegex(@"\s+instead$", RegexOptions.IgnoreCase)]
+    private static partial Regex InsteadTail();
 
     /// <remarks>
     /// The head and tail are kept so the rewritten sentence reads as the card would have written
@@ -12272,6 +12408,11 @@ public static partial class TriggerConditions
         // is a fact about the card (CR 107.3).
         var hasVariableCost = m.Groups["withx"].Success;
 
+        // "A spell using teamwork" - a question about how the spell was cast (CR 702.194b),
+        // answerable because the teamwork event lands on the stack object before the cast event
+        // this trigger watches. A copy was never cast at all, so it never satisfies this.
+        var usingTeamwork = m.Groups["teamwork"].Success;
+
         return (e, state, source) =>
         {
             // "Cast or copy" is two events for one sentence (CR 707.10): a copy is put on the
@@ -12302,17 +12443,23 @@ public static partial class TriggerConditions
 
                     if (state.TryGetObject(cast.StackId, out var spell))
                     {
+                        if (usingTeamwork && !spell.WasTeamwork)
+                            return false;
+
                         what = spell.Card;
                         chosenX = spell.VariableValue;
                     }
                     else
                     {
+                        if (usingTeamwork)
+                            return false;
+
                         what = null;
                     }
 
                     break;
 
-                case SpellCopied copied when copies:
+                case SpellCopied copied when copies && !usingTeamwork:
                     who = copied.ControllerId;
                     what = copied.Card;
                     break;
@@ -12592,6 +12739,7 @@ public static partial class TriggerConditions
         @"^(?<who>you|a player|an opponent|another player)\s+"
             + @"casts?(?<copy>\s+or\s+cop(y|ies))?\s+an?\s+"
             + @"((?<kind>noncreature|[a-z]+(\s+or\s+[a-z]+)?)\s+)?spell"
+            + @"(\s+(?<teamwork>using teamwork))?"
             + @"(\s+with mana value (?<mv>\d+) or (?<cmp>greater|less))?"
             + @"(\s+with \{X\} in its mana (?<withx>cost))?"
             + @"(\s+(?<when>during an opponent's turn|during your turn))?"

@@ -224,8 +224,18 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
             if (spell.ModesToChoose > spell.Modes.Count)
                 faults.Add($"{name}: asks for {spell.ModesToChoose} modes but offers {spell.Modes.Count}");
 
-            if (spell.Modes.Count > 0 && spell.ModesToChoose == 0)
+            // A floor of zero is printed on two headers - "choose up to four" and
+            // "choose X" - so choosing none is only a fault when nothing else can reach the
+            // bullets: no ceiling above the floor, and no announced X to take the count from
+            // (CR 700.2d, 601.2b). All three numbers at rest is still a menu nobody can order
+            // from, which is the defect this was written for.
+            if (spell.Modes.Count > 0
+                && spell.ModesToChoose == 0
+                && spell.ModesMax == 0
+                && !spell.ModesFromX)
+            {
                 faults.Add($"{name}: has modes but chooses none");
+            }
         }
 
         foreach (var trigger in compiled.Triggers)

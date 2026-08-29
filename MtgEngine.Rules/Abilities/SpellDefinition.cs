@@ -551,6 +551,53 @@ public sealed record SpellDefinition
     public ManaCostSpec? KickerCost { get; init; }
 
     /// <summary>
+    /// The two optional kicker prices an "and/or" card offers, in printed order (CR 702.33b).
+    /// </summary>
+    /// <remarks>
+    /// "Kicker [A] and/or [B]" is two kicker abilities, not one cost — the caster may pay
+    /// either, both, or neither, and the clauses that read the payment back are each linked to
+    /// one of them (CR 702.33f, 607.2). Kept apart from <see cref="KickerCost"/> because that
+    /// field means "the kicker cost", and every reader of it would have to learn about a second
+    /// one; no printed card carries both forms.
+    /// </remarks>
+    public ImmutableList<KickerOption> KickerCosts { get; init; } = [];
+
+    /// <summary>
+    /// Generic mana this spell costs less when its bargain cost is paid (CR 601.2f, 702.166a).
+    /// </summary>
+    /// <remarks>
+    /// "This spell costs {2} less to cast if it's bargained." The intention to pay is declared
+    /// at CR 601.2b and the total cost is determined at CR 601.2f, so the question is answerable
+    /// at the moment it is asked. Not folded into <see cref="CostReduction"/>, whose condition
+    /// reads the board or the targets — this one reads a choice the caster just made, which only
+    /// the cast in progress knows.
+    /// </remarks>
+    public int BargainDiscount { get; init; }
+
+    /// <summary>
+    /// A different mode count the card demands when a cast fact holds (CR 700.2d).
+    /// </summary>
+    /// <remarks>
+    /// "Choose one. If this spell was kicked, choose any number instead." — the number of modes
+    /// is decided by whether an optional cost was paid on this very cast, which neither
+    /// <see cref="ModesMax"/> (a property of the card alone) nor <see cref="ExtraModes"/> (a
+    /// question about the board) can express. Unlike ExtraModes' "you may", the printed
+    /// instruction replaces the ordinary count: a teamwork caster of "choose both instead" does
+    /// not get to choose one.
+    /// </remarks>
+    public FactModes? ModesOnFact { get; init; }
+
+    /// <summary>
+    /// Whether the number of modes is the X the caster announced (CR 700.2d, 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// "Choose X." — one card prints it, and the count exists nowhere on the card: it is a choice
+    /// made while casting, announced with the rest of CR 601.2b. Only meaningful together with
+    /// <see cref="ModesMayRepeat"/> on the card that prints it, but not coupled to it here.
+    /// </remarks>
+    public bool ModesFromX { get; init; }
+
+    /// <summary>
     /// A cost reduction paid by tapping permanents as the spell is cast (CR 702.51a, 702.56a).
     /// </summary>
     /// <remarks>
@@ -608,6 +655,44 @@ public sealed record SpellMode(
 /// <param name="IsAvailable">Whether the game currently permits it.</param>
 public sealed record ConditionalModes(
     int Max, string Rule, Func<GameState, IAbilitySource, Guid, bool> IsAvailable);
+
+/// <summary>A fact about the cast in progress that a card can hang a clause on (CR 601.2b).</summary>
+/// <remarks>
+/// Only the facts a printed mode-count clause actually names. Each is an intention the caster
+/// declares while casting, so the engine knows the answer before anything else about the spell
+/// is checked — which is what lets a mode count depend on it at all.
+/// </remarks>
+public enum CastFact
+{
+    /// <summary>A kicker cost was paid (CR 702.33d).</summary>
+    Kicked,
+
+    /// <summary>The teamwork cost was paid (CR 702.194b).</summary>
+    Teamwork,
+}
+
+/// <summary>
+/// The mode count a card demands instead of its printed one, while a cast fact holds
+/// (CR 700.2d).
+/// </summary>
+/// <remarks>
+/// "Choose both instead" is a floor and a ceiling at once — a teamwork caster must take both —
+/// and "choose any number instead" is a floor of one under every mode the card has. Min and Max
+/// rather than a single number, because those are the two printed shapes and they disagree about
+/// which end moves.
+/// </remarks>
+/// <param name="Fact">The declaration that switches the count.</param>
+/// <param name="Min">The fewest modes that may be chosen while the fact holds.</param>
+/// <param name="Max">The most, or -1 for every mode the card has.</param>
+public sealed record FactModes(CastFact Fact, int Min, int Max);
+
+/// <summary>One of the two optional kicker prices an "and/or" card offers (CR 702.33b).</summary>
+/// <param name="Cost">What paying it adds to the total cost (CR 601.2f).</param>
+/// <param name="Printed">
+/// The cost exactly as the card prints it, e.g. "{1}{U}" — the spelling "if it was kicked with
+/// its {1}{U} kicker" names, and so the identity the payment is recorded under (CR 702.33f).
+/// </param>
+public sealed record KickerOption(ManaCostSpec Cost, string Printed);
 
 /// <summary>Permission to cast a card from another zone for another cost (CR 702.34a).</summary>
 /// <param name="Zone">Where it may be cast from.</param>

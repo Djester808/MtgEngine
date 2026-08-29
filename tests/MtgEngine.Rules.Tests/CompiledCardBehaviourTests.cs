@@ -46974,6 +46974,459 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Zahid Test");
     }
 
+    // ---- Facts the cast records, and the clauses that read them back ---------
+
+    /// <summary>
+    /// "Kicker [A] and/or [B]" is two kicker abilities, and each read-back clause is linked to
+    /// one of them (CR 702.33b, 702.33f, 607.2).
+    /// </summary>
+    /// <remarks>
+    /// Anavolver's wording, because it asks the hardest form of the question: the two clauses
+    /// hand out different numbers of counters and different abilities, so a permanent that only
+    /// knows it <em>was</em> kicked cannot be told from one that knows <em>which</em> kicker was
+    /// paid. The answer also has to survive the move onto the battlefield — CR 400.7 makes that
+    /// a new object and CR 607.2 is the exception — which is why every assertion here is about
+    /// the permanent rather than the spell.
+    /// </remarks>
+    [Fact]
+    public void A_spell_with_two_kickers_remembers_which_of_them_was_paid()
+    {
+        var compiled = CardCompiler.Compile(Anavolver());
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.KickerCosts.Count);
+        Assert.Equal("{1}{U}", compiled.Spell.KickerCosts[0].Printed);
+        Assert.Equal("{B}", compiled.Spell.KickerCosts[1].Printed);
+
+        // The blue kicker alone: two counters and flying, and not the black clause's gift.
+        var (blueGame, blue) = CastVolver([0], "Island", "Forest");
+        Assert.Equal(2, blue.Permanent!.Counters.GetValueOrDefault("+1/+1"));
+        var afterBlue = Characteristics.Of(blueGame.State, Pool, blue);
+        Assert.True(afterBlue.Has(KeywordAbility.Flying));
+        Assert.Empty(afterBlue.GrantedActivated);
+
+        // The black kicker alone: one counter and the quoted ability, and no flying. A flag that
+        // only said "kicked" would hand this creature both clauses.
+        var (blackGame, black) = CastVolver([1], "Swamp");
+        Assert.Equal(1, black.Permanent!.Counters.GetValueOrDefault("+1/+1"));
+        var afterBlack = Characteristics.Of(blackGame.State, Pool, black);
+        Assert.False(afterBlack.Has(KeywordAbility.Flying));
+        Assert.Single(afterBlack.GrantedActivated);
+
+        // Both, which is three counters — and a spell that paid both has been kicked twice
+        // (CR 702.33d), which is a third question again.
+        var (bothGame, both) = CastVolver([0, 1], "Island", "Forest", "Swamp");
+        Assert.Equal(3, both.Permanent!.Counters.GetValueOrDefault("+1/+1"));
+        Assert.Equal(2, both.TimesKicked);
+        Assert.True(both.WasKicked);
+        var afterBoth = Characteristics.Of(bothGame.State, Pool, both);
+        Assert.True(afterBoth.Has(KeywordAbility.Flying));
+        Assert.Single(afterBoth.GrantedActivated);
+    }
+
+    /// <summary>Each kicker adds its own price to the total cost (CR 702.33b, 601.2f).</summary>
+    [Fact]
+    public void Both_kickers_of_an_and_or_pair_are_paid_for_separately()
+    {
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, Anavolver());
+        TapForMana(game, alice, "Island");
+        TapForMana(game, alice, "Forest");
+
+        // {1}{U} and {B} is three mana. Two pays for the blue kicker and nothing else, so a card
+        // charging one price for both abilities would be cast here and must not be.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, kickedWith: [0, 1]));
+
+        game.CastSpell(alice, card, targets: null, kickedWith: [0]);
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Anavolver Test");
+
+        Assert.Equal(2, arrived.Permanent!.Counters.GetValueOrDefault("+1/+1"));
+    }
+
+    /// <summary>Each of the two kicker abilities may be paid once, and there is no third.</summary>
+    [Fact]
+    public void A_kicker_from_an_and_or_pair_may_be_paid_only_once()
+    {
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, Anavolver());
+
+        foreach (var land in new[] { "Island", "Forest", "Swamp" })
+            TapForMana(game, alice, land);
+
+        // CR 702.33b: two abilities, not one cost paid twice — so the same kicker cannot buy its
+        // counters twice, and a card offering two has no third to sell. The mana for both is on
+        // the table, so these refusals are about the rule rather than the price.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, kickedWith: [0, 0]));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, kickedWith: [2]));
+
+        // And a card with no such choice refuses the payment by name rather than pocketing it.
+        var plain = TestCards.PutInHand(
+            game, alice, Card("Volver Plain Test", "You gain 1 life."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, plain, targets: null, kickedWith: [0]));
+    }
+
+    /// <summary>Anavolver's printed text, minus the reminder (CR 702.33b, 702.33f).</summary>
+    private static CardDefinition Anavolver() => Card(
+        "Anavolver Test",
+        "Kicker {1}{U} and/or {B}\n"
+            + "If ~ was kicked with its {1}{U} kicker, it enters with two +1/+1 counters on it "
+            + "and with flying.\n"
+            + "If ~ was kicked with its {B} kicker, it enters with a +1/+1 counter on it and "
+            + "with \"Pay 3 life: Regenerate this creature.\"",
+        CardType.Creature,
+        power: 4,
+        toughness: 4);
+
+    /// <summary>Casts Anavolver paying the named kickers, and hands back what arrived.</summary>
+    private static (Game Game, GameObject Arrived) CastVolver(
+        IReadOnlyList<int> kickers, params string[] lands)
+    {
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, Anavolver());
+
+        foreach (var land in lands)
+            TapForMana(game, alice, land);
+
+        game.CastSpell(alice, card, targets: null, kickedWith: kickers);
+        Settle(game);
+
+        return (game, game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Anavolver Test"));
+    }
+
+    /// <summary>A basic land put onto the battlefield and tapped for its mana.</summary>
+    private static void TapForMana(Game game, Guid player, string land)
+    {
+        var source = game.Create(player, TestCards.BasicLand(land), Zone.Battlefield);
+        game.ActivateAbility(player, source, "mana");
+    }
+
+    /// <summary>
+    /// "This spell costs {2} less to cast if it's bargained" is a real reduction, charged at
+    /// CR 601.2f against a declaration made at CR 601.2b (CR 702.166b).
+    /// </summary>
+    /// <remarks>
+    /// Johann's Stopgap's wording. The condition is one no board-reading reduction can answer —
+    /// it is a choice the caster made moments earlier and nothing on the battlefield records —
+    /// so the test is built around the two mana that cannot pay the printed cost and can pay the
+    /// bargained one.
+    /// </remarks>
+    [Fact]
+    public void A_bargained_spell_costs_less_because_the_cost_was_paid()
+    {
+        var stopgap = PricedCard(
+            "Johann's Stopgap Test",
+            "{3}{U}",
+            4,
+            "Bargain\n~ costs {2} less to cast if it's bargained.\n"
+                + "Return target nonland permanent to its owner's hand. Draw a card.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(stopgap);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.BargainDiscount);
+        Assert.NotNull(compiled.Spell.BargainCost);
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Stopgap Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Stopgap Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, stopgap);
+        TapForMana(game, alice, "Island");
+        TapForMana(game, alice, "Forest");
+
+        // Two mana is not four. Without the sacrifice the printed cost is the price, and the
+        // spell is refused rather than cast at a discount nobody bought.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(bear)]));
+
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(
+            alice, card, [Target.ToPermanent(bear)], costPayment: [relic], bargained: true);
+
+        Settle(game);
+
+        // The same two mana paid for it, the artifact paid for that, and the spell did what it
+        // says. A discount given rather than bought would leave the relic on the battlefield.
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Assert.DoesNotContain(relic, game.State.Battlefield);
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Hand,
+            id => game.State.GetObject(id).Card.Name == "Stopgap Bear Test");
+
+        // One card cast and one card drawn, so the hand is back where it started.
+        Assert.Equal(hand, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Choose one. If this spell was cast using teamwork, choose both instead" replaces the
+    /// printed count rather than widening it (CR 700.2d, 702.194b).
+    /// </summary>
+    /// <remarks>
+    /// Widow's Bite's wording, and the word that carries it is "instead": both directions are
+    /// asserted, because a reading that merely raised the ceiling would let a teamwork caster
+    /// take one mode, and a reading that ignored the clause would refuse both. Teamwork's cost
+    /// is not mana — it is a team tapped for total power (CR 702.194a) — so the creatures turned
+    /// sideways are what prove the fact was earned rather than assumed.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 3)]
+    [InlineData(true, 1)]
+    public void Teamwork_swaps_the_mode_count_rather_than_widening_it(
+        bool teamwork, int toughness)
+    {
+        var bite = Card(
+            "Widow's Bite Test",
+            "Teamwork 3\n"
+                + "Choose one. If this spell was cast using teamwork, choose both instead.\n"
+                + "• Target creature gains deathtouch until end of turn.\n"
+                + "• Target creature gets -2/-2 until end of turn.");
+
+        var compiled = CardCompiler.Compile(bite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(1, compiled.Spell!.ModesToChoose);
+        Assert.Equal(CastFact.Teamwork, compiled.Spell.ModesOnFact!.Fact);
+        Assert.Equal(2, compiled.Spell.ModesOnFact.Min);
+
+        var (game, alice, bob) = InMainPhase();
+        var first = game.Create(
+            alice, TestCards.Creature("Bite Ally One Test", 2, 2), Zone.Battlefield);
+
+        var second = game.Create(
+            alice, TestCards.Creature("Bite Ally Two Test", 1, 1), Zone.Battlefield);
+
+        var bear = game.Create(bob, TestCards.Creature("Bite Bear Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, bite);
+
+        var taken = teamwork ? new[] { 0, 1 } : [0];
+        var refused = teamwork ? new[] { 0 } : [0, 1];
+        var team = teamwork ? new[] { first, second } : null;
+
+        // With the cost paid one mode is too few; without it two are too many. Modes are chosen
+        // before costs are paid (CR 601.2b, then 601.2f), so the refusal costs nothing.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                card,
+                [.. refused.Select(_ => Target.ToPermanent(bear))],
+                modes: refused,
+                costPayment: team,
+                teamwork: teamwork));
+
+        game.CastSpell(
+            alice,
+            card,
+            [.. taken.Select(_ => Target.ToPermanent(bear))],
+            modes: taken,
+            costPayment: team,
+            teamwork: teamwork);
+
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.True(now.Has(KeywordAbility.Deathtouch));
+        Assert.Equal(toughness, now.Toughness);
+
+        // The team is tapped only when it paid, which is the difference between the two runs.
+        Assert.Equal(teamwork, game.State.GetObject(first).Permanent!.IsTapped);
+        Assert.Equal(teamwork, game.State.GetObject(second).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// "Choose one. If this spell was kicked, choose any number instead" opens the menu to every
+    /// mode the card has (CR 700.2d, 702.33e).
+    /// </summary>
+    /// <remarks>
+    /// The Inscription cycle's wording, and the other half of the clause above: "any number"
+    /// moves the ceiling to the whole card while "both" moves floor and ceiling together, so
+    /// reading the two as one number would be wrong about one of them whichever number was
+    /// picked.
+    /// </remarks>
+    [Fact]
+    public void A_kicked_modal_spell_can_take_every_mode_the_card_has()
+    {
+        var inscription = Kicked(
+            "Inscription Test",
+            "{1}",
+            "Kicker {2}\nChoose one. If ~ was kicked, choose any number instead.\n"
+                + "• You gain 3 life.\n• You gain 5 life.\n• You gain 7 life.");
+
+        var compiled = CardCompiler.Compile(inscription);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(3, compiled.Spell!.Modes.Count);
+        Assert.Equal(CastFact.Kicked, compiled.Spell.ModesOnFact!.Fact);
+        Assert.Equal(-1, compiled.Spell.ModesOnFact.Max);
+
+        var (unkicked, alice, _) = InMainPhase();
+        var cheap = TestCards.PutInHand(unkicked, alice, inscription);
+        TapForMana(unkicked, alice, "Forest");
+
+        // Unkicked it is the plain header: one mode, and three is not a legal choice.
+        Assert.Throws<InvalidOperationException>(
+            () => unkicked.CastSpell(alice, cheap, targets: null, modes: [0, 1, 2]));
+
+        unkicked.CastSpell(alice, cheap, targets: null, modes: [2]);
+        Settle(unkicked);
+        Assert.Equal(27, unkicked.State.GetPlayer(alice).Life);
+
+        var (game, ally, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, ally, inscription);
+        foreach (var _ in Enumerable.Range(0, 3))
+            TapForMana(game, ally, "Forest");
+
+        game.CastSpell(ally, card, targets: null, modes: [0, 1, 2], kicked: true);
+        Settle(game);
+
+        // Every mode, once each, out of one cast — and the floor of one still stands, so this is
+        // a wider menu rather than an optional one.
+        Assert.Equal(35, game.State.GetPlayer(ally).Life);
+    }
+
+    /// <summary>
+    /// "Choose up to four. You may choose the same mode more than once" is a floor of zero under
+    /// a printed ceiling (CR 700.2d).
+    /// </summary>
+    /// <remarks>
+    /// Moment of Reckoning's wording. Both numbers are asserted because both are unusual: every
+    /// other modal header this engine reads demands at least one mode, and a header read as
+    /// "choose four" would refuse the empty cast that this card explicitly allows.
+    /// </remarks>
+    [Fact]
+    public void Choose_up_to_four_allows_none_and_repeats_up_to_its_ceiling()
+    {
+        var reckoning = Card(
+            "Moment Of Reckoning Test",
+            "Choose up to four. You may choose the same mode more than once.\n"
+                + "• Destroy target nonland permanent.\n"
+                + "• Return target nonland permanent card from your graveyard to the "
+                + "battlefield.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(0, compiled.Spell!.ModesToChoose);
+        Assert.Equal(4, compiled.Spell.ModesMax);
+        Assert.True(compiled.Spell.ModesMayRepeat);
+
+        // Nothing is a legal choice, and the spell still resolves.
+        var (idle, alice, bob) = InMainPhase();
+        var spared = idle.Create(
+            bob, TestCards.Creature("Reckoning Spared Test", 2, 2), Zone.Battlefield);
+
+        idle.CastSpell(
+            alice, TestCards.PutInHand(idle, alice, reckoning), targets: null, modes: []);
+
+        Settle(idle);
+        Assert.Contains(spared, idle.State.Battlefield);
+
+        var (game, ally, foe) = InMainPhase();
+        var doomed = Enumerable.Range(0, 5)
+            .Select(i => game.Create(
+                foe,
+                TestCards.Creature("Reckoning Doomed " + i + " Test", 2, 2),
+                Zone.Battlefield))
+            .ToList();
+
+        var card = TestCards.PutInHand(game, ally, reckoning);
+
+        // Four is a ceiling, not a suggestion.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                ally,
+                card,
+                [.. doomed.Select(Target.ToPermanent)],
+                modes: [0, 0, 0, 0, 0]));
+
+        game.CastSpell(
+            ally,
+            card,
+            [.. doomed.Take(4).Select(Target.ToPermanent)],
+            modes: [0, 0, 0, 0]);
+
+        Settle(game);
+
+        // The same mode four times over, each with a target of its own (CR 700.2d).
+        foreach (var id in doomed.Take(4))
+            Assert.DoesNotContain(id, game.State.Battlefield);
+
+        Assert.Contains(doomed[4], game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Choose X" takes its count from the X announced with the cast, and from nothing else
+    /// (CR 700.2d, 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Doomsday Confluence's wording — the only card that prints this header. The count exists
+    /// nowhere on the card, so a reader falling back on a printed number would be reading a card
+    /// that does not exist; the refusal at one mode is what separates "choose X" from "choose up
+    /// to X".
+    /// </remarks>
+    [Fact]
+    public void Choose_X_takes_its_count_from_the_X_that_was_announced()
+    {
+        var confluence = Card(
+            "Doomsday Confluence Test",
+            "Choose X. You may choose the same mode more than once.\n"
+                + "• Each player sacrifices a nonartifact creature of their choice.\n"
+                + "• Create a 3/3 black Dalek artifact creature token with menace.\n"
+                + "• Each opponent discards a card.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(confluence);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Spell!.ModesFromX);
+        Assert.True(compiled.Spell.ModesMayRepeat);
+        Assert.Equal(3, compiled.Spell.Modes.Count);
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, confluence);
+
+        // X was announced as two, so two modes is the only legal number: one is as wrong as
+        // three, which is what makes this "choose X" rather than "choose up to X".
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, variableValue: 2, modes: [1]));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, targets: null, variableValue: 2, modes: [1, 1, 1]));
+
+        game.CastSpell(alice, card, targets: null, variableValue: 2, modes: [1, 1]);
+        Settle(game);
+
+        // The same mode twice, because the card says it may be (CR 700.2d).
+        Assert.Equal(
+            2,
+            game.State.Battlefield.Count(id => game.State.GetObject(id).Card.Name == "Dalek"));
+
+        // A different X is a different menu, which is the whole of what the header says. Two
+        // tokens for a count that happened to be right once would pass everything above.
+        var (bigger, ally, _) = InMainPhase();
+        var again = TestCards.PutInHand(bigger, ally, confluence);
+
+        bigger.CastSpell(ally, again, targets: null, variableValue: 3, modes: [1, 1, 1]);
+        Settle(bigger);
+
+        Assert.Equal(
+            3,
+            bigger.State.Battlefield.Count(
+                id => bigger.State.GetObject(id).Card.Name == "Dalek"));
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>
