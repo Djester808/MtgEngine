@@ -558,6 +558,36 @@ public sealed record SpellBargained(ObjectId StackId) : GameEvent
     public override string Describe() => "The spell was bargained.";
 }
 
+/// <summary>A spell's cleave cost was paid as it was cast (CR 702.148a).</summary>
+/// <remarks>
+/// The fact that chooses which reading resolves: a cleave card is compiled twice — with the
+/// bracketed words and without them — and paying the cleave cost is what selects the second.
+/// In the log rather than only in the in-process table, so a replayed game folds the choice
+/// back onto the stack object and resolves the same spell the table would have.
+/// </remarks>
+public sealed record SpellCleaved(ObjectId StackId) : GameEvent
+{
+    public override string Rule => "702.148a";
+
+    public override string Describe() => "The spell was cast for its cleave cost.";
+}
+
+/// <summary>
+/// A spell's gift was promised to an opponent as it was cast (CR 702.174a, 702.174k).
+/// </summary>
+/// <remarks>
+/// The promise and the recipient are one event because the rules make them one act: paying the
+/// gift cost <em>is</em> choosing an opponent. Who was chosen has to be in the log — the
+/// delivery resolves later, an enters trigger may read it later still, and by then the choice
+/// is otherwise nowhere.
+/// </remarks>
+public sealed record GiftPromised(ObjectId StackId, Guid Opponent) : GameEvent
+{
+    public override string Rule => "702.174k";
+
+    public override string Describe() => $"A gift was promised to {Opponent:N}.";
+}
+
 /// <summary>A player is to proliferate, asked at the next settle (CR 701.34a).</summary>
 public sealed record ProliferateRequested(Guid PlayerId) : GameEvent
 {

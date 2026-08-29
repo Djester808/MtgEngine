@@ -1152,6 +1152,20 @@ public static partial class BoardConditions
                 state.TryGetObject(source.Id, out var self) && self.WasKicked != unkicked;
         }
 
+        // "If the gift was promised" - CR 702.174k, and the chosen opponent rides the
+        // resolution move for exactly this reason: a permanent's gift trigger asks about the
+        // spell that became it (CR 607.2). Read from the source the way kicker's flag is, and
+        // fail-closed the same way too - an object that has gone answers neither the promise
+        // nor its absence.
+        if (GiftPromisedLine().Match(text) is { Success: true } gifted)
+        {
+            var unpromised = gifted.Groups["not"].Success;
+
+            return (state, abilities, source) =>
+                state.TryGetObject(source.Id, out var self)
+                && (self.GiftedTo is not null) != unpromised;
+        }
+
         // "When ~ enters, if it was bargained, ..." - CR 702.166b: a spell has been bargained
         // once its controller declares the intention to pay that cost. The sentence form of this
         // ("If this spell was bargained, destroy that creature instead") was already read, and
@@ -2335,6 +2349,18 @@ public static partial class BoardConditions
         @"^(~|it|this spell) ((was|were)|(?<not>wasn't|weren't|was not)) kicked$",
         RegexOptions.IgnoreCase)]
     private static partial Regex WasKickedLine();
+
+    /// <summary>"If the gift was promised" / "if the gift wasn't promised" (CR 702.174k).</summary>
+    /// <remarks>
+    /// Also "if its gift cost was paid", which is how CR 702.174b spells the same fact inside
+    /// the trigger it defines. CR 702.174k makes the two one thing: declaring the intention to
+    /// pay is what promising is.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(the gift ((was)|(?<not>wasn't|was not)) promised"
+            + @"|its gift cost ((was)|(?<not>wasn't|was not)) paid)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GiftPromisedLine();
 
     /// <summary>"If it was bargained" (CR 702.166b).</summary>
     [GeneratedRegex(@"^(~|it|this spell) was bargained$", RegexOptions.IgnoreCase)]

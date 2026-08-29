@@ -122,6 +122,8 @@ public static class EventLogSerializer
             ["CardsSpliced"] = typeof(CardsSpliced),
             ["SpellSquadded"] = typeof(SpellSquadded),
             ["SpellKicked"] = typeof(SpellKicked),
+            ["SpellCleaved"] = typeof(SpellCleaved),
+            ["GiftPromised"] = typeof(GiftPromised),
             ["ProliferateRequested"] = typeof(ProliferateRequested),
             ["ChoosePermanentRequested"] = typeof(ChoosePermanentRequested),
             ["CoinFlipRequested"] = typeof(CoinFlipRequested),

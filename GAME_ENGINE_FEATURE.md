@@ -6054,11 +6054,10 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
 - **Landwalk reads computed land types, but nothing yet grants one.** The check is right; the
   template that would exercise it — "each land is a Swamp in addition to its other types" — does
   not compile, so that half is unverified and is not claimed by any test.
-- **The phrase parser ignores square brackets rather than refusing them.** `"Draw a card for each creature you control [with flying]."` parses today as the flier-less
-  sentence — a read-better-than-printed, which is the one class of error the fail-closed rule
-  exists to prevent. No playable card is affected right now, because bracketed text is printed
-  only on the 12 cleave cards and all 12 are incomplete for other reasons. That is luck, not
-  safety: it becomes live the moment anyone reads cleave, so it must be fixed in the same change.
+- ~~The phrase parser ignores square brackets rather than refusing them.~~ Fixed in the cleave
+  round, in the same change that made it live: a line containing `[...]` that no cleave-aware
+  reader claimed is now refused, with a test holding the exact sentence that used to read
+  flier-less. See "Cleave, and the bracket the parser had been eating".
 - **A cast had never charged a `ReturnToHand` cost.** Only ninjutsu produced one, and only as an
   activated ability, so the cast path had no arm for it and would have put the returned lands in
   the *graveyard*. Found by wiring alternative costs that are not mana; now covered by a Gush test.
@@ -6479,3 +6478,89 @@ Declined here, with the count behind each:
   checked, and a trigger that fired for damage dealt to anybody is a strictly better card than the
   one printed. The recipient is admitted on the singular sentence only, and there is a test holding
   the refusal.
+
+### Cleave, and the bracket the parser had been eating
+
+Cleave (CR 702.148) waited behind a defect that had to land first. The phrase parser *ignored*
+square brackets rather than refusing them: "Draw a card for each creature you control [with
+flying]." compiled as the flier-less draw -- a card read strictly better than printed, the one
+class of error the fail-closed rule exists to prevent. Nothing playable was affected only because
+every bracketed line sat on a card that was incomplete for other reasons, and that was luck: the
+moment cleave read, it went live. So the fix is the guard, not the mechanic: a line containing a
+bracket that no cleave-aware reader claimed lands in `Unhandled` before any matcher can see it,
+and a test holds the exact sentence. The corpus's only other brackets -- loyalty costs inside
+granted-ability quotes ('has "[+1]: ..."') and Comet's dice lines -- were unread anyway, so the
+refusal cost nothing, which the set diff proved rather than assumed.
+
+Cleave itself is the adventurer answer a third time: one card carrying two spells, chosen as it
+is cast. The text is compiled **twice** -- brackets dropped and the words kept, bracketed words
+gone -- each reading through every matcher unchanged, so the vocabulary work other rounds landed
+is what made 7 of the 12 readable both ways (an earlier agent measured 3; re-measuring before
+building is the habit that found the difference). The printed reading is the card;
+`CompiledCard.CleaveSpell` and `CleaveCostRaw` hold the other, `Game.CastSpell(cleaved: true)`
+charges the alternative cost and swaps the reading in through the same `CastAs` record adventures
+use, and a `SpellCleaved` event folds `WasCleaved` onto the stack object -- so `SpellBeingCast`
+can answer from the state and a *resumed* game still resolves the reading that was paid for,
+which the in-process table alone could not promise (adventures and split halves still cannot;
+that gap stands recorded). The behaviour tests turn on the readings answering differently: one
+flier among two creatures draws one card printed and two cleaved, and "Destroy target [attacking]
+creature" refuses an idle creature printed and kills it cleaved -- the target list is part of the
+reading, not just the effects.
+
+Fail-closed carries through the pair: a card either of whose readings has an unreadable sentence
+stays unread whole, reporting only the real blocker, and a cleaved reading that compiled to
+anything besides a single spell is refused because the swap carries a spell and nothing else.
+The five that stay incomplete, each with its honest sentence: Lantern Flare (a standalone "X is
+the number of creatures you control" definition), Alchemist's Gambit (an extra turn with a
+prevention rider and a delayed loss), Inspired Idea (a lasting hand-size reduction), Wash Away
+(a cast-zone target filter), Dread Fugue (a mana-value filter after "from it").
+
+### Gift: a promise is a cast fact with a name on it
+
+Gift (CR 702.174) is kicker's family with one addition -- the fact has a *player* in it.
+Promising is choosing an opponent (702.174a), so `GiftPromised(stackId, opponent)` is one event,
+the reducer folds it to `GameObject.GiftedTo`, and the field rides the resolution move exactly as
+the kicker flag does (CR 607.2), because a permanent's trigger asks about the spell it used to
+be. Delivery is synthesized from CR 702.174d-j's own sentences ("Create a Food token.") and then
+re-aimed at a new `PlayerScope.GiftRecipient` -- "the chosen player" is deliberately not taught
+to the shared grammar, since no printed rules text says it, and the re-aim refuses any effect
+shape other than the draw and the token creation the six defined kinds produce.
+
+The branch went two ways, by card type. An instant or sorcery is the cleave shape again: the
+promise is settled at cast, so "If the gift was promised, ..." is not a runtime conditional at
+all -- the text is rewritten into an unpromised and a promised reading (the "instead" sentences
+swap an instruction, targets included, which is what CR 702.174m asks; the delivery is the
+promised reading's first effect, which is 702.174j), and each compiles as a card of its own. A
+permanent cannot do that, because its own printed trigger reads the promise *later*, off the
+permanent -- so "the gift was promised" joined `BoardConditions`, where the intervening-if and
+the bare-conditional sentence readers pick it up unchanged, and the gift line itself compiles to
+the enters trigger 702.174b spells out. The multiplayer half is behaviour-tested at a table of
+three: the Food goes to the opponent named at cast and to nobody else, promising yourself
+refuses, and promising off a card with no gift refuses.
+
+10 of the 27 gift cards read completely: Mind Spiral, Pool Resources, Valley Rally, Into the
+Flood Maw, Peerless Recycling, Sazacap's Brew, Nocturnal Hunger, Long River's Pull, and the two
+permanents Scrapshooter and Kitnap. The other 17 are blocked by their own sentences, not by the
+mechanic -- doubled damage numbers in one clause, "up to N ... each with mana value" reanimation,
+"put into your graveyard this way", phase-out-and-protection, a copy with an exception -- and two
+kinds were declined by measurement: "Gift an extra turn" (one card, Perch Protection, blocked by
+its phasing sentence regardless of the delivery) and "Gift a Rhystic Study" (one card; the kind
+is not defined by CR 702.174 at all, and inventing a delivery for it would be guessing).
+
+### The aftermath flag never fired on cardboard, and neither did fuse
+
+The audit that said `CardHalf.HasAftermath` was reachable by zero cards was pointing at a missing
+reader, not a stale record. The flag was matched with `^Aftermath$` against the face's *raw*
+text, and no printing says the bare word -- the cardboard says "Aftermath (Cast this spell only
+from your graveyard. Then exile it.)", so the flag set on zero corpus cards while the keyword
+*line* read fine through `Lines`' reminder stripping. Thirteen split cards were complete,
+flagless, and quietly castable from hand twice -- the exact strictly-better failure the aftermath
+test narrates, live in the shipping compiler, invisible because the test's fixture printed the
+bare word no card prints. `HasFuse` had the same bug on the same pattern, which cost all 22 fuse
+cards their fused cast. Both now strip reminder text before matching; all 27 aftermath cards flag
+their half, and a corpus-shaped fixture -- reminder text and all -- holds the from-hand refusal
+so the fixture blindspot cannot reopen.
+
+**15,899 → 15,916 complete cards, the set diffed and none lost:** 7 cleave (Winged Portent,
+Fierce Retribution, Alchemist's Retrieval, Dig Up, Lunar Rejection, Path of Peril, Parasitic
+Grasp) and 10 gift, as named above.
