@@ -650,6 +650,9 @@ public static partial class CardCompiler
             if (TryBloodthirst(line, replacements))
                 continue;
 
+            if (TryGroupEntersWithAdditionalCounter(line, card, replacements))
+                continue;
+
             if (TryEntersWithCountersPerGroup(line, card, replacements))
                 continue;
 
@@ -4578,6 +4581,103 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Each other [group] you control enters with an additional +1/+1 counter on it"
+    /// (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// The other direction of the enters-with-counters family: the permanent that carries the
+    /// line is not the one arriving. CR 614.1d makes a continuous ability reading "[objects]
+    /// enter the battlefield …" a replacement effect, and the pipeline already asks every object
+    /// on the board for its replacements — so nothing new was needed except a reader that
+    /// describes somebody <em>else</em> arriving.
+    /// <para>
+    /// The arriving permanent is not in the state yet (CR 400.7), so the description is asked of
+    /// what the event carries: the card that is entering and the player it is entering under.
+    /// That is the printed card rather than computed characteristics, which is what the shared
+    /// filter vocabulary reads and the same question a tutor answers.
+    /// </para>
+    /// <para>
+    /// Only <c>+1/+1</c> and <c>loyalty</c> are read, and the refusal is the point. This engine
+    /// works power and toughness out from the two counter names in <see cref="CounterKinds"/>
+    /// and loyalty from a third; a "vigilance counter" would be recorded under its printed name
+    /// and read by nothing, so Tayam would compile complete and hand out counters that grant no
+    /// vigilance. One corpus card is left unread by that and it is the right one to lose.
+    /// </para>
+    /// <para>
+    /// The source never counts as the permanent arriving, and that is a rule rather than an
+    /// arrangement: a static ability functions only while its permanent is on the battlefield,
+    /// so as an object enters, its own "[objects] enter…" ability is not yet doing anything. It
+    /// has to be said out loud here because the replacement pipeline builds an arriving token
+    /// from its own event and offers it its own replacements — that branch exists so a token
+    /// copy of a creature that enters with counters gets them — and without the identity check a
+    /// token copy of Renata would hand itself the counter it only ever gives to others. So the
+    /// check does not depend on the printed word "other": the scope word is matched so that one
+    /// the reader does not recognise leaves the line unread, and both scopes it does recognise
+    /// exclude the source for the same reason.
+    /// </para>
+    /// </remarks>
+    private static bool TryGroupEntersWithAdditionalCounter(
+        string line, CardDefinition card, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = GroupEntersWithAdditionalCounterLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // "Warrior creatures" is one noun phrase whose last word is plural; the filter
+        // vocabulary reads the singular, the same way the mass-static group reader does.
+        var words = m.Groups["what"].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var phrase = string.Join(
+            ' ', words[..^1].Append(EffectPhrase.SingularWord(words[^1])));
+
+        if (EffectPhrase.SearchFilterFor(phrase) is not { } filter)
+            return false;
+
+        var kind = string.Equals(m.Groups["kind"].Value, "+1/+1", StringComparison.Ordinal)
+            ? CounterKinds.PlusOnePlusOne
+            : CounterKinds.Loyalty;
+
+        bool Applies(GameEvent e, GameState state, GameObject source) =>
+            Entering(e, state) is { } arriving
+            && arriving.Id != source.Id
+            && arriving.ControllerId == source.ControllerId
+            && SearchFilters.Matches(filter, arriving.Card);
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            // The group's own words and the counter, because a card printing two of these lines
+            // is told apart by nothing else and two abilities sharing an id is what the
+            // invariant suite reads as one ability twice.
+            Id = $"group-enters-additional:{card.Name}:{filter}:{kind}",
+            Applies = Applies,
+            Replace = (e, state, _) =>
+                [e, new Events.CountersChanged(Entering(e, state)!.Value.Id, kind, 1)],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// The permanent this event is putting onto the battlefield, whichever way it got there.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Arriving"/>'s question asked of somebody else's arrival: it answers "is this
+    /// my source entering", and this answers "what is entering". The card and the controller
+    /// come off the event rather than out of the state, because the object being described does
+    /// not exist yet — a moved card is still the old object until the move is applied, and a
+    /// token was never anywhere at all (CR 111.1).
+    /// </remarks>
+    private static (ObjectId Id, CardDefinition Card, Guid ControllerId)? Entering(
+        GameEvent e, GameState state) => e switch
+        {
+            ObjectMoved { To: Zone.Battlefield } moved
+                when state.TryGetObject(moved.OldId, out var was)
+                => (moved.NewId, was.Card, moved.ControllerId),
+            ObjectCreated { Zone: Zone.Battlefield } made
+                => (made.Id, made.Card, made.ControllerId),
+            _ => null,
+        };
+
+    /// <summary>
     /// "~ enters with a +1/+1 counter on it for each [group]" (CR 614.1c).
     /// </summary>
     /// <remarks>
@@ -6197,15 +6297,43 @@ public static partial class CardCompiler
             keywords = keywords is { } already ? already | stopped : stopped;
         }
 
-        // "As long as enchanted permanent is a creature, it gets +1/+1" - "it" on an Aura is
-        // the thing it is attached to and never the Aura itself, which is not a creature and
-        // could not use the bonus if it were given one. The word is what decides: "~" is the
-        // card saying its own name, and only the pronoun means the host.
-        // "It", "enchanted creature", "equipped creature" - three ways of naming the thing an
-        // Aura or Equipment is attached to, against "~", which is the card naming itself. The
-        // "during your turn" arm had no subject slot at all and could only ever say "~".
+        // "Enchanted creature" and "equipped creature" name the host outright and "~" is the
+        // card naming itself. "It" names neither: it is a pronoun, and what it points at is
+        // whatever the condition in front of it just named.
+        //
+        // Reading it as the host regardless was wrong on 29 corpus lines across 27 cards, and
+        // inert on every one. "As long as ~ is untapped, it gets +0/+2" is a creature talking
+        // about itself, and a creature is not attached to anything - so Castle Raptors computed
+        // 3/3 instead of 3/5, Fleecemane Lion never became hexproof, and the whole static half
+        // of each card did nothing at all while the card compiled complete.
+        //
+        // The order of the two tests is the trap, and eight of those cards sit in it: "As long
+        // as ~ is equipped, it has double strike" contains the word "equipped" and still means
+        // the card. What the condition *names* decides, so "~" is asked first and the
+        // attachment words only afterwards.
+        //
+        // A condition that names neither leaves the line unread. No corpus line does - all 50
+        // name one or the other - and a pronoun with no antecedent is exactly the case where
+        // guessing would put a bonus on the wrong permanent without saying so.
         var subject = m.Groups["subject"].Value;
-        var onHost = !subject.Equals("~", StringComparison.Ordinal);
+        var condition = m.Groups["cond"].Value;
+
+        bool onHost;
+        if (subject.Equals("~", StringComparison.Ordinal))
+            onHost = false;
+        else if (!subject.Equals("it", StringComparison.OrdinalIgnoreCase))
+            onHost = true;
+        else if (condition.Contains('~', StringComparison.Ordinal))
+            onHost = false;
+        else if (condition.Contains("enchanted", StringComparison.OrdinalIgnoreCase)
+            || condition.Contains("equipped", StringComparison.OrdinalIgnoreCase))
+        {
+            onHost = true;
+        }
+        else
+        {
+            return false;
+        }
 
         bool OnSelfWhile(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
@@ -7178,7 +7306,8 @@ public static partial class CardCompiler
     }
 
     /// <summary>
-    /// "You may pay [cost] rather than pay ~'s mana cost" — an alternative cost (CR 118.9).
+    /// "You may pay [cost] rather than pay ~'s mana cost", and the same offer for nothing at all
+    /// — an alternative cost (CR 118.9).
     /// </summary>
     /// <remarks>
     /// The keyword-less printing of what surge, spectacle and warp say with one word, and it goes
@@ -7194,6 +7323,17 @@ public static partial class CardCompiler
     /// sacrifice a Mountain", "you may exile a black card from your hand" — and a
     /// <c>ConditionalCost</c> carries mana and nothing else, so charging one of those as free mana
     /// would make the card cheaper than printed.
+    /// </para>
+    /// <para>
+    /// "You may cast ~ without paying its mana cost" is the second phrasing CR 118.9 gives for
+    /// the same rule, and it arrives here rather than at a mechanism of its own because it is an
+    /// alternative cost of nothing. Sixteen corpus cards print it, every one behind an "if":
+    /// the ten of the free-spell cycle asking what two players control, five asking about a
+    /// commander and one about a spell cast earlier in the turn. The offer stays optional the
+    /// whole way down — the caster announces it (CR 601.2b) and the engine charges the printed
+    /// cost when they do not — which is the difference that decides the mechanism: routing it
+    /// through <see cref="AlternativeCastZone"/> would take the free cast <em>unconditionally</em>
+    /// from hand and leave the card with no way to be cast for its printed cost at all.
     /// </para>
     /// <para>
     /// A leading "if" is a question about the board, answered by the shared condition vocabulary
@@ -7236,7 +7376,13 @@ public static partial class CardCompiler
         into = new ConditionalCost(
             "alternative cost",
             "CR 118.9a",
-            ManaCostSpec.Parse(m.Groups["cost"].Value),
+
+            // No captured cost is the "without paying its mana cost" phrasing. Nothing is a
+            // price like any other here: the caster still has to announce they are paying it,
+            // and a cost of no symbols is what the engine then charges.
+            m.Groups["cost"].Success
+                ? ManaCostSpec.Parse(m.Groups["cost"].Value)
+                : ManaCostSpec.Free,
             available);
 
         return true;
@@ -10526,6 +10672,29 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex EntersWithCountersPerGroupLine();
 
+    /// <summary>
+    /// "Each other [group] you control enters with an additional +1/+1 counter on it"
+    /// (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// A leading scope word is required, and that is what keeps the noun phrase's capitals
+    /// meaningful: a capital is how this compiler tells a creature type from an ordinary word,
+    /// and a phrase that started the sentence would be capitalised by position alone. "Legendary
+    /// creatures you control enter with…" is the one corpus line that says it without a scope
+    /// word, and reading it here would look for a creature type called "Legendary".
+    /// <para>
+    /// Bounded to three words and no punctuation so that a trailing clause the reader cannot
+    /// honour — "of the chosen type", "that's a Wolf or a Werewolf", "for each Angel you already
+    /// control" — fails the match rather than being dropped off the end.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<scope>Each other|Each|Other|All) (?<what>[A-Za-z'\-]+(?: [A-Za-z'\-]+){0,2}) "
+            + @"you control enters? with an additional (?<kind>\+1/\+1|loyalty) "
+            + @"counter on (?:it|them)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GroupEntersWithAdditionalCounterLine();
+
     [GeneratedRegex(@"^undying\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex UndyingLine();
 
@@ -11229,9 +11398,16 @@ public static partial class CardCompiler
     private static partial Regex GroupPhrase();
 
     /// <summary>An alternative cost with no keyword in front of it (CR 118.9).</summary>
+    /// <remarks>
+    /// Both of the phrasings CR 118.9 names, in one pattern because they are one rule: "you may
+    /// [action] rather than pay [this object's] mana cost" and "you may cast [this object]
+    /// without paying its mana cost". The second captures no cost, because the cost it names is
+    /// nothing at all.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?:If (?<when>[^,]+), )?you may pay (?<cost>(\{[^}]+\})+) "
-            + @"rather than pay ~'s mana cost\.?$",
+        @"^(?:If (?<when>[^,]+), )?you may (?:pay (?<cost>(\{[^}]+\})+) "
+            + @"rather than pay ~'s mana cost"
+            + @"|cast ~ without paying its mana cost)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AlternativeManaCostLine();
 

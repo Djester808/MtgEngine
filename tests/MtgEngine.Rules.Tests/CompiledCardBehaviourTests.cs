@@ -16271,6 +16271,288 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(26, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- An alternative cost of nothing (CR 118.9) ---------------------------
+
+    /// <summary>A land the compiler reads, so the mana on this path is compiled too.</summary>
+    private static readonly CardDefinition FreeCastMountain = new()
+    {
+        OracleId = "oracle-free-cast-mountain-test",
+        Name = "Free Cast Mountain Test",
+        OracleText = "{T}: Add {R}.",
+        CardTypes = CardType.Land,
+        Subtypes = ["Mountain"],
+    };
+
+    /// <summary>Mogg Salvage's wording, whose whole cost the board decides.</summary>
+    private static readonly CardDefinition FreeCastSalvage = new()
+    {
+        OracleId = "oracle-free-cast-salvage-test",
+        Name = "Free Cast Salvage Test",
+        OracleText = "If an opponent controls an Island and you control a Mountain, you may "
+            + "cast this spell without paying its mana cost.\nDestroy target artifact.",
+        CardTypes = CardType.Instant,
+        ManaCostRaw = "{2}{R}",
+    };
+
+    /// <summary>
+    /// "If …, you may cast this spell without paying its mana cost" — the second phrasing
+    /// CR 118.9 gives for an alternative cost, and the one that costs nothing.
+    /// </summary>
+    /// <remarks>
+    /// The card has to survive both halves of the offer, so the test spends the same board
+    /// twice. The free cast taps nothing — asserted against the lands themselves rather than
+    /// against a pool, because a pool that was filled and emptied looks the same afterwards as
+    /// one that was never touched. Then the *second* copy is cast on the same board with the
+    /// same condition true, and it costs {2}{R}: an alternative cost is announced by the caster
+    /// (CR 118.9b, 601.2b), so a card that could no longer be cast for its printed cost would be
+    /// a different card from the one printed.
+    /// <para>
+    /// That is the whole reason this compiles to a <see cref="ConditionalCost"/> rather than to
+    /// the engine's other route. <c>AlternativeCastZone</c> is taken <em>unconditionally</em>
+    /// whenever the card is in the zone that offers it, and reading a free cast from hand that
+    /// way would leave the printed cost unreachable — the failure that still keeps More Than
+    /// Meets the Eye unread.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_free_alternative_cost_is_announced_and_never_taken_by_default()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var mountains = new[]
+        {
+            game.Create(alice, FreeCastMountain, Zone.Battlefield),
+            game.Create(alice, FreeCastMountain, Zone.Battlefield),
+            game.Create(alice, FreeCastMountain, Zone.Battlefield),
+        };
+
+        var relic = Card("Free Cast Relic Test", string.Empty, CardType.Artifact);
+        var first = game.Create(bob, relic, Zone.Battlefield);
+        var second = game.Create(bob, relic, Zone.Battlefield);
+
+        var free = TestCards.PutInHand(game, alice, FreeCastSalvage);
+        game.CastSpell(alice, free, [Target.ToPermanent(first)], alternativeCost: true);
+        Settle(game);
+
+        Assert.DoesNotContain(first, game.State.Battlefield);
+        Assert.All(
+            mountains,
+            id => Assert.False(game.State.GetObject(id).Permanent!.IsTapped));
+
+        // The same board, the same condition, and no announcement: the printed cost is what is
+        // charged, and with no mana in the pool there is nothing to charge it against.
+        var paid = TestCards.PutInHand(game, alice, FreeCastSalvage);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, paid, [Target.ToPermanent(second)]));
+
+        foreach (var id in mountains)
+            game.ActivateAbility(alice, id, "mana");
+
+        game.CastSpell(alice, paid, [Target.ToPermanent(second)]);
+        Settle(game);
+
+        Assert.DoesNotContain(second, game.State.Battlefield);
+        Assert.All(mountains, id => Assert.True(game.State.GetObject(id).Permanent!.IsTapped));
+    }
+
+    /// <summary>
+    /// The offer is refused when the board does not make it, and the refusal names its rule.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from the cast above because it is a different mistake and has to stay a
+    /// different answer: a card with no such offer at all is a client sending a flag the card
+    /// never had, while a card whose condition is false is a player who has misread the board.
+    /// Here nobody controls an Island, so the condition is false and the spell may only be cast
+    /// for {2}{R}.
+    /// </remarks>
+    [Fact]
+    public void A_free_alternative_cost_is_refused_when_its_condition_is_false()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, FreeCastMountain, Zone.Battlefield);
+        var relic = game.Create(
+            bob, Card("Free Cast Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, FreeCastSalvage);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(relic)], alternativeCost: true));
+
+        Assert.Contains("118.9a", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(relic, game.State.Battlefield);
+    }
+
+    // ---- Somebody else's arrival, replaced (CR 614.1d) -----------------------
+
+    /// <summary>Renata's wording, on a creature that is not the one arriving.</summary>
+    private static readonly CardDefinition AdditionalCounterLord = new()
+    {
+        OracleId = "oracle-additional-counter-lord-test",
+        Name = "Additional Counter Lord Test",
+        OracleText = "Each other creature you control enters with an additional +1/+1 counter on it.",
+        CardTypes = CardType.Creature,
+        Subtypes = ["Elf"],
+        Power = 2,
+        Toughness = 2,
+    };
+
+    /// <summary>
+    /// "Each other creature you control enters with an additional +1/+1 counter on it" — an
+    /// entry replacement that belongs to somebody else's arrival (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// Three assertions, and the second and third are the ones that catch a wrong reading.
+    /// A mass line with an ownership clause that applied to the whole board is the defect this
+    /// file has already recorded on 83 cards of a different shape, so Bob's creature arriving at
+    /// its printed size is what proves the clause was read. And the lord itself arrives with no
+    /// counter: the replacement pipeline builds an arriving object from its own event and offers
+    /// it its own replacements — the branch that lets a token copy enter with the counters its
+    /// card names — so without the identity check this line would quietly hand itself the
+    /// counter it only ever gives to others.
+    /// </remarks>
+    [Fact]
+    public void A_group_entry_replacement_counts_only_its_controllers_other_arrivals()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var lord = game.Create(alice, AdditionalCounterLord, Zone.Battlefield);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(lord)));
+
+        var mine = game.Create(
+            alice, TestCards.Creature("Additional Counter Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Additional Counter Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            1, game.State.GetObject(mine).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+
+        Assert.DoesNotContain(
+            CounterKinds.PlusOnePlusOne, game.State.GetObject(theirs).Permanent!.Counters);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// "Each planeswalker you control enters with an additional loyalty counter on it" — Oath of
+    /// Gideon, the same line with the counter a planeswalker keeps its loyalty in (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// The counter's name is where this family has to refuse rather than read. Power and
+    /// toughness are worked out from the two counters <c>CounterKinds</c> names and loyalty from
+    /// a third; a "vigilance counter" would be recorded under its printed name and read by
+    /// nothing, so the card would compile complete and grant no vigilance. One corpus card says
+    /// that and is left unread on purpose.
+    /// </remarks>
+    [Fact]
+    public void A_group_entry_replacement_can_add_a_loyalty_counter()
+    {
+        var oath = new CardDefinition
+        {
+            OracleId = "oracle-additional-counter-oath-test",
+            Name = "Additional Counter Oath Test",
+            OracleText =
+                "Each planeswalker you control enters with an additional loyalty counter on it.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, oath, Zone.Battlefield);
+
+        var walker = Walker("Additional Counter Walker Test", 3, string.Empty);
+        var mine = game.Create(alice, walker, Zone.Battlefield);
+        var theirs = game.Create(bob, walker, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(4, game.State.GetObject(mine).Permanent!.Counters[CounterKinds.Loyalty]);
+        Assert.Equal(3, game.State.GetObject(theirs).Permanent!.Counters[CounterKinds.Loyalty]);
+    }
+
+    // ---- "It" in a conditional static, on both sides of the word ------------
+
+    /// <summary>
+    /// "As long as ~ is untapped, it gets +0/+2" — the pronoun means the card, not a host.
+    /// </summary>
+    /// <remarks>
+    /// The reader took every subject that was not "~" for the thing an Aura is attached to, so
+    /// "it" reached <c>AttachedTo</c> — which is null on a creature, because a creature is not
+    /// attached to anything. **29 corpus lines applied to no object at all**, 17 of them on
+    /// cards that were otherwise complete and where that static is the card's only one: Castle
+    /// Raptors computed 3/3 instead of 3/5, Fleecemane Lion never became hexproof, Adanto
+    /// Vanguard never grew while attacking.
+    /// <para>
+    /// Nothing could see it. The card declares a static, so it is not inert to the guard that
+    /// looks for cards which compile and do nothing; it names no subtype, so the subtype
+    /// invariant has nothing to check; and an effect that applies to no object throws nothing,
+    /// computes fine and replays exactly — which is every assertion the soak makes.
+    /// </para>
+    /// <para>
+    /// Both arms are asserted here because either one alone passes a reader that is wrong the
+    /// other way. The equipped case is the one that pins the order: "As long as ~ is equipped,
+    /// it gets +1/+1" contains the word "equipped" and still means the card, so what the
+    /// condition <em>names</em> has to be asked before the attachment words are.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_subject_is_whatever_the_condition_in_front_of_it_named()
+    {
+        var raptors = Card(
+            "Untapped Pronoun Test",
+            "As long as ~ is untapped, it gets +0/+2.",
+            CardType.Creature, 3, 3);
+
+        var lightbringer = Card(
+            "Equipped Pronoun Test",
+            "As long as ~ is equipped, it gets +1/+1.",
+            CardType.Creature, 2, 3);
+
+        var aura = Card(
+            "Pronoun Host Aura Test",
+            "Enchant permanent" + (char)10
+                + "As long as enchanted permanent is a creature, it gets +2/+2.",
+            CardType.Enchantment, null, null, KeywordAbility.None, "Aura");
+
+        var (game, alice, _) = InMainPhase();
+
+        // The card talking about itself, with nothing attached to anything.
+        var bird = game.Create(alice, raptors, Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(5, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bird)));
+
+        game.Tap(bird);
+        Settle(game);
+        Assert.Equal(3, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bird)));
+
+        // The same reading where a host does exist, which is what stops "it" being resolved by
+        // looking for an attachment: the Equipment is attached to the creature, and the bonus
+        // still belongs to the creature the condition named.
+        var cat = game.Create(alice, lightbringer, Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(cat)));
+
+        var sword = game.Create(
+            alice,
+            Card("Pronoun Equipment Test", "Equip {2}", CardType.Artifact,
+                null, null, KeywordAbility.None, "Equipment"),
+            Zone.Battlefield);
+
+        game.Attach(sword, cat);
+        Settle(game);
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(cat)));
+
+        // And the other arm, unchanged: on an Aura the condition names the enchanted permanent,
+        // so the pronoun does too — the Aura is not a creature and could not use the bonus.
+        var bear = game.Create(
+            alice, TestCards.Creature("Pronoun Host Bear Test", 2, 2), Zone.Battlefield);
+        var attached = game.Create(alice, aura, Zone.Battlefield);
+        game.Attach(attached, bear);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
     /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
