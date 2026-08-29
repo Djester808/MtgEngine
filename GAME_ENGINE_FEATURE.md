@@ -446,7 +446,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **46.6% of playable cards fully read** (15,262 of 32,765), 63.8% of all lines (39,442 of 61,846 lines of rules text).
+Coverage is **46.8% of playable cards fully read** (15,347 of 32,765), 64.0% of all lines (39,559 of 61,846 lines of rules text).
 
 ### The compiler was not connected to the game
 
@@ -691,15 +691,13 @@ Recorded so the next pass does not re-spend the cycle. Each was probed or swept,
   that is wrong: the cast path takes an alternative cost unconditionally whenever the card is in
   that zone, so the card could never be cast for its printed cost as its front face. Cheaper and a
   mode short of printed, so left unread.
-- **The cost-modifier grid — five of six cells.** Mapped and probed cell by cell: *spells you cast /
-  less* reads; *spells you cast / more* (1 card), *opponents cast / more* (24), *abilities / less*
-  (55, including `This ability costs {N} less to activate`) and *abilities / more* (6) do not; and
-  ***opponents cast / less* has zero corpus occurrences — that cell does not exist.** All five are
-  blocked on the same thing: the only cost modification the engine has walks the caster's own
-  battlefield and can only ever subtract, and an activated ability's cost is paid with no modifier
-  hook at all. Same for `Spells you cast from your graveyard cost {1} less`, which additionally
-  needs a zone on `CostReducer` *and* on its consumer — adding it to only one would apply the
-  reduction from every zone.
+- ~~**The cost-modifier grid**~~ — **built**, and the counts in the original decline were wrong by
+  about fourfold. Measured card by card when it was implemented: *opponents cast / more* is **3**
+  cards and not 24; `This ability costs {N} less to activate` is printed on **zero** cards, every
+  real printing carrying a counted or conditional tail; *abilities / more* is 1 readable of 3. The
+  cell that genuinely does not exist is *opponents cast / less*, at zero occurrences. `CostReducer`
+  is folded into `CostModifier` rather than sitting beside it, because `Game` reads both lists and
+  a card emitting both would be discounted twice.
 - **`X target <noun>`** (55 cards) — a variable *number of targets* chosen as the spell is cast
   (CR 601.2c), while `SpellDefinition.Targets` is a fixed list. **`mana value X or less`** (66) is
   worse than unread if guessed: the cast-time filter check runs *before* the chosen X is recorded,
