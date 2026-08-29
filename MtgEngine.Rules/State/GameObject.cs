@@ -121,6 +121,37 @@ public sealed record PermanentState
     public bool HasSummoningSickness { get; init; } = true;
 
     /// <summary>
+    /// The turn this permanent entered the battlefield.
+    /// </summary>
+    /// <remarks>
+    /// "As long as ~ entered this turn", "Activate only if this land entered this turn", "destroy
+    /// all creatures that entered this turn" — 87 corpus cards, and the whole cycle of lands whose
+    /// second mana ability is switched on only on the turn they arrive.
+    /// <para>
+    /// <b>Not <see cref="HasSummoningSickness"/>, which is a different fact and answers the
+    /// question wrongly.</b> Sickness lasts until its controller's next turn begins (CR 302.6), so
+    /// a creature that arrived on your turn 5 still has it all through the opponent's turn 6 — and
+    /// a card reading "as long as it entered this turn" is emphatically <em>off</em> during that
+    /// turn. The two agree only on the turn the permanent arrived and diverge on the next one,
+    /// which is exactly the turn combat happens on, so the substitution would have been wrong
+    /// where it mattered most and right everywhere it was easy to test.
+    /// </para>
+    /// <para>
+    /// A turn number rather than a flag, because there is nothing to clear: the turn moves on and
+    /// the comparison stops being true by itself. Zero means "before the first turn", which is
+    /// where the permanents dealt out by a game's setup sit and is not a turn any card can ask
+    /// about.
+    /// </para>
+    /// <para>
+    /// It lives on the object rather than in a list somewhere, for the reason foretell, plot and
+    /// discard all do: entering the battlefield is a zone change, so the thing that arrives is a
+    /// new object with no relation to whatever it was before (CR 400.7), and the fact belongs to
+    /// it. A permanent that leaves and comes back has entered again, on whichever turn that was.
+    /// </para>
+    /// </remarks>
+    public int EnteredOnTurn { get; init; }
+
+    /// <summary>
     /// Damage marked on the permanent this turn (CR 120.3). Cleared during cleanup (CR 514.2),
     /// not when it is dealt, and compared against toughness by state-based actions.
     /// </summary>
@@ -267,6 +298,7 @@ public sealed record PermanentState
         IsPrepared == other.IsPrepared &&
         FaceIndex == other.FaceIndex &&
         HasSummoningSickness == other.HasSummoningSickness &&
+        EnteredOnTurn == other.EnteredOnTurn &&
         DamageMarked == other.DamageMarked &&
         DamagedBy.SetEquals(other.DamagedBy) &&
         DealtDeathtouchDamage == other.DealtDeathtouchDamage &&

@@ -472,6 +472,16 @@ public static class GameReducer
                     // what an effect gives or a cost takes, and never below nothing.
                     Energy = Math.Max(0, state.GetPlayer(energy.PlayerId).Energy + energy.Delta),
                 }),
+            ExperienceCountersChanged experience => state.WithPlayer(
+                state.GetPlayer(experience.PlayerId) with
+                {
+                    // Energy's rule, minus the spending: an experience counter is given and then
+                    // kept for the rest of the game, so there is no arm anywhere that takes one
+                    // away and no turn boundary that clears them.
+                    ExperienceCounters = Math.Max(
+                        0,
+                        state.GetPlayer(experience.PlayerId).ExperienceCounters + experience.Delta),
+                }),
             PlayerPreventionChanged shield => state.WithPlayer(
                 state.GetPlayer(shield.PlayerId) with
                 {
@@ -642,13 +652,52 @@ public static class GameReducer
             throw new InvalidOperationException(
                 $"{e.OldId} is in {moving.Zone}, but the move says it is leaving {e.From}.");
 
-        // CR 700.4: a creature going from the battlefield to a graveyard has died, and a
-        // handful of conditions ask whether one has this turn. Noted as the move is folded so
-        // that a rebuilt game knows it too.
-        if (e is { From: Zone.Battlefield, To: Zone.Graveyard }
-            && moving.Card.CardTypes.HasFlag(CardType.Creature))
+        // Everything that crosses the edge of the battlefield is written down once, and the dozen
+        // questions the corpus asks about arrivals and departures are filters over those two
+        // lists - CR 700.4's "died" among them, which is this move with the graveyard as its
+        // destination. Noted as the move is folded, so a rebuilt game knows it too.
+        if (e.From == Zone.Battlefield)
         {
-            state = state with { CreatureDiedThisTurn = true };
+            state = state with
+            {
+                DeparturesThisTurn = state.DeparturesThisTurn.Add(new BattlefieldDeparture(
+                    e.OldId,
+                    // CR 613.1b: the engine computes this and puts it on the move, because the
+                    // stored controller is only where control started. Null is a hand-built event
+                    // that never went through the engine; the stored answer is right for every
+                    // permanent no control-changing effect has touched, which is all of them in
+                    // that case.
+                    e.LeavingControllerId ?? moving.ControllerId,
+                    moving.Card,
+                    e.To)),
+            };
+        }
+
+        // Entering needs no such computing: a control-changing effect applies to a permanent that
+        // is already there, so at the moment of entry the controller the mover names is the one
+        // the card means by "entered the battlefield under your control".
+        if (e.To == Zone.Battlefield)
+        {
+            state = state with
+            {
+                ArrivalsThisTurn = state.ArrivalsThisTurn.Add(
+                    new BattlefieldArrival(e.NewId, e.ControllerId, moving.Card)),
+            };
+        }
+
+        // CR 700.11: a player has descended when a permanent card is put into their graveyard
+        // from anywhere - which is any zone at all, so the move's origin is not looked at. A
+        // token is not a card (CR 111.7) and descends nobody, and the graveyard is always the
+        // owner's (CR 400.3), so the player is the owner rather than whoever moved it.
+        if (e.To == Zone.Graveyard
+            && !moving.Card.CardTypes.HasFlag(CardType.Token)
+            && IsPermanentCard(moving.Card))
+        {
+            var descending = state.GetPlayer(moving.OwnerId);
+            state = state.WithPlayer(descending with
+            {
+                TimesDescendedThisTurn = descending.TimesDescendedThisTurn + 1,
+            });
         }
 
         state = RemoveFrom(state, moving.Zone, moving.OwnerId, e.OldId);
@@ -675,7 +724,9 @@ public static class GameReducer
             Zone = e.To,
             Timestamp = timestamp,
             // CR 403.3: every object on the battlefield is a permanent, and only there.
-            Permanent = e.To == Zone.Battlefield ? EnteringPermanent(moving.Card) : null,
+            Permanent = e.To == Zone.Battlefield
+                ? EnteringPermanent(moving.Card, state.TurnNumber)
+                : null,
 
             // Stamped from the move rather than from a separate event, because the move is
             // already the whole fact: a card in a graveyard that got there by being discarded,
@@ -831,17 +882,38 @@ public static class GameReducer
     /// replacement effect a card carries — it is what the rules do for every planeswalker — so
     /// it happens here rather than needing a definition per card.
     /// </remarks>
-    private static PermanentState EnteringPermanent(CardDefinition card)
+    /// <param name="card">The printed card the permanent arrives as.</param>
+    /// <param name="turn">
+    /// The turn now being taken, stamped on the permanent so that "as long as ~ entered this turn"
+    /// has something to compare against. The move is already the whole fact, so no event carries
+    /// it: the fold knows which turn it is folding.
+    /// </param>
+    private static PermanentState EnteringPermanent(CardDefinition card, int turn)
     {
         if (!card.CardTypes.HasFlag(CardType.Planeswalker) || card.StartingLoyalty is not { } loyalty)
-            return new PermanentState();
+            return new PermanentState { EnteredOnTurn = turn };
 
         return new PermanentState
         {
+            EnteredOnTurn = turn,
             Counters = ImmutableDictionary<string, int>.Empty
                 .Add(CounterKinds.Loyalty, loyalty),
         };
     }
+
+    /// <summary>
+    /// Whether this card would be a permanent if it resolved (CR 110.4a, 700.11).
+    /// </summary>
+    /// <remarks>
+    /// The six permanent card types, asked as one mask rather than as six comparisons. Instants
+    /// and sorceries are the whole of what it excludes, and <c>Tribal</c> and <c>Other</c> are
+    /// deliberately not in the list: neither is a permanent type on its own, and a tribal card is
+    /// always printed with one that is.
+    /// </remarks>
+    private static bool IsPermanentCard(CardDefinition card) =>
+        (card.CardTypes
+            & (CardType.Artifact | CardType.Creature | CardType.Enchantment
+                | CardType.Land | CardType.Planeswalker | CardType.Battle)) != CardType.None;
 
     private static GameState Lose(GameState state, PlayerLost e)
     {
@@ -987,8 +1059,24 @@ public static class GameReducer
             ControllerId = e.Zone.IsPerPlayer() ? e.OwnerId : e.ControllerId,
             Zone = e.Zone,
             Timestamp = timestamp,
-            Permanent = e.Zone == Zone.Battlefield ? EnteringPermanent(e.Card) : null,
+            // CR 111.1: a token is created on the battlefield and was never anywhere else, so it
+            // entered on this turn exactly as a card resolving into play did.
+            Permanent = e.Zone == Zone.Battlefield
+                ? EnteringPermanent(e.Card, state.TurnNumber)
+                : null,
         });
+
+        // And it entered, which is the other arm of that same fact. A token created and then
+        // sacrificed in one turn still entered under its controller's control that turn, which is
+        // exactly why the arrivals are recorded rather than swept off the battlefield later.
+        if (e.Zone == Zone.Battlefield)
+        {
+            state = state with
+            {
+                ArrivalsThisTurn = state.ArrivalsThisTurn.Add(
+                    new BattlefieldArrival(e.Id, e.ControllerId, e.Card)),
+            };
+        }
 
         return AddTo(state, e.Zone, e.OwnerId, e.Id, e.Position);
     }
@@ -1050,6 +1138,10 @@ public static class GameReducer
                     LifeGainedThisTurn = 0,
                     NoncreatureSpellsCastThisTurn = 0,
                     SpellCardsCastThisTurn = [],
+
+                    // CR 700.11 is a per-turn count like the rest. The experience counters beside
+                    // it deliberately are not: nothing in the game takes one away.
+                    TimesDescendedThisTurn = 0,
                 });
 
         return state with
@@ -1058,7 +1150,8 @@ public static class GameReducer
             ActivePlayerId = e.ActivePlayerId,
             PreviousActivePlayerId = state.TurnNumber == 0 ? null : state.ActivePlayerId,
             Players = players,
-            CreatureDiedThisTurn = false,
+            ArrivalsThisTurn = [],
+            DeparturesThisTurn = [],
         };
     }
 

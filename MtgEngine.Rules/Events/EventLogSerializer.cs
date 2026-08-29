@@ -122,6 +122,7 @@ public static class EventLogSerializer
             ["CoinFlipRequested"] = typeof(CoinFlipRequested),
             ["PermanentTurned"] = typeof(PermanentTurned),
             ["EnergyChanged"] = typeof(EnergyChanged),
+            ["ExperienceCountersChanged"] = typeof(ExperienceCountersChanged),
             ["SpeedChanged"] = typeof(SpeedChanged),
             ["SpellDashed"] = typeof(SpellDashed),
             ["SpellBlitzed"] = typeof(SpellBlitzed),
