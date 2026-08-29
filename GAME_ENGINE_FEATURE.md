@@ -486,7 +486,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **48.7% of playable cards fully read** (15,937 of 32,717), 65.9% of lines.
+Coverage is **48.9% of playable cards fully read** (15,990 of 32,717), 66.1% of lines.
 
 ### Round ten, and what an interrupted round leaves behind
 
@@ -504,10 +504,49 @@ The other four are parked on their branches, committed but unmerged, and the tri
 recording because it is the shape an interrupted round always takes. All four compile. One
 (bargain and per-kicker read-back) fails nothing but `MechanicCoverageTests`, which refuses
 five new line shapes that no played-game test exercises - the gate working exactly as designed,
-since a reader without a game behind it is how a card comes to compile and not play. One (dice)
+since a reader without a game behind it is how a card comes to compile and not play. That one has
+since been resumed and finished; the section below records it. One (dice)
 fails only its own new tests. **Two regress pre-existing tests** - soulbond breaks a self-pump
 keyword grant, and the source-scoped group work breaks a keyword lord - and those two are the
 reason none of the four was merged on a "it compiles and mostly passes" basis.
+
+### Resuming the parked spell-facts branch, and what the gate was actually protecting
+
+The bargain-and-per-kicker branch was picked back up and finished. Nothing about the readers
+needed changing: all five refused shapes — `KickerAndOrLine`, `BargainDiscountLine`,
+`FactModalHeader`, `UpToModalHeader`, `ChooseXHeader` — were correct, and what they were missing
+was a game. Five played-game tests now cast the real cards and assert the board, and the branch
+carries **+55 complete cards over the merged tip with none lost**, the same number the
+interrupted agent had measured before the round's other work landed on top of it.
+
+What the tests are worth is visible in what they had to distinguish. Anavolver's two kicker
+clauses hand out *different* counters and *different* abilities, so a permanent that only knows
+it was kicked cannot be told from one that knows which kicker was paid — two counters and flying
+for the `{1}{U}` clause, one counter and a regenerate ability for the `{B}` one, three counters
+and both gifts when both were paid, and kicked twice for it (CR 702.33d). Bargain's reduction is
+proved by the two mana that cannot pay the printed cost and do pay the bargained one, with the
+sacrifice really taken. "Choose both instead" is asserted in both directions, because a swap read
+as a widening would let a teamwork caster take one mode and a reading that ignored the clause
+would refuse both.
+
+**And the gate caught a second thing on the way out, which is the argument for running it.**
+`CardCompilerInvariantTests` refused Doomsday Confluence and Moment of Reckoning for having
+"modes but chooses none" — an invariant written back when every modal header this engine read
+had a floor of at least one. Two printed headers do not: "choose up to four" puts a ceiling above
+a floor of zero, and "choose X" takes its count from the announcement (CR 700.2d, 601.2b). The
+invariant now asks whether *anything* can reach the bullets — a ceiling above the floor, or an
+announced X — instead of only whether the floor is above zero. The defect it was written for, a
+menu with all three numbers at rest that nobody can order from, is still caught. Nothing in the
+rules suite could see this: the cards compile, and they play.
+
+**The two "near-misses" turned out to belong to other families.** Helicarrier Strike and Crossover
+Collaboration were being diagnosed as cast-fact failures and are not: the teamwork rider reads on
+both, and the sentence it wraps does not. Helicarrier's inner sentence — "it deals 4 damage to
+that creature" — is unread on its own, a back-reference family worth at most 95 cards. Crossover's
+line is the impulse idiom with a third sentence after it, and the same line with an ordinary third
+sentence is equally unread, so the blocker is the impulse reader's intolerance of a tail, worth at
+most 15. Both are separate work with their own tests; neither is evidence against the readers this
+branch added.
 
 ### What the round-end gate caught that no agent could
 
