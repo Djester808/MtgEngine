@@ -5336,27 +5336,24 @@ public static partial class EffectPhrase
         if (string.Equals(word, "-1/-1", StringComparison.Ordinal))
             return CounterKinds.MinusOneMinusOne;
 
-        // "+4/+4", "-0/-2", "+2/+0" — a counter shaped like the two the engine models and not
-        // one of them. CR 122.1a says a +X/+Y counter adds X to power and Y to toughness for any
-        // X and Y; this engine works power and toughness out from exactly the two names above, so
-        // any other one is refused rather than kept under its printed name. Keeping it is the
-        // failure this project most wants to avoid: the counter would be put on the permanent,
-        // recorded in the log, and change nothing at all, while the card compiled complete,
-        // passed the legality gate, and played as a weaker card than it prints.
+        // "+4/+4", "-0/-2", "+2/+0" — a counter shaped like the two above and not one of them.
+        // This was refused outright until the layers could tell what such a name means: power and
+        // toughness came out of a list of two, so a +1/+0 counter would have gone onto the
+        // permanent, appeared in the log and changed nothing, on a card that compiled complete
+        // and passed the legality gate. Now CounterKinds.PowerToughnessOf reads the name the rule
+        // does (CR 122.1c) and layer 7c applies whatever it says, so the name is kept as printed
+        // and there is nothing left to refuse.
         //
-        // Nine corpus cards print one and all nine are incomplete for other reasons, so nothing
-        // is lost today. The refusal is what stops something being lost silently the day one of
-        // them is finished.
-        if (PowerToughnessCounter().IsMatch(word))
-            return null;
+        // Kept exactly as printed rather than lowercased with the rest, because a name made of
+        // digits and signs has no case to fold and the counter has to be the same string every
+        // other reader of the card writes.
+        if (CounterKinds.PowerToughnessOf(word) is not null)
+            return word;
 
         // Anything else is a named counter — charge, storage, depletion, age — and the engine
         // has never cared which names exist. Those are kept exactly as printed.
         return word.ToLowerInvariant();
     }
-
-    [GeneratedRegex(@"^[+-]\d+/[+-]\d+$")]
-    private static partial Regex PowerToughnessCounter();
 
     /// <summary>Which players a printed group word names (CR 109.5).</summary>
     private static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch

@@ -43044,6 +43044,299 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, game.State.GetObject(klass).Permanent!.Level);
         Assert.Equal(before + 5, game.State.GetPlayer(alice).Life);
     }
+    // ---- What a counter's name says about power and toughness (CR 122.1c) ----
+
+    /// <summary>
+    /// A card that prints -1/-1 counters gets -1/-1 counters (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// The reader for this family chose the counter with an inverted test - "if the printed kind
+    /// is not +1/+1 and not -1/-1, keep it, otherwise +1/+1" - so every printed -1/-1 became its
+    /// opposite. Thirty-two corpus cards say it and sixteen of them compiled complete, which is
+    /// to say the pool served them: Carnifex Demon arrived an 8/8 where the card says 4/4, Grim
+    /// Poppet a 7/7 where it says 1/1, Shrewd Hatchling a 10/10 where it says 2/2.
+    /// <para>
+    /// Nothing in the suite could see it. The line read, the card compiled complete, the counters
+    /// went on and were logged, and the creature was simply larger than the cardboard - the one
+    /// outcome this compiler exists to make impossible. Both the size and the counter's own name
+    /// are asserted, because either alone passes while the other is wrong.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_enters_with_minus_counters_is_smaller_not_bigger()
+    {
+        var demon = Card(
+            "Carnifex Demon Test",
+            "~ enters with two -1/-1 counters on it.",
+            CardType.Creature,
+            power: 6,
+            toughness: 6);
+
+        var compiled = CardCompiler.Compile(demon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var id = game.Create(alice, demon, Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.State.GetObject(id);
+        Assert.Equal(
+            2, arrived.Permanent!.Counters.GetValueOrDefault(CounterKinds.MinusOneMinusOne));
+        Assert.Equal(
+            0, arrived.Permanent!.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        var size = Characteristics.Of(game.State, Pool, arrived);
+        Assert.Equal(4, size.Power);
+        Assert.Equal(4, size.Toughness);
+    }
+
+    /// <summary>
+    /// A +1/+0 counter moves power and leaves toughness alone (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// Layer 7c read power and toughness out of a list of two counter names, so a counter called
+    /// anything else went onto the permanent, into the log, and did nothing at all. Clockwork
+    /// Beast is printed 0/4 and arrives with seven +1/+0 counters; before this it arrived as a
+    /// 0/4 whose whole card is about managing counters that had no effect.
+    /// <para>
+    /// The number word is the other half of the same line. The shared number reader has known
+    /// "six" and "seven" all along and this family's own pattern stopped at "five", which is why
+    /// a card printing a number one higher was unread rather than misread.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counter_that_names_only_power_moves_only_power()
+    {
+        var beast = Card(
+            "Clockwork Beast Test",
+            "~ enters with seven +1/+0 counters on it.",
+            CardType.Creature,
+            power: 0,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(beast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var id = game.Create(alice, beast, Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.State.GetObject(id);
+        Assert.Equal(7, arrived.Permanent!.Counters.GetValueOrDefault("+1/+0"));
+
+        var size = Characteristics.Of(game.State, Pool, arrived);
+        Assert.Equal(7, size.Power);
+        Assert.Equal(4, size.Toughness);
+    }
+
+    /// <summary>
+    /// Two counters of different names are added up, not netted (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// The old computation was a single number - pluses minus minuses - and that shape cannot
+    /// hold this board: a permanent carrying a +1/+0 and a -0/-1 is one bigger in one direction
+    /// and one smaller in the other. It is the case that decides whether the rule was implemented
+    /// or merely widened, and it is why the layer now keeps a pair rather than a delta.
+    /// </remarks>
+    [Fact]
+    public void Counters_of_two_names_move_power_and_toughness_separately()
+    {
+        var golem = Card(
+            "Counter Pair Test",
+            "~ enters with a +1/+0 counter on it.\nWhen ~ enters, put a -0/-1 counter on ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(golem);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var id = game.Create(alice, golem, Zone.Battlefield);
+        Settle(game);
+
+        var size = Characteristics.Of(game.State, Pool, game.State.GetObject(id));
+        Assert.Equal(3, size.Power);
+        Assert.Equal(1, size.Toughness);
+    }
+
+    /// <summary>
+    /// The counter arrives on "her" and on "him" as readily as on "it" (CR 614.1c).
+    /// </summary>
+    /// <remarks>
+    /// A card whose creature has a gender says so, and the pattern spelled only the neuter
+    /// pronoun - so Big Bertha and Michelangelo went unread for one word in a sentence otherwise
+    /// identical to the one beside them. Written as a Theory because the three rows are the same
+    /// rule and nothing else about them differs.
+    /// </remarks>
+    [Theory]
+    [InlineData("it")]
+    [InlineData("her")]
+    [InlineData("him")]
+    public void The_pronoun_a_card_uses_for_itself_does_not_change_the_rule(string pronoun)
+    {
+        var spike = Card(
+            "Spike Hatcher " + pronoun + " Test",
+            "~ enters with six +1/+1 counters on " + pronoun + ".",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(spike);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var id = game.Create(alice, spike, Zone.Battlefield);
+        Settle(game);
+
+        // A 0/0 that did not get its counters is dead before anything can measure it, so the
+        // permanent still being on the battlefield is half the assertion.
+        Assert.Contains(id, game.State.Battlefield);
+
+        var size = Characteristics.Of(game.State, Pool, game.State.GetObject(id));
+        Assert.Equal(6, size.Power);
+        Assert.Equal(6, size.Toughness);
+    }
+
+    /// <summary>
+    /// Adamant: the condition printed in front of the sentence (CR 614.1c).
+    /// </summary>
+    /// <remarks>
+    /// The trailing spelling - "...on it if a creature died this turn" - has been read for a
+    /// while, and the clause vocabulary that answers it could already answer this one: "at least
+    /// three white mana was spent to cast ~" is a question the board reader has understood since
+    /// the mana record was kept. Only the word order was new, and the whole adamant cycle sat
+    /// unread behind it.
+    /// <para>
+    /// The false row spends exactly as much mana as the true one, which is what makes it worth
+    /// running: a reader that answered from the total rather than from the colour would pass both
+    /// rows, and the counter would arrive on a card that did not earn it.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Plains", true)]
+    [InlineData("Island", false)]
+    public void A_condition_printed_before_the_sentence_is_asked_the_same_way(
+        string third, bool earned)
+    {
+        var paladin = new CardDefinition
+        {
+            OracleId = "oracle-adamant-paladin-" + third,
+            Name = "Ardenvale Paladin " + third + " Test",
+            OracleText = "If at least three white mana was spent to cast ~, "
+                + "~ enters with a +1/+1 counter on it.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{2}{W}",
+            Cmc = 3,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var compiled = CardCompiler.Compile(paladin);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, paladin);
+
+        foreach (var basic in new[] { "Plains", "Plains", third })
+        {
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == paladin.Name);
+
+        Assert.Equal(earned ? 3 : 2, Characteristics.Of(game.State, Pool, arrived).Power);
+    }
+
+    /// <summary>
+    /// "Where X is the number of ..." is the counted number, said another way (CR 614.1c).
+    /// </summary>
+    /// <remarks>
+    /// Magic writes this count three ways and the compiler accepted one. "For each other creature
+    /// on the battlefield" and "with X +1/+1 counters on it, where X is the number of other
+    /// creatures on the battlefield" are one instruction, and every card carrying the second was
+    /// filed under a shape of its own in the work queue - so a family worth a dozen cards looked
+    /// like a dozen unrelated one-offs.
+    /// <para>
+    /// Bob's creature is in the count and the beetle is not. "Other" is honoured by when the
+    /// question is asked rather than by a filter: a replacement runs before the move is folded
+    /// in, so the permanent arriving is not yet on the battlefield it is counting (CR 400.7).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_number_reads_the_same_group_however_the_card_spells_it()
+    {
+        var beetle = Card(
+            "Stag Beetle Test",
+            "~ enters with X +1/+1 counters on it, "
+                + "where X is the number of other creatures on the battlefield.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(beetle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Stag Beetle Friend Test", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Stag Beetle Enemy Test", 2, 2), Zone.Battlefield);
+
+        var id = game.Create(alice, beetle, Zone.Battlefield);
+        Settle(game);
+
+        var size = Characteristics.Of(game.State, Pool, game.State.GetObject(id));
+        Assert.Equal(2, size.Power);
+        Assert.Equal(2, size.Toughness);
+    }
+
+    /// <summary>
+    /// "A number of ... equal to the number of ..." is that same count, spelled out (CR 614.1c).
+    /// </summary>
+    /// <remarks>
+    /// The third spelling, and the one that also declines the noun: "for each creature card in
+    /// your graveyard" and "equal to the number of creature cards in your graveyard" ask the same
+    /// zone the same question, and the table the zone reader looks that noun up in is written
+    /// singular. The plural found nothing, so the count came back unreadable - the same
+    /// declension defect that once cost every "creatures with flying" line, found again in the
+    /// other half of the vocabulary.
+    /// </remarks>
+    [Fact]
+    public void A_counted_number_reads_a_zone_group_named_in_the_plural()
+    {
+        var lurcher = Card(
+            "Rhizome Lurcher Test",
+            "~ enters with a number of +1/+1 counters on it "
+                + "equal to the number of creature cards in your graveyard.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(lurcher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Lurcher Dead One Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Lurcher Dead Two Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Lurcher Dead Three Test", 2, 2), Zone.Graveyard);
+
+        // A land in the same graveyard, so a reader that counted cards rather than creature
+        // cards reads four here and fails rather than passing on a coincidence.
+        game.Create(alice, TestCards.BasicLand("Lurcher Dead Land Test"), Zone.Graveyard);
+
+        var id = game.Create(alice, lurcher, Zone.Battlefield);
+        Settle(game);
+
+        var size = Characteristics.Of(game.State, Pool, game.State.GetObject(id));
+        Assert.Equal(3, size.Power);
+        Assert.Equal(3, size.Toughness);
+    }
+
     // ---- Granting a whole ability to a group (CR 613.1f) ---------------------
 
     private static IReadOnlyList<string> GrantedIdsOf(Game game, ObjectId id) =>
