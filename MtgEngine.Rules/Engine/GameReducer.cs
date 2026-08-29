@@ -504,6 +504,7 @@ public static class GameReducer
             DiscardRequested => state,
             LookAndTakeRequested => state,
             LibrarySearchRequested => state,
+            SeekRequested => state,
             ProliferateRequested => state,
             ChoosePermanentRequested => state,
             CoinFlipRequested => state,

@@ -3114,6 +3114,55 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Seek a nonland card." - a search with the choice taken away and the shuffle removed.
+        // The filter, the count and the mana-value bounds are read by the same vocabulary the
+        // search above uses, so a word either of them learns is learned by both; what is
+        // different is the effect it builds, and the difference is that the game picks.
+        //
+        // Anchored at both ends, like every sentence reader here, and that is what refuses the
+        // half of this family that must stay unread: "seek a nonland card instead", "seek a card
+        // with mana value equal to the number of cards in your hand", "seek three nonland cards,
+        // then nonland cards in your hand perpetually gain ...". Each of those means something
+        // this cannot build, and each stops matching at the tail rather than being read as the
+        // plain seek it is not.
+        m = SeekLine().Match(sentence);
+        if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
+        {
+            effects.Add(new Seek(
+                Abilities.SearchFilters.NamedPrefix + m.Groups["named"].Value.Trim(),
+                m.Groups["where"].Success ? Zone.Battlefield : Zone.Hand,
+                Tapped: m.Groups["tapped"].Success));
+
+            return true;
+        }
+
+        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } sought)
+        {
+            effects.Add(new Seek(
+                sought,
+                m.Groups["where"].Success ? Zone.Battlefield : Zone.Hand,
+                Tapped: m.Groups["tapped"].Success,
+                Count: SearchCount(m.Groups["n"].Value),
+
+                // "With mana value 3" alone is an exact match and not a ceiling, the same
+                // reading the search takes: treating it as "3 or less" would find cards the
+                // card does not allow, which is a strictly better card than the printed one.
+                ExactManaValue: m.Groups["cap"].Success && !m.Groups["dir"].Success
+                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
+                    : null,
+                MinManaValue: m.Groups["cap"].Success
+                    && m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
+                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
+                    : null,
+                MaxManaValue: m.Groups["cap"].Success
+                    && m.Groups["dir"].Success
+                    && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
+                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
+                    : null));
+
+            return true;
+        }
+
         // "Target land you control becomes a 3/3 Elemental creature until end of turn." — the
         // manland shape. Two effects for one sentence, because setting power and toughness is
         // layer 7b and adding a type is layer 4 (CR 613.1d, 613.4b), and one effect cannot be in
@@ -9501,6 +9550,21 @@ public static partial class EffectPhrase
             + @"| then shuffle your library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SearchLibraryLine();
+
+    /// <remarks>
+    /// The seek grammar, written against the search's so the two stay legible side by side. The
+    /// tail is narrower on purpose: a seek puts the card in its controller's hand unless the
+    /// sentence says the battlefield, and nothing else it might say is read.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^seeks? (an?|(?<n>two|three|four|five)) "
+            + @"(?<what>[A-Za-z, ]+? )?cards?"
+            + @"( named (?<named>[^,.]+?))?"
+            + @"( with mana value (?<cap>\d+)( or (?<dir>less|greater))?)?"
+            + @"( (and|then) put (it|that card|them|those cards) "
+            + @"(?<where>onto the battlefield)(?<tapped> tapped)?)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SeekLine();
 
     [GeneratedRegex(@"^add (?<mana>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex AddManaLine();

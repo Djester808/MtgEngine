@@ -479,6 +479,33 @@ public sealed record LibrarySearchRequested(
         $"{PlayerId:N} searches their library for a {FilterId} card.";
 }
 
+/// <summary>
+/// A player is to seek a card, performed at the next settle.
+/// </summary>
+/// <remarks>
+/// No <see cref="GameEvent.Rule"/>, and that is deliberate: seeking is a digital-only keyword
+/// action that the Comprehensive Rules do not define, so there is no paragraph to point at.
+/// <para>
+/// The card is chosen by the game rather than by its controller, which is why this is settled
+/// rather than asked - there is no question to put to anybody. Like every other random outcome
+/// here, what reaches the log is the moves the seek made, not the roll that made them, so a
+/// replay agrees without re-rolling.
+/// </para>
+/// </remarks>
+public sealed record SeekRequested(
+    Guid PlayerId,
+    string FilterId,
+    Zone Destination,
+    bool Tapped,
+    int Count = 1,
+    int? MaxManaValue = null,
+    int? MinManaValue = null,
+    int? ExactManaValue = null) : GameEvent
+{
+    public override string Describe() =>
+        $"{PlayerId:N} seeks {Count} {FilterId} card(s) to {Destination}.";
+}
+
 /// <summary>Modes were chosen for a modal spell as it was cast (CR 601.2b).</summary>
 public sealed record ModesChosen(ObjectId StackId, ImmutableList<int> Modes) : GameEvent
 {

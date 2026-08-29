@@ -3378,6 +3378,13 @@ public sealed class Game
     /// <summary>Library searches owed to players, asked at the next settle (CR 701.23).</summary>
     private readonly List<LibrarySearchRequested> _searchesOwed = [];
 
+    /// <summary>Seeks owed, performed at the next settle.</summary>
+    /// <remarks>
+    /// A list rather than a single field for the same reason the searches are one: a card can
+    /// seek twice in a sentence, and a resolution is never stopped part of the way through.
+    /// </remarks>
+    private readonly List<SeekRequested> _seeksOwed = [];
+
     private readonly List<SacrificeUnlessPaidRequested> _sacrificeUnlessOwed = [];
 
     private readonly List<LibraryEndChoiceRequested> _libraryEndsOwed = [];
@@ -5788,6 +5795,61 @@ public sealed class Game
     }
 
     /// <summary>
+    /// Performs the oldest owed seek, if any.
+    /// </summary>
+    /// <remarks>
+    /// Settled rather than asked. Seeking takes a card at random from among those that match, so
+    /// there is nobody to put a question to - the same shape as a discard at random, and for the
+    /// same reason: the choice belongs to the game, so the game makes it through the one seeded
+    /// source and the moves it produces are what the log carries.
+    /// <para>
+    /// It deliberately does <em>not</em> shuffle afterwards. Shuffling is the half of a search
+    /// (CR 701.23e) that seeking exists to avoid, and doing it here would give every seek a side
+    /// effect its card does not print.
+    /// </para>
+    /// <para>
+    /// Finding nothing is not a failure: a library with no matching card leaves the seek doing
+    /// nothing at all, which is what the mechanic says and is why this returns false rather than
+    /// waiting for anything.
+    /// </para>
+    /// </remarks>
+    private bool SettleOwedSeek()
+    {
+        if (_seeksOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _seeksOwed[0];
+        _seeksOwed.RemoveAt(0);
+
+        // CR 202.3: mana value comes from the printed cost, and a card in a library has only its
+        // printed cost - nothing on the battlefield is changing it.
+        var found = State.GetPlayer(owed.PlayerId).Library
+            .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card)
+                && (owed.MaxManaValue is not { } cap || State.GetObject(id).Card.Cmc <= cap)
+                && (owed.MinManaValue is not { } floor || State.GetObject(id).Card.Cmc >= floor)
+                && (owed.ExactManaValue is not { } exact
+                    || State.GetObject(id).Card.Cmc == exact))
+            .ToList();
+
+        if (found.Count == 0)
+            return false;
+
+        var did = false;
+
+        foreach (var id in _random.Shuffle(found).Take(Math.Max(1, owed.Count)))
+        {
+            var landed = Move(id, owed.Destination, MoveCause.Other, owed.PlayerId);
+
+            if (owed.Tapped && owed.Destination == Zone.Battlefield)
+                Emit(new PermanentTapped(landed));
+
+            did = true;
+        }
+
+        return did;
+    }
+
+    /// <summary>
     /// Asks the oldest owed look-and-take, if any (CR 701.20a).
     /// </summary>
     private bool AskOwedLookAndTake()
@@ -6710,6 +6772,15 @@ public sealed class Game
 
             if (AskOwedSearch())
                 return true;
+
+            // A seek asks nobody anything, so it is performed here and the sweep goes round
+            // again: the cards it moved can have triggered something, and a settle that returned
+            // as though it were waiting would leave those triggers on the floor.
+            if (SettleOwedSeek())
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedSacrificeUnless())
                 return true;
@@ -9220,6 +9291,9 @@ public sealed class Game
 
         if (e is LibrarySearchRequested search)
             _searchesOwed.Add(search);
+
+        if (e is SeekRequested seeking)
+            _seeksOwed.Add(seeking);
 
         if (e is ProliferateRequested proliferate)
             _proliferationsOwed.Add(proliferate);
