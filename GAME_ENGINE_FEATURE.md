@@ -655,6 +655,30 @@ resolved untaxed and no question was asked — and reverted rather than shipped.
 the whole compiler depends on: a mechanism that looks finished and does nothing is the thing this
 project is least able to detect on its own.
 
+### A reader can eat its neighbour and the coverage number still goes up
+
+The standing advice for adding a reader was to measure coverage before and after, so that one
+which claims a sentence and then refuses it — silently disabling the readers below — shows up as a
+loss. **That advice is not sufficient, and the counter-example is measured.** A new reader was
+placed before an existing one matching the same string, took **16 corpus lines** off its neighbour,
+and coverage still rose, because it gained more than the neighbour lost. A net figure hides a
+regression completely.
+
+It was caught only because the probe carried the **neighbour's own wording as a control case**, so
+the neighbour was being checked for READ on every run.
+
+Two things are therefore required of anything that widens a pattern, not one:
+
+- **Keep every neighbouring wording in the probe as a control.** If a new arm claims "no basic
+  lands", the probe must still assert that "no lands" and "a basic land" read.
+- **Diff the set of complete cards, not the count**, and check that the newly-incomplete set is
+  empty rather than inferring it from the total.
+
+`BoardConditions` alone has produced four of these: two patterns that had never once matched
+(`you 're the monarch` wanted a space; the zone arm wanted "in **the the** battlefield"), and two
+that matched, refused, and took the clause from every reader below — one of which cost six cards
+before anyone noticed.
+
 ### Declined here, with the measurement behind each
 
 Recorded so the next pass does not re-spend the cycle. Each was probed or swept, not guessed.
