@@ -732,46 +732,7 @@ public static partial class CardCompiler
             if (TryEnchant(line, spellTargets))
                 continue;
 
-            if (TrySmallCreaturesCantBlock(line, card, statics))
-                continue;
-
-            if (TryExtraBlocks(line, card, statics))
-                continue;
-
-            if (TryMustBeBlocked(line, card, statics))
-                continue;
-
-            if (TryMinimumBlockers(line, card, statics))
-                continue;
-
-            if (TryCantBeBlockedExceptBy(line, card, statics))
-                continue;
-
-            if (TryCantBeBlockedBy(line, card, statics))
-                continue;
-
-            if (TryDoesNotUntap(line, card, statics))
-                continue;
-
-            if (TryAttachedBuff(line, statics))
-                continue;
-
-            if (TryAttachedAnimation(line, statics))
-                continue;
-
-            if (TryGrantedAbility(line, card, statics))
-                continue;
-
-            if (TryDefinedPowerToughness(line, card, statics))
-                continue;
-
-            if (TryCountingStatic(line, card, statics))
-                continue;
-
-            if (TryConditionalStatic(line, card, statics))
-                continue;
-
-            if (TryMassStatic(line, card, statics))
+            if (TryStaticLine(line, card, statics))
                 continue;
 
             if (TryEquip(line, activated))
@@ -1205,6 +1166,14 @@ public static partial class CardCompiler
                 spellTargets.AddRange(parsed.Targets);
                 continue;
             }
+
+            // Last, and only for a permanent. A line of static clauses about what this is
+            // attached to, joined by commas and "and", where every clause on its own is one the
+            // readers above understand. Placed here so it can only ever see a line nothing else
+            // would take — a fold placed higher would claim clauses from its neighbours and
+            // disable them while the coverage total still went up.
+            if (!isSpell && TryAttachedConjunction(line, card, statics))
+                continue;
 
             unhandled.Add(line);
         }
@@ -5758,6 +5727,201 @@ public static partial class CardCompiler
         }
 
         targets.Add(subject);
+        return true;
+    }
+
+    /// <summary>
+    /// Every reader that turns one line into a continuous effect, in the order they are tried.
+    /// </summary>
+    /// <remarks>
+    /// One method rather than a run of <c>if</c>s in the compile loop, because there are now two
+    /// callers: the loop, and <see cref="TryAttachedConjunction"/>, which re-offers the clauses of
+    /// a conjoined line to exactly the same readers. Two copies of this order would be a list the
+    /// compiler has to remember, and a clause the loop can read but the fold cannot is invisible —
+    /// it looks like a card that simply does not compile.
+    /// </remarks>
+    private static bool TryStaticLine(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder statics)
+        => TrySmallCreaturesCantBlock(line, card, statics)
+            || TryExtraBlocks(line, card, statics)
+            || TryMustBeBlocked(line, card, statics)
+            || TryMinimumBlockers(line, card, statics)
+            || TryCantBeBlockedExceptBy(line, card, statics)
+            || TryCantBeBlockedBy(line, card, statics)
+            || TryDoesNotUntap(line, card, statics)
+            || TryAttachedBuff(line, statics)
+            || TryAttachedAnimation(line, statics)
+            || TryAttachedTypeAddition(line, statics)
+            || TryGrantedAbility(line, card, statics)
+            || TryDefinedPowerToughness(line, card, statics)
+            || TryCountingStatic(line, card, statics)
+            || TryConditionalStatic(line, card, statics)
+            || TryMassStatic(line, card, statics);
+
+    /// <summary>
+    /// "Enchanted creature gets +2/+2, has flying, and is a Bird in addition to its other types."
+    /// </summary>
+    /// <remarks>
+    /// A conjunction of static clauses about one subject, folded by re-offering each clause to
+    /// <see cref="TryStaticLine"/> with the subject put back in front of it. The vocabulary is
+    /// therefore whatever the compiler already reads — every clause added in future joins this
+    /// grammar without anyone coming back here.
+    /// <para>
+    /// **It runs last, after every other matcher has refused the whole line**, which is what makes
+    /// it safe. A reader placed before an existing one can claim a clause its neighbour handled
+    /// and disable it silently while total coverage still rises; a reader that only ever sees
+    /// lines nothing else would take cannot steal anything by construction.
+    /// </para>
+    /// <para>
+    /// It fails closed twice over. Every clause must read or the whole line is left unread, so a
+    /// card is never given the half of its text the compiler happened to understand — an Aura that
+    /// pumps and silently drops "and doesn't untap" is strictly better than printed. And the
+    /// longest join is tried first, so a keyword list ("has flying, first strike, and haste") is
+    /// offered whole before the commas inside it are ever treated as joins.
+    /// </para>
+    /// <para>
+    /// The subject is an attached one — CR 301.5f and CR 303.4m, the thing this permanent is
+    /// attached to. "~" is deliberately excluded: it was measured across the corpus and folds
+    /// nothing, and a card's own text reaching a static fold is how a one-shot effect on a spell
+    /// would become a permanent one.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedConjunction(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = ConjoinedAttachedLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var subject = m.Groups["subject"].Value;
+        var pieces = ClauseJoin().Split(m.Groups["rest"].Value);
+
+        // Split keeps the separators, so the odd entries are the joins and the even ones the
+        // clauses. Rejoining a span has to use the separators that were printed between them —
+        // rebuilding with " and " would turn a comma list into something no card says.
+        var clauses = new string[(pieces.Length + 1) / 2];
+        var joins = new string[clauses.Length - 1];
+        for (var i = 0; i < pieces.Length; i++)
+        {
+            if (i % 2 == 0)
+                clauses[i / 2] = pieces[i];
+            else
+                joins[i / 2] = pieces[i];
+        }
+
+        if (clauses.Length < 2)
+            return false;
+
+        var folded = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        if (!ReadClauses(clauses, joins, 0, subject, card, folded))
+            return false;
+
+        into.AddRange(folded);
+        return true;
+    }
+
+    /// <summary>Reads clauses <paramref name="from"/> onwards, longest join first.</summary>
+    /// <remarks>
+    /// It backtracks because longest-first is a preference and not a rule: "has flying and first
+    /// strike" is one clause and "gets +1/+1 and doesn't untap …" is two, and only trying tells
+    /// them apart. Nothing is written into <paramref name="into"/> until the whole remainder has
+    /// been read, so an abandoned attempt leaves no effect behind on the card.
+    /// </remarks>
+    private static bool ReadClauses(
+        string[] clauses,
+        string[] joins,
+        int from,
+        string subject,
+        CardDefinition card,
+        ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        if (from == clauses.Length)
+            return true;
+
+        for (var take = clauses.Length - from; take >= 1; take--)
+        {
+            // The whole line in one piece is what every other matcher has already refused.
+            if (from == 0 && take == clauses.Length)
+                continue;
+
+            var joined = clauses[from];
+            for (var k = from + 1; k < from + take; k++)
+                joined += joins[k - 1] + clauses[k];
+
+            var head = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+            if (!TryStaticLine($"{subject} {joined}.", card, head))
+                continue;
+
+            var tail = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+            if (!ReadClauses(clauses, joins, from + take, subject, card, tail))
+                continue;
+
+            into.AddRange(head);
+            into.AddRange(tail);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// "Equipped creature is a Knight in addition to its other types" — layer 4 (CR 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// The capital letter decides which half of CR 205.3 the word belongs to, the same way it
+    /// does everywhere else in this compiler: a capitalised word is a subtype and a lowercase one
+    /// is a card type. Anything that is neither leaves the line unread rather than being guessed
+    /// at — reading an unknown capitalised noun as a creature type is the bug that made "for each
+    /// Equipment you control" count zero while compiling perfectly.
+    /// <para>
+    /// A subtype is added <em>without</em> its implied card type. "Is a Knight in addition to its
+    /// other types" on an equipped creature says nothing about card types (CR 205.1a), and adding
+    /// Creature here would animate whatever the Equipment was on — which for a permanent that had
+    /// lost its creature type is a strictly better card than the one printed.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedTypeAddition(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedTypeAdditionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["what"].Value;
+
+        static bool OnTheHost(GameState _, GameObject? source, CharacteristicsBuilder target) =>
+            source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host;
+
+        if (char.IsUpper(printed[0]))
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = "attached:subtype:" + printed,
+                Layer = EffectLayer.Type,
+                Applies = OnTheHost,
+                Apply = (_, _, builder) =>
+                {
+                    if (!builder.Subtypes.Contains(printed, StringComparer.OrdinalIgnoreCase))
+                        builder.Subtypes.Add(printed);
+                },
+            });
+
+            return true;
+        }
+
+        if (EffectPhrase.Specs.PermanentTypes(printed) is not { Count: > 0 } types)
+            return false;
+
+        var added = types.Aggregate(CardType.None, (all, one) => all | one);
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "attached:cardtype:" + printed,
+            Layer = EffectLayer.Type,
+            Applies = OnTheHost,
+            Apply = (_, _, builder) => builder.CardTypes |= added,
+        });
+
         return true;
     }
 
@@ -11299,6 +11463,32 @@ public static partial class CardCompiler
     /// variants another sixty; splitting them into separate matchers would mean four copies of
     /// the same attachment rule.
     /// </remarks>
+    /// <remarks>
+    /// The subject is lifted out and put back in front of each clause, so the pattern only has to
+    /// say where the subject ends. The tail must contain a join for the fold to have anything to
+    /// do — a line with no "and" and no comma is one clause, and one clause is what every other
+    /// matcher has already refused.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<subject>(enchanted|equipped) " + AttachedSubject + @") (?<rest>.+?(,| and ).+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ConjoinedAttachedLine();
+
+    /// <summary>What joins two clauses about the same subject, kept so a span can be rebuilt.</summary>
+    [GeneratedRegex(@"(, and |, | and )")]
+    private static partial Regex ClauseJoin();
+
+    /// <remarks>
+    /// One word only. "Is a black Zombie in addition to its other colors and types" names a colour
+    /// as well and says "colors and types" rather than "types", so it does not match here and is
+    /// left unread — a Zombie that is quietly not black is a different card from the printed one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @" is an? (?<what>[A-Za-z][A-Za-z'-]*) in addition to its other types\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedTypeAdditionLine();
+
     [GeneratedRegex(
         @"^(enchanted|equipped) " + AttachedSubject + " "
             + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"

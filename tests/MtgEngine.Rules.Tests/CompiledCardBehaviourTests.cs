@@ -42961,6 +42961,280 @@ public sealed class CompiledCardBehaviourTests
         // The creature that paid is tapped (CR 702.184a).
         Assert.True(game.State.GetObject(crew).Permanent!.IsTapped);
     }
+    // ---- Conjoined statics on an attached subject (CR 301.5f, 303.4m, 613.1d) --
+
+    /// <summary>An Aura on one line of enchant plus one line of statics.</summary>
+    private static CardDefinition AttachedAura(string name, string statics) => Card(
+        name,
+        "Enchant creature" + (char)10 + statics,
+        CardType.Enchantment,
+        null,
+        null,
+        KeywordAbility.None,
+        "Aura");
+
+    /// <summary>An Equipment with one line of statics and an equip cost.</summary>
+    private static CardDefinition AttachedEquipment(string name, string statics) => Card(
+        name,
+        statics + (char)10 + "Equip {2}",
+        CardType.Artifact,
+        null,
+        null,
+        KeywordAbility.None,
+        "Equipment");
+
+    /// <summary>
+    /// Both halves of a conjoined static line apply, not just the one the pattern could name.
+    /// </summary>
+    /// <remarks>
+    /// The bonus and the untap restriction are two different layers on two different rules
+    /// (CR 613.4c and CR 502.3), and until the fold existed the line carrying both was refused
+    /// outright while each half alone was read. The failure worth guarding is the *other* one:
+    /// a fold that took the clause it recognised and dropped the rest would pump the creature
+    /// and quietly let it untap, which is a strictly better card than the one printed and
+    /// nothing downstream would notice.
+    /// <para>
+    /// The bear beside it is the control that says the untap step ran at all. Without it, an
+    /// engine that simply stopped untapping would pass.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Both_halves_of_a_conjoined_attached_static_apply()
+    {
+        var cuffs = AttachedEquipment(
+            "Fold Cuffs Test",
+            "Equipped creature gets +2/+2 and doesn't untap during its controller's untap step.");
+
+        var compiled = CardCompiler.Compile(cuffs);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, TestCards.Creature("Fold Wearer Test", 2, 2), Zone.Battlefield);
+        var ordinary = game.Create(alice, TestCards.Creature("Fold Bystander Test", 2, 2), Zone.Battlefield);
+        var gear = game.Create(alice, cuffs, Zone.Battlefield);
+
+        game.Attach(gear, wearer);
+        Settle(game);
+
+        // The clause the old pattern could read.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(wearer)));
+
+        game.Tap(wearer);
+        game.Tap(ordinary);
+        Settle(game);
+
+        TestCards.PassToTurn(game, 3);
+
+        // The clause it could not: still held down, while the creature beside it woke up.
+        Assert.True(game.State.GetObject(wearer).Permanent?.IsTapped);
+        Assert.False(game.State.GetObject(ordinary).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// A comma list of clauses folds, and the creature type it adds is real to the rest of the
+    /// engine (CR 205.1a, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// Reading the subtype back off the computed characteristics would only prove the string was
+    /// stored. The lord is what proves it is a *type*: "Birds you control get +1/+1" is written
+    /// by a different reader that knows nothing about Auras, and it has to find this Bear because
+    /// layer 4 ran before layer 6 (CR 613.1d, 613.1f). A subtype that nothing matches compiles
+    /// perfectly and does nothing, which is the failure this file exists to catch.
+    /// <para>
+    /// The card types are asserted *unchanged*. "Is a Bird in addition to its other types" says
+    /// nothing about card types, and a reader that added the type a subtype implies would animate
+    /// whatever the Aura was on.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_comma_list_folds_and_the_creature_type_it_adds_is_real()
+    {
+        var wings = AttachedAura(
+            "Fold Wings Test",
+            "Enchanted creature gets +2/+2, has flying, and is a Bird in addition to its other types.");
+
+        var compiled = CardCompiler.Compile(wings);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Fold Sky Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, wings, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        var worn = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(4, worn.Power);
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Flying));
+        Assert.Contains("Bird", worn.Subtypes);
+
+        // A Bear is not an artifact or an enchantment because its Aura named a creature type.
+        Assert.False(worn.CardTypes.HasFlag(CardType.Artifact));
+        Assert.False(worn.CardTypes.HasFlag(CardType.Enchantment));
+
+        // The lord finds it, which is what makes the added type a type rather than a string.
+        game.Create(
+            alice,
+            Card("Fold Bird Lord Test", "Birds you control get +1/+1.", CardType.Enchantment),
+            Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    /// <summary>
+    /// A keyword list is read whole rather than split at its commas (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The fold splits on commas as well as on "and", so "flying, first strike, trample, and
+    /// haste" is exactly the shape it could shred: four fragments, three of which are not
+    /// sentences. It survives because the longest join is offered first, and the whole list is a
+    /// clause the keyword reader already understands. Asserting all four keywords is the point —
+    /// a fold that kept only the first would leave a card with flying and nothing else, and its
+    /// line would still be reported as read.
+    /// </remarks>
+    [Fact]
+    public void A_keyword_list_inside_a_folded_line_is_not_split_at_its_commas()
+    {
+        var mask = AttachedAura(
+            "Fold Mask Test",
+            "Enchanted creature has base power and toughness 9/9 "
+                + "and has flying, first strike, trample, and haste.");
+
+        var compiled = CardCompiler.Compile(mask);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Fold Masked Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, mask, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        var worn = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(9, worn.Power);
+        Assert.Equal(9, worn.Toughness);
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Flying));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.FirstStrike));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Trample));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Haste));
+    }
+
+    /// <summary>
+    /// A clause the compiler cannot read leaves the whole line unread, bonus included.
+    /// </summary>
+    /// <remarks>
+    /// Goad is not modelled here, so this Aura says one thing the engine knows and one it does
+    /// not. The fold refuses the line rather than keeping the half it understood: a creature that
+    /// got +2/+2 and was never goaded is a better card than the one printed, and a card that is
+    /// merely unread is refused by the deck gate where a card that is quietly wrong is not.
+    /// <para>
+    /// Playing it is the half that earns the test. <c>IsComplete</c> alone would still pass if
+    /// the refused clause had already been added to the card's statics on the way out.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_unreadable_clause_leaves_the_whole_conjoined_line_unread()
+    {
+        var taunt = AttachedAura(
+            "Fold Taunt Test",
+            "Enchanted creature gets +2/+2 and is goaded.");
+
+        var compiled = CardCompiler.Compile(taunt);
+        Assert.False(compiled.IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Fold Taunted Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, taunt, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        // No half-card: the bonus is not applied on its own.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    /// <summary>
+    /// The capital letter decides: a subtype is added as a subtype, a card type as a card type.
+    /// </summary>
+    /// <remarks>
+    /// Both spellings are printed on real cards and they mean different things (CR 205.1a,
+    /// 205.3). Reading every capitalised word as a creature type is the mistake that made "for
+    /// each Equipment you control" count zero while compiling perfectly; reading the lowercase
+    /// one as a subtype would give a creature the *subtype* "artifact" and leave artifact removal
+    /// unable to touch it.
+    /// </remarks>
+    [Fact]
+    public void A_type_addition_tells_a_subtype_from_a_card_type_by_its_capital()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        var spurs = AttachedEquipment(
+            "Fold Spurs Test", "Equipped creature is a Knight in addition to its other types.");
+
+        Assert.True(CardCompiler.Compile(spurs).IsComplete);
+
+        var rider = game.Create(alice, TestCards.Creature("Fold Rider Test", 2, 2), Zone.Battlefield);
+        var gear = game.Create(alice, spurs, Zone.Battlefield);
+        game.Attach(gear, rider);
+        Settle(game);
+
+        var mounted = Characteristics.Of(game.State, Pool, game.State.GetObject(rider));
+        Assert.Contains("Knight", mounted.Subtypes);
+        Assert.False(mounted.CardTypes.HasFlag(CardType.Artifact));
+
+        // The lowercase word is a card type, and it does not become a subtype.
+        var plating = AttachedAura(
+            "Fold Plating Test",
+            "Enchanted creature gets +1/+1 and is an artifact in addition to its other types.");
+
+        Assert.True(CardCompiler.Compile(plating).IsComplete);
+
+        var bear = game.Create(alice, TestCards.Creature("Fold Plated Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, plating, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        var plated = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(3, plated.Power);
+        Assert.True(plated.CardTypes.HasFlag(CardType.Artifact));
+        Assert.DoesNotContain("artifact", plated.Subtypes);
+    }
+
+    /// <summary>
+    /// The wordings the fold sits behind still read, one by one.
+    /// </summary>
+    /// <remarks>
+    /// A new reader can claim a clause an existing one handled and disable it silently while the
+    /// coverage total still rises, because it gains more than its neighbour loses. That has
+    /// happened here before and cost sixteen corpus lines. The fold is placed after every other
+    /// matcher precisely so it cannot, and this is the assertion that says so: each neighbouring
+    /// wording is checked for being read on every run, not inferred from a net figure.
+    /// </remarks>
+    [Fact]
+    public void The_wordings_the_conjunction_fold_sits_behind_still_read()
+    {
+        string[] neighbours =
+        [
+            "Enchanted creature gets +2/+2 and has flying.",
+            "Enchanted creature gets +2/+2 and can't attack or block.",
+            "Enchanted creature doesn't untap during its controller's untap step.",
+            "Enchanted creature can't be blocked by creatures with flying.",
+            "Enchanted creature has base power and toughness 9/9.",
+            "Enchanted creature has flying, first strike, trample, and haste.",
+            "Enchanted creature gets +1/+1 for each Plains you control.",
+            "Enchanted creature is a creature with base power and toughness 5/4 "
+                + "in addition to its other types.",
+        ];
+
+        for (var i = 0; i < neighbours.Length; i++)
+        {
+            var compiled = CardCompiler.Compile(
+                AttachedAura("Fold Control Test " + i, neighbours[i]));
+
+            Assert.True(
+                compiled.IsComplete,
+                neighbours[i] + " -> " + string.Join(" | ", compiled.Unhandled));
+        }
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>
