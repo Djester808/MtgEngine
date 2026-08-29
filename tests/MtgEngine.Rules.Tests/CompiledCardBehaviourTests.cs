@@ -14644,6 +14644,635 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(GrantedIdsOf(game, bystander));
     }
 
+    // ---- Names a card calls itself by ----------------------------------------
+
+    /// <summary>
+    /// An Alchemy rebalance is named "A-Something" and its text says "Something".
+    /// </summary>
+    /// <remarks>
+    /// The self-reference stripping was built from the printed name and the part before its
+    /// comma, so for "A-Elderleaf Mentor" it looked for "A-Elderleaf Mentor" twice while the card
+    /// says "When Elderleaf Mentor enters". Neither matched, the name was never turned into "~",
+    /// and every self-referring line on the card went unread. 216 playable cards carry the prefix
+    /// and 116 of them name themselves without it.
+    /// <para>
+    /// Both spellings are asserted, because five of these cards do print their own prefixed name
+    /// and the fix has to be a widening rather than a swap. What makes both work is the order:
+    /// the longer name is replaced first, so a line saying the prefixed form never becomes "A-~".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_rebalanced_card_answers_to_its_name_with_or_without_the_prefix()
+    {
+        var bare = Card(
+            "A-Elderleaf Mentor Test",
+            "When Elderleaf Mentor Test enters, create a 1/1 green Elf Warrior creature token.",
+            CardType.Creature,
+            3,
+            2);
+
+        var compiled = CardCompiler.Compile(bare);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, bare, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Elf Warrior");
+
+        // The prefixed spelling still reads, which is the half a swap would have lost.
+        var prefixed = Card(
+            "A-Elderleaf Herald Test",
+            "When A-Elderleaf Herald Test enters, create a 1/1 green Elf Warrior creature token.",
+            CardType.Creature,
+            3,
+            2);
+
+        var second = CardCompiler.Compile(prefixed);
+        Assert.True(second.IsComplete, string.Join(" | ", second.Unhandled));
+
+        // And the line the compiler kept holds no card name at all — a compiled line still
+        // carrying its own name is exactly what this defect looked like from the outside.
+        Assert.All(
+            CardCompiler.Lines(bare),
+            line => Assert.DoesNotContain("Elderleaf", line, StringComparison.Ordinal));
+
+        Assert.All(
+            CardCompiler.Lines(prefixed),
+            line => Assert.DoesNotContain("Elderleaf", line, StringComparison.Ordinal));
+    }
+
+    // ---- Replacements that change an amount ----------------------------------
+
+    /// <summary>
+    /// "If a source you control would deal damage ..., it deals double that damage instead."
+    /// </summary>
+    /// <remarks>
+    /// Angrath's Marauders, and the head of the largest replacement family left in the corpus.
+    /// Both halves are asserted because the ownership clause is the whole card: a doubler that
+    /// read "a source" where the card says "a source you control" doubles the damage aimed at its
+    /// own controller, and nothing on the board would say so.
+    /// </remarks>
+    [Fact]
+    public void A_damage_doubler_doubles_its_controllers_damage_and_not_an_opponents()
+    {
+        var marauders = Card(
+            "Damage Doubler Test",
+            "If a source you control would deal damage to a permanent or player, it deals "
+                + "double that damage to that permanent or player instead.",
+            CardType.Creature,
+            4,
+            4);
+
+        var compiled = CardCompiler.Compile(marauders);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, marauders, Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Opposing Pinger Test", 1, 1), Zone.Battlefield);
+
+        var bolt = TestCards.PutInHand(
+            game, alice, Card("Doubled Bolt Test", "~ deals 3 damage to any target."));
+
+        game.CastSpell(alice, bolt, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+
+        // The negative that matters: damage from a permanent the opponent controls is not
+        // "a source you control", and passes through at its printed size.
+        game.MarkDamageToPlayer(alice, theirs, 3, isCombat: false);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>Two doublers make a 2-power creature deal 8, and not an infinite amount.</summary>
+    /// <remarks>
+    /// CR 614.5's own worked example, word for word, and the reason a replacement that emits a
+    /// bigger version of the event it replaced is safe to write at all: each effect gets one
+    /// opportunity per event and does not re-enter its own output. Without that this reader would
+    /// not fail a test — it would hang the game — so the number is asserted rather than assumed.
+    /// <para>
+    /// It also plays the ordering question (CR 616.1): with two applicable replacements the engine
+    /// holds the event and asks which to apply first, and the answer cannot change the total.
+    /// </para>
+    /// <para>
+    /// The rule's example is a <em>creature</em>, and so is this, for a reason worth knowing. The
+    /// held event is re-emitted after the resolution that produced it has finished, so a
+    /// <em>spell</em>'s damage comes back to be replaced when the spell has already left the stack
+    /// and its object no longer exists (CR 400.7) — and every source test in the engine, this one
+    /// and the player prevention shield and infect alike, reads the source by id and finds
+    /// nothing. A creature is still on the battlefield, which is why the ordering question is
+    /// answerable at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Two_damage_doublers_multiply_once_each()
+    {
+        var marauders = Card(
+            "Stacked Doubler Test",
+            "If a source you control would deal damage to a permanent or player, it deals "
+                + "double that damage to that permanent or player instead.",
+            CardType.Creature,
+            4,
+            4);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, marauders, Zone.Battlefield);
+        game.Create(alice, marauders, Zone.Battlefield);
+
+        var attacker = game.Create(
+            alice, TestCards.Creature("Doubled Attacker Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        // The replacement-order question (CR 616.1) has to be answered for combat to finish, and
+        // which of the two is taken first cannot change the total.
+        for (var guard = 0; guard < 40 && game.State.CurrentStep != TurnStep.EndOfCombat; guard++)
+        {
+            if (game.State.Choice is { } question)
+            {
+                game.Choose(question.PlayerId, [question.Options[0].Id]);
+                continue;
+            }
+
+            if (game.State.CurrentStep == TurnStep.DeclareBlockers
+                && !game.State.Combat.BlockersDeclared)
+            {
+                game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        Settle(game);
+
+        Assert.Equal(12, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "If a red source you control would deal damage to an opponent or a permanent an opponent
+    /// controls, it deals that much damage plus 2 instead."
+    /// </summary>
+    /// <remarks>
+    /// Torbran, and the same family with all three slots narrowed at once — a colour on the
+    /// source, a side on the recipient, and addition rather than multiplication. Each is asserted
+    /// off a case that differs in exactly one of them, because a filter that is too generous looks
+    /// identical to one that works from the card that carries it.
+    /// </remarks>
+    [Fact]
+    public void A_colour_restricted_damage_bonus_reaches_only_the_damage_the_card_describes()
+    {
+        var thane = Card(
+            "Red Thane Test",
+            "If a red source you control would deal damage to an opponent or a permanent an "
+                + "opponent controls, it deals that much damage plus 2 instead.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(thane);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var red = new CardDefinition
+        {
+            OracleId = "oracle-thane-red-bolt-test",
+            Name = "Thane Red Bolt Test",
+            OracleText = "~ deals 3 damage to any target.",
+            CardTypes = CardType.Instant,
+            ColorIdentity = [ManaColor.Red],
+            Colors = [ManaColor.Red],
+        };
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, thane, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Friendly Wall Test", 0, 6), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, red), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+
+        // Colourless: the same spell without the colour the card names.
+        var plain = TestCards.PutInHand(
+            game, alice, Card("Colorless Bolt Test", "~ deals 3 damage to any target."));
+
+        game.CastSpell(alice, plain, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(12, game.State.GetPlayer(bob).Life);
+
+        // And a red source you control aimed at a permanent *you* control, which the recipient
+        // clause excludes.
+        var second = TestCards.PutInHand(game, alice, red);
+        game.CastSpell(alice, second, [Target.ToPermanent(mine)]);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(mine).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "If one or more +1/+1 counters would be put on a creature you control, that many plus one
+    /// +1/+1 counters are put on it instead."
+    /// </summary>
+    /// <remarks>
+    /// Hardened Scales. CR 614.16 is what makes one reader over the counter event enough — it
+    /// applies to counters from a resolving spell and to counters from another replacement alike.
+    /// <para>
+    /// The sign guard is asserted directly, because it is the dangerous half: a counter being
+    /// <em>removed</em> is the same event counted the other way, and an effect that read it would
+    /// take two counters off where the card says nothing at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counter_multiplier_adds_to_counters_arriving_and_not_to_counters_leaving()
+    {
+        var scales = Card(
+            "Hardened Scales Test",
+            "If one or more +1/+1 counters would be put on a creature you control, that many "
+                + "plus one +1/+1 counters are put on it instead.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(scales);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, scales, Zone.Battlefield);
+
+        var mine = game.Create(alice, TestCards.Creature("Scaled Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Unscaled Bear Test", 2, 2), Zone.Battlefield);
+
+        var grow = TestCards.PutInHand(
+            game, alice, Card("Scaling Growth Test", "Put two +1/+1 counters on target creature."));
+
+        game.CastSpell(alice, grow, [Target.ToPermanent(mine)]);
+        Settle(game);
+
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+
+        // Not a creature its controller controls, so nothing is added.
+        var other = TestCards.PutInHand(
+            game, alice, Card("Second Growth Test", "Put two +1/+1 counters on target creature."));
+
+        game.CastSpell(alice, other, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+
+        // And taking one off takes exactly one off.
+        game.ChangeCounters(mine, CounterKinds.PlusOnePlusOne, -1);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+    }
+
+    /// <summary>"If you would gain life, you gain that much life plus 1 instead."</summary>
+    /// <remarks>
+    /// Angel of Vitality. Life loss is the same event with the sign flipped, so the negative here
+    /// is not a nicety: a reader without the guard would have turned every payment and every point
+    /// of drain into a bigger one, and the life total is the only place it would ever have shown.
+    /// </remarks>
+    [Fact]
+    public void A_life_gain_bonus_applies_to_gain_and_leaves_loss_alone()
+    {
+        var angel = Card(
+            "Vitality Angel Test",
+            "If you would gain life, you gain that much life plus 1 instead.",
+            CardType.Creature,
+            2,
+            3);
+
+        var compiled = CardCompiler.Compile(angel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, angel, Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, Card("Bigger Salve Test", "You gain 5 life.")));
+
+        Settle(game);
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, Card("Self Drain Test", "You lose 3 life.")));
+
+        Settle(game);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        // And it is the controller's own gain, not everybody's.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Shared Salve Test", "Target player gains 5 life.")),
+            [Target.ToPlayer(bob)]);
+
+        Settle(game);
+        Assert.Equal(25, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>"If an opponent would gain life, that player loses that much life instead."</summary>
+    /// <remarks>
+    /// Tainted Remedy — the same family turned inside out, and the one arm where the replacement
+    /// emits an event of the opposite sign. Its own controller gaining life is the negative, and
+    /// the reason the two halves of the sentence are checked against each other when it compiles.
+    /// </remarks>
+    [Fact]
+    public void Life_an_opponent_would_gain_can_be_turned_into_life_lost()
+    {
+        var remedy = Card(
+            "Tainted Remedy Test",
+            "If an opponent would gain life, that player loses that much life instead.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(remedy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, remedy, Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Poisoned Gift Test", "Target player gains 4 life.")),
+            [Target.ToPlayer(bob)]);
+
+        Settle(game);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Honest Gift Test", "Target player gains 4 life.")),
+            [Target.ToPlayer(alice)]);
+
+        Settle(game);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>"If a creature an opponent controls would die, exile it instead."</summary>
+    /// <remarks>
+    /// Stone of Erech, and the graveyard-hate half of the replacement family. CR 700.4 is the rule
+    /// that makes one event enough — "dies" is exactly "put into a graveyard from the
+    /// battlefield", whatever put it there, so a creature destroyed and a creature sacrificed are
+    /// the same event to watch.
+    /// <para>
+    /// The ownership clause is asserted from both sides, because a filter that is too generous is
+    /// invisible from the card that carries it: a version reading "a creature" would eat its own
+    /// controller's creatures too, and the board would look the same until somebody wanted a
+    /// graveyard.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_death_replacement_reaches_only_the_creatures_its_clause_names()
+    {
+        var stone = Card(
+            "Erech Stone Test",
+            "If a creature an opponent controls would die, exile it instead.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(stone);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, stone, Zone.Battlefield);
+
+        var theirs = game.Create(bob, TestCards.Creature("Exiled Bear Test", 2, 2), Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Buried Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Erech Murder Test", "Destroy target creature.")),
+            [Target.ToPermanent(theirs)]);
+
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Single(game.State.Exile, id => game.State.GetObject(id).Card.Name == "Exiled Bear Test");
+
+        // A creature its controller controls dies the ordinary way.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Second Erech Murder Test", "Destroy target creature.")),
+            [Target.ToPermanent(mine)]);
+
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Buried Bear Test");
+    }
+
+    /// <summary>"If ~ would die, put it on top of its owner's library instead."</summary>
+    /// <remarks>
+    /// Gravebane Zombie — the same replacement pointed at itself and at a different destination.
+    /// The destination is read rather than defaulted: exile is the harshest of the three the
+    /// corpus prints, and a card that says "on top of its owner's library" and got exile would be
+    /// a strictly worse card reading as complete.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_can_replace_its_own_death_with_a_trip_to_its_library()
+    {
+        var zombie = Card(
+            "Gravebane Test",
+            "If ~ would die, put it on top of its owner's library instead.",
+            CardType.Creature,
+            3,
+            1);
+
+        var compiled = CardCompiler.Compile(zombie);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var walker = game.Create(bob, zombie, Zone.Battlefield);
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Gravebane Murder Test", "Destroy target creature.")),
+            [Target.ToPermanent(walker)]);
+
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(before + 1, game.State.GetPlayer(bob).Library.Count);
+        Assert.Equal(
+            "Gravebane Test",
+            game.State.GetObject(game.State.GetPlayer(bob).Library[0]).Card.Name);
+    }
+
+    // ---- Costs ---------------------------------------------------------------
+
+    /// <summary>
+    /// "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost" (CR 118.9).
+    /// </summary>
+    /// <remarks>
+    /// The Bringer cycle. The second half of this test is the whole point of the reader and the
+    /// reason the family was left unread before it: an alternative cost is <em>optional</em>
+    /// (CR 118.9b), and the engine's other route takes one unconditionally, so a card compiled
+    /// that way could never again be cast for the cost printed on it.
+    /// </remarks>
+    [Fact]
+    public void An_alternative_mana_cost_can_be_taken_or_left()
+    {
+        var bringer = new CardDefinition
+        {
+            OracleId = "oracle-bringer-test",
+            Name = "Bringer Test",
+            OracleText = "You may pay {W}{U}{B}{R}{G} rather than pay ~'s mana cost.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{7}",
+            Cmc = 7,
+            Power = 5,
+            Toughness = 5,
+        };
+
+        var compiled = CardCompiler.Compile(bringer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        foreach (var basic in new[] { "Plains", "Island", "Swamp", "Mountain", "Forest" })
+        {
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bringer), targets: null, alternativeCost: true);
+
+        Settle(game);
+
+        Assert.Single(
+            game.State.Battlefield, id => game.State.GetObject(id).Card.Name == "Bringer Test");
+
+        // And the printed cost still works, which is the half that a zone-based alternative cost
+        // would have taken away.
+        foreach (var _ in Enumerable.Range(0, 7))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bringer));
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.Battlefield.Count(
+                id => game.State.GetObject(id).Card.Name == "Bringer Test"));
+    }
+
+    /// <summary>
+    /// "As an additional cost to cast this spell, sacrifice two creatures" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Bankrupt in Blood. The reader had read this cost with a count of one for a while and
+    /// refused every printing that names a bigger number — the count is carried by the cost rather
+    /// than by the words, which is why the noun is singularised before the target grammar sees it.
+    /// <para>
+    /// The refusal is asserted too. A cost checked before it is spent (CR 601.2h) is the
+    /// difference between a spell that cannot be cast and one that is cast for half its price.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_additional_cost_can_name_more_than_one_creature()
+    {
+        var bankrupt = Card(
+            "Blood Bankruptcy Test",
+            "As an additional cost to cast ~, sacrifice two creatures.\nDraw three cards.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(bankrupt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var fodder = Enumerable.Range(0, 2)
+            .Select(i => game.Create(
+                alice, TestCards.Creature($"Bankrupt Fodder {i} Test", 1, 1), Zone.Battlefield))
+            .ToList();
+
+        var card = TestCards.PutInHand(game, alice, bankrupt);
+
+        // One creature is not two, and the whole cost is checked before any of it is spent.
+        Assert.ThrowsAny<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], costPayment: [fodder[0]]));
+
+        Assert.Equal(2, game.State.Battlefield.Count);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, card, [], costPayment: fodder);
+        Settle(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Equal(before - 1 + 3, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "{1}, Return a land you control to its owner's hand: Create a 1/1 blue Illusion creature
+    /// token with flying." — Meloku the Clouded Mirror.
+    /// </summary>
+    /// <remarks>
+    /// The one chosen cost that takes a permanent without spending it (CR 701.20a) had only ever
+    /// been reached through ninjutsu, which builds it by hand; the printed sentence had no reader
+    /// at all, and the counted sacrifice and discard beside it had none either.
+    /// <para>
+    /// It is asserted as an <em>ability</em> cost rather than as an additional cost on a spell,
+    /// and that is a finding rather than a preference: the cast path's chosen-cost loop has no arm
+    /// for this kind and drops through to a graveyard move, so a spell compiled with it would bin
+    /// the land it was meant to pick up. The compiler refuses that shape until the engine can say
+    /// it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_cost_can_be_a_permanent_returned_to_its_owners_hand()
+    {
+        var mirror = Card(
+            "Clouded Mirror Test",
+            "Flying\n{1}, Return a land you control to its owner's hand: Create a 1/1 blue "
+                + "Illusion creature token with flying.",
+            CardType.Creature,
+            2,
+            4,
+            KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, mirror, Zone.Battlefield);
+
+        var tapped = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var spent = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.ActivateAbility(alice, tapped, "mana");
+
+        game.ActivateAbility(alice, source, "a", targets: null, costPayment: [spent]);
+        Settle(game);
+
+        // Home rather than to a graveyard, and the token is what it bought.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Island");
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Illusion");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Island");
+    }
+
     /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
