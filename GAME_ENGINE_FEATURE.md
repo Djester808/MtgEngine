@@ -486,8 +486,41 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **47.3% of playable cards fully read** (15,500 of 32,765), 64.3% of all lines
-(39,748 of 61,846 lines of rules text).
+Coverage is **48.6% of playable cards fully read** (15,910 of 32,765), 65.6% of all lines
+(40,553 of 61,846 lines of rules text).
+
+### Rounds eight and nine: ten agents, +410 cards, and what the denominator hides
+
+The largest single round of this effort: ten parallel agents, every one measured by the *set*
+of complete cards rather than the count, and none lost a card. What landed: level up compiled as
+bands (+22); the prevention family wired to its readers (+49); alternative costs paid in
+something other than mana, plus emerge, spree and repeatable modes (+65); the copy reader (+24);
+the attached-conjunction fold (+36); counter kinds that read their own names, CR 122.1c (+30);
+seek (+7); mutate as a merged stack of cards (+25); dungeons as command-zone rules objects
+(+30); loses-all-abilities and held-while durations wired (+46); the defender-side combat
+triggers (+25); and nine combat keywords with their engine halves - sneak, awaken, amplify,
+phasing, ripple, teamwork, hideaway, ravenous, read ahead (+51).
+
+Five defects worth remembering came out of it. Every printed -1/-1 enters-counter compiled as a
++1/+1 - sixteen cards served to games at the wrong size, invisible to coverage because the cards
+counted as read. A cast had never charged a ReturnToHand cost; two agents found it
+independently and their fixes were merged into one arm that also honours CR 108.3 (home to its
+owner, not the payer). A trigger granted by an Aura, a dungeon room or a buried mutate
+component went to the stack with no targets, because the lookup lacked the source id - also
+found twice. The layers hook for copiable values never ran on a board with no continuous
+effects. And ability ids collide across cards, which Mirage Mirror turned into resolving the
+wrong ability in a played game.
+
+**The denominator now has a measured floor of unimplementable cards in it.** 48 Unfinity
+sticker sheets are in the corpus with type line `Stickers` - ticket costs, no mana cost, not
+legal in any deck; they are supplements, not cards. The digital-only family is 541 cards, of
+which `spellbook` (62) has no contents anywhere in the bulk data, `specialize` (19) has nothing
+to specialize into because all 85 specialized versions are excluded from every format, and
+`perpetually` (246) is defined to survive the exact zone change CR 400.7 builds this engine's
+identity on. Attractions (46) need an `attraction_lights` field the data does not carry. 100%
+of the corpus as loaded is therefore not reachable by reading cards; the honest ceiling is
+lower by several hundred, and reaching a number that means anything requires deciding what the
+denominator should be.
 
 ### A capability the compiler cannot reach is not coverage
 
