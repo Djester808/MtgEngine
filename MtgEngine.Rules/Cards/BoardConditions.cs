@@ -300,15 +300,25 @@ public static partial class BoardConditions
         // words look. "Each" is the whole of it: at more than two seats this is true only when
         // you are ahead of every one of them, and reading it as "any" would fire on the table's
         // second-largest hand.
-        if (LargestHandLine().IsMatch(text))
+        if (LargestHandLine().Match(text) is { Success: true } compared)
         {
+            // "An opponent has more cards in hand than you" is the same two counts compared the
+            // other way round, and it is *not* the negation of the clause above: an opponent
+            // holding exactly as many cards as you satisfies neither. So the two quantifiers are
+            // written out rather than one being derived from the other - "each opponent" is all
+            // of them and "an opponent" is any one of them (CR 102.1), which only a table of
+            // three can tell apart.
+            var theirs = compared.Groups["theirs"].Success;
+
             return (state, _, source) =>
             {
                 var mine = state.GetPlayer(source.ControllerId).Hand.Count;
 
-                return state.TurnOrder
+                var others = state.TurnOrder
                     .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
-                    .All(id => mine > state.GetPlayer(id).Hand.Count);
+                    .Select(id => state.GetPlayer(id).Hand.Count);
+
+                return theirs ? others.Any(held => held > mine) : others.All(held => mine > held);
             };
         }
 
@@ -842,10 +852,18 @@ public static partial class BoardConditions
         {
             var pronoun = bearingAny.Groups["it"].Success;
 
+            // "As long as ~ has four or more counters on it" - the same nameless question with a
+            // threshold, and the sum across every kind is what it asks: two +1/+1 counters and
+            // two quest counters are four counters on the permanent (CR 122.1a). The named
+            // readers cannot answer it, because a name is exactly what this clause does not give.
+            var least = bearingAny.Groups["n"].Success
+                ? Number(bearingAny.Groups["n"].Value)
+                : 1;
+
             return (state, _, source) =>
                 Subject(state, source, pronoun) is { } self
                 && self.Permanent is { } carried
-                && carried.Counters.Values.Any(held => held > 0);
+                && carried.Counters.Values.Sum() >= least;
         }
 
         // "There are three or more brick counters on ~" - the same question as the line above
@@ -1228,6 +1246,33 @@ public static partial class BoardConditions
             return (state, abilities, source) => mine
                 ? state.MonarchId == source.ControllerId
                 : state.MonarchId is { } held && held != source.ControllerId;
+        }
+
+        // "If it's night", "if it's neither day nor night" (CR 731.1). A designation the game
+        // itself has rather than a player, so it sits beside the monarch — and it has three
+        // states where the monarch has two: a game begins as neither and stays that way until
+        // something makes it one, after which it is always exactly one of the two (CR 731.1,
+        // CR 731.2c).
+        //
+        // The third state is the whole reason this is a comparison against one field rather than
+        // a pair of flags. Ten of the thirteen cards printing a day-night condition ask for
+        // "neither", and every one of them is a permanent that makes it day as it arrives — so
+        // reading "neither" as "not day" would answer yes in the games where it is night, and the
+        // card would set the sun back up.
+        //
+        // Day is read as well, though no corpus card asks for it alone: the three are one field's
+        // three values, and answering two of them would be a reader that refuses a clause it
+        // already knows the answer to.
+        if (DayNightLine().Match(text) is { Success: true } sky)
+        {
+            var wanted = sky.Groups["what"].Value.StartsWith(
+                "neither", StringComparison.OrdinalIgnoreCase)
+                ? (bool?)null
+                : sky.Groups["what"].Value.Equals("day", StringComparison.OrdinalIgnoreCase);
+
+            return (state, _, _) => wanted is { } designation
+                ? state.IsDay == designation
+                : state.IsDay is null;
         }
 
         // "As long as you control your commander" - the lieutenant cycle. Being a commander is
@@ -1806,9 +1851,17 @@ public static partial class BoardConditions
         var exactly = m.Groups["exactly"].Success;
 
         // "Your opponents control three or more lands" counts across all of them together, which
-        // is what the plural says - unlike "an opponent has ...", which asks about each in turn.
-        // The two read alike and mean different things at more than two seats.
+        // is what the plural says - unlike "an opponent controls ...", which asks about each in
+        // turn. The two read alike and mean different things at more than two seats.
         var theirs = m.Groups["who"].Value.StartsWith("your opponents", StringComparison.OrdinalIgnoreCase);
+
+        // "An opponent controls four or more lands" is any one of them holding four (CR 102.1),
+        // which is the singular of the clause above and not a synonym for it: two opponents with
+        // two lands each answer the pooled question and not this one. Five cards print it, and
+        // every one of them is a card that punishes a *player* for their board - a land
+        // destruction activation, a cost reduction, an upkeep trigger - so a pooled reading would
+        // turn each of them on at a table where nobody has done anything.
+        var eachInTurn = m.Groups["oneof"].Success;
 
         // "A player controls" names nobody in particular, which is how a question about the
         // battlefield reaches this reader: the ownership test is skipped rather than answered,
@@ -1828,33 +1881,59 @@ public static partial class BoardConditions
         if (spec is null || spec.Kind != Abilities.TargetKind.Permanent)
             return null;
 
-        return (state, abilities, source) => state.Battlefield.Count(id =>
+        bool Passes(int count) =>
+            exactly ? count == wanted : orMore ? count >= wanted : count <= wanted;
+
+        return (state, abilities, source) =>
         {
-            if (excludesSelf && id == source.Id)
-                return false;
+            // Tallied once per controller rather than swept once per subject. The four subjects
+            // this reader answers - yours, all your opponents' together, any one opponent's, and
+            // nobody's in particular - are four sums over the same tally, and a sweep each would
+            // be four places for the filter and the "another" exclusion to drift apart.
+            var byController = new Dictionary<Guid, int>();
+            var everyone = 0;
 
-            var obj = state.GetObject(id);
-
-            // Computed, like every other "do you control this" question — a land you have taken
-            // counts towards the lands you control (CR 613.1b).
-            var controller = Characteristics.Of(state, abilities, obj).ControllerId;
-
-            if (!anyone
-                && (theirs ? controller == source.ControllerId : controller != source.ControllerId))
+            foreach (var id in state.Battlefield)
             {
-                return false;
+                if (excludesSelf && id == source.Id)
+                    continue;
+
+                var obj = state.GetObject(id);
+
+                if (basicOnly
+                    && !obj.Card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // The filter is asked without an ability source, so it sees printed
+                // characteristics. That is right for a replacement applied as a permanent
+                // arrives: nothing has had a chance to change it yet.
+                if (spec.ObjectFilter?.Invoke(state, abilities, obj, source.ControllerId) == false)
+                    continue;
+
+                // Computed, like every other "do you control this" question — a land you have
+                // taken counts towards the lands you control (CR 613.1b).
+                var controller = Characteristics.Of(state, abilities, obj).ControllerId;
+
+                byController[controller] = byController.GetValueOrDefault(controller) + 1;
+                everyone++;
             }
 
-            if (basicOnly && !obj.Card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase))
-                return false;
+            if (anyone)
+                return Passes(everyone);
 
-            // The filter is asked without an ability source, so it sees printed characteristics.
-            // That is right for a replacement applied as a permanent arrives: nothing has had a
-            // chance to change it yet.
-            return spec.ObjectFilter?.Invoke(state, abilities, obj, source.ControllerId)
-                != false;
-        }) is var count
-            && (exactly ? count == wanted : orMore ? count >= wanted : count <= wanted);
+            if (eachInTurn)
+            {
+                return state.TurnOrder
+                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
+                    .Any(id => Passes(byController.GetValueOrDefault(id)));
+            }
+
+            var mine = byController.GetValueOrDefault(source.ControllerId);
+
+            return Passes(theirs ? everyone - mine : mine);
+        };
     }
 
     /// <summary>
@@ -2060,7 +2139,7 @@ public static partial class BoardConditions
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|your opponents|(?<anyone>a player)) controls? "
+        @"^(?<who>you|your opponents|(?<oneof>an opponent)|(?<anyone>a player)) controls? "
             + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<atleast>at least) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
@@ -2193,7 +2272,7 @@ public static partial class BoardConditions
     [GeneratedRegex(
         @"^((~|(this|the) [a-z]+)|(?<it>it)) (has|(?<not>doesn't have)) "
             + @"(an?|(?<none>no)|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more) "
-            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on it$",
+            + @"(?<kind>[+][1]/[+][1]|[-][1]/[-][1]|[a-z]+) counters? on (it|him|her)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCounterLine();
 
@@ -2320,14 +2399,29 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex PoisonCountLine();
 
-    /// <summary>"~ has counters on it" - any counter of any kind (CR 122.1).</summary>
+    /// <summary>"~ has counters on it", "~ has four or more counters on it" (CR 122.1).</summary>
     /// <remarks>
-    /// Deliberately has no count and no name. A card asking this is one that then moves or
-    /// removes <em>all</em> of them, and giving the pattern a name slot would have it claim the
+    /// Deliberately has no <em>name</em>. A card asking this is one that then moves, removes or
+    /// counts <em>all</em> of them, and giving the pattern a name slot would have it claim the
     /// named clauses beside it and answer a narrower question with a wider number.
+    /// <para>
+    /// It does have a count, and the count replaced a literal "one or more" that had never
+    /// matched anything: no corpus card says "has one or more counters on it", while four say
+    /// "has <em>N</em> or more counters on it". The general form subsumes the dead one, so this
+    /// is one alternative fewer rather than one more.
+    /// </para>
+    /// <para>
+    /// The two named readers - one in front of this in the chain and one behind it - cannot
+    /// reach a clause this reads and this cannot reach one of theirs: both of them require a name
+    /// word between the number and "counters", and this requires the word "counters" to follow
+    /// the number directly. A clause carries one or the other and never both, so the order they
+    /// sit in does not decide anything.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^((~|(this|the) [a-z]+)|(?<it>it)) has (an? |one or more )?counters? on it$",
+        @"^((~|(this|the) [a-z]+)|(?<it>it)) has "
+            + @"(an? |(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more )?"
+            + @"counters? on (it|him|her)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AnyCounterLine();
 
@@ -2374,7 +2468,7 @@ public static partial class BoardConditions
     /// <summary>"It has a depletion counter on it", and its numbered form.</summary>
     [GeneratedRegex(
         @"^(~|it|this [a-z]+) has (an?|(?<n>\d+|one|two|three|four|five) or more) "
-            + @"(?<kind>[a-z+/-]+(?: [a-z+/-]+)?) counters? on it$",
+            + @"(?<kind>[a-z+/-]+(?: [a-z+/-]+)?) counters? on (it|him|her)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HasCounterLine();
 
@@ -2727,6 +2821,16 @@ public static partial class BoardConditions
         @"^you control (your|(?<any>a)) commander$", RegexOptions.IgnoreCase)]
     private static partial Regex ControlsCommanderLine();
 
+    /// <summary>"It's night", "it's neither day nor night" — the game's designation (CR 731.1).</summary>
+    /// <remarks>
+    /// "Neither" is spelled out in the pattern rather than reached by negating the other two,
+    /// because it is a state of the field and not the absence of one: a game that has never had
+    /// a designation is neither, and a game that has had one can never be neither again.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^it('s| is) (?<what>neither day nor night|day|night)$", RegexOptions.IgnoreCase)]
+    private static partial Regex DayNightLine();
+
     /// <summary>"If you have a full party" (CR 700.8c).</summary>
     [GeneratedRegex(@"^you have a full party$", RegexOptions.IgnoreCase)]
     private static partial Regex FullPartyLine();
@@ -2847,8 +2951,15 @@ public static partial class BoardConditions
     private static partial Regex DevotionLine();
 
     /// <summary>"If you have more cards in hand than each opponent" — a comparison, not a count.</summary>
+    /// <remarks>
+    /// Both directions are printed and each is five to seven corpus cards. They share a reader
+    /// because they share a pair of counts; they do not share a quantifier, and the group is what
+    /// keeps them apart.
+    /// </remarks>
     [GeneratedRegex(
-        @"^you have more cards in hand than each opponent$", RegexOptions.IgnoreCase)]
+        @"^(you have more cards in hand than each opponent"
+            + @"|(?<theirs>an opponent) has more cards in hand than you)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex LargestHandLine();
 
     /// <summary>

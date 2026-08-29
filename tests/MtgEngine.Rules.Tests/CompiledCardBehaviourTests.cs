@@ -21611,6 +21611,429 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(Flies(narrow));
     }
 
+    /// <summary>
+    /// A game is day, night, or neither — and "neither" is a state, not the absence of one.
+    /// </summary>
+    /// <remarks>
+    /// CR 731.1: a game begins with neither designation and keeps it until something makes it one
+    /// of the two, after which it always has exactly one of them. So a two-valued reading is wrong
+    /// in the direction that plays: "not day" is true of a game that has never had a designation
+    /// at all, and ten of the thirteen corpus cards asking a day-night question are the permanents
+    /// that make it day as they arrive — each of them would put the sun back up in the middle of
+    /// the night.
+    /// <para>
+    /// All three are asserted against the same three boards in turn, because no single board can
+    /// tell a three-valued reader from a two-valued one. The designations are reached the way a
+    /// game reaches them rather than by writing the field: a daybound permanent makes it day
+    /// (CR 702.145d), and a turn in which nobody casts a spell makes it night (CR 731.2a).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_day_night_condition_reads_the_designation_the_game_has()
+    {
+        var night = Card(
+            "Nightfall Sky Test",
+            "~ has flying as long as it's night.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var day = Card(
+            "Daylight Sky Test",
+            "~ has flying as long as it's day.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var neither = Card(
+            "Twilight Sky Test",
+            "~ has flying as long as it's neither day nor night.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        foreach (var card in (CardDefinition[])[night, day, neither])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+
+        var afterDark = game.Create(alice, night, Zone.Battlefield);
+        var inTheSun = game.Create(alice, day, Zone.Battlefield);
+        var atDusk = game.Create(alice, neither, Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+
+        // Neither, which is where every game starts and where it has stayed.
+        Assert.Null(game.State.IsDay);
+        Assert.False(Flies(afterDark));
+        Assert.False(Flies(inTheSun));
+        Assert.True(Flies(atDusk));
+
+        game.Create(alice, DayboundSky(), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.IsDay);
+        Assert.False(Flies(afterDark));
+        Assert.True(Flies(inTheSun));
+        Assert.False(Flies(atDusk));
+
+        // Nobody casts anything for a turn, so the untap step of the next one turns it to night.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.Upkeep);
+
+        Settle(game);
+
+        Assert.False(game.State.IsDay);
+        Assert.True(Flies(afterDark));
+        Assert.False(Flies(inTheSun));
+        Assert.False(Flies(atDusk));
+    }
+
+    /// <summary>A werewolf, which is how a game is made to have a designation at all.</summary>
+    /// <remarks>
+    /// Two faces because a daybound permanent turns over when the designation changes, and a
+    /// permanent with nowhere to turn to is not the card this test is about.
+    /// </remarks>
+    private static CardDefinition DayboundSky() => new()
+    {
+        OracleId = "oracle-daybound-sky-test",
+        Name = "Daybound Sky Test",
+        CardTypes = CardType.Creature,
+        Keywords = KeywordAbility.Daybound,
+        Power = 2,
+        Toughness = 2,
+        ManaCostRaw = "{1}{R}",
+        Faces =
+        [
+            new CardFace
+            {
+                Name = "Daybound Sky Test",
+                CardTypes = CardType.Creature,
+                Keywords = KeywordAbility.Daybound,
+                Power = 2,
+                Toughness = 2,
+                OracleText = "Daybound",
+            },
+            new CardFace
+            {
+                Name = "Nightbound Sky Test",
+                CardTypes = CardType.Creature,
+                Keywords = KeywordAbility.Nightbound,
+                Power = 3,
+                Toughness = 3,
+                OracleText = "Nightbound",
+            },
+        ],
+    };
+
+    /// <summary>"As long as ~ has three or more counters on it" — a threshold with no name.</summary>
+    /// <remarks>
+    /// The sum across every kind is what the clause asks: a permanent carrying two +1/+1 counters
+    /// and one quest counter has three counters on it (CR 122.1a). That is exactly the board here,
+    /// and the assertion that matters is the sibling card asking for three <em>+1/+1</em> counters
+    /// being off on it — a reader that had quietly counted only the commonest kind, or only the
+    /// largest pile, passes every other assertion in this test.
+    /// <para>
+    /// It replaced a "one or more" spelling that no card in the corpus prints, so the widening is
+    /// one alternative fewer rather than one more.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_nameless_counter_threshold_sums_every_kind()
+    {
+        var nameless = Card(
+            "Counter Tally Test",
+            "~ has flying as long as it has three or more counters on it.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var named = Card(
+            "Named Tally Test",
+            "~ has flying as long as it has three or more +1/+1 counters on it.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        foreach (var card in (CardDefinition[])[nameless, named])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var anyKind = game.Create(alice, nameless, Zone.Battlefield);
+        var oneKind = game.Create(alice, named, Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+        Assert.False(Flies(anyKind));
+        Assert.False(Flies(oneKind));
+
+        foreach (var id in (ObjectId[])[anyKind, oneKind])
+        {
+            game.AddCounters(id, CounterKinds.PlusOnePlusOne, 2);
+            game.AddCounters(id, "quest", 1);
+        }
+
+        Settle(game);
+
+        // Three counters between two kinds. The nameless threshold is met; the named one is not.
+        Assert.True(Flies(anyKind));
+        Assert.False(Flies(oneKind));
+
+        // And it is not a one-way switch: taking one off puts it back below the threshold.
+        game.AddCounters(anyKind, "quest", -1);
+        Settle(game);
+
+        Assert.False(Flies(anyKind));
+
+        // The named reader beside it still works on the board that defeats it here, which is what
+        // stops this test passing because the neighbour is broken rather than because it is narrow.
+        game.AddCounters(oneKind, CounterKinds.PlusOnePlusOne, 1);
+        Settle(game);
+
+        Assert.True(Flies(oneKind));
+    }
+
+    /// <summary>"As long as ~ has a shield counter on him" — the subject named as a person.</summary>
+    /// <remarks>
+    /// Four corpus cards write the pronoun this way and every one of them is a named character;
+    /// the clause is otherwise word for word the one beside it, so the whole of the difference is
+    /// "him" against "it". Asserted off with a counter of another name as well as with none,
+    /// because a reader that widened the pronoun and lost the name would pass the on/off pair on
+    /// its own.
+    /// </remarks>
+    [Fact]
+    public void A_counter_clause_can_name_its_subject_as_him()
+    {
+        var hero = Card(
+            "Shield Bearer Test",
+            "~ has flying as long as ~ has a shield counter on him.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(hero);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var captain = game.Create(alice, hero, Zone.Battlefield);
+
+        bool Flies() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(captain))
+                .Has(KeywordAbility.Flying);
+
+        Settle(game);
+        Assert.False(Flies());
+
+        // A counter, but not the one the card names.
+        game.AddCounters(captain, "conqueror", 1);
+        Settle(game);
+
+        Assert.False(Flies());
+
+        game.AddCounters(captain, "shield", 1);
+        Settle(game);
+
+        Assert.True(Flies());
+
+        game.AddCounters(captain, "shield", -1);
+        Settle(game);
+
+        Assert.False(Flies());
+    }
+
+    /// <summary>
+    /// "An opponent has more cards in hand than you" is not the negation of "you have more than
+    /// each opponent".
+    /// </summary>
+    /// <remarks>
+    /// A table where one opponent holds exactly as many cards as you satisfies neither clause, so
+    /// neither can be derived from the other however tempting the shape looks: "each opponent" is
+    /// all of them and "an opponent" is any one of them (CR 102.1). Both facts need three seats to
+    /// state — at two, "any" and "all" are the same person and the tie is the only case left that
+    /// separates them.
+    /// </remarks>
+    [Fact]
+    public void A_hand_comparison_asked_of_an_opponent_is_not_the_negation_of_the_other()
+    {
+        var envious = Card(
+            "Envious Rival Test",
+            "~ has flying as long as an opponent has more cards in hand than you.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var greedy = Card(
+            "Greedy Rival Test",
+            "~ has flying as long as you have more cards in hand than each opponent.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        foreach (var card in (CardDefinition[])[envious, greedy])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+
+        var behind = game.Create(alice, envious, Zone.Battlefield);
+        var ahead = game.Create(alice, greedy, Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        void HoldExactly(Guid who, int cards)
+        {
+            while (game.State.GetPlayer(who).Hand.Count > cards)
+                game.Move(game.State.GetPlayer(who).Hand[0], Zone.Graveyard, MoveCause.Discard);
+        }
+
+        // Alice is behind Carol and ahead of Bob, which is the ordinary middle of a three-seat
+        // table and the board a two-seat test can never produce.
+        HoldExactly(alice, 3);
+        HoldExactly(bob, 2);
+        HoldExactly(carol, 4);
+        Settle(game);
+
+        Assert.True(Flies(behind));
+        Assert.False(Flies(ahead));
+
+        // Carol draws level. Nobody holds strictly more than anybody, so both clauses are off —
+        // the case that proves one is not the other's negation.
+        HoldExactly(carol, 3);
+        Settle(game);
+
+        Assert.False(Flies(behind));
+        Assert.False(Flies(ahead));
+
+        // And with Alice ahead of both, the other clause turns on and this one stays off.
+        HoldExactly(bob, 1);
+        HoldExactly(carol, 2);
+        Settle(game);
+
+        Assert.False(Flies(behind));
+        Assert.True(Flies(ahead));
+    }
+
+    /// <summary>
+    /// "An opponent controls three or more creatures" is one opponent's board, not the table's.
+    /// </summary>
+    /// <remarks>
+    /// The plural clause beside it — "your opponents control three or more creatures" — pools
+    /// them, and the two only disagree at more than two seats: two opponents with two creatures
+    /// each answer the pooled question and not this one. Every card that prints the singular
+    /// punishes a <em>player</em> for their own board, so a pooled reading would turn each of them
+    /// on at a table where nobody has done anything (CR 102.1).
+    /// </remarks>
+    [Fact]
+    public void An_opponent_controlling_a_count_is_asked_of_each_opponent_separately()
+    {
+        var singular = Card(
+            "Any Rival Board Test",
+            "~ has flying as long as an opponent controls three or more creatures.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var pooled = Card(
+            "Pooled Rival Board Test",
+            "~ has flying as long as your opponents control three or more creatures.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        foreach (var card in (CardDefinition[])[singular, pooled])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+
+        var eachInTurn = game.Create(alice, singular, Zone.Battlefield);
+        var together = game.Create(alice, pooled, Zone.Battlefield);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+                .Has(KeywordAbility.Flying);
+
+        game.Create(bob, TestCards.Creature("Rival Bear One"), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Rival Bear Two"), Zone.Battlefield);
+        Settle(game);
+
+        // Two creatures on one opponent's board and nothing anywhere else: neither clause is met.
+        Assert.False(Flies(eachInTurn));
+        Assert.False(Flies(together));
+
+        game.Create(carol, TestCards.Creature("Rival Bear Three"), Zone.Battlefield);
+        game.Create(carol, TestCards.Creature("Rival Bear Four"), Zone.Battlefield);
+        Settle(game);
+
+        // Four creatures across two opponents, and nobody has three. The pooled clause is on and
+        // the singular one is off — the board the two exist to disagree about.
+        Assert.False(Flies(eachInTurn));
+        Assert.True(Flies(together));
+
+        game.Create(carol, TestCards.Creature("Rival Bear Five"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(Flies(eachInTurn));
+        Assert.True(Flies(together));
+
+        // Alice's own board is not an opponent's, however large it gets — the assertion that
+        // stops a reader which forgot whose permanents it was counting.
+        var (mine, mineAlice, _, _) = InMainPhaseAtThreeSeats();
+        var lonely = mine.Create(mineAlice, singular, Zone.Battlefield);
+
+        for (var i = 0; i < 4; i++)
+            mine.Create(mineAlice, TestCards.Creature($"Own Bear {i}"), Zone.Battlefield);
+
+        Settle(mine);
+
+        Assert.False(
+            Characteristics.Of(mine.State, Pool, mine.State.GetObject(lonely))
+                .Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>Three seats, because "an opponent" and "each opponent" are one player at two.</summary>
+    private static (Game Game, Guid Alice, Guid Bob, Guid Carol) InMainPhaseAtThreeSeats()
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var carol = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+                new PlayerSetup(carol, "Carol", 20, TestCards.Deck(40, "Carol")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice, bob, carol);
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {
