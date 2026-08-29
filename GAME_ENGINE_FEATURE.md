@@ -5851,6 +5851,18 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
 - **Landwalk reads computed land types, but nothing yet grants one.** The check is right; the
   template that would exercise it — "each land is a Swamp in addition to its other types" — does
   not compile, so that half is unverified and is not claimed by any test.
+- **The phrase parser ignores square brackets rather than refusing them.** `"Draw a card for each creature you control [with flying]."` parses today as the flier-less
+  sentence — a read-better-than-printed, which is the one class of error the fail-closed rule
+  exists to prevent. No playable card is affected right now, because bracketed text is printed
+  only on the 12 cleave cards and all 12 are incomplete for other reasons. That is luck, not
+  safety: it becomes live the moment anyone reads cleave, so it must be fixed in the same change.
+- **A cast had never charged a `ReturnToHand` cost.** Only ninjutsu produced one, and only as an
+  activated ability, so the cast path had no arm for it and would have put the returned lands in
+  the *graveyard*. Found by wiring alternative costs that are not mana; now covered by a Gush test.
+- **A modal spell whose bullets all failed compiled into a menu with nothing on it.** The trigger
+  side already guarded against this; the spell side did not, and it also hid a latent
+  `Math.Clamp(0, 1, 0)` throw. Such a header now goes back to unread, which is why a round can
+  gain fewer lines than it gains complete cards.
 - **Displayed power and toughness ignore CR 613.** `ObjectView` carries printed values plus
   counters, so a creature under a lord reads at its printed size on the board while the engine
   fights with the right number. The engine is right; the board is lying.
