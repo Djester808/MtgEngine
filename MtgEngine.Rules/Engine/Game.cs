@@ -927,7 +927,31 @@ public sealed class Game
                     "A face-down creature spell is cast at sorcery speed (CR 702.37b).");
             }
 
-            PayMana(playerId, ManaCostSpec.Parse("{3}"));
+            // CR 601.2f applies to this {3} like any other cost: a face-down spell is a spell
+            // being cast, and casting one under a Thalia costs {4}. This was the one cast in the
+            // engine that went straight from a literal to the pool, so every cost modifier on
+            // the board was inert against it and no restricted mana could pay for it at all.
+            //
+            // Both questions are put to the face-down card rather than the one underneath. That
+            // is the reading that can be wrong in a player's favour: the card being hidden is
+            // exactly the case where "Dragon spells cost {1} less to cast" must not find a
+            // Dragon, while "spend this mana only to cast creature spells" must still find a
+            // creature spell (CR 702.37a).
+            var faceDownCost = CostModification.Apply(
+                ManaCostSpec.Parse("{3}"),
+                CostModifiersFor(
+                    CostModifierKind.Spells,
+                    Characteristics.FaceDownSpell,
+                    playerId,
+                    castFrom,
+                    null,
+                    false));
+
+            PayMana(
+                playerId,
+                faceDownCost,
+                spend: ManaSpend.Casting(
+                    Characteristics.FaceDownSpell, castFrom, IsCommanderOf(playerId, card)));
 
             var hidden = Move(cardId, Zone.Stack, MoveCause.Cast, playerId);
             _castFaceDown.Add(hidden);
@@ -2322,6 +2346,17 @@ public sealed class Game
     /// A <c>CostReducer</c> is exactly one cell of the modifier grid: your spells, less, from
     /// anywhere. It is translated here rather than applied by a second path, because two paths
     /// for one rule are two chances to disagree about the order CR 601.2f states.
+    /// <para>
+    /// <strong>The second arm reaches nothing in a played game, measured rather than assumed.</strong>
+    /// Of the five ability sources in the repository - <c>CardPool</c>, <c>PlayableCards</c>,
+    /// <c>CompiledPool</c>, <c>EmptyAbilities</c>, <c>NoAbilities</c> - none implements
+    /// <see cref="ICostModifierSource"/>, so the pattern is a silent <c>false</c> everywhere
+    /// except the hand-written pool in the behaviour tests, and 0 of the 32,765 corpus cards can
+    /// produce a modifier. The reducer arm above is the whole of what a real game sees today: 92
+    /// corpus cards print one. Everything below the seam is built and played; the cell the
+    /// compiler fills is what is missing, and it is a change to <c>CompiledCard</c> and
+    /// <c>CompiledPool</c> rather than to anything here.
+    /// </para>
     /// </remarks>
     private IEnumerable<CostModifier> ModifiersOn(CardDefinition card)
     {

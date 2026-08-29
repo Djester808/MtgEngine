@@ -192,6 +192,36 @@ public readonly record struct RestrictedMana(ManaColor? Color, ManaRestriction R
     /// <summary>Whether this mana may pay for what is being paid for (CR 106.6).</summary>
     public bool Allows(ManaSpend spend)
     {
+        // The purposes a clause names are a whitelist, and ManaPurpose.Other is zero — which
+        // every flag "has". So a restriction that named a purpose said yes to every payment
+        // naming none: a foretell, a plot, a suspend, a door, an optional cost. Six of the 43
+        // corpus cards that make restricted mana were paying for those — Omen Hawker, Cryptic
+        // Trilobite, Pit Automaton, Redshift, James and The Enigma Jewel, all of them "spend
+        // this mana only to activate abilities". Reproduced in a real game before it was
+        // changed: that mana foretold a sorcery.
+        //
+        // The other restrictions escaped only because their type mask cannot match a payment
+        // with no card behind it, which is a coincidence of what has been read so far rather
+        // than a rule — "spend this mana only to cast spells" is the general form and leaks the
+        // moment anything compiles it.
+        //
+        // Asked here rather than inside ManaRestriction because Other is the *absence* of a
+        // named purpose rather than one of them: it cannot go on a whitelist, so the only
+        // question available is whether the clause wrote one.
+        //
+        // TypesOnlyWhenCasting is the one shape that writes no whitelist. "This mana can't be
+        // spent to cast a nonartifact spell" forbids one kind of cast and nothing else, and
+        // names its purposes only to carry the type mask — a Powerstone that could not pay a
+        // foretell cost would be a meaningfully worse token than CR 111.10h describes. The two
+        // corpus cards that keep paying here are exactly those: Hydraulic Helper and The
+        // Mightstone and Weakstone.
+        if (spend.Purpose == ManaPurpose.Other
+            && Restriction.Purposes != ManaPurpose.Other
+            && !Restriction.TypesOnlyWhenCasting)
+        {
+            return false;
+        }
+
         if (!Restriction.Allows(spend.Purpose, spend.Types))
             return false;
 
