@@ -204,6 +204,31 @@ public sealed record SpellDefinition
     /// </remarks>
     public ImmutableList<IEffect> OverloadEffects { get; init; } = [];
 
+    /// <summary>What casting this for its awaken cost costs (CR 702.113a).</summary>
+    public ManaCostSpec? AwakenCost { get; init; }
+
+    /// <summary>
+    /// The land the awaken half animates, targeted only when awaken was paid (CR 702.113b).
+    /// </summary>
+    /// <remarks>
+    /// Added to the spell's own targets as it is cast, exactly as bestow's is, and added
+    /// <em>last</em> so that <see cref="AwakenEffects"/> can find it as the final entry however
+    /// many the card printed. The rule is emphatic that it is not a target otherwise: a spell
+    /// cast for its printed cost "is cast as if it didn't have that target", so nothing about it
+    /// can be countered for having no legal target.
+    /// </remarks>
+    public TargetSpec? AwakenTarget { get; init; }
+
+    /// <summary>
+    /// What the awaken half does, on top of everything the card already says (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Added to the printed effects rather than replacing them, which is the difference from
+    /// overload: an awakened spell still does what it says, and then puts counters on a land and
+    /// stands it up. Its effects index into their own one-target slice, the way a mode's do.
+    /// </remarks>
+    public ImmutableList<IEffect> AwakenEffects { get; init; } = [];
+
     /// <summary>
     /// What one extra copy of this spell costs (CR 702.55a) - replicate.
     /// </summary>

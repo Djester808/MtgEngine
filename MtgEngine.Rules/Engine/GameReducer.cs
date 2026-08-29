@@ -132,6 +132,9 @@ public static class GameReducer
             SpellOverloaded loud => state.TryGetObject(loud.Id, out var everything)
                 ? state.WithObject(everything with { WasOverloaded = true })
                 : state,
+            SpellAwakened roused => state.TryGetObject(roused.Id, out var stirring)
+                ? state.WithObject(stirring with { WasAwakened = true })
+                : state,
             SpellEvoked evoked => state.TryGetObject(evoked.Id, out var fleeting)
                 ? state.WithObject(fleeting with { WasEvoked = true })
                 : state,
@@ -745,6 +748,14 @@ public static class GameReducer
             // to survive exactly one move - the resolution - and no other.
             WasKicked = resolving && moving.WasKicked,
             WasBargained = resolving && moving.WasBargained,
+
+            // The same exception, one announcement along: "if X is 5 or more" on a ravenous
+            // creature is linked to the X announced for the spell that became it (CR 607.2), and
+            // an intervening-if is checked again as the ability resolves (CR 603.4) - by which
+            // time the only object left is the permanent. Carried across exactly the one move
+            // that turns a spell into a permanent, so nothing that merely arrives on the
+            // battlefield inherits somebody else's X.
+            VariableValue = resolving ? moving.VariableValue : 0,
 
             // CR 718.2: the alternative characteristics apply while it is a spell *or* while it
             // is a permanent, so unlike a cost flag this one has to outlive the stack.

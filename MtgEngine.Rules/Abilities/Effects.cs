@@ -2328,6 +2328,17 @@ public sealed record PumpUntilEndOfTurn(
     int TargetIndex = 0,
     EffectSubject Subject = EffectSubject.Target) : IEffect
 {
+    /// <summary>
+    /// Whether the effect ends at cleanup, or lasts for as long as the game does (CR 611.2).
+    /// </summary>
+    /// <remarks>
+    /// False is for the few effects that change a permanent and say nothing about when they
+    /// stop: awaken stands a land up as a creature and it stays one. The duration lives on the
+    /// effect rather than in the definition id because the id names <em>what</em> the change is,
+    /// and the same change can be temporary on one card and permanent on another.
+    /// </remarks>
+    public bool ForTheTurn { get; init; } = true;
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -2343,7 +2354,10 @@ public sealed record PumpUntilEndOfTurn(
         return
         [
             new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, [subject], context.State.TurnNumber),
+                Guid.NewGuid(),
+                DefinitionId,
+                [subject],
+                ForTheTurn ? context.State.TurnNumber : null),
         ];
     }
 }

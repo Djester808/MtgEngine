@@ -16261,6 +16261,8 @@ public sealed class CompiledCardBehaviourTests
 
         public int DevourCountOf(CardDefinition card) => _compiled.DevourCountOf(card);
 
+        public int AmplifyCountOf(CardDefinition card) => _compiled.AmplifyCountOf(card);
+
         public ManaCostSpec? MiracleCostOf(CardDefinition card) => _compiled.MiracleCostOf(card);
 
         public IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => _compiled.HalvesOf(card);
@@ -42863,6 +42865,314 @@ public sealed class CompiledCardBehaviourTests
             game.State.Battlefield,
             id => game.State.GetObject(id).Card.Name == "Test Guidemother");
     }
+    // ---- Combat and board keywords (CR 702) ----------------------------------
+
+    /// <summary>
+    /// Ravenous is X counters, and a card when X was big (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// The two halves read the same number and the number is not on the board anywhere: X was
+    /// announced as the spell was cast (CR 601.2b) and the spell stopped existing when it
+    /// resolved (CR 400.7). So this is the test that says the announced X survives exactly the
+    /// one move that turns a spell into a permanent, which is what CR 607.2 asks of a linked
+    /// ability and what the intervening-if's second check (CR 603.4) has to read.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_enters_with_X_counters_and_draws_when_X_was_five_or_more()
+    {
+        var aberrant = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-big-test",
+            Name = "Ravenous Big Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 0,
+            Toughness = 0,
+            ManaCostRaw = "{X}{B}",
+        };
+
+        var compiled = CardCompiler.Compile(aberrant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, aberrant);
+
+        foreach (var _ in Enumerable.Range(0, 6))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, targets: null, variableValue: 5);
+        Settle(game);
+
+        var creature = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Ravenous Big Test");
+
+        // A printed 0/0 that arrived with nothing would already be in the graveyard, so being
+        // here at all is half the assertion.
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(5, grown.Power);
+        Assert.Equal(5, grown.Toughness);
+
+        // The card was cast out of hand and one was drawn, so the hand is where it started.
+        Assert.Equal(handBefore, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>A ravenous creature cast for a small X gets the counters and no card.</summary>
+    /// <remarks>
+    /// The half of CR 603.4 that a single-check reading would get wrong in the player's favour:
+    /// the draw is not what ravenous does, it is what ravenous does when X was big enough.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_draws_nothing_when_X_was_under_five()
+    {
+        var aberrant = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-small-test",
+            Name = "Ravenous Small Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 0,
+            Toughness = 0,
+            ManaCostRaw = "{X}{B}",
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, aberrant);
+
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, targets: null, variableValue: 4);
+        Settle(game);
+
+        var creature = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Ravenous Small Test");
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(4, grown.Power);
+
+        // One card left the hand and none came back.
+        Assert.Equal(handBefore - 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// Ravenous on a card with no X in its cost is not read at all (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// Both halves of the keyword are about the X that was paid, so on a card that has none the
+    /// word means nothing the engine could honour. Left unread rather than compiled into a
+    /// creature that quietly enters with no counters, because a card the deck check refuses is
+    /// better than one that silently does half of what it prints.
+    /// </remarks>
+    [Fact]
+    public void Ravenous_without_an_X_in_the_mana_cost_stays_unread()
+    {
+        var wrong = new CardDefinition
+        {
+            OracleId = "oracle-ravenous-no-x-test",
+            Name = "Ravenous No X Test",
+            OracleText = "Ravenous",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            ManaCostRaw = "{2}{B}",
+        };
+
+        Assert.Contains("Ravenous", CardCompiler.Compile(wrong).Unhandled);
+    }
+
+    /// <summary>
+    /// Amplify buys counters by showing the rest of the tribe (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Two things the shape has to get right, and both are asserted here: only cards sharing a
+    /// creature type with the arriving permanent may be shown, and revealing none is a legal
+    /// answer — "any number" includes zero, which is why this is one question rather than a
+    /// yes/no followed by a selection.
+    /// </remarks>
+    [Fact]
+    public void Amplify_grows_the_creature_by_what_was_revealed_from_hand()
+    {
+        var dragon = Card(
+            "Amplify Dragon Test",
+            "Amplify 3",
+            CardType.Creature,
+            power: 5,
+            toughness: 5,
+            keywords: KeywordAbility.None,
+            "Dragon");
+
+        var compiled = CardCompiler.Compile(dragon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(3, compiled.AmplifyCount);
+
+        var (game, alice, _) = InMainPhase();
+
+        var kin = TestCards.PutInHand(
+            game, alice, Card(
+                "Amplify Kin Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Dragon"));
+
+        var stranger = TestCards.PutInHand(
+            game, alice, Card(
+                "Amplify Stranger Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Goblin"));
+
+        var arriving = game.Create(alice, dragon, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Amplify });
+
+        var choice = game.State.Choice!;
+        Assert.Equal(0, choice.MinPicks);
+        Assert.Contains(choice.Options, o => o.Id == kin.Value.ToString("N"));
+        Assert.DoesNotContain(choice.Options, o => o.Id == stranger.Value.ToString("N"));
+
+        game.Choose(alice, [kin.Value.ToString("N")]);
+        Settle(game);
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(arriving));
+        Assert.Equal(8, grown.Power);
+        Assert.Equal(8, grown.Toughness);
+
+        // Revealing is not discarding: the card is still in hand (CR 701.16a).
+        Assert.Contains(kin, game.State.GetPlayer(alice).Hand);
+        Assert.Contains(game.Log, e => e is CardsRevealed);
+    }
+
+    /// <summary>
+    /// Amplify on a card with no creature types is not read (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// What may be revealed is "a card that shares a creature type with this one", and the types
+    /// come from the card rather than from the line. Without them the keyword is an offer that
+    /// can never find anything, so the line goes back unread instead.
+    /// </remarks>
+    [Fact]
+    public void Amplify_without_a_creature_type_stays_unread()
+    {
+        var typeless = Card(
+            "Amplify Typeless Test", "Amplify 2", CardType.Creature, 2, 2);
+
+        Assert.Contains("Amplify 2", CardCompiler.Compile(typeless).Unhandled);
+    }
+
+    /// <summary>Clutch of Currents, printed exactly as it reads.</summary>
+    private static CardDefinition AwakenSpell() => new()
+    {
+        OracleId = "oracle-awaken-clutch-test",
+        Name = "Awaken Clutch Test",
+        ManaCostRaw = "{U}",
+        OracleText = "Return target creature to its owner's hand.\nAwaken 3\u2014{4}{U}",
+        CardTypes = CardType.Sorcery,
+    };
+
+    /// <summary>
+    /// A spell cast for its printed cost has no awaken target at all (CR 702.113b).
+    /// </summary>
+    /// <remarks>
+    /// The half of the rule that a naive reading gets wrong in the player's favour: if the land
+    /// were always targeted, an awaken card would stand a land up for its cheap cost. It is not
+    /// "targeted and then ignored" - the spell is cast as if it did not have that target.
+    /// </remarks>
+    [Fact]
+    public void An_awaken_spell_cast_for_its_printed_cost_leaves_lands_alone()
+    {
+        var clutch = AwakenSpell();
+
+        var compiled = CardCompiler.Compile(clutch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Awaken Bear Test", 2, 2), Zone.Battlefield);
+        var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, clutch);
+
+        game.AddMana(alice, ManaColor.Blue);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        var still = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.False(still.IsCreature);
+    }
+
+    /// <summary>
+    /// Awaken stands a land up permanently, on top of what the spell already did (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Four things in four different layers, which is why the half is four effects rather than
+    /// one: the counters are counters, the creature type is layer 4, the 0/0 is layer 7b and
+    /// haste is layer 6. And the land is still a land - the type is added, not swapped - which
+    /// is what the printed rider goes on to say.
+    /// <para>
+    /// The animation carries no duration, so it is asserted across a turn boundary. Reading it as
+    /// "until end of turn" would have looked right for as long as any single-turn test ran.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_awakened_spell_animates_the_land_and_still_does_what_it_says()
+    {
+        var clutch = AwakenSpell();
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Awaken Bear Test", 2, 2), Zone.Battlefield);
+        var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, clutch);
+
+        foreach (var _ in Enumerable.Range(0, 5))
+            game.AddMana(alice, ManaColor.Blue);
+
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPermanent(bear), Target.ToPermanent(land)],
+            awakened: true);
+
+        Settle(game);
+
+        // The printed spell still happened.
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        var awoken = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.True(awoken.IsCreature);
+        Assert.True(awoken.CardTypes.HasFlag(CardType.Land));
+        Assert.True(awoken.HasSubtype("Elemental"));
+        Assert.True(awoken.Keywords.HasFlag(KeywordAbility.Haste));
+        Assert.Equal(3, awoken.Power);
+        Assert.Equal(3, awoken.Toughness);
+
+        // And it is not an until-end-of-turn effect: the land is still a creature next turn.
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var later = Characteristics.Of(game.State, Pool, game.State.GetObject(land));
+        Assert.True(later.IsCreature);
+        Assert.Equal(3, later.Power);
+    }
+
+    /// <summary>Nothing may be awakened that has no awaken (CR 702.113a).</summary>
+    [Fact]
+    public void Awakening_a_spell_that_has_no_awaken_is_refused()
+    {
+        var plain = Card("Awaken Plain Test", "Draw a card.");
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, plain);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], awakened: true));
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

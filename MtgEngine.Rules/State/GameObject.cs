@@ -596,6 +596,16 @@ public sealed record GameObject
     /// <summary>Whether this spell was cast for its overload cost (CR 702.96a).</summary>
     public bool WasOverloaded { get; init; }
 
+    /// <summary>
+    /// Whether this spell was cast for its awaken cost (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// Read while the spell is still on the stack — the awaken half is a spell ability, so it
+    /// resolves before the card goes anywhere — which is why this needs none of the carrying
+    /// across a zone change that "was kicked" does.
+    /// </remarks>
+    public bool WasAwakened { get; init; }
+
     /// <summary>Whether this spell was cast for its evoke cost (CR 702.74a).</summary>
     /// <remarks>
     /// Evoke buys the enters trigger and nothing else: the creature is sacrificed the moment it
@@ -864,6 +874,7 @@ public sealed record GameObject
         TimesKicked == other.TimesKicked &&
         WasEvoked == other.WasEvoked &&
         WasOverloaded == other.WasOverloaded &&
+        WasAwakened == other.WasAwakened &&
         WasBestowed == other.WasBestowed &&
         WasOffspring == other.WasOffspring &&
         IsRevealed == other.IsRevealed &&

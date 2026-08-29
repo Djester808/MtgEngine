@@ -287,6 +287,7 @@ public static partial class CardCompiler
         var noHandLimit = false;
         var chooses = ChoiceOnEntry.None;
         var devour = 0;
+        var amplify = 0;
         ManaCostSpec? flashSurcharge = null;
         ManaCostSpec? prototypeCost = null;
         ManaCostSpec? miracleCost = null;
@@ -312,6 +313,9 @@ public static partial class CardCompiler
         ManaCostSpec? offspring = null;
         ManaCostSpec? suspend = null;
         ManaCostSpec? overload = null;
+        ManaCostSpec? awaken = null;
+        string? awakenLine = null;
+        var awakenCounters = 0;
         ChosenCost? conspire = null;
         var splitSecond = false;
         ManaCostSpec? bestow = null;
@@ -646,6 +650,12 @@ public static partial class CardCompiler
             if (TryBloodthirst(line, replacements))
                 continue;
 
+            if (TryRavenous(line, card, triggers, replacements))
+                continue;
+
+            if (TryAmplify(line, card, ref amplify))
+                continue;
+
             if (TryGroupEntersWithAdditionalCounter(line, card, replacements))
                 continue;
 
@@ -898,6 +908,18 @@ public static partial class CardCompiler
                 }
 
                 overload = ManaCostSpec.Parse(loud.Groups["cost"].Value);
+                continue;
+            }
+
+            if (AwakenLine().Match(line) is { Success: true } roused)
+            {
+                awaken = ManaCostSpec.Parse(roused.Groups["cost"].Value);
+                awakenCounters = int.Parse(
+                    roused.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+                // Held so that the line can go back unread if the half cannot be built - see
+                // the end of Compile, where the target phrase is read.
+                awakenLine = line;
                 continue;
             }
 
@@ -1184,6 +1206,53 @@ public static partial class CardCompiler
         if (backupLine is not null)
             TryBackup(backupLine, card, backup, triggers, unhandled);
 
+        // CR 702.113a: the awaken half is a whole spell ability of its own, and it is built here
+        // rather than where the line was read because it targets a land the printed spell knows
+        // nothing about. Its effects index into their own one-target slice, the way a mode's do,
+        // so the card's own targets keep the indices they were compiled with.
+        var awakenTarget = awaken is null
+            ? null
+            : EffectPhrase.Specs.Parse("target land you control");
+
+        var awakenEffects = ImmutableList<IEffect>.Empty;
+
+        if (awaken is not null && awakenTarget is not null)
+        {
+            awakenEffects =
+            [
+                new PutCounters(CounterKinds.PlusOnePlusOne, awakenCounters),
+
+                // Four separate effects because they are four separate layers (CR 613.1): the
+                // creature type is layer 4, the size is layer 7b and haste is layer 6, and one
+                // effect cannot be in two of them. Adding the card type rather than replacing it
+                // is what the rider "it's still a land" says.
+                new PumpUntilEndOfTurn(GenerativeEffects.BecomesId(CardType.Creature))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.GainsCreatureTypeId("Elemental"))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.SetPowerToughnessId(0, 0))
+                {
+                    ForTheTurn = false,
+                },
+                new PumpUntilEndOfTurn(GenerativeEffects.GrantId(KeywordAbility.Haste))
+                {
+                    ForTheTurn = false,
+                },
+            ];
+        }
+
+        // A cost with nothing behind it would be a discount on the printed spell, which is a
+        // strictly better card than the one that was printed. The line goes back unread instead.
+        if (awakenLine is not null && awakenEffects.IsEmpty)
+        {
+            unhandled.Add(awakenLine);
+            awaken = null;
+        }
+
         var built = new SpellDefinition
         {
             Targets = spellTargets.ToImmutable(),
@@ -1216,6 +1285,9 @@ public static partial class CardCompiler
             CopyingCost = conspire,
             OverloadCost = overload,
             OverloadEffects = overloadEffects,
+            AwakenCost = awaken,
+            AwakenTarget = awaken is null ? null : awakenTarget,
+            AwakenEffects = awakenEffects,
             PlotCost = plot,
             ReplicateCost = replicate,
             OffspringCost = offspring,
@@ -1300,6 +1372,7 @@ public static partial class CardCompiler
             RemovesHandLimit = noHandLimit,
             ChoosesOnEntry = chooses,
             DevourCount = devour,
+            AmplifyCount = amplify,
             ExtraLandDrops = extraLandDrops,
             MayDeclineUntap = mayDeclineUntap,
             SkipsDrawStep = skipsDraw,
@@ -4407,6 +4480,116 @@ public static partial class CardCompiler
             },
         });
 
+        return true;
+    }
+
+    /// <summary>
+    /// "Ravenous" &#8212; X counters, and a card when X was big (CR 702.156a).
+    /// </summary>
+    /// <remarks>
+    /// One word standing for a replacement effect and a triggered ability, both of which read the
+    /// same number: the X paid for the creature. So the keyword is refused outright on a card
+    /// whose mana cost has no {X} in it. Ravenous on such a card would be a creature that enters
+    /// with nothing and never draws, which is not a card worth reading, and more to the point it
+    /// would be reading a word the printed card cannot mean.
+    /// <para>
+    /// The draw's intervening-if is checked twice (CR 603.4), and both checks read X off the
+    /// object &#8212; which is why <c>GameReducer</c> carries <see cref="GameObject.VariableValue"/>
+    /// across the one move that turns a spell into a permanent, exactly as it already carries
+    /// "was kicked" for the same rule (CR 607.2). Without that the second check finds a zero on
+    /// the permanent and no ravenous creature in the game ever draws.
+    /// </para>
+    /// </remarks>
+    private static bool TryRavenous(
+        string line,
+        CardDefinition card,
+        ImmutableList<TriggeredAbilityDefinition>.Builder triggers,
+        ImmutableList<ReplacementEffectDefinition>.Builder replacements)
+    {
+        if (!RavenousLine().IsMatch(line))
+            return false;
+
+        // CR 702.156a: "found on some creature cards with {X} in their mana cost". Both halves
+        // of the keyword are about that X, so without one there is nothing here to read.
+        if (!card.ManaCostRaw.Contains("{X}", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (TriggerConditions.Parse("~ enters") is not { } entered)
+            return false;
+
+        replacements.Add(new ReplacementEffectDefinition
+        {
+            Id = "ravenous",
+            FunctionsFrom = null,
+            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Replace = (e, state, source) =>
+            {
+                var arrived = Arriving(e, source)!.Value;
+
+                // X rides on the object that was cast, which only a move has - a ravenous
+                // creature put onto the battlefield by something else was never cast for an X
+                // and arrives with nothing, which is what the rules say.
+                var many = e is ObjectMoved move && state.TryGetObject(move.OldId, out var cast)
+                    ? cast.VariableValue
+                    : 0;
+
+                return many <= 0
+                    ? [e]
+                    : [e, new CountersChanged(arrived, CounterKinds.PlusOnePlusOne, many)];
+            },
+        });
+
+        bool BigX(GameState _, IAbilitySource __, GameObject source) => source.VariableValue >= 5;
+
+        triggers.Add(new TriggeredAbilityDefinition
+        {
+            Id = "ravenous",
+            Text = $"When {card.Name} enters, if X is 5 or more, draw a card.",
+            Triggers = (e, state, source) =>
+                entered(e, state, source) && BigX(state, source.Abilities, source),
+            Effects = [new OnlyIf(BigX, [new DrawCards(new Amount(1))])],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Amplify N" &#8212; counters bought by showing the rest of the tribe (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// "As this creature enters, reveal any number of cards from your hand that share a creature
+    /// type with it. It enters with N +1/+1 counters on it for each card revealed this way."
+    /// <para>
+    /// The share-a-type test is the card's own creature types, which the line does not print -
+    /// so a card with no creature types has no amplify the engine can honour and the line is left
+    /// unread rather than compiled into a keyword that can never find anything to reveal.
+    /// </para>
+    /// <para>
+    /// Asked where devour is asked, and for the same reason: the reveal is a decision, and a
+    /// decision cannot be taken inside a replacement effect. See <c>Game.AskOwedAmplify</c>.
+    /// </para>
+    /// </remarks>
+    private static bool TryAmplify(string line, CardDefinition card, ref int amplify)
+    {
+        var m = AmplifyLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // CR 702.38a: what may be revealed is a card "that shares a creature type with it", and
+        // the types are the card's own. A card with none has nothing the keyword can ask for, so
+        // the word is left unread rather than compiled into a dead offer.
+        if (card.Subtypes.Count == 0)
+            return false;
+
+        var each = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+        if (each <= 0)
+            return false;
+
+        // CR 702.38b: multiple instances work separately, which is one reveal each rather than
+        // one reveal. They are summed into a single question because the answers cannot differ
+        // in a way that matters: a card revealed for one instance may be revealed again for the
+        // next, so the best play is to show the same hand to both, and the sum is what that pays.
+        amplify += each;
         return true;
     }
 
@@ -11596,6 +11779,19 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Overload (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex OverloadLine();
 
+    /// <summary>
+    /// "Awaken N&#8212;[cost]" (CR 702.113a).
+    /// </summary>
+    /// <remarks>
+    /// The separator is an em dash on all fifteen printings, written as its code point rather
+    /// than typed so that a hyphen cannot pass for it in an editor - and a hyphen is accepted
+    /// beside it for the same reason reinforce accepts one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Awaken (?<n>\d+)\s*[\u2014\u2015-]\s*(?<cost>(\{[^}]+\})+)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AwakenLine();
+
     [GeneratedRegex(@"^Conspire\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ConspireLine();
 
@@ -11703,6 +11899,21 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^Devour (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex DevourLine();
+
+    /// <summary>"Ravenous" (CR 702.156a). Printed alone; the reminder text carries the rest.</summary>
+    [GeneratedRegex(@"^Ravenous\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex RavenousLine();
+
+    /// <summary>
+    /// "Amplify N" (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Anchored on the whole line so the word "Amplify" beginning a sentence somewhere else
+    /// cannot be read as the keyword. A card printing two instances prints them on two lines,
+    /// and each is read separately and added.
+    /// </remarks>
+    [GeneratedRegex(@"^Amplify (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AmplifyLine();
 
     [GeneratedRegex(
         @"^You may have ~ assign its combat damage as though it weren't blocked\.?$",
@@ -11940,6 +12151,11 @@ public sealed record CompiledCard
     public int DevourCount { get; init; }
 
     /// <summary>
+    /// How many +1/+1 counters each card revealed to amplify is worth (CR 702.38a).
+    /// </summary>
+    public int AmplifyCount { get; init; }
+
+    /// <summary>
     /// Whether the prepared spell may be cast at instant speed (CR 117.1a).
     /// </summary>
     /// <remarks>
@@ -12036,6 +12252,8 @@ public sealed record CompiledCard
         || ShowsTopOfLibrary
         || RemovesHandLimit
         || ChoosesOnEntry != ChoiceOnEntry.None
+        || DevourCount > 0
+        || AmplifyCount > 0
         || ExtraLandDrops > 0
         || MayDeclineUntap
         || SkipsDrawStep

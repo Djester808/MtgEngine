@@ -666,7 +666,8 @@ public sealed class Game
         bool fused = false,
         bool prepared = false,
         bool withFlash = false,
-        bool prototyped = false)
+        bool prototyped = false,
+        bool awakened = false)
     {
         RequirePriority(playerId);
 
@@ -1019,6 +1020,21 @@ public sealed class Game
             specs = [];
         }
 
+        // CR 702.113b: the awaken half's target is chosen only when the awaken cost is being
+        // paid - otherwise "the spell is cast as if it didn't have that target". Added last, so
+        // that the land is the final entry however many targets the card itself printed, which
+        // is where the awaken effects look for it on resolution.
+        if (awakened)
+        {
+            if (_abilities.SpellOf(card.Card)?.AwakenTarget is not { } land)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no awaken (CR 702.113a).");
+            }
+
+            specs = specs.Add(land);
+        }
+
         if (WhySplitSecondForbids() is { } held)
             throw new InvalidOperationException(held);
 
@@ -1117,6 +1133,18 @@ public sealed class Game
 
         if (overloaded && definition?.OverloadCost is { } overloadCost)
             cost = overloadCost;
+
+        // CR 702.113a: awaken is an alternative cost, so it replaces the mana cost outright.
+        if (awakened)
+        {
+            if (definition?.AwakenCost is not { } awakenCost)
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} has no awaken (CR 702.113a).");
+            }
+
+            cost = awakenCost;
+        }
 
         if (bestowed && definition?.BestowCost is { } bestowCost)
             cost = bestowCost;
@@ -1453,6 +1481,9 @@ public sealed class Game
 
         if (overloaded)
             Emit(new SpellOverloaded(stackId));
+
+        if (awakened)
+            Emit(new SpellAwakened(stackId));
 
         if (bestowed)
             Emit(new SpellBestowed(stackId));
@@ -2831,6 +2862,13 @@ public sealed class Game
 
             case ChoiceKind.Devour:
                 ResolveDevour(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.Amplify:
+                ResolveAmplify(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -4317,6 +4355,127 @@ public sealed class Game
 
         if (eaten > 0)
             Emit(new CountersChanged(owed.Id, CounterKinds.PlusOnePlusOne, eaten * owed.Each));
+    }
+
+    /// <summary>
+    /// "As this creature enters, you may reveal any number of cards from your hand that share a
+    /// creature type with it. It enters with N +1/+1 counters on it for each" (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Devour's question asked of the hand instead of the battlefield, and asked in the same
+    /// sweep for the same reason: a replacement effect cannot stop and ask, and every amplifying
+    /// creature is printed with a body that the counters are meant to be added to rather than a
+    /// 0/0 that dies without them - so the deviation is safe here in a way it is not for devour.
+    /// <para>
+    /// The types compared are the arriving permanent's <em>computed</em> ones, so a changeling
+    /// amplifies off anything and a creature that was made a Dragon this turn amplifies off
+    /// Dragons. What is in hand is compared by its printed types, which is all a card in a hand
+    /// has (CR 613.2) - plus its own changeling, which is a characteristic-defining ability and
+    /// therefore true in every zone.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedAmplify()
+    {
+        if (State.IsWaitingForChoice)
+            return false;
+
+        foreach (var id in State.Battlefield)
+        {
+            if (_amplifyAsked.Contains(id))
+                continue;
+
+            var obj = State.GetObject(id);
+            var each = _abilities.AmplifyCountOf(obj.Card);
+            if (each <= 0)
+                continue;
+
+            _amplifyAsked.Add(id);
+
+            var mine = Characteristics.Of(State, _abilities, obj);
+            var controller = ControllerOf(obj);
+
+            var showable = State.GetPlayer(controller).Hand
+                .Select(State.GetObject)
+                .Where(held => SharesACreatureType(mine, held))
+                .ToList();
+
+            if (showable.Count == 0)
+                continue;
+
+            _amplifyBeingAsked = (id, each);
+
+            Ask(new PendingChoice
+            {
+                Id = $"amplify:{id.Value:N}",
+                PlayerId = controller,
+                Kind = ChoiceKind.Amplify,
+                Prompt = $"Reveal any number of cards from your hand to amplify "
+                    + $"{obj.Card.Name}. Each is worth {each} +1/+1 counter(s).",
+                Options = [.. showable.Select(held => new ChoiceOption(
+                    held.Id.Value.ToString("N"), held.Card.Name))],
+                MinPicks = 0,
+                MaxPicks = showable.Count,
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether a card in hand shares a creature type with an arriving permanent.</summary>
+    private static bool SharesACreatureType(ComputedCharacteristics mine, GameObject held) =>
+        held.Card.CardTypes.HasFlag(CardType.Creature)
+        && (held.Card.Keywords.HasFlag(KeywordAbility.Changeling)
+            || mine.IsEveryCreatureType
+            || held.Card.Subtypes.Any(mine.HasSubtype));
+
+    private readonly HashSet<ObjectId> _amplifyAsked = [];
+
+    private (ObjectId Id, int Each)? _amplifyBeingAsked;
+
+    /// <summary>Shows what was chosen and puts the counters on (CR 702.38a).</summary>
+    private void ResolveAmplify(IReadOnlyList<string> picks)
+    {
+        if (_amplifyBeingAsked is not { } owed)
+            return;
+
+        _amplifyBeingAsked = null;
+
+        if (!State.TryGetObject(owed.Id, out var amplified)
+            || amplified.Zone != Zone.Battlefield)
+        {
+            return;
+        }
+
+        var mine = Characteristics.Of(State, _abilities, amplified);
+        var shown = ImmutableList.CreateBuilder<ObjectId>();
+
+        foreach (var pick in picks)
+        {
+            var id = new ObjectId(Guid.ParseExact(pick, "N"));
+
+            // Re-checked rather than trusted: the option list was built for this player's hand
+            // as it was, and an answer arrives from outside the engine.
+            if (!State.TryGetObject(id, out var held)
+                || held.Zone != Zone.Hand
+                || held.OwnerId != ControllerOf(amplified)
+                || !SharesACreatureType(mine, held))
+            {
+                continue;
+            }
+
+            shown.Add(id);
+        }
+
+        if (shown.Count == 0)
+            return;
+
+        // The reveal is what the cost of the counters is, so it goes in the log before them.
+        Emit(new CardsRevealed(ControllerOf(amplified), shown.ToImmutable()));
+
+        Emit(new CountersChanged(
+            owed.Id, CounterKinds.PlusOnePlusOne, shown.Count * owed.Each));
     }
 
     private bool AskOwedEntryChoice()
@@ -6765,6 +6924,9 @@ public sealed class Game
             if (AskOwedDevour())
                 return true;
 
+            if (AskOwedAmplify())
+                return true;
+
             if (AskOwedEntryChoice())
                 return true;
 
@@ -8663,6 +8825,17 @@ public sealed class Game
                 spell with { Targets = [.. spell.Targets.Take(spellDefinition.Targets.Count)] });
 
             RunSpliced();
+        }
+
+        // CR 702.113a: the awaken half is a second spell ability that happens on top of
+        // everything the card already said - not instead of it, which is the difference from
+        // overload. Its one target was added last as the spell was cast, so it is the final
+        // entry in whatever the card, its modes and its splices between them chose.
+        if (spell.WasAwakened && spellDefinition is { AwakenEffects.IsEmpty: false })
+        {
+            RunEffects(
+                spellDefinition.AwakenEffects,
+                spell with { Targets = [.. spell.Targets.Skip(spell.Targets.Count - 1)] });
         }
 
         // CR 608.3: a permanent spell becomes a permanent. CR 608.2m: an instant or sorcery is

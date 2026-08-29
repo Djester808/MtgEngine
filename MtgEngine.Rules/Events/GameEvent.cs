@@ -1384,6 +1384,14 @@ public sealed record SpellOverloaded(ObjectId Id) : GameEvent
     public override string Describe() => $"{Id} was overloaded.";
 }
 
+/// <summary>A spell was cast for its awaken cost (CR 702.113a).</summary>
+public sealed record SpellAwakened(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.113";
+
+    public override string Describe() => $"{Id} was awakened.";
+}
+
 /// <summary>A spell was cast for its evoke cost (CR 702.74a).</summary>
 public sealed record SpellEvoked(ObjectId Id) : GameEvent
 {

@@ -112,6 +112,16 @@ public enum ChoiceKind
     /// <summary>Which creatures are eaten as a devouring creature enters (CR 702.81a).</summary>
     Devour,
 
+    /// <summary>
+    /// Which cards are revealed from hand as an amplifying creature enters (CR 702.38a).
+    /// </summary>
+    /// <remarks>
+    /// Devour's question asked of the hand rather than the battlefield, and it keeps devour's
+    /// shape for the same reason: revealing none is declining, so it is one question rather than
+    /// a yes/no followed by a selection.
+    /// </remarks>
+    Amplify,
+
     /// <summary>Which creature a ciphered spell is encoded on, if any (CR 702.99a).</summary>
     EncodeOnCreature,
 
