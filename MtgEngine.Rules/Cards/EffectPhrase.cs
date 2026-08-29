@@ -1179,6 +1179,56 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Untap them" - the plural of "untap it", and a sentence that says nothing at all on
+        // its own: "them" is whatever the sentence before it chose. Two things can have chosen,
+        // and both are already sitting in this builder, so the pronoun is resolved from what has
+        // been built rather than guessed from the words.
+        //
+        // Refused when neither is there. A dangling plural pronoun leaves the line unread, the
+        // same rule "it" follows: untapping the wrong set is a card that plays wrongly while
+        // reading as complete.
+        if (UntapThemLine().IsMatch(sentence))
+        {
+            // The targets first, because a sentence that named targets is unambiguous about
+            // what "them" is. Every permanent target, not the last one: "put a +1/+1 counter on
+            // up to three target creatures. Untap them" means all three, and untapping only the
+            // last is a strictly weaker card.
+            var chosen = false;
+
+            for (var index = 0; index < targets.Count; index++)
+            {
+                if (targets[index].Kind != TargetKind.Permanent)
+                    continue;
+
+                effects.Add(new UntapTarget(index));
+                chosen = true;
+            }
+
+            if (chosen)
+                return true;
+
+            // Otherwise the group the sentence before it found - "creatures you control get
+            // +1/+1 until end of turn. Untap them." The set is named by re-asking that effect's
+            // own filter rather than by remembering which permanents it touched, which is what
+            // an untargeted group effect means (CR 609.2) and is the same answer: both are
+            // evaluated at the same moment in the same resolution.
+            var group = effects.FindLast(e => e is PumpGroup or ToEachPermanent);
+
+            if (group is PumpGroup boosted)
+            {
+                effects.Add(new ToEachPermanent(GroupAction.Untap, boosted.What));
+                return true;
+            }
+
+            if (group is ToEachPermanent handled)
+            {
+                effects.Add(new ToEachPermanent(GroupAction.Untap, handled.What));
+                return true;
+            }
+
+            return false;
+        }
+
         // "Put a +1/+1 counter on each other creature you control" - the whole board at once,
         // which the group vocabulary already does for destroying and tapping. Only +1/+1 and
         // -1/-1 are offered, matching the group action: a named counter on each of something is
@@ -2298,6 +2348,32 @@ public static partial class EffectPhrase
         if (AttachSelfToItLine().IsMatch(sentence) && targets.Count > 0)
         {
             effects.Add(new AttachSourceTo(targets.Count - 1));
+            return true;
+        }
+
+        // The same sentence with nothing targeted, where "it" is instead the token the sentence
+        // before it made: "create a 1/1 white Soldier creature token, then attach ~ to it" is
+        // living weapon written out. Read *after* the targeted form and never instead of it -
+        // the two are one string apart, and claiming this one first took sixteen corpus lines
+        // away from the reader above before the order was fixed.
+        //
+        // It rewrites that effect rather than adding one beside it, because a token has no id
+        // until the effect resolves and a second effect would have nothing to name it with.
+        if (AttachSourceToItLine().IsMatch(sentence)
+            && effects.Count > 0
+            && effects[^1] is CreateToken
+            {
+                Tapped: false,
+                Scope: PlayerScope.You,
+                TargetIndex: null,
+
+                // Exactly one plain token. A zero fixed part is how "create a token" with no
+                // number arrives and CreateToken already reads it as one; a count, an X or a
+                // "for each" makes several, and "it" then names none of them.
+                Count: { IsVariable: false, Negated: false, Counter: null, Fixed: 0 or 1 },
+            } made)
+        {
+            effects[^1] = new CreateTokenAndAttachSource(made.Token);
             return true;
         }
 
@@ -6349,6 +6425,33 @@ public static partial class EffectPhrase
                     : null;
             }
 
+            // "Target creature that was dealt damage this turn" — a clause about what has
+            // happened to the target rather than about what it is. It sits *after* the owner
+            // clause, where the "with ..." qualifier grammar cannot reach it, so it is stripped
+            // here and re-attached as a filter: every owner clause the grammar already reads
+            // ("an opponent controls", "you don't control") arrives working, and so do the "up
+            // to one" and "another" prefixes, which recurse back through here.
+            if (DealtDamageClause().Match(text) is { Success: true } wound
+                && Parse(wound.Groups["rest"].Value) is { Kind: TargetKind.Permanent } wounded)
+            {
+                var already = wounded.ObjectFilter;
+
+                return wounded with
+                {
+                    Description = wounded.Description + " that was dealt damage this turn",
+
+                    // Damage is marked on the permanent (CR 120.3) and stays marked until the
+                    // cleanup step (CR 514.2), so "was dealt damage this turn" and "has damage
+                    // marked" are the same question of a creature. The one thing that separates
+                    // them here is regeneration, which removes the damage (CR 701.15a) — a
+                    // creature that regenerated is no longer a legal target for these cards,
+                    // which is narrower than printed and not wider.
+                    ObjectFilter = (state, abilities, obj, controller) =>
+                        obj.Permanent?.DamageMarked > 0
+                        && already?.Invoke(state, abilities, obj, controller) != false,
+                };
+            }
+
             if (AnyTargetPhrase().IsMatch(text))
                 return AnyTarget;
 
@@ -7254,6 +7357,29 @@ public static partial class EffectPhrase
             RegexOptions.IgnoreCase)]
         private static partial Regex NumberQualifier();
 
+        /// <remarks>
+        /// The noun is written out as "creature" and the tail is the closed list of owner
+        /// clauses rather than anything the grammar might read, and that narrowness is the whole
+        /// point. Damage is marked on a permanent (CR 120.3) — except on a planeswalker, where
+        /// CR 306.7 removes that many loyalty counters instead and nothing in the state remembers
+        /// it was ever dealt. So "target creature or planeswalker … that was dealt damage this
+        /// turn" and "any target that was dealt damage this turn" are refused *by construction*:
+        /// compiled, they would be cards that can never choose the damaged planeswalker they
+        /// print, and nothing about them would look unfinished. Three corpus cards, left unread.
+        /// <para>
+        /// "That <em>dealt</em> damage this turn" is the opposite sentence — the creature that
+        /// dealt it, not the one dealt to — and two corpus cards print it, so the verb is
+        /// required rather than optional.
+        /// </para>
+        /// </remarks>
+        [GeneratedRegex(
+            @"^(?<rest>target creature(\s+you control|\s+you don't control"
+                + @"|\s+an opponent controls|\s+your opponents control"
+                + @"|\s+another player controls|\s+defending player controls)?)"
+                + @" that (was|has been) dealt damage this turn$",
+            RegexOptions.IgnoreCase)]
+        private static partial Regex DealtDamageClause();
+
         [GeneratedRegex(
             @"^with an? ((?<kind>[+-]\d/[+-]\d) )?counter on it$", RegexOptions.IgnoreCase)]
         private static partial Regex CounterQualifier();
@@ -7626,6 +7752,24 @@ public static partial class EffectPhrase
             + @"|(?<draws>draws) " + N + @" cards?)" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetControllerLine();
+
+    /// <remarks>
+    /// Only the bare sentence. "Remove all attacking creatures from combat and untap them" says
+    /// the same words about a set this parser never chose, and reading it here would untap
+    /// whatever the last clause happened to leave behind.
+    /// </remarks>
+    [GeneratedRegex(@"^untap them$", RegexOptions.IgnoreCase)]
+    private static partial Regex UntapThemLine();
+
+    /// <remarks>
+    /// "You may attach ~ to it" is deliberately not read here. Those cards say it of a creature
+    /// the <em>trigger</em> named — "whenever a Warrior creature enters, you may attach ~ to
+    /// it" — which is a different referent this parser has no way to reach, and eleven cards
+    /// print it. Reading them here would attach the Equipment to whatever the last effect
+    /// happened to make.
+    /// </remarks>
+    [GeneratedRegex(@"^attach ~ to it$", RegexOptions.IgnoreCase)]
+    private static partial Regex AttachSourceToItLine();
 
     [GeneratedRegex(
         @"^prevent all combat damage that would be dealt this turn$", RegexOptions.IgnoreCase)]

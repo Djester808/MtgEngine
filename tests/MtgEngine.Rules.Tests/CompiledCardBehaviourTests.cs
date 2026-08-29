@@ -12225,6 +12225,240 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "Destroy target creature that was dealt damage this turn" (CR 120.3, 514.2).
+    /// </summary>
+    /// <remarks>
+    /// A clause about the target's <em>history</em>, printed after the owner clause where the
+    /// "with …" qualifier grammar could not reach it. The wrong reading is the one that drops it:
+    /// the card would be Murder, aimable at anything, and would read as complete while being
+    /// strictly better than printed — so the undamaged creature is asserted illegal here.
+    /// <para>
+    /// Two shapes are asserted <em>unread</em> beside it, and both are deliberate. "That
+    /// <em>dealt</em> damage this turn" is the opposite sentence — the creature that dealt it —
+    /// and two corpus cards print it. And a phrase that can name a planeswalker is refused
+    /// because CR 306.7 removes loyalty counters instead of marking damage, so nothing in the
+    /// state remembers a planeswalker was dealt any: compiled, those cards could never choose the
+    /// damaged planeswalker they print, and nothing would look unfinished.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_target_may_be_narrowed_to_one_dealt_damage_this_turn()
+    {
+        var blow = Card(
+            "Dealt Damage Blow Test",
+            "Destroy target creature that was dealt damage this turn.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(blow);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var spec = Assert.Single(compiled.Spell!.Targets);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var hurt = game.Create(
+            bob, TestCards.Creature("Dealt Damage Wounded Test", 4, 4), Zone.Battlefield);
+
+        var whole = game.Create(
+            bob, TestCards.Creature("Dealt Damage Whole Test", 4, 4), Zone.Battlefield);
+
+        var gun = game.Create(
+            alice, TestCards.Creature("Dealt Damage Gun Test", 1, 1), Zone.Battlefield);
+
+        // One damage on a 4/4 — enough to have been dealt damage, not enough to die to it.
+        game.MarkDamage(hurt, 1, sourceId: gun);
+
+        bool Legal(ObjectId id) =>
+            spec.ObjectFilter?.Invoke(game.State, Pool, game.State.GetObject(id), alice) != false;
+
+        Assert.True(Legal(hurt));
+        Assert.False(Legal(whole));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, blow), [Target.ToPermanent(hurt)]);
+        Settle(game);
+
+        Assert.DoesNotContain(hurt, game.State.Battlefield);
+        Assert.Contains(whole, game.State.Battlefield);
+
+        // The creature that *dealt* the damage, which is the other sentence entirely.
+        Assert.False(
+            CardCompiler.Compile(Card(
+                "Dealt Damage Dealer Test",
+                "Destroy target creature that dealt damage this turn.",
+                CardType.Instant)).IsComplete);
+
+        // A phrase that can name a planeswalker, refused by construction.
+        Assert.False(
+            CardCompiler.Compile(Card(
+                "Dealt Damage Walker Test",
+                "Destroy target creature or planeswalker an opponent controls that was dealt "
+                    + "damage this turn.",
+                CardType.Instant)).IsComplete);
+    }
+
+    /// <summary>
+    /// "Creatures you control get +1/+1 until end of turn. Untap them." (CR 609.2)
+    /// </summary>
+    /// <remarks>
+    /// A sentence that says nothing on its own: "them" is whichever set the sentence before it
+    /// chose, and it is resolved from the effects already built rather than from the words. Two
+    /// wrong readings are asserted against — untapping the whole board, which is what a group
+    /// with no ownership clause would do, and untapping nothing, which is what a dangling pronoun
+    /// left the card doing before. The opponent's tapped creature settles the first.
+    /// </remarks>
+    [Fact]
+    public void Untap_them_untaps_the_group_the_sentence_before_named()
+    {
+        var roar = Card(
+            "Untap Them Group Test",
+            "Creatures you control get +1/+1 until end of turn. Untap them.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(roar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(
+            alice, TestCards.Creature("Untap Them Mine Test", 2, 2), Zone.Battlefield);
+
+        var alsoMine = game.Create(
+            alice, TestCards.Creature("Untap Them Also Mine Test", 2, 2), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Untap Them Theirs Test", 2, 2), Zone.Battlefield);
+
+        game.Tap(mine);
+        game.Tap(alsoMine);
+        game.Tap(theirs);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, roar), []);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(mine).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(alsoMine).Permanent!.IsTapped);
+
+        // The same set the pump found, and no wider than it.
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// "Put a +1/+1 counter on up to three target creatures. Untap them." (CR 115.1)
+    /// </summary>
+    /// <remarks>
+    /// The other thing "them" can mean, and the reading that has to be all of them: untapping
+    /// only the most recent target is the same shape of bug the plural "those creatures" had in
+    /// the skip-untap tail, and it gives a strictly weaker card. All three are asserted untapped.
+    /// </remarks>
+    [Fact]
+    public void Untap_them_untaps_every_target_the_sentence_before_chose()
+    {
+        var guidance = Card(
+            "Untap Them Targets Test",
+            "Put a +1/+1 counter on up to three target creatures. Untap them.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(guidance);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var chosen = Enumerable.Range(0, 3)
+            .Select(i => game.Create(
+                alice,
+                TestCards.Creature($"Untap Them Target {i} Test", 2, 2),
+                Zone.Battlefield))
+            .ToList();
+
+        foreach (var id in chosen)
+            game.Tap(id);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, guidance),
+            [.. chosen.Select(Target.ToPermanent)]);
+
+        Settle(game);
+
+        foreach (var id in chosen)
+        {
+            var creature = game.State.GetObject(id);
+            Assert.False(creature.Permanent!.IsTapped);
+            Assert.Equal(
+                1, creature.Permanent.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+        }
+    }
+
+    /// <summary>
+    /// "Create a 1/1 white Soldier creature token, then attach ~ to it." (CR 701.3a)
+    /// </summary>
+    /// <remarks>
+    /// Living weapon written out on cards that do not print the keyword. "It" is the token the
+    /// sentence before it made, which has no id until that effect resolves — so the two are one
+    /// effect rather than two, the way the keyword already compiles.
+    /// <para>
+    /// The reader sits <em>after</em> the targeted "attach ~ to it", not before it, and that
+    /// order is asserted here: the two sentences are the same string, and claiming this one
+    /// first took sixteen corpus lines away from "return target creature card … and attach ~ to
+    /// it" — a reader stealing from its neighbour while the coverage number went up. The last
+    /// assertion is that neighbour, still reading its own way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_made_and_then_worn_is_one_effect()
+    {
+        var blade = Card(
+            "Written Weapon Test",
+            "When ~ enters, create a 1/1 white Soldier creature token, then attach ~ to it.\n"
+                + "Equipped creature gets +2/+2.",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(blade);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var equipment = game.Create(alice, blade, Zone.Battlefield);
+        Settle(game);
+
+        var soldier = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Soldier");
+
+        Assert.Equal(soldier, game.State.GetObject(equipment).Permanent?.AttachedTo);
+
+        // The token is printed 1/1, so the buff is the proof that the attaching half happened
+        // rather than the token merely arriving.
+        var worn = Characteristics.Of(game.State, Pool, game.State.GetObject(soldier));
+        Assert.Equal(3, worn.Power);
+        Assert.Equal(3, worn.Toughness);
+
+        // Several tokens, and "it" names none of them.
+        Assert.False(
+            CardCompiler.Compile(Card(
+                "Written Weapon Many Test",
+                "When ~ enters, create two 1/1 white Soldier creature tokens, then attach ~ to "
+                    + "it.",
+                CardType.Artifact,
+                subtypes: "Equipment")).IsComplete);
+
+        // The neighbour this reader must not take: here "it" is the card that was targeted.
+        var raise = CardCompiler.Compile(Card(
+            "Written Weapon Raise Test",
+            "When ~ enters, return target creature card from your graveyard to the battlefield "
+                + "and attach ~ to it.",
+            CardType.Artifact,
+            subtypes: "Equipment"));
+
+        Assert.True(raise.IsComplete, string.Join(" | ", raise.Unhandled));
+        Assert.Contains(raise.Triggers[0].Effects, e => e is AttachSourceTo);
+        Assert.DoesNotContain(raise.Triggers[0].Effects, e => e is CreateTokenAndAttachSource);
+    }
+
+    /// <summary>
     /// "When ~ enters, sacrifice it unless you sacrifice another creature."
     /// </summary>
     /// <remarks>
