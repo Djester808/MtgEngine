@@ -3409,6 +3409,15 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Venture into the dungeon" (CR 701.49). One sentence for the whole keyword action,
+        // which is what the cards print: 46 of them say it and none says what a dungeon is,
+        // because the dungeon is a rules object and its rooms live in Dungeons.cs.
+        if (VentureLine().IsMatch(sentence))
+        {
+            effects.Add(new VentureIntoTheDungeon());
+            return true;
+        }
+
         // "You become the monarch" (CR 725.3). A designation rather than a counter or a token,
         // and the commonest sentence in the family by a wide margin - thirty-five cards say it
         // and nothing else about the monarch.
@@ -5082,6 +5091,20 @@ public static partial class EffectPhrase
                     + "creature. Activate only as a sorcery.",
             },
         };
+
+    /// <summary>
+    /// One of those tokens by name, for a caller that is not reading a card (CR 111.9).
+    /// </summary>
+    /// <remarks>
+    /// A dungeon room says "create a Treasure token" and there is no card to parse it out of, so
+    /// the rules ask for the same definition every card gets. A second copy of the Treasure would
+    /// be a second Treasure — two oracle ids for one token, and every count of them wrong.
+    /// </remarks>
+    public static Domain.Models.CardDefinition PredefinedToken(string name) =>
+        PredefinedTokens.TryGetValue(name, out var token)
+            ? token
+            : throw new ArgumentOutOfRangeException(
+                nameof(name), $"No predefined token is named '{name}'.");
 
     /// <summary>The verb a sweeper is printed with, as what it does to each permanent.</summary>
     private static GroupAction GroupActionOf(string verb) => verb.ToLowerInvariant() switch
@@ -8826,6 +8849,15 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^you become the monarch$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomeMonarchLine();
 
+    /// <summary>"Venture into the dungeon" (CR 701.49).</summary>
+    /// <remarks>
+    /// Anchored at both ends deliberately. "Venture into Undercity" is a different instruction
+    /// (CR 701.49d) that names a dungeon this engine does not ship, and a pattern loose enough to
+    /// admit it would send those cards into the wrong dungeon while looking implemented.
+    /// </remarks>
+    [GeneratedRegex(@"^venture into the dungeon$", RegexOptions.IgnoreCase)]
+    private static partial Regex VentureLine();
+
     /// <summary>"Creature cards in your graveyard" - counting a zone rather than the board.</summary>
     /// <remarks>
     /// The library is here beside the hand and the graveyard because it is the same question
@@ -10692,6 +10724,17 @@ public static partial class TriggerConditions
             };
         }
 
+        // "Whenever you complete a dungeon" (CR 309.7), on five cards. What it watches is the
+        // state-based action removing the dungeon card from the game, not the marker reaching the
+        // last room - so the last room's ability has already resolved by the time this fires,
+        // which is the whole difference between Varis making a Wolf after his dungeon paid out
+        // and making one instead of it.
+        if (CompleteDungeonTriggerLine().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is DungeonCompleted done && done.PlayerId == source.ControllerId;
+        }
+
         // "Whenever you scry", "whenever you surveil" - the request is the event: it is emitted
         // the moment the effect resolves and carries who is doing it, and the moves that follow
         // are the answer to a question rather than the thing the card is watching for. Surveil is
@@ -11734,6 +11777,10 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^you (?<verb>scry|surveil)$", RegexOptions.IgnoreCase)]
     private static partial Regex ScryTriggerLine();
+
+    /// <summary>"Whenever you complete a dungeon" (CR 309.7).</summary>
+    [GeneratedRegex(@"^you complete a dungeon$", RegexOptions.IgnoreCase)]
+    private static partial Regex CompleteDungeonTriggerLine();
 
     /// <remarks>
     /// The recipient nouns are written as a repeatable group under one name, so "a player or

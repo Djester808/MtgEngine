@@ -110,12 +110,26 @@ public sealed record FloatingEffect
     /// </summary>
     public int? UntilEndOfTurn { get; init; }
 
+    /// <summary>
+    /// The player whose next turn ends it, for "until your next turn" (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// A second duration rather than a cleverer reading of <see cref="UntilEndOfTurn"/>, because
+    /// the two end at different moments and neither can be spelled as the other: "until end of
+    /// turn" ends during the cleanup step of the turn it was made in (CR 514.2), and "until your
+    /// next turn" runs through every other player's turn and ends as that player's untap step
+    /// begins. Storing a turn <em>number</em> for it would be wrong the moment somebody takes an
+    /// extra turn, so what is stored is the player and the untap step does the comparing.
+    /// </remarks>
+    public Guid? UntilTurnOf { get; init; }
+
     public bool Equals(FloatingEffect? other) =>
         other is not null &&
         Id == other.Id &&
         string.Equals(DefinitionId, other.DefinitionId, StringComparison.Ordinal) &&
         Timestamp == other.Timestamp &&
         UntilEndOfTurn == other.UntilEndOfTurn &&
+        UntilTurnOf == other.UntilTurnOf &&
         Structural.Same(AffectedIds, other.AffectedIds);
 
     public override int GetHashCode() =>

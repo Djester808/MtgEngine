@@ -168,6 +168,17 @@ public static class GameReducer
                 state.GetPlayer(bearer.PlayerId) with { RingBearer = bearer.Creature }),
             ClashRequested => state,
             ClashRevealed => state,
+            VentureRoomRequested => state,
+
+            // CR 309.4a and 309.5a are one assignment: the marker is either being put on the
+            // topmost room of a dungeon that just arrived, or moved along an arrow.
+            VentureMarkerMoved moved => state.WithPlayer(
+                state.GetPlayer(moved.PlayerId) with { DungeonRoom = moved.Room }),
+
+            // CR 309.7. The marker goes with the card - a player who has completed a dungeon owns
+            // no dungeon and no room, which is what makes the next venture start a fresh one
+            // (CR 701.49a) rather than advancing out of a room that is no longer in the game.
+            DungeonCompleted finished => Complete(state, finished),
             CardPutOnBottom bottomed => PutOnBottom(state, bottomed),
             CardMayBePlayed playable => state.TryGetObject(playable.Id, out var loose)
                 ? state.WithObject(loose with
@@ -803,6 +814,7 @@ public static class GameReducer
                 AffectedIds = e.AffectedIds,
                 Timestamp = timestamp,
                 UntilEndOfTurn = e.UntilEndOfTurn,
+                UntilTurnOf = e.UntilTurnOf,
             }),
         };
     }
@@ -985,6 +997,23 @@ public static class GameReducer
             : permanent.Counters.SetItem(e.Kind, count);
 
         return state.WithObject(obj with { Permanent = permanent with { Counters = counters } });
+    }
+
+    /// <summary>A dungeon left the game, so its owner completed it (CR 309.7).</summary>
+    /// <remarks>
+    /// The marker goes with the card. A player who has completed a dungeon owns no dungeon and is
+    /// in no room, which is what makes their next venture start a fresh one (CR 701.49a) rather
+    /// than trying to advance out of a room no longer in the game.
+    /// </remarks>
+    private static GameState Complete(GameState state, DungeonCompleted e)
+    {
+        var who = state.GetPlayer(e.PlayerId);
+
+        return state.WithPlayer(who with
+        {
+            DungeonRoom = null,
+            CompletedDungeons = who.CompletedDungeons.Add(e.Dungeon),
+        });
     }
 
     private static GameState CeaseToExist(GameState state, ObjectCeasedToExist e)

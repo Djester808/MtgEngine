@@ -965,6 +965,54 @@ public sealed record RingBearerRequested(Guid PlayerId) : GameEvent
     public override string Describe() => $"{PlayerId:N} chooses a Ring-bearer.";
 }
 
+/// <summary>A player's venture marker moved into a room (CR 309.4a, 701.49b).</summary>
+/// <remarks>
+/// One event for both halves of the keyword action: putting a dungeon into the command zone puts
+/// the marker on its topmost room, and every later venture moves it along an arrow. The room
+/// ability watches this and nothing else (CR 309.4c), so entering a dungeon fires its first room
+/// by the same route that advancing fires the next - two events would have been two chances for
+/// one of them not to.
+/// <para>
+/// It carries the dungeon's name as well as the room's because room names are not unique across
+/// dungeons and a log has to say which board it was about.
+/// </para>
+/// </remarks>
+public sealed record VentureMarkerMoved(Guid PlayerId, string Dungeon, string Room) : GameEvent
+{
+    public override string Rule => "701.49b";
+
+    public override string Describe() => $"{PlayerId:N} ventured into {Room}.";
+}
+
+/// <summary>A player has to choose which arrow to follow out of a room (CR 701.49b).</summary>
+/// <remarks>
+/// The question, not the answer. A dungeon forks, and CR 701.49b has the player choose which of
+/// the arrows pointing away from their room to follow - so the venture cannot finish inside the
+/// effect that called for it, exactly like a scry.
+/// </remarks>
+public sealed record VentureRoomRequested(
+    Guid PlayerId, string Dungeon, ImmutableList<string> Rooms) : GameEvent
+{
+    public override string Rule => "701.49b";
+
+    public override string Describe() => $"{PlayerId:N} chooses a room to venture into.";
+}
+
+/// <summary>A player completed a dungeon as its card left the game (CR 309.7).</summary>
+/// <remarks>
+/// Completing is not entering the last room: CR 309.6 removes the dungeon card from the game as a
+/// state-based action once the marker is on the bottommost room and no room ability of that
+/// dungeon is still on the stack, and CR 309.7 says the player completes it as that happens. So a
+/// card that reads "whenever you complete a dungeon" fires after the last room's ability has
+/// resolved, not before it.
+/// </remarks>
+public sealed record DungeonCompleted(Guid PlayerId, string Dungeon) : GameEvent
+{
+    public override string Rule => "309.7";
+
+    public override string Describe() => $"{PlayerId:N} completed {Dungeon}.";
+}
+
 /// <summary>A clash was called for and has to be carried out (CR 701.30a).</summary>
 /// <remarks>
 /// Carries a locator back into the card, the way a coin flip does: the "if you win" half is
@@ -1905,6 +1953,14 @@ public sealed record ContinuousEffectCreated(
     ImmutableList<ObjectId> AffectedIds,
     int? UntilEndOfTurn) : GameEvent
 {
+    /// <summary>Whose next turn ends it, for "until your next turn" (CR 611.2b).</summary>
+    /// <remarks>
+    /// An init property rather than a fifth positional parameter: every existing caller says
+    /// "until end of turn" and adding a position would have been ninety edits, each of which is a
+    /// chance to pass the wrong duration silently.
+    /// </remarks>
+    public Guid? UntilTurnOf { get; init; }
+
     public override string Rule => "611.2";
 
     public override string Describe() =>

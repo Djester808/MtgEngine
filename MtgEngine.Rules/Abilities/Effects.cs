@@ -2328,6 +2328,16 @@ public sealed record PumpUntilEndOfTurn(
     int TargetIndex = 0,
     EffectSubject Subject = EffectSubject.Target) : IEffect
 {
+    /// <summary>
+    /// Whether the bonus lasts "until your next turn" rather than until end of turn (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The same effect with a longer duration, so it is a flag rather than a second record: what
+    /// differs is one field on the event, and a parallel type would have been a second place for
+    /// the layer lookup and the subject resolution to be got wrong.
+    /// </remarks>
+    public bool UntilYourNextTurn { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -2343,7 +2353,13 @@ public sealed record PumpUntilEndOfTurn(
         return
         [
             new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, [subject], context.State.TurnNumber),
+                Guid.NewGuid(),
+                DefinitionId,
+                [subject],
+                UntilYourNextTurn ? null : context.State.TurnNumber)
+            {
+                UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
+            },
         ];
     }
 }
@@ -3327,6 +3343,58 @@ public sealed record Incubate(Amount Count) : IEffect
                 id, Token, context.ControllerId, context.ControllerId, Zone.Battlefield),
             new CountersChanged(id, State.CounterKinds.PlusOnePlusOne, counters),
         ];
+    }
+}
+
+/// <summary>"Venture into the dungeon" (CR 701.49).</summary>
+/// <remarks>
+/// Three cases in the rule and all three are here, because they are one instruction and a card
+/// that could only do the second would stall the first time anybody played it:
+/// <list type="bullet">
+/// <item>No dungeon in the command zone (CR 701.49a): one is put there and the marker goes on its
+/// topmost room. The dungeon is a real object in the command zone, so its room abilities are
+/// found by the ordinary trigger scan rather than being run from inside this resolution - which
+/// is what lets a room target something.</item>
+/// <item>One arrow out of the current room (CR 701.49b): the marker moves.</item>
+/// <item>Several arrows: the player chooses, and the venture finishes when they answer. The
+/// question is emitted rather than resolved here for the reason every deferred question is - an
+/// effect cannot stop half way through and wait.</item>
+/// </list>
+/// The fourth case in the rule, venturing while already on the bottommost room (CR 701.49c),
+/// cannot be reached in a settled game: CR 309.6 removes that dungeon from the game as a
+/// state-based action before anybody has priority again, so the player owns none by the time the
+/// next venture happens and the first case applies. It returns nothing rather than guessing.
+/// </remarks>
+public sealed record VentureIntoTheDungeon : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var who = context.ControllerId;
+        var state = context.State;
+
+        if (Dungeons.OwnedBy(state, who) is not { } owned)
+        {
+            var card = Dungeons.CardFor(Dungeons.Default);
+
+            return
+            [
+                new ObjectCreated(ObjectId.New(), card, who, who, Zone.Command),
+                new VentureMarkerMoved(
+                    who, card.Name, Dungeons.Definition(card.Name)!.Top.Name),
+            ];
+        }
+
+        var dungeon = owned.Card.Name;
+        var next = Dungeons.RoomsAfter(dungeon, state.GetPlayer(who).DungeonRoom);
+
+        return next.Count switch
+        {
+            0 => [],
+            1 => [new VentureMarkerMoved(who, dungeon, next[0])],
+            _ => [new VentureRoomRequested(who, dungeon, next)],
+        };
     }
 }
 

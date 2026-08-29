@@ -1227,6 +1227,21 @@ public static partial class BoardConditions
                 : state.TurnOrder.Any(who => state.GetPlayer(who).SpellsCastLastTurn >= wanted);
         }
 
+        // "If you've completed a dungeon" (CR 309.7), on 21 cards. A fact about a player's whole
+        // game rather than about the board, so it is answered from the list of dungeons they have
+        // finished and not by looking for a dungeon anywhere - a player who has completed one
+        // owns no dungeon at all, which is exactly the moment the condition becomes true.
+        var delved = CompletedDungeonLine().Match(text);
+        if (delved.Success)
+        {
+            var mine = !delved.Groups["opponent"].Success;
+
+            return (state, _, source) => mine
+                ? state.GetPlayer(source.ControllerId).HasCompletedADungeon
+                : state.ActivePlayers().Any(who =>
+                    who != source.ControllerId && state.GetPlayer(who).HasCompletedADungeon);
+        }
+
         // "If you're the monarch" (CR 725.1). One designation held by at most one player, so
         // this is a comparison against a single field rather than a question asked of each.
         var crowned = MonarchLine().Match(text);
@@ -2807,6 +2822,17 @@ public static partial class BoardConditions
             + @"|(?<nobody>there is no monarch))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
+
+    /// <summary>"You've completed a dungeon" (CR 309.7).</summary>
+    /// <remarks>
+    /// Both spellings of the apostrophe, which this file has had to do everywhere: the corpus
+    /// uses the typographic one and hand-written test fixtures use the typewriter one, and a
+    /// pattern with only one of them reads half the cards that say the same thing.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:(?<opponent>an opponent) has|you('ve|’ve| have)) completed a dungeon$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CompletedDungeonLine();
 
     /// <summary>"You control your commander" (CR 903.3), or any commander (CR 903.3d).</summary>
     /// <remarks>

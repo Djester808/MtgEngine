@@ -144,6 +144,9 @@ public enum ChoiceKind
     /// <summary>Which creature you control bears the Ring (CR 701.54a).</summary>
     RingBearer,
 
+    /// <summary>Which arrow to follow out of a dungeon room (CR 701.49b).</summary>
+    VentureRoom,
+
     /// <summary>Choosing which permanents an effect untaps, up to a limit (CR 701.21a).</summary>
     ChooseUntaps,
 
