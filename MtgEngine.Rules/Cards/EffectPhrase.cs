@@ -5399,6 +5399,13 @@ public static partial class EffectPhrase
     /// this question.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Exposed so the one other reader that counts a party asks this and does not keep a second
+    /// answer to the same rule.
+    /// </summary>
+    internal static int PartySizeFor(GameState state, IAbilitySource abilities, Guid you) =>
+        PartySize(state, abilities, you, default);
+
     private static int PartySize(GameState state, IAbilitySource abilities, Guid you, ObjectId _)
     {
         var candidates = state.Battlefield

@@ -14261,6 +14261,67 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
     }
 
+    /// <summary>
+    /// A counted party is the largest assignment the board allows (CR 700.8b).
+    /// </summary>
+    /// <remarks>
+    /// There were two answers to this rule in the compiler and one of them was wrong. The counted
+    /// form kept its own walk that gave each creature the first role it could fill and moved on,
+    /// so a Cleric Rogue arriving before a plain Cleric took the Cleric slot and left the plain
+    /// one nothing — a party of one where CR 700.8b entitles the player to count two. It now
+    /// delegates to the matcher the condition form already used, which re-houses a role that is
+    /// already taken.
+    /// <para>
+    /// The comment that stood over the greedy version said the choice was "not a choice worth
+    /// asking about: the size is the same either way". That is the claim the rule exists to deny,
+    /// and it read as a justification, which is how a wrong answer survives being looked at.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_party_takes_the_assignment_that_fills_the_most_roles()
+    {
+        var totem = Card(
+            "Party Count Match Test",
+            "~'s power and toughness are each equal to the number of creatures in your party.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(totem);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var idol = game.Create(alice, totem, Zone.Battlefield);
+
+        // Order is the whole test: the dual-class creature arrives first, so a walk that spends it
+        // on the Cleric slot leaves the plain Cleric nowhere to go and reports one.
+        game.Create(alice, new CardDefinition
+        {
+            OracleId = "oracle-party-match-dual",
+            Name = "Party Match Dual Test",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Cleric", "Rogue"],
+            Power = 1,
+            Toughness = 1,
+        }, Zone.Battlefield);
+
+        game.Create(alice, new CardDefinition
+        {
+            OracleId = "oracle-party-match-plain",
+            Name = "Party Match Plain Test",
+            CardTypes = CardType.Creature,
+            Subtypes = ["Cleric"],
+            Power = 1,
+            Toughness = 1,
+        }, Zone.Battlefield);
+
+        Settle(game);
+
+        // Cleric Rogue counted as the Rogue, plain Cleric as the Cleric.
+        Assert.Equal(
+            2, Characteristics.Of(game.State, Pool, game.State.GetObject(idol)).Power);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {

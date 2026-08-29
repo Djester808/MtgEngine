@@ -6072,51 +6072,26 @@ public static partial class CardCompiler
     /// and computed types; a hand or a graveyard is a pile of cards, filtered by the search
     /// vocabulary, and control does not come into it.
     /// </remarks>
-    /// <summary>How full a player's party is — one of each of the four classes (CR 700.9).</summary>
-    /// <remarks>
-    /// Subtypes are read computed, because a creature that has been made a Cleric is one for this
-    /// as much as for anything else (CR 613). A creature with two of the classes fills only one
-    /// place, and which is not a choice worth asking about: the size is the same either way, so
-    /// the greedy walk below cannot get it wrong.
-    /// </remarks>
-    private static int PartySize(GameState state, Guid you)
-    {
-        var classes = new[] { "Cleric", "Rogue", "Warrior", "Wizard" };
-        var filled = new bool[classes.Length];
-
-        foreach (var id in state.Battlefield)
-        {
-            var obj = state.GetObject(id);
-            var computed = Characteristics.Of(state, EmptyAbilities.Instance, obj);
-
-            if (!computed.IsCreature || computed.ControllerId != you)
-                continue;
-
-            for (var i = 0; i < classes.Length; i++)
-            {
-                if (filled[i] || !computed.HasSubtype(classes[i]))
-                    continue;
-
-                filled[i] = true;
-                break;
-            }
-        }
-
-        return filled.Count(f => f);
-    }
-
     private static Func<GameState, Guid, int>? DefinedCount(string phrase)
     {
         if (string.Equals(phrase, "your life total", StringComparison.OrdinalIgnoreCase))
             return (state, you) => Math.Max(0, state.GetPlayer(you).Life);
 
-        // "Creatures in your party" is not a count of creatures at all (CR 700.9): a party is at
+        // "Creatures in your party" is not a count of creatures at all (CR 700.8a): a party is at
         // most one Cleric, one Rogue, one Warrior and one Wizard, so eight Clerics are a party of
         // one. Answered here rather than through the noun grammar, which counts what it matches
         // and would say eight.
+        //
+        // Delegated rather than answered twice. The copy that used to live here assigned each
+        // creature to the first role it could fill and moved on, which CR 700.8b says is wrong
+        // wherever it matters: a Cleric Rogue seen before a plain Cleric took the Cleric slot and
+        // left the plain one nothing, reporting a party of one where the player is entitled to
+        // count two. The shared matcher re-houses a role that is already taken, so it finds the
+        // largest party the board allows.
         if (PartyLine().IsMatch(phrase))
         {
-            return (state, you) => PartySize(state, you);
+            return (state, you) =>
+                EffectPhrase.PartySizeFor(state, EmptyAbilities.Instance, you);
         }
 
         var counting = CountedThingLine().Match(phrase);
