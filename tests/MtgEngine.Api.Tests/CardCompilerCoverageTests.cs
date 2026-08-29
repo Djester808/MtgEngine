@@ -42,7 +42,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     /// a card the corpus gains does not fail an unrelated commit.
     /// </para>
     /// </remarks>
-    private const double MinimumCoverage = 0.486;
+    private const double MinimumCoverage = 0.492;
 
     /// <summary>The corpus, or null when the bulk file has not been downloaded.</summary>
     /// <remarks>
