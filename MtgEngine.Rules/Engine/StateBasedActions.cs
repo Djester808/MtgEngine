@@ -252,7 +252,13 @@ public static class StateBasedActions
             if (obj.Permanent is null)
                 continue;
 
-            var chapters = abilities.TriggersOf(obj.Card)
+            // CR 707.2a: a Saga that is a copy of another Saga has the copied card's chapter
+            // abilities, and CR 714.4's final chapter number is counted from those. Reading the
+            // printed card counted the wrong Saga's chapters, which sacrifices the permanent at
+            // the wrong lore count in both directions.
+            var card = Characteristics.CardOf(state, abilities, obj);
+
+            var chapters = abilities.TriggersOf(card)
                 .Where(t => t.Chapter is not null)
                 .Select(t => t.Chapter!.Value)
                 .ToList();
@@ -270,7 +276,10 @@ public static class StateBasedActions
                 state.TryGetObject(stacked, out var waiting)
                 && waiting.Ability is { } ability
                 && ability.SourceId == id
-                && abilities.TriggersOf(waiting.Card)
+
+                // The Saga's own card, not the one the ability on the stack carries: a chapter
+                // of a copied Saga is looked up on the card the permanent is a copy of.
+                && abilities.TriggersOf(card)
                     .Any(t => t.Id == ability.AbilityId && t.Chapter is not null));
 
             if (onStack)

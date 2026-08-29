@@ -89,6 +89,93 @@ public static partial class GenerativeEffects
         return CopyPrefix + JsonSerializer.Serialize(Copiable.Of(card), CopyFormat);
     }
 
+    /// <summary>Whether a generated effect's name is a copy effect (CR 707.2).</summary>
+    /// <remarks>
+    /// Asked by anything that has to know whether a permanent is <em>already</em> a copy without
+    /// working out what it is a copy of. A replacement that turns a permanent into a copy as it
+    /// arrives has to stop applying once it has, or the alternatives it did not take are offered
+    /// again against the very event it just replaced.
+    /// </remarks>
+    public static bool IsCopy(string definitionId)
+    {
+        ArgumentNullException.ThrowIfNull(definitionId);
+
+        return definitionId.StartsWith(CopyPrefix, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The copied card as the copy effect's own exceptions leave it (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// "Except it's an enchantment in addition to its other types", "except it isn't legendary",
+    /// "except it's 7/7" — CR 707.9b says the modified value <em>becomes</em> part of the copy's
+    /// copiable values, which is exactly what handing a changed card to <see cref="CopyId"/>
+    /// says. Nothing else in the engine has to learn what an exception is: the copy is a card,
+    /// and this is that card with two words different.
+    /// <para>
+    /// The oracle id is deliberately the copied card's, unchanged. Abilities are looked up by
+    /// card, and CR 707.9b modifies a <em>characteristic</em> — a Copy Artifact copying a
+    /// Juggernaut still has Juggernaut's abilities, so the changed card has to lead an ability
+    /// source to the same place the unchanged one would.
+    /// </para>
+    /// <para>
+    /// Types are added rather than replaced, because that is what "in addition to its other
+    /// types" says. CR 707.9d turns on that distinction — an exception that adds a type still
+    /// copies a characteristic-defining ability, while one that <em>sets</em> a characteristic
+    /// does not — and the second half of that rule is not done here: "except it's 7/7" writes the
+    /// size onto the card and does not take away a copied ability that defines the size, so a
+    /// Quicksilver Gargantuan copying a creature whose power is characteristic-defining ends up
+    /// the size that ability says. Left that way deliberately: dropping an ability by
+    /// <em>what it defines</em> needs the compiler to say which characteristic each one defines,
+    /// and it does not.
+    /// </para>
+    /// </remarks>
+    public static CardDefinition Excepting(
+        CardDefinition card,
+        CardType addTypes = default,
+        IReadOnlyList<string>? addSubtypes = null,
+        bool dropLegendary = false,
+        int? power = null,
+        int? toughness = null,
+        KeywordAbility addKeywords = KeywordAbility.None)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        var subtypes = addSubtypes is { Count: > 0 }
+            ? card.Subtypes
+                .Concat(addSubtypes.Where(s => !card.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
+                .ToArray()
+            : card.Subtypes;
+
+        return new CardDefinition
+        {
+            OracleId = card.OracleId,
+            Name = card.Name,
+            ManaCost = card.ManaCost,
+            ManaCostRaw = card.ManaCostRaw,
+            Cmc = card.Cmc,
+            CardTypes = card.CardTypes | addTypes,
+            Subtypes = subtypes,
+            Supertypes = dropLegendary
+                ? [.. card.Supertypes.Where(
+                    s => !string.Equals(s, "Legendary", StringComparison.OrdinalIgnoreCase))]
+                : card.Supertypes,
+            OracleText = card.OracleText,
+            Power = power ?? card.Power,
+            Toughness = toughness ?? card.Toughness,
+            StartingLoyalty = card.StartingLoyalty,
+            Keywords = card.Keywords | addKeywords,
+            ColorIdentity = card.ColorIdentity,
+            Colors = card.Colors,
+            Faces = card.Faces,
+            ImageUriNormal = card.ImageUriNormal,
+            ImageUriLarge = card.ImageUriLarge,
+            ImageUriSmall = card.ImageUriSmall,
+            ImageUriArtCrop = card.ImageUriArtCrop,
+            ImageUriNormalBack = card.ImageUriNormalBack,
+        };
+    }
+
     /// <summary>Compact, and stable across runs — the id has to compare and to replay.</summary>
     private static readonly JsonSerializerOptions CopyFormat = new()
     {

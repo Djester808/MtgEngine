@@ -1704,7 +1704,12 @@ public sealed record MyriadCopies : IEffect
             return [];
         }
 
-        var copied = TokenCards.AsToken(original.Card);
+        // CR 707.3: the copiable values are what this permanent *is*, so a Clone that attacks
+        // with myriad makes tokens of what it copied and not of Clone. Reading the printed card
+        // made a myriad copy of a blank.
+        var copied = TokenCards.AsToken(
+            Characteristics.CardOf(context.State, context.Abilities, original));
+
         var events = new List<GameEvent>();
 
         foreach (var opponent in context.State.TurnOrder)
@@ -1855,7 +1860,15 @@ public sealed record CreateTokenCopy(
             return [];
         }
 
-        var copied = TokenCards.AsToken(original.Card, dropLegendary: ExceptNotLegendary);
+        // CR 707.3: "a token that's a copy of target creature" copies what that permanent is
+        // now, which is the copied card when something has already made it a copy of something
+        // else. Only a permanent has copiable values worked out for it - a card in a graveyard
+        // is read as itself, which is also the rule (CR 707.2).
+        var copiable = original.Zone == Zone.Battlefield
+            ? Characteristics.CardOf(context.State, context.Abilities, original)
+            : original.Card;
+
+        var copied = TokenCards.AsToken(copiable, dropLegendary: ExceptNotLegendary);
 
         var count = Math.Max(1, Count.In(context));
 
@@ -1915,6 +1928,12 @@ internal static class TokenCards
             Keywords = card.Keywords,
             ColorIdentity = card.ColorIdentity,
             Colors = card.Colors,
+
+            // CR 707.8a: a token that is a copy of a double-faced permanent is itself
+            // double-faced and can transform. Dropped, the token came back with one face and no
+            // back, so nothing about it looked wrong and it could never turn over — the same
+            // field, and the same silence, as the game log that was once caught losing it.
+            Faces = card.Faces,
             ImageUriNormal = card.ImageUriNormal,
             ImageUriLarge = card.ImageUriLarge,
             ImageUriSmall = card.ImageUriSmall,
@@ -2344,6 +2363,68 @@ public sealed record PumpUntilEndOfTurn(
         [
             new ContinuousEffectCreated(
                 Guid.NewGuid(), DefinitionId, [subject], context.State.TurnNumber),
+        ];
+    }
+}
+
+/// <summary>
+/// Makes a permanent become a copy of a target permanent (CR 613.2a, 707.2).
+/// </summary>
+/// <remarks>
+/// The one continuous effect whose name cannot be worked out until it resolves. Every other
+/// generated effect in this engine is a family with two numbers in it — <c>pump:+3/+3</c> — and
+/// the compiler can write the name down while reading the card. A copy's name carries the whole
+/// copied card, and which card that is depends on what is on the battlefield at the moment the
+/// ability resolves, so the name is built here.
+/// <para>
+/// CR 707.3 is why it reads the copiable values rather than the printed card: a permanent that
+/// has already become a copy of something else is copied as the thing it became.
+/// </para>
+/// <para>
+/// CR 707.2b fixes those values now. The effect that lands in the log holds the card itself, so
+/// the permanent that was copied may leave, die or change into something else without the copy
+/// noticing — which is what the rule says and what an id pointing at an object could not do.
+/// </para>
+/// </remarks>
+/// <param name="TargetIndex">Which target names the permanent whose values are copied.</param>
+/// <param name="UntilEndOfTurn">
+/// Whether the copy wears off (CR 514.2). False is a permanent change: "becomes a copy" with no
+/// duration is what that permanent now is, and nothing has to take it back off again — the effect
+/// is a layer rather than something written into the object.
+/// </param>
+/// <param name="Subject">
+/// Which permanent becomes the copy. The source is the printed form on every card in the corpus
+/// that says this — "{2}: This artifact becomes a copy of target artifact until end of turn" —
+/// and the shared resolver is what lets a target or a trigger's subject be named instead without
+/// this effect learning how.
+/// </param>
+public sealed record BecomeCopyOfTarget(
+    int TargetIndex = 0,
+    bool UntilEndOfTurn = true,
+    EffectSubject Subject = EffectSubject.Source) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } me)
+            return [];
+
+        // CR 608.2b: a target that is no longer there fails to determine the information the
+        // effect needs, and the effect does not happen. A copy of nothing would be a permanent
+        // with no name at all.
+        if (context.PeerAt(TargetIndex) is not { Zone: Zone.Battlefield } original)
+            return [];
+
+        var copied = Characteristics.CardOf(context.State, context.Abilities, original);
+
+        return
+        [
+            new ContinuousEffectCreated(
+                Guid.NewGuid(),
+                Cards.GenerativeEffects.CopyId(copied),
+                [me],
+                UntilEndOfTurn ? context.State.TurnNumber : null),
         ];
     }
 }

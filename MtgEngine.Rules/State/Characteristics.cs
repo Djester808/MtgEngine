@@ -423,14 +423,14 @@ public static class Characteristics
     /// ability is an effect on other objects rather than a characteristic of this one.
     /// </para>
     /// <para>
-    /// <b>One thing this does not do, and where it has to be fixed.</b> The permanent keeps its
-    /// own printed abilities as well, because those are looked up from
-    /// <see cref="GameObject.Card"/> in <c>Game.ActivatedAbilitiesOf</c> and
-    /// <c>Game.TriggersWatching</c>, which nothing here can reach. CR 707.2a says a copy has the
-    /// copied card's abilities and not both. The fix is one line in each of those two readers —
-    /// look the printed abilities up from <see cref="ComputedCharacteristics.Card"/> instead —
-    /// and the two <c>AddRange</c> calls below <b>must be deleted in the same change</b>, or
-    /// every copied ability is offered twice.
+    /// <b>The copied card's own abilities are not seeded here.</b> They used to be, and that gave
+    /// the permanent the copied card's abilities <em>as well as</em> its own — which CR 707.2a
+    /// forbids: a copy has the copied card's abilities and not both. The two readers that ask a
+    /// permanent what abilities it has, <c>Game.ActivatedAbilitiesOf</c> and
+    /// <c>Game.TriggersWatching</c>, now look the printed ones up from
+    /// <see cref="ComputedCharacteristics.Card"/> instead of from <see cref="GameObject.Card"/>,
+    /// which is the same question asked of the right card. Seeding them here as well would offer
+    /// every copied ability twice.
     /// </para>
     /// </remarks>
     private static void ReadCopiedCard(
@@ -453,9 +453,6 @@ public static class Characteristics
         // characteristics are now being read from.
         if (builder.Keywords.HasFlag(KeywordAbility.Changeling))
             builder.IsEveryCreatureType = true;
-
-        builder.GrantedActivated.AddRange(abilities.ActivatedOf(copied));
-        builder.GrantedTriggers.AddRange(abilities.TriggersOf(copied));
     }
 
     /// <summary>
@@ -564,15 +561,34 @@ public static class Characteristics
         if (obj.Permanent is { IsFaceDown: true })
             return FaceDownSpell;
 
+        return CopiedAs(state, abilities, obj.Id, obj.Card);
+    }
+
+    /// <summary>
+    /// The same question, asked about an id that need not name an object yet (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// A permanent entering as a copy is copied under the id it is <em>about to</em> have. Its
+    /// spell is still on the stack while the arrival is being replaced, and the copy effect names
+    /// the permanent it is becoming, not the spell — so a caller working out what is arriving has
+    /// an id and a printed card and no object to hand over.
+    /// </remarks>
+    public static CardDefinition CopiedAs(
+        GameState state, IAbilitySource abilities, ObjectId id, CardDefinition printed)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(printed);
+
         if (state.FloatingEffects.IsEmpty)
-            return obj.Card;
+            return printed;
 
         CardDefinition? copied = null;
         var latest = long.MinValue;
 
         foreach (var floating in state.FloatingEffects)
         {
-            if (!floating.AffectedIds.Contains(obj.Id))
+            if (!floating.AffectedIds.Contains(id))
                 continue;
 
             // Through the same guard the layers use, so a definition that copies in the wrong
@@ -593,7 +609,7 @@ public static class Characteristics
             }
         }
 
-        return copied ?? obj.Card;
+        return copied ?? printed;
     }
 
     /// <summary>Current power (CR 208, 613.4).</summary>

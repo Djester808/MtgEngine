@@ -584,4 +584,40 @@ public sealed record ReplacementEffectDefinition
     /// </para>
     /// </remarks>
     public Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>>? Decline { get; init; }
+
+    /// <summary>
+    /// The ways this effect could be applied, when applying it means choosing one (CR 707.5).
+    /// </summary>
+    /// <remarks>
+    /// Null for every replacement whose application is settled once it applies, which is nearly
+    /// all of them — <see cref="Replace"/> is then the whole of what happens instead.
+    /// <para>
+    /// "You may have this creature enter as a copy of <em>any creature on the battlefield</em>"
+    /// is the family that needs it, and the difficulty is where the question falls: in the middle
+    /// of applying an event, which is the one moment this engine has no way to stop and ask. A
+    /// captured continuation is exactly what a folded log cannot rebuild. So the choice is
+    /// expressed as several candidate replacements instead, and the rules already have a question
+    /// for that — CR 616.1's "which of these applies first" halts the whole game, is answered by
+    /// an event, and replays.
+    /// </para>
+    /// <para>
+    /// Each branch carries its own label because that label is what the player reads and what
+    /// keeps CR 614.5 from applying two branches to the same event. It has to say which
+    /// permanent, and whose.
+    /// </para>
+    /// </remarks>
+    public Func<GameEvent, GameState, IAbilitySource, GameObject, IReadOnlyList<ReplacementBranch>>? Branches
+    {
+        get;
+        init;
+    }
 }
+
+/// <summary>One of the ways a replacement effect could be applied (CR 616.1, 707.5).</summary>
+/// <param name="Label">
+/// What the player is choosing, in words they can tell apart — the permanent's name and who
+/// controls it. It is also half of the key CR 614.5 uses, so two branches may not share one.
+/// </param>
+public sealed record ReplacementBranch(
+    string Label,
+    Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>> Replace);

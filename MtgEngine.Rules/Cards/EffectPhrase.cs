@@ -3191,6 +3191,32 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "{2}: ~ becomes a copy of target artifact, creature, enchantment, or land until end of
+        // turn" (CR 613.2a, 707.2). Layer 1, so everything else on the board applies on top of
+        // the card it became rather than of the card it was printed as.
+        //
+        // The only continuous effect here that is an IEffect rather than a
+        // generated id: every other one is a family with two numbers in its name, which the
+        // compiler can write down while reading the card, and a copy's name carries the whole
+        // copied card. Which card that is depends on the battlefield at the moment the ability
+        // resolves (CR 707.2b), so it cannot be known here.
+        m = BecomesACopyLine().Match(sentence);
+        if (m.Success && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } copiable)
+        {
+            targets.Add(copiable);
+
+            // No duration read means no duration printed, which is a permanent change: a copy
+            // effect is a layer, so nothing has to be taken back off the object when it ends and
+            // nothing has to be written into it when it starts. Durations the engine cannot
+            // express - "until your next turn", "for as long as that creature remains tapped" -
+            // never reach here, because they are left inside the target phrase and refused by it.
+            effects.Add(new BecomeCopyOfTarget(
+                targets.Count - 1,
+                UntilEndOfTurn: m.Groups["ueot"].Success || m.Groups["pre"].Success));
+
+            return true;
+        }
+
         // "~ becomes an artifact creature until end of turn" — the Vehicle wording, and the one
         // animation that prints no size because the permanent already has one. CR 205.1b names
         // the phrase and says the object keeps every card type and subtype it had, which is what
@@ -9289,6 +9315,19 @@ public static partial class EffectPhrase
             + @"(?<ueot> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex AnimateSelfLine();
+
+    /// <summary>"~ becomes a copy of target artifact until end of turn" (CR 707.2).</summary>
+    /// <remarks>
+    /// Only of the permanent whose ability it is. Every printing of the targeted form —
+    /// "target creature becomes a copy of another target creature" — needs two targets in one
+    /// sentence, and the second of them has to be read as "another", so it is a different shape
+    /// rather than a wider version of this one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?~ becomes a copy of (?<t>.+?)"
+            + @"(?<ueot> until end of turn)?\.?$",
+        RegexOptions.None)]
+    private static partial Regex BecomesACopyLine();
 
     /// <summary>
     /// "Target creature has base power and toughness 4/4 until end of turn" (CR 613.4b).

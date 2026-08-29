@@ -239,6 +239,46 @@ are computed *from*, so the card underneath is never modified and turning it fac
 ceasing to redirect. The CR 613 layer loop is shared between both paths, which keeps the
 interesting half right: a lord still pumps a face-down 2/2.
 
+**And a copy is that generalised.** A permanent that has become a copy reads its characteristics —
+and its abilities, and its replacement effects, and its name — from the copied card, which is
+layer 1's answer and nothing else's (CR 613.2c). `Characteristics.CardOf` is the cheap reader for
+"which card", and **every place that asks a permanent about itself has to go through it.** Nine
+did not, and each was the same bug wearing different clothes: the legend rule grouped by printed
+name so a Clone of a commander sat beside it; the replacement gatherer read the printed card so a
+Clone of a permanent that enters tapped arrived upright (CR 707.5's own example); the two ability
+readers asked the object's card *and* took the copy's, so a copy had both cards' abilities; the
+state-trigger sweep watched the wrong card's condition; `CreateTokenCopy` and myriad made tokens
+of the card rather than of the permanent (CR 707.3); a Saga counted the wrong card's chapters; and
+the board was shown the name and the rules text of a card the engine was no longer playing. This
+is the same lesson control-changing effects taught, one layer earlier: **any read of `obj.Card`
+where a computed characteristic was meant is the same bug.**
+
+Two things about the copy family are decisions rather than mechanics:
+
+- **The copied card travels whole inside the effect's name.** CR 707.2b fixes the copiable values
+  when the copy is made, so an effect holding the copied permanent's *id* would stop being a copy
+  the moment that permanent died — its id stops existing (CR 400.7). It makes much the largest
+  thing this engine puts in a log, and the log still has to read back, so there is a test that
+  round-trips one through the serializer.
+- **"Which creature do you copy?" is asked as a set of candidate replacements.** The question falls
+  in the middle of applying an event, which is the one place this engine has nothing to ask with —
+  a mid-effect continuation is exactly what a folded log cannot rebuild. So the effect offers one
+  candidate *per permanent it could copy* (`ReplacementEffectDefinition.Branches`), and CR 616.1's
+  "which of these replacements applies first" — which already halts the whole game, is answered by
+  an event, and replays — asks it. "You may" is the same question's decline arm. Each branch is
+  labelled with the card and its controller, because a board with two Grizzly Bears on it must not
+  offer two identical buttons.
+
+The ordering inside the replacement is load-bearing and was measured: the copy effect is emitted
+**before** the arrival it replaces. Triggers are collected against the state just after the event
+that caused them (CR 603.6), so a permanent that becomes a copy in the event *after* its own
+arrival has already been asked what its enters abilities are and answered with the copying card's.
+Reversed, the permanent is still a copy with the right name and the right size and the CR 707.5
+enters trigger silently never fires.
+
+`ReadCopiedCard` is the seam. It runs at the end of layer 1, not in layer 6, because an effect that
+removes every ability (CR 613.1f) has to take a copy's abilities with it whenever it applies.
+
 **"It" is read only when something has been targeted.** The pronoun means the target the sentence
 before named, and on a card that has targeted nothing it means something else entirely — a token
 just created, a card just revealed. Guessing would aim the effect at whatever happened to be last,

@@ -66,6 +66,18 @@ public sealed partial class MechanicCoverageTests
         // An_alternative_cost_can_be_paid_in_life_while_the_board_allows_it.
         "AlternativeManaPart",
         "AlternativeLifePart",
+
+        // One clause of a copy effect's exception list (CR 707.9), not a line: each is handed
+        // only what was cut out after "except" and split on "and". Played through the line that
+        // contains them - An_exception_to_the_copy_changes_the_card_that_is_copied for the
+        // in-addition form, An_exception_can_give_the_copy_a_different_size for the size, and
+        // An_exception_can_add_a_type_and_a_keyword_at_once for the keyword and the splitting.
+        // "Isn't legendary" rides the same splitter, and drops a supertype the copy tests
+        // already read through the legend rule.
+        "InAdditionClause",
+        "SetSizeClause",
+        "NotLegendaryClause",
+        "HasKeywordClause",
     ];
 
     [Fact]

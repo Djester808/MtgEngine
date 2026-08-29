@@ -1635,13 +1635,18 @@ public sealed class Game
                 "That ability cannot be activated right now (CR 602.5b).");
         }
 
-        // An ability the card does not have is one nothing can look up later, so it is written
-        // down here, where the definition is still in hand.
-        if (!_abilities.ActivatedOf(source.Card)
-            .Any(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal)))
-        {
-            _grantedOnStack[GrantedKey(sourceId, abilityId)] = ability;
-        }
+        // CR 602.2a: the ability that was activated is the ability that resolves. Written down
+        // here, where the definition is still in hand, because looking it back up by id on a
+        // card is a reconstruction and the reconstruction can be wrong: ability ids are
+        // generated per card, so a copy's "a" and the copying card's own "a" are two different
+        // abilities with one name. Mirage Mirror is the card that proves it — its own ability
+        // makes it a copy, and the copied ability it then offers resolved as the ability that
+        // had made the copy, targeting nothing and doing nothing at all.
+        //
+        // Unconditional, because a conditional write leaves the last copy's ability behind: the
+        // permanent stops being a copy, its own ability is activated, and a stale entry under
+        // the same key would answer for it.
+        _grantedOnStack[GrantedKey(sourceId, abilityId)] = ability;
 
         if (ability.LoyaltyCost is { } loyaltyCost)
         {
@@ -6977,7 +6982,12 @@ public sealed class Game
             .Select(State.GetObject)
             .Select(o => (Object: o, Computed: Characteristics.Of(State, _abilities, o)))
             .Where(pair => pair.Computed.IsLegendary)
-            .GroupBy(pair => (pair.Computed.ControllerId, pair.Object.Card.Name))
+
+            // CR 704.5j asks about the *name*, and a name is a copiable value (CR 707.2): a
+            // Clone of Kenrith is a second Kenrith and the two cannot both stay. Grouping by the
+            // printed name asked which card each permanent came from, which is the one thing the
+            // rule is not about.
+            .GroupBy(pair => (pair.Computed.ControllerId, pair.Computed.Name))
             .Where(g => g.Count() > 1)
             .ToList();
 
@@ -6994,7 +7004,7 @@ public sealed class Game
                 + "the rest go to the graveyard.",
             Options = [.. group.Select(pair => new ChoiceOption(
                 pair.Object.Id.Value.ToString("N"),
-                $"{pair.Object.Card.Name} ({pair.Computed.Power}/{pair.Computed.Toughness})"))],
+                $"{pair.Computed.Name} ({pair.Computed.Power}/{pair.Computed.Toughness})"))],
             Context = [group.Key.Name],
         });
 
@@ -7028,6 +7038,12 @@ public sealed class Game
         DamageMarked damage when State.TryGetObject(damage.Id, out var obj) => obj.ControllerId,
         PlayerDamaged damaged => damaged.PlayerId,
         ObjectMoved moved when State.TryGetObject(moved.OldId, out var obj) => obj.ControllerId,
+
+        // CR 616.1 asks the affected object's controller, and a permanent created straight onto
+        // the battlefield has one on the event - it was never anywhere the state could be asked
+        // about. Falling through to the active player put "you may have this enter as a copy of"
+        // to the wrong person whenever it arrived on somebody else's turn.
+        ObjectCreated made => made.ControllerId,
         LifeChanged life => life.PlayerId,
         _ => State.ActivePlayerId,
     };
@@ -7074,7 +7090,11 @@ public sealed class Game
         {
             var obj = State.GetObject(id);
 
-            foreach (var ability in _abilities.TriggersOf(obj.Card))
+            // The same reader every other trigger goes through, rather than the card: a state
+            // trigger on a copied card is one of the copy's abilities (CR 707.2a), and asking
+            // the printed card watched the wrong permanent's condition. It also writes the
+            // ability down where a resolution can find it again, which a card lookup cannot.
+            foreach (var ability in TriggersWatching(State, obj))
             {
                 if (ability.StateCondition is not { } holds)
                     continue;
@@ -7907,18 +7927,20 @@ public sealed class Game
                 continue;
             }
 
-            foreach (var effect in _abilities.ReplacementsOf(source.Card))
+            // CR 707.5: a permanent that entered as a copy has the copied card's replacement
+            // effects, and they take effect as it arrives — the rule's own example is a Clone of
+            // Skyshroud Behemoth entering tapped with two fade counters. Those are on the copied
+            // card and nowhere near this object's own, so the card is the computed one.
+            foreach (var effect in _abilities.ReplacementsOf(ReplacementCardOf(e, source)))
             {
-                if (applied.Contains((id, effect.Id)))
-                    continue;
-
                 if (effect.FunctionsFrom is { } zone && source.Zone != zone)
                     continue;
 
                 if (!effect.Applies(e, State, source))
                     continue;
 
-                yield return (effect.Id, source, effect.Replace, effect.IsOptional, effect.Decline);
+                foreach (var candidate in Branches(e, id, effect, source, applied))
+                    yield return candidate;
             }
         }
 
@@ -7943,18 +7965,93 @@ public sealed class Game
             Timestamp = State.NextTimestamp,
         };
 
-        foreach (var effect in _abilities.ReplacementsOf(made.Card))
+        // The computed card for the same reason the battlefield's is: a token created as a copy
+        // carries the copied card's own "enters tapped" and "enters with counters" (CR 707.5),
+        // and the copy effect naming this id has already been emitted by the time the arrival is
+        // re-examined.
+        foreach (var effect in _abilities.ReplacementsOf(ReplacementCardOf(e, arriving)))
         {
-            if (applied.Contains((made.Id, effect.Id)))
-                continue;
-
             if (effect.FunctionsFrom is { } zone && made.Zone != zone)
                 continue;
 
             if (!effect.Applies(e, State, arriving))
                 continue;
 
-            yield return (effect.Id, arriving, effect.Replace, effect.IsOptional, effect.Decline);
+            foreach (var candidate in Branches(e, made.Id, effect, arriving, applied))
+                yield return candidate;
+        }
+    }
+
+    /// <summary>
+    /// Which card an object's replacement effects are read from (CR 707.5).
+    /// </summary>
+    /// <remarks>
+    /// The permanent's own card until something has made it a copy, and the copy's after that —
+    /// a Clone of Skyshroud Behemoth enters tapped with two fade counters, and both of those are
+    /// replacement effects printed on the card it copied.
+    /// <para>
+    /// The id asked about is the one the object is <em>about to</em> have, not the one it has.
+    /// A permanent spell is still on the stack while its own arrival is being replaced, and the
+    /// copy effect its replacement created names the permanent it is becoming rather than the
+    /// spell (CR 400.7). Asking about the spell's id found no copy effect at all, so a Clone
+    /// cast from a hand arrived untapped and empty while one put onto the battlefield directly
+    /// arrived correctly — which is exactly the kind of half-working nobody notices.
+    /// </para>
+    /// <para>
+    /// Face-down permanents keep their own card here. Their characteristics come from the rules
+    /// (CR 708.2a), but morph's own replacement is on the card underneath and reading the rules'
+    /// empty stand-in would take it away.
+    /// </para>
+    /// </remarks>
+    private CardDefinition ReplacementCardOf(GameEvent e, GameObject source) =>
+        source.Permanent is { IsFaceDown: true }
+            ? source.Card
+            : Characteristics.CopiedAs(
+                State,
+                _abilities,
+                Cards.CardCompiler.Arriving(e, source) ?? source.Id,
+                source.Card);
+
+    /// <summary>
+    /// One candidate per way a replacement effect can be applied (CR 616.1).
+    /// </summary>
+    /// <remarks>
+    /// Almost every replacement is one candidate: it applies, and what it does is settled. A
+    /// copy effect is the exception the rules already have a question for — "you may have this
+    /// creature enter as a copy of <em>any creature on the battlefield</em>" is a choice made in
+    /// the middle of applying an event, which is the one place this engine could not ask
+    /// anything. Expressing each creature as its own candidate hands it to the machinery that
+    /// already asks which of several replacements to apply, already halts the whole game to do
+    /// it, and already replays — instead of a mid-effect continuation, which a log cannot fold.
+    /// <para>
+    /// Each branch needs its own id, because that id is both the option the player picks and the
+    /// key that stops CR 614.5 applying the same effect twice. The branch's label is what makes
+    /// it distinguishable to the person answering, so it names the permanent and who controls
+    /// it — a board with two Grizzly Bears on it must not offer two identical buttons.
+    /// </para>
+    /// </remarks>
+    private IEnumerable<(string Id, GameObject Source, Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>> Replace, bool Optional, Func<GameEvent, GameState, GameObject, IReadOnlyList<GameEvent>>? Decline)> Branches(
+        GameEvent e,
+        ObjectId id,
+        ReplacementEffectDefinition effect,
+        GameObject source,
+        HashSet<(ObjectId, string)> applied)
+    {
+        if (effect.Branches is not { } branching)
+        {
+            if (!applied.Contains((id, effect.Id)))
+                yield return (effect.Id, source, effect.Replace, effect.IsOptional, effect.Decline);
+
+            yield break;
+        }
+
+        foreach (var branch in branching(e, State, _abilities, source))
+        {
+            var branchId = effect.Id + ": " + branch.Label;
+            if (applied.Contains((id, branchId)))
+                continue;
+
+            yield return (branchId, source, branch.Replace, effect.IsOptional, effect.Decline);
         }
     }
 
@@ -9097,6 +9194,14 @@ public sealed class Game
 
         var now = Characteristics.Of(state, abilities, obj);
 
+        // CR 707.2a: a copy has the copied card's abilities and *not* its own as well — "it
+        // doesn't wind up with two values of each ability". Which card those come from is layer
+        // 1's answer and nothing else's, so this asks the computed characteristics rather than
+        // the object's own card. Asking the object's card left a Clone of a Wall of Omens
+        // offering both cards' abilities at once.
+        if (obj.Permanent is not { IsFaceDown: true })
+            printed = abilities.ActivatedOf(now.Card);
+
         // CR 613.1f: an effect that removes all abilities takes the printed ones with it. The
         // granted ones are not cleared here - the layers have already settled which of those
         // survive, because a grant that applied after the removal still applies and one that
@@ -9132,12 +9237,35 @@ public sealed class Game
 
         var now = Characteristics.Of(state, _abilities, obj);
 
+        // CR 707.2a: the copied card's triggers are the permanent's triggers, in place of its
+        // own rather than beside them. The same one-card question the activated abilities ask.
+        //
+        // Not while it is face down. CR 708.10 says a face-down permanent that becomes a copy
+        // keeps the characteristics its face-down status gives it, so there is nothing to read
+        // from the copy - and the card underneath still has to be offered here, because
+        // disguise's ward is found on it and thrown out by the FunctionsFaceDown test in
+        // Consider rather than by this lookup.
+        var copied = obj.Permanent is not { IsFaceDown: true }
+            && !ReferenceEquals(now.Card, obj.Card);
+        if (copied)
+            printed = _abilities.TriggersOf(now.Card);
+
         // CR 613.1f: an effect that removes all abilities takes the printed ones with it. The
         // granted ones are not cleared here - the layers have already settled which of those
         // survive, because a grant that applied after the removal still applies and one that
         // applied before does not (CR 613.7). Same shape as the face-down rule above.
         if (now.HasLostAllAbilities)
             printed = [];
+
+        // A copied trigger is on the stack as an id against a permanent whose own card has never
+        // heard of it, so it has to be written down here exactly as a granted one is - the copy
+        // effect could have ended by the time the ability resolves, and CR 707.11 says the
+        // ability still does what it said.
+        if (copied)
+        {
+            foreach (var trigger in printed)
+                _grantedTriggersOnStack[GrantedKey(obj.Id, trigger.Id)] = trigger;
+        }
 
         // CR 603.2b gives this as its own example: with "all creatures lose all abilities" on
         // the battlefield, a creature entering does not trigger its own enters ability.
@@ -9153,15 +9281,23 @@ public sealed class Game
         return [.. printed, .. granted];
     }
 
+    /// <remarks>
+    /// The ability recorded at activation is asked <em>first</em>, and that order is the fix for
+    /// a copy whose ability shares an id with the copying card's own. Ids are generated per card
+    /// — "a", "a1" — so two cards routinely produce the same one, and a lookup by id on a card
+    /// cannot tell which of them was activated. Activated and triggered ids never collide with
+    /// each other ("a" against "t"), so the two recorded lookups stay on their own side of the
+    /// card lookups rather than shadowing them both.
+    /// </remarks>
     private ImmutableList<IEffect> EffectsOfAbility(
         CardDefinition card, string abilityId, ObjectId? sourceId = null) =>
-        _abilities.ActivatedOf(card)
+        GrantedOnStack(sourceId, abilityId)?.Effects
+        ?? _abilities.ActivatedOf(card)
             .FirstOrDefault(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal))
             ?.Effects
         ?? _abilities.TriggersOf(card)
             .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal))
             ?.Effects
-        ?? GrantedOnStack(sourceId, abilityId)?.Effects
         ?? GrantedTriggerOnStack(sourceId, abilityId)?.Effects
         ?? [];
 
@@ -9236,15 +9372,16 @@ public sealed class Game
         _abilities.TriggersOf(card)
             .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal));
 
+    /// <remarks>The order <see cref="EffectsOfAbility"/> uses, and for the same reason.</remarks>
     private ImmutableList<TargetSpec>? TargetsOfAbility(
         CardDefinition card, string abilityId, ObjectId? sourceId = null) =>
-        _abilities.ActivatedOf(card)
+        GrantedOnStack(sourceId, abilityId)?.Targets
+        ?? _abilities.ActivatedOf(card)
             .FirstOrDefault(a => string.Equals(a.Id, abilityId, StringComparison.Ordinal))
             ?.Targets
         ?? _abilities.TriggersOf(card)
             .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal))
             ?.Targets
-        ?? GrantedOnStack(sourceId, abilityId)?.Targets
         ?? GrantedTriggerOnStack(sourceId, abilityId)?.Targets;
 
     /// <summary>Runs a resolving object's effects in order (CR 608.2c).</summary>
