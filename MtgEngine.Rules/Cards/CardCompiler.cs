@@ -307,6 +307,7 @@ public static partial class CardCompiler
         ManaCostSpec? blitz = null;
         ManaCostSpec? multikicker = null;
         string? partnerRule = null;
+        var deckRules = ImmutableList.CreateBuilder<string>();
         ManaCostSpec? plot = null;
         ManaCostSpec? replicate = null;
         ManaCostSpec? offspring = null;
@@ -670,6 +671,17 @@ public static partial class CardCompiler
             if (PartnerLine().IsMatch(line))
             {
                 partnerRule = line.TrimEnd('.').Trim();
+                continue;
+            }
+
+            // The same thing partner is, for the three other rules that are settled before a
+            // game starts and say nothing about one: which cards may be your commander
+            // (CR 903.3a), how many copies a deck may hold (CR 100.2a), and how a card is
+            // drafted (CR 905.2c). Kept rather than dropped, for the same reason the partner
+            // rule is - deck construction is the reader that wants them.
+            if (DeckConstructionLine().IsMatch(line))
+            {
+                deckRules.Add(line.TrimEnd('.').Trim());
                 continue;
             }
 
@@ -1123,6 +1135,13 @@ public static partial class CardCompiler
             if (TryPhantomDamage(line, replacements))
                 continue;
 
+            // A shield a permanent's static ability puts up. Refused on an instant or sorcery,
+            // where the same words are a one-shot effect that lasts the turn and belong to the
+            // sentence parser instead — compiled here they would become a shield that never came
+            // down, on a card that had already gone to the graveyard.
+            if (!isSpell && TryStaticPrevention(line, replacements))
+                continue;
+
             if (TryDamageAmount(line, replacements))
                 continue;
 
@@ -1281,6 +1300,7 @@ public static partial class CardCompiler
         {
             Name = card.Name,
             PartnerRule = partnerRule,
+            DeckRules = deckRules.ToImmutable(),
             // An Aura is the case that proves targets and effects are separate questions: it
             // targets what it will enchant and has no effects at all, so keying the spell on
             // "are there effects" left it with no targets and the engine refused the cast.
@@ -8671,6 +8691,96 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Prevent all combat damage that would be dealt to and dealt by enchanted creature"
+    /// (CR 615.1) — the shield a permanent's own static ability puts up.
+    /// </summary>
+    /// <remarks>
+    /// A replacement effect rather than a <see cref="PreventDescribedDamage"/>, and the choice is
+    /// forced: a described prevention is state the engine keeps until the turn ends, so one with
+    /// no duration would sit on the board after the Aura holding it had been destroyed. A
+    /// replacement lives on its permanent — <see cref="ReplacementEffectDefinition.FunctionsFrom"/>
+    /// is the battlefield — so it stops the moment the permanent does, which is what a static
+    /// ability means (CR 611.2c).
+    /// <para>
+    /// "Dealt by" is the half the countdown shield could never answer. Preventing what a creature
+    /// deals is a question about the damage's source (CR 609.7), and the event carries it, so
+    /// both directions are the same predicate asked of a different field. Damage to a player is
+    /// its own event and has to be watched separately, or an Aura preventing what its host deals
+    /// would still let it kill somebody.
+    /// </para>
+    /// </remarks>
+    private static bool TryStaticPrevention(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = StaticPreventionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var direction = m.Groups["dir"].Value.ToLowerInvariant();
+        var shieldsVictim = direction is "to" or "to and dealt by";
+        var shieldsDealer = direction is "by" or "to and dealt by";
+        var onSelf = m.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
+
+        var kind = m.Groups["kind"].Value.Trim().ToLowerInvariant();
+        var combatOnly = kind == "combat";
+        var noncombatOnly = kind == "noncombat";
+
+        // "Prevent all damage that would be dealt to ~ by artifact creatures" — a filter on
+        // whoever is dealing, which only means anything when the shield is on the victim.
+        string? from = null;
+        if (m.Groups["by"].Success)
+        {
+            if (!shieldsVictim || shieldsDealer)
+                return false;
+
+            var dealer = m.Groups["by"].Value.Trim();
+            if (dealer.EndsWith(" sources", StringComparison.OrdinalIgnoreCase))
+                dealer = dealer[..^" sources".Length];
+
+            from = EffectPhrase.SearchFilterFor(EffectPhrase.Singular(dealer));
+            if (from is null)
+                return false;
+        }
+
+        bool Watches(bool isCombat) => (!combatOnly || isCombat) && (!noncombatOnly || !isCombat);
+
+        bool DealtBy(GameState state, ObjectId sourceId) =>
+            from is null
+            || (state.TryGetObject(sourceId, out var dealer)
+                && Abilities.SearchFilters.Matches(from, dealer.Card));
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "static-prevention-" + direction.Replace(' ', '-') + "-" + (kind.Length == 0 ? "any" : kind)
+                + (from is null ? string.Empty : "-" + from),
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, state, source) =>
+            {
+                // The Aura's shield is about its host, and an Aura that has come unattached
+                // shields nobody rather than falling back to shielding itself.
+                if ((onSelf ? source.Id : source.Permanent?.AttachedTo) is not { } shielded)
+                    return false;
+
+                return e switch
+                {
+                    Events.DamageMarked marked when Watches(marked.IsCombat) =>
+                        (shieldsVictim && marked.Id == shielded && DealtBy(state, marked.SourceId))
+                        || (shieldsDealer && marked.SourceId == shielded),
+                    Events.PlayerDamaged hit when Watches(hit.IsCombat) =>
+                        shieldsDealer && hit.SourceId == shielded,
+                    _ => false,
+                };
+            },
+
+            // Nothing comes back: the damage event is replaced by no events at all, which is
+            // what preventing all of it means (CR 615.1).
+            Replace = (_, _, _) => [],
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "If [a source] would deal damage to [something], it deals [more] instead" (CR 614.1a).
     /// </summary>
     /// <remarks>
@@ -11363,6 +11473,32 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Umbra armor\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex UmbraArmorLine();
 
+    /// <remarks>
+    /// Each of the three is anchored whole. "Draft" in particular is a word that turns up inside
+    /// real abilities — "as you draft a card, you may reveal it" is a triggered ability of a card
+    /// being drafted — and a loose match would swallow one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(~ can be your commander"
+            + @"|A deck can have any number of cards named ~"
+            + @"|Draft ~ face up)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DeckConstructionLine();
+
+    /// <remarks>
+    /// Only the source and its host are named, and deliberately: every other noun these lines
+    /// print — "creatures you control", "attacking creatures", "you" — is a described set the
+    /// replacement machinery cannot ask about from one permanent, and a shield that covered more
+    /// than the printed one is the failure this reader exists to avoid. There is no "this turn"
+    /// arm because a line carrying it is not a static ability at all.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^prevent all (?<kind>combat |noncombat )?damage that would be dealt "
+            + @"(?<dir>to and dealt by|to|by) (?<who>~|enchanted creature|equipped creature)"
+            + @"( by (?<by>[a-z][a-z' -]*))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StaticPreventionLine();
+
     [GeneratedRegex(
         @"^~ costs \{(?<n>\d+)\} less to cast if it targets an? (?<what>.+?)\.?$",
         RegexOptions.IgnoreCase)]
@@ -11899,6 +12035,23 @@ public sealed record CompiledCard
     /// </para>
     /// </remarks>
     public string? PartnerRule { get; init; }
+
+    /// <summary>
+    /// The deck-construction rules this card prints, exactly as printed.
+    /// </summary>
+    /// <remarks>
+    /// Partner's siblings: "~ can be your commander" (CR 903.3a), "a deck can have any number of
+    /// cards named ~" (CR 100.2a) and "draft ~ face up" (CR 905.2c) are all settled before a game
+    /// starts and none of them does anything during one, so reading them is reading them —
+    /// there is nothing to build.
+    /// <para>
+    /// <strong>"If ~ is in your opening hand, you may begin the game with it on the battlefield"
+    /// is deliberately not one of these.</strong> CR 103.6 is a real game rule and the Leylines
+    /// genuinely start in play; swallowing it here would file eighteen cards as understood while
+    /// silently removing the only thing they do.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<string> DeckRules { get; init; } = [];
 
     public SpellDefinition? Spell { get; init; }
 
