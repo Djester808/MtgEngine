@@ -316,6 +316,15 @@ public static partial class CardCompiler
         ManaCostSpec? awaken = null;
         string? awakenLine = null;
         var awakenCounters = 0;
+        ManaCostSpec? sneak = null;
+        ChosenCost? sneakReturn = null;
+
+        // CR 702.155a: read ahead changes what a chapter ability may do on the turn the Saga
+        // arrives, and the chapter lines are printed above it on every card that has it. So the
+        // word is looked for before any line is read rather than hoping for a line order - a
+        // chapter predicate built before the keyword was seen would be built without the rule.
+        var readAhead = card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
+            && Lines(card).Any(l => ReadAheadLine().IsMatch(l));
         ChosenCost? conspire = null;
         var splitSecond = false;
         ManaCostSpec? bestow = null;
@@ -665,7 +674,10 @@ public static partial class CardCompiler
             if (TryEntersWithCounters(line, card, replacements))
                 continue;
 
-            if (TrySagaChapter(line, triggers, unhandled))
+            if (ReadAheadLine().IsMatch(line) && readAhead)
+                continue;
+
+            if (TrySagaChapter(line, triggers, unhandled, readAhead))
                 continue;
 
             if (TryClassLevelTrigger(line, triggers, unhandled))
@@ -908,6 +920,27 @@ public static partial class CardCompiler
                 }
 
                 overload = ManaCostSpec.Parse(loud.Groups["cost"].Value);
+                continue;
+            }
+
+            if (SneakLine().Match(line) is { Success: true } snuck)
+            {
+                // CR 702.190a: the mana is only half the price - an attacker goes back to hand
+                // with it. Both halves are read here or neither is, because the cost alone is a
+                // discount on the printed card rather than an alternative way to cast it.
+                if (EffectPhrase.Specs.Parse("target unblocked creature you control") is not
+                    { Kind: TargetKind.Permanent } attacker)
+                {
+                    unhandled.Add(line);
+                    continue;
+                }
+
+                sneak = ManaCostSpec.Parse(snuck.Groups["cost"].Value);
+                sneakReturn = new ChosenCost(
+                    ChosenCostKind.ReturnToHand,
+                    1,
+                    attacker with { Description = "an unblocked attacker you control" });
+
                 continue;
             }
 
@@ -1288,6 +1321,8 @@ public static partial class CardCompiler
             AwakenCost = awaken,
             AwakenTarget = awaken is null ? null : awakenTarget,
             AwakenEffects = awakenEffects,
+            SneakCost = sneak,
+            SneakReturn = sneakReturn,
             PlotCost = plot,
             ReplicateCost = replicate,
             OffspringCost = offspring,
@@ -1333,11 +1368,19 @@ public static partial class CardCompiler
         //
         // Conditioned on the card actually having a chapter, so that a Saga whose chapters this
         // compiler could not read does not quietly gain a counter it has nothing to spend on.
-        // Read ahead (CR 702.155) replaces this ability with a choice, and is not read yet - a
-        // Saga carrying it keeps that line unread, so the card is incomplete and unplayable
-        // rather than silently starting at chapter one.
-        if (card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
-            && triggers.Any(t => t.Chapter is not null))
+        //
+        // CR 702.155b replaces this ability outright on a Saga with read ahead: that one enters
+        // with a *chosen* number of counters instead of one, which is a question and therefore
+        // lives in the engine's owed-choice sweep rather than in a replacement effect here.
+        var isSaga = card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase)
+            && triggers.Any(t => t.Chapter is not null);
+
+        // The word on a card with no chapter this compiler could read has nothing to change, and
+        // a Saga that started at a chapter it cannot run is worse than one left unread.
+        if (readAhead && !isSaga)
+            unhandled.Add("Read ahead");
+
+        if (isSaga && !readAhead)
         {
             replacements.Add(new ReplacementEffectDefinition
             {
@@ -1373,6 +1416,7 @@ public static partial class CardCompiler
             ChoosesOnEntry = chooses,
             DevourCount = devour,
             AmplifyCount = amplify,
+            HasReadAhead = isSaga && readAhead,
             ExtraLandDrops = extraLandDrops,
             MayDeclineUntap = mayDeclineUntap,
             SkipsDrawStep = skipsDraw,
@@ -4629,7 +4673,8 @@ public static partial class CardCompiler
     private static bool TrySagaChapter(
         string line,
         ImmutableList<TriggeredAbilityDefinition>.Builder into,
-        ImmutableList<string>.Builder unhandled)
+        ImmutableList<string>.Builder unhandled,
+        bool readAhead = false)
     {
         var m = SagaChapterLine().Match(line);
         if (!m.Success)
@@ -4683,7 +4728,15 @@ public static partial class CardCompiler
                     && saga.Permanent is { } permanent
                     && permanent.Counters.GetValueOrDefault(CounterKinds.Lore) is var before
                     && before < at
-                    && before + counters.Delta >= at,
+                    && before + counters.Delta >= at
+
+                    // CR 702.155a: a Saga with read ahead skips the chapters it was started
+                    // past. Its counters arrive in one lump, so without this the whole run from
+                    // chapter one would fire - which is the reading that makes the card better
+                    // than the one printed, and the one the coverage number cannot see.
+                    && (!readAhead
+                        || !state.EnteredThisTurn(saga)
+                        || before + counters.Delta == at),
             });
         }
 
@@ -11780,6 +11833,17 @@ public static partial class CardCompiler
     private static partial Regex OverloadLine();
 
     /// <summary>
+    /// "Sneak [cost]" (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// Anchored on the whole line so that "Sneak Attack &#8212; whenever this creature attacks,
+    /// ..." - an ability word that happens to begin with the same word - is not read as the
+    /// keyword and cast for one mana.
+    /// </remarks>
+    [GeneratedRegex(@"^Sneak (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex SneakLine();
+
+    /// <summary>
     /// "Awaken N&#8212;[cost]" (CR 702.113a).
     /// </summary>
     /// <remarks>
@@ -11903,6 +11967,10 @@ public static partial class CardCompiler
     /// <summary>"Ravenous" (CR 702.156a). Printed alone; the reminder text carries the rest.</summary>
     [GeneratedRegex(@"^Ravenous\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RavenousLine();
+
+    /// <summary>"Read ahead" (CR 702.155a). Printed alone on every Saga that has it.</summary>
+    [GeneratedRegex(@"^Read ahead\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex ReadAheadLine();
 
     /// <summary>
     /// "Amplify N" (CR 702.38a).
@@ -12156,6 +12224,15 @@ public sealed record CompiledCard
     public int AmplifyCount { get; init; }
 
     /// <summary>
+    /// Whether this Saga starts at a chapter its controller picks (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// True only when the chapters themselves compiled: a Saga started at a chapter that does
+    /// nothing is a Saga that walks to its own sacrifice, which is worse than one left unread.
+    /// </remarks>
+    public bool HasReadAhead { get; init; }
+
+    /// <summary>
     /// Whether the prepared spell may be cast at instant speed (CR 117.1a).
     /// </summary>
     /// <remarks>
@@ -12254,6 +12331,7 @@ public sealed record CompiledCard
         || ChoosesOnEntry != ChoiceOnEntry.None
         || DevourCount > 0
         || AmplifyCount > 0
+        || HasReadAhead
         || ExtraLandDrops > 0
         || MayDeclineUntap
         || SkipsDrawStep

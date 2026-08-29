@@ -16263,6 +16263,8 @@ public sealed class CompiledCardBehaviourTests
 
         public int AmplifyCountOf(CardDefinition card) => _compiled.AmplifyCountOf(card);
 
+        public bool HasReadAhead(CardDefinition card) => _compiled.HasReadAhead(card);
+
         public ManaCostSpec? MiracleCostOf(CardDefinition card) => _compiled.MiracleCostOf(card);
 
         public IReadOnlyList<CardHalf> HalvesOf(CardDefinition card) => _compiled.HalvesOf(card);
@@ -43171,6 +43173,242 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Throws<InvalidOperationException>(
             () => game.CastSpell(alice, card, [], awakened: true));
+    }
+
+    /// <summary>A creature with sneak, printed the way the real ones are.</summary>
+    private static CardDefinition SneakCreature() => new()
+    {
+        OracleId = "oracle-sneak-ninja-test",
+        Name = "Sneak Ninja Test",
+        ManaCostRaw = "{4}{B}",
+        OracleText = "Sneak {B}",
+        CardTypes = CardType.Creature,
+        Power = 3,
+        Toughness = 3,
+    };
+
+    /// <summary>
+    /// Sneak swaps an unblocked attacker for the card, mid-combat (CR 702.190a, 702.190b).
+    /// </summary>
+    /// <remarks>
+    /// Ninjutsu written as a way of casting rather than as an activated ability, and the same
+    /// three things have to be true: the attacker goes back to hand rather than to a graveyard,
+    /// the arriving permanent is tapped and attacking, and it is attacking whoever the returned
+    /// creature was - a fact that only exists while the creature is still in combat, so it is
+    /// written down as the cost is paid and read back on resolution.
+    /// <para>
+    /// The damage at the end is what proves the attack is real rather than a flag: a permanent
+    /// merely on the battlefield deals nobody anything.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_sneaked_creature_replaces_its_attacker_and_arrives_swinging()
+    {
+        var ninja = SneakCreature();
+
+        var compiled = CardCompiler.Compile(ninja);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var scout = game.Create(alice, TestCards.Creature("Sneak Scout Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [scout] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        // Put in hand here rather than before the turns were passed: a cleanup step in between
+        // discards down to hand size, and the card the test is about is one of the ones it takes.
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        game.CastSpell(alice, card, [], costPayment: [scout], sneaked: true);
+        Settle(game);
+
+        // The attacker went to hand, not to a graveyard (CR 701.20a).
+        Assert.DoesNotContain(scout, game.State.Battlefield);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+
+        var arrived = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Sneak Ninja Test");
+
+        Assert.True(game.State.GetObject(arrived).Permanent!.IsTapped);
+        Assert.Equal(AttackTarget.Player(bob), game.State.Combat.Attackers[arrived]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // A 3/3 that arrived attacking, and nothing blocked it.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Sneak buys one window and it is not the main phase (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// "Any time you could cast an instant during your declare blockers step" is the whole of
+    /// the permission. Read as an ordinary alternative cost, this would be a five-mana 3/3 that
+    /// could be had for one at any time - a strictly better card than the one printed, and the
+    /// coverage number would have gone up either way.
+    /// </remarks>
+    [Fact]
+    public void Sneaking_a_creature_in_outside_the_declare_blockers_step_is_refused()
+    {
+        var ninja = SneakCreature();
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], sneaked: true));
+    }
+
+    /// <summary>
+    /// The mana is only half the sneak price, and a blocked attacker cannot pay it (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// "An unblocked creature you control" is the whole point of the mechanic: the card takes
+    /// the place of something that was about to get through. A blocked attacker was not, and
+    /// letting it pay would make sneak a way to un-block your own creature for one mana.
+    /// </remarks>
+    [Fact]
+    public void Sneaking_in_place_of_a_blocked_attacker_is_refused()
+    {
+        var ninja = SneakCreature();
+
+        var (game, alice, bob) = InMainPhase();
+        var scout = game.Create(alice, TestCards.Creature("Sneak Blocked Test", 1, 1), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Sneak Wall Test", 0, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [scout] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [scout] = [wall] });
+
+        var card = TestCards.PutInHand(game, alice, ninja);
+        game.AddMana(alice, ManaColor.Black);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [], costPayment: [scout], sneaked: true));
+
+        // CR 601.2i: a cast that cannot pay its cost is rewound, so nothing moved.
+        Assert.Contains(card, game.State.GetPlayer(alice).Hand);
+        Assert.Contains(scout, game.State.Battlefield);
+    }
+
+    /// <summary>A three-chapter Saga with read ahead, written the way the real ones are.</summary>
+    private static CardDefinition ReadAheadSaga() => new()
+    {
+        OracleId = "oracle-read-ahead-saga-test",
+        Name = "Read Ahead Saga Test",
+        ManaCostRaw = "{2}{W}",
+        OracleText = "Read ahead\nI — You gain 1 life.\nII — You gain 2 life."
+            + "\nIII — You gain 3 life.",
+        CardTypes = CardType.Enchantment,
+        Subtypes = ["Saga"],
+    };
+
+    /// <summary>
+    /// A Saga with read ahead starts where its controller says, and skips what it started past
+    /// (CR 702.155a, 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// Two rules, and the second is the one a partial reading gets wrong in the player's favour.
+    /// The counters arrive in one lump, and CR 714.2b would fire every chapter that lump crossed -
+    /// so reading only "enters with the chosen number of counters" turns a Saga started at three
+    /// into a Saga that runs all three chapters at once. That reading compiles, plays, and is a
+    /// strictly better card than the printed one.
+    /// </remarks>
+    [Fact]
+    public void A_Saga_with_read_ahead_starts_at_the_chosen_chapter_and_skips_the_rest()
+    {
+        var saga = ReadAheadSaga();
+
+        var compiled = CardCompiler.Compile(saga);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.HasReadAhead);
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+        var chronicle = game.Create(alice, saga, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.ReadAhead });
+
+        // One option per chapter, and the final chapter is the last of them (CR 714.2d).
+        var choice = game.State.Choice!;
+        Assert.Equal(3, choice.Options.Count);
+
+        game.Choose(alice, ["3"]);
+        Settle(game);
+
+        // Chapter three, and only chapter three: one plus two plus three would be six.
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+
+        // CR 714.4: it reached its final chapter, so it is sacrificed.
+        Assert.DoesNotContain(chronicle, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Started at chapter one, a read-ahead Saga runs like any other (CR 702.155a).
+    /// </summary>
+    /// <remarks>
+    /// The restriction is only about the turn it entered. A Saga that chose one still advances a
+    /// counter each precombat main phase afterwards and fires each chapter as it gets there -
+    /// which is what says the gate is scoped to the entry turn rather than switched on for good.
+    /// </remarks>
+    [Fact]
+    public void A_read_ahead_Saga_that_chose_chapter_one_advances_normally_afterwards()
+    {
+        var saga = ReadAheadSaga();
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Life;
+        game.Create(alice, saga, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.ReadAhead });
+        game.Choose(alice, ["1"]);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Life);
+
+        // Alice's next turn: a lore counter, and chapter two with it.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+        Settle(game);
+
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Read ahead on a card with no chapter this compiler could read is left unread.
+    /// </summary>
+    /// <remarks>
+    /// The keyword only says where to start. A Saga started at a chapter that does nothing is a
+    /// Saga walking to its own sacrifice, which is worse than a card a deck check refuses.
+    /// </remarks>
+    [Fact]
+    public void Read_ahead_without_a_readable_chapter_stays_unread()
+    {
+        var wordy = new CardDefinition
+        {
+            OracleId = "oracle-read-ahead-unreadable-test",
+            Name = "Read Ahead Unreadable Test",
+            OracleText = "Read ahead\nI — Ponder the meaning of the sea.",
+            CardTypes = CardType.Enchantment,
+            Subtypes = ["Saga"],
+        };
+
+        var compiled = CardCompiler.Compile(wordy);
+        Assert.Contains("Read ahead", compiled.Unhandled);
+        Assert.False(compiled.HasReadAhead);
     }
 
     // ---- Split cards (CR 709) ------------------------------------------------

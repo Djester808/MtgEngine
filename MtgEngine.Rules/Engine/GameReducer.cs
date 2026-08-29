@@ -135,6 +135,9 @@ public static class GameReducer
             SpellAwakened roused => state.TryGetObject(roused.Id, out var stirring)
                 ? state.WithObject(stirring with { WasAwakened = true })
                 : state,
+            SpellSneaked snuck => state.TryGetObject(snuck.Id, out var creeping)
+                ? state.WithObject(creeping with { JoiningAgainst = snuck.Against })
+                : state,
             SpellEvoked evoked => state.TryGetObject(evoked.Id, out var fleeting)
                 ? state.WithObject(fleeting with { WasEvoked = true })
                 : state,

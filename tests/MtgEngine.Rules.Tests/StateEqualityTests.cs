@@ -341,6 +341,11 @@ public sealed class StateEqualityTests
         if (bare == typeof(PermanentState))
             return current is null ? new PermanentState() : null;
 
+        // Sneak writes the attack a spell will join onto the spell itself, so a nullable
+        // AttackTarget is now one of the fields that has to count towards identity.
+        if (bare == typeof(AttackTarget))
+            return current is null ? AttackTarget.Player(Guid.NewGuid()) : null;
+
         if (bare == typeof(CardDefinition))
             return TestCards.Creature("Identity Other");
 

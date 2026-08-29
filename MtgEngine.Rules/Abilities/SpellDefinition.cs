@@ -207,6 +207,24 @@ public sealed record SpellDefinition
     /// <summary>What casting this for its awaken cost costs (CR 702.113a).</summary>
     public ManaCostSpec? AwakenCost { get; init; }
 
+    /// <summary>What casting this for its sneak cost costs in mana (CR 702.190a).</summary>
+    /// <remarks>
+    /// Only half the price. The rest is <see cref="SneakReturn"/>, and the two are paid together
+    /// or not at all - which is why the mana cost alone would be a discount rather than an
+    /// alternative cost.
+    /// </remarks>
+    public ManaCostSpec? SneakCost { get; init; }
+
+    /// <summary>
+    /// The attacker given up to pay a sneak cost (CR 702.190a).
+    /// </summary>
+    /// <remarks>
+    /// Ninjutsu's cost on a spell instead of an activated ability, and it buys the same thing:
+    /// what the returned creature was attacking is what the permanent this becomes arrives
+    /// attacking (CR 702.190b).
+    /// </remarks>
+    public ChosenCost? SneakReturn { get; init; }
+
     /// <summary>
     /// The land the awaken half animates, targeted only when awaken was paid (CR 702.113b).
     /// </summary>

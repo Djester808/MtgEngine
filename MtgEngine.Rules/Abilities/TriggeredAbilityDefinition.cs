@@ -218,6 +218,9 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>How much each card revealed to amplify is worth in counters (CR 702.38a).</summary>
     int AmplifyCountOf(CardDefinition card) => 0;
 
+    /// <summary>Whether this Saga starts at a chapter its controller picks (CR 702.155b).</summary>
+    bool HasReadAhead(CardDefinition card) => false;
+
     /// <summary>What this card may be cast for when drawn as a miracle (CR 702.94a).</summary>
     Mana.ManaCostSpec? MiracleCostOf(CardDefinition card) => null;
 

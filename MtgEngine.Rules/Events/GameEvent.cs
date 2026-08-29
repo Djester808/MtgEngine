@@ -1384,6 +1384,21 @@ public sealed record SpellOverloaded(ObjectId Id) : GameEvent
     public override string Describe() => $"{Id} was overloaded.";
 }
 
+/// <summary>
+/// A spell was cast for its sneak cost, in place of an attacker (CR 702.190a).
+/// </summary>
+/// <remarks>
+/// Carries what the returned creature was attacking, because that is the only moment the game
+/// knows: the creature is in its owner's hand before the spell resolves, and the permanent this
+/// becomes has to arrive attacking the same defender (CR 702.190b).
+/// </remarks>
+public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : GameEvent
+{
+    public override string Rule => "702.190";
+
+    public override string Describe() => $"{Id} was sneaked in.";
+}
+
 /// <summary>A spell was cast for its awaken cost (CR 702.113a).</summary>
 public sealed record SpellAwakened(ObjectId Id) : GameEvent
 {

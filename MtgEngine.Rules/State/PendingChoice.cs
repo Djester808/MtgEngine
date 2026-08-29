@@ -122,6 +122,17 @@ public enum ChoiceKind
     /// </remarks>
     Amplify,
 
+    /// <summary>
+    /// Which chapter a Saga with read ahead starts at (CR 702.155b).
+    /// </summary>
+    /// <remarks>
+    /// A number between one and the Saga's final chapter, asked as it enters. The options are
+    /// the numbers themselves rather than a free entry, because every choice in this engine is
+    /// a pick from a list the game offers - which is what makes an answer checkable when it
+    /// arrives from outside.
+    /// </remarks>
+    ReadAhead,
+
     /// <summary>Which creature a ciphered spell is encoded on, if any (CR 702.99a).</summary>
     EncodeOnCreature,
 
