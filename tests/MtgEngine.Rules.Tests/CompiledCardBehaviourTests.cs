@@ -45342,6 +45342,228 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- Licids: a creature that becomes its own Aura (CR 205.1b, 613.1d) ----
+
+    /// <summary>The printed line, once, so every Licid test is playing the real card.</summary>
+    /// <remarks>
+    /// All twelve write it identically apart from the two costs and the Aura's own rider, which is
+    /// why the rider is the parameter: the ability under test is the same ability on every one of
+    /// them, and a test per card would be twelve copies of one template.
+    /// </remarks>
+    private static CardDefinition Licid(string name, string rider) => Card(
+        name,
+        "{1}{W}, {T}: ~ loses this ability and becomes an Aura enchantment with enchant "
+            + "creature. Attach it to target creature. You may pay {W} to end this effect.\n"
+            + rider,
+        CardType.Creature,
+        1,
+        1,
+        subtypes: "Licid");
+
+    /// <summary>Mana enough for one activation, from lands that are not summoning sick.</summary>
+    private static void TapPlains(Game game, Guid player, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var land = game.Create(player, TestCards.BasicLand("Plains"), Zone.Battlefield);
+            game.ActivateAbility(player, land, "mana");
+        }
+    }
+
+    /// <summary>Turn three, main phase: the Licid has been around since the turn began.</summary>
+    /// <remarks>
+    /// CR 302.6. The {T} in the activation cost is what needs it, and a Licid made on the turn it
+    /// is activated cannot pay — which would make every assertion below vacuous.
+    /// </remarks>
+    private static void SettleIn(Game game)
+    {
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PrecombatMain);
+    }
+
+    [Fact]
+    public void A_licid_becomes_an_aura_attaches_and_stops_being_a_creature()
+    {
+        // Quickening Licid's own wording. Three things happen at once and each is a different
+        // layer: the types are replaced in layer 4 (CR 205.1b), the permanent attaches, and the
+        // Aura's rider starts granting from layer 6 to the creature it is now on.
+        var licid = Licid("Licid Test", "Enchanted creature has first strike.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Licid Host", 2, 2), Zone.Battlefield);
+        SettleIn(game);
+
+        Assert.True(Characteristics.IsCreature(game.State, Pool, game.State.GetObject(wearer)));
+
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(wearer));
+
+        // A Licid that kept its creature type while enchanting would be able to attack and block
+        // as well, which is a strictly better card than the printed one.
+        Assert.False(now.CardTypes.HasFlag(CardType.Creature));
+        Assert.True(now.CardTypes.HasFlag(CardType.Enchantment));
+        Assert.Contains("Aura", now.Subtypes);
+        Assert.DoesNotContain("Licid", now.Subtypes);
+
+        Assert.Equal(bear, game.State.GetObject(wearer).Permanent!.AttachedTo);
+        Assert.True(Characteristics.HasKeyword(
+            game.State, Pool, game.State.GetObject(bear), KeywordAbility.FirstStrike));
+    }
+
+    [Fact]
+    public void A_licid_that_has_become_an_aura_has_lost_the_ability_that_made_it_one()
+    {
+        // "~ loses this ability": an Aura already on one creature may not be activated to go and
+        // enchant a second. Refused before any cost is paid (CR 602.5b).
+        var licid = Licid("Licid Loss Test", "Enchanted creature has first strike.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        var first = game.Create(
+            alice, TestCards.Creature("Licid Loss Host", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            alice, TestCards.Creature("Licid Loss Other", 2, 2), Zone.Battlefield);
+        SettleIn(game);
+
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(first)]);
+        Settle(game);
+
+        TapPlains(game, alice, 2);
+        var why = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(second)]));
+
+        Assert.Contains("602.5b", why.Message, StringComparison.Ordinal);
+        Assert.Equal(first, game.State.GetObject(wearer).Permanent!.AttachedTo);
+    }
+
+    [Fact]
+    public void A_licid_cannot_pay_to_end_an_effect_it_has_not_started()
+    {
+        // The other direction, and the half that makes the pair a switch rather than two
+        // unrelated abilities: a Licid that is still a creature has nothing to come back from.
+        var licid = Licid("Licid Early Test", "Enchanted creature has first strike.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        SettleIn(game);
+        TapPlains(game, alice, 1);
+
+        var why = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, wearer, "a1"));
+
+        Assert.Contains("602.5b", why.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Paying_the_licids_price_turns_it_back_into_a_creature_and_takes_the_aura_off()
+    {
+        // "You may pay {W} to end this effect." The half that makes the card reversible, and the
+        // half a one-way reading would have quietly dropped.
+        var licid = Licid("Licid Return Test", "Enchanted creature has first strike.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Licid Return Host", 2, 2), Zone.Battlefield);
+        SettleIn(game);
+
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        TapPlains(game, alice, 1);
+        game.ActivateAbility(alice, wearer, "a1");
+        Settle(game);
+
+        Assert.True(Characteristics.IsCreature(game.State, Pool, game.State.GetObject(wearer)));
+
+        // Unattached with it. A Licid that came back as a creature while still sitting on its host
+        // would go on granting first strike from an Aura ability it no longer has any business
+        // applying — the one direction this may not fail in.
+        Assert.Null(game.State.GetObject(wearer).Permanent!.AttachedTo);
+        Assert.False(Characteristics.HasKeyword(
+            game.State, Pool, game.State.GetObject(bear), KeywordAbility.FirstStrike));
+
+        // Still tapped: the {T} was spent on the way out and coming back does not refund it, so
+        // the ability it has just got back cannot be paid for until it untaps.
+        Assert.True(game.State.GetObject(wearer).Permanent!.IsTapped);
+
+        TestCards.PassToTurn(game, 5);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // And then it can go again, which is what "loses this ability" giving the ability back
+        // means: the refusal above was the effect, not a card that had run out of ability.
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(bear, game.State.GetObject(wearer).Permanent!.AttachedTo);
+    }
+
+    [Fact]
+    public void A_licid_enchanting_a_creature_dies_with_it()
+    {
+        // CR 704.5m, reached through the computed subtypes rather than the printed ones: the card
+        // still says Creature — Licid, and a printed-subtype reading left it on the battlefield
+        // holding nothing, which is a card strictly better than the printed one.
+        var licid = Licid("Licid Death Test", "Enchanted creature has first strike.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Licid Death Host", 2, 2), Zone.Battlefield);
+        SettleIn(game);
+
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Licid Death Test");
+    }
+
+    [Fact]
+    public void A_licids_rider_can_be_an_ability_of_its_own_rather_than_a_keyword()
+    {
+        // Nurturing Licid: the Aura half is an activated ability that acts on what it is attached
+        // to, so the card compiles to three abilities and the third only means anything once the
+        // first has run. Proof that "loses this ability" takes one ability and not all of them.
+        var licid = Licid("Licid Rider Test", "{G}: Regenerate enchanted creature.");
+
+        var (game, alice, _) = InMainPhase();
+        var wearer = game.Create(alice, licid, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Licid Rider Host", 1, 1), Zone.Battlefield);
+        SettleIn(game);
+
+        TapPlains(game, alice, 2);
+        game.ActivateAbility(alice, wearer, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, wearer, "a2");
+        Settle(game);
+
+        game.MarkDamage(bear, 3);
+        Settle(game);
+
+        // Regenerated rather than destroyed: the shield was up, so lethal damage did not kill it
+        // (CR 701.15a).
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Licid Rider Host");
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>

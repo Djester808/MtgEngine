@@ -1372,6 +1372,11 @@ public static partial class CardCompiler
             if (TryManaAbility(line, activated))
                 continue;
 
+            // Before the general activated reader, which would take the colon and then fail on
+            // the effect behind it — filing a line it very nearly understood as unread.
+            if (TryLicid(line, activated))
+                continue;
+
             if (TryActivatedAbility(line, card, activated, unhandled))
                 continue;
 
@@ -9998,9 +10003,11 @@ public static partial class CardCompiler
     /// attached to a creature". Nothing has to notice the host leaving: the condition simply
     /// stops holding and the creature type comes back on its own.
     /// <para>
-    /// The state-based action that buries an unattached Aura reads the <em>printed</em> subtypes
-    /// (CR 704.5m), and a bestow card does not print Aura - so it is left alone when it falls
-    /// off, which is exactly what the keyword wants.
+    /// Surviving the host is a printed exception rather than a consequence of this effect
+    /// (CR 702.103d), and it has to be. At the moment the host dies a bestowed permanent is still
+    /// attached to it, so this is still applying and the permanent is still an Aura by every
+    /// characteristic it has - indistinguishable from a Licid in the same position, which the
+    /// rules bury. <c>StateBasedActions.BuriedWhenUnattached</c> is where the two are told apart.
     /// </para>
     /// </remarks>
     private static ContinuousEffectDefinition AuraWhileAttached() => new()
@@ -12363,6 +12370,104 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// A Licid: a creature that turns itself into an Aura and can turn back (CR 205.1b, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// One printed line doing four things at once — "{cost}, {T}: ~ loses this ability and becomes
+    /// an Aura enchantment with enchant creature. Attach it to target creature. You may pay {cost}
+    /// to end this effect." — and every piece of it already existed separately: layer 4 replaces
+    /// the card types, <see cref="AttachSourceTo"/> puts the permanent on its host, and a floating
+    /// effect with no duration runs until something ends it.
+    /// <para>
+    /// What is built is <strong>two</strong> abilities and one effect, which is the shape the
+    /// reverse payment forces. The going-out half is an ordinary activated ability; the coming-back
+    /// half is another one, charging the printed price and ending the effect the first made. They
+    /// exclude each other through <see cref="ActivatedAbilityDefinition.ActivateOnlyIf"/>, which is
+    /// how "loses this ability" is honoured: a Licid that is already an Aura cannot be activated to
+    /// go and enchant something else, and one that is still a creature has nothing to come back
+    /// from. Both questions are asked before any cost is paid (CR 602.5b), so a refusal is free.
+    /// </para>
+    /// <para>
+    /// Reading "loses this ability" as a refusal to activate rather than as a layer-6 removal is a
+    /// deliberate narrowing. The two are the same for an activated ability — an ability nobody may
+    /// ever activate is an ability the permanent does not have — and the alternative on offer,
+    /// <see cref="ContinuousEffectDefinition.RemovesAllAbilities"/>, removes far too much: it would
+    /// take "enchanted creature has flying" off the Aura as well, which is the whole of what the
+    /// card is for once it has attached.
+    /// </para>
+    /// <para>
+    /// Coming back unattaches it, and that is not tidying up. The Aura's static ability is what
+    /// grants the host its keyword, and a Licid that turned back into a creature while still
+    /// attached would go on granting it — a strictly better card than the printed one, which is the
+    /// one direction this may not fail in.
+    /// </para>
+    /// </remarks>
+    private static bool TryLicid(string line, ImmutableList<ActivatedAbilityDefinition>.Builder into)
+    {
+        var m = LicidLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Mana and a tap, and nothing else. Every printed Licid costs exactly that, and a cost
+        // this could not charge would be an ability given away for free.
+        if (ReadCost(m.Groups["cost"].Value.Trim()) is not
+            {
+                SelfCost: SelfCost.None, Life: 0, Energy: 0, Counters: null,
+            } paid
+            || !paid.Chosen.IsEmpty)
+        {
+            return false;
+        }
+
+        if (EffectPhrase.Specs.Parse(m.Groups["what"].Value.Trim()) is not
+            { Kind: TargetKind.Permanent } host)
+        {
+            return false;
+        }
+
+        var becoming = GenerativeEffects.BecomesAuraId();
+        var back = ManaCostSpec.Parse(m.Groups["end"].Value);
+
+        into.Add(new ActivatedAbilityDefinition
+        {
+            Id = "a" + Suffix(into.Count),
+            Text = line,
+            RequiresTap = paid.RequiresTap,
+            ManaCost = paid.Mana,
+            Targets = [host],
+            ActivateOnlyIf = (state, _, source) => !IsWearingTheAura(state, source),
+            Effects =
+            [
+                new AttachSourceTo(0),
+
+                // No duration: the effect runs until it is paid off. CR 611.2b - an effect that
+                // says nothing about when it ends does not end.
+                new PumpUntilEndOfTurn(becoming, Subject: EffectSubject.Source)
+                {
+                    ForTheTurn = false,
+                },
+            ],
+        });
+
+        into.Add(new ActivatedAbilityDefinition
+        {
+            Id = "a" + Suffix(into.Count),
+            Text = $"You may pay {back} to end this effect.",
+            ManaCost = back,
+            ActivateOnlyIf = (state, _, source) => IsWearingTheAura(state, source),
+            Effects = [new EndSourceEffect(becoming), new UnattachSource()],
+        });
+
+        return true;
+    }
+
+    /// <summary>Whether the Licid's own effect is currently making it an Aura (CR 611.2).</summary>
+    private static bool IsWearingTheAura(GameState state, GameObject source) =>
+        state.FloatingEffects.Any(f =>
+            string.Equals(f.DefinitionId, GenerativeEffects.BecomesAuraId(), StringComparison.Ordinal)
+            && f.AffectedIds.Contains(source.Id));
+
     /// <summary>Any other activated ability: "[cost]: [effect]" (CR 602.1).</summary>
     private static bool TryActivatedAbility(
         string line,
@@ -13958,6 +14063,24 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^(?<cost>[^:]{1,60}):\s*(?<effect>.+)$")]
     private static partial Regex ActivatedLine();
+
+    /// <summary>
+    /// A Licid's whole ability, all three sentences of it (CR 205.1b, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// Written as one pattern rather than composed out of the sentence vocabulary because the
+    /// three sentences are not independent: the second attaches what the first turned into an
+    /// Aura, and the third ends what the first started. Read separately, "attach it to target
+    /// creature" is an Equipment's trigger and "you may pay {W} to end this effect" names an
+    /// effect that no longer exists. The twelve printed Licids write it identically apart from the
+    /// two costs.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<cost>[^:]{1,60}): ~ loses this ability and becomes an Aura enchantment with "
+            + @"enchant creature\. Attach it to (?<what>target [a-z' ]{1,40})\. "
+            + @"You may pay (?<end>(\{[^}]{1,4}\}){1,6}) to end this effect\.$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LicidLine();
 
     /// <summary>
     /// "Activate only once each turn", and the wording that means the same thing (CR 602.5b).

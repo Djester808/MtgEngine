@@ -60,6 +60,28 @@ public static partial class GenerativeEffects
     public static string BecomesId(CardType types) =>
         "becomes:" + ((int)types).ToString(CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// The id for "becomes an Aura enchantment with enchant creature" (CR 613.1d, layer 4).
+    /// </summary>
+    /// <remarks>
+    /// The Licids' half of their own ability, and a <em>replacement</em> of the card types rather
+    /// than an addition (CR 205.1b): a Licid enchanting a creature has stopped being one, and an
+    /// effect that only added the enchantment type would leave a creature that could still attack
+    /// and block while its Aura half was working — strictly better than the printed card.
+    /// <para>
+    /// The creature subtypes go with the creature type for the same rule: a subtype relevant only
+    /// to the card type an effect took away is removed with it, so the permanent is
+    /// "Enchantment — Aura" and not "Enchantment — Licid Aura".
+    /// </para>
+    /// <para>
+    /// No parameters, which is what lets the reverse payment find it. The cost of turning back is
+    /// printed on the card and lives on the ability that charges it; if it lived in this name the
+    /// twelve Licids would have twelve different effects and the ability ending one would have to
+    /// be told which. What the effect <em>does</em> is the same on all of them.
+    /// </para>
+    /// </remarks>
+    public static string BecomesAuraId() => "becomes-aura";
+
     /// <summary>The prefix a copy effect's name carries (CR 707.2).</summary>
     private const string CopyPrefix = "copy:";
 
@@ -958,6 +980,29 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.PowerToughnessSet,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.Set(setP, setT),
+            };
+        }
+
+        // Layer 4 again, and the other half of 205.1: this one *replaces* the types instead of
+        // adding to them, which is the difference between a Licid that has become an Aura and a
+        // Licid that is an Aura and a creature at once.
+        if (string.Equals(definitionId, BecomesAuraId(), StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Type,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) =>
+                {
+                    builder.CardTypes = CardType.Enchantment;
+
+                    // CR 205.1b: the subtypes that belonged to the card type this took away go
+                    // with it. Cleared wholesale rather than filtered because a Licid has only
+                    // creature subtypes to lose, and "Aura" is the one the new type brings.
+                    builder.Subtypes.Clear();
+                    builder.Subtypes.Add("Aura");
+                },
             };
         }
 
