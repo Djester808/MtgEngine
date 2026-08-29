@@ -17716,6 +17716,152 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "Harmonize {3}{G}" — cast from the graveyard for that cost, then exiled (CR 702.180a).
+    /// </summary>
+    /// <remarks>
+    /// The card is cast both ways here, and the second half is the one that earns the test. An
+    /// alternative cast route taken unconditionally would read as a card that can only ever be
+    /// played out of the graveyard, and a test that only harmonized it would pass against that.
+    /// So the same card is also cast from hand for its printed cost, and the two casts are told
+    /// apart by where the sorcery ends up: harmonize exiles it, the ordinary cast does not.
+    /// <para>
+    /// The refused cast is what pins the price. Without it a reader that lost the cost entirely
+    /// and cast the card for nothing would look identical from the life total.
+    /// </para>
+    /// <para>
+    /// What this does not exercise is CR 702.180a's second static ability — "tapping up to one
+    /// untapped creature you control" and the reduction by that creature's power — which is not
+    /// built. "Up to one" is why the card is still complete without it: tapping nothing is a
+    /// legal way to pay, so every cast this allows is one the rules allow, at the printed price
+    /// or dearer.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_harmonized_card_is_cast_from_the_graveyard_for_its_own_cost_and_then_exiled()
+    {
+        var stories = new CardDefinition
+        {
+            OracleId = "oracle-harmonize-test",
+            Name = "Harmonize Test",
+            OracleText = "You gain 3 life.\nHarmonize {3}{G}",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{1}{G}",
+        };
+
+        var compiled = CardCompiler.Compile(stories);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Four mana, not the two it costs from hand: the graveyard route charges the harmonize
+        // cost and nothing else.
+        var buried = game.Create(alice, stories, Zone.Graveyard);
+        TapCompiledForest(game, alice, 3);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, buried));
+
+        TapCompiledForest(game, alice, 1);
+        game.CastSpell(alice, buried);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        // CR 702.180a's third static ability: exiled instead of going anywhere else as it leaves
+        // the stack, which is what stops the same card being harmonized every turn.
+        Assert.Contains(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Harmonize Test");
+
+        Assert.DoesNotContain(
+            game.State.Contents(Zone.Graveyard, alice).Select(game.State.GetObject),
+            o => o.Card.Name == "Harmonize Test");
+
+        // And the printed cost still works. A route that replaced the mana cost rather than
+        // adding a way to cast from the graveyard would have made this two mana short.
+        var held = TestCards.PutInHand(game, alice, stories);
+        TapCompiledForest(game, alice, 2);
+        game.CastSpell(alice, held);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+
+        // Cast from hand it is an ordinary sorcery: the exile belongs to the harmonize cast, not
+        // to the card.
+        Assert.Contains(
+            game.State.Contents(Zone.Graveyard, alice).Select(game.State.GetObject),
+            o => o.Card.Name == "Harmonize Test");
+    }
+
+    /// <summary>
+    /// "This land enters tapped. As it enters, choose a color." (CR 305.1, 614.12).
+    /// </summary>
+    /// <remarks>
+    /// Two facts on one line, and every matcher in the compiler is anchored to a whole line — so
+    /// the pair matched nothing while each half matched on its own. Thirteen colour-fixing lands
+    /// print them together.
+    /// <para>
+    /// Both halves are asserted because reading either one alone is a different and wrong card:
+    /// a land that names a colour and arrives untapped is strictly better than the one printed,
+    /// and one that arrives tapped and never names a colour taps for nothing at all.
+    /// </para>
+    /// <para>
+    /// The last assertion is the refusal. Five of the thirteen say "choose a color <em>other
+    /// than</em> red", and <c>ChoiceOnEntry</c> names a kind of choice with nowhere to put an
+    /// excluded colour — so those stay unread rather than being offered the colour the card
+    /// forbids.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_that_enters_tapped_and_names_a_colour_does_both()
+    {
+        var haven = Card(
+            "Entering Haven Test",
+            "This land enters tapped. As it enters, choose a color."
+                + "\n{T}: Add one mana of the chosen color.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(haven);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, haven, Zone.Battlefield);
+
+        // The first sentence: a replacement, so it is already tapped before anyone has priority.
+        Assert.True(game.State.GetObject(land).Permanent!.IsTapped);
+
+        // The second: the question is asked as it arrives, and answered by the player.
+        game.PassPriority(alice);
+
+        var asked = game.State.Choice;
+        Assert.NotNull(asked);
+        Assert.Equal(ChoiceKind.NameCharacteristic, asked.Kind);
+        game.Choose(asked.PlayerId, ["blue"]);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var back = game.State.Battlefield.Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Entering Haven Test");
+
+        Assert.Equal("blue", back.Chosen);
+        Assert.False(back.Permanent!.IsTapped);
+
+        game.ActivateAbility(alice, back.Id, "mana");
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+
+        // The excluded-colour printing is refused whole rather than read as an open choice.
+        var thriving = Card(
+            "Thriving Entering Test",
+            "This land enters tapped. As it enters, choose a color other than red."
+                + "\n{T}: Add {C}.",
+            CardType.Land);
+
+        Assert.Contains(
+            "~ enters tapped. As it enters, choose a color other than red.",
+            CardCompiler.Compile(thriving).Unhandled);
+    }
+
+    /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
     /// <remarks>
