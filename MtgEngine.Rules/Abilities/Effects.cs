@@ -75,6 +75,38 @@ public sealed record TargetSpec
         init;
     }
 
+    /// <summary>
+    /// A further test that gets to see another <em>target of the same effect</em>, or null.
+    /// </summary>
+    /// <remarks>
+    /// The third thing a filter can be about, and the one neither of the others can say. An
+    /// <see cref="ObjectFilter"/> sees only the candidate; a <see cref="SourceFilter"/> adds the
+    /// permanent whose ability is asking. Neither can answer "each other creature that shares a
+    /// color with <em>it</em>" (radiance, 10 cards) or "all other creatures with the same name as
+    /// <em>that creature</em>" (Bile Blight and 18 more), because "it" is the creature this same
+    /// spell targeted, and no delegate had it.
+    /// <para>
+    /// The sibling is a target and the group is not. Targets are chosen as the spell is cast
+    /// (CR 601.2c) and checked again on resolution (CR 608.2b); the group is found while the
+    /// spell resolves and is not targeted at all, so hexproof does not protect it and it does not
+    /// fizzle. That asymmetry is the whole shape of these cards and is why this is a filter and
+    /// not a second target slot.
+    /// </para>
+    /// <para>
+    /// The peer argument is <em>not</em> nullable, deliberately. A filter that could be handed
+    /// null would have to decide what to do about it, and the convenient answer — pass — matches
+    /// every permanent on the battlefield, which on these cards is a one-sided board wipe. The
+    /// decision is made once, in <see cref="Accepts"/>, and it is to refuse: CR 608.2b says that
+    /// if part of an effect requires information about an illegal target it fails to determine
+    /// that information, and any part of the effect requiring it does not happen.
+    /// </para>
+    /// </remarks>
+    public Func<GameState, IAbilitySource, GameObject, GameObject, Guid, bool>? PeerFilter
+    {
+        get;
+        init;
+    }
+
     /// <summary>Which players qualify. Null accepts any player still in the game.</summary>
     public Func<GameState, Guid, Guid, bool>? PlayerFilter { get; init; }
 
@@ -89,17 +121,69 @@ public sealed record TargetSpec
     /// </remarks>
     public bool Optional { get; init; }
 
+    /// <summary>
+    /// Whether one object passes every filter this spec carries.
+    /// </summary>
+    /// <remarks>
+    /// The single place that asks all of them, and it exists because forgetting one has been a
+    /// live bug twice: two consumers asked <see cref="ObjectFilter"/> and not
+    /// <see cref="SourceFilter"/>, so "another creature" offered the source's own name and a
+    /// sweeper that said to leave itself out put a counter on itself. A third delegate makes a
+    /// hand-written conjunction at each call site three chances to be wrong instead of two, so
+    /// there is now one conjunction and every caller uses it.
+    /// </remarks>
+    /// <param name="source">
+    /// The permanent doing the asking, when the caller knows it. Null skips
+    /// <see cref="SourceFilter"/> rather than guessing at an answer.
+    /// </param>
+    /// <param name="peer">
+    /// Another target of the same spell or ability, for <see cref="PeerFilter"/>. Null when the
+    /// caller has none to offer or when the one it had can no longer be found, and a spec that
+    /// carries a peer filter then accepts nothing (CR 608.2b).
+    /// </param>
+    public bool Accepts(
+        GameState state,
+        IAbilitySource abilities,
+        GameObject candidate,
+        Guid controllerId,
+        GameObject? source = null,
+        GameObject? peer = null)
+    {
+        if (ObjectFilter?.Invoke(state, abilities, candidate, controllerId) == false)
+            return false;
+
+        if (SourceFilter?.Invoke(state, abilities, candidate, source, controllerId) == false)
+            return false;
+
+        if (PeerFilter is not { } comparison)
+            return true;
+
+        // CR 608.2b: "If part of the effect requires information about an illegal target, it
+        // fails to determine any such information. Any part of the effect that requires that
+        // information won't happen." Matching everything would be the opposite reading, and on
+        // the cards that want this it is the difference between a two-damage ping and a wipe.
+        return peer is not null && comparison(state, abilities, candidate, peer, controllerId);
+    }
+
     /// <param name="source">
     /// What is doing the targeting, when it is known. Protection is a question about the source
     /// (CR 702.16b), so a caller that cannot say what the source is gets no protection check
     /// rather than a wrong one.
+    /// </param>
+    /// <param name="peer">
+    /// Another target of the same spell or ability, when the caller has already chosen one
+    /// (CR 601.2c). The one printed shape that needs it while <em>choosing</em> is "target
+    /// permanent an opponent controls that shares a card type with it", and no caller passes it
+    /// yet — so such a spec refuses every target rather than accepting every target, which is a
+    /// card that cannot be cast instead of a card that does the wrong thing.
     /// </param>
     public bool IsLegal(
         GameState state,
         IAbilitySource abilities,
         Target target,
         Guid controllerId,
-        GameObject? source = null)
+        GameObject? source = null,
+        GameObject? peer = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -158,8 +242,98 @@ public sealed record TargetSpec
             }
         }
 
-        return (ObjectFilter?.Invoke(state, abilities, obj, controllerId) ?? true)
-            && (SourceFilter?.Invoke(state, abilities, obj, source, controllerId) ?? true);
+        return Accepts(state, abilities, obj, controllerId, source, peer);
+    }
+}
+
+/// <summary>
+/// The comparisons a <see cref="TargetSpec.PeerFilter"/> is built from (CR 608.2h).
+/// </summary>
+/// <remarks>
+/// Two questions between them cover every card the corpus prints in this shape, measured rather
+/// than guessed: "shares a color with it" is 10 cards, all of them radiance, and "with the same
+/// name as that [noun]" is 19 across creatures, permanents, lands, artifacts and enchantments.
+/// They are kept apart from the "other" exclusion because that is a third question — the printed
+/// line says "each <em>other</em>", and a comparison that hid the exclusion inside itself could
+/// not be reused by anything that does not.
+/// <para>
+/// Each is handed the object it is judging and the sibling to judge it against, and asks nothing
+/// about where either one is. That is what lets the sibling be a card the same resolution has
+/// already exiled: CR 608.2h says an effect needing information about an object that has left the
+/// zone it was expected to be in uses its last known information, and Sever the Bloodline exiles
+/// its target before the group it describes is gathered.
+/// </para>
+/// </remarks>
+public static class PeerFilters
+{
+    /// <summary>"…that shares a color with it" (CR 105.2).</summary>
+    /// <remarks>
+    /// Colour is read from the computed characteristics on both sides, because layer 5 changes it
+    /// (CR 613.1e) and a creature painted white by an effect shares a colour with a white spell's
+    /// target. The one thing this does not reproduce is last known <em>colour</em>: a sibling that
+    /// has left the battlefield is asked where it is now, so a layer-5 effect that was on it there
+    /// is gone. No printed card reaches that — the only mid-resolution sibling in the corpus is
+    /// compared by name, and a colour comparison whose target has left fizzles first (CR 608.2b).
+    /// </remarks>
+    public static bool SharesAColour(
+        GameState state,
+        IAbilitySource abilities,
+        GameObject candidate,
+        GameObject peer,
+        Guid controllerId)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(peer);
+
+        var theirs = Characteristics.Of(state, abilities, peer).Colors;
+
+        // CR 105.2c: a colourless object has no colour, so it shares one with nothing — not even
+        // with another colourless object. An empty intersection says that without a special case.
+        return theirs.Count != 0
+            && Characteristics.Of(state, abilities, candidate).Colors.Any(theirs.Contains);
+    }
+
+    /// <summary>"…with the same name as that creature" (CR 201.2a).</summary>
+    /// <remarks>
+    /// The name is read off the card rather than off the computed characteristics because nothing
+    /// in this engine changes a name — face-down is the one thing that does, and CR 707.2 makes a
+    /// face-down permanent nameless, which is exactly what the second half of CR 201.2a is about.
+    /// </remarks>
+    public static bool HasTheSameName(
+        GameState state,
+        IAbilitySource abilities,
+        GameObject candidate,
+        GameObject peer,
+        Guid controllerId)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(peer);
+
+        // CR 707.2: a face-down permanent has no name.
+        if (candidate.Permanent is { IsFaceDown: true } || peer.Permanent is { IsFaceDown: true })
+            return false;
+
+        // CR 201.2a: "An object with no name doesn't have the same name as any other object,
+        // including another object with no name." Two nameless tokens are not each other's twin,
+        // and string equality alone would have said they were.
+        return !string.IsNullOrEmpty(candidate.Card.Name)
+            && string.Equals(candidate.Card.Name, peer.Card.Name, StringComparison.Ordinal);
+    }
+
+    /// <summary>The same comparison with the sibling itself left out — "each other …".</summary>
+    /// <remarks>
+    /// Every one of the 29 cards measured for this says "other", because each pairs the group
+    /// with a targeted effect on the sibling and would otherwise hit it twice. It is a wrapper
+    /// rather than a flag on the comparison so that the two questions stay separable: a card that
+    /// said "each creature with the same name" would want one and not the other.
+    /// </remarks>
+    public static Func<GameState, IAbilitySource, GameObject, GameObject, Guid, bool> Other(
+        Func<GameState, IAbilitySource, GameObject, GameObject, Guid, bool> comparison)
+    {
+        ArgumentNullException.ThrowIfNull(comparison);
+
+        return (state, abilities, candidate, peer, controller) =>
+            candidate.Id != peer.Id && comparison(state, abilities, candidate, peer, controller);
     }
 }
 
@@ -314,6 +488,34 @@ public sealed record ResolutionContext
 
     public Target? TargetAt(int index) =>
         index >= 0 && index < Targets.Count ? Targets[index] : null;
+
+    /// <summary>
+    /// The object a target of this same spell or ability names, wherever it has got to
+    /// (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// What "it" and "that creature" mean to a group filter in the same sentence — "each other
+    /// creature that shares a color with <em>it</em>". <see cref="TargetAt"/> answers with the
+    /// chosen target; this answers with the object, and it has to keep answering after an earlier
+    /// effect of the same resolution has moved it. Sever the Bloodline exiles its target and then
+    /// describes a group by that target's name, and a permanent that leaves the battlefield does
+    /// so under a new id (CR 400.7), so asking the state alone returns nothing on exactly the card
+    /// the mechanism exists for.
+    /// <para>
+    /// Null when the target names a player, when the id cannot be followed, and on a context built
+    /// without <see cref="ObjectBehind"/>. Callers must treat null as "cannot be determined" and
+    /// do nothing (CR 608.2b) rather than as "no restriction".
+    /// </para>
+    /// </remarks>
+    public GameObject? PeerAt(int index)
+    {
+        if (TargetAt(index) is not { } target || target.Kind == TargetKind.Player)
+            return null;
+
+        return State.TryGetObject(target.Subject, out var live)
+            ? live
+            : ObjectBehind?.Invoke(target.Subject);
+    }
 
     /// <summary>
     /// The object that is the <em>source</em> of what this effect does (CR 608.2, 609.7).
@@ -3943,7 +4145,14 @@ public sealed record LookAndTake(
 /// for the rest of the turn — so a creature that arrives afterwards is not affected, which is
 /// what "creatures get -2/-2 until end of turn" means and what a static ability would not do.
 /// </remarks>
-public sealed record PumpGroup(string DefinitionId, TargetSpec What) : IEffect
+/// <param name="PeerIndex">
+/// Which target of the same spell or ability the filter compares each candidate against, when it
+/// does — Bile Blight's "all other creatures with the same name as that creature". Null on every
+/// other group, and the group is still untargeted either way: the sibling is targeted, the
+/// creatures found by looking at it are not.
+/// </param>
+public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIndex = null)
+    : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -3955,13 +4164,12 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What) : IEffect
             ? self
             : null;
 
+        var peer = PeerIndex is { } sibling ? context.PeerAt(sibling) : null;
+
         var affected = context.State.Battlefield
-            .Where(id => What.ObjectFilter?.Invoke(
+            .Where(id => What.Accepts(
                 context.State, context.Abilities, context.State.GetObject(id),
-                context.ControllerId) != false)
-            .Where(id => What.SourceFilter?.Invoke(
-                context.State, context.Abilities, context.State.GetObject(id), source,
-                context.ControllerId) != false)
+                context.ControllerId, source, peer))
             .ToImmutableList();
 
         return affected.IsEmpty
@@ -4019,8 +4227,20 @@ public enum GroupAction
 /// rather than the ones that qualified when it was cast. So it takes a filter, never target
 /// indices — and one effect covers every verb, because the only thing that differs between
 /// "destroy all creatures" and "exile all creatures" is the event at the end.
+/// <para>
+/// <paramref name="PeerIndex"/> is the one thing here that <em>is</em> about a target, and it is
+/// not a contradiction: "Cleansing Beam deals 2 damage to target creature and each other creature
+/// that shares a color with it" targets one creature and finds the rest by looking at it. The
+/// found ones are still untargeted — hexproof does not save them and none of them can make the
+/// spell fizzle.
+/// </para>
 /// </remarks>
-public sealed record ToEachPermanent(GroupAction Action, TargetSpec What, Amount Amount = default) : IEffect
+/// <param name="PeerIndex">
+/// Which target of the same spell or ability <see cref="TargetSpec.PeerFilter"/> compares each
+/// candidate against. Null on every ordinary sweeper.
+/// </param>
+public sealed record ToEachPermanent(
+    GroupAction Action, TargetSpec What, Amount Amount = default, int? PeerIndex = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -4028,24 +4248,21 @@ public sealed record ToEachPermanent(GroupAction Action, TargetSpec What, Amount
 
         var events = new List<GameEvent>();
 
-        // Both of the spec's filters. The source-aware one is what "each *other* creature you
-        // control" is made of, and asking only the plain one put a counter on the very permanent
-        // whose ability said to leave itself out.
+        // Every one of the spec's filters, through the one method that asks them all. The
+        // source-aware one is what "each *other* creature you control" is made of, and asking
+        // only the plain one put a counter on the very permanent whose ability said to leave
+        // itself out.
         var source = context.State.TryGetObject(context.PhysicalSourceId, out var self)
             ? self
             : null;
 
+        var peer = PeerIndex is { } sibling ? context.PeerAt(sibling) : null;
+
         foreach (var id in context.State.Battlefield)
         {
             var obj = context.State.GetObject(id);
-            if (What.ObjectFilter?.Invoke(
-                context.State, context.Abilities, obj, context.ControllerId) == false)
-            {
-                continue;
-            }
-
-            if (What.SourceFilter?.Invoke(
-                context.State, context.Abilities, obj, source, context.ControllerId) == false)
+            if (!What.Accepts(
+                context.State, context.Abilities, obj, context.ControllerId, source, peer))
             {
                 continue;
             }

@@ -14912,6 +14912,258 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// A coloured creature that survives a two-damage ping, so the damage can be counted.
+    /// </summary>
+    /// <remarks>
+    /// Toughness 3 rather than the usual 2 is the point of it. A radiance spell that wrongly
+    /// included its own target would deal that creature four damage and kill it, and on a board of
+    /// 2/2s that is indistinguishable from the two damage the card really does deal — both boards
+    /// end with a dead creature. The number has to be readable for the test to be able to fail.
+    /// <para>
+    /// No colours at all is a legal argument and a deliberate case: CR 105.2c makes such an object
+    /// colourless, and a colourless creature shares a colour with nothing, including another
+    /// colourless creature.
+    /// </para>
+    /// </remarks>
+    private static CardDefinition ColouredCreature(string name, params ManaColor[] colours) =>
+        new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 3,
+            Colors = [.. colours],
+            ColorIdentity = [.. colours],
+        };
+
+    /// <summary>
+    /// Radiance: "deals 2 damage to target creature and each other creature that shares a color
+    /// with it" (CR 601.2c, 609.2).
+    /// </summary>
+    /// <remarks>
+    /// The family this capability was built for — 10 corpus cards, every one of them a radiance
+    /// line from Ravnica, and all of them blocked on the same thing: a group filter that can see
+    /// the creature the same spell targeted. Neither existing delegate could say it.
+    /// <c>ObjectFilter</c> sees only the candidate, and <c>SourceFilter</c> sees the permanent
+    /// whose ability is asking — which for a spell is the spell, not anything it chose.
+    /// <para>
+    /// The two halves are different kinds of thing and the board is built so that a test cannot
+    /// pass by confusing them. The target is targeted: chosen as the spell is cast (CR 601.2c) and
+    /// checked again on resolution (CR 608.2b). The group is not targeted at all: it is found while
+    /// the spell resolves, so it reaches a creature its controller could not have chosen and it
+    /// cannot make the spell fizzle.
+    /// </para>
+    /// <para>
+    /// The four damage assertions can each fail on their own, and each catches a different wrong
+    /// reading. Two damage on the target rather than four is the one that catches "each
+    /// <em>other</em>" being dropped. Two damage on Alice's own red creature catches a filter that
+    /// quietly scoped itself to the caster's opponents, which no radiance card says. Nothing on
+    /// the blue creature and nothing on the colourless one catch the failure mode this whole
+    /// mechanism is shaped around — a peer comparison that cannot find its sibling and matches
+    /// everything instead, which on this card is a one-sided board wipe rather than a ping.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_radiance_spell_finds_only_the_creatures_that_share_a_colour_with_its_target()
+    {
+        var beam = Card(
+            "Radiance Beam Test",
+            "Radiance — This spell deals 2 damage to target creature and each other creature "
+                + "that shares a color with it.",
+            CardType.Sorcery);
+
+        var sharesAColour = EffectPhrase.Specs.TargetCreature with
+        {
+            Description = "each other creature that shares a color with it",
+            PeerFilter = PeerFilters.Other(PeerFilters.SharesAColour),
+        };
+
+        var pool = new HandWrittenStatics().Give(beam, new SpellDefinition
+        {
+            Targets = [EffectPhrase.Specs.TargetCreature],
+            Effects =
+            [
+                new DealDamage(2, 0),
+                new ToEachPermanent(GroupAction.Damage, sharesAColour, 2, PeerIndex: 0),
+            ],
+        });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        var chosen = game.Create(
+            bob, ColouredCreature("Radiance Target Test", ManaColor.Red), Zone.Battlefield);
+        var alsoRed = game.Create(
+            alice, ColouredCreature("Radiance Ally Test", ManaColor.Red), Zone.Battlefield);
+        var blue = game.Create(
+            bob, ColouredCreature("Radiance Bystander Test", ManaColor.Blue), Zone.Battlefield);
+        var colourless = game.Create(
+            alice, ColouredCreature("Radiance Golem Test"), Zone.Battlefield);
+
+        var inHand = TestCards.PutInHand(game, alice, beam);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(chosen)]);
+        Settle(game);
+
+        // Nothing died, so every number below is still readable.
+        Assert.Contains(chosen, game.State.Battlefield);
+        Assert.Contains(alsoRed, game.State.Battlefield);
+
+        Assert.Equal(2, DamageOn(game, chosen));
+        Assert.Equal(2, DamageOn(game, alsoRed));
+        Assert.Equal(0, DamageOn(game, blue));
+        Assert.Equal(0, DamageOn(game, colourless));
+    }
+
+    /// <summary>
+    /// "Exile target creature and all other creatures with the same name as that creature"
+    /// (CR 201.2a, 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The second family, 19 corpus cards across creatures, permanents, lands, artifacts and
+    /// enchantments — Bile Blight, Echoing Courage, Maelstrom Pulse, Sever the Bloodline. The
+    /// wording is written here as Sever the Bloodline prints it because the exile is what makes
+    /// this the harder half: the spell removes its own sibling and <em>then</em> describes a group
+    /// by that sibling's name.
+    /// <para>
+    /// A permanent that leaves the battlefield becomes a new object under a new id (CR 400.7), so
+    /// by the time the group is gathered the chosen creature's id names nothing. CR 608.2h is the
+    /// rule that says what to do: an effect needing information about an object no longer in the
+    /// zone it was expected to be in uses that object's last known information. The engine follows
+    /// the id forward through its own log, which is the same machinery a death trigger already
+    /// uses to find the card its permanent became.
+    /// </para>
+    /// <para>
+    /// Both halves of the assertion matter and they fail in opposite directions. The two surviving
+    /// twins being exiled is what breaks if the sibling cannot be followed past the first effect —
+    /// the group would come back empty and the card would read as plain single-target removal. The
+    /// stranger surviving is what breaks if a sibling that cannot be found is treated as no
+    /// restriction, which turns a two-mana exile into a board wipe. A third copy sits under Alice
+    /// rather than Bob because the printed line says "all other creatures" and names no
+    /// controller; Declaration in Stone is the printing that adds one, and it adds words to do it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_named_by_its_target_still_finds_them_after_the_target_has_gone()
+    {
+        var sever = Card(
+            "Sever Bloodline Test",
+            "Exile target creature and all other creatures with the same name as that creature.",
+            CardType.Sorcery);
+
+        var twin = TestCards.Creature("Bloodline Twin Test", 2, 2);
+        var stranger = TestCards.Creature("Bloodline Stranger Test", 2, 2);
+
+        var sameName = EffectPhrase.Specs.TargetCreature with
+        {
+            Description = "all other creatures with the same name as that creature",
+            PeerFilter = PeerFilters.Other(PeerFilters.HasTheSameName),
+        };
+
+        var pool = new HandWrittenStatics().Give(sever, new SpellDefinition
+        {
+            Targets = [EffectPhrase.Specs.TargetCreature],
+            Effects =
+            [
+                new ExileTarget(0),
+                new ToEachPermanent(GroupAction.Exile, sameName, PeerIndex: 0),
+            ],
+        });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        var chosen = game.Create(bob, twin, Zone.Battlefield);
+        var theirOther = game.Create(bob, twin, Zone.Battlefield);
+        var mine = game.Create(alice, twin, Zone.Battlefield);
+        var bystander = game.Create(bob, stranger, Zone.Battlefield);
+
+        var inHand = TestCards.PutInHand(game, alice, sever);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(chosen)]);
+        Settle(game);
+
+        Assert.DoesNotContain(chosen, game.State.Battlefield);
+        Assert.DoesNotContain(theirOther, game.State.Battlefield);
+        Assert.DoesNotContain(mine, game.State.Battlefield);
+        Assert.Contains(bystander, game.State.Battlefield);
+
+        // Three creatures, and the sorcery itself went to a graveyard rather than exile.
+        Assert.Equal(3, game.State.Exile.Count);
+    }
+
+    /// <summary>
+    /// A group whose sibling cannot be determined affects nothing, not everything (CR 608.2b).
+    /// </summary>
+    /// <remarks>
+    /// The guard, played rather than asserted on the delegate, because the delegate is not where
+    /// this would go wrong. A comparison against a sibling has to answer somehow when there is no
+    /// sibling to compare against, and the convenient answer — pass, because there is nothing to
+    /// fail against — matches every permanent on the battlefield. On the cards that want this
+    /// mechanism that is the difference between a two-damage ping and a one-sided wipe, and it
+    /// would arrive silently: the card compiles, the spell resolves, the log records a legal
+    /// sweep.
+    /// <para>
+    /// CR 608.2b is the rule, not a preference: "If part of the effect requires information about
+    /// an illegal target, it fails to determine any such information. Any part of the effect that
+    /// requires that information won't happen." So <c>TargetSpec.Accepts</c> refuses in one place
+    /// and no filter has to remember to.
+    /// </para>
+    /// <para>
+    /// The destroy on the target is what stops this passing vacuously. Without it, an engine that
+    /// dropped the whole spell on the floor would satisfy every assertion below.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_that_cannot_find_its_sibling_affects_nothing_rather_than_everything()
+    {
+        var pulse = Card(
+            "Missing Sibling Test",
+            "Destroy target creature and all other creatures with the same name as that creature.",
+            CardType.Sorcery);
+
+        var sameName = EffectPhrase.Specs.TargetCreature with
+        {
+            Description = "all other creatures with the same name as that creature",
+            PeerFilter = PeerFilters.Other(PeerFilters.HasTheSameName),
+        };
+
+        var pool = new HandWrittenStatics().Give(pulse, new SpellDefinition
+        {
+            Targets = [EffectPhrase.Specs.TargetCreature],
+            Effects =
+            [
+                new DestroyTarget(0),
+
+                // Index 1, and the spell has one target. Nothing compiled would say this; it is
+                // the cheapest way to reach the branch a card reaches only when an id can no
+                // longer be followed at all.
+                new ToEachPermanent(GroupAction.Destroy, sameName, PeerIndex: 1),
+            ],
+        });
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        var twin = TestCards.Creature("Missing Sibling Twin Test", 2, 2);
+
+        var chosen = game.Create(bob, twin, Zone.Battlefield);
+        var theirOther = game.Create(bob, twin, Zone.Battlefield);
+        var mine = game.Create(alice, twin, Zone.Battlefield);
+
+        var inHand = TestCards.PutInHand(game, alice, pulse);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(chosen)]);
+        Settle(game);
+
+        // The spell resolved: its targeted half happened.
+        Assert.DoesNotContain(chosen, game.State.Battlefield);
+
+        // Its group half did not, and would have taken both of these with it.
+        Assert.Contains(theirOther, game.State.Battlefield);
+        Assert.Contains(mine, game.State.Battlefield);
+    }
+
+    /// <summary>Damage marked on a permanent this turn (CR 120.3), for the radiance test.</summary>
+    private static int DamageOn(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent?.DamageMarked ?? -1;
+
+    /// <summary>
     /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
     /// </summary>
     /// <remarks>

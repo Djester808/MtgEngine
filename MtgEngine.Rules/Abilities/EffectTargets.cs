@@ -401,6 +401,20 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
+        // The two group effects, which reach a target without being aimed at one. A sweeper
+        // chooses nothing (CR 609.2), but "each other creature that shares a color with it" reads
+        // the creature the same spell targeted, so the index that names that sibling has to move
+        // with every other index when a clause parsed on its own is folded into a larger ability.
+        // Null on every ordinary sweeper, and a null index is inert here: nothing to read, nothing
+        // to shift, nothing for the range check to complain about.
+        Add<ToEachPermanent>(
+            e => e.PeerIndex,
+            (e, n) => e.PeerIndex is { } i ? e with { PeerIndex = i + n } : e);
+
+        Add<PumpGroup>(
+            e => e.PeerIndex,
+            (e, n) => e.PeerIndex is { } i ? e with { PeerIndex = i + n } : e);
+
         return table.ToImmutable();
     }
 }
