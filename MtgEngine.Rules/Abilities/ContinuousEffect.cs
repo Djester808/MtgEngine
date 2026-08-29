@@ -175,8 +175,54 @@ public sealed class CharacteristicsBuilder
     /// <summary>CR 510.1a: damage may be assigned as though nothing were blocking.</summary>
     public bool MayAssignAsThoughUnblocked { get; set; }
 
+    /// <summary>CR 609.4, 702.3b: it may attack as though it did not have defender.</summary>
+    /// <remarks>
+    /// A permission, not the removal of a keyword. The creature still <em>has</em> defender —
+    /// anything that asks whether it does gets yes, and a second effect keyed to defender
+    /// ("creatures with defender get +0/+2") keeps applying to it. Only the one rule the
+    /// permission names is treated as though the keyword were absent, which is exactly what
+    /// CR 609.4 says an "as though" effect does.
+    /// </remarks>
+    public bool MayAttackAsThoughNoDefender { get; set; }
+
     /// <summary>Whether this permanent is legendary (CR 205.4a).</summary>
     public bool IsLegendary { get; set; }
+
+    /// <summary>Whether an effect has taken every ability away (CR 613.1f).</summary>
+    /// <remarks>
+    /// Set only by <see cref="LoseAllAbilities"/>, which only <see cref="State.Characteristics"/>
+    /// calls, and only for an effect that declared
+    /// <see cref="ContinuousEffectDefinition.RemovesAllAbilities"/>. It is on the builder rather
+    /// than worked out afterwards because layer 6 runs in timestamp order (CR 613.7): a grant
+    /// applied before the loss is wiped by it and one applied after survives, and neither is
+    /// visible once the layer is over.
+    /// </remarks>
+    public bool HasLostAllAbilities { get; private set; }
+
+    /// <summary>
+    /// Takes every ability this object has (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// Only the abilities the <em>object</em> has. What another permanent's ability does to it —
+    /// an Aura saying "enchanted creature can't block", a lord's bonus — is that permanent's
+    /// ability and is untouched, so the combat requirements and restrictions collected here are
+    /// deliberately left alone. The object's own static abilities never reach them: they are
+    /// dropped before the layer runs, in <see cref="State.Characteristics"/>.
+    /// <para>
+    /// Two things it does not clear, and both are the layer order rather than an omission.
+    /// Changeling is a characteristic-defining ability applied with the printed types, and the
+    /// types it set were settled in layer 4 — CR 613.6 says an effect that has started to apply
+    /// keeps applying even once the ability generating it is removed, so the creature stays every
+    /// creature type. Legendary is a supertype (CR 205.4a) and was never an ability at all.
+    /// </para>
+    /// </remarks>
+    public void LoseAllAbilities()
+    {
+        HasLostAllAbilities = true;
+        Keywords = KeywordAbility.None;
+        GrantedActivated.Clear();
+        GrantedTriggers.Clear();
+    }
 
     public Guid ControllerId { get; set; }
 
@@ -243,6 +289,8 @@ public sealed class CharacteristicsBuilder
             MustAttackPlayer = MustAttackPlayer,
             CantBeBlockedByGreaterPower = CantBeBlockedByGreaterPower,
             MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
+            MayAttackAsThoughNoDefender = MayAttackAsThoughNoDefender,
+            HasLostAllAbilities = HasLostAllAbilities,
             IsLegendary = IsLegendary,
         };
 
@@ -272,6 +320,8 @@ public sealed class CharacteristicsBuilder
         MustAttackPlayer = MustAttackPlayer,
         CantBeBlockedByGreaterPower = CantBeBlockedByGreaterPower,
         MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
+        MayAttackAsThoughNoDefender = MayAttackAsThoughNoDefender,
+        HasLostAllAbilities = HasLostAllAbilities,
         IsLegendary = IsLegendary,
         GrantedActivated = [.. GrantedActivated],
         GrantedTriggers = [.. GrantedTriggers],
@@ -334,6 +384,31 @@ public sealed record ContinuousEffectDefinition
     /// </para>
     /// </remarks>
     public required Action<State.GameState, GameObject?, CharacteristicsBuilder> Apply { get; init; }
+
+    /// <summary>
+    /// Whether this effect takes every ability away from what it applies to (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// Declared rather than done in <see cref="Apply"/>, and that is the whole point of the
+    /// field: losing all abilities is two things, and only one of them is a characteristic. The
+    /// keywords and the granted abilities come off the object being computed, which an
+    /// <c>Apply</c> could do — but the object's own static abilities have to stop being
+    /// <em>offered</em> at all, and that decision is made before any of them is applied, to a
+    /// permanent that may not be the one being computed. Nothing inside an <c>Apply</c> can reach
+    /// it. So <see cref="State.Characteristics"/> reads this flag on the way in, drops the
+    /// affected permanent's own effects from layer 6 onwards, and calls
+    /// <see cref="CharacteristicsBuilder.LoseAllAbilities"/> when the layer is reached.
+    /// <para>
+    /// It is also what keeps the common case free. A board with no ability-removal on it is
+    /// recognised by one pass over effects that are being gathered anyway, and the layers run
+    /// exactly as they did before.
+    /// </para>
+    /// <para>
+    /// The layer must be <see cref="EffectLayer.Ability"/>; nothing else is a legal place to
+    /// remove an ability, and <see cref="State.Characteristics"/> refuses one that says otherwise.
+    /// </para>
+    /// </remarks>
+    public bool RemovesAllAbilities { get; init; }
 
     /// <summary>
     /// While this has to stay true, for an effect that lasts "for as long as ..." (CR 611.2b).

@@ -140,6 +140,42 @@ public sealed record ComputedCharacteristics
     /// </remarks>
     public bool MayAssignAsThoughUnblocked { get; init; }
 
+    /// <summary>
+    /// Whether this creature may attack as though it did not have defender (CR 609.4, 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// A permission rather than the loss of a keyword, and the two are genuinely different: the
+    /// creature still has defender, so anything reading the keyword still sees it and a card that
+    /// pumps "creatures with defender" still pumps this one. CR 609.4 says an "as though" effect
+    /// applies to the stated effect only, so this is asked in exactly one place — the defender
+    /// arm of <see cref="Engine.CombatRules.CannotAttack"/> — and nowhere else.
+    /// <para>
+    /// It is a characteristic and not a fact about a declaration because most of the cards that
+    /// grant it are conditional on the board: "as long as you control a creature with power 4 or
+    /// greater", "as long as this creature has a +1/+1 counter on it". Those are static abilities
+    /// whose answer changes between one attack and the next, which is what the layers are for.
+    /// </para>
+    /// </remarks>
+    public bool MayAttackAsThoughNoDefender { get; init; }
+
+    /// <summary>
+    /// Whether an effect has taken away every ability this object has (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The keywords and the granted abilities are already gone from this record — layer 6 emptied
+    /// them — but the abilities a card is <em>looked up</em> by are not characteristics at all:
+    /// activated abilities, triggered abilities and replacement effects all come from
+    /// <see cref="IAbilitySource"/> keyed by the card, and no computation here can empty that.
+    /// So each of those readers has to ask this, the same way they already ask about a face-down
+    /// permanent (CR 707.2), which is the identical shape of problem.
+    /// <para>
+    /// The one reader that does not have to is this file's own: a permanent that has lost its
+    /// abilities stops contributing continuous effects from layer 6 onwards, and that is done
+    /// where the effects are gathered rather than by anyone asking.
+    /// </para>
+    /// </remarks>
+    public bool HasLostAllAbilities { get; init; }
+
     /// <summary>The player this creature must attack if it can (CR 702.141a).</summary>
     /// <remarks>
     /// Goad's mirror: that one says "anybody but this player" and this says "this player and
@@ -316,8 +352,7 @@ public static class Characteristics
             {
                 // Applicability is asked again here rather than reused: an effect earlier in the
                 // same layer may have just brought this one into range.
-                if (candidate.Effect.Applies(state, candidate.Source, builder))
-                    candidate.Effect.Apply(state, candidate.Source, builder);
+                ApplyCandidate(state, candidate, builder);
             }
         }
 
@@ -438,33 +473,158 @@ public static class Characteristics
     /// is reached, because an effect in an earlier layer can bring a later one into range —
     /// turning a creature white makes an anthem that pumps white creatures start applying to it.
     /// </remarks>
-    private static IEnumerable<Candidate> Candidates(
+    private static List<Candidate> Candidates(
         GameState state, IAbilitySource abilities, GameObject target)
     {
+        var found = new List<Candidate>();
+
+        // Which permanents could have an effect of theirs dropped, and whether anything on the
+        // board is dropping one. Both are collected while the effects are being gathered anyway,
+        // so a board with no ability-removal on it pays for one comparison per effect and the
+        // rest of this method never runs. The set is left null until something needs to be in it,
+        // because this is the hottest path in the engine and most boards never fill one.
+        HashSet<ObjectId>? silenceable = null;
+        var removing = false;
+
         // Static abilities of permanents on the battlefield (CR 604.2): their effects exist for
         // exactly as long as the permanent does.
         foreach (var id in state.Battlefield)
         {
             var source = state.GetObject(id);
             foreach (var effect in abilities.StaticsOf(source.Card))
-                yield return new Candidate(effect, source, source.Timestamp);
+            {
+                if (effect.Layer >= EffectLayer.Ability)
+                    (silenceable ??= []).Add(source.Id);
+
+                removing |= Removes(effect);
+                found.Add(new Candidate(effect, source, source.Timestamp));
+            }
         }
 
         // Counters modify power and toughness in layer 7c (CR 613.4c, 122.1c). They are not a
         // static ability of anything, so they are added here rather than found on a permanent.
         if (target.Permanent is not null && CounterDelta(target) != 0)
-            yield return new Candidate(CounterEffect(CounterDelta(target)), null, target.Timestamp);
+            found.Add(new Candidate(CounterEffect(CounterDelta(target)), null, target.Timestamp));
 
         // Effects created by a resolved spell or ability, which outlive their source (CR 613.7b).
+        // A floating effect is not an ability of any permanent, so nothing ever silences one -
+        // a creature pumped and then stripped of its abilities keeps the bonus.
         foreach (var floating in state.FloatingEffects)
         {
-            if (!floating.AffectedIds.Contains(target.Id))
+            // A removal aimed somewhere else is still this computation's business, because what
+            // it silences is that permanent's lord and this object may be standing under it.
+            // Resolving every floating effect to find out would be the expensive way to ask, so
+            // only the ones aimed at a permanent that has an effect to lose are looked up.
+            var couldSilence = !removing
+                && silenceable is not null
+                && floating.AffectedIds.Any(silenceable.Contains);
+
+            if (!couldSilence && !floating.AffectedIds.Contains(target.Id))
                 continue;
 
             var definition = abilities.FloatingEffect(floating.DefinitionId);
-            if (definition is not null)
-                yield return new Candidate(definition, null, floating.Timestamp);
+            if (definition is null)
+                continue;
+
+            removing |= Removes(definition);
+
+            if (floating.AffectedIds.Contains(target.Id))
+                found.Add(new Candidate(definition, null, floating.Timestamp));
         }
+
+        return removing && silenceable is not null
+            ? WithoutSilencedSources(state, abilities, found, silenceable)
+            : found;
+    }
+
+    /// <summary>Whether an effect takes every ability away, refusing one in the wrong layer.</summary>
+    /// <remarks>
+    /// Layer 6 is where abilities are removed and there is no other (CR 613.1f). A definition
+    /// saying otherwise is a mistake in whatever built it, and one that would be invisible: it
+    /// would take the keywords off in the wrong place and leave the object's own static
+    /// abilities applying, which is half a removal and looks like a working card.
+    /// </remarks>
+    private static bool Removes(ContinuousEffectDefinition effect)
+    {
+        if (!effect.RemovesAllAbilities)
+            return false;
+
+        if (effect.Layer != EffectLayer.Ability)
+        {
+            throw new InvalidOperationException(
+                $"'{effect.Id}' removes all abilities in layer {effect.Layer}; "
+                + "ability removal is layer 6 (CR 613.1f).");
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a nested "has that permanent lost its abilities?" is already being answered.
+    /// </summary>
+    /// <remarks>
+    /// The question is asked of another permanent, and answering it computes that permanent's
+    /// characteristics, which asks it again of everything on the battlefield. One level deep is
+    /// where this stops: a permanent whose abilities were removed by a permanent that had
+    /// <em>its</em> abilities removed is answered as though the second removal had not happened.
+    /// <para>
+    /// The alternative is not a deeper limit, it is a cycle — two permanents can each remove the
+    /// other's abilities, and the rules have no answer for that either (CR 613.8b takes the same
+    /// way out for dependency loops). Bounded here rather than guarded per object because the
+    /// bound is what makes the cost of a removal on the board O(lords) instead of unbounded.
+    /// </para>
+    /// </remarks>
+    [ThreadStatic]
+    private static bool _askingWhoLostAbilities;
+
+    /// <summary>
+    /// Drops the effects of permanents that have lost every ability (CR 613.1f, 613.6).
+    /// </summary>
+    /// <remarks>
+    /// Only from layer 6 onwards, and CR 613.6 is why: an effect that has already started to
+    /// apply keeps applying "even if the ability generating the effect is removed during this
+    /// process". Layers 1 to 5 have run by the time abilities come off, so a permanent's own
+    /// type-changing or colour-changing static still counts; its lord's bonus in layer 7c does
+    /// not, because that layer had not been reached yet.
+    /// </remarks>
+    private static List<Candidate> WithoutSilencedSources(
+        GameState state,
+        IAbilitySource abilities,
+        List<Candidate> found,
+        HashSet<ObjectId> silenceable)
+    {
+        if (_askingWhoLostAbilities)
+            return found;
+
+        var silenced = new HashSet<ObjectId>();
+
+        _askingWhoLostAbilities = true;
+        try
+        {
+            foreach (var id in silenceable)
+            {
+                if (state.TryGetObject(id, out var source)
+                    && Of(state, abilities, source).HasLostAllAbilities)
+                {
+                    silenced.Add(id);
+                }
+            }
+        }
+        finally
+        {
+            _askingWhoLostAbilities = false;
+        }
+
+        if (silenced.Count == 0)
+            return found;
+
+        return
+        [
+            .. found.Where(c =>
+                c.Effect.Layer < EffectLayer.Ability
+                || c.Source is null
+                || !silenced.Contains(c.Source.Id)),
+        ];
     }
 
     /// <summary>
@@ -515,11 +675,35 @@ public static class Characteristics
         var before = effect.Effect.Applies(state, effect.Source, builder);
 
         var probe = builder.Copy();
-        if (!other.Effect.Applies(state, other.Source, probe))
+        if (!ApplyCandidate(state, other, probe))
             return false;
 
-        other.Effect.Apply(state, other.Source, probe);
         return effect.Effect.Applies(state, effect.Source, probe) != before;
+    }
+
+    /// <summary>
+    /// Applies one effect to the characteristics as they stand, if it applies at all.
+    /// </summary>
+    /// <remarks>
+    /// Shared with the dependency probe (CR 613.8a), which has to apply an effect to a throwaway
+    /// copy and see what changed. Written once so the two cannot come to disagree about what
+    /// applying an effect means — an ability-removing effect that the probe applied as a no-op
+    /// would make every effect look independent of it, which is exactly backwards: removing
+    /// abilities is the commonest thing there is for another effect to depend on.
+    /// </remarks>
+    private static bool ApplyCandidate(
+        GameState state, Candidate candidate, CharacteristicsBuilder builder)
+    {
+        if (!candidate.Effect.Applies(state, candidate.Source, builder))
+            return false;
+
+        // CR 613.1f, and declared on the definition rather than done inside its Apply — see
+        // ContinuousEffectDefinition.RemovesAllAbilities for why it cannot be.
+        if (candidate.Effect.RemovesAllAbilities)
+            builder.LoseAllAbilities();
+
+        candidate.Effect.Apply(state, candidate.Source, builder);
+        return true;
     }
 
     /// <summary>The +1/+1 and -1/-1 counters on a permanent, netted (CR 122.1c).</summary>

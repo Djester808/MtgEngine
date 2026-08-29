@@ -14001,6 +14001,428 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
     }
 
+    // ---- Layer 6: losing every ability, and attacking despite defender -------
+
+    /// <summary>
+    /// A pool serving static abilities written out rather than compiled from rules text.
+    /// </summary>
+    /// <remarks>
+    /// The same trade <see cref="HandBuilt"/> and <see cref="HandWritten"/> make, one layer
+    /// further along. What the tests below exercise is CR 613's layer 6 — an effect that takes
+    /// every ability away, and a permission to attack through defender — and neither sentence has
+    /// a template yet; reading them is the other half of the work. The real oracle wording of
+    /// each is quoted on the card the definition is attached to, so when the compiler learns one
+    /// of these sentences the test becomes an ordinary template test by deleting a pool.
+    /// </remarks>
+    private sealed class HandWrittenStatics : IAbilitySource
+    {
+        private readonly Dictionary<string, List<ContinuousEffectDefinition>> _statics = [];
+        private readonly Dictionary<string, SpellDefinition> _spells = [];
+        private readonly Dictionary<string, ContinuousEffectDefinition> _floating = [];
+
+        public IReadOnlyList<TriggeredAbilityDefinition> TriggersOf(CardDefinition card) => [];
+
+        public IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) =>
+            _statics.TryGetValue(card.OracleId, out var found) ? found : [];
+
+        public SpellDefinition? SpellOf(CardDefinition card) =>
+            _spells.GetValueOrDefault(card.OracleId);
+
+        public ContinuousEffectDefinition? FloatingEffect(string definitionId) =>
+            _floating.GetValueOrDefault(definitionId);
+
+        public HandWrittenStatics Give(CardDefinition card, ContinuousEffectDefinition effect)
+        {
+            if (!_statics.TryGetValue(card.OracleId, out var found))
+                _statics[card.OracleId] = found = [];
+
+            found.Add(effect);
+            return this;
+        }
+
+        public HandWrittenStatics Give(CardDefinition card, SpellDefinition spell)
+        {
+            _spells[card.OracleId] = spell;
+            return this;
+        }
+
+        /// <summary>An effect a resolved spell leaves behind, looked up by the id it recorded.</summary>
+        public HandWrittenStatics Floating(ContinuousEffectDefinition effect)
+        {
+            _floating[effect.Id] = effect;
+            return this;
+        }
+    }
+
+    /// <summary>"All creatures lose all abilities" — Humility's first half (CR 613.1f).</summary>
+    /// <remarks>
+    /// Declared rather than written into <c>Apply</c>, which is the only way to say it: the
+    /// keywords come off the creature being computed, but the creature's own static abilities
+    /// have to stop being offered at all, and that decision is made before any of them runs.
+    /// </remarks>
+    private static readonly ContinuousEffectDefinition CreaturesLoseAllAbilities = new()
+    {
+        Id = "test-lose-all-abilities",
+        Layer = EffectLayer.Ability,
+        RemovesAllAbilities = true,
+        Applies = (_, source, builder) => source is not null && builder.IsCreature,
+        Apply = (_, _, _) => { },
+    };
+
+    /// <summary>"Target creature loses all abilities until end of turn" (CR 613.1f).</summary>
+    /// <remarks>
+    /// The same removal arriving the other way — as an effect a spell left behind rather than as
+    /// a permanent's static ability. It asks nothing about what it applies to, because a floating
+    /// effect is already aimed: the ids it affects were fixed when it was created (CR 613.7b).
+    /// </remarks>
+    private static readonly ContinuousEffectDefinition LosesAllAbilitiesUntilEndOfTurn = new()
+    {
+        Id = "test-lose-all-abilities-eot",
+        Layer = EffectLayer.Ability,
+        RemovesAllAbilities = true,
+        Applies = (_, _, _) => true,
+        Apply = (_, _, _) => { },
+    };
+
+    /// <summary>"Other creatures you control get +1/+1" — a lord, in layer 7c (CR 613.4c).</summary>
+    /// <remarks>
+    /// Controller is not asked, deliberately: <c>Applies</c> is handed the source as a raw object
+    /// and cannot compute whose it is, which is a gap recorded in the feature doc rather than one
+    /// to work around here. What is under test is whether the bonus survives the lord losing its
+    /// abilities, and every creature in these games belongs to the same player.
+    /// </remarks>
+    private static readonly ContinuousEffectDefinition OtherCreaturesGetPlusOne = new()
+    {
+        Id = "test-lord",
+        Layer = EffectLayer.PowerToughnessModify,
+        Applies = (_, source, builder) =>
+            source is not null && builder.IsCreature && builder.Subject.Id != source.Id,
+        Apply = (_, _, builder) => builder.Modify(1, 1),
+    };
+
+    /// <summary>
+    /// "This creature can attack as though it didn't have defender" (CR 609.4, 702.3b).
+    /// </summary>
+    private static readonly ContinuousEffectDefinition MayAttackDespiteDefender = new()
+    {
+        Id = "test-attack-as-though-no-defender",
+        Layer = EffectLayer.Ability,
+        Applies = (_, source, builder) => source is not null && builder.Subject.Id == source.Id,
+        Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
+    };
+
+    /// <summary>An Aura-style grant of one activated ability to every other creature.</summary>
+    private static ContinuousEffectDefinition Grants(
+        string id, ActivatedAbilityDefinition ability) => new()
+        {
+            Id = id,
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, builder) =>
+                source is not null && builder.IsCreature && builder.Subject.Id != source.Id,
+            Apply = (_, _, builder) => builder.GrantedActivated.Add(ability),
+        };
+
+    /// <summary>A free activated ability that gains life, so activating it is visible.</summary>
+    private static ActivatedAbilityDefinition GainsLife(string id) => new()
+    {
+        Id = id,
+        Text = "Gain 1 life.",
+        Effects = [new ChangeLife(1)],
+    };
+
+    /// <summary>
+    /// "All creatures lose all abilities" takes the keywords and silences the lord (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// Both halves of what losing every ability means, and they are reached by different code.
+    /// The keyword is a characteristic and comes off the creature being computed; the lord's
+    /// bonus is a continuous effect belonging to a permanent that is no longer allowed to produce
+    /// one, and nothing about the creature receiving it knows that.
+    /// <para>
+    /// Played rather than asserted on the layers, because the question that matters is whether
+    /// the game agrees. A 2/2 flier that has lost flying is blocked by a 1/1 on the ground, the
+    /// block stands, and the attack is stopped — every one of those is the engine reading the
+    /// computed characteristics, and the flier's own printed keyword would have refused the block
+    /// outright a moment before.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_loses_all_abilities_stops_flying_and_stops_being_a_lord()
+    {
+        var lord = Card(
+            "Lose All Lord Test",
+            "Flying\nOther creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2,
+            keywords: KeywordAbility.Flying);
+
+        var quieting = Card(
+            "Lose All Humility Test", "All creatures lose all abilities.", CardType.Enchantment);
+
+        var pool = new HandWrittenStatics()
+            .Give(lord, OtherCreaturesGetPlusOne)
+            .Give(quieting, CreaturesLoseAllAbilities);
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        var flier = game.Create(alice, lord, Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Lose All Grunt Test", 2, 2), Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("Lose All Footman Test", 1, 1), Zone.Battlefield);
+
+        // The lord is doing both halves of its job, and the flier cannot be blocked from
+        // the ground (CR 702.9b).
+        Assert.Equal(3, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+        Assert.True(
+            Characteristics.Of(game.State, pool, game.State.GetObject(flier))
+                .Has(KeywordAbility.Flying));
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, pool, game.State.GetObject(footman), game.State.GetObject(flier), bob));
+
+        game.Create(bob, quieting, Zone.Battlefield);
+
+        var stripped = Characteristics.Of(game.State, pool, game.State.GetObject(flier));
+        Assert.True(stripped.HasLostAllAbilities);
+        Assert.False(stripped.Has(KeywordAbility.Flying));
+
+        // CR 613.6: the bonus is gone because the ability producing it was removed in layer 6,
+        // which is before layer 7c was ever reached.
+        Assert.Equal(2, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [flier] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [flier] = [footman] });
+
+        Assert.Single(game.State.Combat.Blocked);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Blocked by a creature that could not have blocked it an hour ago, so nothing got
+        // through - and the 1/1 that stood in front of a 2/2 is dead.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.DoesNotContain(footman, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A spell can strip a lord for the turn, and the board notices (CR 613.1f, 613.7b).
+    /// </summary>
+    /// <remarks>
+    /// The other half of the family, and the one the compiler will reach first: a third of the
+    /// printed wordings are "until end of turn, target creature loses all abilities …" rather
+    /// than an Aura or a Humility. It arrives as a floating effect, which is a different route
+    /// through the layers — nothing on the battlefield produces it, and the permanent it silences
+    /// is not the permanent whose characteristics are being computed when the silence matters.
+    /// <para>
+    /// The effect is aimed at the lord and asserted on the <em>grunt</em> for exactly that
+    /// reason. A removal that only worked on the creature it was pointed at would pass every
+    /// assertion about the lord and leave the anthem running, which is the failure this is here
+    /// to catch.
+    /// </para>
+    /// <para>
+    /// The spell is <see cref="PumpUntilEndOfTurn"/> carrying a definition id, which is what
+    /// every "until end of turn" continuous effect already is; nothing new was needed for this
+    /// half beyond a name for the effect. The printed wordings pair it with a base power and
+    /// toughness, which is <c>GenerativeEffects.SetPowerToughnessId</c> in layer 7b and exists.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_spell_that_strips_a_lord_takes_the_anthem_with_it()
+    {
+        var lord = Card(
+            "Snakeform Lord Test",
+            "Flying\nOther creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2,
+            keywords: KeywordAbility.Flying);
+
+        var snakeform = Card(
+            "Snakeform Test",
+            "Target creature loses all abilities until end of turn.",
+            CardType.Instant);
+
+        var pool = new HandWrittenStatics()
+            .Give(lord, OtherCreaturesGetPlusOne)
+            .Give(snakeform, new SpellDefinition
+            {
+                Targets = [EffectPhrase.Specs.TargetCreature],
+                Effects = [new PumpUntilEndOfTurn(LosesAllAbilitiesUntilEndOfTurn.Id)],
+            })
+            .Floating(LosesAllAbilitiesUntilEndOfTurn);
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+
+        var flier = game.Create(alice, lord, Zone.Battlefield);
+        var grunt = game.Create(
+            alice, TestCards.Creature("Snakeform Grunt Test", 2, 2), Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("Snakeform Footman Test", 1, 1), Zone.Battlefield);
+
+        Assert.Equal(3, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var inHand = TestCards.PutInHand(game, alice, snakeform);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(flier)]);
+        Settle(game);
+
+        var stripped = Characteristics.Of(game.State, pool, game.State.GetObject(flier));
+        Assert.True(stripped.HasLostAllAbilities);
+        Assert.False(stripped.Has(KeywordAbility.Flying));
+        Assert.Equal(2, Characteristics.Of(game.State, pool, game.State.GetObject(grunt)).Power);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [flier] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [flier] = [footman] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.DoesNotContain(footman, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// An ability granted after the loss survives it, and one granted before does not (CR 613.7).
+    /// </summary>
+    /// <remarks>
+    /// Layer 6 adds and removes in the same layer, so the order is the timestamp order and
+    /// nothing else — a grant applied before the removal is wiped by it, and a grant applied
+    /// after is simply an ability the creature has. The two enchantments differ only in when they
+    /// arrived, which is the whole assertion: the same board in the other order gives the other
+    /// answer.
+    /// <para>
+    /// Asked of the game rather than of the layers, because a granted ability that cannot be
+    /// activated has not been granted. <c>Game.ActivateAbility</c> looks the ability up through
+    /// the computed characteristics, so the wiped one is not there to find and the surviving one
+    /// resolves and gains the life.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_granted_after_the_loss_survives_and_one_granted_before_does_not()
+    {
+        var early = Card(
+            "Lose All Early Test",
+            "Other creatures you control have \"Gain 1 life.\"",
+            CardType.Enchantment);
+
+        var quieting = Card(
+            "Lose All Silence Test", "All creatures lose all abilities.", CardType.Enchantment);
+
+        var late = Card(
+            "Lose All Late Test",
+            "Other creatures you control have \"Gain 1 life.\"",
+            CardType.Enchantment);
+
+        var pool = new HandWrittenStatics()
+            .Give(early, Grants("test-grant-early", GainsLife("early")))
+            .Give(quieting, CreaturesLoseAllAbilities)
+            .Give(late, Grants("test-grant-late", GainsLife("late")));
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+
+        // Timestamps come from the order they arrived (CR 613.7d), so this order is the test.
+        var bear = game.Create(
+            alice, TestCards.Creature("Lose All Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, early, Zone.Battlefield);
+        game.Create(alice, quieting, Zone.Battlefield);
+        game.Create(alice, late, Zone.Battlefield);
+
+        var offered = Game.ActivatedAbilitiesOf(game.State, pool, game.State.GetObject(bear));
+        Assert.Equal(["late"], offered.Select(a => a.Id));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, bear, "early"));
+
+        var before = game.State.GetPlayer(alice).Life;
+        game.ActivateAbility(alice, bear, "late");
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "This creature can attack as though it didn't have defender" (CR 609.4, 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// A permission, and the difference from removing the keyword is asserted rather than
+    /// assumed: the wall still has defender afterwards, because CR 609.4 says an "as though"
+    /// effect applies to the stated effect and to nothing else. A card that pumps creatures with
+    /// defender still finds this one, which is why the permission could not be spelled as "take
+    /// the keyword off" — the two are different cards and there are cards that tell them apart.
+    /// <para>
+    /// The control wall shares everything except the permission, so a rule that simply stopped
+    /// checking defender would fail here. And the attack is played out to damage rather than
+    /// stopping at the declaration, because the declaration is only half of what the permission
+    /// has to survive.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_creature_with_defender_attacks_when_an_effect_says_it_may()
+    {
+        var rampart = Card(
+            "Defender Attack Test",
+            "Defender\nThis creature can attack as though it didn't have defender.",
+            CardType.Creature,
+            3,
+            4,
+            keywords: KeywordAbility.Defender);
+
+        var wall = Card(
+            "Defender Control Test", "Defender", CardType.Creature, 3, 4,
+            keywords: KeywordAbility.Defender);
+
+        var pool = new HandWrittenStatics().Give(rampart, MayAttackDespiteDefender);
+
+        var (game, alice, bob) = InMainPhaseWith(pool);
+        var permitted = game.Create(alice, rampart, Zone.Battlefield);
+        var refused = game.Create(alice, wall, Zone.Battlefield);
+
+        // The permission does not take the keyword away (CR 609.4).
+        var computed = Characteristics.Of(game.State, pool, game.State.GetObject(permitted));
+        Assert.True(computed.Has(KeywordAbility.Defender));
+        Assert.True(computed.MayAttackAsThoughNoDefender);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, pool, game.State.GetObject(permitted), alice, bob));
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, pool, game.State.GetObject(refused), alice, bob)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        // The whole declaration is refused when it contains the wall without the permission
+        // (CR 508.1a), which is the shape a board would hit if it offered the wrong one.
+        Assert.Throws<InvalidOperationException>(
+            () => game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+            {
+                [permitted] = AttackTarget.Player(bob),
+                [refused] = AttackTarget.Player(bob),
+            }));
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [permitted] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
     /// <summary>
     /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
     /// </summary>
