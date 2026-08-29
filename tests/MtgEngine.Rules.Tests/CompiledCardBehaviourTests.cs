@@ -45041,6 +45041,417 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetObject(file).Permanent!.IsSolved);
         Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
     }
+    // ---- Who is being attacked, and the player an Aura is on (CR 508.1b, 303.4b) ----
+
+    /// <summary>
+    /// "Whenever a creature attacks you" is about the player, not about the attack.
+    /// </summary>
+    /// <remarks>
+    /// An attack is declared against a particular player or a planeswalker they control
+    /// (CR 508.1b), and the declaration has carried that all along — only the sentence had
+    /// nowhere to say it, so "whenever a creature attacks" was read and "whenever a creature
+    /// attacks you" was not. At two seats the difference is invisible, because the only player
+    /// anybody can attack is the one who is not attacking; it takes three to see an attack that
+    /// this enchantment must not notice.
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_that_names_you_ignores_an_attack_on_another_player()
+    {
+        var watch = Card(
+            "Hissing Watch Test",
+            "Whenever a creature attacks you, its controller loses 1 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(watch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], watch, Zone.Battlefield);
+
+        var raider = game.Create(
+            seats[1], TestCards.Creature("Watch Raider Test", 2, 2), Zone.Battlefield);
+
+        var rider = game.Create(
+            seats[2], TestCards.Creature("Watch Rider Test", 2, 2), Zone.Battlefield);
+
+        // Seat 1 attacks seat 2. The enchantment belongs to seat 0 and nothing about this attack
+        // is its business.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[1]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var raidersLife = game.State.GetPlayer(seats[1]).Life;
+
+        game.DeclareAttackers(
+            seats[1],
+            new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(seats[2]) });
+
+        Settle(game);
+        Assert.Equal(raidersLife, game.State.GetPlayer(seats[1]).Life);
+
+        // Seat 2 attacks the enchantment's controller, and pays for it.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[2]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var ridersLife = game.State.GetPlayer(seats[2]).Life;
+
+        game.DeclareAttackers(
+            seats[2],
+            new Dictionary<ObjectId, AttackTarget> { [rider] = AttackTarget.Player(seats[0]) });
+
+        Settle(game);
+
+        // "Its controller" is the attacking creature's controller, which is neither the player
+        // being attacked nor the one who owns the enchantment.
+        Assert.Equal(ridersLife - 1, game.State.GetPlayer(seats[2]).Life);
+    }
+
+    /// <summary>
+    /// "Attacks you" and "attacks you or a planeswalker you control" are two different triggers.
+    /// </summary>
+    /// <remarks>
+    /// A creature attacking a planeswalker is not attacking its controller (CR 508.1b), which is
+    /// exactly why eight corpus cards print the longer phrase. Both are on the board at once here
+    /// because the claim is a difference between them, and one enchantment can only show half of
+    /// it.
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_naming_a_planeswalker_fires_where_the_bare_one_does_not()
+    {
+        var bare = Card(
+            "Bare Watch Test",
+            "Whenever a creature attacks you, you gain 1 life.",
+            CardType.Enchantment);
+
+        var wider = Card(
+            "Wide Watch Test",
+            "Whenever a creature attacks you or a planeswalker you control, put a +1/+1 counter on ~.",
+            CardType.Enchantment);
+
+        var bareRead = CardCompiler.Compile(bare);
+        Assert.True(bareRead.IsComplete, string.Join(" | ", bareRead.Unhandled));
+
+        var widerRead = CardCompiler.Compile(wider);
+        Assert.True(widerRead.IsComplete, string.Join(" | ", widerRead.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, bare, Zone.Battlefield);
+        var watched = game.Create(alice, wider, Zone.Battlefield);
+        var walker = game.Create(
+            alice, Walker("Watch Walker Test", 5, string.Empty), Zone.Battlefield);
+
+        var attacker = game.Create(
+            bob, TestCards.Creature("Watch Attacker Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+
+        var life = game.State.GetPlayer(alice).Life;
+
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.At(alice, walker) });
+
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(alice).Life);
+        Assert.Equal(
+            1,
+            game.State.GetObject(watched).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// A Curse watches the player it is on, from a seat that is nobody's opponent in particular.
+    /// </summary>
+    /// <remarks>
+    /// CR 303.4b: the player an Aura is attached to is "enchanted player", and the whole Curse
+    /// family is written about them. The Aura's controller is a third party to the attack it
+    /// notices, so this cannot be spelled with "you" or with "an opponent" — which is why the
+    /// relation had to reach the trigger grammar rather than being reworded into it.
+    /// </remarks>
+    [Fact]
+    public void A_curse_fires_for_an_attack_on_the_player_it_is_attached_to()
+    {
+        var curse = Card(
+            "Forsaken Curse Test",
+            "Enchant player\n"
+                + "Whenever a creature attacks enchanted player, its controller gains 1 life.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        var card = TestCards.PutInHand(game, seats[0], curse);
+        game.CastSpell(seats[0], card, [Target.ToPlayer(seats[1])]);
+        Settle(game);
+
+        var rider = game.Create(
+            seats[2], TestCards.Creature("Forsaken Rider Test", 2, 2), Zone.Battlefield);
+
+        var raider = game.Create(
+            seats[3], TestCards.Creature("Forsaken Raider Test", 2, 2), Zone.Battlefield);
+
+        // Seat 2 attacks the Curse's controller, which is not the player it is on.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[2]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var ridersLife = game.State.GetPlayer(seats[2]).Life;
+
+        game.DeclareAttackers(
+            seats[2],
+            new Dictionary<ObjectId, AttackTarget> { [rider] = AttackTarget.Player(seats[0]) });
+
+        Settle(game);
+        Assert.Equal(ridersLife, game.State.GetPlayer(seats[2]).Life);
+
+        // Seat 3 attacks the enchanted player, and is paid for it.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[3]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var raidersLife = game.State.GetPlayer(seats[3]).Life;
+
+        game.DeclareAttackers(
+            seats[3],
+            new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(seats[1]) });
+
+        Settle(game);
+        Assert.Equal(raidersLife + 1, game.State.GetPlayer(seats[3]).Life);
+    }
+
+    /// <summary>
+    /// The same relation on the damage verb: "deals combat damage to enchanted player".
+    /// </summary>
+    /// <remarks>
+    /// The recipient was on the damage event all along (CR 510.2) and the sentence could not name
+    /// anyone but "a player", so a Curse of Stalked Prey would have rewarded a creature for
+    /// connecting with anybody at all — including the Curse's own controller.
+    /// </remarks>
+    [Fact]
+    public void A_curse_reads_combat_damage_dealt_to_the_player_it_is_attached_to()
+    {
+        var curse = Card(
+            "Stalked Curse Test",
+            "Enchant player\n"
+                + "Whenever a creature deals combat damage to enchanted player, "
+                + "put a +1/+1 counter on that creature.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        var card = TestCards.PutInHand(game, seats[0], curse);
+        game.CastSpell(seats[0], card, [Target.ToPlayer(seats[1])]);
+        Settle(game);
+
+        var wrong = game.Create(
+            seats[2], TestCards.Creature("Stalked Wrong Test", 2, 2), Zone.Battlefield);
+
+        var right = game.Create(
+            seats[3], TestCards.Creature("Stalked Right Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[2]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            seats[2],
+            new Dictionary<ObjectId, AttackTarget> { [wrong] = AttackTarget.Player(seats[0]) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(
+            0,
+            game.State.GetObject(wrong).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == seats[3]
+                && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            seats[3],
+            new Dictionary<ObjectId, AttackTarget> { [right] = AttackTarget.Player(seats[1]) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(right).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// "A creature enchanted player controls" — the possessive, one relation further out.
+    /// </summary>
+    /// <remarks>
+    /// The trigger grammar could say "you control" and "an opponent controls"; a Curse's group is
+    /// neither, because the player it describes is decided when the Aura is attached and not by
+    /// who is playing it. Trespasser's Curse is the printed card.
+    /// </remarks>
+    [Fact]
+    public void A_curse_describes_the_permanents_the_enchanted_player_controls()
+    {
+        var curse = Card(
+            "Trespass Curse Test",
+            "Enchant player\n"
+                + "Whenever a creature enchanted player controls enters, "
+                + "that player loses 1 life and you gain 1 life.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        var card = TestCards.PutInHand(game, seats[0], curse);
+        game.CastSpell(seats[0], card, [Target.ToPlayer(seats[1])]);
+        Settle(game);
+
+        var casterLife = game.State.GetPlayer(seats[0]).Life;
+        var enchantedLife = game.State.GetPlayer(seats[1]).Life;
+
+        // Somebody else's creature arrives, and the Curse is about one player's board only.
+        game.Create(seats[2], TestCards.Creature("Trespass Stranger Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(casterLife, game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(enchantedLife, game.State.GetPlayer(seats[1]).Life);
+
+        game.Create(seats[1], TestCards.Creature("Trespass Guest Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        // "That player" is the one the trigger was about, and here that is the enchanted player
+        // because the creature that arrived is theirs.
+        Assert.Equal(enchantedLife - 1, game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(casterLife + 1, game.State.GetPlayer(seats[0]).Life);
+    }
+
+    /// <summary>
+    /// "Enchanted player" as the subject of an ordinary sentence, through the shared vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// Every verb that takes a player takes this one, because it is a word in the player list
+    /// rather than a matcher of its own — the same reason "each opponent" costs nothing per verb.
+    /// Fraying Sanity and Volrath's Motion Sensor are the printed cards that write it this way.
+    /// </remarks>
+    [Fact]
+    public void The_shared_player_vocabulary_names_the_player_an_aura_is_attached_to()
+    {
+        var curse = Card(
+            "Fraying Curse Test",
+            "Enchant player\nAt the beginning of your end step, enchanted player mills two cards.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var card = TestCards.PutInHand(game, alice, curse);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        var mine = game.State.GetPlayer(alice).Graveyard.Count;
+        var theirs = game.State.GetPlayer(bob).Graveyard.Count;
+
+        // The Aura controller's own end step, on the turn it was cast: no draw and no cleanup
+        // discard happens in between, so every card that reaches a graveyard here was milled.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        // The clock is the Aura's controller's and the mill is the enchanted player's — the two
+        // halves of the sentence name different people, and the card is only right if both do.
+        Assert.Equal(mine, game.State.GetPlayer(alice).Graveyard.Count);
+        Assert.Equal(theirs + 2, game.State.GetPlayer(bob).Graveyard.Count);
+    }
+
+    /// <summary>
+    /// "It" in an attack trigger is the creature that attacked, not the card that said so.
+    /// </summary>
+    /// <remarks>
+    /// The pronoun order is written down — the target the sentence before chose, then the object
+    /// the trigger was about, then the permanent with the ability — and the pump verb was missing
+    /// its middle answer. Briar Patch is the card that shows it: "whenever a creature attacks
+    /// you, it gets -1/-0" shrank the enchantment, which is not a creature, so the card compiled
+    /// complete and did nothing whatsoever.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_in_an_attack_trigger_means_the_attacker_and_not_the_enchantment()
+    {
+        var patch = Card(
+            "Bramble Patch Test",
+            "Whenever a creature attacks you, it gets -1/-0 until end of turn.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(patch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, patch, Zone.Battlefield);
+
+        var attacker = game.Create(
+            bob, TestCards.Creature("Bramble Attacker Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(alice) });
+
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+    }
+
+    /// <summary>
+    /// The batched damage event cannot say who took the damage, so the plural sentence is refused.
+    /// </summary>
+    /// <remarks>
+    /// "One or more creatures deal combat damage to a player" fires once for the whole damage
+    /// step, and the event that makes that possible records who dealt the damage and not who took
+    /// it. A trigger that fired for damage dealt to anybody would be a strictly better card than
+    /// the one printed, so the recipient is admitted on the singular sentence only.
+    /// </remarks>
+    [Fact]
+    public void A_batched_combat_damage_trigger_that_names_a_recipient_is_left_unread()
+    {
+        var batched = Card(
+            "Batched Watch Test",
+            "Whenever one or more creatures deal combat damage to you, you gain 2 life.",
+            CardType.Enchantment);
+
+        Assert.False(CardCompiler.Compile(batched).IsComplete);
+
+        // The same sentence without a recipient is read, so the refusal is about the recipient
+        // and not about the plural.
+        var anybody = Card(
+            "Batched Anybody Test",
+            "Whenever one or more creatures deal combat damage to a player, you gain 2 life.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(anybody).IsComplete);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

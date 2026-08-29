@@ -6340,3 +6340,92 @@ would have been two mechanics in one round for no shared machinery. The d20 card
 not the roll but the **results table** — `1—9 |`, `10—19 |`, `20 |` are separate lines the line
 splitter hands to the compiler alone, and reading them means reading a line in the context of the
 one above it.
+
+### Curses were not blocked by their subject; the player being attacked was
+
+Curses read 2 of 39, the worst-read subtype in the corpus at twenty cards or more, and the
+hypothesis going in was the obvious one: a Curse is an Aura with `enchant player`, the family
+shares the subject "enchanted player", and one subject added to the vocabulary would reach all of
+them. **That was wrong, and measuring it first is what stopped a grammar being built for it.**
+
+The subject was already there. `enchant player` attaches to a player, `AttachedToPlayer` records
+it, "at the beginning of enchanted player's upkeep" reads, and "that player" resolves off the step
+because a step trigger is about whoever's step it is — which is why the two Curses that compiled
+compiled at all. Swapping the subject out of each unread line and putting a known-good one in its
+place is what showed it: "creatures **your opponents control** get -1/-1" reads and "creatures
+**enchanted player controls** get -1/-1" does not, but "whenever a creature attacks **you**" does
+not read either, so the subject was never what stopped that half of the family.
+
+What actually blocks the 37, counted rather than estimated: 11 need a combat trigger that names who
+is being attacked, 7 need one bespoke upkeep effect each (exile from a graveyard, reveal-until,
+sacrifice-of-their-choice, an unless-clause with two ways to pay), 7 need a group of permanents
+defined by the enchanted player as a *static*, 5 need "each opponent attacking that player does the
+same", and the rest are one-offs — a damage doubler, a spell-count restriction, a transform that
+attaches, a search for a Curse by name. It is a pile of unrelated effects wearing one subtype, the
+way Sagas and planeswalkers turned out to be.
+
+So the work moved to the largest genuine completion adjacent to it, which the same measurement
+named: **who is being attacked.** An attack is declared against a particular player or a
+planeswalker they control (CR 508.1b) and the declaration has carried that all along; only the
+sentence had nowhere to say it, so "whenever a creature attacks" was read and "whenever a creature
+attacks you" was not — 39 cards carry that shape and 28 of them are one line short.
+
+Four pieces, all of them one relation added to a vocabulary rather than a matcher:
+
+- **The defender on the attack and combat-damage verbs.** "Attacks you", "attacks you or a
+  planeswalker you control", "attacks enchanted player", "deals combat damage to you / to enchanted
+  player". "Attacks you" is the player and *not* the planeswalker — a creature attacking a
+  planeswalker is not attacking its controller, which is why eight corpus cards print the longer
+  phrase and why the two are separate readings here.
+- **"Enchanted player" in the shared player word list**, so every verb that takes a player takes it:
+  mills, loses life, draws, discards. Fraying Sanity and Volrath's Motion Sensor print it that way.
+- **"Its controller" / "that creature's controller" in the same list**, which is what most of the
+  attack family does with the trigger it just gained. This one needs a guard and the guard is the
+  interesting part: with a target in the ability the words mean the *target's* controller, and
+  matchers with their own grammar for that have been reading them correctly for months. Refusing
+  the phrase outright took 98 cards away from those matchers. It is now *rewritten* into a word no
+  card prints, and only when nothing was targeted and the trigger is one whose event carries an
+  object — so the shared vocabulary sees it exactly where it means the subject, and every older
+  matcher sees the printed words untouched everywhere else.
+- **"A creature enchanted player controls" as the possessive side** of the trigger subject grammar,
+  beside "you control" and "an opponent controls". Trespasser's Curse is the printed card.
+
+Two things the family exposed on the way through, both of them cards that compiled complete and did
+nothing:
+
+- **The pump verb was missing the middle answer of the pronoun order.** "It" means the target the
+  sentence before chose, then the object the trigger was about, then the permanent with the
+  ability — and this verb went straight from the first to the third. Briar Patch's "whenever a
+  creature attacks you, it gets -1/-0 until end of turn" therefore shrank the enchantment, which is
+  not a creature.
+- **The two pronoun allow-lists disagreed about untapping.** CR 502.2 untaps everything at once,
+  `PermanentsUntapped` carries a set of ids, and `SubjectObjectOf` answers nothing for it — which
+  the attached-permanent list says and the zone-change list did not, so a pronoun in "whenever a
+  permanent becomes untapped" was admitted with nothing to resolve to. Corrected to agree.
+
+**15,570 → 15,595 complete cards, none lost. Curses 2/39 → 6/39** (Curse of Predation, Curse of
+Stalked Prey, Curse of the Forsaken, Trespasser's Curse), and the other 21 are the attack family
+and the trigger-subject controller: Blood Reckoning, Hissing Miasma, Marchesa's Decree, Revenge of
+Ravens, Riddlekeeper, MacCready, Isperia, Slumbering Dragon, Thantis, Search the Premises, Briar
+Patch, Bereavement, Kavu Lair, Poisonbelly Ogre, Fate Foretold, Flayed Nim, Ragged Veins, Chronic
+Flooding, Corrupted Roots, Pooling Venom, Pattern of Rebirth.
+
+Declined here, with the count behind each:
+
+- **"Creatures enchanted player controls" as a static group** — 7 cards, including Curse of Death's
+  Hold, which needs nothing else. The group filter is handed a state, an ability source, a
+  permanent and a controller id, and never the source *object*, so it cannot ask what the source is
+  attached to. Widening that signature reaches every group filter in the compiler for one relation
+  used by seven cards; the trigger side of the same relation was free because its predicate already
+  has the source.
+- **"Each opponent attacking that player does the same"** — 5 Curses. It repeats the preceding
+  effect once per attacking opponent with that opponent as "you", which is an effect that wraps
+  another effect and re-scopes it. Buildable, and worth doing beside the "is attacked" trigger it
+  always appears with; not worth either alone.
+- **"Whenever enchanted player is attacked"** — 6 cards, 5 of which are the line above. Left with
+  it.
+- **"One or more creatures deal combat damage to you"** — refused rather than approximated.
+  `CombatDamageDealt` records who dealt the damage and not who took it, so the recipient cannot be
+  checked, and a trigger that fired for damage dealt to anybody is a strictly better card than the
+  one printed. The recipient is admitted on the singular sentence only, and there is a test holding
+  the refusal.

@@ -1064,6 +1064,24 @@ public static partial class EffectPhrase
         ImmutableList<IEffect>.Builder effects,
         bool objectNamedByTrigger = false)
     {
+        // "Its controller", "that creature's controller" — a player named off the triggering
+        // event rather than off a target (CR 603.2), and the same pronoun discipline the object
+        // vocabulary uses. Two things have to be true or the phrase names nobody:
+        //
+        // - Nothing may have been targeted. "Counter target spell. Its controller mills four
+        //   cards" is about the spell's controller, and matchers below already read that shape
+        //   with the target's controller in mind.
+        // - The trigger has to be one whose event carries an object, which is the same
+        //   allow-list that decides whether "that creature" may be read at all.
+        //
+        // Only when both hold is the phrase rewritten into the one word the shared player
+        // vocabulary knows. Rewriting rather than refusing is deliberate: a refusal here took
+        // thirty-seven cards away from matchers that have their own grammar for these words and
+        // had been reading them correctly for months, and a rewrite is invisible to every one of
+        // them because it never happens on the sentences they take.
+        if (targets.Count == 0 && objectNamedByTrigger)
+            sentence = SubjectControllerPhrase().Replace(sentence, SubjectControllerWord, 1);
+
         // Every effect below that takes a target reads the phrase through Specs.Parse rather
         // than matching it: "destroy target creature" and "destroy target artifact an opponent
         // controls" are one effect and two phrases, and pairing each effect with each phrase by
@@ -4188,9 +4206,14 @@ public static partial class EffectPhrase
         }
 
         // "It gets +N/+N until end of turn" — the same word, and the same order of answers as
-        // everywhere else: the target the sentence before it chose if there was one, and the
-        // creature with the ability if there was not. "Untap target creature. It gets +2/+2"
+        // everywhere else: the target the sentence before it chose, then the object the trigger
+        // was about, then the creature with the ability. "Untap target creature. It gets +2/+2"
         // means the creature that was untapped, not the card that said so.
+        //
+        // The middle answer was missing here while the rest of the parser had it, and the card
+        // that shows the difference is Briar Patch: "whenever a creature attacks you, it gets
+        // -1/-0 until end of turn" shrank the enchantment, which is not a creature, so the card
+        // compiled complete and did nothing at all.
         m = ItPumps().Match(sentence);
         if (m.Success)
         {
@@ -4204,22 +4227,20 @@ public static partial class EffectPhrase
             var pumpId = GenerativeEffects.PumpId(
                 Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value));
 
-            effects.Add(targets.Count > 0
-                ? new PumpUntilEndOfTurn(pumpId, targets.Count - 1)
-                : new PumpSourceUntilEndOfTurn(pumpId));
+            effects.Add(PumpPronoun(pumpId));
 
-            // Layer 6 beside layer 7c (CR 613.1f, 613.4c), aimed at whichever of the two the
+            // Layer 6 beside layer 7c (CR 613.1f, 613.4c), aimed at whichever of the three the
             // pump was: reading the pronoun twice is what keeps the pair on one permanent.
             if (alsoGains is { } gained)
-            {
-                var grantId = GenerativeEffects.GrantId(gained);
-
-                effects.Add(targets.Count > 0
-                    ? new PumpUntilEndOfTurn(grantId, targets.Count - 1)
-                    : new PumpSourceUntilEndOfTurn(grantId));
-            }
+                effects.Add(PumpPronoun(GenerativeEffects.GrantId(gained)));
 
             return true;
+
+            IEffect PumpPronoun(string definitionId) =>
+                targets.Count > 0 ? new PumpUntilEndOfTurn(definitionId, targets.Count - 1)
+                : objectNamedByTrigger
+                    ? new PumpUntilEndOfTurn(definitionId, 0, EffectSubject.TriggeringObject)
+                    : new PumpSourceUntilEndOfTurn(definitionId);
         }
 
         m = MassPump().Match(sentence);
@@ -5560,8 +5581,34 @@ public static partial class EffectPhrase
         "each player" => PlayerScope.EachPlayer,
         "that player" => PlayerScope.TriggerSubject,
         "defending player" => PlayerScope.DefendingPlayer,
+        "enchanted player" => PlayerScope.EnchantedPlayer,
+        SubjectControllerWord => PlayerScope.SubjectController,
         _ => PlayerScope.You,
     };
+
+    /// <summary>
+    /// What "its controller" and "that creature's controller" are rewritten to before the shared
+    /// player vocabulary reads them.
+    /// </summary>
+    /// <remarks>
+    /// A word no card prints, so the vocabulary can carry one spelling of a relation the cards
+    /// write half a dozen ways — "that spell's controller", "that permanent's controller", "that
+    /// land's controller". The rewrite is what applies the guard; this is only its output.
+    /// </remarks>
+    private const string SubjectControllerWord = "the subject's controller";
+
+    /// <summary>
+    /// Those words as the <em>subject</em> of a sentence, which is the only place they name a
+    /// player rather than qualify something else.
+    /// </summary>
+    /// <remarks>
+    /// Anchored, and that is the whole of the difference. "That creature doesn't untap during
+    /// its controller's next untap step" carries the same words in the middle of a sentence
+    /// about something else, and a pattern matching them anywhere reached ninety-eight cards
+    /// that were never this reader's business.
+    /// </remarks>
+    [GeneratedRegex(@"^(its|that [a-z]+'s) controller\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SubjectControllerPhrase();
 
     /// <summary>
     /// "Spend this mana only to cast creature spells" — a restriction on the mana (CR 106.6).
@@ -8691,7 +8738,16 @@ public static partial class EffectPhrase
         // "Each other player" before "each player": alternation is ordered, and though these two
         // share no prefix the longer phrasings are kept in front so a later addition that does
         // share one cannot be swallowed by the shorter neighbour it was written beside.
-        @"(?<who>you|each opponent|each other player|each player|that player|defending player)";
+        //
+        // "Enchanted player" is the same idea one relation further out: a Curse is an Aura whose
+        // host is a player (CR 303.4b), and every verb below already takes a player, so the word
+        // belongs in the list rather than in a matcher of its own.
+        //
+        // "The subject's controller" is not printed on any card: it is what "its controller" and
+        // "that creature's controller" are rewritten to once the guard in TryOne has decided
+        // they name the triggering event's object rather than a target (CR 603.2).
+        @"(?<who>you|each opponent|each other player|each player|that player|defending player"
+            + @"|enchanted player|the subject's controller)";
 
     /// <summary>
     /// The same group, optional — because half of these sentences are imperative.
@@ -9929,7 +9985,8 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>its controller may |that player may |that land's controller may )?"
+        @"^(?<who>its controller may |that player may |that land's controller may "
+            + @"|the subject's controller may )?"
             + @"searche?s? (?<whose>your|their) library for "
             + @"(an?|up to (?<n>one|two|three|four|five)|(?<any>any number of)) "
             + @"(?<what>[A-Za-z, ]+? )?cards?"
@@ -10372,17 +10429,30 @@ public static partial class TriggerConditions
                 "is put into a graveyard from the battlefield" => true,
                 "is put into a graveyard from anywhere" => true,
                 "becomes tapped" => true,
-                "becomes untapped" => true,
+
+                // Untapping is the one that looks like its twin and is not, exactly as the
+                // attached family two hundred lines above already says: CR 502.2 turns them all
+                // at once, PermanentsUntapped carries a set of ids, and Game.SubjectObjectOf
+                // answers nothing for it. This arm said true and the two lists disagreed, so a
+                // pronoun admitted here resolved to nothing and the sentence compiled into an
+                // effect that does nothing - which is the failure the whole allow-list exists to
+                // prevent.
+                "becomes untapped" => false,
 
                 // Named to be refused rather than left to the default, so that a verb added to
                 // the pattern later has to be considered here rather than quietly admitted.
                 "blocks" => false,
                 "becomes blocked" => false,
 
-                // Attackers are declared as a batch (CR 508.1), so the event names a set and not
-                // an object - and a set is exactly what "that creature" cannot mean. Refused for
-                // the same reason blocking is, and not because nothing attacked.
-                "attacks" => false,
+                // Attackers are declared as a batch (CR 508.1), and one attacker is the case the
+                // event can answer: Game.SubjectObjectOf names the creature when the declaration
+                // holds exactly one and nothing when it holds several. That is enough here and
+                // was not before, because the subject this flag admits is the strict one - it
+                // resolves to the attacker or to nobody, and can never fall back to the permanent
+                // with the ability. Refusing it was the worse of the two: "whenever a creature
+                // attacks you, it gets -1/-0" then read "it" as the enchantment and shrank a card
+                // that is not a creature.
+                "attacks" => true,
                 _ => false,
             };
     }
@@ -11659,9 +11729,21 @@ public static partial class TriggerConditions
         // event that is not a zone change. Everything after the subject is worked out is shared:
         // the type, the tribe, and which side controls it are the same questions whether the
         // creature arrived, died, or connected.
+        // Which player the attack or the damage was aimed at, when the sentence says (CR 508.1b).
+        // "You" is whoever controls the ability; "enchanted player" is whoever the permanent is
+        // attached to (CR 303.4b), and an Aura on nothing names nobody rather than falling back.
+        var whom = m.Groups["whom"].Value.Trim();
+        var defenderNamed = whom.Length > 0;
+        var defendsEnchanted = whom is "enchanted player" or "to enchanted player";
+
+        // "Attacks you" is the player and not the planeswalker: a creature attacking a
+        // planeswalker its controller's opponent controls is not attacking that opponent, which
+        // is exactly the difference the longer phrasing spells out.
+        var planeswalkerCounts = whom is "you or a planeswalker you control";
+
         // "Deals combat damage to a player" names its recipient; "deals combat damage" does not
         // and means any of them.
-        var toAnything = m.Groups["verb"].Value.Equals(
+        var toAnything = !defenderNamed && m.Groups["verb"].Value.Equals(
             "deals combat damage", StringComparison.OrdinalIgnoreCase);
 
         var dealing = m.Groups["verb"].Value.StartsWith(
@@ -11692,6 +11774,19 @@ public static partial class TriggerConditions
         // the wrong number for the four of those lines that name a tribe, and a Dragon trigger
         // paid for every attacker would print a strictly better card than the one on the table.
         if (oneOrMore && !dealing && !attacking && blockVerb is null)
+            return null;
+
+        // Only two of these verbs have a defender. Nothing else in the pattern can end with one
+        // of those words, but naming the pair here is what stops a verb added later from
+        // silently accepting a clause its event cannot answer.
+        if (defenderNamed && !attacking && !dealing)
+            return null;
+
+        // "One or more creatures deal combat damage to you" - the batched damage event records
+        // who dealt it and not who took it, so the recipient cannot be checked and the sentence
+        // is left unread. A trigger that fired for damage dealt to anybody would be a strictly
+        // better card than the one printed.
+        if (defenderNamed && dealing && oneOrMore)
             return null;
 
         // "Ally", "Goblin", "Zombie" — a creature type rather than a card type. The two are
@@ -11736,6 +11831,7 @@ public static partial class TriggerConditions
         var excludesSelf = scope.StartsWith("another", StringComparison.Ordinal);
         var yours = side.StartsWith("you", StringComparison.Ordinal);
         var theirs = side.StartsWith("an opponent", StringComparison.Ordinal);
+        var hostPlayers = side.StartsWith("enchanted player", StringComparison.Ordinal);
 
         return (e, state, source) =>
         {
@@ -11774,8 +11870,22 @@ public static partial class TriggerConditions
                 if (e is not AttackersDeclared declared)
                     return false;
 
-                return declared.Attackers.Keys
-                    .Select(id => state.TryGetObject(id, out var o) ? o : null)
+                // "Attacks you", "attacks enchanted player" - the declaration says who each
+                // attacker was declared against, so the trigger asks about the attackers aimed
+                // at that player and ignores the rest of the batch. An Aura attached to nobody
+                // names no defender, and then nothing in the declaration can answer.
+                var defended = defendsEnchanted
+                    ? source.Permanent?.AttachedToPlayer
+                    : source.ControllerId;
+
+                if (defenderNamed && defended is null)
+                    return false;
+
+                return declared.Attackers
+                    .Where(one => !defenderNamed
+                        || (one.Value.DefendingPlayer == defended
+                            && (planeswalkerCounts || !one.Value.IsPlaneswalker)))
+                    .Select(one => state.TryGetObject(one.Key, out var o) ? o : null)
                     .OfType<GameObject>()
                     .Any(attacker =>
                     {
@@ -11814,9 +11924,20 @@ public static partial class TriggerConditions
                 // planeswalker, or a creature - so both damage events count, and each of them
                 // now says whether it was combat damage rather than leaving it to be guessed
                 // from which step the game is in.
+                // "Deals combat damage to you" / "to enchanted player" - the same verb with the
+                // recipient named, which the damage event has always carried and the sentence
+                // could not say. An Aura on nobody names no recipient and nothing answers.
+                var struckPlayer = defendsEnchanted
+                    ? source.Permanent?.AttachedToPlayer
+                    : source.ControllerId;
+
+                if (defenderNamed && struckPlayer is null)
+                    return false;
+
                 var dealtBy = e switch
                 {
-                    PlayerDamaged { IsCombat: true } hit => hit.SourceId,
+                    PlayerDamaged { IsCombat: true } hit
+                        when !defenderNamed || hit.PlayerId == struckPlayer => hit.SourceId,
                     DamageMarked { IsCombat: true } struck when toAnything => struck.SourceId,
                     _ => (ObjectId?)null,
                 };
@@ -11937,6 +12058,16 @@ public static partial class TriggerConditions
                     {
                         return false;
                     }
+                }
+
+                // "Enchanted player controls" is whoever the source is attached to
+                // (CR 303.4b), and an Aura on nobody describes nobody's permanents rather than
+                // its controller's - the difference between a Curse that does nothing and a
+                // Curse that quietly turns on its owner.
+                if (hostPlayers)
+                {
+                    return source.Permanent?.AttachedToPlayer is { } enchantedController
+                        && subject.ControllerId == enchantedController;
                 }
 
                 if (yours && subject.ControllerId != source.ControllerId)
@@ -12286,7 +12417,11 @@ public static partial class TriggerConditions
             + @"(?<adj>white|blue|black|red|green|colorless|multicolored|legendary|nontoken)?\s*"
             + @"(?<type>artifact creature|[a-z]+|[A-Z][a-z]+)"
             + @"(\s+or\s+(?<type>artifact creature|[a-z]+|[A-Z][a-z]+))?"
-            + @"(?<side>\s+you control|\s+an opponent controls)?"
+            + @"(?<side>\s+you control|\s+an opponent controls"
+            // "A creature enchanted player controls enters" - the same possessive one
+            // relation further out. A Curse is attached to a player (CR 303.4b), so "that
+            // player's permanents" is a group a trigger can describe without targeting.
+            + @"|\s+enchanted player controls)?"
             + @"(\s+with (?<stat>power|toughness|mana value) (?<pow>\d+|one|two|three|four|five"
             + @"|six|seven|eight|nine|ten) or (?<cmp>greater|less)"
             + @"|\s+with (?<kw>[a-z ]+?)"
@@ -12296,7 +12431,14 @@ public static partial class TriggerConditions
             + @"|is put into a graveyard from anywhere"
             + @"|becomes tapped|becomes untapped"
             + @"|becomes blocked|blocks|attacks"
-            + @"|deals combat damage to a player|deals combat damage)$",
+            + @"|deals combat damage to a player|deals combat damage)"
+            // Who is being attacked. An attack is declared against a particular player or a
+            // planeswalker they control (CR 508.1b), and the declaration has carried that all
+            // along - only the sentence had nowhere to say it, so "whenever a creature attacks
+            // you" was refused while "whenever a creature attacks" was read. Optional, because
+            // the unqualified sentence means any defender and is the commoner one.
+            + @"(?<whom> to you| to enchanted player"
+            + @"| you or a planeswalker you control| you| enchanted player)?$",
         RegexOptions.None)]
     private static partial Regex ZoneChangeLine();
 
