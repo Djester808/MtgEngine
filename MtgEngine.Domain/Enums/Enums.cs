@@ -199,6 +199,16 @@ public enum KeywordAbility : long
     /// is blocking - the count is of blockers, not of blocks on one attacker (CR 509.1b).
     /// </summary>
     CantBlockAlone = 1L << 47,
+
+    /// <summary>
+    /// "Phasing" (CR 702.26a): this permanent phases out and back in during untap steps.
+    /// </summary>
+    /// <remarks>
+    /// A keyword rather than an ability because the rule it modifies is the untap step's, and
+    /// because effects grant it - "enchanted permanent has phasing" - which a per-card flag could
+    /// not express.
+    /// </remarks>
+    Phasing = 1L << 48,
 }
 
 public enum ManaColor

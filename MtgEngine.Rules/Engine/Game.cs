@@ -8404,6 +8404,10 @@ public sealed class Game
         switch (step)
         {
             case TurnStep.Untap:
+                // CR 703.4a: phasing happens immediately after the untap step begins, before
+                // anything untaps - so a permanent that phases in this turn is untapped by the
+                // step it arrived in, and one that phases out is not.
+                PhaseInAndOut();
                 TurnTheSky();
                 Untap();
                 // CR 500.3: a step in which no player receives priority ends once its actions
@@ -8495,6 +8499,72 @@ public sealed class Game
 
         // CR 117.3a: the active player receives priority at the beginning of most steps.
         Emit(new PriorityGranted(State.ActivePlayerId));
+    }
+
+    /// <summary>
+    /// Phases permanents out and in, before the active player untaps (CR 703.4a).
+    /// </summary>
+    /// <remarks>
+    /// One turn-based action, not two: everything phases at once (CR 702.26a), so both lists are
+    /// worked out against the board as it stands and only then written. Reading the second list
+    /// after the first had been applied would phase a permanent out and straight back in.
+    /// <para>
+    /// CR 702.26g: an Aura, Equipment or Fortification attached to something that phases out goes
+    /// with it, and comes back with it - which is why what is written down is the player whose
+    /// untap step returns each permanent rather than its own controller. An opponent's Aura on
+    /// your phasing creature returns on <em>your</em> untap step, along with the creature.
+    /// </para>
+    /// </remarks>
+    private void PhaseInAndOut()
+    {
+        var returning = State.PhasedOut
+            .Where(pair => pair.Value == State.ActivePlayerId)
+            .Select(pair => pair.Key)
+            .ToList();
+
+        var leaving = new Dictionary<ObjectId, Guid>();
+
+        foreach (var id in State.Battlefield)
+        {
+            var obj = State.GetObject(id);
+            if (ControllerOf(obj) != State.ActivePlayerId)
+                continue;
+
+            if (Characteristics.Of(State, _abilities, obj).Has(KeywordAbility.Phasing))
+                leaving[id] = State.ActivePlayerId;
+        }
+
+        // CR 702.26g, 702.26h: anything attached to a departing permanent leaves with it, under
+        // the departing permanent's schedule rather than its own. Run to a fixed point so a
+        // chain - an Aura on an Equipment on a creature - goes whole.
+        bool grew;
+        do
+        {
+            grew = false;
+
+            foreach (var id in State.Battlefield)
+            {
+                if (leaving.ContainsKey(id))
+                    continue;
+
+                if (State.GetObject(id).Permanent?.AttachedTo is { } host
+                    && leaving.TryGetValue(host, out var withHost))
+                {
+                    leaving[id] = withHost;
+                    grew = true;
+                }
+            }
+        }
+        while (grew);
+
+        if (leaving.Count == 0 && returning.Count == 0)
+            return;
+
+        foreach (var (id, returnsFor) in leaving)
+            Emit(new PermanentPhasedOut(id, returnsFor));
+
+        foreach (var id in returning)
+            Emit(new PermanentPhasedIn(id));
     }
 
     private void Untap()

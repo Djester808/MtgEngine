@@ -43524,6 +43524,135 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(game.State.GetObject(ally).Permanent!.IsTapped);
     }
 
+    /// <summary>
+    /// A permanent with phasing leaves and comes back on its controller's untap steps
+    /// (CR 702.26a, 702.26c).
+    /// </summary>
+    /// <remarks>
+    /// The whole of what "treated as though it does not exist" means is tested through a
+    /// sweeper: while it is phased out, "destroy all creatures" does not find it, and it is back
+    /// two turns later with nothing having happened to it (CR 702.26b, 702.26d). A reading that
+    /// simply flagged the permanent would pass a test that only looked at the flag.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_with_phasing_stops_existing_and_comes_back()
+    {
+        var keeper = Card(
+            "Phasing Keeper Test",
+            "Phasing",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(keeper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var breeze = game.Create(alice, keeper, Zone.Battlefield);
+
+        Assert.Contains(breeze, game.State.Battlefield);
+
+        // Alice's next untap step: it phases out.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+
+        Assert.DoesNotContain(breeze, game.State.Battlefield);
+        Assert.Contains(breeze, game.State.PhasedOut.Keys);
+
+        // CR 702.26b: a sweeper does not find it, because it is not there to find.
+        var wrath = Card("Phasing Wrath Test", "Destroy all creatures.", CardType.Sorcery);
+        var card = TestCards.PutInHand(game, alice, wrath);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Phasing Keeper Test");
+
+        // And on the untap step after that it is back, untouched.
+        PassToMainPhaseOfTurn(game, game.State.TurnNumber + 2);
+
+        Assert.Contains(breeze, game.State.Battlefield);
+        Assert.Empty(game.State.PhasedOut);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(breeze)));
+
+        _ = bob;
+    }
+
+    /// <summary>
+    /// An Aura goes with what it enchants, and comes back with it (CR 702.26g).
+    /// </summary>
+    /// <remarks>
+    /// The half that a reading of phasing on its own gets wrong <em>in the phasing card's
+    /// favour</em>: an Aura left behind on the battlefield is attached to nothing, and the
+    /// state-based action for that would bin it (CR 704.5m). The opponent's Pacifism would come
+    /// off permanently, which is a strictly better creature than the printed one.
+    /// <para>
+    /// It returns on the creature's controller's untap step rather than the Aura controller's,
+    /// which is why what the engine writes down is whose untap step brings each permanent back
+    /// rather than who controls it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_phases_out_with_the_creature_it_enchants()
+    {
+        var keeper = Card(
+            "Phasing Host Test",
+            "Phasing",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var pacifism = Card(
+            "Phasing Pacifism Test",
+            "Enchant creature\nEnchanted creature can't attack or block.",
+            CardType.Enchantment,
+            power: null,
+            toughness: null,
+            keywords: KeywordAbility.None,
+            "Aura");
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, keeper, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Put in hand once the turn has arrived: a cleanup step in between discards down to hand
+        // size, and it takes the card the test is about.
+        var aura = TestCards.PutInHand(game, bob, pacifism);
+        game.CastSpell(bob, aura, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        var attached = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Phasing Pacifism Test");
+
+        Assert.Equal(host, game.State.GetObject(attached).Permanent!.AttachedTo);
+
+        // Alice's untap step: the creature phases out and takes the Aura with it.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == alice
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.DoesNotContain(host, game.State.Battlefield);
+        Assert.DoesNotContain(attached, game.State.Battlefield);
+
+        // Not destroyed for being attached to nothing (CR 704.5m) - it is not there to check.
+        Assert.DoesNotContain(attached, game.State.GetPlayer(bob).Graveyard);
+
+        // Both return together on Alice's next untap step, still attached (CR 702.26g).
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == alice
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Battlefield.Contains(host));
+
+        Assert.Contains(attached, game.State.Battlefield);
+        Assert.Equal(host, game.State.GetObject(attached).Permanent!.AttachedTo);
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

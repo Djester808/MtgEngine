@@ -10844,6 +10844,11 @@ public static partial class CardCompiler
             ["Intimidate"] = KeywordAbility.Intimidate,
             ["Skulk"] = KeywordAbility.Skulk,
 
+            // Phasing (CR 702.26a), which is a keyword here rather than a flag on the card
+            // because effects grant it - "enchanted permanent has phasing" - and the untap step
+            // asks for the computed answer.
+            ["Phasing"] = KeywordAbility.Phasing,
+
             // Banding, of which only the blocking half is enforced (CR 702.22j): a creature
             // blocked by one has its damage divided by the defending player. Declaring an
             // attacking band is not modelled at all - no client can say it and nothing in the

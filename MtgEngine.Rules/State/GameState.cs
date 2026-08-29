@@ -101,6 +101,30 @@ public sealed record GameState
     public ImmutableList<ObjectId> Battlefield { get; init; } = [];
 
     /// <summary>
+    /// Permanents that are phased out, and whose untap step brings each one back (CR 702.26a).
+    /// </summary>
+    /// <remarks>
+    /// A phased-out permanent is "treated as though it does not exist" (CR 702.26b), so it is
+    /// taken out of <see cref="Battlefield"/> rather than flagged in it. That is the whole of
+    /// the implementation: every count, every sweeper, every layer and every legality check in
+    /// this engine reads that list, so removing the id from it makes all of them stop seeing the
+    /// permanent at once. A flag would have needed a filter added at each of those places, and
+    /// the one that got missed would be the bug.
+    /// <para>
+    /// It is <em>not</em> a zone change (CR 702.26d): the object keeps its id, its counters, its
+    /// attachments and <see cref="GameObject.Zone"/> of <c>Battlefield</c>, and nothing that
+    /// triggers on leaving or entering the battlefield fires.
+    /// </para>
+    /// <para>
+    /// The value is the player whose untap step phases it back in, which is not always its own
+    /// controller: an Aura that phased out along with the permanent it enchants comes back with
+    /// that permanent (CR 702.26g), even when somebody else controls the Aura.
+    /// </para>
+    /// </remarks>
+    public ImmutableDictionary<ObjectId, Guid> PhasedOut { get; init; } =
+        ImmutableDictionary<ObjectId, Guid>.Empty;
+
+    /// <summary>
     /// State-triggered abilities whose condition is currently true and that have already fired
     /// for it (CR 603.8).
     /// </summary>
@@ -524,6 +548,7 @@ public sealed record GameState
         Structural.Same(TurnOrder, other.TurnOrder) &&
         Structural.Same(ExtraTurns, other.ExtraTurns) &&
         Structural.Same(Battlefield, other.Battlefield) &&
+        Structural.Same(PhasedOut, other.PhasedOut) &&
         Structural.Same(Stack, other.Stack) &&
         Structural.Same(Exile, other.Exile) &&
         Structural.Same(Command, other.Command) &&

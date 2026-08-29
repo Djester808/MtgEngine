@@ -1399,6 +1399,28 @@ public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : Ga
     public override string Describe() => $"{Id} was sneaked in.";
 }
 
+/// <summary>
+/// A permanent phased out (CR 702.26b).
+/// </summary>
+/// <remarks>
+/// Carries whose untap step brings it back, which is not always its controller's: an Aura that
+/// phased out along with what it enchants returns with that permanent (CR 702.26g).
+/// </remarks>
+public sealed record PermanentPhasedOut(ObjectId Id, Guid ReturnsFor) : GameEvent
+{
+    public override string Rule => "702.26b";
+
+    public override string Describe() => $"{Id} phased out.";
+}
+
+/// <summary>A permanent phased in (CR 702.26c).</summary>
+public sealed record PermanentPhasedIn(ObjectId Id) : GameEvent
+{
+    public override string Rule => "702.26c";
+
+    public override string Describe() => $"{Id} phased in.";
+}
+
 /// <summary>A spell's teamwork cost was paid as it was cast (CR 702.194b).</summary>
 public sealed record SpellTeamwork(ObjectId Id) : GameEvent
 {

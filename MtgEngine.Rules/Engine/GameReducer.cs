@@ -132,6 +132,14 @@ public static class GameReducer
             SpellOverloaded loud => state.TryGetObject(loud.Id, out var everything)
                 ? state.WithObject(everything with { WasOverloaded = true })
                 : state,
+            PermanentPhasedOut gone => PhaseOut(state, gone),
+            PermanentPhasedIn back => state.PhasedOut.ContainsKey(back.Id)
+                ? state with
+                {
+                    PhasedOut = state.PhasedOut.Remove(back.Id),
+                    Battlefield = state.Battlefield.Add(back.Id),
+                }
+                : state,
             SpellTeamwork teamed => state.TryGetObject(teamed.Id, out var helped)
                 ? state.WithObject(helped with { WasTeamwork = true })
                 : state,
@@ -1372,6 +1380,37 @@ public static class GameReducer
     }
 
     // ---- Zone list plumbing ---------------------------------------------------------------
+
+    /// <summary>
+    /// Takes a permanent out of the battlefield list without moving it (CR 702.26b, 702.26d).
+    /// </summary>
+    /// <remarks>
+    /// Not a decision, so it belongs here: CR 506.4 says a permanent that phases out is removed
+    /// from combat, and there is no separate event for that - an attacker still in
+    /// <see cref="CombatState.Attackers"/> would go on dealing its damage from a zone the rules
+    /// say it is not in.
+    /// </remarks>
+    private static GameState PhaseOut(GameState state, PermanentPhasedOut e)
+    {
+        if (!state.Battlefield.Contains(e.Id))
+            return state;
+
+        return state with
+        {
+            Battlefield = Without(state.Battlefield, e.Id),
+            PhasedOut = state.PhasedOut.SetItem(e.Id, e.ReturnsFor),
+            Combat = state.Combat with
+            {
+                Attackers = state.Combat.Attackers.Remove(e.Id),
+                Blockers = state.Combat.Blockers
+                    .Remove(e.Id)
+                    .ToImmutableDictionary(
+                        pair => pair.Key,
+                        pair => pair.Value.Remove(e.Id)),
+                Blocked = state.Combat.Blocked.Remove(e.Id),
+            },
+        };
+    }
 
     private static GameState RemoveFrom(GameState state, Zone zone, Guid ownerId, ObjectId id)
     {
