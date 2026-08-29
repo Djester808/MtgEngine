@@ -12754,6 +12754,64 @@ public sealed class CompiledCardBehaviourTests
             3, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
     }
 
+    /// <summary>
+    /// A deferred question raised by a <em>granted</em> ability has to reach the player
+    /// (CR 113.10, 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Every deferred question is answered by finding the effect again on the card that asked, and
+    /// a granted ability is not on that card — it is held against the permanent it was granted to,
+    /// under (source, ability) — so the lookup needs the source id. Five call sites omitted it, and
+    /// the failure is silent all the way down: the trigger fires, goes on the stack with the right
+    /// source, resolves, and emits the request; the locator then returns nothing and the request is
+    /// dropped with no choice, no log line, and no error.
+    /// <para>
+    /// Found while building granted ward, which was played in a real game, measured inert — the
+    /// spell resolved untaxed and no question was asked — and reverted rather than shipped. Ward is
+    /// only the loudest case: this affected optional payments, clashes, coin flips, hand choices
+    /// and permanent choices alike, for every granted ability.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_granted_ability_can_still_ask_its_question()
+    {
+        var banner = Card(
+            "Granted Question Test",
+            "Creatures you control have " + "\"" + "When this creature dies, you may pay {1}. "
+                + "If you do, draw a card." + "\"",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(banner);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, banner, Zone.Battlefield);
+
+        var bearer = game.Create(
+            alice, TestCards.Creature("Granted Bearer Test", 2, 2), Zone.Battlefield);
+
+        // Mana floated first: the offer is skipped without asking when the player plainly cannot
+        // take it, which would hide the very failure this test is about.
+        var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.Move(bearer, Zone.Graveyard, MoveCause.Destroy);
+
+        // The assertion that matters: the question is actually put. Before the source id was
+        // threaded through, the request was raised and then silently dropped here.
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
     [Fact]
     public void A_permanent_can_animate_itself()
     {

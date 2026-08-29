@@ -3430,7 +3430,7 @@ public sealed class Game
             return null;
 
         var effects = owed.AbilityId is { } abilityId
-            ? EffectsOfAbility(behind, abilityId)
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
             : _abilities.SpellOf(behind)?.Effects ?? [];
 
         // Looked up through the whole tree rather than by position in the top-level list: a
@@ -3795,7 +3795,7 @@ public sealed class Game
             return null;
 
         var effects = owed.AbilityId is { } abilityId
-            ? EffectsOfAbility(behind, abilityId)
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
             : _abilities.SpellOf(behind)?.Effects ?? [];
 
         return EffectTree.Locate<Clash>(effects, owed.EffectIndex);
@@ -3829,7 +3829,7 @@ public sealed class Game
             return null;
 
         var effects = owed.AbilityId is { } abilityId
-            ? EffectsOfAbility(behind, abilityId)
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
             : _abilities.SpellOf(behind)?.Effects ?? [];
 
         // Looked up through the whole tree rather than by position in the top-level list: a
@@ -4885,7 +4885,7 @@ public sealed class Game
             return null;
 
         var effects = owed.AbilityId is { } abilityId
-            ? EffectsOfAbility(behind, abilityId)
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
             : _abilities.SpellOf(behind)?.Effects ?? [];
 
         // Looked up through the whole tree rather than by position in the top-level list: a
@@ -5073,7 +5073,7 @@ public sealed class Game
             return null;
 
         var effects = owed.AbilityId is { } abilityId
-            ? EffectsOfAbility(behind, abilityId)
+            ? EffectsOfAbility(behind, abilityId, owed.SourceId)
             : _abilities.SpellOf(behind)?.Effects ?? [];
 
         // Looked up through the whole tree rather than by position in the top-level list: a
