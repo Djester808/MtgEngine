@@ -196,18 +196,78 @@ public static partial class BoardConditions
             };
         }
 
+        // "You control three or more lands with the same name", "seven or more lands with
+        // different names" - a question about sameness across a group rather than about how many
+        // of them there are, and the two halves of it are each other's opposite: three copies of
+        // one land satisfy the first and fail the second. It sits beside the distinct-powers
+        // reader because it is that same shape over another characteristic, the way the
+        // graveyard's mana-value count sits beside its type count.
+        if (SameNameLine().Match(text) is { Success: true } alike
+            && EffectPhrase.Specs.ParseGroup("each " + alike.Groups["what"].Value.Trim()) is
+            { Kind: Abilities.TargetKind.Permanent } sameSpec)
+        {
+            var least = Number(alike.Groups["n"].Value);
+            var distinct = alike.Groups["different"].Success;
+
+            return (state, abilities, source) =>
+            {
+                var names = new List<string>();
+
+                foreach (var id in state.Battlefield)
+                {
+                    var permanent = state.GetObject(id);
+
+                    // A face-down permanent has no name at all (CR 707.2), so it is neither the
+                    // same as anything nor different from it - it is simply not counted.
+                    if (permanent.Permanent?.IsFaceDown == true)
+                        continue;
+
+                    if (Characteristics.Of(state, abilities, permanent).ControllerId
+                        != source.ControllerId)
+                    {
+                        continue;
+                    }
+
+                    if (sameSpec.ObjectFilter?.Invoke(
+                            state, abilities, permanent, source.ControllerId) == false)
+                    {
+                        continue;
+                    }
+
+                    // A name is not a computed characteristic here: nothing in this engine
+                    // changes one, so the printed English name is the name (CR 201.2).
+                    names.Add(permanent.Card.Name);
+                }
+
+                if (distinct)
+                    return names.Distinct(StringComparer.Ordinal).Count() >= least;
+
+                // "Three or more lands with the same name" wants three that agree, not three
+                // distinct names - so it is the largest group and never the count of groups.
+                return names.Count != 0
+                    && names.GroupBy(name => name, StringComparer.Ordinal)
+                        .Max(group => group.Count()) >= least;
+            };
+        }
+
         // "You have no cards in hand", "you have seven or more cards in hand". The hand is a
         // hidden zone, so this counts rather than looks: how many a player holds is public
         // (CR 400.2), which is exactly why a card may ask.
         if (HandCountLine().Match(text) is { Success: true } held)
         {
-            var wantedHeld = held.Groups["none"].Success ? 0 : Number(held.Groups["n"].Value);
+            // "You have a card in hand" is "one or more" said the short way, and it is the
+            // opposite end of the same pattern's "no cards in hand" - one card prints it, and
+            // the reader that already answers the empty hand could not answer the full one.
+            var wantedHeld = held.Groups["none"].Success ? 0
+                : held.Groups["a"].Success ? 1
+                : Number(held.Groups["n"].Value);
 
             // "Fewer than seven" is a strict comparison and "seven or fewer" is not, and the
             // cards that ask are the ones the difference decides: Kozilek draws up to seven,
             // so reading "fewer than seven" as "seven or fewer" draws a card off a full hand.
             var compare = held.Groups["none"].Success ? "exactly"
                 : held.Groups["exactly"].Success ? "exactly"
+                : held.Groups["a"].Success ? "more"
                 : held.Groups["under"].Success
                     ? held.Groups["under"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase)
                         ? "over"
@@ -476,6 +536,33 @@ public static partial class BoardConditions
             };
         }
 
+        // "As long as red is the most common color among all permanents or is tied for most
+        // common" - the five Djinns, each naming its own colour - and "unless it shares a color
+        // with the most common color", which asks the same census about the creature an Aura is
+        // on. A count of *permanents* per colour, which is what separates it from devotion
+        // above: a permanent costing {R}{R}{R} is three devotion and one red permanent.
+        var census = MostCommonColourLine().Match(text);
+        if (census.Success)
+        {
+            // Empty for the "shares a color" arm, which names no colour and asks about the
+            // subject's own. The alternation admits only the five words, so a named arm always
+            // has an answer here and nothing claims a clause it then cannot read.
+            var hue = ColourNamed(census.Groups["colour"].Value);
+
+            return (state, abilities, source) =>
+            {
+                var commonest = MostCommonColours(state, abilities);
+
+                if (hue is { } wanted)
+                    return commonest.Contains(wanted);
+
+                // "It" on an Aura is the permanent it is attached to and never the Aura, which
+                // has a colour of its own and is not what the sentence is about.
+                return Subject(state, source, pronoun: true) is { } about
+                    && Characteristics.Of(state, abilities, about).Colors.Any(commonest.Contains);
+            };
+        }
+
         // "You have no cards in hand", "an opponent has no cards in hand". Whose hand it is was
         // the only thing missing, and it is the same question either way - "an opponent" means
         // any one of them (CR 102.1), which in a two-player game is the other player and in a
@@ -581,8 +668,11 @@ public static partial class BoardConditions
                 && state.GetPlayer(id).WasDealtDamageThisTurn);
         }
 
-        if (DiedThisTurnLine().IsMatch(text))
-            return (state, _, _) => state.CreatureDiedThisTurn;
+        if (DiedThisTurnLine().Match(text) is { Success: true } deaths)
+        {
+            var nobody = deaths.Groups["none"].Success;
+            return (state, _, _) => state.CreatureDiedThisTurn != nobody;
+        }
 
         // "Three or more creatures died this turn" - the same fact asked as a number. Read before
         // nothing else claims it, and answered from the count rather than the flag: a bool says
@@ -906,14 +996,21 @@ public static partial class BoardConditions
 
             var lowered = kind.ToLowerInvariant();
 
+            // "You haven't cast a spell this turn" is the same tally read the other way round,
+            // and two cards print it. Negating the answer rather than the count is the whole of
+            // it: "not two or more" is "fewer than two", which is what inverting the comparison
+            // would have had to say and what a second threshold would have got wrong.
+            var idle = castThisTurn.Groups["not"].Success;
+
             return (state, abilities, source) =>
             {
                 var player = state.GetPlayer(source.ControllerId);
 
                 if (filter is { } wanted)
                 {
-                    return player.SpellCardsCastThisTurn
-                        .Count(card => Abilities.SearchFilters.Matches(wanted, card)) >= least;
+                    return (player.SpellCardsCastThisTurn
+                        .Count(card => Abilities.SearchFilters.Matches(wanted, card)) >= least)
+                        != idle;
                 }
 
                 // Creature spells are the difference between the two counts rather than a third
@@ -926,7 +1023,7 @@ public static partial class BoardConditions
                     _ => player.SpellsCastThisTurn,
                 };
 
-                return count >= least;
+                return (count >= least) != idle;
             };
         }
 
@@ -1025,10 +1122,16 @@ public static partial class BoardConditions
         // "If it was kicked" - CR 702.33d, and the flag survives resolution for exactly this
         // reason. Read from the source rather than from the state, because the question is
         // about this permanent and no other, however many copies of it are in play.
-        if (WasKickedLine().IsMatch(text))
+        //
+        // "If it wasn't kicked" is three printed cards and the same flag read the other way
+        // round. The object still has to be found for either answer: a permanent that has gone
+        // must not satisfy a clause about what it was not, any more than one about what it was.
+        if (WasKickedLine().Match(text) is { Success: true } kicked)
         {
+            var unkicked = kicked.Groups["not"].Success;
+
             return (state, abilities, source) =>
-                state.TryGetObject(source.Id, out var self) && self.WasKicked;
+                state.TryGetObject(source.Id, out var self) && self.WasKicked != unkicked;
         }
 
         // "When ~ enters, if it was bargained, ..." - CR 702.166b: a spell has been bargained
@@ -1131,21 +1234,47 @@ public static partial class BoardConditions
         // an attribute of the card rather than of the object (CR 903.3) and survives every zone
         // change, so this compares oracle ids: a commander that has died and been recast is a
         // new object each time and is still the same commander.
-        if (ControlsCommanderLine().IsMatch(text))
+        if (ControlsCommanderLine().Match(text) is { Success: true } commander)
         {
+            // "Your commander" and "a commander" are different questions and the rules say so
+            // outright: CR 903.3d reads "controlling a commander" as *a permanent on the
+            // battlefield that is a commander*, whoever designated it. So a commander taken
+            // from an opponent answers the second clause and not the first, and reading the
+            // two alike would either offer the free cast that is not printed or refuse the one
+            // that is. Twenty-two cards say "a commander".
+            var anyones = commander.Groups["any"].Success;
+
             return (state, abilities, source) =>
-                state.GetPlayer(source.ControllerId).CommanderOracleId is { } oracleId
-                && state.Battlefield.Any(id =>
+            {
+                var mine = state.GetPlayer(source.ControllerId).CommanderOracleId;
+                if (!anyones && mine is null)
+                    return false;
+
+                return state.Battlefield.Any(id =>
                 {
                     var obj = state.GetObject(id);
 
                     // Control is computed, not stored (CR 613.1b): a commander an opponent has
                     // stolen is one you no longer control, which is exactly the situation these
                     // cards are printed to reward you for avoiding.
-                    return string.Equals(obj.Card.OracleId, oracleId, StringComparison.Ordinal)
-                        && Characteristics.Of(state, abilities, obj).ControllerId
-                            == source.ControllerId;
+                    if (Characteristics.Of(state, abilities, obj).ControllerId
+                        != source.ControllerId)
+                    {
+                        return false;
+                    }
+
+                    // Being a commander is an attribute of the card rather than of the object
+                    // (CR 903.3) and survives every zone change, so this compares oracle ids: a
+                    // commander that has died and been recast is a new object each time and is
+                    // still the same commander.
+                    if (!anyones)
+                        return string.Equals(obj.Card.OracleId, mine, StringComparison.Ordinal);
+
+                    return state.TurnOrder.Any(
+                        seat => state.GetPlayer(seat).CommanderOracleId is { } theirs
+                            && string.Equals(obj.Card.OracleId, theirs, StringComparison.Ordinal));
                 });
+            };
         }
 
         // "If you have a full party" (CR 700.8c). A count of four roles rather than of four
@@ -1452,7 +1581,24 @@ public static partial class BoardConditions
             // already worked and this one word did not, which is the difference between a card
             // that turns itself on and one that needs a friend.
             var excludesSelf = controls.Groups["another"].Success;
-            var noun = PluralNoun().Replace(controls.Groups["what"].Value.Trim(), "$1");
+
+            // "Defending player controls no Glimmer creatures" is the one arm of this pattern
+            // whose noun arrives plural, and the six-word list below it strips the plural from
+            // was all it had: anything with an adjective in front - "no Glimmer creatures", "no
+            // untapped lands" - went to the target grammar still plural, was refused, and this
+            // reader then *claimed the clause and returned null*, taking it from every reader
+            // beneath as well. The counting reader has singularised its last word all along;
+            // this one now does the same, so the two cannot disagree about a noun.
+            //
+            // Only on the "no" arm. "A", "an" and "another" are always followed by a singular
+            // noun, and singularising a word that is already singular is where a Locus loses a
+            // letter - so the arm that cannot need it does not get it.
+            var printed = PluralNoun().Replace(controls.Groups["what"].Value.Trim(), "$1");
+            var words = printed.Split(' ');
+            if (none)
+                words[^1] = EffectPhrase.SingularWord(words[^1]);
+
+            var noun = string.Join(' ', words);
             // Matched against the whole subject and not its first word: "your opponents
             // control" also begins with "you", so a prefix test on three letters read it as your
             // own board and inverted every card that says it.
@@ -1642,7 +1788,14 @@ public static partial class BoardConditions
     private static Func<GameState, IAbilitySource, GameObject, bool>? Counting(Match m)
     {
         var wanted = Number(m.Groups["n"].Value);
-        var orMore = m.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
+
+        // "You control at least three other enchantments" is "three or more" in the words seven
+        // cards happen to use, and it is the same threshold. It is an alternative in the pattern
+        // rather than a rewrite over the whole clause because "at least" is also how the
+        // mana-spent reader beside this one is printed - "at least three white mana was spent to
+        // cast it" - and a blanket rewrite would have taken that reader's own wording away.
+        var orMore = m.Groups["atleast"].Success
+            || m.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
         var excludesSelf = m.Groups["other"].Success;
         var basicOnly = m.Groups["basic"].Success;
 
@@ -1909,6 +2062,7 @@ public static partial class BoardConditions
     [GeneratedRegex(
         @"^(?<who>you|your opponents|(?<anyone>a player)) controls? "
             + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
+            + @"|(?<atleast>at least) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir>more|fewer)) "
             + @"(?<other>other )?(?<basic>basic )?(?<what>[a-z]+( [a-z]+)*)$",
@@ -2083,7 +2237,9 @@ public static partial class BoardConditions
     /// multikicker card's two costs was paid, and the engine records one flag rather than which.
     /// Those cards are left unread instead, which is the rule the rest of this file follows.
     /// </remarks>
-    [GeneratedRegex(@"^(~|it|this spell) (was|were) kicked$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"^(~|it|this spell) ((was|were)|(?<not>wasn't|weren't|was not)) kicked$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex WasKickedLine();
 
     /// <summary>"If it was bargained" (CR 702.166b).</summary>
@@ -2143,7 +2299,8 @@ public static partial class BoardConditions
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^you('ve| have) cast (an?|(?<n>\d+|one|two|three|four|five) or more) "
+        @"^you(('ve| have)|(?<not> haven't| have not)) cast "
+            + @"(an?|(?<n>\d+|one|two|three|four|five) or more) "
             + @"(?<kind>[A-Za-z][A-Za-z/ ]*? )?spells? this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SpellsCastThisTurnLine();
@@ -2254,6 +2411,14 @@ public static partial class BoardConditions
         @"^no opponent controls an? (?<what>[A-Za-z][A-Za-z0-9 ]*)$", RegexOptions.None)]
     private static partial Regex NoOpponentControlsLine();
 
+    /// <remarks>
+    /// "Defending player controls more lands than you" is deliberately not admitted, and the
+    /// measurement is why: the one card that prints it - Aerial Surveyor - asks it as an
+    /// intervening-if on an attack trigger, and a trigger predicate is handed the state as it
+    /// was <em>before</em> the event (CR 603.6), where no attacker has been declared and there
+    /// is no defending player to count. Read here it compiled clean and the card never fired
+    /// once; answering "true" instead would be wrong for the statics that share this reader.
+    /// </remarks>
     [GeneratedRegex(
         @"^(?<who>an opponent|you) controls? (?<dir>more|fewer) (?<what>[a-z]+( [a-z]+)*)"
             + @" than (you|they do|each opponent|any opponent)$",
@@ -2280,8 +2445,15 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex AttackedThisTurnLine();
 
+    /// <remarks>
+    /// The negative is the same record read the other way round rather than a reader of its own,
+    /// and it is one printed card - Titan Hunter, which punishes a turn in which nothing died.
+    /// A condition with two ways to be satisfied and a pattern for only one of them is this
+    /// file's own recurring shape; here the second way is the complement of the first.
+    /// </remarks>
     [GeneratedRegex(
-        @"^a creature (died|was put into a graveyard from the battlefield) this turn$",
+        @"^(a creature (died|was put into a graveyard from the battlefield)"
+            + @"|(?<none>no creatures died)) this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DiedThisTurnLine();
 
@@ -2542,8 +2714,17 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
 
-    /// <summary>"As long as you control your commander" (CR 903.3).</summary>
-    [GeneratedRegex(@"^you control your commander$", RegexOptions.IgnoreCase)]
+    /// <summary>"You control your commander" (CR 903.3), or any commander (CR 903.3d).</summary>
+    /// <remarks>
+    /// The two determiners are kept apart rather than folded together. "Your commander" is the
+    /// one card this player designated before the game; "a commander" is any permanent that is
+    /// somebody's, which is a strictly wider question and the one the twenty-two cards printing
+    /// it actually ask. A single reader answering both with the narrow question would refuse a
+    /// free cast the card offers; answering both with the wide one would hand the lieutenant
+    /// cycle its bonus off an opponent's commander.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you control (your|(?<any>a)) commander$", RegexOptions.IgnoreCase)]
     private static partial Regex ControlsCommanderLine();
 
     /// <summary>"If you have a full party" (CR 700.8c).</summary>
@@ -2645,7 +2826,8 @@ public static partial class BoardConditions
             + @"|(?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<under>fewer|more) than (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
-            + @"or (?<dir>more|fewer)) cards? in (your |their )?hand$",
+            + @"or (?<dir>more|fewer)"
+            + @"|(?<a>an?)) cards? in (your |their )?hand$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HandCountLine();
 
@@ -2668,6 +2850,70 @@ public static partial class BoardConditions
     [GeneratedRegex(
         @"^you have more cards in hand than each opponent$", RegexOptions.IgnoreCase)]
     private static partial Regex LargestHandLine();
+
+    /// <summary>
+    /// "Red is the most common color among all permanents or is tied for most common."
+    /// </summary>
+    /// <remarks>
+    /// The "or is tied" tail is optional in the pattern and present on every card that prints
+    /// the clause. It is read rather than ignored because the two readings differ on the board
+    /// the cards are actually played on: a Djinn is itself a permanent of the colour it names,
+    /// so the commonest way for its clause to be true is a tie.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((?<colour>white|blue|black|red|green) is"
+            + @"|(~|it|enchanted (creature|permanent)) shares a color with) "
+            + @"the most common color among all permanents"
+            + @"( or (is tied for most common|a color tied for most common))?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MostCommonColourLine();
+
+    /// <summary>"You control three or more lands with the same name."</summary>
+    /// <remarks>
+    /// The noun admits a comma so a phrase like "nonland, nontoken permanents" reaches the
+    /// shared filter vocabulary whole; a noun that vocabulary cannot name leaves the clause
+    /// unread rather than counting every permanent.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you control (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more "
+            + @"(?<what>[a-z][a-z, ]*?) with (the same name( as one another)?"
+            + @"|(?<different>different names))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SameNameLine();
+
+    /// <summary>
+    /// Which colours the most permanents on the battlefield are, or none at all (CR 105.2).
+    /// </summary>
+    /// <remarks>
+    /// A permanent of two colours is counted towards each of them, because an object <em>is</em>
+    /// every colour of its mana cost (CR 105.2) rather than being one thing that has to be
+    /// picked. The colours come from the computed characteristics, since colour is layer 5
+    /// (CR 613.1e) and a permanent something has turned black is black for this count.
+    /// <para>
+    /// A board with no coloured permanent on it has no most common colour, so the answer is
+    /// empty rather than all five. That case is unreachable for the cards that ask: each of them
+    /// is itself a permanent of the colour it names, and the clause only matters while it is on
+    /// the battlefield.
+    /// </para>
+    /// </remarks>
+    private static HashSet<Domain.Enums.ManaColor> MostCommonColours(
+        GameState state, IAbilitySource abilities)
+    {
+        var tally = new Dictionary<Domain.Enums.ManaColor, int>();
+
+        foreach (var id in state.Battlefield)
+        {
+            foreach (var colour in Characteristics.Of(state, abilities, state.GetObject(id)).Colors)
+                tally[colour] = tally.GetValueOrDefault(colour) + 1;
+        }
+
+        if (tally.Count == 0)
+            return [];
+
+        var most = tally.Values.Max();
+
+        return [.. tally.Where(pair => pair.Value == most).Select(pair => pair.Key)];
+    }
 
     /// <summary>A small number written as a word, or as digits.</summary>
     private static int NumberWord(string word) => word.ToLowerInvariant() switch

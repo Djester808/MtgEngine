@@ -19998,6 +19998,535 @@ public sealed class CompiledCardBehaviourTests
         Assert.Null(Stopped());
     }
 
+    // ---- Board conditions: sameness, colour census and the negatives ---------
+
+    [Fact]
+    public void A_colour_census_counts_permanents_and_not_mana_symbols()
+    {
+        // The five Djinns, each naming its own colour. "Or is tied for most common" is the
+        // half that decides most boards, because a Djinn is itself a permanent of the colour
+        // it names and can only ever draw level rather than pull ahead.
+        var djinn = new CardDefinition
+        {
+            OracleId = "oracle-colour-census-test",
+            Name = "Colour Census Test",
+            OracleText = "~ gets -2/-2 as long as red is the most common color among all "
+                + "permanents or is tied for most common.",
+            CardTypes = CardType.Creature,
+            Power = 5,
+            Toughness = 5,
+            Colors = [ManaColor.Red],
+            ColorIdentity = [ManaColor.Red],
+        };
+
+        var compiled = CardCompiler.Compile(djinn);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var self = game.Create(alice, djinn, Zone.Battlefield);
+        game.Create(bob, Coloured("Census Blue One Test", ManaColor.Blue), Zone.Battlefield);
+        game.Create(bob, Coloured("Census Blue Two Test", ManaColor.Blue), Zone.Battlefield);
+        Settle(game);
+
+        // One red permanent against two blue ones: red is not the commonest and is not tied.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+
+        game.Create(alice, Coloured("Census Red Two Test", ManaColor.Red), Zone.Battlefield);
+        Settle(game);
+
+        // Two each is a tie, which the clause counts.
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+
+        // A colourless permanent is no colour at all (CR 105.2), so it joins no tally and
+        // cannot break the tie. A census that counted permanents rather than colours would
+        // move here.
+        game.Create(
+            alice,
+            Card("Census Colourless Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        Settle(game);
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+
+        game.Create(bob, Coloured("Census Blue Three Test", ManaColor.Blue), Zone.Battlefield);
+        Settle(game);
+
+        // Three blue to two red: no longer tied, so the penalty lifts.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+    }
+
+    [Fact]
+    public void A_shared_colour_condition_asks_the_aura_about_its_host()
+    {
+        // Heroic Defiance. "It" on an Aura is the creature it is attached to and never the
+        // Aura itself, which is colourless here - a reading that asked the Aura would share a
+        // colour with nothing and hand out the bonus on every board.
+        var aura = Card(
+            "Shared Colour Aura Test",
+            "Enchant creature\nEnchanted creature gets +3/+3 unless it shares a color with the "
+                + "most common color among all permanents or a color tied for most common.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(aura);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, Coloured("Shared Colour Host Test", ManaColor.Green), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, aura);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        game.Create(bob, Coloured("Shared Colour Blue One Test", ManaColor.Blue), Zone.Battlefield);
+        game.Create(bob, Coloured("Shared Colour Blue Two Test", ManaColor.Blue), Zone.Battlefield);
+        Settle(game);
+
+        // Two blue permanents against one green host: blue is the commonest colour, the host
+        // does not share it, so the "unless" is unsatisfied and the bonus applies.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(host)));
+
+        game.Create(alice, Coloured("Shared Colour Green One Test", ManaColor.Green), Zone.Battlefield);
+        game.Create(alice, Coloured("Shared Colour Green Two Test", ManaColor.Green), Zone.Battlefield);
+        Settle(game);
+
+        // Three green to two blue, and the host is green: it shares the commonest colour, so
+        // the bonus is off.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(host)));
+    }
+
+    [Fact]
+    public void Same_name_and_different_names_are_opposite_questions_about_one_board()
+    {
+        // Endless Atlas asks for a group that agrees; Field of the Dead asks for a spread that
+        // does not. They are one reader because only the comparison differs - and they are
+        // tested on one board because that is the only place a reader answering "how many
+        // groups" instead of "how big is the largest" gives itself away.
+        var alike = Card(
+            "Same Name Test",
+            "~ gets +1/+1 as long as you control three or more lands with the same name.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var varied = Card(
+            "Different Names Test",
+            "~ gets +1/+1 as long as you control seven or more lands with different names.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        foreach (var card in (CardDefinition[])[alike, varied])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var grouped = game.Create(alice, alike, Zone.Battlefield);
+        var spread = game.Create(alice, varied, Zone.Battlefield);
+
+        var forests = new List<ObjectId>();
+        foreach (var _ in Enumerable.Range(0, 3))
+            forests.Add(game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield));
+
+        Settle(game);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.PowerOf(game.State, Pool, game.State.GetObject(id)) ?? 0;
+
+        // Three Forests are three lands with one name between them.
+        Assert.Equal(3, PowerOf(grouped));
+        Assert.Equal(2, PowerOf(spread));
+
+        foreach (var land in (string[])["Island", "Swamp", "Mountain", "Plains", "Cave", "Desert"])
+            game.Create(alice, TestCards.BasicLand(land), Zone.Battlefield);
+
+        Settle(game);
+
+        // Nine lands, seven names: both hold at once, which a reader confusing the two counts
+        // could still pass. The step below is what tells them apart.
+        Assert.Equal(3, PowerOf(grouped));
+        Assert.Equal(3, PowerOf(spread));
+
+        foreach (var extra in forests.Take(2))
+            game.Move(extra, Zone.Graveyard, MoveCause.Destroy);
+
+        Settle(game);
+
+        // Seven lands, seven names, no two alike: the spread survives and the group does not.
+        Assert.Equal(2, PowerOf(grouped));
+        Assert.Equal(3, PowerOf(spread));
+    }
+
+    [Fact]
+    public void An_at_least_threshold_is_the_same_count_written_the_other_way()
+    {
+        var coatl = Card(
+            "At Least Test",
+            "~ has deathtouch as long as you control at least three other enchantments.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(coatl);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var self = game.Create(alice, coatl, Zone.Battlefield);
+
+        bool Deadly() => Characteristics.Of(game.State, Pool, game.State.GetObject(self))
+            .Has(KeywordAbility.Deathtouch);
+
+        foreach (var name in (string[])["At Least Enchantment One Test", "At Least Enchantment Two Test"])
+            game.Create(alice, Card(name, string.Empty, CardType.Enchantment), Zone.Battlefield);
+
+        Settle(game);
+        Assert.False(Deadly());
+
+        // A creature is not an enchantment, so the noun is still doing its work at the
+        // threshold rather than the count simply reaching three.
+        game.Create(alice, TestCards.Creature("At Least Bystander Test"), Zone.Battlefield);
+        Settle(game);
+        Assert.False(Deadly());
+
+        game.Create(
+            alice,
+            Card("At Least Enchantment Three Test", string.Empty, CardType.Enchantment),
+            Zone.Battlefield);
+
+        Settle(game);
+        Assert.True(Deadly());
+    }
+
+    [Fact]
+    public void A_full_hand_condition_is_the_hellbent_one_inverted()
+    {
+        var pet = Card(
+            "Card In Hand Test",
+            "~ has flying as long as you have a card in hand.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(pet);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, pet, Zone.Battlefield);
+
+        bool Flying() => Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+            .Has(KeywordAbility.Flying);
+
+        Assert.NotEmpty(game.State.GetPlayer(alice).Hand);
+        Assert.True(Flying());
+
+        // "A card" is "one or more", so it goes off at nought and nowhere else - the opposite
+        // end of the same pattern that already read "no cards in hand".
+        foreach (var held in game.State.GetPlayer(alice).Hand.ToList())
+            game.Move(held, Zone.Graveyard, MoveCause.Discard);
+
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(alice).Hand);
+        Assert.False(Flying());
+    }
+
+    [Fact]
+    public void Nothing_having_died_is_the_complement_of_something_having()
+    {
+        // Titan Hunter punishes a turn in which nothing died, and the positive form beside it
+        // is on every card that rewards one. Both are on the board at once, because a
+        // negation read as its own record rather than as the complement would let them agree.
+        var quiet = Card(
+            "Nothing Died Test",
+            "~ has flying as long as no creatures died this turn.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var bloody = Card(
+            "Something Died Test",
+            "~ has flying as long as a creature died this turn.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        foreach (var card in (CardDefinition[])[quiet, bloody])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var peaceful = game.Create(alice, quiet, Zone.Battlefield);
+        var bloodied = game.Create(alice, bloody, Zone.Battlefield);
+        var victim = game.Create(alice, TestCards.Creature("Died This Turn Victim Test"), Zone.Battlefield);
+        Settle(game);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Has(KeywordAbility.Flying);
+
+        Assert.True(Flies(peaceful));
+        Assert.False(Flies(bloodied));
+
+        game.Move(victim, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Flies(peaceful));
+        Assert.True(Flies(bloodied));
+    }
+
+    [Fact]
+    public void Not_having_cast_a_spell_is_the_complement_of_having_cast_one()
+    {
+        var sphinx = Card(
+            "Not Cast Test",
+            "~ has hexproof as long as you haven't cast a spell this turn.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var eager = Card(
+            "Have Cast Test",
+            "~ has hexproof as long as you've cast a spell this turn.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        foreach (var card in (CardDefinition[])[sphinx, eager])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+        var idle = game.Create(alice, sphinx, Zone.Battlefield);
+        var busy = game.Create(alice, eager, Zone.Battlefield);
+        Settle(game);
+
+        bool Hexproof(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Has(KeywordAbility.Hexproof);
+
+        Assert.True(Hexproof(idle));
+        Assert.False(Hexproof(busy));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var spell = TestCards.PutInHand(game, alice, Card("Cast Marker Test", "You gain 1 life."));
+        game.CastSpell(alice, spell, targets: null);
+        Settle(game);
+
+        Assert.False(Hexproof(idle));
+        Assert.True(Hexproof(busy));
+    }
+
+    [Theory]
+    [InlineData(true, 20)]
+    [InlineData(false, 18)]
+    public void An_unkicked_clause_fires_only_when_the_kicker_went_unpaid(bool kicked, int life)
+    {
+        // Sphinx of Lost Truths' second half. The flag has to survive the move onto the
+        // battlefield either way round (CR 400.7, CR 607.2), and a negation read as "the flag
+        // is missing" rather than "the flag is false" would fire on a permanent that had
+        // simply gone.
+        var sphinx = new CardDefinition
+        {
+            OracleId = "oracle-kicker-negation-test",
+            Name = "Kicker Negation Test",
+            OracleText = "Kicker {1}" + (char)10 + "When ~ enters, if ~ wasn't kicked, you lose 2 life.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{1}",
+            Cmc = 1,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var compiled = CardCompiler.Compile(sphinx);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, sphinx);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice, card, targets: null, variableValue: 0, tapToPay: null, modes: null, kicked: kicked);
+
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_plural_noun_reaches_the_filter_vocabulary_on_the_emptiness_arm()
+    {
+        // "An opponent controls no basic lands" - the arm of this pattern whose noun arrives
+        // plural. Two words in it, so the six-word plural list could not touch it, and the
+        // reader used to claim the clause and then refuse it, taking the line from everything
+        // below as well.
+        var mauling = Card(
+            "No Basic Lands Test",
+            "~ gets +2/+2 as long as an opponent controls no basic lands.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(mauling);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var self = game.Create(alice, mauling, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+
+        // A land that is not basic leaves the clause true, which is what says the word "basic"
+        // survived the trip through the filter vocabulary rather than being dropped with the
+        // plural.
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(bob, Card("Nonbasic Land Test", string.Empty, CardType.Land), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(self)));
+    }
+
+    [Theory]
+    [InlineData(true, 20)]
+    [InlineData(false, 22)]
+    public void A_defending_player_emptiness_asks_the_seat_being_attacked(bool theirs, int life)
+    {
+        // Fear of the Dark. Played at three seats deliberately: at two, "defending player" and
+        // "an opponent" pick out the same person and this test could not tell them apart. The
+        // seat that is not being attacked always controls a Glimmer, so a reader asking any
+        // opponent would refuse the gain on both rows.
+        var fear = Card(
+            "Defending Glimmer Test",
+            "Whenever ~ attacks, if defending player controls no Glimmer creatures, you gain 2 life.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(fear);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        CardDefinition Glimmer(string name) => Card(
+            name, string.Empty, CardType.Creature | CardType.Enchantment, 1, 1, subtypes: "Glimmer");
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var carol = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice")),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+                new PlayerSetup(carol, "Carol", 20, TestCards.Deck(40, "Carol")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var attacker = game.Create(alice, fear, Zone.Battlefield);
+        game.Create(carol, Glimmer("Carol Glimmer Test"), Zone.Battlefield);
+
+        if (theirs)
+            game.Create(bob, Glimmer("Bob Glimmer Test"), Zone.Battlefield);
+
+        Settle(game);
+
+        // Three seats, so Alice's second turn is turn four rather than turn three.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber >= 4 && game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        Assert.Equal(life, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_commander_condition_tells_any_commander_from_your_own()
+    {
+        // CR 903.3d: "controlling a commander" is a permanent on the battlefield that *is* a
+        // commander, whoever designated it - so an opponent's commander you have taken answers
+        // "a commander" and not "your commander". Twenty-two cards print the wide form and the
+        // lieutenant cycle prints the narrow one, and a single reader for both would either
+        // refuse a free cast that is printed or hand out a bonus that is not.
+        var anyone = Card(
+            "Any Commander Test",
+            "~ has flying as long as you control a commander.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        var own = Card(
+            "Own Commander Test",
+            "~ has flying as long as you control your commander.",
+            CardType.Creature, power: 2, toughness: 2);
+
+        foreach (var card in (CardDefinition[])[anyone, own])
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        }
+
+        static CardDefinition General(string name) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            Power = 3,
+            Toughness = 3,
+        };
+
+        var hers = General("Alice General Test");
+        var his = General("Bob General Test");
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 40, [.. TestCards.Deck(40, "Alice"), hers])
+                {
+                    CommanderOracleId = hers.OracleId,
+                },
+                new PlayerSetup(bob, "Bob", 40, [.. TestCards.Deck(40, "Bob"), his])
+                {
+                    CommanderOracleId = his.OracleId,
+                },
+            ],
+            new GameRandom(3),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var wide = game.Create(alice, anyone, Zone.Battlefield);
+        var narrow = game.Create(alice, own, Zone.Battlefield);
+        Settle(game);
+
+        bool Flies(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Has(KeywordAbility.Flying);
+
+        // Both commanders are in the command zone, which is not the battlefield.
+        Assert.False(Flies(wide));
+        Assert.False(Flies(narrow));
+
+        // Bob's commander, under Alice's control. This is the board the two clauses disagree
+        // on, and the only one that can tell a wide reader from a narrow one.
+        game.Create(bob, his, Zone.Battlefield, controllerId: alice);
+        Settle(game);
+
+        Assert.True(Flies(wide));
+        Assert.False(Flies(narrow));
+
+        game.Create(alice, hers, Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(Flies(wide));
+        Assert.True(Flies(narrow));
+    }
+
     [Fact]
     public void A_hellbent_condition_counts_the_hand_it_names()
     {
