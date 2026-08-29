@@ -381,7 +381,7 @@ public sealed record DealDamage(Amount Amount, int TargetIndex = 0, bool Deathto
 /// <summary>Destroys a target permanent (CR 701.8).</summary>
 /// <remarks>
 /// Destruction is a move to the graveyard, which indestructible replaces and regeneration can
-/// replace (CR 701.7b). It goes through the same event as any other zone change, so those
+/// replace (CR 701.8c). It goes through the same event as any other zone change, so those
 /// replacements see it.
 /// </remarks>
 public sealed record DestroyTarget(
