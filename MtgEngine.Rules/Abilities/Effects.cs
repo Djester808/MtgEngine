@@ -5694,6 +5694,54 @@ public sealed record GainControlWhileSourceHolds(
     }
 }
 
+/// <summary>
+/// Puts a named continuous effect on a target that lasts "for as long as …" (CR 611.2b).
+/// </summary>
+/// <remarks>
+/// <see cref="PumpUntilEndOfTurn"/> with the other kind of duration, and the only difference is
+/// which one: that one is ended by the turn number in the cleanup step, and this one by a
+/// condition the definition carries. Folding the condition into the effect's own <c>Applies</c>
+/// instead would be a different card — CR 611.2b says an effect whose duration ends is over and
+/// does not start again, so a creature pumped "for as long as this artifact remains tapped" would
+/// otherwise get its bonus back every time the artifact was tapped again.
+/// <para>
+/// The source has to be a permanent for the condition to mean anything, and an ability whose
+/// source has already left does nothing rather than doing it for ever. That is the same guard
+/// <see cref="GainControlWhileSourceHolds"/> makes, and for the same reason: the id names an
+/// object, and an object that is gone is a different one (CR 400.7).
+/// </para>
+/// </remarks>
+public sealed record HoldsWhileSourceHolds(
+    string DefinitionId,
+    Cards.GenerativeEffects.ControlHeldWhile Until,
+    int TargetIndex = 0,
+    EffectSubject Subject = EffectSubject.Target) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } affected)
+            return [];
+
+        if (!context.State.TryGetObject(context.PhysicalSourceId, out var source)
+            || source.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        return
+        [
+            new ContinuousEffectCreated(
+                Guid.NewGuid(),
+                Cards.GenerativeEffects.HeldWhileId(
+                    DefinitionId, context.ControllerId, source.Id, Until),
+                [affected],
+                UntilEndOfTurn: null),
+        ];
+    }
+}
+
 public sealed record GainControlUntilEndOfTurn(int TargetIndex = 0) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
