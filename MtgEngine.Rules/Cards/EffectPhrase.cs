@@ -2912,7 +2912,7 @@ public static partial class EffectPhrase
         // two layers. Adding the type rather than replacing is what keeps it a land, which is
         // exactly what the rider sentence goes on to say.
         m = AnimateLine().Match(sentence);
-        if (m.Success && Specs.Parse(m.Groups["t"].Value) is { } animated)
+        if (m.Success && AnimationLastsTheTurn(m) && Specs.Parse(m.Groups["t"].Value) is { } animated)
         {
             var granted = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
             if (m.Groups["kw"].Success && granted is null)
@@ -2926,8 +2926,7 @@ public static partial class EffectPhrase
 
             foreach (var subtype in AnimatedSubtypes(m))
             {
-                effects.Add(new PumpUntilEndOfTurn(
-                    GenerativeEffects.BecomesCreatureTypeId(subtype), index));
+                effects.Add(new PumpUntilEndOfTurn(AnimatedSubtypeId(m, subtype), index));
             }
 
             if (AnimatedColors(m).ToList() is { Count: > 0 } becomes)
@@ -2953,7 +2952,7 @@ public static partial class EffectPhrase
         // phrase and the source is not a target - the same split the pump readers already have,
         // and for the same reason.
         m = AnimateSelfLine().Match(sentence);
-        if (m.Success)
+        if (m.Success && AnimationLastsTheTurn(m))
         {
             var grantedSelf = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
             if (m.Groups["kw"].Success && grantedSelf is null)
@@ -2964,8 +2963,7 @@ public static partial class EffectPhrase
 
             foreach (var subtype in AnimatedSubtypes(m))
             {
-                effects.Add(new PumpSourceUntilEndOfTurn(
-                    GenerativeEffects.BecomesCreatureTypeId(subtype)));
+                effects.Add(new PumpSourceUntilEndOfTurn(AnimatedSubtypeId(m, subtype)));
             }
 
             if (AnimatedColors(m).ToList() is { Count: > 0 } becomesSelf)
@@ -2981,6 +2979,97 @@ public static partial class EffectPhrase
 
             if (grantedSelf is { } selfKeywords)
                 effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfKeywords)));
+
+            return true;
+        }
+
+        // "~ becomes an artifact creature until end of turn" — the Vehicle wording, and the one
+        // animation that prints no size because the permanent already has one. CR 205.1b names
+        // the phrase and says the object keeps every card type and subtype it had, which is what
+        // adding the two flags does and what setting a size here would have thrown away.
+        m = AnimateArtifactLine().Match(sentence);
+        if (m.Success
+            && AnimationLastsTheTurn(m)
+            && AnimationEffects(m, sets: null) is { } artifactAnimation
+            && Animates(m, targets, effects, artifactAnimation))
+        {
+            return true;
+        }
+
+        // "Until end of turn, target creature becomes a Dragon with base power and toughness 4/4
+        // and gains flying" — the same animation with its size printed after the noun instead of
+        // before it. The two halves land in different layers either way (CR 613.1d, 613.4b), so
+        // this is one more shape of sentence and not one more kind of effect.
+        m = AnimateWithBaseLine().Match(sentence);
+        if (m.Success
+            && AnimationLastsTheTurn(m)
+            && AnimationEffects(
+                m,
+                sets: (int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
+                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)))
+                is { } sizedAnimation
+            && Animates(m, targets, effects, sizedAnimation))
+        {
+            return true;
+        }
+
+        // "Target permanent becomes an artifact in addition to its other types until end of turn"
+        // — a type change with no size at all, because nothing about the permanent's size is
+        // being touched. The phrase is CR 205.1b in so many words, so every type it already had
+        // survives and the subtypes are added rather than replacing what was there.
+        m = AnimateTypeOnlyLine().Match(sentence);
+        if (m.Success
+            && AnimationLastsTheTurn(m)
+            && AnimationEffects(m, sets: null) is { } typeAnimation
+            && Animates(m, targets, effects, typeAnimation))
+        {
+            return true;
+        }
+
+        // "~ has base power and toughness 3/3 until end of turn", and the same aimed at a target
+        // below it — layer 7b, which is a different sublayer from the pump above and reaches
+        // permanents the pump cannot: "gets +4/+4" on something with no printed size modifies
+        // nothing (CR 613.4b, 613.4c). The source form comes first because the target grammar
+        // begins at a target phrase and the source is not one.
+        m = BasePowerToughnessSelfLine().Match(sentence);
+        if (m.Success && SettingLastsTheTurn(m))
+        {
+            var setSelfKeywords = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+            if (m.Groups["kw"].Success && setSelfKeywords is null)
+                return false;
+
+            effects.Add(new PumpSourceUntilEndOfTurn(
+                GenerativeEffects.SetPowerToughnessId(
+                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
+                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture))));
+
+            if (setSelfKeywords is { } selfSet)
+                effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfSet)));
+
+            return true;
+        }
+
+        m = BasePowerToughnessLine().Match(sentence);
+        if (m.Success && SettingLastsTheTurn(m) && Specs.Parse(m.Groups["t"].Value) is { } resized)
+        {
+            var setKeywords = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+            if (m.Groups["kw"].Success && setKeywords is null)
+                return false;
+
+            targets.Add(resized);
+            var resizedIndex = targets.Count - 1;
+
+            effects.Add(new PumpUntilEndOfTurn(
+                GenerativeEffects.SetPowerToughnessId(
+                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
+                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)),
+                resizedIndex));
+
+            if (setKeywords is { } setGranted)
+            {
+                effects.Add(new PumpUntilEndOfTurn(
+                    GenerativeEffects.GrantId(setGranted), resizedIndex));
+            }
 
             return true;
         }
@@ -5062,22 +5151,209 @@ public static partial class EffectPhrase
     private static IEnumerable<ManaColor> AnimatedColors(Match m) =>
         m.Groups["mods"].Value
             .Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
-            .Select(word => word.ToLowerInvariant() switch
-            {
-                "white" => (ManaColor?)ManaColor.White,
-                "blue" => ManaColor.Blue,
-                "black" => ManaColor.Black,
-                "red" => ManaColor.Red,
-                "green" => ManaColor.Green,
-                _ => null,
-            })
+            .Select(ColourNamed)
             .Where(colour => colour is not null)
             .Select(colour => colour!.Value);
+
+    /// <summary>One of the five colour words, or null for anything else (CR 105.1).</summary>
+    private static ManaColor? ColourNamed(string word) => word.ToLowerInvariant() switch
+    {
+        "white" => ManaColor.White,
+        "blue" => ManaColor.Blue,
+        "black" => ManaColor.Black,
+        "red" => ManaColor.Red,
+        "green" => ManaColor.Green,
+        _ => null,
+    };
+
+    /// <summary>The card type words an animation's modifier run may name (CR 205.2a).</summary>
+    private static readonly Dictionary<string, Domain.Enums.CardType> AnimationCardTypeWords =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["artifact"] = Domain.Enums.CardType.Artifact,
+            ["creature"] = Domain.Enums.CardType.Creature,
+            ["enchantment"] = Domain.Enums.CardType.Enchantment,
+            ["land"] = Domain.Enums.CardType.Land,
+            ["planeswalker"] = Domain.Enums.CardType.Planeswalker,
+        };
+
+    /// <summary>The card types an animation's modifier run confers, if any (CR 205.1b).</summary>
+    /// <remarks>
+    /// None is a real answer and not a failure: "becomes a Dragon with base power and toughness
+    /// 4/4" is aimed at a creature and changes its creature type and its size without touching
+    /// its card types. Handing out the creature type there would make a permanent a creature on
+    /// the strength of a word the card did not print.
+    /// </remarks>
+    private static Domain.Enums.CardType AnimatedCardTypes(Match m)
+    {
+        var types = Domain.Enums.CardType.None;
+
+        foreach (var word in m.Groups["mods"].Value.Split(
+            [' ', ','], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (AnimationCardTypeWords.TryGetValue(word, out var one))
+                types |= one;
+        }
+
+        return types;
+    }
+
+    /// <summary>
+    /// Whether every word of a modifier run is one this reader can act on.
+    /// </summary>
+    /// <remarks>
+    /// The guard the older animation reader does not have, and the reason the new shapes get it:
+    /// a run is read by picking out the words that are understood, so a word that is <em>not</em>
+    /// — "colorless", "basic", "nonlegendary" — is silently dropped and the card compiles as
+    /// complete while doing something else. "Becomes a colorless artifact in addition to its
+    /// other types" would have kept every colour it had. Refusing the whole sentence leaves it in
+    /// the work queue, where it can be seen.
+    /// </remarks>
+    private static bool ModifiersUnderstood(string mods) =>
+        mods.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
+            .All(word =>
+                char.IsUpper(word[0])
+                || AnimationCardTypeWords.ContainsKey(word)
+                || ColourNamed(word) is not null);
+
+    /// <summary>
+    /// The generated effects an animation sentence comes to, or null if it names something this
+    /// cannot confer.
+    /// </summary>
+    /// <param name="sets">
+    /// The base power and toughness the sentence prints, if it prints one. Layer 7b and not 7c:
+    /// CR 613.4b puts an effect that speaks of a permanent's <em>base</em> size in the setting
+    /// sublayer, so a counter added afterwards stacks on top of it.
+    /// </param>
+    /// <remarks>
+    /// One list of ids for one sentence, because an animation is several continuous effects and
+    /// each of them lives in its own layer: the type in 4, the colour in 5, the granted keyword in
+    /// 6, the size in 7b (CR 613.1). They are built here so that every shape of animation sentence
+    /// produces the same run of effects and none of them can quietly leave one out.
+    /// </remarks>
+    private static List<string>? AnimationEffects(Match m, (int Power, int Toughness)? sets)
+    {
+        if (!ModifiersUnderstood(m.Groups["mods"].Value))
+            return null;
+
+        var granted = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+        if (m.Groups["kw"].Success && granted is null)
+            return null;
+
+        var ids = new List<string>();
+
+        if (AnimatedCardTypes(m) is var types && types != Domain.Enums.CardType.None)
+            ids.Add(GenerativeEffects.BecomesId(types));
+
+        foreach (var subtype in AnimatedSubtypes(m))
+            ids.Add(AnimatedSubtypeId(m, subtype));
+
+        // A colour is set rather than added even here: "in addition to its other types" is about
+        // types, and a card that meant its colours too says "colors and types" — which this does
+        // not read, so those sentences stay in the queue rather than losing a colour in silence.
+        if (AnimatedColors(m).ToList() is { Count: > 0 } colours)
+            ids.Add(GenerativeEffects.BecomesColorsId(colours));
+
+        if (sets is { } size)
+            ids.Add(GenerativeEffects.SetPowerToughnessId(size.Power, size.Toughness));
+
+        if (granted is { } keywords)
+            ids.Add(GenerativeEffects.GrantId(keywords));
+
+        return ids.Count > 0 ? ids : null;
+    }
+
+    /// <summary>
+    /// Aims a run of generated effects at whatever the sentence animates — the source, or a
+    /// target phrase.
+    /// </summary>
+    /// <remarks>
+    /// The split every reader in this family needs and each of them used to write out twice: a
+    /// permanent that animates itself names no target, and the target grammar begins at a target
+    /// phrase. Nothing is added to either builder until the phrase has been read, so a sentence
+    /// this refuses falls through to the readers below with no half-built effect left behind.
+    /// </remarks>
+    private static bool Animates(
+        Match m,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        IReadOnlyList<string> definitionIds)
+    {
+        if (m.Groups["self"].Value == "~")
+        {
+            foreach (var id in definitionIds)
+                effects.Add(new PumpSourceUntilEndOfTurn(id));
+
+            return true;
+        }
+
+        if (Specs.Parse(m.Groups["t"].Value) is not { } animated)
+            return false;
+
+        targets.Add(animated);
+        var index = targets.Count - 1;
+
+        foreach (var id in definitionIds)
+            effects.Add(new PumpUntilEndOfTurn(id, index));
+
+        return true;
+    }
 
     private static Domain.Enums.CardType AnimatedTypes(Match m) =>
         m.Groups["mods"].Value.Contains("artifact", StringComparison.OrdinalIgnoreCase)
             ? Domain.Enums.CardType.Artifact | Domain.Enums.CardType.Creature
             : Domain.Enums.CardType.Creature;
+
+    /// <summary>
+    /// Whether an animation says how long it lasts, in either of the two places it can (CR 514.2).
+    /// </summary>
+    /// <remarks>
+    /// The duration is required rather than assumed, and that is a refusal rather than a
+    /// convenience: the effect this reader builds is created with the turn number on it and ends
+    /// in the cleanup step, so a card that animates a permanent <em>for good</em> — "Target
+    /// Mountain becomes a 3/1 creature" — would have been read as a combat trick that undoes
+    /// itself. Seven corpus cards were compiling that way, complete and wrong, and requiring the
+    /// words puts them back in the work queue. That is the failure this file exists to avoid:
+    /// nothing downstream can see it, because the card is legal and playable and only the second
+    /// turn tells.
+    /// </remarks>
+    private static bool AnimationLastsTheTurn(Match m) =>
+        m.Groups["pre"].Success || m.Groups["ueot"].Success;
+
+    /// <summary>The same question of a base power and toughness, which prints it twice.</summary>
+    /// <remarks>
+    /// Two trailing positions rather than one, because the keyword clause can sit between them:
+    /// "has base power and toughness 4/2 until end of turn and gains first strike until end of
+    /// turn" is one sentence with the duration on both halves.
+    /// </remarks>
+    private static bool SettingLastsTheTurn(Match m) =>
+        m.Groups["pre"].Success || m.Groups["u1"].Success || m.Groups["u2"].Success;
+
+    /// <summary>
+    /// The layer 4 effect an animation's printed subtype makes — replacing, or adding (CR 205.1).
+    /// </summary>
+    /// <remarks>
+    /// Two rules, one word apart. CR 205.1a is the ordinary case: a new subtype replaces the ones
+    /// the permanent had from the same set. CR 205.1b is the exception the card asks for in so
+    /// many words — "in addition to its other types" keeps every prior type, so a Vampire that
+    /// becomes a Demon is both. Reading the second as the first would silently take away the type
+    /// the rest of the board is counting, on a card that says in print that it does not.
+    /// </remarks>
+    private static string AnimatedSubtypeId(Match m, string subtype) =>
+        m.Groups["add"].Success
+            ? GenerativeEffects.GainsCreatureTypeId(subtype)
+            : GenerativeEffects.BecomesCreatureTypeId(subtype);
+
+    /// <summary>
+    /// Which set of subtypes a printed subtype belongs to (CR 205.1a).
+    /// </summary>
+    /// <remarks>
+    /// Exposed for <see cref="GenerativeEffects"/>, which needs it to answer the only question
+    /// 205.1a asks of a replacing type change: which of the subtypes already there this one
+    /// displaces. The classification itself is the target grammar's, so there is one table.
+    /// </remarks>
+    internal static Domain.Enums.CardType SubtypeSetOf(string subtype) =>
+        Specs.SubtypeCardType(subtype);
 
     /// <summary>
     /// How many a counted phrase comes to, whatever it is counting (CR 107.3).
@@ -6858,7 +7134,7 @@ public static partial class EffectPhrase
         /// on the next release of the rules.
         /// </para>
         /// </remarks>
-        private static CardType SubtypeCardType(string subtype) =>
+        internal static CardType SubtypeCardType(string subtype) =>
             ArtifactTypes.Contains(subtype) ? CardType.Artifact
             : EnchantmentTypes.Contains(subtype) ? CardType.Enchantment
             : LandTypes.Contains(subtype) ? CardType.Land
@@ -8423,24 +8699,120 @@ public static partial class EffectPhrase
     private static partial Regex ChooseAndMoveLine();
 
     /// <remarks>
-    /// The creature type is matched but not kept: the engine has no use for "Elemental" beyond
-    /// tribal lookups, and inventing a subtype the card does not otherwise reference would be
-    /// asserting something it cannot check.
+    /// The modifier run is kept, not discarded: the colours and the creature type it prints are
+    /// conferred with the size (see <see cref="AnimatedSubtypes"/> and
+    /// <see cref="AnimatedColors"/>). An older note here said the type was matched and thrown
+    /// away because the engine had no use for it, and that has not been true since
+    /// <c>CharacteristicsBuilder.Subtypes</c> existed - a Keyrune that animated into a typeless,
+    /// colourless 2/2 was a different card in front of a lord and in front of protection.
+    /// <para>
+    /// The <c>add</c> tail is CR 205.1b: an animation saying "in addition to its other types"
+    /// keeps every type the permanent already had, so the subtype is <em>added</em> rather than
+    /// replacing what was there. It is spelled out as its own group because the keyword clause
+    /// before it would otherwise swallow the words and hand "haste in addition to its other
+    /// types" to the keyword table, which refuses it and takes the whole sentence down with it.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^([Uu]ntil end of turn, )?" + T + @" [Bb]ecomes an? (?<p>\d+)/(?<tough>\d+)"
+        @"^(?<pre>[Uu]ntil end of turn, )?" + T + @" [Bb]ecomes an? (?<p>\d+)/(?<tough>\d+)"
             + @"(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)*) creature"
-            + @"( with (?<kw>[a-z ,]+?))?( until end of turn)?$",
+            + @"( with (?<kw>[a-z ,]+?))?(?<add> in addition to its other types)?"
+            + @"(?<ueot> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex AnimateLine();
 
     /// <summary>The same animation, said of the permanent whose ability it is.</summary>
     [GeneratedRegex(
-        @"^([Uu]ntil end of turn, )?~ [Bb]ecomes an? (?<p>\d+)/(?<tough>\d+)"
+        @"^(?<pre>[Uu]ntil end of turn, )?~ [Bb]ecomes an? (?<p>\d+)/(?<tough>\d+)"
             + @"(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)*) creature"
-            + @"( with (?<kw>[a-z ,]+?))?( until end of turn)?$",
+            + @"( with (?<kw>[a-z ,]+?))?(?<add> in addition to its other types)?"
+            + @"(?<ueot> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex AnimateSelfLine();
+
+    /// <summary>
+    /// "Target creature has base power and toughness 4/4 until end of turn" (CR 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// A different verb from the animation and a different layer from a pump: 613.4b says an
+    /// effect that <em>refers to the base power and toughness</em> of a creature applies in the
+    /// setting sublayer, so a 2/2 set to 4/4 and then given a +1/+1 counter is a 5/5. Read as a
+    /// pump it would have been a 6/6, and on a permanent with no printed size it would have been
+    /// nothing at all.
+    /// <para>
+    /// The duration may be printed in either of two places and the keyword clause may sit between
+    /// them - "has base power and toughness 4/2 until end of turn and gains first strike until
+    /// end of turn" prints it twice. One of them has to be there: the effect this builds ends in
+    /// the cleanup step, and a card that sets a size for good would be silently undone.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?" + T
+            + @" has base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"(?<u1> until end of turn)?( and gains (?<kw>[a-z ,]+?))?"
+            + @"(?<u2> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex BasePowerToughnessLine();
+
+    /// <summary>The same setting, said of the permanent whose ability it is.</summary>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?~"
+            + @" has base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"(?<u1> until end of turn)?( and gains (?<kw>[a-z ,]+?))?"
+            + @"(?<u2> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex BasePowerToughnessSelfLine();
+
+    /// <summary>
+    /// "~ becomes an artifact creature until end of turn" — an animation with no size (CR 205.1b).
+    /// </summary>
+    /// <remarks>
+    /// The Vehicle wording, and the reason it is its own pattern rather than a relaxation of the
+    /// animation above: there is no printed P/T in the sentence because the permanent already has
+    /// one, so setting a size here would overwrite the number the card is played for. CR 205.1b
+    /// names this exact phrase and says the object keeps all of its prior card types and
+    /// subtypes, which is what adding the two type flags does.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?(?<self>~|" + T + @")"
+            + @" becomes an(?<mods> artifact creature)( and gains (?<kw>[a-z ,]+?))?"
+            + @"(?<ueot> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex AnimateArtifactLine();
+
+    /// <summary>
+    /// "Target creature becomes a Dragon with base power and toughness 4/4" (CR 205.1, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The animation with its size printed after the noun rather than before it. Same layers,
+    /// same effects, one more sentence shape — which is the whole argument for building the run
+    /// of effects in one place and matching the wording in several.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?(?<self>~|" + T + @")"
+            + @" becomes an?(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)+)"
+            + @" with base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"(?<add> in addition to its other types)?"
+            + @"( and gains (?<kw>[a-z ,]+?))?(?<ueot> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex AnimateWithBaseLine();
+
+    /// <summary>
+    /// "Target permanent becomes an artifact in addition to its other types" (CR 205.1b).
+    /// </summary>
+    /// <remarks>
+    /// The phrase is required rather than optional, and that is the reader's safety: with it, the
+    /// rule says every prior type is kept and adding is right. Without it, CR 205.1a replaces the
+    /// permanent's subtypes from the same set — "target land becomes an Island" takes the land
+    /// types with it — and the two readings differ on exactly the cards this shape is printed on.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?(?<self>~|" + T + @")"
+            + @" becomes an?(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)+)"
+            + @"(?<add> in addition to its other types)"
+            + @"( and gains (?<kw>[a-z ,]+?))?(?<ueot> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex AnimateTypeOnlyLine();
 
     /// <remarks>
     /// Where the rest go is read rather than assumed, because the corpus does not agree: most say
