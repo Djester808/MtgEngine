@@ -51690,6 +51690,398 @@ public sealed class CompiledCardBehaviourTests
             StringComparison.Ordinal);
     }
 
+    // ---- "This turn" combat requirements, and the durations that hold them ----
+
+    /// <summary>
+    /// "{cost}: ~ can block an additional creature this turn" (CR 509.1a, 611.2).
+    /// </summary>
+    /// <remarks>
+    /// The line this file recorded as declined, in those words: the static layer that reads "can
+    /// block an additional creature <em>each combat</em>" has nowhere to put a duration, so
+    /// reading the "this turn" wording there would have made it permanent. A floating effect is
+    /// where a duration lives, so the grant is that same characteristic with an end on it - and
+    /// the last assertion is the one that matters, because every other line here would pass just
+    /// as well on a reading that handed the creature the allowance for ever.
+    /// </remarks>
+    [Fact]
+    public void An_extra_block_bought_for_the_turn_is_gone_by_the_next_one()
+    {
+        var guard = Card(
+            "Test Coastline Watch",
+            "{1}: ~ can block an additional creature this turn.",
+            CardType.Creature, 1, 4);
+
+        var compiled = CardCompiler.Compile(guard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watch = game.Create(bob, guard, Zone.Battlefield);
+        var first = game.Create(alice, TestCards.Creature("Test Watch Raider", 1, 1), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Test Watch Rider", 1, 1), Zone.Battlefield);
+
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(watch)).ExtraBlocks);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+            });
+
+        // Blockers are declared as a turn-based action before anybody has priority (CR 509.1),
+        // so the declare attackers step is the only window there is to buy the extra block.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        game.AddMana(bob, ManaColor.White);
+        game.ActivateAbility(bob, watch, compiled.Activated.Single().Id);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(watch)).ExtraBlocks);
+
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+            {
+                [first] = [watch],
+                [second] = [watch],
+            });
+
+        Settle(game);
+
+        // Both attackers blocked by the one creature, so nothing reached Bob.
+        TestCards.PassUntil(game, () => game.State.TurnNumber >= 4);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        // CR 611.2: the grant ended in the cleanup step of the turn it was made in.
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(watch)).ExtraBlocks);
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// The two readings of the same allowance, held apart (CR 509.1a).
+    /// </summary>
+    /// <remarks>
+    /// The control the gain above needs. "Each combat" is a static ability and is on from the
+    /// moment the permanent arrives; "this turn" is a one-shot and is off until somebody pays
+    /// for it. A single reader claiming both wordings would pass the test above and fail this
+    /// one, which is exactly the mistake the original decline refused to make.
+    /// </remarks>
+    [Fact]
+    public void The_each_combat_wording_is_a_static_and_the_this_turn_wording_is_not()
+    {
+        var standing = Card(
+            "Test Hundred Arms",
+            "~ can block an additional creature each combat.",
+            CardType.Creature, 1, 4);
+
+        var bought = Card(
+            "Test Mounted Watch",
+            "{W}: ~ can block an additional creature this turn.",
+            CardType.Creature, 1, 4);
+
+        Assert.True(CardCompiler.Compile(standing).IsComplete);
+        Assert.True(CardCompiler.Compile(bought).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var always = game.Create(alice, standing, Zone.Battlefield);
+        var never = game.Create(alice, bought, Zone.Battlefield);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(always)).ExtraBlocks);
+
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(never)).ExtraBlocks);
+    }
+
+    /// <summary>
+    /// "Target creature must be blocked this turn if able" (CR 509.1c, 611.2).
+    /// </summary>
+    /// <remarks>
+    /// The sibling the same note declined for the same reason. The requirement itself was already
+    /// here - a printed "~ must be blocked if able" compiles to a static continuous effect - and
+    /// what was missing was a way to say it for one turn. This test is the duration half: the
+    /// lure is put on in one turn and is gone by the combat of the next, so a declaration that
+    /// ignores it then is legal.
+    /// </remarks>
+    [Fact]
+    public void A_lure_put_on_a_creature_for_the_turn_binds_only_that_turn()
+    {
+        var prey = Card(
+            "Test Irresistible Prey", "Target creature must be blocked this turn if able.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(prey);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, TestCards.Creature("Test Prey Raider", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Test Prey Guard", 1, 4), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, prey), [Target.ToPermanent(attacker)]);
+
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).MustBeBlocked);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        // Turn 3 is a different turn from the one the lure was made on, so the requirement is
+        // gone and Bob may keep his creature back.
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).MustBeBlocked);
+
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+        Settle(game);
+    }
+
+    /// <summary>
+    /// The lure refuses a declaration that ignores it, on the turn it was made (CR 509.1c).
+    /// </summary>
+    /// <remarks>
+    /// The half the test above cannot reach, and the one that proves the requirement is real
+    /// rather than a flag nothing consults. The lure goes on during the declare attackers step
+    /// through an activated ability - which is what Satyr Piper prints - so the block that
+    /// follows falls inside the turn it covers.
+    /// </remarks>
+    [Fact]
+    public void A_lure_made_this_turn_refuses_a_declaration_that_ignores_it()
+    {
+        var piper = Card(
+            "Test Satyr Piper",
+            "{1}: Target creature must be blocked this turn if able.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(piper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, piper, Zone.Battlefield);
+        var attacker = game.Create(alice, TestCards.Creature("Test Piper Raider", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Test Piper Guard", 1, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        var pipe = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Test Satyr Piper");
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.AddMana(alice, ManaColor.Green);
+        game.ActivateAbility(
+            alice, pipe, compiled.Activated.Single().Id, [Target.ToPermanent(attacker)]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).MustBeBlocked);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>()));
+
+        Assert.Contains("509.1c", ex.Message, StringComparison.Ordinal);
+    }
+
+    // ---- A cost that is mana and life (CR 702.34a, 118.8) ---------------------
+
+    /// <summary>
+    /// "Flashback&#8212;{1}{U}, Pay 3 life" (CR 702.34a, 118.8, 601.2h).
+    /// </summary>
+    /// <remarks>
+    /// Flashback was built and the life half was not, because the permission had nowhere to put
+    /// a price that is neither mana nor a card: <c>AlternativeCastZone.Extra</c> holds chosen
+    /// cards and permanents. The life rides on the permission rather than on the spell for the
+    /// reason retrace's land discard does - the same card cast from hand pays none of it.
+    /// </remarks>
+    [Fact]
+    public void Flashback_can_charge_mana_and_life_together()
+    {
+        var analysis = new CardDefinition
+        {
+            OracleId = "oracle-r11-flashback-life",
+            Name = "Test Deep Analysis",
+            OracleText = "You gain 3 life.\nFlashback—{1}, Pay 3 life.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{3}{U}",
+        };
+
+        var compiled = CardCompiler.Compile(analysis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = game.Create(alice, analysis, Zone.Graveyard);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        // Three life paid for the cast and three gained by the spell: the two cancel, which is
+        // not the reading a dropped life cost would produce.
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Single(game.State.Exile);
+    }
+
+    /// <summary>
+    /// A player who cannot pay the life is refused, having spent nothing (CR 118.8).
+    /// </summary>
+    [Fact]
+    public void Flashback_refuses_a_life_cost_the_caster_cannot_pay()
+    {
+        var ruinous = new CardDefinition
+        {
+            OracleId = "oracle-r11-flashback-life-too-much",
+            Name = "Test Ruinous Recall",
+            OracleText = "You gain 3 life.\nFlashback—{1}, Pay 25 life.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{3}{U}",
+        };
+
+        Assert.True(CardCompiler.Compile(ruinous).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var card = game.Create(alice, ruinous, Zone.Graveyard);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, card));
+        Assert.Contains("118.8", ex.Message, StringComparison.Ordinal);
+
+        // Refused before anything was spent: the card is still in the graveyard and the life is
+        // untouched.
+        Assert.Contains(card, game.State.GetPlayer(alice).Graveyard);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- A delayed counter change (CR 603.7, 122.1) --------------------------
+
+    /// <summary>
+    /// "Whenever ~ attacks or blocks, remove a +1/+1 counter from it at end of combat."
+    /// </summary>
+    /// <remarks>
+    /// The Clockwork cycle. The delayed vocabulary could only move a permanent between zones, and
+    /// its unrecognised-instruction arm is a <em>sacrifice</em> - so a counter change handed to
+    /// it would have destroyed the creature rather than shrinking it. The battlefield assertion
+    /// at the end is therefore not decoration: it is what tells a working reading from that one.
+    /// </remarks>
+    [Fact]
+    public void A_counter_removed_at_end_of_combat_shrinks_the_creature_rather_than_killing_it()
+    {
+        var beetle = Card(
+            "Test Clockwork Beetle",
+            "This creature enters with two +1/+1 counters on it.\n"
+                + "Whenever this creature attacks or blocks, remove a +1/+1 counter from it at "
+                + "end of combat.",
+            CardType.Creature, 0, 2);
+
+        var compiled = CardCompiler.Compile(beetle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var clockwork = game.Create(alice, beetle, Zone.Battlefield);
+
+        Assert.Equal(2, game.State.GetObject(clockwork).Permanent!.Counters["+1/+1"]);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [clockwork] = AttackTarget.Player(bob) });
+
+        // The trigger has fired and set the delay, and nothing has happened yet: the counter goes
+        // at end of combat, not when the creature attacks.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        Assert.Equal(2, game.State.GetObject(clockwork).Permanent!.Counters["+1/+1"]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep > TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(clockwork).Permanent!.Counters["+1/+1"]);
+
+        // Still on the battlefield, which is the whole difference between a counter removal and
+        // the sacrifice the delayed vocabulary falls back to.
+        Assert.Contains(clockwork, game.State.Battlefield);
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(clockwork)).Power);
+    }
+
+    // ---- A cost modifier that asks what the spell is aimed at (CR 601.2c) -----
+
+    /// <summary>
+    /// "Spells your opponents cast that target ~ cost {2} more to cast" (CR 601.2c, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The condition the cost-modifier grid refused, because the record had nowhere to put it and
+    /// the only available reading was the unconditional one - a tax on every spell an opponent
+    /// casts. It costs nothing to ask: CR 601.2c chooses targets before CR 601.2f works the cost
+    /// out, so the answer is already in hand. Both arms are played, because a modifier that
+    /// taxed everything would pass the first assertion on its own.
+    /// </remarks>
+    [Fact]
+    public void A_spell_is_taxed_only_when_it_targets_the_permanent_that_says_so()
+    {
+        var regent = Card(
+            "Test Icefall Regent",
+            "Spells your opponents cast that target ~ cost {2} more to cast.",
+            CardType.Creature, 4, 5);
+
+        var compiled = CardCompiler.Compile(regent);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var taxed = game.Create(alice, regent, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = Card("Test Regent Bolt", "~ deals 3 damage to any target.");
+        var atRegent = TestCards.PutInHand(game, bob, bolt);
+        var atAlice = TestCards.PutInHand(game, bob, bolt);
+
+        game.AddMana(bob, ManaColor.Red);
+
+        // One mana buys a bolt aimed at anything except the creature that taxes it.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, atRegent, [Target.ToPermanent(taxed)]));
+
+        game.CastSpell(bob, atAlice, [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+
+        // And with the tax paid the same spell reaches the same creature: it is a price, not a
+        // prohibition.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.TurnNumber >= 4);
+
+        // Put in hand after the turn has passed: a card sitting through a cleanup can be
+        // discarded to hand size, and then there is no card to cast.
+        var second = TestCards.PutInHand(game, bob, bolt);
+
+        game.AddMana(bob, ManaColor.Red, 3);
+        game.CastSpell(bob, second, [Target.ToPermanent(taxed)]);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(taxed).Permanent!.DamageMarked);
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>

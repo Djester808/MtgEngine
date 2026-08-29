@@ -4387,6 +4387,50 @@ public sealed record DelaySourceAction(string EffectId, State.TurnStep Step) : I
 }
 
 /// <summary>
+/// Changes the source's counters at a later step (CR 603.7, 122.1).
+/// </summary>
+/// <remarks>
+/// The Clockwork cycle's wind-down — "whenever this creature attacks or blocks, remove a +1/+1
+/// counter from it at end of combat" — and the two cards that put one on instead. A delayed
+/// ability like <see cref="DelaySourceAction"/> and deliberately a separate effect rather than a
+/// fourth verb in it: everything that one can be asked to do is a zone change, and the arm in
+/// <c>Game</c> that reads its id falls through to a <em>sacrifice</em> for any word it does not
+/// recognise. A counter change handed to that vocabulary would not remove a counter, it would
+/// destroy the creature.
+/// <para>
+/// The kind and the delta ride in the ability's id, which is the same choice a generated
+/// continuous effect makes and for the same reason: a delayed ability carries a string and
+/// nothing else, and the string has to stay legible in a stored game.
+/// </para>
+/// </remarks>
+public sealed record DelaySourceCounters(string Kind, int Delta, State.TurnStep Step) : IEffect
+{
+    /// <summary>The word that marks a delayed ability as a counter change.</summary>
+    public const string Prefix = "counters:";
+
+    /// <summary>The id a delayed counter change carries — "counters:+1/+1:-1".</summary>
+    public static string IdFor(string kind, int delta) =>
+        string.Create(
+            System.Globalization.CultureInfo.InvariantCulture, $"{Prefix}{kind}:{delta}");
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new DelayedTriggerCreated(
+                Guid.NewGuid(),
+                context.ControllerId,
+                context.PhysicalSourceId,
+                Step,
+                IdFor(Kind, Delta),
+                context.State.TurnNumber),
+        ];
+    }
+}
+
+/// <summary>
 /// Unearth: back from the graveyard, hasty, and exiled at end of turn (CR 702.83a).
 /// </summary>
 /// <remarks>
@@ -5237,6 +5281,24 @@ public sealed record CostModifier
     /// whoever is activating it.
     /// </remarks>
     public bool SourceOnly { get; init; }
+
+    /// <summary>
+    /// Whether it applies only to a spell that targets the permanent printing it (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// "Spells your opponents cast that target this creature cost {2} more to cast." The clause
+    /// was refused for a while and the refusal was right at the time: this record had nowhere to
+    /// put the condition, so the line could only have been read as the unconditional form - a
+    /// tax on every spell an opponent casts, which is a far better card than the printed one.
+    /// <para>
+    /// It costs nothing to ask, because the answer is already known when it is asked: CR 601.2c
+    /// chooses targets before CR 601.2f works the cost out, so the cast has the list in hand by
+    /// the time the modifiers are gathered. An ability being activated is never passed one, so a
+    /// modifier carrying this simply never applies there - which is what the printed word
+    /// "spells" says.
+    /// </para>
+    /// </remarks>
+    public bool TargetsSource { get; init; }
 }
 
 /// <summary>
