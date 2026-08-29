@@ -42554,6 +42554,348 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
     }
+    // ---- Level up (CR 711) ---------------------------------------------------
+
+    /// <summary>Student of Warfare, printed exactly as it is (CR 711.1).</summary>
+    /// <remarks>
+    /// The keywords passed in are the point of the fixture rather than a detail of it. A card
+    /// database builds its keyword list from the whole rules text, so a real leveler arrives
+    /// carrying first strike <em>and</em> double strike before it has been levelled once - and a
+    /// 1/1 with both is a strictly better card than the one printed. Handing them over here is
+    /// what lets the test see whether the mechanic takes them back off.
+    /// </remarks>
+    private static CardDefinition WarfareStudent() => Card(
+        "Test Warfare Student",
+        "Level up {W} ({W}: Put a level counter on this. Level up only as a sorcery.)\n"
+            + "LEVEL 2-6\n"
+            + "3/3\n"
+            + "First strike\n"
+            + "LEVEL 7+\n"
+            + "4/4\n"
+            + "Double strike",
+        CardType.Creature,
+        1,
+        1,
+        KeywordAbility.FirstStrike | KeywordAbility.DoubleStrike,
+        "Human",
+        "Knight");
+
+    /// <summary>Levels a permanent up, tapping that many Plains for each activation.</summary>
+    private static void LevelUp(
+        Game game, Guid player, ObjectId permanent, int times, int lands = 1)
+    {
+        for (var i = 0; i < times; i++)
+        {
+            for (var paid = 0; paid < lands; paid++)
+            {
+                var plains = game.Create(player, TestCards.BasicLand("Plains"), Zone.Battlefield);
+                game.ActivateAbility(player, plains, "mana");
+            }
+
+            game.ActivateAbility(player, permanent, "levelup", []);
+            Settle(game);
+        }
+    }
+
+    /// <summary>How many level counters a permanent is carrying.</summary>
+    private static int LevelsOn(Game game, ObjectId permanent) =>
+        game.State.GetObject(permanent).Permanent!.Counters.GetValueOrDefault(CounterKinds.Level);
+
+    /// <summary>
+    /// A leveler is the card that is printed until its counters reach a level symbol (CR 711.3).
+    /// </summary>
+    /// <remarks>
+    /// The counter at level 1 is what carries this. Student of Warfare's first symbol is
+    /// "LEVEL 2-6", so there is a level the card has been paid for and is still its printed self -
+    /// and an implementation that switched the first band on at the first counter would pass a
+    /// test that only looked at nothing and then at plenty.
+    /// <para>
+    /// The two keyword assertions before that are the other half. Both are printed flags on the
+    /// card, put there by a database reading the whole text, and neither is an ability the
+    /// creature has until it has been levelled to the symbol that names it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_leveler_is_its_printed_self_until_the_counters_reach_a_symbol()
+    {
+        var student = WarfareStudent();
+        var compiled = CardCompiler.Compile(student);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var knight = game.Create(alice, student, Zone.Battlefield);
+
+        var printed = Characteristics.Of(game.State, Pool, game.State.GetObject(knight));
+        Assert.Equal(1, printed.Power);
+        Assert.Equal(1, printed.Toughness);
+        Assert.False(printed.Keywords.HasFlag(KeywordAbility.FirstStrike));
+        Assert.False(printed.Keywords.HasFlag(KeywordAbility.DoubleStrike));
+
+        LevelUp(game, alice, knight, 1);
+
+        Assert.Equal(1, LevelsOn(game, knight));
+
+        var below = Characteristics.Of(game.State, Pool, game.State.GetObject(knight));
+        Assert.Equal(1, below.Power);
+        Assert.Equal(1, below.Toughness);
+        Assert.False(below.Keywords.HasFlag(KeywordAbility.FirstStrike));
+
+        LevelUp(game, alice, knight, 1);
+
+        var reached = Characteristics.Of(game.State, Pool, game.State.GetObject(knight));
+        Assert.Equal(3, reached.Power);
+        Assert.Equal(3, reached.Toughness);
+        Assert.True(reached.Keywords.HasFlag(KeywordAbility.FirstStrike));
+
+        // The band it has not reached is still off.
+        Assert.False(reached.Keywords.HasFlag(KeywordAbility.DoubleStrike));
+    }
+
+    /// <summary>
+    /// The symbol a leveler has reached replaces the one below it (CR 711.3).
+    /// </summary>
+    /// <remarks>
+    /// Not "adds to": the last band of Student of Warfare prints double strike and does not
+    /// print first strike, so a creature that reaches it stops having first strike. An
+    /// implementation that accumulated bands would leave both flags set, look perfectly correct
+    /// in play, and be a different card to anything that asks which keywords it has.
+    /// </remarks>
+    [Fact]
+    public void The_symbol_a_leveler_reaches_replaces_the_one_below_it()
+    {
+        var (game, alice, _) = InMainPhase();
+        var knight = game.Create(alice, WarfareStudent(), Zone.Battlefield);
+
+        LevelUp(game, alice, knight, 7);
+
+        Assert.Equal(7, LevelsOn(game, knight));
+
+        var top = Characteristics.Of(game.State, Pool, game.State.GetObject(knight));
+        Assert.Equal(4, top.Power);
+        Assert.Equal(4, top.Toughness);
+        Assert.True(top.Keywords.HasFlag(KeywordAbility.DoubleStrike));
+        Assert.False(top.Keywords.HasFlag(KeywordAbility.FirstStrike));
+    }
+
+    /// <summary>
+    /// A band sets the size in layer 7b, so a +1/+1 counter still counts on top (CR 711.4).
+    /// </summary>
+    /// <remarks>
+    /// The sublayer is the whole assertion. Setting a leveler's size in 7c would add the band's
+    /// numbers to the printed ones and make this a 4/4 before the counter and a 5/5 after; doing
+    /// it in 7b makes the band the base the counter is added to, which is what the rule says and
+    /// the only reading under which a levelled 3/3 with a +1/+1 counter is a 4/4.
+    /// </remarks>
+    [Fact]
+    public void A_bands_size_is_set_before_counters_are_added()
+    {
+        var (game, alice, _) = InMainPhase();
+        var knight = game.Create(alice, WarfareStudent(), Zone.Battlefield);
+
+        LevelUp(game, alice, knight, 2);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(knight)).Power);
+
+        var boost = TestCards.PutInHand(
+            game, alice, Card("Test Level Boost", "Put a +1/+1 counter on target creature."));
+
+        TapLands(game, alice, 1);
+        game.CastSpell(alice, boost, [Target.ToPermanent(knight)]);
+        Settle(game);
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(knight));
+        Assert.Equal(4, grown.Power);
+        Assert.Equal(4, grown.Toughness);
+    }
+
+    /// <summary>
+    /// Levelling up can only be done at sorcery speed (CR 711.2a, 602.5d).
+    /// </summary>
+    /// <remarks>
+    /// The restriction is printed only in the reminder text, which the compiler strips as noise
+    /// before it reads anything - so it is written into the ability rather than read off the
+    /// card, and this is the only thing that can tell whether that was done.
+    /// </remarks>
+    [Fact]
+    public void Levelling_up_is_refused_outside_a_main_phase()
+    {
+        var (game, alice, _) = InMainPhase();
+        var knight = game.Create(alice, WarfareStudent(), Zone.Battlefield);
+        var plains = game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.BeginningOfCombat);
+        game.ActivateAbility(alice, plains, "mana");
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, knight, "levelup", []));
+
+        Assert.Contains("602.5d", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(0, LevelsOn(game, knight));
+    }
+
+    /// <summary>Enclave Cryptologist, whose bands are two different activated abilities.</summary>
+    private static CardDefinition LevelCryptologist() => Card(
+        "Test Level Cryptologist",
+        "Level up {U} ({U}: Put a level counter on this. Level up only as a sorcery.)\n"
+            + "LEVEL 1-2\n"
+            + "0/1\n"
+            + "{T}: Draw a card, then discard a card.\n"
+            + "LEVEL 3+\n"
+            + "0/1\n"
+            + "{T}: Draw a card.",
+        CardType.Creature,
+        0,
+        1,
+        KeywordAbility.None,
+        "Merfolk",
+        "Wizard");
+
+    /// <summary>Levels a permanent up, paying {1}{U} for each activation.</summary>
+    private static void LevelUpBlue(Game game, Guid player, ObjectId permanent, int times)
+    {
+        for (var i = 0; i < times; i++)
+        {
+            for (var paid = 0; paid < 2; paid++)
+            {
+                var island = game.Create(player, TestCards.BasicLand("Island"), Zone.Battlefield);
+                game.ActivateAbility(player, island, "mana");
+            }
+
+            game.ActivateAbility(player, permanent, "levelup", []);
+            Settle(game);
+        }
+    }
+
+    /// <summary>
+    /// An activated ability under a level symbol waits for its band, and stops when the band does
+    /// (CR 711.3).
+    /// </summary>
+    /// <remarks>
+    /// The third kind of gate, and the one that could have been wired to nothing without any
+    /// other test noticing: a static that applies early looks like a card that is simply good and
+    /// a trigger that fires early looks like nothing at all, but an activated ability is offered
+    /// or refused and both directions have to be checked. The band the creature has left is
+    /// checked while it is untapped, so the refusal can only be about the level.
+    /// </remarks>
+    [Fact]
+    public void An_ability_under_a_level_symbol_waits_for_its_band_and_stops_after_it()
+    {
+        var mage = LevelCryptologist();
+        var compiled = CardCompiler.Compile(mage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var wizard = game.Create(alice, mage, Zone.Battlefield);
+
+        // A turn of its own, so that tapping is never what a refusal is about (CR 302.6).
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var abilities = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(wizard));
+        var lower = abilities.Single(a => a.Id.StartsWith("l1", StringComparison.Ordinal)).Id;
+        var upper = abilities.Single(a => a.Id.StartsWith("l3", StringComparison.Ordinal)).Id;
+
+        // Nothing yet: the first symbol starts at one counter, and there are none.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, wizard, lower, []));
+
+        LevelUpBlue(game, alice, wizard, 1);
+
+        // In the first band, and not the second.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, wizard, upper, []));
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+        var graveyardBefore = game.State.GetPlayer(alice).Graveyard.Count;
+
+        game.ActivateAbility(alice, wizard, lower, []);
+        Settle(game);
+
+        // Drew one and pitched one, so the hand is the size it was and the graveyard is not.
+        Assert.Equal(handBefore, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(graveyardBefore + 1, game.State.GetPlayer(alice).Graveyard.Count);
+
+        // Past the first band. Its ability is gone, and the next one has arrived.
+        LevelUpBlue(game, alice, wizard, 2);
+        Assert.Equal(3, LevelsOn(game, wizard));
+
+        TestCards.PassToTurn(game, 5);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, wizard, lower, []));
+
+        var beforeDraw = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, wizard, upper, []);
+        Settle(game);
+
+        Assert.Equal(beforeDraw + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>Kabira Vindicator, whose bands are two different anthems.</summary>
+    private static CardDefinition LevelVindicator() => Card(
+        "Test Level Vindicator",
+        "Level up {2}{W} ({2}{W}: Put a level counter on this. Level up only as a sorcery.)\n"
+            + "LEVEL 2-4\n"
+            + "3/6\n"
+            + "Other creatures you control get +1/+1.\n"
+            + "LEVEL 5+\n"
+            + "4/8\n"
+            + "Other creatures you control get +2/+2.",
+        CardType.Creature,
+        2,
+        4,
+        KeywordAbility.None,
+        "Human",
+        "Knight");
+
+    /// <summary>
+    /// A static ability under a level symbol waits for its band, and is replaced by the next
+    /// one (CR 711.3).
+    /// </summary>
+    /// <remarks>
+    /// A static is the gate that can be wrong in silence: an anthem applying a band early looks
+    /// like a card that is simply good, and one that never stops applying looks like nothing at
+    /// all until two bands are on at once. Its gate is also a different argument from the
+    /// activated one - the permanent arrives as the effect's <em>source</em> rather than as the
+    /// thing being computed - so it could have been wired to the wrong object and still passed
+    /// every other test here.
+    /// <para>
+    /// The Vindicator's own size is asserted alongside, because "other creatures" means it does
+    /// not pump itself: at the first band it is the 3/6 the symbol prints and not a 4/7.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_under_a_level_symbol_waits_for_its_band_and_is_replaced_by_the_next()
+    {
+        var vindicator = LevelVindicator();
+        var compiled = CardCompiler.Compile(vindicator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var knight = game.Create(alice, vindicator, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Test Level Bear", 2, 2), Zone.Battlefield);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power ?? 0;
+
+        // Nothing yet. Without the gate every band of the card would be on at once.
+        Assert.Equal(2, PowerOf(bear));
+        Assert.Equal(2, PowerOf(knight));
+
+        LevelUp(game, alice, knight, 2, lands: 3);
+
+        Assert.Equal(3, PowerOf(bear));
+        Assert.Equal(3, PowerOf(knight));
+        Assert.Equal(6, Characteristics.Of(game.State, Pool, game.State.GetObject(knight)).Toughness);
+
+        LevelUp(game, alice, knight, 3, lands: 3);
+        Assert.Equal(5, LevelsOn(game, knight));
+
+        // +2/+2, not +3/+3: the second band replaces the first rather than stacking with it.
+        Assert.Equal(4, PowerOf(bear));
+        Assert.Equal(4, PowerOf(knight));
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

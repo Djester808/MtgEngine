@@ -5817,3 +5817,87 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
 - **Displayed power and toughness ignore CR 613.** `ObjectView` carries printed values plus
   counters, so a creature under a lord reads at its printed size on the board while the engine
   fights with the right number. The engine is right; the board is lying.
+
+### Level up, and the keywords a card is not supposed to have yet
+
+A leveler is a Class with a different switch. Its bands are chosen by a count of level counters
+rather than by a bought designation — CR 711.4 says the two do not interact, which is why the
+progress is a real counter and not `PermanentState.Level` — and the lines under a band must not
+function before the permanent has been levelled that far. That is the same requirement Classes,
+Cases and Rooms already answer, so it gets the same answer: each band is compiled as a card of its
+own and the abilities that come back are wrapped in a level test before they are merged, and every
+matcher in the compiler is reused unchanged.
+
+Three of the four line kinds were free that way. The fourth was not, and it is the one worth
+writing down.
+
+**A card database lists a card's keywords from its whole rules text, and a leveler's whole rules
+text includes bands it has not reached.** Student of Warfare arrives from the corpus carrying
+`First strike` *and* `Double strike` as printed flags, on a 1/1 that has neither until it has been
+levelled twice. Nothing in the level machinery causes that — the flags are on the card before the
+compiler reads a line — but reading the mechanic is what would have *shipped* it, because a card
+the compiler cannot fully read is refused by the deck check and a card it can is not. Coverage
+would have gone up by twenty-two while twenty-two cards became strictly better than printed.
+
+So the keywords named inside bands are taken off in layer 6 and given back one band at a time, in a
+single continuous effect rather than one per band: the two halves have to happen in that order and
+layer 6 offers no ordering between two effects of the same permanent. A keyword named both inside a
+band and outside one is kept, because the card has it at every level and the band is repeating it.
+The size is set in layer 7b (CR 711.4), so a +1/+1 counter on a levelled creature counts on top of
+the band's numbers rather than under them — a levelled 3/3 with a counter is a 4/4, and that is the
+assertion that can tell 7b from 7c.
+
+Two smaller decisions, both fail-closed. A sentence that means a keyword — `~ can't be blocked` on
+Hada Spy Patrol — comes back from a section as a *granted* keyword rather than as an ability, and a
+granted keyword has no gate of its own; it joins the band's keywords instead, because the Class
+compiler's habit of merging only the four ability lists would have read that sentence and then
+thrown it away. And a section that comes back carrying anything a level gate cannot wrap — a spell,
+a cost modifier, one of the flat permissions — takes the whole card back to unread, since merging
+it would let it function at every level and dropping it would lose it silently.
+
+22 of the 25 levelers in the corpus are now read completely: 15,499 → 15,521, with the set of
+complete cards diffed rather than the count, and no card lost. The three that remain are held back
+by sentences that have nothing to do with levelling — protection from a card type and from
+everything (Hexdrinker), a prevention shield of a fixed size (Hedron-Field Purists), and copying a
+spell twice (Echo Mage) — and each of those now reports only those sentences, which is the honest
+shape of the remaining work.
+
+Three cards nearby are reachable *because* level counters now exist and were still declined, at one
+card each: Champion's Drake ("as long as you control a creature with three or more level counters
+on it"), Time of Heroes ("each creature you control with a level counter on it gets +2/+2") and
+Venerated Teacher ("put two level counters on each creature you control with level up"). Each needs
+a different piece of vocabulary — a board condition counting counters on *somebody else's*
+permanent, a group anthem filtered by a counter, a group counter-placement filtered by an ability —
+and none of them is shared with anything else.
+
+### Measured and declined: mutate
+
+34 cards, entirely unread, and the largest named mechanic left in the corpus. It stays that way, and
+the measurement is the reason rather than the effort.
+
+Every one of the 34 is blocked by two things: the `Mutate {cost}` line, and (on 33 of them) a
+`Whenever this creature mutates, …` trigger whose effect the shared vocabulary can mostly already
+run. Neither is the hard part. The hard part is that CR 702.140 makes a mutated permanent **one
+permanent represented by a stack of cards** — it has the topmost card's characteristics plus every
+ability of every card under it — and `GameObject` holds exactly one `CardDefinition`, which is also
+the key everything uses to look an ability up.
+
+What landing it correctly would take, listed rather than estimated:
+
+- a permanent that holds an ordered list of cards, with the top one answering for characteristics
+  and all of them answering for abilities — which is `Characteristics`, `Game.ActivatedAbilitiesOf`,
+  the trigger sweep and the statics gather, all of which ask a card;
+- a zone change that moves *every* card in the stack (CR 702.140e), and state-based actions that
+  see one object where the graveyard will see several;
+- a cast path that is not "resolve into a new permanent": mutate targets a non-Human creature you
+  own, asks over-or-under as the spell is cast, and merges on resolution;
+- "the number of times this has mutated", which four of the cards read as X and which has to
+  survive on the permanent;
+- new events for the merge, registered in both `GameReducer` and `EventLogSerializer`, and the new
+  fields added to `Equals` or their updates are silently dropped;
+- `PlayerViewProjector`, which has nowhere to put a permanent that is several cards.
+
+That is a structural change to the object model, not a template. The half-built version — read the
+mutate cost, read the triggers, and cast the card as an ordinary creature — is exactly the failure
+this file exists to prevent: 33 cards would compile as complete, be let into decks, and play as
+vanilla creatures whose printed trigger never fires.
