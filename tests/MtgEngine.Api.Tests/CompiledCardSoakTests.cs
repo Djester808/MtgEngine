@@ -132,6 +132,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         var lands = 0;
         var spells = 0;
         var untouched = new Dictionary<string, int>(StringComparer.Ordinal);
+        var typeless = 0;
 
         // The four kinds of declaration a compiled card can carry. Playing a permanent runs its
         // statics and offers its replacements every event; pressing a button runs an activated
@@ -197,6 +198,18 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
             if (!onBoard && !asSpell)
             {
+                // An entry with no card type at all is not a card a game can contain: the corpus
+                // carries art-series prints, planes and token faces whose whole type line is
+                // "Card", and a handful of them have text empty enough to compile as complete.
+                // Counted apart rather than folded into the gap, because "no soak plays this card
+                // type" and "this is not a card" are different findings and only the first is a
+                // hole worth filling.
+                if (card.CardTypes == CardType.None)
+                {
+                    typeless++;
+                    continue;
+                }
+
                 var shape = card.CardTypes.ToString();
                 untouched[shape] = untouched.GetValueOrDefault(shape) + 1;
             }
@@ -206,6 +219,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         output.WriteLine($"  onto a battlefield: {battlefield}  ({permanentsOnly} permanents, {lands} lands)");
         output.WriteLine($"  cast as a spell:    {spells}");
         output.WriteLine($"  reached by nothing: {untouched.Values.Sum()}");
+        output.WriteLine($"  not cards at all:   {typeless}  (art series, planes, token faces)");
 
         foreach (var (shape, n) in untouched.OrderByDescending(p => p.Value).Take(10))
             output.WriteLine($"    {n,6}  {shape}");
@@ -226,9 +240,9 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             $"only {complete} complete cards - the coverage test counts over 15,000, so this "
                 + "census is reading a different corpus or a different compiler.");
 
-        // Every complete card is in exactly one of the three buckets, and the third one is meant
-        // to be empty. It was 759 lands before they were let in; if it grows again a card type
-        // has appeared that no soak plays.
+        // Every complete card that is actually a card is in one of the two buckets, and the
+        // third is meant to be empty. It was 759 lands before they were let in; if it grows again
+        // a card type has appeared that no soak plays.
         Assert.True(
             untouched.Values.Sum() == 0,
             $"{untouched.Values.Sum()} complete cards are in no soak at all: "
