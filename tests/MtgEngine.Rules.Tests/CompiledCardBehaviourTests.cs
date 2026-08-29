@@ -12128,6 +12128,339 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(17, game.State.GetPlayer(bob).Life);
     }
 
+    // ---- Two restrictions in one sentence (CR 602.5b, 602.5d) ---------------------
+
+    /// <summary>
+    /// "Activate only during your turn and only once each turn" — Licia, Sanguine Tribune.
+    /// </summary>
+    /// <remarks>
+    /// Each half read on its own and the conjunction did not, so 92 corpus lines went unread over
+    /// the word "and". Both halves are asserted separately here because a reader that folded the
+    /// two into one field would pass a test of either alone: the second activation proves the cap
+    /// and the opponent's turn proves the phase.
+    /// </remarks>
+    [Fact]
+    public void An_ability_restricted_twice_keeps_both_restrictions()
+    {
+        var licia = Card(
+            "Twice Restricted Test",
+            "Pay 5 life: Put three +1/+1 counters on ~. "
+                + "Activate only during your turn and only once each turn.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(licia);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var vampire = game.Create(alice, licia, Zone.Battlefield);
+
+        game.ActivateAbility(alice, vampire, "a");
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(alice).Life);
+        Assert.Equal(
+            3,
+            game.State.GetObject(vampire).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // The cap: a second try on the same turn is refused before any life is paid.
+        var again = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, vampire, "a"));
+
+        Assert.Contains("602.5b", again.Message, StringComparison.Ordinal);
+        Assert.Equal(15, game.State.GetPlayer(alice).Life);
+
+        // The phase: a fresh turn resets the cap, and it is Bob's, so the other half refuses.
+        // Played on until Alice actually holds priority, because otherwise the refusal would be
+        // about priority (CR 117.1) and the test would prove nothing about the timing rule.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == alice);
+
+        var wrongTurn = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, vampire, "a"));
+
+        Assert.Contains("602.5d", wrongTurn.Message, StringComparison.Ordinal);
+        Assert.Equal(15, game.State.GetPlayer(alice).Life);
+    }
+
+    // ---- Lords without an ownership clause (CR 613.4c) ----------------------------
+
+    /// <summary>
+    /// "All Sliver creatures get +1/+1" — Muscle Sliver, which pumps the Slivers across the table.
+    /// </summary>
+    /// <remarks>
+    /// A mass static with no "you control" clause names every permanent that answers the
+    /// description, and this defaulted to the controller's own — the identical bug already found
+    /// and fixed in the granted-ability reader beside it, "a hive lord that quietly stopped at the
+    /// table edge", still standing here on 46 corpus cards. Every one of them compiled as
+    /// complete and applied to half the board, which is the failure this project most wants to
+    /// avoid: it does not refuse, it succeeds wrongly.
+    /// </remarks>
+    [Fact]
+    public void A_lord_with_no_ownership_clause_reaches_the_whole_board()
+    {
+        var muscle = Card(
+            "Muscle Sliver Test",
+            "All Sliver creatures get +1/+1.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            subtypes: "Sliver");
+
+        var compiled = CardCompiler.Compile(muscle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var theirs = new CardDefinition
+        {
+            OracleId = "oracle-their-sliver-test",
+            Name = "Their Sliver Test",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Subtypes = ["Sliver"],
+        };
+
+        var (game, alice, bob) = InMainPhase();
+        var lord = game.Create(alice, muscle, Zone.Battlefield);
+        var opposing = game.Create(bob, theirs, Zone.Battlefield);
+        var unrelated = game.Create(bob, TestCards.Creature("Sliverless Test", 2, 2), Zone.Battlefield);
+
+        // The lord pumps itself — "All", not "Other" — and it pumps the opponent's Sliver too.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(lord)));
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(opposing)));
+
+        // And nothing that is not a Sliver, which is what says the filter still reads the noun.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(unrelated)));
+    }
+
+    // ---- Base power and toughness as a static (CR 613.4b) ------------------------
+
+    /// <summary>
+    /// "Other creatures have base power and toughness 1/1" — Godhead of Awe.
+    /// </summary>
+    /// <remarks>
+    /// Layer 7b was reachable only from the Spacecraft station reader, so every card that sets a
+    /// creature's base power and toughness from a static went unread. The layer is what the last
+    /// assertion is about: setting happens before modifying, so a +1/+1 counter on a creature
+    /// shrunk to 1/1 makes it 2/2 rather than being overwritten (CR 613.4b, 613.4c).
+    /// </remarks>
+    [Fact]
+    public void A_mass_static_can_set_base_power_and_toughness()
+    {
+        var godhead = Card(
+            "Godhead Test",
+            "Flying\nOther creatures have base power and toughness 1/1.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4,
+            keywords: KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(godhead);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var avatar = game.Create(alice, godhead, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Godhead Ally Test", 3, 3), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Godhead Foe Test", 5, 5), Zone.Battlefield);
+
+        // "Other" keeps it off itself, and the missing ownership clause reaches across the table.
+        var itself = Characteristics.Of(game.State, Pool, game.State.GetObject(avatar));
+        Assert.Equal(4, itself.Power);
+        Assert.Equal(4, itself.Toughness);
+
+        var ally = Characteristics.Of(game.State, Pool, game.State.GetObject(mine));
+        Assert.Equal(1, ally.Power);
+        Assert.Equal(1, ally.Toughness);
+
+        var foe = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+        Assert.Equal(1, foe.Power);
+        Assert.Equal(1, foe.Toughness);
+
+        // Set in 7b, modified in 7c: the counter counts on top of the 1/1 rather than under it.
+        game.ChangeCounters(theirs, CounterKinds.PlusOnePlusOne, 1);
+        Settle(game);
+
+        var counted = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+        Assert.Equal(2, counted.Power);
+        Assert.Equal(2, counted.Toughness);
+    }
+
+    /// <summary>
+    /// "Enchanted creature has base power and toughness 0/2" — Reduce in Stature.
+    /// </summary>
+    /// <remarks>
+    /// The same layer reached through the attachment grammar rather than the group one. It is a
+    /// separate reader and so needs its own test: the two share a pattern shape and nothing else.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_set_base_power_and_toughness()
+    {
+        var shrink = Card(
+            "Reduce In Stature Test",
+            "Enchant creature\nEnchanted creature has base power and toughness 0/2.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(shrink);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var victim = game.Create(bob, TestCards.Creature("Shrunk Test", 5, 5), Zone.Battlefield);
+        var bystander = game.Create(bob, TestCards.Creature("Unshrunk Test", 5, 5), Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var island = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+            game.ActivateAbility(alice, island, "mana");
+        }
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, shrink), [Target.ToPermanent(victim)]);
+        Settle(game);
+
+        var shrunk = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.Equal(0, shrunk.Power);
+        Assert.Equal(2, shrunk.Toughness);
+
+        // Only what it is attached to: an Aura that shrank the whole board would pass every
+        // assertion above.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bystander)));
+    }
+
+    /// <summary>
+    /// "Enchanted artifact is a creature with base power and toughness 5/5 in addition to its
+    /// other types" — Ensoul Artifact.
+    /// </summary>
+    /// <remarks>
+    /// The same layer 7b reached alongside the layer 4 the station reader uses, on an attachment
+    /// rather than on the source. The last assertion is the reason the pattern demands "in
+    /// addition to its other types" rather than assuming it: an animated artifact that had
+    /// quietly stopped being an artifact would dodge artifact removal, which is the reading that
+    /// makes the card better than printed.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_animate_what_it_is_attached_to()
+    {
+        var ensoul = Card(
+            "Ensoul Test",
+            "Enchant artifact\n"
+                + "Enchanted artifact is a creature with base power and toughness 5/5 "
+                + "in addition to its other types.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(ensoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var trinket = new CardDefinition
+        {
+            OracleId = "oracle-ensoul-trinket-test",
+            Name = "Ensoul Trinket Test",
+            CardTypes = CardType.Artifact,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, trinket, Zone.Battlefield);
+
+        // Not a creature until the Aura arrives, which is what says the layer is doing the work.
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(artifact)).IsCreature);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var island = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+            game.ActivateAbility(alice, island, "mana");
+        }
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, ensoul), [Target.ToPermanent(artifact)]);
+        Settle(game);
+
+        var animated = Characteristics.Of(game.State, Pool, game.State.GetObject(artifact));
+        Assert.True(animated.IsCreature);
+        Assert.Equal(5, animated.Power);
+        Assert.Equal(5, animated.Toughness);
+
+        // "In addition to": it is still an artifact, so artifact removal still finds it.
+        Assert.True(animated.CardTypes.HasFlag(CardType.Artifact));
+
+        // Set in 7b, so a counter added in 7c stacks on top rather than being overwritten.
+        game.ChangeCounters(artifact, CounterKinds.PlusOnePlusOne, 1);
+        Settle(game);
+
+        Assert.Equal(
+            6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(artifact)));
+    }
+
+    // ---- A bonus and a quoted ability in one sentence (CR 613.1f, 613.4c) --------
+
+    /// <summary>
+    /// "Enchanted creature gets +2/+2 and has "{T}: This creature deals 1 damage to any target.""
+    /// — Arcane Teachings.
+    /// </summary>
+    /// <remarks>
+    /// Two complete grammars that never met. <c>Enchanted creature has "{T}: Add {B}"</c> read and
+    /// <c>Enchanted creature gets +2/+2 and has flying</c> read, and the two joined did not: the
+    /// attached-buff reader's keyword slot has no quotation mark in it, and the grant reader's
+    /// pattern went from the group straight to the word "has". 52 cards print the pair.
+    /// <para>
+    /// Both halves are asserted, and both are asserted <em>off</em> the creature next to it. A
+    /// grant is invisible from the card that gives it, so a predicate that is too generous looks
+    /// exactly like one that works — which is how the filter bugs in this family were found.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_give_a_bonus_and_a_quoted_ability_in_one_sentence()
+    {
+        var teachings = Card(
+            "Arcane Teachings Test",
+            "Enchant creature\n"
+                + "Enchanted creature gets +2/+2 and has "
+                + "\"{T}: This creature deals 1 damage to any target.\"",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(teachings);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Haste, because the granted ability costs a tap and a creature that arrived this turn
+        // cannot pay one (CR 302.6).
+        var student = game.Create(
+            alice,
+            Card("Taught Bear Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        var bystander = game.Create(
+            alice, TestCards.Creature("Untaught Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, teachings), [Target.ToPermanent(student)]);
+        Settle(game);
+
+        // The bonus, in layer 7c.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(student)));
+
+        // And the ability, in layer 6 — played rather than counted, because a granted ability
+        // that goes on the stack has to be found a second time to resolve.
+        var granted = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(student))
+            .Single(a => a.Id.StartsWith("granted:", StringComparison.Ordinal));
+
+        game.ActivateAbility(alice, student, granted.Id, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        // Neither half reaches the creature standing beside it.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bystander)));
+        Assert.Empty(GrantedIdsOf(game, bystander));
+    }
+
     /// <summary>
     /// "Disturb {1}{W}" — cast from the graveyard, arriving with the back face up (CR 702.146a).
     /// </summary>
