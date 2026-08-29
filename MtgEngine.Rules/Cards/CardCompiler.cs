@@ -1056,6 +1056,9 @@ public static partial class CardCompiler
                 continue;
             }
 
+            if (TryAlternativeManaCost(line, card, ref conditionalCost))
+                continue;
+
             if (BuybackLine().Match(line) is { Success: true } bought)
             {
                 buyback = ManaCostSpec.Parse(bought.Groups["cost"].Value);
@@ -1116,6 +1119,18 @@ public static partial class CardCompiler
                 continue;
 
             if (TryPhantomDamage(line, replacements))
+                continue;
+
+            if (TryDamageAmount(line, replacements))
+                continue;
+
+            if (TryCounterAmount(line, replacements))
+                continue;
+
+            if (TryLifeGainAmount(line, replacements))
+                continue;
+
+            if (TryDiesReplacement(line, replacements))
                 continue;
 
             if (TryShockland(line, replacements))
@@ -1768,6 +1783,53 @@ public static partial class CardCompiler
         });
     }
 
+    /// <summary>
+    /// Every spelling of its own name a card uses to refer to itself, longest first.
+    /// </summary>
+    /// <remarks>
+    /// The printed name and the part before the comma, which is what a legendary card calls
+    /// itself (CR 201.2b) — and both of those again with a leading <c>A-</c> taken off.
+    /// <para>
+    /// That prefix is how Alchemy marks a rebalanced card, and the rebalanced card's rules text
+    /// names the <em>paper</em> card: "A-Armory Veteran" reads "As long as Armory Veteran is
+    /// equipped". 216 playable cards carry the prefix and 116 of them name themselves without it,
+    /// so on every one of those the name was never turned into <c>~</c> and every self-referring
+    /// line went unread — an enters trigger, a static, whatever the card happened to say.
+    /// </para>
+    /// <para>
+    /// The prefixed spelling is kept as well rather than replaced by the bare one: five of these
+    /// cards do print their own full name, and dropping it would trade one miss for another. It is
+    /// stripped only from the name used for <em>self-reference</em> — never from the oracle id,
+    /// which is what keeps a rebalanced card and its paper original apart in the compiled pool.
+    /// </para>
+    /// <para>
+    /// Longest first, and that is load-bearing rather than tidy: replacing "Armory Veteran" before
+    /// "A-Armory Veteran" leaves the line reading "A-~", which no template matches — the same miss
+    /// in a different disguise.
+    /// </para>
+    /// </remarks>
+    private static ImmutableList<string> SelfNames(string printed)
+    {
+        var names = new List<string>();
+
+        void Add(string name)
+        {
+            if (name.Length > 2 && !names.Contains(name, StringComparer.Ordinal))
+                names.Add(name);
+
+            var shortened = name.Split(',')[0].Split(" //", StringSplitOptions.None)[0].Trim();
+            if (shortened.Length > 2 && !names.Contains(shortened, StringComparer.Ordinal))
+                names.Add(shortened);
+        }
+
+        Add(printed);
+
+        if (printed.StartsWith("A-", StringComparison.Ordinal))
+            Add(printed[2..]);
+
+        return [.. names.OrderByDescending(name => name.Length)];
+    }
+
     public static IEnumerable<string> Lines(CardDefinition card)
     {
         ArgumentNullException.ThrowIfNull(card);
@@ -1791,16 +1853,14 @@ public static partial class CardCompiler
         if (text.Length == 0)
             yield break;
 
-        var shortName = card.Name.Split(',')[0].Split(" //", StringSplitOptions.None)[0].Trim();
+        var selfNames = SelfNames(card.Name);
 
         foreach (var line in text.Split('\n'))
         {
             var cleaned = Reminder().Replace(line, string.Empty);
 
-            if (card.Name.Length > 2)
-                cleaned = cleaned.Replace(card.Name, "~", StringComparison.Ordinal);
-            if (shortName.Length > 2)
-                cleaned = cleaned.Replace(shortName, "~", StringComparison.Ordinal);
+            foreach (var self in selfNames)
+                cleaned = cleaned.Replace(self, "~", StringComparison.Ordinal);
 
             // Cards printed since 2022 refer to themselves as "this creature" rather than by
             // name, and older ones were errata'd to match. Both spellings mean the source, so
@@ -6999,13 +7059,86 @@ public static partial class CardCompiler
             || paid.RequiresTap
             || paid.Life > 0
             || paid.SelfCost is not SelfCost.None
-            || paid.Counters is not null)
+            || paid.Counters is not null
+
+            // "Return a land you control to its owner's hand" reads, and on a *spell* the engine
+            // sends it to the graveyard instead: the cast path's chosen-cost loop has arms for
+            // tapping and for exiling from a graveyard and falls through to a graveyard move for
+            // everything else, while the activation path beside it has the arm this needs. Cards
+            // of this shape are therefore left unread rather than compiled into a spell that
+            // destroys what it was supposed to pick up (CR 701.20a).
+            || paid.Chosen.Any(cost => cost.Kind is ChosenCostKind.ReturnToHand))
         {
             unhandled.Add(line);
             return true;
         }
 
         into.AddRange(paid.Chosen);
+        return true;
+    }
+
+    /// <summary>
+    /// "You may pay [cost] rather than pay ~'s mana cost" — an alternative cost (CR 118.9).
+    /// </summary>
+    /// <remarks>
+    /// The keyword-less printing of what surge, spectacle and warp say with one word, and it goes
+    /// through the same <see cref="ConditionalCost"/> for a reason that is the whole of this
+    /// reader's safety: **an alternative cost is optional** (CR 118.9b), and the caster announces
+    /// they are paying it (CR 601.2b). The engine's other route — <see cref="AlternativeCastZone"/>
+    /// — is taken *unconditionally* whenever the card is in the zone that offers it, so compiling
+    /// this as one would leave the card unable to be cast for its printed cost at all. That is why
+    /// More Than Meets the Eye is still unread: it is this shape with a cost the caster must be
+    /// able to decline, and there was nowhere to put it until this route was found.
+    /// <para>
+    /// Only a wholly-mana cost is read. The rest of the family pays with something else — "you may
+    /// sacrifice a Mountain", "you may exile a black card from your hand" — and a
+    /// <c>ConditionalCost</c> carries mana and nothing else, so charging one of those as free mana
+    /// would make the card cheaper than printed.
+    /// </para>
+    /// <para>
+    /// A leading "if" is a question about the board, answered by the shared condition vocabulary
+    /// against a stand-in for the card being cast. A condition that vocabulary cannot read leaves
+    /// the line unread rather than offering the cost unconditionally.
+    /// </para>
+    /// </remarks>
+    private static bool TryAlternativeManaCost(
+        string line, CardDefinition card, ref ConditionalCost? into)
+    {
+        var m = AlternativeManaCostLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        Func<GameState, Guid, bool> available = static (_, _) => true;
+
+        if (m.Groups["when"].Success)
+        {
+            if (BoardConditions.Parse(m.Groups["when"].Value.Trim()) is not { } holds)
+                return false;
+
+            // The condition vocabulary reads "you" off a source object, and the source here is
+            // the card being cast — which is not yet an object anywhere. A stand-in carrying the
+            // would-be controller is what the cost-reduction readers do with the same problem
+            // (CR 109.5: "you" on an object is its would-be controller while it is being cast).
+            available = (state, playerId) => holds(
+                state,
+                EmptyAbilities.Instance,
+                new GameObject
+                {
+                    Id = ObjectId.New(),
+                    Card = card,
+                    OwnerId = playerId,
+                    ControllerId = playerId,
+                    Zone = Zone.Stack,
+                    Timestamp = 0,
+                });
+        }
+
+        into = new ConditionalCost(
+            "alternative cost",
+            "CR 118.9a",
+            ManaCostSpec.Parse(m.Groups["cost"].Value),
+            available);
+
         return true;
     }
 
@@ -8197,6 +8330,570 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "If [a source] would deal damage to [something], it deals [more] instead" (CR 614.1a).
+    /// </summary>
+    /// <remarks>
+    /// The damage-amplifying replacement, and the largest single replacement family left in the
+    /// corpus: 36 cards print one of these as their whole rules text. It is read compositionally
+    /// rather than as whole lines because the three slots vary independently — whose damage, dealt
+    /// to what, and by how much — and enumerating the product would be one pattern per card.
+    /// <para>
+    /// CR 614.5 is what makes "replace the event with a bigger one" safe to write: a replacement
+    /// gets one opportunity per event and does not re-enter its own output. The rule's own example
+    /// is this very card — two doublers make a 2-power creature deal 8, "not an infinite amount" —
+    /// and the engine's <c>applied</c> set is what implements it.
+    /// </para>
+    /// <para>
+    /// A line saying "this turn" is refused outright. Those are one-shot effects a resolving spell
+    /// creates, and compiled here they would become a static ability that doubled damage for the
+    /// rest of the game — a strictly better card than the one printed, reading as complete.
+    /// </para>
+    /// </remarks>
+    private static bool TryDamageAmount(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = DamageAmountLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (line.Contains(" this turn", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (DamageDealer(m.Groups["src"].Value.Trim()) is not { } dealer)
+            return false;
+
+        var named = m.Groups["rec"].Success ? m.Groups["rec"].Value.Trim() : null;
+        if (DamageRecipient(named) is not { } victim)
+            return false;
+
+        if (DamageScale(m) is not { } scale)
+            return false;
+
+        // "…to that permanent or player" is the sentence pointing back at the recipient it has
+        // already named. Anything else in that slot is a *redirection* — "it deals that damage to
+        // its controller" — which replaces who is damaged rather than how much, and is not this.
+        var tail = m.Groups["again"].Success ? m.Groups["again"].Value.Trim() : string.Empty;
+        if (tail.Length > 0
+            && !tail.StartsWith("that ", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(tail, "it", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        bool? combat = m.Groups["qual"].Value.Trim().ToLowerInvariant() switch
+        {
+            "combat" => true,
+            "noncombat" => false,
+            _ => null,
+        };
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "damage-amount:" + m.Groups["src"].Value.Trim().ToLowerInvariant()
+                + ":" + m.Groups["times"].Value + m.Groups["half"].Value
+                + m.Groups["dir"].Value + m.Groups["n"].Value,
+
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, state, source) =>
+                DamageIn(e) is { } damage
+                && damage.Amount > 0
+                && (combat is null || combat == damage.IsCombat)
+                && dealer(state, source, damage.SourceId)
+                && victim(state, source, e),
+
+            Replace = (e, _, _) => Rescaled(e, scale(DamageIn(e)!.Value.Amount)),
+        });
+
+        return true;
+    }
+
+    /// <summary>The damage an event is, or null when it is not one (CR 120.3).</summary>
+    /// <remarks>
+    /// Two events, because the rules keep two: damage to a player is life loss (CR 120.3c) and
+    /// damage to a permanent is marked on it (CR 120.3a). Everything watching damage has to watch
+    /// both, and a reader that watched only the permanent would silently skip every burn spell.
+    /// </remarks>
+    private static (int Amount, ObjectId SourceId, bool IsCombat)? DamageIn(GameEvent e) => e switch
+    {
+        PlayerDamaged hit => (hit.Amount, hit.SourceId, hit.IsCombat),
+        DamageMarked marked => (marked.Amount, marked.SourceId, marked.IsCombat),
+        _ => null,
+    };
+
+    /// <summary>The same damage event with a different amount, or nothing at all.</summary>
+    /// <remarks>
+    /// CR 614.7a: a source that would deal 0 damage deals none, so an amount reduced to zero is
+    /// the event not happening rather than a zero-damage event. Returning the latter would let
+    /// "whenever this deals damage" triggers fire off damage nobody took.
+    /// </remarks>
+    private static IReadOnlyList<GameEvent> Rescaled(GameEvent e, int amount)
+    {
+        if (amount <= 0)
+            return [];
+
+        return e switch
+        {
+            PlayerDamaged hit => [hit with { Amount = amount }],
+            DamageMarked marked => [marked with { Amount = amount }],
+            _ => [e],
+        };
+    }
+
+    /// <summary>Whose damage a replacement watches, or null when the phrase is not read.</summary>
+    /// <remarks>
+    /// "A source" is every source there is, which is why it asks nothing about the object and does
+    /// not require it to still exist — a spell that has finished resolving is gone by the time
+    /// anything looks. The narrower phrases all need the object, and answer false without it,
+    /// which errs towards doing nothing rather than towards doing it to everybody.
+    /// </remarks>
+    private static Func<GameState, GameObject, ObjectId, bool>? DamageDealer(string printed)
+    {
+        // "~" — this permanent's own damage, the one phrase that describes no group at all.
+        if (string.Equals(printed, "~", StringComparison.Ordinal))
+            return static (_, source, dealt) => dealt == source.Id;
+
+        var m = DamageSourcePhrase().Match(printed);
+        if (m.Success)
+        {
+            var spell = string.Equals(
+                m.Groups["noun"].Value, "spell", StringComparison.OrdinalIgnoreCase);
+
+            var yours = m.Groups["side"].Success;
+            var other = m.Groups["scope"].Value.StartsWith(
+                "another", StringComparison.OrdinalIgnoreCase);
+
+            ManaColor? colour = null;
+            if (m.Groups["adj"].Success)
+            {
+                // "A noncreature source", "an instant or sorcery source" — a description this
+                // cannot ask about. Left unread rather than widened to every source, which would
+                // be a strictly better card than the one printed.
+                colour = ColorNamed(m.Groups["adj"].Value.Trim());
+                if (colour is null)
+                    return null;
+            }
+
+            if (!spell && !yours && !other && colour is null)
+                return static (_, _, _) => true;
+
+            return (state, source, dealt) =>
+            {
+                if (other && dealt == source.Id)
+                    return false;
+
+                if (!state.TryGetObject(dealt, out var dealer))
+                    return false;
+
+                // CR 109.5: a spell is a source only while it is on the stack, and that is the
+                // whole difference between "a red spell" and "a red source".
+                if (spell && dealer.Zone != Zone.Stack)
+                    return false;
+
+                var computed = Characteristics.Of(state, EmptyAbilities.Instance, dealer);
+
+                if (colour is { } wanted && !computed.Colors.Contains(wanted))
+                    return false;
+
+                return !yours || computed.ControllerId == ControllerIn(state, source);
+            };
+        }
+
+        // Anything else describes a permanent, and the target grammar already reads those: "a
+        // creature you control", "a Wizard you control", "enchanted creature".
+        var (spec, excludesSource) = GroupSpec(printed);
+        if (spec is not { Kind: TargetKind.Permanent })
+            return null;
+
+        return (state, source, dealt) =>
+            (!excludesSource || dealt != source.Id)
+            && state.TryGetObject(dealt, out var dealer)
+            && Answers(spec, state, source, dealer);
+    }
+
+    /// <summary>What the damage has to be dealt to, or null when the phrase is not read.</summary>
+    private static Func<GameState, GameObject, GameEvent, bool>? DamageRecipient(string? printed)
+    {
+        // Nothing named, or the phrase that names every recipient there is.
+        if (printed is null
+            || string.Equals(printed, "a permanent or player", StringComparison.OrdinalIgnoreCase))
+        {
+            return static (_, _, _) => true;
+        }
+
+        // "An opponent or a permanent an opponent controls" is one question about two kinds of
+        // recipient, and the target grammar has no phrase for it — a target is one or the other.
+        // Eleven cards print it, so it is written out here rather than left unread.
+        if (string.Equals(
+            printed,
+            "an opponent or a permanent an opponent controls",
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return static (state, source, e) =>
+            {
+                var mine = ControllerIn(state, source);
+
+                return e switch
+                {
+                    PlayerDamaged hit => hit.PlayerId != mine,
+                    DamageMarked marked =>
+                        state.TryGetObject(marked.Id, out var hurt)
+                        && hurt.Zone == Zone.Battlefield
+                        && Characteristics.Of(state, EmptyAbilities.Instance, hurt).ControllerId
+                            != mine,
+                    _ => false,
+                };
+            };
+        }
+
+        var (spec, _) = GroupSpec(printed);
+        if (spec is null)
+            return null;
+
+        return (state, source, e) => e switch
+        {
+            PlayerDamaged hit =>
+                spec.Kind is TargetKind.Player or TargetKind.Any
+                && (spec.PlayerFilter?.Invoke(state, hit.PlayerId, ControllerIn(state, source))
+                    ?? true),
+
+            DamageMarked marked =>
+                spec.Kind is TargetKind.Permanent or TargetKind.Any
+                && state.TryGetObject(marked.Id, out var hurt)
+                && Answers(spec, state, source, hurt),
+
+            _ => false,
+        };
+    }
+
+    /// <summary>How much damage the sentence says is dealt instead, or null when unread.</summary>
+    private static Func<int, int>? DamageScale(Match m)
+    {
+        if (m.Groups["times"].Success)
+        {
+            var factor = m.Groups["times"].Value.ToLowerInvariant() switch
+            {
+                "double" or "twice" => 2,
+                "triple" => 3,
+                _ => 0,
+            };
+
+            return factor == 0 ? null : amount => amount * factor;
+        }
+
+        // "Half that damage, rounded down" — integer division is the rounding the card names, and
+        // rounding the other way is a different card, which is why the words are matched rather
+        // than assumed.
+        if (m.Groups["half"].Success)
+            return static amount => amount / 2;
+
+        var step = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+        return m.Groups["dir"].Value.Equals("plus", StringComparison.OrdinalIgnoreCase)
+            ? amount => amount + step
+            : amount => amount - step;
+    }
+
+    /// <summary>
+    /// "If one or more +1/+1 counters would be put on [a group], [that many, changed] instead."
+    /// </summary>
+    /// <remarks>
+    /// CR 614.16 says this applies whether the counters come from a resolving spell, another
+    /// replacement, or anything else — which is what makes one reader over the counter event
+    /// enough, and why a creature that <em>enters</em> with counters gets the extra one too.
+    /// <para>
+    /// Only the two named kinds are read. The unqualified printing — "if one or more counters
+    /// would be put on a permanent you control" — also catches a planeswalker's loyalty and a
+    /// Saga's lore counters, and this cannot tell the card that means them from the card that does
+    /// not, so it is left unread rather than guessed.
+    /// </para>
+    /// <para>
+    /// The delta is required to be positive. A counter being <em>removed</em> is the same event
+    /// with the sign flipped, and doubling it would take two counters off where the card says
+    /// nothing at all.
+    /// </para>
+    /// </remarks>
+    private static bool TryCounterAmount(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = CounterAmountLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // The head and the tail name the same counter, and a card where they differed would be
+        // saying something this cannot express.
+        var kind = m.Groups["kind"].Value;
+        if (!string.Equals(kind, m.Groups["kind2"].Value, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // "…are put on it" / "on that creature" — the sentence pointing back at what it already
+        // named. Anything else names a second permanent, which is a different effect.
+        var where = m.Groups["where"].Value.Trim();
+        if (!where.StartsWith("that ", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(where, "it", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        Func<int, int>? adjust =
+            (m.Groups["op"].Value.ToLowerInvariant(), m.Groups["less"].Success) switch
+            {
+                ("twice that many", false) => static many => many * 2,
+                ("that many plus one", false) => static many => many + 1,
+                ("that many", true) => static many => many - 1,
+                _ => null,
+            };
+
+        if (adjust is null)
+            return false;
+
+        if (CounterGroup(m.Groups["group"].Value.Trim()) is not { } holds)
+            return false;
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "counter-amount:" + kind.ToLowerInvariant()
+                + ":" + m.Groups["group"].Value.Trim().ToLowerInvariant(),
+
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, state, source) =>
+                e is CountersChanged { Delta: > 0 } put
+                && string.Equals(put.Kind, kind, StringComparison.OrdinalIgnoreCase)
+                && holds(state, source, put.Id),
+
+            Replace = (e, _, _) =>
+            {
+                var put = (CountersChanged)e;
+                var many = adjust(put.Delta);
+
+                return many > 0 ? [put with { Delta = many }] : [];
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>Which permanents a counter replacement watches, or null when it is not read.</summary>
+    private static Func<GameState, GameObject, ObjectId, bool>? CounterGroup(string printed)
+    {
+        if (string.Equals(printed, "~", StringComparison.Ordinal))
+            return static (_, source, id) => id == source.Id;
+
+        var (spec, excludesSource) = GroupSpec(printed);
+        if (spec is not { Kind: TargetKind.Permanent })
+            return null;
+
+        return (state, source, id) =>
+            (!excludesSource || id != source.Id)
+            && state.TryGetObject(id, out var held)
+            && Answers(spec, state, source, held);
+    }
+
+    /// <summary>
+    /// "If [somebody] would gain life, [they gain more, or none, or lose it] instead."
+    /// </summary>
+    /// <remarks>
+    /// CR 119.3 makes this one event to watch, and the guard that matters is its sign: a life
+    /// <em>loss</em> is the same event counted the other way, and a doubler that read it would
+    /// double every payment and every drain the card says nothing about.
+    /// <para>
+    /// Who gains and who is spoken about afterwards have to agree. "If an opponent would gain
+    /// life, <em>you</em> gain that much" is a different card from the one printed, and reading
+    /// the two halves independently would have compiled it.
+    /// </para>
+    /// </remarks>
+    private static bool TryLifeGainAmount(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = LifeGainAmountLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var who = m.Groups["who"].Value.Trim().ToLowerInvariant();
+        var mine = who is "you";
+
+        // "You" in the second half means the player the first half named, and "that player" means
+        // the one the event picked out. A sentence that swaps them says something else.
+        if (mine != (m.Groups["subject"].Value.Trim().ToLowerInvariant() is "you"))
+            return false;
+
+        var losing = m.Groups["verb"].Value.StartsWith("lose", StringComparison.OrdinalIgnoreCase);
+        var how = m.Groups["how"].Value.Trim().ToLowerInvariant();
+
+        Func<int, int>? adjust = (losing, how) switch
+        {
+            (false, "twice that much life") => static much => much * 2,
+            (false, "no life") => static _ => 0,
+            (true, "that much life") => static much => -much,
+            _ => null,
+        };
+
+        if (adjust is null && m.Groups["n"].Success && !losing)
+        {
+            var step = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+            adjust = much => much + step;
+        }
+
+        if (adjust is null)
+            return false;
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "life-gain-amount:" + who + ":" + how,
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, state, source) =>
+                e is LifeChanged { Delta: > 0 } gained
+                && (who is "a player"
+                    || (gained.PlayerId == ControllerIn(state, source)) == mine),
+
+            Replace = (e, state, _) =>
+            {
+                var gained = (LifeChanged)e;
+                var much = adjust(gained.Delta);
+
+                // CR 119.3: a life total is adjusted by the amount, so the new total is read from
+                // the player as they stand now rather than from the total the replaced event
+                // carried — that one was worked out for a different number.
+                return much == 0
+                    ? []
+                    : [new LifeChanged(
+                        gained.PlayerId,
+                        much,
+                        state.GetPlayer(gained.PlayerId).Life + much)];
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "If [something] would die, exile it instead" — a death replacement (CR 614.1a).
+    /// </summary>
+    /// <remarks>
+    /// CR 700.4 defines "dies" as being put into a graveyard <em>from the battlefield</em>, which
+    /// is the whole difference from the sentence its neighbour <see cref="TryGraveyardReplacement"/>
+    /// reads: that one says "from anywhere" and catches a card milled, discarded or countered as
+    /// well. Reading this one as "from anywhere" would take those too, on a card that says nothing
+    /// about them.
+    /// <para>
+    /// The destination alternation is the same three the printed cards use, and nothing else: a
+    /// destination this does not know leaves the line unread rather than defaulting to exile,
+    /// which is the harshest of the three and would be wrong on two of the four cards.
+    /// </para>
+    /// </remarks>
+    private static bool TryDiesReplacement(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = DiesReplacementLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var where = m.Groups["where"].Value.ToLowerInvariant();
+        var bottom = where.Contains("bottom", StringComparison.Ordinal);
+        var library = bottom || where.Contains("library", StringComparison.Ordinal);
+
+        var who = m.Groups["who"].Value.Trim();
+        Func<GameState, GameObject, ObjectId, bool> dying;
+
+        if (string.Equals(who, "~", StringComparison.Ordinal))
+        {
+            dying = static (_, source, id) => id == source.Id;
+        }
+        else
+        {
+            var (spec, excludesSource) = GroupSpec(who);
+            if (spec is not { Kind: TargetKind.Permanent })
+                return false;
+
+            dying = (state, source, id) =>
+                (!excludesSource || id != source.Id)
+                && state.TryGetObject(id, out var doomed)
+                && Answers(spec, state, source, doomed);
+        }
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "dies-to:" + (library ? bottom ? "library-bottom" : "library-top" : "exile")
+                + ":" + who.ToLowerInvariant(),
+
+            FunctionsFrom = Zone.Battlefield,
+            Applies = (e, state, source) =>
+                e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard } gone
+                && dying(state, source, gone.OldId),
+
+            Replace = (e, _, _) =>
+            {
+                var gone = (ObjectMoved)e;
+
+                return
+                [
+                    gone with
+                    {
+                        To = library ? Zone.Library : Zone.Exile,
+                        Position = bottom ? ZonePosition.Bottom : ZonePosition.Top,
+                    },
+                ];
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>The controller of the permanent whose ability is asking, after layer 2 (CR 613.1b).</summary>
+    /// <remarks>
+    /// Every reader above needs "you", and "you" is whoever controls the ability now — not whoever
+    /// controlled it when the permanent arrived. A stolen doubler doubles its new controller's
+    /// damage, and reading the stored controller would have it still working for the player it was
+    /// taken from.
+    /// </remarks>
+    private static Guid ControllerIn(GameState state, GameObject source) =>
+        Characteristics.Of(state, EmptyAbilities.Instance, source).ControllerId;
+
+    /// <summary>
+    /// A printed group phrase read as a target spec, with the article and "another" lifted off.
+    /// </summary>
+    /// <remarks>
+    /// The target grammar is the shared vocabulary for "which permanents", and a replacement wants
+    /// exactly that question without the word "target" in front of it. "Another" is not part of
+    /// the description — it is a fact about the source — so it comes out here and is answered by
+    /// the caller, which is the same split the mass-static reader makes.
+    /// </remarks>
+    private static (TargetSpec? Spec, bool ExcludesSource) GroupSpec(string printed)
+    {
+        var m = GroupPhrase().Match(printed);
+        if (!m.Success)
+            return (null, false);
+
+        var excludes = m.Groups["scope"].Value.StartsWith(
+            "another", StringComparison.OrdinalIgnoreCase);
+
+        return (EffectPhrase.Specs.Parse("target " + m.Groups["what"].Value.Trim()), excludes);
+    }
+
+    /// <summary>
+    /// Whether a permanent answers a target phrase, without any of the targeting rules.
+    /// </summary>
+    /// <remarks>
+    /// The phrase vocabulary is reused for the group a replacement watches; the <em>targeting</em>
+    /// half of it deliberately is not. Hexproof and shroud stop a permanent being chosen
+    /// (CR 702.11b, 702.18b) and a replacement effect chooses nothing, so asking
+    /// <see cref="TargetSpec.IsLegal"/> here would exempt a hexproof creature from Furnace of Rath
+    /// — which is not a rule anywhere.
+    /// </remarks>
+    private static bool Answers(
+        TargetSpec spec, GameState state, GameObject source, GameObject subject)
+    {
+        if (subject.Zone != Zone.Battlefield)
+            return false;
+
+        var controller = ControllerIn(state, source);
+
+        return (spec.ObjectFilter?.Invoke(
+                state, EmptyAbilities.Instance, subject, controller) ?? true)
+            && (spec.SourceFilter?.Invoke(
+                state, EmptyAbilities.Instance, subject, source, controller) ?? true);
+    }
+
     /// <summary>When a "cast this only ..." line allows the spell to be cast (CR 601.3e).</summary>
     /// <remarks>
     /// Every arm is a question about the turn, and the ones that mention combat mean the phase
@@ -8785,17 +9482,46 @@ public static partial class CardCompiler
         var sacrifice = SacrificeChosenCost().Match(remaining);
         if (sacrifice.Success)
         {
-            if (SacrificeSpec(sacrifice.Groups["what"].Value) is not { } what)
+            // "Sacrifice two creatures" is the same cost counted, and the noun is singularised for
+            // the same reason the tapping cost singularises its own: the target grammar names one
+            // thing and how many is carried by the cost rather than by the words.
+            var scope = sacrifice.Groups["scope"].Value;
+            var howMany = scope.StartsWith('a') ? 1 : NumberWordOrDigits(scope);
+
+            var noun = sacrifice.Groups["what"].Value.Trim();
+            if (howMany > 1)
+                noun = EffectPhrase.Singular(noun);
+
+            if (SacrificeSpec(noun) is not { } what)
                 return null;
 
             chosen.Add(new ChosenCost(
                 ChosenCostKind.SacrificePermanents,
-                1,
+                howMany,
                 what,
-                ExcludesSource: sacrifice.Groups["scope"].Value
-                    .StartsWith("another", StringComparison.OrdinalIgnoreCase)));
+                ExcludesSource: scope.StartsWith("another", StringComparison.OrdinalIgnoreCase)));
 
             Lift(SacrificeChosenCost());
+        }
+
+        var returned = ReturnChosenCost().Match(remaining);
+        if (returned.Success)
+        {
+            var count = returned.Groups["n"].Value;
+            var howMany = count.StartsWith('a') ? 1 : NumberWordOrDigits(count);
+
+            var noun = returned.Groups["what"].Value.Trim();
+            if (howMany > 1)
+                noun = EffectPhrase.Singular(noun);
+
+            if (EffectPhrase.Specs.Parse("target " + noun) is not
+                { Kind: TargetKind.Permanent } bounced)
+            {
+                return null;
+            }
+
+            chosen.Add(new ChosenCost(ChosenCostKind.ReturnToHand, howMany, bounced));
+            Lift(ReturnChosenCost());
         }
 
         var tapped = TapChosenCost().Match(remaining);
@@ -8868,11 +9594,13 @@ public static partial class CardCompiler
                 kind = filter with { Description = $"a {named} card" };
             }
 
+            var many = discard.Groups["n"].Value;
+
             chosen.Add(new ChosenCost(
                 discard.Groups["random"].Success
                     ? ChosenCostKind.DiscardAtRandom
                     : ChosenCostKind.DiscardCards,
-                Count: 1,
+                Count: many.StartsWith('a') ? 1 : NumberWordOrDigits(many),
                 What: kind));
 
             Lift(DiscardChosenCost());
@@ -9017,6 +9745,11 @@ public static partial class CardCompiler
             "three" => 3,
             "four" => 4,
             "five" => 5,
+            "six" => 6,
+            "seven" => 7,
+            "eight" => 8,
+            "nine" => 9,
+            "ten" => 10,
             _ => 1,
         };
     }
@@ -10016,17 +10749,39 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex RemoveCounterCost();
 
+    /// <summary>How a printed count is written, wherever a cost names one.</summary>
+    /// <remarks>
+    /// One alternation shared by the cost readers rather than a different list in each, which is
+    /// how "exile six cards from your graveyard" came to be unread while five was fine: the
+    /// counts had been written out per pattern and each stopped somewhere different.
+    /// </remarks>
+    private const string CountWords = "one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+";
+
     [GeneratedRegex(
-        @",?\s*sacrifice (?<scope>another|an?)\s+(?<what>[a-z ]+?)\s*(,|$)", RegexOptions.IgnoreCase)]
+        @",?\s*sacrifice (?<scope>another|an?|" + CountWords + @")\s+(?<what>[a-z ]+?)\s*(,|$)",
+        RegexOptions.IgnoreCase)]
     private static partial Regex SacrificeChosenCost();
 
     [GeneratedRegex(
-        @",?\s*discard an? (?<what>[a-z ]+? )?card(?<random> at random)?\s*(,|$)",
+        @",?\s*discard (?<n>an?|" + CountWords + @") (?<what>[a-z ]+? )?cards?"
+            + @"(?<random> at random)?\s*(,|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex DiscardChosenCost();
 
+    /// <summary>"Return a permanent you control to its owner's hand" — a cost, not an effect.</summary>
+    /// <remarks>
+    /// Ninjutsu's cost written out, and the only chosen cost that takes a permanent without
+    /// spending it (CR 702.49a). It reads a count for the same reason its neighbours do; the
+    /// additional-cost family prints only one, and the activated abilities beside it print more.
+    /// </remarks>
     [GeneratedRegex(
-        @",?\s*exile (?<n>an?|one|two|three|four|five|[0-9]+) "
+        @",?\s*return (?<n>an?|" + CountWords + @")\s+(?<what>[A-Za-z' ]+?)"
+            + @" to (its|their) owner'?s? hand\s*(,|$)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ReturnChosenCost();
+
+    [GeneratedRegex(
+        @",?\s*exile (?<n>an?|" + CountWords + @") "
             + @"(?<what>[a-z ]+? )?cards? from your graveyard\s*(,|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExileFromGraveyardCost();
@@ -10317,6 +11072,68 @@ public static partial class CardCompiler
         @"^As an additional cost to cast (~|this spell|it), (?<cost>.+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditionalCostLine();
+
+    /// <summary>A replacement that changes how much damage a source deals (CR 614.1a).</summary>
+    /// <remarks>
+    /// The arithmetic is alternated inside the line rather than lifted into a pattern of its own,
+    /// which keeps this a whole-line shape a behaviour test can play. It is also the refusal: a
+    /// sentence whose "instead" clause is anything other than these — "it deals that damage to its
+    /// controller", "put that many -1/-1 counters on that creature" — does not match at all.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^If (?<src>.+?) would deal (?<qual>combat|noncombat)? ?damage"
+            + @"(?: to (?<rec>.+?))?, (?:it|that source) deals "
+            + @"(?:(?<times>double|triple|twice) that (?:much )?damage"
+            + @"|(?<half>half) that damage, rounded down"
+            + @"|that much damage (?<dir>plus|minus) (?<n>\d+))"
+            + @"(?:,? to (?<again>[^,]+?))? instead\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DamageAmountLine();
+
+    /// <summary>"A red source you control", "another source", "a spell" — whose damage it is.</summary>
+    [GeneratedRegex(
+        @"^(?<scope>an?|any|another) (?<adj>[a-z]+ )?(?<noun>source|spell)"
+            + @"(?<side> you control)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DamageSourcePhrase();
+
+    /// <summary>A replacement that changes how many counters are put on something (CR 614.16).</summary>
+    [GeneratedRegex(
+        @"^If one or more (?<kind>\+1/\+1|-1/-1) counters would be put on (?<group>.+?), "
+            + @"(?<op>twice that many|that many plus one|that many) "
+            + @"(?<kind2>\+1/\+1|-1/-1) counters(?<less> minus one)? are put on "
+            + @"(?<where>[^,]+?) instead\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CounterAmountLine();
+
+    /// <summary>A replacement that sends a dying permanent somewhere else (CR 700.4).</summary>
+    [GeneratedRegex(
+        @"^If (?<who>.+?) would die, (?<where>exile it"
+            + @"|put it on (the )?(top|bottom) of its owner's library) instead\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DiesReplacementLine();
+
+    /// <summary>A replacement that changes how much life a player gains (CR 119.3).</summary>
+    [GeneratedRegex(
+        @"^If (?<who>you|an opponent|a player) would gain life, "
+            + @"(?<subject>you|that player) (?<verb>gains?|loses?) "
+            + @"(?<how>that much life plus (?<n>\d+)|twice that much life|that much life|no life)"
+            + @" instead\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LifeGainAmountLine();
+
+    /// <summary>A group phrase with its article, as a replacement's subject clause prints it.</summary>
+    [GeneratedRegex(
+        @"^(?:(?<scope>another|an?|any|each|all) )?(?<what>[A-Za-z',/+\- ]+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GroupPhrase();
+
+    /// <summary>An alternative cost with no keyword in front of it (CR 118.9).</summary>
+    [GeneratedRegex(
+        @"^(?:If (?<when>[^,]+), )?you may pay (?<cost>(\{[^}]+\})+) "
+            + @"rather than pay ~'s mana cost\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AlternativeManaCostLine();
 
     [GeneratedRegex(@"^kicker (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex KickerLine();
