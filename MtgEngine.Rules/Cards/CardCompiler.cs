@@ -1144,6 +1144,9 @@ public static partial class CardCompiler
             if (TryEntersPrepared(line, replacements))
                 continue;
 
+            if (TryEntersAsACopy(line, replacements))
+                continue;
+
             if (TryEntersTapped(line, replacements))
                 continue;
 
@@ -8545,6 +8548,335 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "You may have ~ enter as a copy of any creature on the battlefield" (CR 707.5) — Clone.
+    /// </summary>
+    /// <remarks>
+    /// A replacement rather than a trigger, and the order inside it is the whole rule: the copy
+    /// effect is emitted <em>before</em> the arrival it replaces. Triggers are collected against
+    /// the state just after the event that caused them (CR 603.6), so a permanent that becomes a
+    /// copy in the event after its own arrival has already been asked what its enters abilities
+    /// are and answered with the copying card's. CR 707.5 says the copy's enters-the-battlefield
+    /// abilities have a chance to trigger, and gives Wall of Omens as the example. Reversed, the
+    /// permanent is still a copy with the right name and the right size and the trigger the rule
+    /// promises simply never exists — correct-looking and silent, which is this family's failure
+    /// mode throughout.
+    /// <para>
+    /// <b>Which</b> permanent is a question, and it falls in the middle of applying an event —
+    /// the one place this engine had nothing to ask with. It is asked as a set of candidate
+    /// replacements (see <see cref="ReplacementEffectDefinition.Branches"/>), which is a question
+    /// CR 616.1 already has and which already halts the game and replays. "You may" is the same
+    /// question's decline arm, so it costs nothing beyond <c>IsOptional</c>.
+    /// </para>
+    /// <para>
+    /// The exception clauses are read into the <em>card</em> handed to the copy, which is what
+    /// CR 707.9b prescribes: the modified characteristic becomes part of the copy's copiable
+    /// values. Anything the exception grammar does not fully understand leaves the whole line
+    /// unread rather than producing a copy without its exception — a Quicksilver Gargantuan that
+    /// forgot it was 7/7 is a strictly better card than the one printed.
+    /// </para>
+    /// </remarks>
+    private static bool TryEntersAsACopy(
+        string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = EntersAsACopyLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (CopyChoice(m.Groups["what"].Value) is not { } spec)
+            return false;
+
+        var exceptions = m.Groups["except"] is { Success: true } clauses
+            ? CopyExceptions(clauses.Value)
+            : Unchanged;
+
+        if (exceptions is null)
+            return false;
+
+        var tapped = m.Groups["tapped"].Success;
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            Id = "enters-as-a-copy",
+
+            // Null, not Battlefield: a permanent created on the battlefield was never anywhere
+            // else, and one that resolves off the stack is replaced while it is still a spell
+            // (CR 614.6).
+            FunctionsFrom = null,
+            IsOptional = true,
+
+            // Once the copy effect naming this permanent exists, this effect is done with the
+            // arrival - the branches not taken must not be offered again against the very event
+            // the chosen one re-emitted.
+            Applies = (e, state, source) =>
+                Arriving(e, source) is { } arriving && !AlreadyACopy(state, arriving),
+
+            // Never reached: an effect with branches is applied through one of them. It is the
+            // same answer declining gives, which is the honest one for an effect that has not
+            // been pointed at anything.
+            Replace = (e, _, _) => [e],
+            Branches = (e, state, abilities, source) =>
+                CopyBranches(e, state, abilities, source, spec, exceptions, tapped),
+        });
+
+        return true;
+    }
+
+    /// <summary>Whether a copy effect already names this permanent (CR 707.2).</summary>
+    private static bool AlreadyACopy(GameState state, ObjectId id) =>
+        state.FloatingEffects.Any(
+            f => f.AffectedIds.Contains(id) && GenerativeEffects.IsCopy(f.DefinitionId));
+
+    /// <summary>One branch per permanent the arriving one could enter as a copy of.</summary>
+    /// <remarks>
+    /// The label is what the player picks from, so it names the card and who controls it — a
+    /// board with two Grizzly Bears on it must not offer two identical buttons. It is also half
+    /// the key CR 614.5 uses to stop an effect applying twice, so identical labels are numbered
+    /// rather than left to collide.
+    /// </remarks>
+    private static List<ReplacementBranch> CopyBranches(
+        GameEvent e,
+        GameState state,
+        IAbilitySource abilities,
+        GameObject source,
+        TargetSpec spec,
+        Func<CardDefinition, CardDefinition> exceptions,
+        bool tapped)
+    {
+        if (Arriving(e, source) is null)
+            return [];
+
+        var branches = new List<ReplacementBranch>();
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var id in state.Battlefield)
+        {
+            var candidate = state.GetObject(id);
+
+            // Not a target: this is a choice made as a replacement applies, so hexproof and
+            // shroud have nothing to say about it (CR 115.6). Accepts asks the phrase's own
+            // filters and only those.
+            if (!spec.Accepts(state, abilities, candidate, source.ControllerId, source))
+                continue;
+
+            // CR 707.3: the copiable values are what the permanent *is*, so a copy of a copy
+            // copies the card the first one became rather than the card it was printed as.
+            var now = Characteristics.Of(state, abilities, candidate);
+            var copied = exceptions(now.Card);
+
+            // The computed controller, not the stored one: control is layer 2 (CR 613.1b), and a
+            // label naming the player a stolen permanent used to belong to is a label that
+            // points at the wrong half of the table.
+            var owner = state.Players.TryGetValue(now.ControllerId, out var who)
+                ? who.Name
+                : "?";
+
+            var label = $"{copied.Name} ({owner})";
+            var already = seen.GetValueOrDefault(label);
+            seen[label] = already + 1;
+            if (already > 0)
+                label = string.Create(CultureInfo.InvariantCulture, $"{label} #{already + 1}");
+
+            var name = GenerativeEffects.CopyId(copied);
+
+            branches.Add(new ReplacementBranch(label, (ev, _, src) =>
+            {
+                if (Arriving(ev, src) is not { } arriving)
+                    return [ev];
+
+                var events = new List<GameEvent>
+                {
+                    // No duration: this is what the permanent is, not something done to it for
+                    // a turn (CR 707.5).
+                    new ContinuousEffectCreated(
+                        Guid.NewGuid(), name, [arriving], UntilEndOfTurn: null),
+                    ev,
+                };
+
+                if (tapped)
+                    events.Add(new PermanentTapped(arriving));
+
+                return events;
+            }));
+        }
+
+        return branches;
+    }
+
+    /// <summary>An exception clause list that changes nothing.</summary>
+    private static readonly Func<CardDefinition, CardDefinition> Unchanged = card => card;
+
+    /// <summary>
+    /// Which permanents "any creature on the battlefield" offers, as a target phrase.
+    /// </summary>
+    /// <remarks>
+    /// Read through the same phrase grammar every target goes through, so "any nonland permanent
+    /// on the battlefield", "a creature an opponent controls" and "any Equipment on the
+    /// battlefield" all arrive working without this knowing what an Equipment is. What it adds is
+    /// the two words the copy family spells differently — the article, and the "on the
+    /// battlefield" that a target phrase leaves implicit.
+    /// <para>
+    /// Any phrase naming somewhere other than the battlefield is refused outright. Half of this
+    /// family copies a card in a graveyard or in exile, and a copy of a card that is not a
+    /// permanent is a different rule with a different zone; reading those as though they meant
+    /// the battlefield would compile a card that plays something else.
+    /// </para>
+    /// </remarks>
+    private static TargetSpec? CopyChoice(string phrase)
+    {
+        var what = phrase.Trim();
+
+        foreach (var article in ChoiceArticles)
+        {
+            if (what.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+            {
+                what = what[article.Length..];
+                break;
+            }
+        }
+
+        const string here = " on the battlefield";
+        if (what.EndsWith(here, StringComparison.OrdinalIgnoreCase))
+            what = what[..^here.Length];
+
+        foreach (var elsewhere in NotTheBattlefield)
+        {
+            if (what.Contains(elsewhere, StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+
+        return EffectPhrase.Specs.Parse("target " + what) is { Kind: TargetKind.Permanent } spec
+            ? spec
+            : null;
+    }
+
+    private static readonly string[] ChoiceArticles = ["any ", "an ", "a "];
+
+    /// <summary>Words that mean the phrase is not about the battlefield.</summary>
+    private static readonly string[] NotTheBattlefield =
+        ["card", "graveyard", "exile", "library", "hand", "stack", "battlefield", "spell"];
+
+    /// <summary>
+    /// Reads "except it's an artifact in addition to its other types" (CR 707.9).
+    /// </summary>
+    /// <remarks>
+    /// Returns null for anything it does not fully understand, which leaves the whole line
+    /// unread. That is the direction to fail in: an exception silently dropped makes the copy
+    /// better than the card that was printed, and 79 of the 135 printed copy sentences carry one
+    /// of these clauses, so guessing would have been wrong at scale rather than occasionally.
+    /// </remarks>
+    private static Func<CardDefinition, CardDefinition>? CopyExceptions(string clauses)
+    {
+        var addTypes = default(CardType);
+        var addSubtypes = new List<string>();
+        var addKeywords = KeywordAbility.None;
+        var dropLegendary = false;
+        int? power = null;
+        int? toughness = null;
+
+        foreach (var raw in ExceptionClauses().Split(clauses))
+        {
+            var clause = raw.Trim().TrimEnd('.');
+            if (clause.Length == 0)
+                continue;
+
+            if (NotLegendaryClause().IsMatch(clause))
+            {
+                dropLegendary = true;
+                continue;
+            }
+
+            if (SetSizeClause().Match(clause) is { Success: true } size)
+            {
+                power = int.Parse(size.Groups["p"].Value, CultureInfo.InvariantCulture);
+                toughness = int.Parse(size.Groups["t"].Value, CultureInfo.InvariantCulture);
+                continue;
+            }
+
+            if (InAdditionClause().Match(clause) is { Success: true } added)
+            {
+                if (!ReadCopyTypes(added.Groups["types"].Value, ref addTypes, addSubtypes))
+                    return null;
+
+                continue;
+            }
+
+            if (HasKeywordClause().Match(clause) is { Success: true } has)
+            {
+                if (ReadCopyKeyword(has.Groups["kw"].Value) is not { } keyword)
+                    return null;
+
+                addKeywords |= keyword;
+                continue;
+            }
+
+            return null;
+        }
+
+        return card => GenerativeEffects.Excepting(
+            card, addTypes, addSubtypes, dropLegendary, power, toughness, addKeywords);
+    }
+
+    /// <summary>"a Synth artifact creature" — card types and subtypes, mixed (CR 205).</summary>
+    /// <remarks>
+    /// Case is what separates them, which is not a heuristic: CR 205.2a prints card types in
+    /// lower case and CR 205.3a prints subtypes capitalised, and every card in the corpus that
+    /// says this says it that way. A lower-case word that is not a card type is something else
+    /// entirely — "a Vehicle artifact with crew 3" — and refuses the clause.
+    /// </remarks>
+    private static bool ReadCopyTypes(string phrase, ref CardType types, List<string> subtypes)
+    {
+        var words = phrase.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+            return false;
+
+        var start = words[0] is "a" or "an" ? 1 : 0;
+        if (start >= words.Length)
+            return false;
+
+        for (var i = start; i < words.Length; i++)
+        {
+            var word = words[i];
+
+            if (CopiableTypes.TryGetValue(word, out var type))
+            {
+                types |= type;
+                continue;
+            }
+
+            if (!char.IsUpper(word[0]))
+                return false;
+
+            subtypes.Add(word);
+        }
+
+        return true;
+    }
+
+    /// <summary>The card types an exception may add (CR 205.2a) — permanents only.</summary>
+    private static readonly Dictionary<string, CardType> CopiableTypes =
+        new(StringComparer.Ordinal)
+        {
+            ["artifact"] = CardType.Artifact,
+            ["creature"] = CardType.Creature,
+            ["enchantment"] = CardType.Enchantment,
+            ["land"] = CardType.Land,
+            ["planeswalker"] = CardType.Planeswalker,
+            ["battle"] = CardType.Battle,
+        };
+
+    /// <summary>"except it has flying" — one keyword the engine already models (CR 702).</summary>
+    private static KeywordAbility? ReadCopyKeyword(string word)
+    {
+        var spelled = word.Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        return Enum.TryParse<KeywordAbility>(spelled, ignoreCase: true, out var keyword)
+            && keyword != KeywordAbility.None
+            && Enum.IsDefined(keyword)
+            ? keyword
+            : null;
+    }
+
     /// <summary>"As ~ enters, choose a color" — a choice made as it arrives (CR 614.12).</summary>
     private static bool TryChooseAsEnters(string line, ref ChoiceOnEntry into)
     {
@@ -11003,6 +11335,41 @@ public static partial class CardCompiler
         @"^As ~ enters, you may pay (?<n>\d+) life\. If you don't, it enters tapped\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ShocklandLine();
+
+    /// <remarks>
+    /// No dot inside either group, which is what refuses every exception carrying a quoted
+    /// ability — "except it has \"{X}: This creature has base power and toughness X/X.\"" ends a
+    /// sentence inside the quotation marks, and a granted ability is not something an exception
+    /// clause can express here. Those lines stay unread rather than compiling to a copy that
+    /// quietly lacks the ability.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^You may have ~ enter (?<tapped>tapped )?as a copy of (?<what>[^.]+?)"
+            + @"(?:, except (?<except>[^.]+))?\.$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex EntersAsACopyLine();
+
+    /// <remarks>
+    /// "It's a Faerie Shapeshifter in addition to its other types <b>and</b> it has flying" is
+    /// two clauses; so is "it isn't legendary, is an artifact …, <b>and</b> has myriad". A clause
+    /// list this splits wrongly produces a part that matches nothing, which refuses the line.
+    /// </remarks>
+    [GeneratedRegex(@",\s*and\s+|,\s*|\s+and\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex ExceptionClauses();
+
+    [GeneratedRegex(@"^(?:it\s+)?isn't legendary$", RegexOptions.IgnoreCase)]
+    private static partial Regex NotLegendaryClause();
+
+    [GeneratedRegex(@"^it's (?<p>\d+)/(?<t>\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SetSizeClause();
+
+    [GeneratedRegex(
+        @"^(?:it's|it is|is) (?<types>.+?) in addition to its other (?:card |creature )?types$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex InAdditionClause();
+
+    [GeneratedRegex(@"^(?:it\s+)?has (?<kw>[a-z][a-z ]*)$", RegexOptions.IgnoreCase)]
+    private static partial Regex HasKeywordClause();
 
     /// <remarks>
     /// The cost is bounded so the pattern cannot run away over a whole card, and the bound is 72

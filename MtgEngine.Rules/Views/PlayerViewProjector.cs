@@ -235,7 +235,18 @@ public static class PlayerViewProjector
     private static ObjectView ProjectObject(
         GameState state, GameObject obj, IAbilitySource? abilities = null)
     {
-        var card = obj.Card;
+        // CR 707.3: a permanent that is a copy *is* the copied card, and the board has to show
+        // that. Shown as its printed card it kept the wrong name, the wrong art and the wrong
+        // rules text, while the engine played it as something else entirely - and the abilities
+        // beside it, which already came from the computed characteristics, would have been a
+        // list of things the displayed card does not say.
+        //
+        // Only permanents, and only face-up ones: a face-down permanent's characteristics come
+        // from the rules rather than the card (CR 708.2a), and hiding the card here would hide
+        // it from the controller who is entitled to look at it (CR 708.5).
+        var card = abilities is not null && obj.Permanent is { IsFaceDown: false }
+            ? Characteristics.CardOf(state, abilities, obj)
+            : obj.Card;
 
         return new ObjectView
         {

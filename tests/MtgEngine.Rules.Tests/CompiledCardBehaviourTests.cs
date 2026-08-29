@@ -42052,6 +42052,683 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
     }
 
+    // ---- Entering as a copy (CR 707.5) ---------------------------------------
+
+    /// <summary>The printed Clone, word for word (CR 707.5).</summary>
+    private static CardDefinition Cloning(string name, string what = "any creature on the battlefield") =>
+        Card(
+            name,
+            "You may have this creature enter as a copy of " + what + ".",
+            CardType.Creature,
+            0,
+            0);
+
+    /// <summary>
+    /// Plays on, answering the copy question with the permanent whose name is given.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Settle"/> takes the first option of everything and <see cref="SettleDeclining"/>
+    /// takes the last, and neither can say <em>which</em> creature. The whole point of this
+    /// family is that the choice is a real one, so the tests have to be able to make it — and
+    /// picking by the label proves the labels are the thing a person could pick from, which is
+    /// the standard the rest of the choices in this engine are held to.
+    /// </remarks>
+    private static void SettleCopying(Game game, string wanted)
+    {
+        var passedOnce = false;
+
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                var pick = choice.Options.FirstOrDefault(
+                    o => o.Label.Contains(wanted, StringComparison.Ordinal));
+
+                game.Choose(
+                    choice.PlayerId,
+                    pick is not null
+                        ? [pick.Id]
+                        : [.. choice.Options.Take(Math.Max(choice.MinPicks, 1)).Select(o => o.Id)]);
+
+                continue;
+            }
+
+            if (passedOnce && game.State.Stack.IsEmpty && game.State.PendingTriggers.IsEmpty)
+                break;
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+            passedOnce = true;
+        }
+
+        // The copied card rides whole inside the effect's name, which makes it much the largest
+        // thing this engine puts in a log — and the choice that produced it is an event too.
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A compiled Clone asks which creature to copy, and the copy's own enters ability fires
+    /// (CR 707.5).
+    /// </summary>
+    /// <remarks>
+    /// The life total is the assertion that matters. Every characteristic below would be just as
+    /// green if the copy had been applied one event too late — the permanent would still have the
+    /// right name and the right size, and the trigger the rule promises would simply never have
+    /// existed, because triggers are collected against the state just after the event that caused
+    /// them (CR 603.6). That is this whole family's failure mode: correct-looking and silent.
+    /// <para>
+    /// The two options are asserted as well. A reader that copied <em>something</em> without
+    /// asking would pass every other line here while taking a decision away from the player, and
+    /// the engine has been caught answering for people three times before.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_compiled_clone_enters_as_a_copy_of_the_creature_its_controller_names()
+    {
+        var wall = Card(
+            "Copy Reader Wall Test",
+            "When this creature enters, you gain 2 life.",
+            CardType.Creature,
+            0,
+            4);
+
+        var clone = Cloning("Copy Reader Clone Test");
+
+        Assert.True(
+            CardCompiler.Compile(clone).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(clone).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, wall, Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Copy Reader Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        // Taken after the Wall's own arrival, which fired its own trigger: what is being measured
+        // is the copy's, and starting from 20 would have counted both as one.
+        var before = game.State.GetPlayer(alice).Life;
+
+        var arrived = game.Create(alice, clone, Zone.Battlefield);
+
+        // The game has stopped and is asking. Both creatures are on the menu, each named, plus
+        // the "you may" arm — three ways for this permanent to arrive.
+        var asked = Assert.IsType<PendingChoice>(game.State.Choice);
+        Assert.Equal(ChoiceKind.OrderReplacements, asked.Kind);
+        Assert.Equal(3, asked.Options.Count);
+        Assert.Contains(asked.Options, o => o.Label.Contains("Copy Reader Wall Test", StringComparison.Ordinal));
+        Assert.Contains(asked.Options, o => o.Label.Contains("Copy Reader Bear Test", StringComparison.Ordinal));
+
+        SettleCopying(game, "Copy Reader Wall Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(arrived));
+
+        Assert.Equal("Copy Reader Wall Test", now.Name);
+        Assert.Equal(0, now.Power);
+        Assert.Equal(4, now.Toughness);
+
+        // CR 707.5's own worked example, with Wall of Omens' life instead of its card: the copy
+        // has the copied card's enters trigger, and it had a chance to fire.
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+
+        // Nothing ends it. This is what the permanent is, not a spell's effect on it.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        Assert.Equal(
+            "Copy Reader Wall Test",
+            Characteristics.Of(game.State, Pool, game.State.GetObject(arrived)).Name);
+    }
+
+    /// <summary>"You may" is an offer, and declining leaves the permanent itself (CR 614.1b).</summary>
+    /// <remarks>
+    /// The half a reader is most likely to drop, because taking it always looks like the better
+    /// play and a card that always copies passes every other test in this section. It is printed
+    /// as a choice, and a 0/0 that arrives as itself and dies to state-based actions is the
+    /// outcome the player asked for.
+    /// </remarks>
+    [Fact]
+    public void A_clone_may_decline_to_copy_anything()
+    {
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Copy Decline Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, Cloning("Copy Decline Clone Test"), Zone.Battlefield);
+        SettleDeclining(game);
+
+        // A 0/0 that copied nothing is put into its owner's graveyard (CR 704.5f), which is what
+        // the printed card does and the clearest evidence the copy did not happen.
+        Assert.DoesNotContain(arrived, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A copy has the copied card's abilities <em>instead of</em> its own (CR 707.2a).
+    /// </summary>
+    /// <remarks>
+    /// "A copy doesn't wind up with two values of each ability." The engine used to hand the
+    /// copied abilities to the permanent while leaving its printed ones in place, because the two
+    /// readers that answer "what can this permanent do" asked the object's own card. A permanent
+    /// with both cards' abilities plays every test about the copied ones green.
+    /// <para>
+    /// Two assertions, and they fail in opposite directions. The empty activated list is the
+    /// printed ability being <em>gone</em>; the life total is the copied trigger being
+    /// <em>there</em>. An engine that dropped both, or kept both, fails one of them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_copy_loses_its_own_abilities_and_gains_the_copied_cards()
+    {
+        var original = Card(
+            "Copy Instead Original Test",
+            "When this creature enters, you gain 2 life.",
+            CardType.Creature,
+            3,
+            3);
+
+        var mimic = Card(
+            "Copy Instead Mimic Test",
+            "You may have this creature enter as a copy of any creature on the battlefield.\n"
+                + "{T}: You gain 5 life.",
+            CardType.Creature,
+            1,
+            1);
+
+        Assert.True(
+            CardCompiler.Compile(mimic).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(mimic).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, original, Zone.Battlefield);
+        Settle(game);
+
+        // After the original's own arrival, so the copy's trigger is measured on its own.
+        var before = game.State.GetPlayer(alice).Life;
+
+        var arrived = game.Create(alice, mimic, Zone.Battlefield);
+        SettleCopying(game, "Copy Instead Original Test");
+
+        var copy = game.State.GetObject(arrived);
+
+        Assert.Equal("Copy Instead Original Test", Characteristics.Of(game.State, Pool, copy).Name);
+
+        // Its own printed ability is not a copiable value of the card it copied, so it is gone.
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, Pool, copy));
+
+        // And the copied one is here: 2 life, once, from the copied enters trigger. Five would
+        // have meant the printed ability survived; nothing would have meant neither was read.
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A copy enters tapped and with counters when the copied card says so (CR 707.5).
+    /// </summary>
+    /// <remarks>
+    /// The rule's own example is a Clone of Skyshroud Behemoth, which enters tapped with two fade
+    /// counters. Both come from replacement effects printed on the <em>copied</em> card, and the
+    /// engine gathered replacements from the arriving object's own card — where there are none —
+    /// so the copy arrived untapped and empty. Nothing about it looked wrong.
+    /// <para>
+    /// The clone is <em>cast</em> here rather than put onto the battlefield, and that is the
+    /// point of the test rather than dressing. A permanent spell is still on the stack while its
+    /// own arrival is being replaced, so the copy effect names the id it is about to have and not
+    /// the id it has — and a reader that asked about the spell found no copy at all. Every other
+    /// test in this section creates its clone directly, where the two ids are the same, and every
+    /// one of them stayed green while this path did nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_copy_arrives_as_the_copied_cards_own_replacements_leave_it()
+    {
+        var behemoth = Card(
+            "Copy Arrives Original Test",
+            "This creature enters tapped.\nThis creature enters with two +1/+1 counters on it.",
+            CardType.Creature,
+            3,
+            3);
+
+        Assert.True(
+            CardCompiler.Compile(behemoth).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(behemoth).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, behemoth, Zone.Battlefield);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var clone = Cloning("Copy Arrives Clone Test");
+        var spell = TestCards.PutInHand(game, alice, clone);
+
+        game.CastSpell(alice, spell, targets: null);
+        SettleCopying(game, "Copy Arrives Original Test");
+
+        // Cast, so the permanent is a new object under a new id (CR 400.7) - found by name
+        // rather than by the id the card had in hand.
+        var copy = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => string.Equals(
+                o.Card.OracleId, clone.OracleId, StringComparison.Ordinal));
+
+        Assert.True(copy.Permanent!.IsTapped);
+        Assert.Equal(2, copy.Permanent.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // 3/3 printed plus the two counters the copied card brought with it.
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, copy).Power);
+    }
+
+    /// <summary>
+    /// "Except it's an enchantment in addition to its other types" (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The exception is applied to the <em>card</em> handed to the copy rather than as a second
+    /// effect on top of it, which is what CR 707.9b says: the modified value becomes part of the
+    /// copy's copiable values. That is why a Copy Artifact does not stop being an enchantment
+    /// when something else copies it, and why the same machinery reads "except it's 7/7" without
+    /// knowing anything about sizes.
+    /// </remarks>
+    [Fact]
+    public void An_exception_to_the_copy_changes_the_card_that_is_copied()
+    {
+        var engine = Card(
+            "Copy Except Artifact Test",
+            "{T}: You gain 1 life.",
+            CardType.Artifact);
+
+        var copier = Card(
+            "Copy Except Test",
+            "You may have this enchantment enter as a copy of any artifact on the battlefield, "
+                + "except it's an enchantment in addition to its other types.",
+            CardType.Enchantment);
+
+        Assert.True(
+            CardCompiler.Compile(copier).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(copier).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, engine, Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, copier, Zone.Battlefield);
+        SettleCopying(game, "Copy Except Artifact Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(arrived));
+
+        Assert.Equal("Copy Except Artifact Test", now.Name);
+        Assert.True(now.CardTypes.HasFlag(CardType.Artifact));
+        Assert.True(now.CardTypes.HasFlag(CardType.Enchantment));
+
+        // The abilities still come from the copied card: CR 707.9b changes a characteristic and
+        // nothing else, so the exception must not cost the copy what it copied.
+        Assert.Single(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(arrived)));
+    }
+
+    /// <summary>"Except it's 7/7" replaces the size and keeps everything else (CR 707.9b).</summary>
+    [Fact]
+    public void An_exception_can_give_the_copy_a_different_size()
+    {
+        var gargantuan = Card(
+            "Copy Size Test",
+            "You may have this creature enter as a copy of any creature on the battlefield, "
+                + "except it's 7/7.",
+            CardType.Creature,
+            7,
+            7);
+
+        Assert.True(
+            CardCompiler.Compile(gargantuan).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(gargantuan).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Copy Size Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, gargantuan, Zone.Battlefield);
+        SettleCopying(game, "Copy Size Bear Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(arrived));
+
+        Assert.Equal("Copy Size Bear Test", now.Name);
+        Assert.Equal(7, now.Power);
+        Assert.Equal(7, now.Toughness);
+    }
+
+    /// <summary>
+    /// One exception clause can add a type and a keyword at once (CR 707.9a, 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// Malleable Impostor's printed wording. Two clauses joined by "and", which is what the
+    /// splitter is for — and the pair is worth a test of its own because a splitter that took
+    /// the sentence whole would match neither clause and refuse the card, while one that split
+    /// too eagerly would silently drop the half it could not read.
+    /// </remarks>
+    [Fact]
+    public void An_exception_can_add_a_type_and_a_keyword_at_once()
+    {
+        var impostor = Card(
+            "Copy Compound Test",
+            "You may have this creature enter as a copy of a creature you control, except it's "
+                + "a Faerie Shapeshifter in addition to its other types and it has flying.",
+            CardType.Creature,
+            0,
+            0);
+
+        Assert.True(
+            CardCompiler.Compile(impostor).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(impostor).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Copy Compound Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, impostor, Zone.Battlefield);
+        SettleCopying(game, "Copy Compound Bear Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(arrived));
+
+        Assert.Equal("Copy Compound Bear Test", now.Name);
+        Assert.Equal(2, now.Power);
+        Assert.True(now.Has(KeywordAbility.Flying));
+
+        // "In addition to", so the copied Bear is still a Bear.
+        Assert.Contains("Faerie", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Shapeshifter", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Bear", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A copy of a copy copies what the first copy became, not what it was printed as
+    /// (CR 707.2b, 707.3).
+    /// </summary>
+    /// <remarks>
+    /// "The copy's copiable values become the copied information. Objects that copy the object
+    /// will use the new copiable values." Until a reader existed, nothing could build this
+    /// position: the only copies the engine could make were fixed before the game started, so
+    /// the second copy was always copying a card rather than a permanent that had become one.
+    /// <para>
+    /// The two clones say different things on purpose. The second copies "a creature you
+    /// control", and the only creature its controller has is the first clone — so the choice
+    /// cannot accidentally land on the original, and a second clone that read the printed card
+    /// would come back a 0/0 named after itself and die to state-based actions.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_copy_of_a_copy_takes_the_first_copys_values()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        // The original belongs to Bob, so "a creature you control" cannot reach it.
+        game.Create(bob, TestCards.Creature("Copy Chain Bear Test", 4, 4), Zone.Battlefield);
+        Settle(game);
+
+        var first = game.Create(alice, Cloning("Copy Chain First Test"), Zone.Battlefield);
+        SettleCopying(game, "Copy Chain Bear Test");
+
+        Assert.Equal(
+            "Copy Chain Bear Test",
+            Characteristics.Of(game.State, Pool, game.State.GetObject(first)).Name);
+
+        var second = game.Create(
+            alice, Cloning("Copy Chain Second Test", "a creature you control"), Zone.Battlefield);
+
+        // The option is named for what the first clone *is*, which is half the point: a player
+        // choosing from this list is reading the board, not the card that was cast.
+        var asked = Assert.IsType<PendingChoice>(game.State.Choice);
+        Assert.Contains(
+            asked.Options, o => o.Label.Contains("Copy Chain Bear Test", StringComparison.Ordinal));
+
+        SettleCopying(game, "Copy Chain Bear Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(second));
+
+        Assert.Equal("Copy Chain Bear Test", now.Name);
+        Assert.Equal(4, now.Power);
+        Assert.Equal(4, now.Toughness);
+    }
+
+    /// <summary>The legend rule reads the name a permanent has now (CR 704.5j, 707.2).</summary>
+    /// <remarks>
+    /// A name is a copiable value, so a copy of a legend is a second legend of that name and one
+    /// of them has to go. The check grouped permanents by their <em>printed</em> name, which
+    /// asked which card each one came from — the one thing the rule is not about — so a Clone of
+    /// a commander sat happily beside it.
+    /// </remarks>
+    [Fact]
+    public void The_legend_rule_counts_the_name_a_copy_has_taken()
+    {
+        var legend = new CardDefinition
+        {
+            OracleId = "oracle-copy-legend-test",
+            Name = "Copy Legend Test",
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            Power = 3,
+            Toughness = 3,
+        };
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, legend, Zone.Battlefield);
+        Settle(game);
+
+        game.Create(alice, Cloning("Copy Legend Clone Test"), Zone.Battlefield);
+        SettleCopying(game, "Copy Legend Test");
+
+        // One of the two is in the graveyard, and which one was the player's choice - what
+        // matters here is that the question was asked at all.
+        var legends = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Count(o => string.Equals(
+                Characteristics.Of(game.State, Pool, o).Name,
+                "Copy Legend Test",
+                StringComparison.Ordinal));
+
+        Assert.Equal(1, legends);
+    }
+
+    /// <summary>The board is shown what the permanent is, not what it was printed as (CR 707.3).</summary>
+    /// <remarks>
+    /// The view is the only place a player meets any of this. Projected from the printed card, a
+    /// Clone kept its own name, its own art and its own rules text while the engine played it as
+    /// something else — and the abilities beside it, which already came from the computed
+    /// characteristics, were a list of things the displayed card does not say.
+    /// </remarks>
+    [Fact]
+    public void The_board_is_shown_the_card_a_copy_became()
+    {
+        var original = Card(
+            "Copy View Original Test",
+            "{T}: You gain 1 life.",
+            CardType.Creature,
+            5,
+            5);
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, original, Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, Cloning("Copy View Clone Test"), Zone.Battlefield);
+        SettleCopying(game, "Copy View Original Test");
+
+        var shown = game.ViewFor(alice).Battlefield.Single(o => o.Id == arrived.Value);
+
+        Assert.Equal("Copy View Original Test", shown.Name);
+        Assert.Equal(original.OracleId, shown.OracleId);
+        Assert.Equal("{T}: You gain 1 life.", shown.OracleText);
+        Assert.Equal(5, shown.PrintedPower);
+        Assert.Single(shown.Abilities);
+    }
+
+    /// <summary>
+    /// A token copy is a copy of what the permanent is, and keeps both its faces
+    /// (CR 707.3, 707.8a).
+    /// </summary>
+    /// <remarks>
+    /// Two fields that were being read off the printed card and are copiable values of the
+    /// permanent. The faces are the one this repository has already been caught dropping once, in
+    /// the game log, where it cost every transform in every stored game — a token with one face
+    /// looks exactly like a token that can turn over, right up until somebody tries.
+    /// </remarks>
+    [Fact]
+    public void A_token_copy_copies_the_permanent_rather_than_the_printed_card()
+    {
+        var twoFaced = new CardDefinition
+        {
+            OracleId = "oracle-copy-token-two-faced-test",
+            Name = "Copy Token Front Test",
+            CardTypes = CardType.Creature,
+            Power = 3,
+            Toughness = 3,
+            Faces =
+            [
+                new CardFace
+                {
+                    Name = "Copy Token Front Test",
+                    CardTypes = CardType.Creature,
+                    Power = 3,
+                    Toughness = 3,
+                },
+                new CardFace
+                {
+                    Name = "Copy Token Back Test",
+                    CardTypes = CardType.Creature,
+                    Power = 6,
+                    Toughness = 6,
+                },
+            ],
+        };
+
+        var making = Card(
+            "Copy Token Maker Test",
+            "Create a token that's a copy of target creature.",
+            CardType.Sorcery);
+
+        Assert.True(
+            CardCompiler.Compile(making).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(making).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, twoFaced, Zone.Battlefield);
+        Settle(game);
+
+        var clone = game.Create(alice, Cloning("Copy Token Clone Test"), Zone.Battlefield);
+        SettleCopying(game, "Copy Token Front Test");
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        // The token is made from the clone, which is not what the clone's card says it is.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, making), [Target.ToPermanent(clone)]);
+        Settle(game);
+
+        var token = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.CardTypes.HasFlag(CardType.Token));
+
+        Assert.Equal("Copy Token Front Test", token.Card.Name);
+        Assert.Equal(3, token.Card.Power);
+
+        // CR 707.8a: the token is double-faced too, and can transform.
+        Assert.Equal(2, token.Card.Faces.Count);
+        Assert.Equal("Copy Token Back Test", token.Card.Faces[1].Name);
+    }
+
+    /// <summary>
+    /// A permanent already on the battlefield becomes a copy of a target, and stops being one
+    /// when the turn ends (CR 613.2a, 514.2).
+    /// </summary>
+    /// <remarks>
+    /// Mirage Mirror's wording, which is the whole "becomes a copy" family that reads cleanly: an
+    /// activated ability, one target, and a duration the engine can express. It is the other half
+    /// of this feature from the Clone family — that one decides what a permanent is as it
+    /// arrives, this one changes what one already here is.
+    /// <para>
+    /// The life total is the assertion that earns its place. An effect that copied the numbers
+    /// and dropped the abilities would pass every characteristic check below and be the wrong
+    /// card at the only moment anyone notices, so the copied ability is made to resolve.
+    /// </para>
+    /// <para>
+    /// The last two assertions are the duration. A copy effect is a layer rather than something
+    /// written into the object (CR 613.1), so when it wears off the permanent is simply itself
+    /// again and nothing had to be taken back off it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_becomes_a_copy_of_its_target_until_end_of_turn()
+    {
+        var mirror = Card(
+            "Copy Mirror Test",
+            "{2}: This artifact becomes a copy of target artifact, creature, enchantment, or "
+                + "land until end of turn.",
+            CardType.Artifact);
+
+        Assert.True(
+            CardCompiler.Compile(mirror).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(mirror).Unhandled));
+
+        var original = Card(
+            "Copy Mirror Original Test",
+            "{T}: You gain 3 life.",
+            CardType.Creature,
+            4,
+            4);
+
+        var (game, alice, _) = InMainPhase();
+
+        var glass = game.Create(alice, mirror, Zone.Battlefield);
+        var subject = game.Create(alice, original, Zone.Battlefield);
+        Settle(game);
+
+        // Wait a turn so the copy is not summoning sick when it taps for the copied ability.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var changing = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(glass)));
+
+        game.ActivateAbility(alice, glass, changing.Id, [Target.ToPermanent(subject)]);
+        Settle(game);
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(glass));
+
+        Assert.Equal("Copy Mirror Original Test", now.Name);
+        Assert.Equal(4, now.Power);
+        Assert.Equal(4, now.Toughness);
+        Assert.True(now.CardTypes.HasFlag(CardType.Creature));
+
+        // The copied ability is the one the mirror now offers, and it resolves.
+        var before = game.State.GetPlayer(alice).Life;
+        var borrowed = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(glass)));
+
+        game.ActivateAbility(alice, glass, borrowed.Id);
+        Settle(game);
+
+        Assert.Equal(before + 3, game.State.GetPlayer(alice).Life);
+
+        PassTo(game, 4, TurnStep.Upkeep);
+        Settle(game);
+
+        var after = Characteristics.Of(game.State, Pool, game.State.GetObject(glass));
+
+        Assert.Equal("Copy Mirror Test", after.Name);
+        Assert.False(after.CardTypes.HasFlag(CardType.Creature));
+    }
+
     // ---- Sagas (CR 714) ------------------------------------------------------
 
     /// <summary>A three-chapter Saga whose chapters are each visible in the life total.</summary>
