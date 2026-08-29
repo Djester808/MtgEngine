@@ -2659,6 +2659,45 @@ public sealed record AttachSourceTo(int TargetIndex = 0) : IEffect
 }
 
 /// <summary>
+/// Ends a continuous effect an earlier ability of this same permanent created (CR 611.2).
+/// </summary>
+/// <remarks>
+/// The reverse half of an ability that changes its own permanent and offers to change it back —
+/// "you may pay {W} to end this effect" on the Licids. It names the effect the way everything
+/// else in this engine names one, by its <see cref="Cards.GenerativeEffects"/> id, and ends every
+/// floating effect with that name that is applying to this permanent.
+/// <para>
+/// It has to match on the source as well as the name, or a second Licid paying to come back would
+/// end the first one's effect too — they share a definition, because what the effect does is the
+/// same on every card that prints the line. Matching on the pair is what keeps one player's
+/// payment from undoing another's.
+/// </para>
+/// <para>
+/// Nothing here says the effect is currently running: an ability that resolves with nothing to
+/// end simply ends nothing, which is the ordinary CR 608.2 outcome and not a refusal. Whether the
+/// ability may be <em>activated</em> at all is <see cref="ActivatedAbilityDefinition
+/// .ActivateOnlyIf"/>'s question and is asked before any cost is paid (CR 602.5b).
+/// </para>
+/// </remarks>
+public sealed record EndSourceEffect(string DefinitionId) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var source = context.PhysicalSourceId;
+
+        return
+        [
+            .. context.State.FloatingEffects
+                .Where(f => string.Equals(f.DefinitionId, DefinitionId, StringComparison.Ordinal)
+                    && f.AffectedIds.Contains(source))
+                .Select(f => new ContinuousEffectEnded(f.Id)),
+        ];
+    }
+}
+
+/// <summary>
 /// Gives every creature its controller controls +N/+N until end of turn (CR 613.4).
 /// </summary>
 /// <remarks>

@@ -43,7 +43,7 @@ public static class StateBasedActions
         CheckPlaneswalkers(state, events);
         CheckBattles(state, abilities, events);
         CheckAuras(state, abilities, events);
-        CheckEquipment(state, events);
+        CheckEquipment(state, abilities, events);
         CheckTokens(state, events);
         CheckCounters(state, events);
         CheckSagas(state, abilities, events);
@@ -185,6 +185,13 @@ public static class StateBasedActions
     /// Equipment does not: it stays on the battlefield unattached (CR 301.5c), which is why this
     /// asks about the card's type rather than about whether it is attached. The commonest way to
     /// reach the state is the creature dying — the Aura is left holding nothing.
+    /// <para>
+    /// Which permanents are Auras is asked of the computed characteristics, not of the printed
+    /// card (CR 613.1d). A Licid turns <em>itself</em> into an Aura in layer 4 while its card goes
+    /// on saying Creature — Licid, and a printed-subtype reading exempted it from this rule
+    /// entirely: its host died and it stayed on the battlefield, which is a card strictly better
+    /// than the one printed.
+    /// </para>
     /// </remarks>
     private static void CheckAuras(GameState state, IAbilitySource abilities, List<GameEvent> events)
     {
@@ -194,7 +201,7 @@ public static class StateBasedActions
             if (obj.Permanent is not { } permanent)
                 continue;
 
-            if (!obj.Card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase))
+            if (!BuriedWhenUnattached(state, abilities, obj))
                 continue;
 
             // An Aura may be attached to a player rather than a permanent (CR 303.4a), and a
@@ -232,9 +239,35 @@ public static class StateBasedActions
     }
 
     /// <summary>
+    /// Which permanents CR 704.5m buries when they have nothing to be attached to.
+    /// </summary>
+    /// <remarks>
+    /// One predicate rather than a test in each of the two checks below, because they divide the
+    /// battlefield between them and have to agree on the line: a permanent both counted as an Aura
+    /// would be buried and unattached in the same batch, and the unattachment would land on an
+    /// object that had already gone to the graveyard.
+    /// <para>
+    /// Bestow is the exception the rules themselves write (CR 702.103d): a bestowed permanent
+    /// whose host leaves becomes unattached and <em>stays on the battlefield</em> as a creature
+    /// again, which is the whole of what the keyword is worth. It is an Aura by its computed
+    /// subtypes for exactly as long as it is attached, so nothing but the printed exception can
+    /// tell it apart from a Licid at the moment the host dies — the two are in identical states
+    /// and the rules send them to opposite places.
+    /// </para>
+    /// </remarks>
+    private static bool BuriedWhenUnattached(
+        GameState state, IAbilitySource abilities, GameObject obj) =>
+        !obj.WasBestowed && Characteristics.IsAura(state, abilities, obj);
+
+    /// <summary>
     /// Equipment whose creature has gone comes loose but stays put (CR 301.5c).
     /// </summary>
-    private static void CheckEquipment(GameState state, List<GameEvent> events)
+    /// <remarks>
+    /// Everything CR 704.5m does not bury, which is what makes a bestowed permanent come loose
+    /// here rather than there.
+    /// </remarks>
+    private static void CheckEquipment(
+        GameState state, IAbilitySource abilities, List<GameEvent> events)
     {
         foreach (var id in state.Battlefield)
         {
@@ -242,7 +275,7 @@ public static class StateBasedActions
             if (obj.Permanent is not { AttachedTo: { } host })
                 continue;
 
-            if (obj.Card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase))
+            if (BuriedWhenUnattached(state, abilities, obj))
                 continue;
 
             var stillThere = state.TryGetObject(host, out var target)

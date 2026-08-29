@@ -741,6 +741,27 @@ public static class Characteristics
         GameState state, IAbilitySource abilities, GameObject obj, KeywordAbility keyword) =>
         Of(state, abilities, obj).Has(keyword);
 
+    /// <summary>Whether the object is currently an Aura (CR 303.4, 613.1d).</summary>
+    /// <remarks>
+    /// Not the same question as "is it printed as one". A Licid becomes an Aura in layer 4 and its
+    /// card still says Creature — Licid, so the rules that act on Auras have to ask the computed
+    /// subtypes or they never fire for it. CR 704.5m is the one that matters: an Aura whose host
+    /// has gone is put into its owner's graveyard, and a Licid exempt from it would sit on the
+    /// battlefield still granting its ability to nothing, which is a strictly better card than the
+    /// one printed.
+    /// <para>
+    /// The printed subtypes are checked first because they answer for every Aura ever printed and
+    /// cost nothing. Only a permanent that is not already one pays for the layers.
+    /// </para>
+    /// </remarks>
+    public static bool IsAura(GameState state, IAbilitySource abilities, GameObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+
+        return obj.Card.Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase)
+            || Of(state, abilities, obj).Subtypes.Contains("Aura", StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>One continuous effect that might apply to the object being computed.</summary>
     private readonly record struct Candidate(
         ContinuousEffectDefinition Effect, GameObject? Source, long Timestamp);
