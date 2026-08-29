@@ -4925,7 +4925,7 @@ public static partial class CardCompiler
     private static Func<GameState, Guid, int>? CountOf(string group)
     {
         if (ZoneCountLine().Match(group) is { Success: true } zoned
-            && CardKindNamed(zoned.Groups["what"].Value.Trim()) is { } kind)
+            && CardKindOfEither(zoned.Groups["what"].Value.Trim()) is { } kind)
         {
             var inGraveyard = zoned.Groups["zone"].Value.Equals(
                 "graveyard", StringComparison.OrdinalIgnoreCase);
@@ -4959,6 +4959,20 @@ public static partial class CardCompiler
                 id => spec.ObjectFilter?.Invoke(
                     state, EmptyAbilities.Instance, state.GetObject(id), you) != false);
         }
+
+        // The shared counted-group vocabulary, asked last. The two branches above are a second
+        // implementation of the question <see cref="EffectPhrase.Counting"/> already answers for
+        // every other "for each" in the compiler, and the two had drifted: "creatures on the
+        // battlefield" is seventy corpus cards that the shared reader learned to trim and this
+        // one still refused. Asked after them rather than instead of them so nothing that reads
+        // today reads differently tomorrow, and so a group both can answer keeps the answer it
+        // has been giving.
+        //
+        // Without a source: the object this replacement belongs to is the spell, and the
+        // permanent the phrase would mean by "it" does not exist yet (CR 400.7). A phrase that
+        // needs one is refused rather than answered about the wrong object.
+        if (EffectPhrase.Counting(group, hasSource: false) is { } shared)
+            return (state, you) => shared(state, EmptyAbilities.Instance, you, default);
 
         return null;
     }
@@ -5061,13 +5075,22 @@ public static partial class CardCompiler
         };
 
     /// <summary>
-    /// "~ enters with a +1/+1 counter on it for each [group]" (CR 614.1c).
+    /// "~ enters with a +1/+1 counter on it for each [group]" (CR 614.1c), said three ways.
     /// </summary>
     /// <remarks>
     /// The fixed-number and conditional forms were read already; this is the third, where the
     /// number is a count taken as the permanent enters. A group the reader cannot count leaves
     /// the line unread rather than entering with none - a creature that is quietly smaller than
     /// the card says is as wrong as one that is quietly bigger, and neither announces itself.
+    /// <para>
+    /// Magic writes that count three ways and only one of them was accepted. "for each creature
+    /// you control", "with X +1/+1 counters on it, where X is the number of creatures you
+    /// control" and "with a number of +1/+1 counters on it equal to the number of creatures you
+    /// control" are one instruction in three spellings, and the two unread ones sit on cards
+    /// spread across eighteen different shapes - which is why the shape-ranked work queue never
+    /// showed them as a family. They share the count vocabulary rather than a reader each, so
+    /// whatever <see cref="CountOf"/> learns to answer arrives in all three at once.
+    /// </para>
     /// </remarks>
     private static bool TryEntersWithCountersPerGroup(
         string line, CardDefinition card, ImmutableList<ReplacementEffectDefinition>.Builder into)
@@ -5076,6 +5099,8 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
+        // The two counted spellings name no multiplier - "X, where X is the number of" is one
+        // counter per thing - and an absent group reads as one, which is what they mean.
         var each = NumberWordOrDigits(m.Groups["n"].Value);
         if (each <= 0)
             return false;
@@ -5083,9 +5108,7 @@ public static partial class CardCompiler
         if (CountOf(m.Groups["group"].Value.Trim()) is not { } counted)
             return false;
 
-        var kind = m.Groups["kind"].Value is "+1/+1" or "-1/-1"
-            ? m.Groups["kind"].Value
-            : m.Groups["kind"].Value.ToLowerInvariant();
+        var kind = CounterKindPrinted(m.Groups["kind"].Value);
 
         into.Add(new ReplacementEffectDefinition
         {
@@ -5106,6 +5129,20 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// A counter as the card names it, kept under that name (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// Two alphabets, and only one of them has case. "+1/+0" is a name the layers read as an
+    /// instruction (CR 122.1c) and has to survive exactly as printed; "Charge" and "charge" are
+    /// the same counter and are folded so a permanent cannot end up holding both.
+    /// </remarks>
+    private static string CounterKindPrinted(string printed)
+    {
+        var name = printed.Trim();
+        return CounterKinds.PowerToughnessOf(name) is not null ? name : name.ToLowerInvariant();
+    }
+
     private static bool TryEntersWithCounters(
         string line, CardDefinition card, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {
@@ -5119,10 +5156,19 @@ public static partial class CardCompiler
         var variable = string.Equals(m.Groups["n"].Value, "X", StringComparison.OrdinalIgnoreCase);
         var count = variable ? 0 : NumberWordOrDigits(m.Groups["n"].Value);
 
-        // Modular and graft name no counter because theirs is always +1/+1; a storage land says
-        // which kind it arrives with.
-        var kind = m.Groups["kind"].Success && m.Groups["kind"].Value is not ("+1/+1" or "-1/-1")
-            ? m.Groups["kind"].Value.ToLowerInvariant()
+        // Modular and graft name no counter because theirs is always +1/+1; anything else says
+        // which kind it arrives with, and it arrives with that one.
+        //
+        // This branch used to read "if the printed kind is *not* +1/+1 or -1/-1, keep it, else
+        // +1/+1" - which quietly turned every printed -1/-1 into its opposite. Thirty-two corpus
+        // cards say "~ enters with N -1/-1 counters on it" and sixteen of them compiled complete,
+        // which is to say the pool served them: Carnifex Demon arrived an 8/8 where the card says
+        // 4/4, Grim Poppet a 7/7 where it says 1/1, Shrewd Hatchling a 10/10 where it says 2/2.
+        // Nothing could see it. Those cards read, compiled complete, played without an error, and
+        // were simply better than the cardboard - the one failure this compiler is built to make
+        // impossible, sitting inside the reader for the family it belongs to.
+        var kind = m.Groups["kind"].Success
+            ? CounterKindPrinted(m.Groups["kind"].Value)
             : CounterKinds.PlusOnePlusOne;
 
         var tapped = m.Value.Contains(" tapped ", StringComparison.OrdinalIgnoreCase);
@@ -5131,10 +5177,21 @@ public static partial class CardCompiler
         // front of it. A condition the board reader cannot parse leaves the whole line unread
         // rather than dropping the "if": a creature that always entered with the counters would
         // be strictly better than the one printed, and nothing would say so.
+        //
+        // Adamant prints that question at the *other* end - "If at least three white mana was
+        // spent to cast ~, ~ enters with a +1/+1 counter on it" - and asks it of the same
+        // vocabulary. One reader for both spellings, so neither can drift from the other.
+        var asked = m.Groups["given"].Success ? m.Groups["given"] : m.Groups["when"];
+
+        // A card with a condition at both ends does not exist, and honouring one of the two
+        // would make it better than printed. Left unread rather than half read.
+        if (m.Groups["given"].Success && m.Groups["when"].Success)
+            return false;
+
         Func<GameState, IAbilitySource, GameObject, bool>? when = null;
-        if (m.Groups["when"].Success)
+        if (asked.Success)
         {
-            when = BoardConditions.Parse(m.Groups["when"].Value.Trim());
+            when = BoardConditions.Parse(asked.Value.Trim());
             if (when is null)
                 return false;
         }
@@ -6317,6 +6374,26 @@ public static partial class CardCompiler
                 | Domain.Enums.CardType.Planeswalker,
             _ => null,
         };
+
+    /// <summary>
+    /// A named kind of card, however the sentence declined the noun (CR 109.3).
+    /// </summary>
+    /// <remarks>
+    /// "For each creature card in your graveyard" says it singular and "the number of creature
+    /// cards in your graveyard" says it plural, and they are the same count. The table above is
+    /// written singular, so the plural spelling looked up nothing and the count came back
+    /// unreadable — the same declension defect that once cost every "creatures with flying" line,
+    /// found again in the other half of the vocabulary.
+    /// <para>
+    /// Only the noun's own "s" comes off, and only when the singular is a kind the table knows. A
+    /// blanket trim would be right about "permanents" and "lands" in the same breath, and would
+    /// also turn a noun it has never heard of into another noun it has never heard of — reporting
+    /// the miss one word later than it happened.
+    /// </para>
+    /// </remarks>
+    private static Domain.Enums.CardType? CardKindOfEither(string noun) =>
+        CardKindNamed(noun)
+        ?? (noun.EndsWith('s') ? CardKindNamed(noun[..^1]) : null);
 
     /// <summary>"gets +N/+N for each [kind] in your graveyard" — a count taken in a zone.</summary>
     private static void AddZoneCount(
@@ -11226,17 +11303,42 @@ public static partial class CardCompiler
     /// Counters of any name, because the permanent can hold any name and the storage cycles —
     /// charge, depletion, storage — all arrive carrying some.
     /// </remarks>
+    /// <remarks>
+    /// The number runs to ten rather than to five, which is where it stopped: Savage Firecat
+    /// enters with seven counters, Spike Hatcher and Surge Node with six, and the shared number
+    /// reader had understood every one of those words all along. The counter kind is any
+    /// power/toughness name rather than the two the layers used to know, now that they read the
+    /// name (CR 122.1c). "On her" and "on him" because a card whose creature has a gender says
+    /// so, and Big Bertha and Michelangelo were unread for the pronoun alone.
+    /// </remarks>
     [GeneratedRegex(
         @"^(modular (?<n>\d+)|graft (?<n>\d+)"
-            + @"|~ enters( tapped)? with (?<n>\d+|X|a|an|two|three|four|five) "
-            + @"(?<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it( if (?<when>[^.]+))?)\.?$",
+            + @"|(If (?<given>[^,.]+), )?~ enters( tapped)? with "
+            + @"(?<n>\d+|X|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"(?<kind>[+-]\d+/[+-]\d+|[a-z]+) counters? on (it|her|him)"
+            + @"( if (?<when>[^.]+))?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EntersWithCountersLine();
 
-    /// <summary>"…enters with a +1/+1 counter on it for each [group]" (CR 614.1c).</summary>
+    /// <summary>
+    /// "…enters with a +1/+1 counter on it for each [group]" (CR 614.1c), and its two synonyms.
+    /// </summary>
+    /// <remarks>
+    /// One pattern rather than three readers, because the three branches differ only in how the
+    /// card spells the number and all of them end in a group this compiler counts the same way.
+    /// The last two name no multiplier, so <c>n</c> does not capture and the shared number reader
+    /// answers one - which is what "X, where X is the number of" means.
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ enters with (?<n>\d+|a|an|two|three|four|five) "
-            + @"(?<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it for each (?<group>[^.]+)\.?$",
+        @"^~ enters( tapped)? with ("
+            + @"(?<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
+            + @"(?<kind>[+-]\d+/[+-]\d+|[a-z]+) counters? on (it|her|him) "
+            + @"for each (?<group>[^.]+)"
+            + @"|X (?<kind>[+-]\d+/[+-]\d+|[a-z]+) counters? on (it|her|him), "
+            + @"where X is the number of (?<group>[^.]+)"
+            + @"|a number of (?<kind>[+-]\d+/[+-]\d+|[a-z]+) counters? on (it|her|him) "
+            + @"equal to the number of (?<group>[^.]+)"
+            + @")\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EntersWithCountersPerGroupLine();
 

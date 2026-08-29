@@ -660,8 +660,12 @@ public static class Characteristics
 
         // Counters modify power and toughness in layer 7c (CR 613.4c, 122.1c). They are not a
         // static ability of anything, so they are added here rather than found on a permanent.
-        if (target.Permanent is not null && CounterDelta(target) != 0)
-            found.Add(new Candidate(CounterEffect(CounterDelta(target)), null, target.Timestamp));
+        var counters = CounterModifier(target);
+        if (target.Permanent is not null && (counters.Power != 0 || counters.Toughness != 0))
+        {
+            found.Add(new Candidate(
+                CounterEffect(counters.Power, counters.Toughness), null, target.Timestamp));
+        }
 
         // Effects created by a resolved spell or ability, which outlive their source (CR 613.7b).
         // A floating effect is not an ability of any permanent, so nothing ever silences one -
@@ -901,22 +905,49 @@ public static class Characteristics
         return true;
     }
 
-    /// <summary>The +1/+1 and -1/-1 counters on a permanent, netted (CR 122.1c).</summary>
-    private static int CounterDelta(GameObject obj)
+    /// <summary>
+    /// What a permanent's counters do to its power and toughness (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// Read out of each counter's own <em>name</em> rather than from a list of the two the rest
+    /// of the rules single out. CR 122.1c says a counter whose name is a power/toughness modifier
+    /// modifies power by the first number and toughness by the second, for any pair — and ten
+    /// printed kinds are neither +1/+1 nor -1/-1: Clockwork Beast arrives with seven +1/+0, Ebon
+    /// Praetor takes a -2/-2, Wall of Roots pays with a -0/-1. Pinned to the two names, every one
+    /// of those was a counter that went onto the permanent, appeared in the log, and did nothing.
+    /// <para>
+    /// Summed rather than netted, because the two halves are no longer the same number: a
+    /// creature holding a +1/+0 and a -0/-1 is one bigger and one smaller, and a single delta has
+    /// nowhere to put that. The two named constants still travel this path like any other name —
+    /// they are singled out elsewhere (CR 704.5q annihilates only those two) and not here.
+    /// </para>
+    /// </remarks>
+    private static (int Power, int Toughness) CounterModifier(GameObject obj)
     {
         if (obj.Permanent is null)
-            return 0;
+            return (0, 0);
 
-        return obj.Permanent.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne)
-            - obj.Permanent.Counters.GetValueOrDefault(CounterKinds.MinusOneMinusOne);
+        var power = 0;
+        var toughness = 0;
+
+        foreach (var (kind, many) in obj.Permanent.Counters)
+        {
+            if (CounterKinds.PowerToughnessOf(kind) is not { } modifier)
+                continue;
+
+            power += modifier.Power * many;
+            toughness += modifier.Toughness * many;
+        }
+
+        return (power, toughness);
     }
 
-    private static ContinuousEffectDefinition CounterEffect(int delta) => new()
+    private static ContinuousEffectDefinition CounterEffect(int power, int toughness) => new()
     {
         Id = "counters",
         Layer = EffectLayer.PowerToughnessModify,
         Applies = (_, _, _) => true,
-        Apply = (_, _, builder) => builder.Modify(delta, delta),
+        Apply = (_, _, builder) => builder.Modify(power, toughness),
     };
 }
 
@@ -953,4 +984,51 @@ public static class CounterKinds
     /// would have hidden it from all three.
     /// </remarks>
     public const string Level = "level";
+
+    /// <summary>
+    /// The power and toughness a counter's name modifies by, or null if it names none
+    /// (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// The rule is about the shape of the name, not about a list of names: "+1/+1", "-0/-1" and
+    /// "+2/+0" are all power/toughness counters and "charge" is not, and nothing has to be told
+    /// which is which. Asking the name is what lets the compiler read a counter the engine has
+    /// never seen and the layers apply it without either of them keeping a list.
+    /// <para>
+    /// Both halves must carry a sign, which is what keeps this from reading a name that merely
+    /// contains a slash. There is no such counter printed today, and a reader that would accept
+    /// one is a reader that will accept one.
+    /// </para>
+    /// </remarks>
+    public static (int Power, int Toughness)? PowerToughnessOf(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var slash = name.IndexOf('/', StringComparison.Ordinal);
+        if (slash <= 0)
+            return null;
+
+        return SignedNumber(name[..slash]) is { } power
+            && SignedNumber(name[(slash + 1)..]) is { } toughness
+            ? (power, toughness)
+            : null;
+    }
+
+    /// <summary>One half of a counter's name — a sign and then digits, and nothing else.</summary>
+    private static int? SignedNumber(string half)
+    {
+        if (half.Length < 2 || half[0] is not ('+' or '-'))
+            return null;
+
+        if (!int.TryParse(
+            half.AsSpan(1),
+            System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var digits))
+        {
+            return null;
+        }
+
+        return half[0] == '-' ? -digits : digits;
+    }
 }
