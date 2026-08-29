@@ -12735,6 +12735,24 @@ public sealed class CompiledCardBehaviourTests
         Produces = [new ManaProduction(ManaColor.Green)],
     };
 
+    /// <summary>
+    /// The same mana ability, with a restriction on what the mana it makes may pay for.
+    /// </summary>
+    /// <remarks>
+    /// Produced by an ability rather than pushed into the pool, because the question these ask
+    /// is what a real payment does with it — a pool built by hand answers about
+    /// <see cref="ManaPayment"/> and says nothing about whether the engine ever tells it what a
+    /// payment is for.
+    /// </remarks>
+    private static ActivatedAbilityDefinition TapsForRestrictedGreen(
+        ManaRestriction restriction) => new()
+        {
+            Id = "mana",
+            Text = "{T}: Add {G}.",
+            RequiresTap = true,
+            Produces = [new ManaProduction(ManaColor.Green, 1, restriction)],
+        };
+
     /// <summary>An ability priced at {2}, so a discount of {1} is visible in the pool.</summary>
     private static readonly ActivatedAbilityDefinition PricedAtTwo = new()
     {
@@ -13393,6 +13411,248 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Null(ManaPayment.Pay(
             pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(general, Zone.Command)));
+    }
+
+    /// <summary>A card with morph, and an artifact type the face-down spell does not have.</summary>
+    /// <remarks>
+    /// An artifact creature on purpose. CR 702.37a casts it as "a 2/2 face-down creature with no
+    /// text, no name, no subtypes, and no mana cost", so every question asked about the spell has
+    /// two answers available — the printed card's and the face-down one's — and they differ in
+    /// exactly one respect that a cost modifier and a restricted mana can both read.
+    /// </remarks>
+    private static readonly CardDefinition MorphMyr = new()
+    {
+        OracleId = "oracle-face-down-cast-test",
+        Name = "Face Down Cast Test",
+        OracleText = "Morph {2}{G}",
+        CardTypes = CardType.Artifact | CardType.Creature,
+        Subtypes = ["Myr"],
+        ManaCostRaw = "{4}{G}",
+        Cmc = 5,
+        Power = 4,
+        Toughness = 4,
+    };
+
+    private static readonly SpellDefinition MorphedForTwoGreen = new()
+    {
+        MorphCost = ManaCostSpec.Parse("{2}{G}"),
+    };
+
+    /// <summary>Taps <paramref name="count"/> of one hand-written land for its mana.</summary>
+    private static void TapEach(Game game, Guid playerId, CardDefinition land, int count)
+    {
+        for (var i = 0; i < count; i++)
+            game.ActivateAbility(playerId, game.Create(playerId, land, Zone.Battlefield), "mana");
+    }
+
+    /// <summary>
+    /// A face-down creature spell is a spell being cast, so the board's taxes reach it (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The one cast in the engine that went straight from a literal <c>{3}</c> to the pool. Every
+    /// other cast had its cost passed through CR 601.2f; this one did not, so a face-down spell
+    /// was cast under a Thalia for {3} and no cost modifier on the board could see it.
+    /// <para>
+    /// The discount is the assertion that catches the wrong reading, and it is why the card is an
+    /// artifact creature rather than a creature. Reading the modifiers against the card
+    /// <em>underneath</em> would find an artifact spell and take {2} off — a face-down spell that
+    /// is cheaper for what it is hiding, which is the direction that costs a game rather than a
+    /// refusal. CR 702.37a says the spell is a 2/2 creature with no subtypes; the artifact type
+    /// is on the card, not on what is being cast.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_tax_on_every_spell_reaches_a_spell_cast_face_down()
+    {
+        var sphere = new CardDefinition
+        {
+            OracleId = "oracle-face-down-tax-test",
+            Name = "Face Down Tax Test",
+            OracleText = "Spells cost {1} more to cast.",
+            CardTypes = CardType.Artifact,
+        };
+
+        var foundry = new CardDefinition
+        {
+            OracleId = "oracle-face-down-discount-test",
+            Name = "Face Down Discount Test",
+            OracleText = "Artifact spells you cast cost {2} less to cast.",
+            CardTypes = CardType.Artifact,
+        };
+
+        var pool = new HandWritten()
+            .Give(HandLand, TapsForGreen)
+            .Give(MorphMyr, MorphedForTwoGreen)
+            .Give(sphere, new CostModifier
+            {
+                Amount = 1,
+                Change = CostChange.Increase,
+                Who = PlayerScope.EachPlayer,
+            })
+            .Give(foundry, new CostModifier { Amount = 2, FilterId = "artifact" });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        game.Create(alice, sphere, Zone.Battlefield);
+        game.Create(alice, foundry, Zone.Battlefield);
+
+        var myr = TestCards.PutInHand(game, alice, MorphMyr);
+
+        // {3} taxed {1} and discounted nothing. Three is what the printed cost of a face-down
+        // spell has always been, so this is the assertion that fails on the old engine.
+        TapForGreen(game, alice, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, myr, [], faceDown: true));
+
+        TapForGreen(game, alice, 1);
+        game.CastSpell(alice, myr, [], faceDown: true);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast creature spells" pays for one cast face down (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// The other half of the same omission. A face-down cast was paid with no
+    /// <see cref="ManaSpend"/> at all, so every restricted mana in the pool answered the default
+    /// question — neither a cast nor an activation — and refused. A player holding three mana
+    /// that may only cast creatures could not cast a creature.
+    /// <para>
+    /// The artifact-restricted mana is the wrong reading, and the same one the tax test catches
+    /// from the other side: the card underneath is an artifact, and the spell is not.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_creature_spells_pays_for_a_spell_cast_face_down()
+    {
+        var nest = new CardDefinition
+        {
+            OracleId = "oracle-face-down-creature-mana-test",
+            Name = "Face Down Creature Mana Test",
+            OracleText = "{T}: Add {G}. Spend this mana only to cast creature spells.",
+            CardTypes = CardType.Land,
+        };
+
+        var vault = new CardDefinition
+        {
+            OracleId = "oracle-face-down-artifact-mana-test",
+            Name = "Face Down Artifact Mana Test",
+            OracleText = "{T}: Add {G}. Spend this mana only to cast artifact spells.",
+            CardTypes = CardType.Land,
+        };
+
+        var pool = new HandWritten()
+            .Give(nest, TapsForRestrictedGreen(new ManaRestriction(
+                ManaPurpose.CastSpell, CardType.Creature)))
+            .Give(vault, TapsForRestrictedGreen(new ManaRestriction(
+                ManaPurpose.CastSpell, CardType.Artifact)))
+            .Give(MorphMyr, MorphedForTwoGreen);
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var myr = TestCards.PutInHand(game, alice, MorphMyr);
+
+        TapEach(game, alice, vault, 3);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, myr, [], faceDown: true));
+
+        TapEach(game, alice, nest, 3);
+        game.CastSpell(alice, myr, [], faceDown: true);
+
+        // The three that could not pay are still there, which is what says the other three did.
+        var left = game.State.GetPlayer(alice).ManaPool;
+        Assert.Equal(3, left.Restricted.Count);
+        Assert.All(
+            left.Restricted,
+            mana => Assert.False(mana.Allows(
+                ManaSpend.Casting(Characteristics.FaceDownSpell, Zone.Hand))));
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast spells" pays for no special action (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ManaPurpose.Other"/> is zero, and every flag "has" zero — so a restriction that
+    /// named a purpose said yes to every payment that names none. Six of the 43 corpus cards that
+    /// make restricted mana were affected, all of them "spend this mana only to activate
+    /// abilities": Omen Hawker's mana foretold, plotted, suspended and unlocked doors.
+    /// Foretelling is a special action and nothing is cast (CR 702.143a).
+    /// <para>
+    /// The card under test says "only to cast spells" rather than Omen Hawker's wording because
+    /// that is the general form of the fault. The others escape only because their type mask
+    /// cannot match a payment with no card behind it, which is a coincidence of what the compiler
+    /// has read rather than a rule.
+    /// </para>
+    /// <para>
+    /// The Powerstone is the wrong reading in the other direction, and it is why the fix cannot
+    /// simply refuse every unnamed purpose. "This mana can't be spent to cast a nonartifact
+    /// spell" forbids one kind of cast and nothing else — a Powerstone that could not pay a
+    /// foretell cost would be a worse token than CR 111.10h describes.
+    /// </para>
+    /// <para>
+    /// The last assertion is the one that stops this passing on mana that pays for nothing at
+    /// all: the same restricted mana still casts a spell.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Mana_that_may_only_be_cast_with_pays_for_no_special_action()
+    {
+        var ziggurat = new CardDefinition
+        {
+            OracleId = "oracle-cast-only-mana-test",
+            Name = "Cast Only Mana Test",
+            OracleText = "{T}: Add {G}. Spend this mana only to cast spells.",
+            CardTypes = CardType.Land,
+        };
+
+        var powerstone = new CardDefinition
+        {
+            OracleId = "oracle-powerstone-mana-test",
+            Name = "Powerstone Mana Test",
+            OracleText =
+                "{T}: Add {G}. This mana can't be spent to cast a nonartifact spell.",
+            CardTypes = CardType.Land,
+        };
+
+        var omen = new CardDefinition
+        {
+            OracleId = "oracle-foretold-sorcery-test",
+            Name = "Foretold Sorcery Test",
+            OracleText = "Foretell {G}",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{4}",
+            Cmc = 4,
+        };
+
+        var pool = new HandWritten()
+            .Give(ziggurat, TapsForRestrictedGreen(new ManaRestriction(
+                ManaPurpose.CastSpell, default)))
+            .Give(powerstone, TapsForRestrictedGreen(new ManaRestriction(
+                ManaPurpose.CastSpell | ManaPurpose.ActivateAbility, CardType.Artifact)
+            {
+                TypesOnlyWhenCasting = true,
+            }))
+            .Give(omen, new SpellDefinition { ForetellCost = ManaCostSpec.Parse("{G}") });
+
+        var (game, alice, _) = InMainPhaseWith(pool);
+        var foretold = TestCards.PutInHand(game, alice, omen);
+
+        // Foretelling costs {2} and casts nothing (CR 702.143a).
+        TapEach(game, alice, ziggurat, 2);
+        Assert.Throws<InvalidOperationException>(() => game.Foretell(alice, foretold));
+
+        TapEach(game, alice, powerstone, 2);
+        game.Foretell(alice, foretold);
+
+        var left = game.State.GetPlayer(alice).ManaPool;
+        Assert.Equal(2, left.Restricted.Count);
+
+        var bear = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Cast Only Bear Test", "{G}{G}", 2));
+        game.CastSpell(alice, bear, []);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
     }
 
     /// <summary>

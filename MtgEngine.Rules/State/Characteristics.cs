@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
+using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
 
 namespace MtgEngine.Rules.State;
@@ -359,6 +360,31 @@ public static class Characteristics
         if (bearerOwner.RingTemptations >= 4)
             builder.GrantedTriggers.Add(RingAbilities.DrainsOnDamage);
     }
+
+    /// <summary>
+    /// The card a face-down spell is, for the questions asked before it is an object (CR 702.37a).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FaceDown"/> below answers about a permanent, which exists and can be handed to
+    /// the layers. A spell's cost is worked out before anything is on the stack at all, and the
+    /// two questions asked there — which cost modifiers apply (CR 601.2f) and whether a
+    /// restricted mana may pay (CR 106.6) — are both put to a <see cref="CardDefinition"/>.
+    /// <para>
+    /// The card underneath is the wrong answer to both, and wrong in the direction that makes
+    /// the spell better than printed: CR 702.37a casts it as "a 2/2 face-down creature with no
+    /// text, no name, no subtypes, and no mana cost", so "Dragon spells cost {1} less to cast"
+    /// is not looking at a Dragon and "spend this mana only to cast Dragon spells" may not pay
+    /// for one. What both <em>are</em> looking at is a creature spell, which is what this says
+    /// and the only thing it says.
+    /// </para>
+    /// </remarks>
+    public static readonly CardDefinition FaceDownSpell = new()
+    {
+        OracleId = "face-down",
+        CardTypes = CardType.Creature,
+        Power = 2,
+        Toughness = 2,
+    };
 
     /// <summary>The characteristics of a face-down permanent (CR 707.2).</summary>
     /// <remarks>
