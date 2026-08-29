@@ -55,8 +55,12 @@ public static class CombatRules
             return "it has summoning sickness and no haste (CR 302.6)";
         }
 
-        // CR 702.3b.
-        if (computed.Has(KeywordAbility.Defender))
+        // CR 702.3b, and CR 609.4 for the way out of it. "This creature can attack as though it
+        // didn't have defender" does not take the keyword away — the creature still has defender
+        // for every other purpose, and a card that pumps creatures with defender still pumps this
+        // one — so the permission is asked here and nowhere else, which is exactly the scope
+        // CR 609.4 gives an "as though" effect.
+        if (computed.Has(KeywordAbility.Defender) && !computed.MayAttackAsThoughNoDefender)
             return "it has defender (CR 702.3b)";
 
         // CR 702.141a: an encore token is made to attack one named opponent. A restriction, not
@@ -90,7 +94,12 @@ public static class CombatRules
         // CR 506.3: an attack restriction that reads the defender's board. Checked with the same
         // helper landwalk uses, and for the same reason: land types are changed by real cards, so
         // it has to ask what the lands are now rather than what they were printed as.
+        //
+        // Skipped outright once the creature has lost all its abilities (CR 613.1f). This is the
+        // one place in combat that asks the *card* what a creature can do rather than asking the
+        // computed characteristics, so it is the one place a removal cannot reach on its own.
         if (defendingPlayer is { } defender
+            && !computed.HasLostAllAbilities
             && abilities.AttacksOnlyIfDefenderControls(creature.Card) is { } needed
             && !DefenderControls(state, abilities, defender, needed))
         {
