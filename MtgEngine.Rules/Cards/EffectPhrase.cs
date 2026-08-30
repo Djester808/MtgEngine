@@ -7008,7 +7008,14 @@ public static partial class EffectPhrase
         // containing a space, which is what used to happen: the phrase went to a caller that
         // joined it up unvalidated and the search looked for a subtype spelled "Mount creature
         // card", which nothing is.
-        if (AtomsOf(what, atLeast: 2) is { } atoms)
+        //
+        // One word is enough, and asking for two was the whole of a divergence with the reader
+        // next door: <see cref="Specs.SpellOfKind"/> passes one, so "target red spell" read while
+        // "search your library for a red card" - the same adjective, the same vocabulary - did
+        // not. Nothing was gained by the second word. A single word that is a card type or a
+        // subtype has already been answered above this, and a single word that is neither
+        // reaches the same null either way, so this widens only the case that was wrong.
+        if (AtomsOf(what, atLeast: 1) is { } atoms)
             return atoms;
 
         // Otherwise a subtype, told apart by its capital — the same rule the target grammar and
@@ -7026,11 +7033,11 @@ public static partial class EffectPhrase
     /// reader: it describes a spell on the stack, which is a card and not a permanent, and this
     /// is the vocabulary that describes cards.
     /// <para>
-    /// <paramref name="atLeast"/> is the only thing the two callers disagree about. A search
-    /// phrase of one word is a card type or a subtype and is answered above this; an adjective
-    /// on a spell is one word far more often than not — "target red spell" — so that caller
-    /// passes one. Three words is the cap for both, because beyond it the phrase stops being a
-    /// pile of adjectives and starts being a sentence.
+    /// <paramref name="atLeast"/> is the only thing the two callers could disagree about, and for
+    /// a while they did: the spell reader passed one and the search reader passed two, so "target
+    /// red spell" was read and "search your library for a red card" was not — one vocabulary,
+    /// one word, two answers. Both pass one now. Three words is the cap for both, because beyond
+    /// it the phrase stops being a pile of adjectives and starts being a sentence.
     /// </para>
     /// </remarks>
     private static string? AtomsOf(string phrase, int atLeast)
@@ -7095,6 +7102,11 @@ public static partial class EffectPhrase
             || lower is "basic" or "legendary" or "snow" or "world"
             || lower is "white" or "blue" or "black" or "red" or "green" or "colorless"
             || lower is "multicolored" or "monocolored"
+
+            // CR 205.4h, and the same drift the two words above it had: the runtime half has
+            // answered "historic" in two other readers all along while this half, which decides
+            // whether the compiler accepts the word at all, had never been told.
+            || lower is "historic"
                 ? lower
                 : null;
     }
@@ -8053,6 +8065,23 @@ public static partial class EffectPhrase
     /// </remarks>
     internal static Domain.Enums.CardType SubtypeSetOf(string subtype) =>
         Specs.SubtypeCardType(subtype);
+
+    /// <summary>Whose permanent a noun phrase may say it has to be (CR 109.5), as an alternation.</summary>
+    /// <remarks>
+    /// A const so the target grammar's own pattern is built from it, and split into
+    /// <see cref="OwnershipClauses"/> so anything that has to know the same list reads it rather
+    /// than writing it out again. That had already happened once: the invariant suite's noun-run
+    /// reader carried three of these, so "creatures you don't control" was pulled out of a
+    /// printed line as the phrase "creatures" and checked against a witness board for a card
+    /// nobody prints - a check that is not wrong so much as about something else.
+    /// </remarks>
+    private const string OwnershipAlternation =
+        "you control|you don't control|an opponent controls|your opponents control"
+            + "|another player controls|that player controls|defending player controls";
+
+    /// <summary>The same clauses as words, for a reader that has to find one in a printed line.</summary>
+    public static readonly ImmutableArray<string> OwnershipClauses =
+        [.. OwnershipAlternation.Split('|')];
 
     /// <summary>
     /// How many a counted phrase comes to, whatever it is counting (CR 107.3).
@@ -10122,6 +10151,12 @@ public static partial class EffectPhrase
             "planeswalker" => CardType.Planeswalker,
             "instant" => CardType.Instant,
             "sorcery" => CardType.Sorcery,
+
+            // A battle card sits in a graveyard like any other (CR 310.4 sends a defeated
+            // one there), and "return target creature or battle card from your graveyard to
+            // your hand" is printed. The either-branch above asks this table for both halves
+            // and refused the whole phrase for the half it did not know.
+            "battle" => CardType.Battle,
             _ => null,
         };
 
@@ -10184,20 +10219,40 @@ public static partial class EffectPhrase
                 : PermanentTypes(word)
                     ?? (CardTypeInGraveyard(word) is { } only ? [only] : null);
 
+            // An adjective in front of the noun, answered by the shared card-filter vocabulary
+            // rather than by a second one written here.
+            string? described = null;
+
             if (required is null)
             {
-                if (word.Length < 2 || !char.IsUpper(word[0]))
+                if (word.Length > 1 && char.IsUpper(word[0]))
+                {
+                    // Which card type the subtype belongs to, asked of the shared table rather
+                    // than assumed. This arm said "creature" outright, which is the silent
+                    // failure that table was written to end: "return target Equipment card from
+                    // your graveyard" asked for a card that is both a creature and an Equipment,
+                    // of which there are none, and reported itself completely understood. The fix
+                    // landed in Parse and never here, so the same word read one way as a
+                    // permanent and another way in a graveyard.
+                    subtype = word;
+                    required = [SubtypeCardType(word)];
+                }
+                else if (CardFilterNamed(word) is { } named)
+                {
+                    // "Target legendary creature card from your graveyard", "target red sorcery
+                    // card", "target non-Aura enchantment card". This reader had a private
+                    // adjective vocabulary of exactly one word - "nonland" - beside a shared one
+                    // that has known the colours, the supertypes, the negations and the
+                    // conjunctions all along, and every other phrase in the compiler asks the
+                    // shared one. Sixteen corpus cards print an adjective here and every one of
+                    // them was refused for a word the compiler already knew, one reader over.
+                    described = named;
+                    required = [];
+                }
+                else
+                {
                     return null;
-
-                // Which card type the subtype belongs to, asked of the shared table rather than
-                // assumed. This arm said "creature" outright, which is the silent failure that
-                // table was written to end: "return target Equipment card from your graveyard"
-                // asked for a card that is both a creature and an Equipment, of which there are
-                // none, and reported itself completely understood. The fix landed in Parse and
-                // never here, so the same word read one way as a permanent and another way in a
-                // graveyard.
-                subtype = word;
-                required = [SubtypeCardType(word)];
+                }
             }
 
             var mine = whose.Trim().StartsWith("your", StringComparison.OrdinalIgnoreCase);
@@ -10256,6 +10311,11 @@ public static partial class EffectPhrase
                     return false;
                 }
 
+                // Printed characteristics for the same reason the types above are printed: a card
+                // in a graveyard is not a permanent, so nothing in CR 613 has touched it.
+                if (described is not null && !SearchFilters.Matches(described, obj.Card))
+                    return false;
+
                 return !mine || obj.OwnerId == controller;
             }
         }
@@ -10275,8 +10335,16 @@ public static partial class EffectPhrase
         /// makes the several targets is what points each of them at the first
         /// (<see cref="TargetSpec.PeerIndex"/>).
         /// </remarks>
+        /// <remarks>
+        /// The noun runs to as many words as the card prints, and admits the hyphen, because
+        /// every one of them is read by the shared card-filter vocabulary behind this: "legendary
+        /// creature", "red sorcery", "non-Aura enchantment". It was one word with an optional
+        /// "or", which is why sixteen corpus cards naming an adjective here never reached the
+        /// reader at all - the phrase did not match, so nothing got the chance to refuse it for a
+        /// word it actually knew.
+        /// </remarks>
         [GeneratedRegex(
-            @"^[Tt]arget ((?<noun>(nonland )?[A-Za-z]+( or [A-Za-z]+)?) )?card"
+            @"^[Tt]arget ((?<noun>(nonland )?[A-Za-z][A-Za-z-]*(?: (?:or )?[A-Za-z][A-Za-z-]*)*) )?card"
                 + @"( with mana value (?<cap>\d+|X) or less)?"
                 + @" (from|in) (?<whose>your|a single|a|an opponent's) graveyard$",
             RegexOptions.None)]
@@ -10339,6 +10407,14 @@ public static partial class EffectPhrase
             "enchantment" => [CardType.Enchantment],
             "land" => [CardType.Land],
             "planeswalker" => [CardType.Planeswalker],
+
+            // A battle is a permanent (CR 110.4a, 310.1), and this table left it out while
+            // the target grammar in front of it had spelled "battle" into its noun
+            // alternation for months - so every "battle or X" alternative that pattern
+            // offered was dead the moment it reached here, and "target battle" answered
+            // nothing. Dead alternatives in a vocabulary are where the next divergence
+            // starts: the pattern says the word is read and the table says it is not.
+            "battle" => [CardType.Battle],
 
             // CR 111.1: a token is a permanent, and which kind is not part of the word.
             "token" => [CardType.Token],
@@ -10838,9 +10914,7 @@ public static partial class EffectPhrase
                 // planeswalker type shares no list with a creature type, and 38 cards name one
                 // this way while "target Nissa" alone was already read.
                 + @"(?<kind>\s+(?i:creature|planeswalker|artifact|enchantment|land|permanent))?"
-                + @"(?<own>\s+you control|\s+you don't control|\s+an opponent controls"
-                + @"|\s+your opponents control|\s+another player controls"
-                + @"|\s+that player controls|\s+defending player controls)?$",
+                + @"(?<own>\s+(?:" + OwnershipAlternation + @"))?$",
             RegexOptions.None)]
         private static partial Regex TargetPhrase();
     }
@@ -10991,7 +11065,16 @@ public static partial class EffectPhrase
     private static partial Regex DestroyLine();
 
     /// <summary>A group phrase: no "target", and usually plural.</summary>
-    private const string G = @"(?<t>(all |each |every )?[A-Za-z0-9'’ ]+)";
+    /// <remarks>
+    /// The hyphen is here for the same reason it is in <see cref="T"/>, and it was missing for
+    /// long enough to be a divergence rather than an omission: "face-down" and "non-Dragon" are
+    /// words the noun grammar behind both classes has read all along, so "destroy target
+    /// non-Dragon creature" was read while "destroy all non-Dragon creatures" - the same
+    /// vocabulary, the same sentence, the other number - never reached the grammar at all. The
+    /// plus and the slash stay out for the reason they stay out of <see cref="T"/>: a greedy
+    /// group would swallow "gets +2/+2".
+    /// </remarks>
+    private const string G = @"(?<t>(all |each |every )?[A-Za-z0-9'’ -]+)";
 
     /// <remarks>
     /// One pattern for every sweeper verb. The group phrase has to open with "all", "each" or
@@ -11003,7 +11086,7 @@ public static partial class EffectPhrase
         // and enchantments" - and reaches no further than that: a sweeper's own sentence has
         // already been cut from its neighbours before it arrives here, and the group grammar
         // refuses a comma'd phrase whose parts are not each a plural noun.
-        @"^(?<verb>destroy|exile|tap|untap|return) (?<t>(all|each|every) [A-Za-z0-9,'’ ]+?)"
+        @"^(?<verb>destroy|exile|tap|untap|return) (?<t>(all|each|every) [A-Za-z0-9,'’ -]+?)"
             + @"( to (its|their) owners?'? hands?)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ToEachLine();
@@ -11012,7 +11095,7 @@ public static partial class EffectPhrase
         // "It deals" as well as "~ deals": a trigger has already named the source, and the
         // sentence that follows says "it". The player-scope twin of this reader was widened the
         // same way and for the same reason - the two halves of one grammar had drifted apart.
-        @"^(~|it) deals " + N + @" damage to (?<t>(all|each|every) [A-Za-z0-9'’ ]+)$",
+        @"^(~|it) deals " + N + @" damage to (?<t>(all|each|every) [A-Za-z0-9'’ -]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageEachPermanentLine();
 
@@ -11252,7 +11335,7 @@ public static partial class EffectPhrase
     private static partial Regex PlayerWords();
 
     [GeneratedRegex(
-        @"^((?<t>(all|each|every) [A-Za-z0-9'’ ]+?) gets"
+        @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
             + @" (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
         RegexOptions.IgnoreCase)]
@@ -11271,7 +11354,7 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<t>(all|each|every) [A-Za-z0-9'’ ]+?) gains"
+        @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gains"
             + @"|" + G + @" gain)"
             + @" (?<kw>[a-z ,]+?) until end of turn$",
         RegexOptions.IgnoreCase)]
@@ -11284,7 +11367,7 @@ public static partial class EffectPhrase
     /// end of turn" with no subject at all.
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<t>(all|each|every) [A-Za-z0-9'’ ]+?) gets"
+        @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
             + @" (?<p>[+-]\d+)/(?<tough>[+-]\d+) and gains? (?<kw>[a-z ,]+?) until end of turn$",
         RegexOptions.IgnoreCase)]
@@ -15188,12 +15271,11 @@ public static partial class TriggerConditions
             "token" => card => card.CardTypes.HasFlag(CardType.Token),
             "nontoken" => card => !card.CardTypes.HasFlag(CardType.Token),
 
-            // CR 205.4h: historic is legendary, artifact, or Saga — three unrelated things under
-            // one word, which is why it is spelled out rather than derived.
-            "historic" => card =>
-                card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase)
-                || card.CardTypes.HasFlag(CardType.Artifact)
-                || card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase),
+            // CR 205.4h: historic is legendary, artifact, or Saga — three unrelated things
+            // under one word. Asked of the shared filter vocabulary rather than spelled out
+            // twice: this reader and that one describe the same card, and a word with three
+            // unrelated halves is exactly the kind the two would come to disagree about.
+            "historic" => card => SearchFilters.Matches("historic", card),
 
             "permanent" => card => card.CardTypes.HasFlag(CardType.Creature)
                 || card.CardTypes.HasFlag(CardType.Artifact)

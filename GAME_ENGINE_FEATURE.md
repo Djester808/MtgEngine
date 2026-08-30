@@ -144,6 +144,22 @@ third that had already fallen behind. They are now one type-keyed table, `Effect
 it covers every `IEffect` that has a target slot. The same shape of guard covers the event
 serializer. Where a list cannot be eliminated, something has to check it.
 
+**And the same rule holds for the tests.** A test that restates something the code owns is the
+same list, one repository further out, and it goes stale the same way — except that when it does,
+the thing it was guarding silently stops being guarded. One audit found four of them at once:
+`GameState.Equals` was a hand-written list of fields with no check on it at all until
+`StateEqualityTests` learned to *build* a variation of any field type rather than keep an arm per
+type; `MechanicCoverageTests` carried a copy of the compiler's ability-word pattern that had grown
+*wider* than the original and a card-name pattern written for the wrong word order, so 3,200 of the
+lines these tests hand the compiler reached the comparison in a form it never sees; the invariant
+suite's noun reader knew three of the grammar's seven ownership clauses, so "creatures you don't
+control" was checked as the phrase "creatures"; and four separate walkers over a `CompiledCard`
+each missed something different, between them leaving every adventure, prepared half, cleave
+text, gift and split-card face checked by nothing at all. Each is now taken from the thing it
+checks — the compiler's own `Regex` object, `EffectPhrase.OwnershipClauses`, one walker that
+finds the alternate castings by type — and where taking it is not possible, built rather than
+listed.
+
 That guard fired on seven consecutive pieces of work and was right every time, so its failure
 message now contains the exact lines to paste, shaped for a nullable or non-nullable index. It
 also looks for any property named `*Index` rather than literally `TargetIndex` — `Fight` names its

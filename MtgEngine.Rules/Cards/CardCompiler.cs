@@ -9846,6 +9846,24 @@ public static partial class CardCompiler
             if (rest is "legendary")
                 return (true, (_, target) => !target.IsLegendary);
 
+            // "Non-Elf creatures", "non-Human creatures" \u2014 a negated creature type, and the
+            // hyphen is what says so. That is the same rule the target grammar's adjective
+            // vocabulary uses (CR 702.73a decides the awkward case: a changeling is every
+            // creature type, so it is a non-Elf no more than it is a non-Wall), and this reader
+            // did not have it \u2014 so "destroy target non-Elf creature" was answered while
+            // "Non-Elf creatures get -2/-2" was refused, one vocabulary and two answers. The
+            // bare spelling stays refused below: without the hyphen there is nothing to tell
+            // "nonhuman" from a word this cannot answer, and guessing turns the line into a
+            // lord for a creature type no card has.
+            if (printed.StartsWith("non-", StringComparison.OrdinalIgnoreCase)
+                && printed.Length > 4
+                && char.IsUpper(printed[4])
+                && printed[4..].All(char.IsLetter))
+            {
+                var tribe = printed[4..];
+                return (true, (_, target) => !target.HasSubtype(tribe));
+            }
+
             // Recognised as a negation and not answerable, which leaves the line unread rather
             // than letting "Nonhuman creatures" become a lord for the creature type "Nonhuman".
             return (true, null);
@@ -9863,6 +9881,13 @@ public static partial class CardCompiler
                 state.Combat.Blockers.Values.Any(blocking => blocking.Contains(target.Subject.Id))),
             "tapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == true),
             "untapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == false),
+
+            // "Face-down creatures you control get +0/+1" (CR 707.2). A fact about the object
+            // rather than about its card, which is why it is asked of the permanent beside the
+            // two above it \u2014 the card underneath is untouched and says nothing about being
+            // turned over. The target grammar has answered this adjective all along; this half
+            // could not even capture the word until the noun class gained the hyphen.
+            "face-down" => (true, (_, target) => target.Subject.Permanent?.IsFaceDown == true),
 
             // Colours after layer 5, counted rather than named (CR 105.2b, 105.2c).
             "colorless" => (true, (_, target) => target.Colors.Count == 0),
@@ -16601,7 +16626,12 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(
         @"^(?<scope>all|other|each other|each)?\s*"
-            + @"(?<noun>[A-Za-z]+(?:\s+[a-z]+){0,3}?)"
+            // The hyphen is in the class for the reason it is in the target grammar's own noun
+            // class: "Face-down creatures you control get +0/+1" and "Non-Elf creatures get
+            // -2/-2" are printed groups, and the adjective vocabulary behind this reads both.
+            // Without it the noun ran out at "Non" and the line was never offered to the reader
+            // that could have answered it - the target spelling of the same words read fine.
+            + @"(?<noun>[A-Za-z][A-Za-z-]*(?:\s+[a-z][a-z-]*){0,3}?)"
             + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls"
             + @"|\s+enchanted player controls)?"
             + @"(\s+of the chosen (?<chosen>type|color))?"

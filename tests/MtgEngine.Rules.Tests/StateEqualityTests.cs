@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Reflection;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
-using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
@@ -134,10 +133,10 @@ public sealed class StateEqualityTests
     /// dictionary and none for a set, so the one field that is a set had nowhere to go.
     /// </para>
     /// <para>
-    /// Asserted here rather than by pointing the reflective check below at <c>GameState</c>,
-    /// which is where it belongs and where it is not: that check needs a way to vary every one
-    /// of thirty-two property types and today knows about a dozen. Until it does, the whole of
-    /// the guard on this type is tests like this one, written a field at a time.
+    /// Kept as a named test even though <see cref="Every_field_of_a_state_is_part_of_its_identity"/>
+    /// now covers the same field reflectively, because this one names the rule and the bug: a
+    /// reader who breaks it should be told which CR 603.8 fact went missing, not only that
+    /// property number twenty-three stopped counting.
     /// </para>
     /// </remarks>
     [Fact]
@@ -201,6 +200,42 @@ public sealed class StateEqualityTests
             Name = "Identity",
             Life = 20,
         });
+
+    /// <summary>
+    /// And the whole position, which is the one this invariant is actually about.
+    /// </summary>
+    /// <remarks>
+    /// <c>GameReducer.Replay(log) == State</c> is asserted by every behaviour test in the suite,
+    /// and the thing it compares is a <see cref="GameState"/>. So this is the type the guard was
+    /// for, and the type it did not cover: the three above it are the state's <em>parts</em>, and
+    /// a field missing from <c>GameState.Equals</c> defeats the invariant just as completely as
+    /// one missing from a permanent's.
+    /// <para>
+    /// It was not covered because the check could not vary the field types this record is made
+    /// of - thirty-five properties across immutable lists, sets and dictionaries of a dozen
+    /// element types, four nested records and a nullable choice. Two live bugs came out of that
+    /// gap, one per round: <c>Delayed</c> and then <c>ArmedStateTriggers</c>, each found by
+    /// somebody noticing rather than by anything failing, and each hiding the same way - two
+    /// states differing only in that field compared <em>equal</em>, so the invariant passed
+    /// straight through the divergence. Varying is now built rather than listed, which is what
+    /// made covering this type possible at all.
+    /// </para>
+    /// <para>
+    /// Played on rather than started fresh: an empty game leaves most of these fields at their
+    /// defaults, and a check that varies a default is a weaker check than one that varies a real
+    /// position. A card is drawn and a permanent put onto the battlefield first, so the objects,
+    /// the zones and the timestamps all have something in them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_field_of_a_state_is_part_of_its_identity()
+    {
+        var (game, alice, _) = TestCards.TwoPlayer();
+        game.Draw(alice);
+        game.Move(game.State.GetPlayer(alice).Library[0], Zone.Battlefield, MoveCause.Play);
+
+        AssertEveryFieldCounts(game.State);
+    }
 
     /// <summary>
     /// Every settable characteristic survives both of the builder's copy paths (CR 613.8).
@@ -311,7 +346,16 @@ public sealed class StateEqualityTests
     }
 
     /// <summary>A value of this type that is not the one given.</summary>
-    private static object? Vary(object? current, Type type)
+    /// <remarks>
+    /// The collections and the records are <em>built</em> rather than listed, and that is the
+    /// whole difference between this check and the one it replaced. A hand-written arm per
+    /// element type is the same shape of list this file exists to police: it goes stale by
+    /// omission, and an omission here is silent twice over - the property is reported
+    /// "unvaried", somebody adds it to a tolerated list, and the field it was guarding stops
+    /// being checked. <see cref="GameState"/> has thirty-five of them, of twenty-odd types, and
+    /// writing an arm each is why it had none at all.
+    /// </remarks>
+    private static object? Vary(object? current, Type type, int depth = 0)
     {
         var bare = Nullable.GetUnderlyingType(type) ?? type;
 
@@ -340,29 +384,35 @@ public sealed class StateEqualityTests
                 .FirstOrDefault(v => !v.Equals(current));
         }
 
-        // The collections and the records inside the state each have their own shape, so they are
-        // varied by asking them for one more of whatever they hold.
-        if (current is ImmutableHashSet<int> ints)
-            return ints.Add(ints.Count + 1);
+        // An immutable collection is varied by holding one more of whatever it holds. Asked of
+        // the type rather than looked up in a list of the element types seen so far, so a field
+        // whose element type nothing has used before is varied on the day it is added.
+        if (bare.IsGenericType)
+        {
+            var open = bare.GetGenericTypeDefinition();
+            var of = bare.GetGenericArguments();
 
-        if (current is ImmutableHashSet<ObjectId> ids)
-            return ids.Add(ObjectId.New());
+            if (open == typeof(ImmutableList<>) || open == typeof(ImmutableHashSet<>))
+            {
+                return Sample(of[0], depth) is not { } one
+                    ? null
+                    : bare.GetMethod("Add", [of[0]])?.Invoke(current ?? Empty(bare), [one]);
+            }
 
-        if (current is ImmutableList<int> list)
-            return list.Add(list.Count + 1);
+            if (open == typeof(ImmutableDictionary<,>))
+            {
+                return Sample(of[0], depth) is not { } key
+                    || Sample(of[1], depth) is not { } value
+                    ? null
+                    : bare.GetMethod("SetItem", [of[0], of[1]])?
+                        .Invoke(current ?? Empty(bare), [key, value]);
+            }
+        }
 
-        if (current is ImmutableList<ObjectId> objects)
-            return objects.Add(ObjectId.New());
-
-        if (current is ImmutableList<string> words)
-            return words.Add("different" + words.Count);
-
-        if (current is ImmutableList<Target> targets)
-            return targets.Add(Target.ToPlayer(Guid.NewGuid()));
-
-        if (current is ImmutableList<CardDefinition> cards)
-            return cards.Add(TestCards.Creature("Identity Spliced"));
-
+        // The records whose absence is itself a state: a permanent that is not on the
+        // battlefield, an ability that is not on the stack, an attack a spell has not joined.
+        // For these "different" means present where it was absent, and a second instance of one
+        // that is already there says nothing.
         if (bare == typeof(AbilityOnStack))
         {
             return current is null
@@ -374,9 +424,6 @@ public sealed class StateEqualityTests
                 }
                 : null;
         }
-
-        if (current is ImmutableDictionary<string, int> counters)
-            return counters.SetItem("different", counters.Count + 1);
 
         if (bare == typeof(PermanentState))
             return current is null ? new PermanentState() : null;
@@ -392,6 +439,111 @@ public sealed class StateEqualityTests
         if (bare == typeof(ManaPool))
             return current is ManaPool pool ? pool.Add(ManaColor.Green, 1) : null;
 
+        if (depth > 3)
+            return null;
+
+        // A record with nothing in the field yet: one of it differs from none of it.
+        if (current is null)
+            return Sample(bare, depth);
+
+        // A record already there, varied by one of its own fields rather than by a fresh
+        // instance - a fresh one of a record whose every field has a default compares equal to
+        // the one in place, and this check reads "equal" as "the field is missing from Equals",
+        // which would accuse the state of a defect it does not have.
+        return VaryWithin(current, bare, depth);
+    }
+
+    /// <summary>The same record with one of its own fields changed, or null if none can be.</summary>
+    private static object? VaryWithin(object current, Type type, int depth)
+    {
+        var clone = type.GetMethod("<Clone>$", BindingFlags.Instance | BindingFlags.Public);
+        if (clone is null)
+            return null;
+
+        foreach (var property in type.GetProperties())
+        {
+            if (property.SetMethod is null || property.GetIndexParameters().Length > 0)
+                continue;
+
+            var copy = clone.Invoke(current, null)!;
+
+            if (Vary(property.GetValue(copy), property.PropertyType, depth + 1) is not { } inner)
+                continue;
+
+            property.SetValue(copy, inner);
+
+            // Proved different rather than assumed: a field the inner record leaves out of its
+            // own Equals hands back something that compares equal, and the caller would read
+            // that as the outer state being at fault.
+            if (!current.Equals(copy))
+                return copy;
+        }
+
         return null;
+    }
+
+    /// <summary>The empty instance of an immutable collection type.</summary>
+    private static object? Empty(Type type) =>
+        type.GetField("Empty", BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
+
+    /// <summary>One value of a type, for putting inside a collection that had none.</summary>
+    /// <remarks>
+    /// It only has to exist. Every collection this fills is compared by <c>Structural</c>, which
+    /// checks the counts before it compares any element, so a collection that has gained one is
+    /// already unequal and the sample itself is never looked at.
+    /// </remarks>
+    private static object? Sample(Type type, int depth)
+    {
+        var bare = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (bare == typeof(bool))
+            return true;
+
+        if (bare == typeof(int))
+            return 1;
+
+        if (bare == typeof(long))
+            return 1L;
+
+        if (bare == typeof(Guid))
+            return Guid.NewGuid();
+
+        if (bare == typeof(ObjectId))
+            return ObjectId.New();
+
+        if (bare == typeof(string))
+            return "sample";
+
+        if (bare.IsEnum)
+            return Enum.GetValues(bare).Cast<object>().First();
+
+        if (bare == typeof(CardDefinition))
+            return TestCards.Creature("Identity Sample");
+
+        if (Empty(bare) is { } empty)
+            return empty;
+
+        if (depth > 3 || bare.IsAbstract || bare.IsInterface)
+            return null;
+
+        var constructor = bare.GetConstructors()
+            .OrderBy(c => c.GetParameters().Length)
+            .FirstOrDefault();
+
+        if (constructor is null)
+            return bare.IsValueType ? Activator.CreateInstance(bare) : null;
+
+        var wanted = constructor.GetParameters();
+        var arguments = new object?[wanted.Length];
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = Sample(wanted[i].ParameterType, depth + 1);
+
+            if (arguments[i] is null && wanted[i].ParameterType.IsValueType)
+                return null;
+        }
+
+        return constructor.Invoke(arguments);
     }
 }

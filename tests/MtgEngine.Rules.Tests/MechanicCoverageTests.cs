@@ -158,6 +158,23 @@ public sealed partial class MechanicCoverageTests
         // whole test exists to prevent.
         source = Concatenation().Replace(source, string.Empty);
 
+        // The card names these tests declare, so a line naming its own card can be normalised
+        // the way the compiler normalises it. Taken from the literals rather than from a
+        // convention, because a convention is what the reader was guessing at before.
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (Match literal in StringLiteral().Matches(source))
+        {
+            var name = literal.Groups["text"].Value;
+
+            if (name.EndsWith(" Test", StringComparison.Ordinal)
+                || name.StartsWith("Test ", StringComparison.Ordinal))
+            {
+                if (NameLiteral().IsMatch(name))
+                    names.Add(name);
+            }
+        }
+
         foreach (Match literal in StringLiteral().Matches(source))
         {
             var text = literal.Groups["text"].Value
@@ -183,7 +200,7 @@ public sealed partial class MechanicCoverageTests
                     AbilityWordPrefix().Replace(line, string.Empty),
                 })
                 {
-                    var named = TestCardName().Replace(reading, "~");
+                    var named = WithSelfNamed(reading, names);
 
                     lines.Add(reading);
                     lines.Add(named);
@@ -223,8 +240,55 @@ public sealed partial class MechanicCoverageTests
     [GeneratedRegex(@"\([^)]*\)")]
     private static partial Regex Reminder();
 
-    [GeneratedRegex(@"\bTest [A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*")]
+    /// <summary>
+    /// A run of capitalised words that could be one of these tests' card names.
+    /// </summary>
+    /// <remarks>
+    /// Every run of capitalised words, with the name picked out of the run afterwards. The
+    /// pattern this replaced looked for "Test Aegis Bear", and 2,703 of these cards are named
+    /// "Aegis Bear Test" against 205 named the other way round - so it normalised 317 of the
+    /// 11,775 card lines here where the compiler normalises every one that spells its own card's
+    /// name. This reads 3,540. Every line in the difference reached the comparison as something
+    /// the compiler never sees, so a self-referring shape played only by such a line would be
+    /// reported unplayed with a test sitting right there playing it.
+    /// <para>
+    /// Written as a wide run and a narrow lookup rather than as a pattern that describes a name,
+    /// because a regex matches leftmost-first and an alternation cannot fix that: written to
+    /// admit both word orders, it read "When Test" out of "When Test Talent becomes level 3" and
+    /// went no further, which took <c>ClassLevelTriggerLine</c> out of the covered set. The run
+    /// is a candidate; what decides is the set of names the tests declare.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"\b[A-Z][A-Za-z0-9']*(?: [A-Z][A-Za-z0-9']*)*")]
     private static partial Regex TestCardName();
+
+    /// <summary>A string literal that is nothing but a card name.</summary>
+    [GeneratedRegex(@"^[A-Z][A-Za-z0-9']*(?: [A-Z][A-Za-z0-9']*){0,6}$")]
+    private static partial Regex NameLiteral();
+
+    /// <summary>The line with the card's own name replaced by <c>~</c>, as the compiler does.</summary>
+    private static string WithSelfNamed(string line, IReadOnlySet<string> names) =>
+        TestCardName().Replace(line, match =>
+        {
+            // The longest span of the run that is a declared name. A run picks up the words
+            // around the name as readily as the name itself - "When Test Talent", "Sacrifice
+            // Aegis Bear Test" - and only the name is the card.
+            var words = match.Value.Split(' ');
+
+            for (var length = words.Length; length > 0; length--)
+            {
+                for (var start = 0; start + length <= words.Length; start++)
+                {
+                    if (!names.Contains(string.Join(' ', words[start..(start + length)])))
+                        continue;
+
+                    return string.Join(
+                        ' ', words[..start].Append("~").Concat(words[(start + length)..]));
+                }
+            }
+
+            return match.Value;
+        });
 
     /// <summary>
     /// The words a card uses for itself, taken from the compiler rather than restated.
@@ -245,10 +309,26 @@ public sealed partial class MechanicCoverageTests
 
     /// <summary>An ability word and the em dash after it (CR 207.2c).</summary>
     /// <remarks>
-    /// Not the compiler's own pattern, which is private, and deliberately narrower: it
-    /// refuses the roman numerals a Saga chapter opens with, so a chapter keeps its whole
-    /// line rather than being beheaded into a sentence no card prints.
+    /// The compiler's own object, reached the way every other pattern in this file is reached.
+    /// It had been a copy, described as "deliberately narrower" for refusing the roman numerals
+    /// a Saga chapter opens with - and by the time anybody read that, the compiler refused those
+    /// too and four things besides: <see cref="CardCompiler.StructuralPrefixes"/>, the "To
+    /// solve"/"Solved"/"Visit"/"Prize" openers that look exactly like an ability word and carry
+    /// the whole meaning of their card. So the copy was the <em>wider</em> one, and it beheaded
+    /// four shapes of line the compiler keeps whole, inventing a reading no card prints.
+    /// <para>
+    /// <strong>No test plays one of those four today</strong>, so the copy was costing nothing
+    /// yet - which is the whole reason to take it now rather than after the first Case or
+    /// Attraction test is written and quietly mis-read.
+    /// </para>
+    /// <para>
+    /// Taken rather than rebuilt from the exposed list, because a rebuild is a copy with one
+    /// more chance to differ. If the method is ever renamed this throws, which is the loud
+    /// failure a silent divergence deserves.
+    /// </para>
     /// </remarks>
-    [GeneratedRegex(@"^(?![IVX]+(?:, ?[IVX]+)* \u2014 )[A-Z][A-Za-z0-9' -]{2,24} \u2014 ")]
-    private static partial Regex AbilityWordPrefix();
+    private static readonly Regex AbilityWordPrefixRegex =
+        CompilerPatterns().First(one => one.Name == "AbilityWord").Pattern;
+
+    private static Regex AbilityWordPrefix() => AbilityWordPrefixRegex;
 }

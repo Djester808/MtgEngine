@@ -143,14 +143,48 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
                 + string.Join(", ", unanswered));
     }
 
-    private static IEnumerable<(ImmutableList<IEffect> Effects, IReadOnlyList<TargetSpec> Targets)>
+    /// <summary>
+    /// Every place a compiled card hangs effects, with the targets they were numbered against.
+    /// </summary>
+    /// <remarks>
+    /// The one walker. There were four, and each was missing something different: this one had
+    /// no spell but <c>Spell</c>, <c>FiltersIn</c> forgot to flatten so nothing nested inside an
+    /// optional payment was ever checked, <c>EveryEffect</c> forgot the modes, and
+    /// <c>EveryCompiledEffect</c> forgot a trigger's. Between them they left the adventure, the
+    /// prepared half, the cleave text, the gift and both halves of every split card unwalked by
+    /// every invariant in this file - which is to say those spells were checked by nothing at
+    /// all, while the suite reported a clean run over 32,765 cards.
+    /// <para>
+    /// The alternate castings are found <em>by type</em> rather than by name, so the sixth one is
+    /// walked on the day it is added. That is the same guard the compiler puts on
+    /// <c>EffectTargets.HandledTypes</c>, and it is here for the same reason: a list a test has
+    /// to remember is a list that goes quiet.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<(ImmutableList<IEffect> Effects, ImmutableList<TargetSpec> Targets)>
         Slices(CompiledCard compiled)
     {
-        if (compiled.Spell is { } spell)
+        foreach (var property in typeof(CompiledCard).GetProperties())
         {
-            yield return (spell.Effects, spell.Targets);
-            foreach (var mode in spell.Modes)
-                yield return (mode.Effects, mode.Targets);
+            if (property.PropertyType != typeof(SpellDefinition)
+                || property.GetValue(compiled) is not SpellDefinition spell)
+            {
+                continue;
+            }
+
+            foreach (var slice in Of(spell))
+                yield return slice;
+        }
+
+        // A split card's faces hang off a list rather than off a property, so the sweep above
+        // cannot see them (CR 709.1). Both are castable spells with their own targets.
+        foreach (var half in compiled.Halves)
+        {
+            if (half.Spell is not { } face)
+                continue;
+
+            foreach (var slice in Of(face))
+                yield return slice;
         }
 
         foreach (var ability in compiled.Activated)
@@ -160,6 +194,17 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         {
             yield return (trigger.Effects, trigger.Targets);
             foreach (var mode in trigger.Modes)
+                yield return (mode.Effects, mode.Targets);
+        }
+
+        static IEnumerable<(ImmutableList<IEffect>, ImmutableList<TargetSpec>)> Of(
+            SpellDefinition spell)
+        {
+            yield return (spell.Effects, spell.Targets);
+
+            // A mode indexes into its own targets, not the spell's (CR 700.2), so the pair
+            // travels together or the index means nothing.
+            foreach (var mode in spell.Modes)
                 yield return (mode.Effects, mode.Targets);
         }
     }
@@ -1482,20 +1527,15 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         })];
 
     /// <summary>Every filter string a compiled card carries, wherever it is held.</summary>
+    /// <remarks>
+    /// Through <see cref="EveryCompiledEffect"/>, so this sees what that sees. Its own walk had
+    /// no <c>Flatten</c> at all, which meant a filter inside an optional payment's branch or an
+    /// intervening-if was never checked - and those are exactly the effects the tree walker was
+    /// built for.
+    /// </remarks>
     private static IEnumerable<string> FiltersIn(CompiledCard compiled)
     {
-        var effects = new List<MtgEngine.Rules.Abilities.IEffect>();
-
-        if (compiled.Spell is { } spell)
-        {
-            effects.AddRange(spell.Effects);
-            effects.AddRange(spell.Modes.SelectMany(m => m.Effects));
-        }
-
-        effects.AddRange(compiled.Triggers.SelectMany(t => t.Effects));
-        effects.AddRange(compiled.Activated.SelectMany(a => a.Effects));
-
-        foreach (var effect in effects)
+        foreach (var effect in EveryCompiledEffect(compiled))
         {
             foreach (var property in effect.GetType().GetProperties())
             {
@@ -1955,22 +1995,10 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     private static IEnumerable<(IEffect Effect, ImmutableList<TargetSpec> Specs)> EveryEffect(
         CompiledCard compiled)
     {
-        if (compiled.Spell is { } spell)
+        foreach (var (effects, targets) in Slices(compiled))
         {
-            foreach (var effect in Flatten(spell.Effects))
-                yield return (effect, spell.Targets);
-        }
-
-        foreach (var trigger in compiled.Triggers)
-        {
-            foreach (var effect in Flatten(trigger.Effects))
-                yield return (effect, trigger.Targets);
-        }
-
-        foreach (var ability in compiled.Activated)
-        {
-            foreach (var effect in Flatten(ability.Effects))
-                yield return (effect, ability.Targets);
+            foreach (var effect in Flatten(effects))
+                yield return (effect, targets);
         }
     }
 
@@ -2429,6 +2457,7 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
 
         var unread = 0;
         var elsewhere = 0;
+        var aboutTheAsker = 0;
         var satisfiable = 0;
         var survivors = new List<string>();
 
@@ -2461,6 +2490,22 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
                 continue;
             }
 
+            // A phrase whose answer depends on who is asking: "that player controls" means the
+            // player the trigger was about (CR 603.2) and "defending player controls" means the
+            // combat's defender (CR 506.2), neither of which is a fact about the permanent. Both
+            // put an accept-everything object filter in front of a real source filter, and the
+            // board has no asking source to offer - so it refuses every candidate by design, and
+            // calling that unsatisfiable would report a correct compilation as a defect.
+            //
+            // Twenty-two printed phrases are of this shape and none of them was visible until the
+            // noun reader learned the ownership clauses that name them. Counted rather than
+            // skipped silently: this is a hole in the witness board, and a hole worth seeing.
+            if (spec.SourceFilter is not null)
+            {
+                aboutTheAsker++;
+                continue;
+            }
+
             if (board.Satisfies(spec, phrase))
                 satisfiable++;
             else
@@ -2470,6 +2515,7 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         output.WriteLine($"printed noun phrases: {printed.Count}");
         output.WriteLine($"  not read by the noun grammar: {unread}");
         output.WriteLine($"  read, but not a filter over permanents: {elsewhere}");
+        output.WriteLine($"  read, but answered against the asking source: {aboutTheAsker}");
         output.WriteLine($"  read as a permanent filter, satisfiable: {satisfiable}");
         output.WriteLine($"  read as a permanent filter, unsatisfiable: {survivors.Count}");
         output.WriteLine($"largest witness board: {board.Size} permanents");
@@ -2559,12 +2605,19 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         "which", "while", "who", "whose", "with", "without", "you", "your",
     };
 
-    /// <summary>The three ownership clauses the group grammar reads, already tokenised.</summary>
+    /// <summary>The ownership clauses the group grammar reads, already tokenised.</summary>
+    /// <remarks>
+    /// Taken from the grammar rather than written out. It had been written out, and it had three
+    /// of the seven: "creatures you don't control", "creatures another player controls" and
+    /// "creatures defending player controls" were pulled out of a printed line as the bare phrase
+    /// "creatures", so the witness board answered a question about a card nobody prints and said
+    /// nothing at all about the one that does. The clause is not decoration - it is the half of
+    /// the phrase that decides which permanents can satisfy it.
+    /// </remarks>
     private static readonly string[][] OwnershipClauses =
     [
-        ["you", "control"],
-        ["your", "opponents", "control"],
-        ["an", "opponent", "controls"],
+        .. MtgEngine.Rules.Cards.EffectPhrase.OwnershipClauses
+            .Select(clause => clause.Split(' ', StringSplitOptions.RemoveEmptyEntries)),
     ];
 
     /// <summary>Words and single punctuation marks, which is all this needs to find a noun run.</summary>
@@ -2801,21 +2854,8 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     private static System.Text.RegularExpressions.Regex SubtypeName() => SubtypeNameRegex;
 
     /// <summary>Every effect a compiled card runs, from wherever it hangs, nested ones included.</summary>
-    private static IEnumerable<IEffect> EveryCompiledEffect(CompiledCard compiled)
-    {
-        var effects = new List<IEffect>();
-
-        if (compiled.Spell is { } spell)
-        {
-            effects.AddRange(spell.Effects);
-            effects.AddRange(spell.Modes.SelectMany(m => m.Effects));
-        }
-
-        effects.AddRange(compiled.Triggers.SelectMany(t => t.Effects));
-        effects.AddRange(compiled.Activated.SelectMany(a => a.Effects));
-
-        return Flatten(effects);
-    }
+    private static IEnumerable<IEffect> EveryCompiledEffect(CompiledCard compiled) =>
+        Flatten([.. Slices(compiled).SelectMany(slice => slice.Effects)]);
 
     /// <summary>One permanent's worth of status, varied so conjunctions have a single witness.</summary>
     private sealed record Flavour(
