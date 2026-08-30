@@ -94,29 +94,37 @@ public sealed record TriggeredAbilityDefinition
     public bool OpensDoor { get; init; }
 
     /// <summary>
-    /// Whether this ability fires once for each blocking pair it is part of (CR 509.3d).
+    /// Whether one combat declaration is several occurrences of this ability (CR 603.2c).
     /// </summary>
     /// <remarks>
-    /// A block declaration is one event carrying a batch of pairs, and every other trigger in the
-    /// engine treats a batch as one occurrence. These do not: CR 603.2b's own example is that an
-    /// attacker blocked by two creatures is <em>one</em> event for "whenever this creature becomes
-    /// blocked" and <em>two</em> for "whenever this creature becomes blocked by a creature". The
-    /// second sentence is the one flagged here, and it is the object in it that decides - a
-    /// condition naming no creature fires once (CR 509.3c) and is not flagged.
+    /// A declaration - of attackers (CR 508.1) or of blockers (CR 509.1) - is one event carrying a
+    /// batch, and every other trigger in the engine treats a batch as one occurrence. These do not:
+    /// CR 603.2c says one event can contain several occurrences, and the sentence decides which.
+    /// Both halves of combat print the same pair of wordings:
+    /// <list type="bullet">
+    /// <item>CR 509.3c/d: an attacker blocked by two creatures is <em>one</em> event for "whenever
+    /// this creature becomes blocked" and <em>two</em> for "whenever this creature becomes blocked
+    /// by a creature".</item>
+    /// <item>CR 508.3a/b: "whenever a creature attacks" is one occurrence <em>per attacking
+    /// creature</em>, while "whenever one or more creatures attack" and "whenever you are attacked"
+    /// are one occurrence for the whole declaration.</item>
+    /// </list>
+    /// The per-creature wordings are the ones flagged here, and it is the object in the sentence
+    /// that decides - a condition naming no one creature fires once and is not flagged.
     /// <para>
     /// It cannot live in the predicate, which only ever answers yes or no to one event. The
     /// decomposition is <c>Game.Consider</c>'s, and it is the same singleton-probe technique
     /// <c>AmountFor</c> already uses to ask a predicate a question a predicate cannot be asked:
-    /// hand it one pair at a time and count the answers.
+    /// hand it one pair, or one attacker, at a time and count the answers.
     /// </para>
     /// <para>
-    /// Getting it generous is the danger worth naming. Firing once per blocker where the card says
-    /// once prints a strictly better card than the one on the table, which is why the flag is set
-    /// from <c>TriggerConditions.BlockPairSubject</c> - one query, checked against the rule - and
-    /// never inferred downstream from the presence of a pronoun.
+    /// Getting it generous is the danger worth naming. Firing once per blocker - or once per
+    /// attacker - where the card says once prints a strictly better card than the one on the table,
+    /// which is why the flag is set from <c>TriggerConditions.DeclarationSubject</c> - one query,
+    /// checked against the rule - and never inferred downstream from the presence of a pronoun.
     /// </para>
     /// </remarks>
-    public bool PerBlockPair { get; init; }
+    public bool PerDeclaredCreature { get; init; }
 
     /// <summary>Stable within its card, so a pending trigger can name it across a replay.</summary>
     public required string Id { get; init; }
