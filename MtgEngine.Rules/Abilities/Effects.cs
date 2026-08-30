@@ -778,16 +778,41 @@ public interface IEffect
 }
 
 /// <summary>Deals damage to a target creature or player (CR 119.3, 120).</summary>
-public sealed record DealDamage(Amount Amount, int TargetIndex = 0, bool Deathtouch = false) : IEffect
+/// <remarks>
+/// The subject is here for the same reason destroy, exile and tap have one: "~ deals 1 damage to
+/// that creature" is the same verb aimed at something that was never chosen. Damage was the last
+/// of the four without it, and the nine cards whose entire text is that sentence were unread for
+/// exactly that field.
+/// </remarks>
+public sealed record DealDamage(
+    Amount Amount,
+    int TargetIndex = 0,
+    bool Deathtouch = false,
+    EffectSubject Subject = EffectSubject.Target) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var source = context.PhysicalSourceId;
+
+        // A pronoun names an object and never a player, so the subject arms resolve one and stop
+        // rather than going through the target kinds below. The battlefield check is the same
+        // CR 120.1 rule the permanent arm applies: a creature that has left in the meantime takes
+        // no damage, and a subject that resolved to nothing is nothing to damage at all.
+        if (Subject != EffectSubject.Target)
+        {
+            if (Subjects.Resolve(context, Subject, TargetIndex) is not { } struck)
+                return [];
+
+            return context.State.TryGetObject(struck, out var burned)
+                && burned.Zone == Zone.Battlefield
+                    ? [new DamageMarked(struck, Amount.In(context), Deathtouch, source)]
+                    : [];
+        }
+
         if (context.TargetAt(TargetIndex) is not { } target)
             return [];
-
-        var source = context.PhysicalSourceId;
 
         return target.Kind switch
         {

@@ -93,6 +93,31 @@ public sealed record TriggeredAbilityDefinition
     /// </remarks>
     public bool OpensDoor { get; init; }
 
+    /// <summary>
+    /// Whether this ability fires once for each blocking pair it is part of (CR 509.3d).
+    /// </summary>
+    /// <remarks>
+    /// A block declaration is one event carrying a batch of pairs, and every other trigger in the
+    /// engine treats a batch as one occurrence. These do not: CR 603.2b's own example is that an
+    /// attacker blocked by two creatures is <em>one</em> event for "whenever this creature becomes
+    /// blocked" and <em>two</em> for "whenever this creature becomes blocked by a creature". The
+    /// second sentence is the one flagged here, and it is the object in it that decides - a
+    /// condition naming no creature fires once (CR 509.3c) and is not flagged.
+    /// <para>
+    /// It cannot live in the predicate, which only ever answers yes or no to one event. The
+    /// decomposition is <c>Game.Consider</c>'s, and it is the same singleton-probe technique
+    /// <c>AmountFor</c> already uses to ask a predicate a question a predicate cannot be asked:
+    /// hand it one pair at a time and count the answers.
+    /// </para>
+    /// <para>
+    /// Getting it generous is the danger worth naming. Firing once per blocker where the card says
+    /// once prints a strictly better card than the one on the table, which is why the flag is set
+    /// from <c>TriggerConditions.BlockPairSubject</c> - one query, checked against the rule - and
+    /// never inferred downstream from the presence of a pronoun.
+    /// </para>
+    /// </remarks>
+    public bool PerBlockPair { get; init; }
+
     /// <summary>Stable within its card, so a pending trigger can name it across a replay.</summary>
     public required string Id { get; init; }
 
