@@ -122,6 +122,33 @@ public sealed record TargetSpec
     public bool Optional { get; init; }
 
     /// <summary>
+    /// Whether this one spec stands for <em>any number</em> of targets (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// "Any number of target creatures" names no ceiling, and a fixed list of specs cannot say
+    /// that: giving it an arbitrary one would be a different card the moment the ceiling
+    /// mattered, which is why this family was left unread for so long. So the count is not in
+    /// the definition at all. CR 601.2c has the player announce how many targets they will
+    /// choose <em>before</em> choosing them, and once announced "that number doesn't change" —
+    /// so the announcement is the length of the target list the caster sends, and one spec
+    /// marked this way is expanded against that length by
+    /// <see cref="VariableTargets.Expand(ImmutableList{TargetSpec}, ImmutableList{IEffect}, int)"/>.
+    /// <para>
+    /// Zero is a legal announcement, and the rules say so outright: CR 601.2c's example under
+    /// Loaming Shaman has the ability resolve with "no cards are targeted". So the expansion of
+    /// an unchosen block is no targets and no effects, not a refusal.
+    /// </para>
+    /// <para>
+    /// A spec carrying this must be the <em>last</em> in its list. Everything downstream — the
+    /// effects' target indices, the slices modes and splice take — is positional, and a block
+    /// that grew in the middle would move every index after it. The compiler refuses to emit one
+    /// anywhere else and the expansion refuses to run on one, which is a card left unread rather
+    /// than a card that quietly aims its effects at the wrong creature.
+    /// </para>
+    /// </remarks>
+    public bool AnyNumber { get; init; }
+
+    /// <summary>
     /// Whether one object passes every filter this spec carries.
     /// </summary>
     /// <remarks>
@@ -1067,6 +1094,48 @@ public sealed record SkipNextUntapSource : IEffect
         }
 
         return [new UntapSkipped(subject, Skipping: true)];
+    }
+}
+
+/// <summary>
+/// Does the same thing to every target of an "any number of target ..." block (CR 601.2c).
+/// </summary>
+/// <remarks>
+/// The other half of <see cref="TargetSpec.AnyNumber"/>. One spec stands for a block of targets
+/// whose length is announced as the spell is cast, so one of these stands for the effects that
+/// happen to each of them — and both are turned into the flat, counted lists everything else
+/// reads by <see cref="VariableTargets.Expand(ImmutableList{TargetSpec}, ImmutableList{IEffect}, int)"/>.
+/// <para>
+/// <see cref="Effects"/> is written against <see cref="FirstIndex"/>, the position of the block's
+/// first target — not against zero. That is deliberate: the corpus invariant that every chosen
+/// target is read by something walks the effect tree and asks which indices it uses, and a
+/// template numbered from zero would report the block's own target as chosen and ignored on
+/// every card whose block is not first.
+/// </para>
+/// <para>
+/// It resolves on its own as well, doing each target in turn, so that an unexpanded one is a
+/// correct effect rather than a silent no-op. Expansion is still what normally happens, and for
+/// a reason the loop here cannot reproduce: <c>RunEffects</c> applies each effect's events before
+/// running the next, so an expanded block sees the state its previous target left behind
+/// (CR 608.2c) exactly as "up to three target creatures" already does.
+/// </para>
+/// </remarks>
+public sealed record ToEachChosenTarget(ImmutableList<IEffect> Effects, int FirstIndex = 0)
+    : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var events = new List<GameEvent>();
+
+        for (var index = FirstIndex; index < context.Targets.Count; index++)
+        {
+            foreach (var effect in Effects)
+                events.AddRange(EffectTargets.Shift(effect, index - FirstIndex).Resolve(context));
+        }
+
+        return events;
     }
 }
 

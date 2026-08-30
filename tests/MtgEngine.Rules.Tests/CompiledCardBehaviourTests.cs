@@ -52144,6 +52144,283 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, game.State.GetObject(taxed).Permanent!.DamageMarked);
     }
 
+    // ---- Any number of targets, and strive (CR 601.2c, 702.122a) -------------
+
+    /// <summary>
+    /// A spell whose caster chooses how many things it targets (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// The shape a fixed list of specs could not hold, and the reason the strive cycle and the
+    /// whole "any number of target ..." family had been declined: an unbounded target list has no
+    /// length to write down. It needs no ceiling. CR 601.2c has the player announce how many
+    /// targets they will choose before choosing them, and the announcement is the list the caster
+    /// hands over - so the definition keeps one spec and the cast counts it out.
+    /// <para>
+    /// Played rather than parsed, and played at more than two: two targets would not tell a block
+    /// apart from the "up to two target creatures" the engine could already read.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Any_number_of_target_players_is_as_many_as_the_caster_chose()
+    {
+        var feast = new CardDefinition
+        {
+            OracleId = "oracle-block-hunters-feast",
+            Name = "Hunters Feast Test",
+            OracleText = "Any number of target players each gain 6 life.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{3}{G}",
+            Cmc = 4,
+        };
+
+        var compiled = CardCompiler.Compile(feast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One spec for the block, not one per player at the table: the count is not in the card.
+        Assert.Single(compiled.Spell!.Targets);
+        Assert.True(compiled.Spell.Targets[0].AnyNumber);
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, feast);
+
+        game.AddMana(alice, ManaColor.Green, 4);
+        game.CastSpell(alice, card, [Target.ToPlayer(alice), Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Strive charges for each target after the first, against the number announced
+    /// (CR 601.2f, 702.122a).
+    /// </summary>
+    /// <remarks>
+    /// The half that was correctly refused on its own. "This spell costs {2}{W} more to cast for
+    /// each target beyond the first" reads as a line, but a price on targets the engine could not
+    /// let a player choose would have moved a line and finished no card - so it is built here, on
+    /// top of the block, and proved by paying it.
+    /// <para>
+    /// Three casts, because a tax that charged nothing would pass one of them and a tax that
+    /// charged always would pass another: one target for the printed {W}, three for {W} and two
+    /// strives, and a third refused for being one mana short of those same three.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Strive_charges_for_the_second_and_third_target_and_refuses_a_short_pool()
+    {
+        var presence = new CardDefinition
+        {
+            OracleId = "oracle-strive-ajanis-presence",
+            Name = "Ajanis Presence Test",
+            OracleText =
+                "Strive — This spell costs {2}{W} more to cast for each target beyond "
+                + "the "
+                + "first.\nAny number of target creatures each get +1/+1 and gain indestructible "
+                + "until end of turn.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{W}",
+            Cmc = 1,
+        };
+
+        var compiled = CardCompiler.Compile(presence);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.Spell!.StriveCost);
+
+        var bear = Card("Strive Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, bear, Zone.Battlefield);
+        var second = game.Create(alice, bear, Zone.Battlefield);
+        var third = game.Create(alice, bear, Zone.Battlefield);
+
+        // One target is the printed cost and nothing more.
+        var alone = TestCards.PutInHand(game, alice, presence);
+        game.AddMana(alice, ManaColor.White);
+        game.CastSpell(alice, alone, [Target.ToPermanent(first)]);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(first)).Power);
+
+        // Three targets is {W} and two strive costs - {2}{W} twice over - so seven mana in all.
+        // Six is one short, and being short refuses the whole cast (CR 601.2h): the card is still
+        // in hand, having never been cast at all.
+        var striving = TestCards.PutInHand(game, alice, presence);
+        game.AddMana(alice, ManaColor.White, 6);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                striving,
+                [
+                    Target.ToPermanent(first),
+                    Target.ToPermanent(second),
+                    Target.ToPermanent(third),
+                ]));
+
+        Assert.Contains(striving, game.State.GetPlayer(alice).Hand);
+
+        // The seventh mana buys the same three targets, and every one of them is pumped: an
+        // effect that ran once would leave two of the bears standing at 2/2.
+        game.AddMana(alice, ManaColor.White);
+        game.CastSpell(
+            alice,
+            striving,
+            [Target.ToPermanent(first), Target.ToPermanent(second), Target.ToPermanent(third)]);
+
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(first)).Power);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(second)).Power);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(third)).Power);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(third))
+                .Has(KeywordAbility.Indestructible));
+    }
+
+    /// <summary>
+    /// "Any number" includes none, and the rules say so outright (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// The comprehensive rules give this as their own example under CR 601.2c: Loaming Shaman's
+    /// ability resolves with "no cards are targeted". So an empty block is a legal announcement
+    /// rather than a refusal - and such a spell can never fizzle for having no legal target,
+    /// because it never had one.
+    /// <para>
+    /// It settles the price as well as the permission: a strive spell cast for none of its
+    /// targets costs what it prints, since there is no target beyond the first when there is no
+    /// first.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_block_may_be_left_empty_and_the_spell_then_costs_what_it_prints()
+    {
+        var presence = new CardDefinition
+        {
+            OracleId = "oracle-strive-empty-block",
+            Name = "Empty Strive Test",
+            OracleText =
+                "Strive — This spell costs {2}{W} more to cast for each target beyond "
+                + "the "
+                + "first.\nAny number of target creatures each get +1/+1 and gain indestructible "
+                + "until end of turn.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{W}",
+            Cmc = 1,
+        };
+
+        Assert.True(CardCompiler.Compile(presence).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice,
+            Card("Untouched Bear Test", string.Empty, CardType.Creature, 2, 2),
+            Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, presence);
+        game.AddMana(alice, ManaColor.White);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // It resolved rather than fizzling, and touched nothing. The card is looked for by
+        // name and not by id: a spell that leaves the stack is a new object (CR 400.7).
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+        Assert.Contains(
+            game.State.Objects.Values,
+            o => o.Zone == Zone.Graveyard && o.Card.Name == presence.Name);
+
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// A block that is not the spell's last target is left unread (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// Everything downstream of a target list reads it by position - the effects' indices, the
+    /// slices modes and spliced text take - so a block that grew in the middle would move every
+    /// index after it and aim one sentence's effect at another sentence's creature. The compiler
+    /// refuses to keep one there, and the coverage figure carries the debt where it can be seen.
+    /// <para>
+    /// Asserted from both sides, because "does not compile" is a claim a typo would satisfy: the
+    /// same sentence on its own reads in full.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_block_followed_by_another_target_is_left_unread()
+    {
+        var twice = Card(
+            "Filigree Vector Test",
+            "Any number of target creatures get +1/+1 until end of turn.\n"
+                + "Any number of target creatures gain flying until end of turn.");
+
+        Assert.False(CardCompiler.Compile(twice).IsComplete);
+
+        var once = Card(
+            "Filigree Vector Half Test",
+            "Any number of target creatures get +1/+1 until end of turn.");
+
+        var compiled = CardCompiler.Compile(once);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// A target lost from the block costs that share and no other (CR 608.2b).
+    /// </summary>
+    /// <remarks>
+    /// The reason the expanded copies are required specs rather than optional ones. Each of them
+    /// is a target in its own right, so each is checked again on resolution and each fails on its
+    /// own: CR 608.2b only stops the spell entirely when <em>every</em> target has become illegal.
+    /// A block that behaved as one target would either lose all three pumps to one dead creature
+    /// or keep all three, and both are a different card.
+    /// <para>
+    /// The middle creature is the one removed, deliberately - a block that dropped its tail on the
+    /// first loss would pass this with the last one taken instead.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_target_lost_from_the_block_costs_only_its_own_share()
+    {
+        var presence = new CardDefinition
+        {
+            OracleId = "oracle-strive-partial-fizzle",
+            Name = "Partial Strive Test",
+            OracleText =
+                "Strive — This spell costs {2}{W} more to cast for each target beyond "
+                + "the first.\nAny number of target creatures each get +1/+1 and gain "
+                + "indestructible until end of turn.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{W}",
+            Cmc = 1,
+        };
+
+        Assert.True(CardCompiler.Compile(presence).IsComplete);
+
+        var bear = Card("Doomed Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, bear, Zone.Battlefield);
+        var second = game.Create(alice, bear, Zone.Battlefield);
+        var third = game.Create(alice, bear, Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, presence);
+        game.AddMana(alice, ManaColor.White, 7);
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPermanent(first), Target.ToPermanent(second), Target.ToPermanent(third)]);
+
+        // Killed while the spell is still on the stack, so the indestructible it was about to
+        // gain arrives too late to save it.
+        game.Move(second, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        // The spell resolved: one illegal target out of three is not "all of them" (CR 608.2b).
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(first)).Power);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(third)).Power);
+        Assert.DoesNotContain(second, game.State.Battlefield);
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>

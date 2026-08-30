@@ -1133,6 +1133,15 @@ public sealed class Game
         if (WhySplitSecondForbids() is { } held)
             throw new InvalidOperationException(held);
 
+        // CR 601.2c: "if the spell has a variable number of targets, the player announces how
+        // many targets they will choose before they announce those targets", and once announced
+        // that number does not change. The announcement is the length of the list handed in, so
+        // "any number of target creatures" becomes exactly that many specs here — before the
+        // check below, so a block of three is three targets that each have to be legal, and
+        // before the cost below, because CR 601.2f charges strive against the number announced
+        // at 601.2c.
+        specs = VariableTargets.ExpandSpecs(specs, chosen.Count);
+
         // CR 601.2c: targets are chosen as the spell is cast, and they have to be legal now.
         RequireLegalTargets(specs, chosen, playerId, card.Card.Name, card);
 
@@ -1251,6 +1260,18 @@ public sealed class Game
 
             foreach (var _ in Enumerable.Range(0, multikicked))
                 cost = cost with { Symbols = cost.Symbols.AddRange(multikickerCost.Symbols) };
+        }
+
+        // CR 702.122a: strive — "this spell costs [cost] more to cast for each target beyond the
+        // first". An additional cost like multikicker, charged at CR 601.2f, but with nothing to
+        // ask: the number of targets was announced at CR 601.2c and is the length of the list
+        // above, so the price is read off the targets rather than off a second choice. A caster
+        // who cannot pay for the third creature is refused the whole cast (CR 601.2h) and has
+        // spent nothing, which is what makes striving a real decision.
+        if (definition?.StriveCost is { } strivePer && chosen.Count > 1)
+        {
+            foreach (var _ in Enumerable.Range(0, chosen.Count - 1))
+                cost = cost with { Symbols = cost.Symbols.AddRange(strivePer.Symbols) };
         }
 
         // CR 702.33b: "Kicker [A] and/or [B]" is two kicker abilities, so each may be paid at
@@ -10825,15 +10846,37 @@ public sealed class Game
     /// so a game resumed with a cleaved or promised spell still on the stack resolves the
     /// reading that was paid for. The adventure and split-card choices have no such fact yet,
     /// which is a recorded gap and not a licence to guess here.
+    /// <para>
+    /// An "any number of target ..." block is expanded here and nowhere else, against the number
+    /// of targets on the stack object. That is the count the caster announced (CR 601.2c) and it
+    /// cannot have changed since, so every caller below — the effects that run, the specs the
+    /// fizzle check reads — sees one ordinary counted spell. Doing it in the lookup rather than
+    /// at each call site is what stops the two disagreeing: a spell whose effects were expanded
+    /// to three and whose specs were not would deal its third pump to nothing.
+    /// </para>
     /// </remarks>
     private SpellDefinition? SpellBeingCast(GameObject spell) =>
-        _castAs.TryGetValue(spell.Id, out var chosen)
-            ? chosen.Spell
-            : spell.WasCleaved && _abilities.CleaveSpellOf(spell.Card) is { } cloven
-            ? cloven
-            : spell.GiftedTo is not null && _abilities.GiftSpellOf(spell.Card) is { } promised
-            ? promised
-            : _abilities.SpellOf(spell.Card);
+        Announced(
+            _castAs.TryGetValue(spell.Id, out var chosen)
+                ? chosen.Spell
+                : spell.WasCleaved && _abilities.CleaveSpellOf(spell.Card) is { } cloven
+                ? cloven
+                : spell.GiftedTo is not null && _abilities.GiftSpellOf(spell.Card) is { } promised
+                ? promised
+                : _abilities.SpellOf(spell.Card),
+            spell.Targets.Count);
+
+    /// <summary>The spell as it was cast, once a variable target block is counted out.</summary>
+    private static SpellDefinition? Announced(SpellDefinition? definition, int targets)
+    {
+        if (definition is null || !VariableTargets.Present(definition.Targets))
+            return definition;
+
+        var (specs, effects) =
+            VariableTargets.Expand(definition.Targets, definition.Effects, targets);
+
+        return definition with { Targets = specs, Effects = effects };
+    }
 
     /// <summary>
     /// Pays a locked half's mana cost to open that door (CR 116.2m, 709.5e).

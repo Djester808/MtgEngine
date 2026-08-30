@@ -368,6 +368,28 @@ public sealed record SpellDefinition
     public ManaCostSpec? MultikickerCost { get; init; }
 
     /// <summary>
+    /// What each target after the first costs (CR 702.122a — strive).
+    /// </summary>
+    /// <remarks>
+    /// Multikicker's shape with the number taken from somewhere else. Multikicker asks how many
+    /// times to pay and the card reads the answer; strive does not ask at all — the number was
+    /// already settled when the caster announced their targets (CR 601.2c), and this is only what
+    /// each one after the first is charged for at CR 601.2f.
+    /// <para>
+    /// That is why it is not merely an additional cost with a count: the count is not a choice of
+    /// its own, so offering one would let a player pay for three targets and choose two. It is
+    /// read off the announced list, which is the same list the targets themselves came from.
+    /// </para>
+    /// <para>
+    /// Every printed strive card also prints "any number of target ...", so this is half a card
+    /// on its own. It was correctly refused as a line to read by itself for exactly that reason:
+    /// a cost for targets the engine could not let the player choose is a cost nothing would ever
+    /// charge.
+    /// </para>
+    /// </remarks>
+    public ManaCostSpec? StriveCost { get; init; }
+
+    /// <summary>
     /// A cost the card offers instead of its mana cost, but only while the game says so
     /// (CR 601.2f).
     /// </summary>
