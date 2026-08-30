@@ -67,6 +67,10 @@ public sealed class PlayableCards : IAbilitySource
     public IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) =>
         For(card).StaticsOf(card);
 
+    /// <summary>What this card's static abilities give a player (CR 702.11c, 702.18a).</summary>
+    public IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) =>
+        For(card).PlayerQualitiesOf(card);
+
     public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
         For(card).ReplacementsOf(card);
 

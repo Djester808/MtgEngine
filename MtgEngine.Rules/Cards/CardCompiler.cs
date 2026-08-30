@@ -295,6 +295,7 @@ public static partial class CardCompiler
         var triggers = ImmutableList.CreateBuilder<TriggeredAbilityDefinition>();
         var replacements = ImmutableList.CreateBuilder<ReplacementEffectDefinition>();
         var statics = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        var playerQualities = ImmutableList.CreateBuilder<PlayerQualityDefinition>();
         var unhandled = ImmutableList.CreateBuilder<string>();
 
         var grantedKeywords = KeywordAbility.None;
@@ -865,6 +866,15 @@ public static partial class CardCompiler
                 continue;
 
             if (TryEnchant(line, spellTargets))
+                continue;
+
+            // Before the static readers rather than after, because the subject is what tells the
+            // two apart and only this one looks at it: "You have hexproof" is a static ability
+            // about a *player*, and every reader below describes a group of permanents. It
+            // cannot steal from them - it matches nothing that does not begin with the word
+            // "you" - and it has to run first so that the compound form ("You and Humans you
+            // control have hexproof") can hand its second half straight back to them.
+            if (TryPlayerQuality(line, card, playerQualities, statics))
                 continue;
 
             if (TryStaticLine(line, card, statics))
@@ -1768,6 +1778,7 @@ public static partial class CardCompiler
             SkipsDrawStep = skipsDraw,
             RevealsTopOfLibrary = revealsTop,
             Statics = statics.ToImmutable(),
+            PlayerQualities = playerQualities.ToImmutable(),
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
             HasGift = hasGift,
@@ -8743,6 +8754,95 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "You have hexproof." — a static ability whose subject is a player (CR 702.11c, 702.18a).
+    /// </summary>
+    /// <remarks>
+    /// The family the compiler structurally could not read, and the reason was not the wording:
+    /// every static reader beside this one describes a <em>group of permanents</em> and produces
+    /// a <see cref="ContinuousEffectDefinition"/>, which is asked about an object. A player is
+    /// not an object, so there was nowhere for "you" to land — and the whole class was unread,
+    /// with the targeting rules unable to enforce it even if it had been.
+    /// <para>
+    /// It is deliberately narrow about which abilities a player may be given. The rules name
+    /// three — hexproof (CR 702.11c), shroud (CR 702.18a) and protection (CR 702.16a) — and
+    /// nothing else printed on a card is a quality a seat at the table can have. Letting the
+    /// general keyword table through would compile "you have flying" into an ability with no
+    /// meaning and no reader, which is the failure mode this project keeps finding: a line that
+    /// reads as complete and does nothing.
+    /// </para>
+    /// <para>
+    /// The compound form is folded rather than described. "You and Humans you control have
+    /// hexproof" is one sentence about two different kinds of subject, so the player half is
+    /// taken here and the remainder is handed back to <see cref="TryStaticLine"/> as the ordinary
+    /// group static it now is — which means the group vocabulary needs to know nothing about
+    /// players, and every group shape it learns later joins this sentence for free. If the
+    /// remainder does not read, the whole line stays unread: half of Sigarda is a different card.
+    /// </para>
+    /// </remarks>
+    private static bool TryPlayerQuality(
+        string line,
+        CardDefinition card,
+        ImmutableList<PlayerQualityDefinition>.Builder into,
+        ImmutableList<ContinuousEffectDefinition>.Builder statics)
+    {
+        var m = PlayerQualityLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (EffectPhrase.Keywords(m.Groups["kw"].Value.Trim()) is not { } keywords)
+            return false;
+
+        // Fail closed on anything the rules do not put on a player. The flag vocabulary is
+        // shared with the permanents' readers and most of it is meaningless here.
+        if ((keywords & ~PlayerAbilities) != KeywordAbility.None)
+            return false;
+
+        // The group half, when the sentence has one. Read before anything is written, so a
+        // sentence whose second half defeats the group readers leaves nothing behind.
+        var group = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        if (m.Groups["also"].Success)
+        {
+            var rest = $"{m.Groups["also"].Value.Trim()} have {m.Groups["kw"].Value.Trim()}.";
+            if (!TryStaticLine(rest, card, group))
+                return false;
+        }
+
+        into.Add(new PlayerQualityDefinition
+        {
+            Id = $"{card.Name}:player-{keywords}",
+            Grants = keywords,
+
+            // "You" is whoever controls the permanent, which is layer 2 rather than the id the
+            // object was created with (CR 613.1b). Read raw it would be where control *started*,
+            // and a stolen Aegis of the Gods would go on protecting the player it was taken from
+            // — the stolen-lord defect, in the one place it had never been made.
+            Applies = (state, abilities, source, playerId) =>
+                source is not null
+                && Characteristics.ControllerOf(state, abilities, source) == playerId,
+        });
+
+        statics.AddRange(group);
+        return true;
+    }
+
+    /// <summary>The abilities a static ability can give a player and the engine can play.</summary>
+    /// <remarks>
+    /// Two, and both halves of that are load-bearing. The rules name a third — protection
+    /// (CR 702.16a) — and 14 corpus cards print one on a player, but every printed wording names
+    /// a quality this engine has no flag for: "everything", a chosen card name, a chosen card
+    /// type, a named player, a creature type. Admitting the colour protections here would let
+    /// through a sentence no card says while the ones cards do say stayed unread, which is
+    /// coverage bought with a rule nothing enforces.
+    /// <para>
+    /// A mask over the shared flags rather than a second word list, so the vocabulary stays in
+    /// one place; what this adds is the narrowing, and the narrowing is what keeps "you have
+    /// flying" from compiling into an ability with no meaning and no reader.
+    /// </para>
+    /// </remarks>
+    private const KeywordAbility PlayerAbilities =
+        KeywordAbility.Hexproof | KeywordAbility.Shroud;
+
+    /// <summary>
     /// "Creatures you control get +N/+N" and its relatives — a static over a group (CR 613.4c).
     /// </summary>
     /// <remarks>
@@ -14819,6 +14919,28 @@ public static partial class CardCompiler
     private static partial Regex MassStaticLine();
 
     /// <remarks>
+    /// Anchored on the word "you" as the whole subject, which is what keeps it out of the group
+    /// readers' way: every one of those describes a noun, and none of them can describe this one.
+    /// <para>
+    /// The optional second subject is captured whole and handed back to the group readers rather
+    /// than described here, for the reason the noun phrase in <see cref="MassStaticLine"/> is —
+    /// a group vocabulary restated in a second pattern is a copy that drifts, and this one would
+    /// drift silently, since a compound sentence whose group half stopped reading simply becomes
+    /// an unread line rather than a wrong card.
+    /// </para>
+    /// <para>
+    /// "Has" is not admitted and "gain" is not either. The first is a subject-verb disagreement
+    /// no card prints; the second is the one-shot form — "you gain hexproof until end of turn" is
+    /// a spell's effect that expires, and reading it as a static ability would give a player
+    /// hexproof for the rest of the game.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you( and (?<also>[A-Za-z][A-Za-z0-9'’ ]*?))? have (?<kw>[a-z ,]+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PlayerQualityLine();
+
+    /// <remarks>
     /// Case-sensitive on the subtype for the same reason the token pattern is: capitalisation is
     /// what separates "All Slivers have" from "All creatures have".
     /// </remarks>
@@ -16219,6 +16341,19 @@ public sealed record CompiledCard
 
     public ImmutableList<ContinuousEffectDefinition> Statics { get; init; } = [];
 
+    /// <summary>
+    /// Continuous effects this card's static abilities apply to players (CR 702.11c, 702.18a).
+    /// </summary>
+    /// <remarks>
+    /// Held apart from <see cref="Statics"/> rather than mixed into it because the two are asked
+    /// different questions by different callers: a static is offered a permanent's
+    /// characteristics as they are being built, and there is no such thing to offer about a
+    /// player. One card can produce both — "You and Humans you control have hexproof" is a
+    /// sentence about a player and a group of creatures — which is exactly why they are two
+    /// lists and not one with a discriminator.
+    /// </remarks>
+    public ImmutableList<PlayerQualityDefinition> PlayerQualities { get; init; } = [];
+
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
     /// <summary>
@@ -16281,7 +16416,7 @@ public sealed record CompiledCard
     /// </remarks>
     public bool HasAbilities =>
         Spell is not null || !Activated.IsEmpty || !Triggers.IsEmpty
-        || !Statics.IsEmpty || !Replacements.IsEmpty
+        || !Statics.IsEmpty || !Replacements.IsEmpty || !PlayerQualities.IsEmpty
         || GrantedKeywords != KeywordAbility.None
         || !CostModifiers.IsEmpty
         || ShowsTopOfLibrary

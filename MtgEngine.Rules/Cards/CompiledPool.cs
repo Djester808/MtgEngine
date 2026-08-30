@@ -100,6 +100,9 @@ public sealed class CompiledPool : IAbilitySource
     public IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) =>
         For(card).Statics;
 
+    public IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) =>
+        For(card).PlayerQualities;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 

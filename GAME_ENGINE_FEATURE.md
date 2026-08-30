@@ -180,6 +180,7 @@ A card is composed from primitives rather than written as code:
 | `Activated` | abilities on the permanent (`{T}: …`), with their own targets and effects |
 | `Triggers` | when-this-happens abilities; may target (CR 603.3d) |
 | `Statics` | continuous effects, by CR 613 layer |
+| `PlayerQualities` | continuous effects whose subject is a *player* (CR 702.11c) — no layer, because CR 613 orders objects |
 | `Replacements` | CR 614 effects, e.g. "enters with counters" |
 
 Three things a permanent can be given that are not printed on its card, and each needed a place
@@ -667,6 +668,106 @@ produce, read at resolution; and an `AddMana` with a player scope, since it puts
 else's pool and the effect always uses `context.ControllerId`. The other 3 of the 7 want a
 different effect again (Price of Glory destroys the land; Overabundance and Barbflare Gremlin add
 damage). Worth doing as a mana-choice change, not as a card-reader one.
+
+Coverage is **49.3% of playable cards fully read** (16,146 of 32,717), 66.6% of lines.
+
+### A player is not an object, and now has abilities of its own
+
+The engine could say a *permanent* had hexproof and had no way to say a *player* did.
+`TargetSpec.IsLegal`'s player arm asked three questions — does the seat exist, has it lost, does
+the filter admit it — and returned; the hexproof and shroud checks underneath it ran against
+`Characteristics.Of`, which exists only for game objects. `PlayerState` carried no keywords at
+all, so there was nothing for a compiler reader to produce even if one had been written. That is
+why "You have hexproof" was unread: not the wording, the subject.
+
+`PlayerCharacteristics.Of(state, abilities, playerId)` is the missing half, and it is built the
+way the object half is — **computed, never stored**. It sweeps the battlefield, asks each
+permanent what card it *is* now (CR 707.2a, so a permanent that has become a copy of Aegis of the
+Gods has Aegis's ability), and unions the grants that reach this player. A `PlayerQualityDefinition`
+is what a static ability contributes; `IAbilitySource.PlayerQualitiesOf` serves them, and
+`PlayableCards` delegates it like everything else.
+
+**There is no layer here, and that is a rule rather than a shortcut.** CR 613 orders the effects
+that change *objects'* characteristics. A player has none of those: several sources of the same
+keyword are simply redundant (CR 702.11h, 702.18b), so the grants are unioned and no order can
+change the answer. The definition therefore carries no layer and no timestamp, and adding one
+later would be a claim about the rules rather than a refinement.
+
+The one thing a sweep has to remember is that a permanent can stop having its ability: CR 613.1f,
+and a player behind a Humility'd Aegis of the Gods has no hexproof. The check is a full layer
+computation, so it is asked only of permanents that actually granted something — on any real board
+none or one — which is how the object path pays for the same question.
+
+Three things fell out of building it that were not the point of building it:
+
+- **The predicate needs the ability source, and the test is what said so.** "You" is whoever
+  controls the permanent *now*, which is layer 2 (CR 613.1b) — the stolen-lord shape, in the one
+  place it had never been made. `Characteristics.ControllerOf` answers it, but it finds a control
+  change by looking the floating effect's definition up through the ability source, so the first
+  version — which passed `EmptyAbilities.Instance`, because the predicate had no source argument —
+  answered "who controls this" with where control *started*. A stolen Aegis of the Gods went on
+  protecting the player it was taken from. Only the control-change test failed; the other seven
+  were green.
+- **The silencing check was missing.** The first version swept the battlefield and applied every
+  grant it found, so a permanent stripped of its abilities went on granting. None of the eight
+  tests written for the family would have caught it — every one plays a board with the source
+  intact — and it was found by reading the sweep beside `Characteristics.Candidates`, which does
+  the same thing and remembers to ask.
+- **"You" was being read as a creature type.** `Specs.ParseGroup` resolves a group phrase by
+  finding the capitalised noun in it, so `"You gain shroud until end of turn"` compiled to a
+  keyword grant aimed at a tribe no card has — the "Islands"/"Assassins" defect arriving through
+  a pronoun instead of a plural. **Gilded Light read as a complete card, passed the deck gate and
+  did nothing at all when it resolved.** The pronoun is now refused there, which costs that one
+  card off the complete list and is the right trade: a card a deck check refuses is strictly
+  better than one that plays as a blank.
+
+### The size of the player-quality class, measured
+
+**39 playable cards** grant a player a keyword: hexproof on 21, protection on 14, shroud on 4
+(13 of them also spell "can't be the target" out in full). That is the whole class — the
+`"You have hexproof."` line the work queue ranks is 12 appearances and 4 sole blockers, and is one
+wording of it.
+
+Reading the **static** half completes **7**, and the diff is the whole set: Aegis of the Gods,
+Ivory Mask, Metropolis Reformer, Sigarda Heron's Grace, Spirit of the Hearth, Teyo the
+Shieldmage, True Believer. Against Gilded Light leaving, the net is **+6** — and the one that
+left was complete and inert, which is the trade this project has said it wants every time it has
+been asked.
+
+What the rest is blocked on, counted rather than estimated:
+
+- **18 say "gain … until end of turn"** rather than "have" — Gilded Light, Lazotep Plating,
+  Blossoming Calm, Teferi's Protection, Veil of Summer, Everybody Lives! and the rest. A one-shot
+  grant to a player outlives its spell, so it has to be recorded, and `FloatingEffect` records
+  object ids only. The cheapest honest shape is an `AffectedPlayers` beside `AffectedIds` — its
+  two durations and its expiry sweep then work unchanged — but that is a state field, so it is a
+  reducer arm, a serializer arm and a line in `GameState.Equals`. **3 of the 18 would complete**
+  (Gilded Light coming back, plus Lazotep Plating and Blossoming Calm); the other 15 have
+  something else unreadable in the same line. Deferred as a separate unit, not skipped.
+- **14 cards give a player a protection**, and not one of them names a quality this engine has a
+  flag for: "everything", a chosen card name, a chosen card type, a named player, a creature type.
+  The flags that exist are the five colours and artifacts, and no card gives a player any of
+  those. So the reader refuses protection outright and `ComputedPlayerCharacteristics` carries no
+  protection arm — a rule nothing can reach, sitting beside two that fire, is where the next
+  silent defect goes. Absolute Virtue's printed line is the negative control. Four of the 14 print
+  it as a static "have"; the rest are inside the one-shot family above.
+- **2 put a condition in front of a compound subject** — Gruul Spellbreaker's "During your turn,
+  you and ~ have hexproof" and Captain America's shield-counter version. The compound form is
+  folded (the player half is taken and the remainder handed straight back to the group readers,
+  which is how Sigarda reads), but neither the condition wrapper nor "~" as a group member is
+  part of that fold yet.
+- The remaining **8** are now *one line* short, on a line with nothing to do with players: a
+  leyline opening-hand permission, a Curse sweeper, three prevention shields, a venture
+  restriction, a teammate token, a life-total replacement. Reading the player line moved every one
+  of them from two blockers to one, which does not show up in a card count and is where the next
+  pass should look.
+
+The consumer that matters is targeting, and it is one place: `TargetSpec.IsLegal`'s player arm now
+asks the two questions the permanent arm has always asked — CR 702.18a's shroud, which stops
+everybody including the player themselves, and CR 702.11c's hexproof, which stops only opponents.
+`Game.LegalTargetsFor` asks that same method, so **the list the board renders and the refusal the
+cast makes cannot disagree**; there is a test asserting the hexproof player is not among the
+options rather than assuming it.
 
 ### Round eleven: finishing interrupted work, and four instrument defects
 

@@ -227,9 +227,32 @@ public sealed record TargetSpec
 
         if (target.Kind == TargetKind.Player)
         {
-            return state.Players.ContainsKey(target.Player)
-                && !state.GetPlayer(target.Player).HasLost
-                && (PlayerFilter?.Invoke(state, target.Player, controllerId) ?? true);
+            if (!state.Players.ContainsKey(target.Player)
+                || state.GetPlayer(target.Player).HasLost)
+            {
+                return false;
+            }
+
+            // Two of the three refusals the permanent arm below makes, asked of a player - which
+            // this could not ask until players had computed abilities at all. CR 702.11c and
+            // CR 702.18a put hexproof and shroud on a player in as many words, and until they
+            // were askable "You have hexproof" was a line the compiler could not read and a rule
+            // the engine could not enforce, so an opponent's Lightning Bolt could name a player
+            // sitting behind Leyline of Sanctity.
+            var quality = PlayerCharacteristics.Of(state, abilities, target.Player);
+
+            // CR 702.18a: shroud stops everybody, the player themselves included.
+            if (quality.Has(KeywordAbility.Shroud))
+                return false;
+
+            // CR 702.11c: hexproof stops only opponents, so a player may still target themselves.
+            if (quality.Has(KeywordAbility.Hexproof) && target.Player != controllerId)
+                return false;
+
+            // Protection is the third refusal the permanent arm makes and is not made here: no
+            // printed card gives a player a protection this engine can express — see the note on
+            // ComputedPlayerCharacteristics — so the check would be unreachable.
+            return PlayerFilter?.Invoke(state, target.Player, controllerId) ?? true;
         }
 
         if (!state.TryGetObject(target.Subject, out var obj))
