@@ -64521,6 +64521,275 @@ public sealed class CompiledCardBehaviourTests
         Assert.NotEmpty(compiled.Unhandled);
     }
 
+    // ---- A question inside an intervening if (CR 603.4, 609.4) ---------------
+
+    /// <summary>
+    /// The offer a CR 603.4 guard used to forbid, put and paid.
+    /// </summary>
+    /// <remarks>
+    /// The compiler refused any line whose intervening "if" guarded a deferred question - an
+    /// offer, a search, a flip, a roll - because a question carries a locator back to itself and
+    /// the locator was once resolved against an ability's <em>top-level</em> effects, where a
+    /// wrapped question named the wrapper. <c>EffectTree.Locate</c> walks the whole tree now, so
+    /// the two halves that had never met are the compiler's guard and the engine's lookup.
+    /// <para>
+    /// Both halves are asserted, and the second is the one worth having: the life is gone. An
+    /// engine that ran the branch without taking the payment plays a card strictly cheaper than
+    /// the one printed, and the drawn card alone would not notice.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_offer_guarded_by_an_intervening_if_is_put_and_charged()
+    {
+        var oracle = Card(
+            "Guarded Offer Test",
+            "At the beginning of your upkeep, if you control an artifact, you may pay 2 life. "
+                + "If you do, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+        game.Create(
+            alice, Card("Guarded Trinket Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        Assert.Equal(ChoiceKind.OptionalPayment, game.State.Choice!.Kind);
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+        Assert.Equal(hand + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// Turning the same offer down leaves both the price and what it would have bought.
+    /// </summary>
+    /// <remarks>
+    /// The branch behind a question is the easiest thing to run unconditionally once the question
+    /// is reachable at all, and a wrapper is exactly where that goes unnoticed - the card looks
+    /// right on the turn it is paid.
+    /// </remarks>
+    [Fact]
+    public void Declining_an_offer_guarded_by_an_intervening_if_costs_nothing()
+    {
+        var oracle = Card(
+            "Declined Guarded Offer Test",
+            "At the beginning of your upkeep, if you control an artifact, you may pay 2 life. "
+                + "If you do, draw a card.",
+            CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Declined Trinket Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        game.Choose(alice, ["no"]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(hand, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A guard that fails puts no question at all - not a question whose answer does nothing.
+    /// </summary>
+    /// <remarks>
+    /// CR 603.4's first check. The assertion is on the log rather than on the life total, because
+    /// a game that asks and then discards the answer has the same life total as one that never
+    /// asked and is a different game to sit in front of: it stops for a click that decides
+    /// nothing, once per upkeep, for as long as the enchantment is out.
+    /// </remarks>
+    [Fact]
+    public void An_offer_guarded_by_a_failing_intervening_if_is_never_put()
+    {
+        var oracle = Card(
+            "Unmet Guarded Offer Test",
+            "At the beginning of your upkeep, if you control an artifact, you may pay 2 life. "
+                + "If you do, draw a card.",
+            CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.Draw);
+        Settle(game);
+
+        Assert.DoesNotContain(game.Log, e => e is OptionalPaymentRequested);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The second check (CR 603.4) reaches the question, not merely what it would have bought.
+    /// </summary>
+    /// <remarks>
+    /// The trigger goes on the stack while the artifact is there and resolves after it has gone.
+    /// An engine that hoisted the offer out of its guard would put the question anyway and only
+    /// swallow the branch behind it, which is the same click-for-nothing the first check refuses
+    /// - so the log is what this asserts, and the life total would pass either way.
+    /// </remarks>
+    [Fact]
+    public void A_guarded_offer_is_not_put_when_the_second_check_fails()
+    {
+        var oracle = Card(
+            "Second Check Offer Test",
+            "At the beginning of your upkeep, if you control an artifact, you may pay 2 life. "
+                + "If you do, draw a card.",
+            CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+        var trinket = game.Create(
+            alice,
+            Card("Second Check Trinket Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber >= 3
+                && game.State.CurrentStep == TurnStep.Upkeep
+                && !game.State.Stack.IsEmpty);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var bolt = TestCards.PutInHand(
+            game, alice, Card("Second Check Bolt Test", "Destroy target artifact."));
+
+        game.CastSpell(alice, bolt, [Target.ToPermanent(trinket)]);
+        Settle(game);
+
+        Assert.DoesNotContain(game.Log, e => e is OptionalPaymentRequested);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The lookup the guard was protecting: a wrapped question is still found, an ambiguous one
+    /// is not.
+    /// </summary>
+    /// <remarks>
+    /// The first half is the mechanism this whole family turns on - the answer to a deferred
+    /// question arrives after the resolution that asked it is over, and the effect has to be
+    /// found again by its locator. The second half is why the guard is a check rather than a
+    /// deletion: <c>Locate</c> answers null rather than guessing between two effects of a kind
+    /// carrying the same locator, so a tree holding such a pair would lose its answer, and the
+    /// compiler asks that question of the tree it is about to hand over.
+    /// </remarks>
+    [Fact]
+    public void A_question_inside_the_guard_is_still_found_by_its_locator()
+    {
+        var oracle = Card(
+            "Located Offer Test",
+            "At the beginning of your upkeep, if you control an artifact, you may pay 2 life. "
+                + "If you do, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(oracle);
+        var trigger = Assert.Single(compiled.Triggers);
+
+        // The wrapper is the top of the tree, and the question is underneath it.
+        Assert.IsType<OnlyIf>(Assert.Single(trigger.Effects));
+        Assert.NotNull(EffectTree.Locate<MayPay>(trigger.Effects, 0));
+
+        // And the pair the check exists to refuse: two of a kind carrying one locator.
+        var twice = ImmutableList.Create<IEffect>(
+            new OnlyIf(
+                (_, _, _) => true,
+                [
+                    new MayPay(ManaCostSpec.Parse("{1}"), [], []),
+                    new MayPay(ManaCostSpec.Parse("{2}"), [], []),
+                ]));
+
+        Assert.Null(EffectTree.Locate<MayPay>(twice, 0));
+    }
+
+    /// <summary>
+    /// Deathreap Ritual, from the corpus: a guard that reads what happened this turn.
+    /// </summary>
+    /// <remarks>
+    /// The printed wording rather than a constructed one, and a condition about the turn instead
+    /// of about the board - "a creature died this turn" is answered by a record the game keeps,
+    /// so the guard is asked something no permanent can be looked at for. Both ends of it are
+    /// played: an end step where nothing has died puts no question, and the one after a creature
+    /// has gone does.
+    /// </remarks>
+    [Fact]
+    public void A_guarded_offer_can_read_what_happened_this_turn()
+    {
+        var oracle = Card(
+            "Deathreap Ritual Test",
+            "At the beginning of each end step, if a creature died this turn, you may draw a "
+                + "card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+        var goat = game.Create(
+            alice, TestCards.Creature("Deathreap Goat Test", 1, 1), Zone.Battlefield);
+
+        // Nothing has died, so this end step goes by without a question.
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+        Assert.DoesNotContain(game.Log, e => e is OptionalPaymentRequested);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        var bolt = TestCards.PutInHand(
+            game, alice, Card("Deathreap Bolt Test", "Destroy target creature."));
+
+        game.CastSpell(alice, bolt, [Target.ToPermanent(goat)]);
+        Settle(game);
+
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        Assert.Equal(ChoiceKind.OptionalPayment, game.State.Choice!.Kind);
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(hand + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A guard the board vocabulary cannot name still leaves the whole line unread.
+    /// </summary>
+    /// <remarks>
+    /// The failure that has to survive the relaxation above. Only the locator check moved; the
+    /// condition is read by <see cref="BoardConditions"/> exactly as before, and a clause it
+    /// cannot answer refuses the line rather than compiling to a trigger that fires whenever it
+    /// likes. A guard quietly dropped is strictly better than the card printed, which is the one
+    /// direction this compiler never goes.
+    /// </remarks>
+    [Fact]
+    public void A_guard_the_board_reader_cannot_name_leaves_the_line_unread()
+    {
+        Assert.Null(BoardConditions.Parse("you flipped a coin and won three times this turn"));
+
+        var oracle = Card(
+            "Unread Guard Test",
+            "At the beginning of your upkeep, if you flipped a coin and won three times this "
+                + "turn, you may pay 2 life. If you do, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.False(compiled.IsComplete);
+        Assert.NotEmpty(compiled.Unhandled);
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>

@@ -513,7 +513,116 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **52.5% of playable cards fully read** (17,183 of 32,717), 68.8% of lines.
+Coverage is **52.7% of playable cards fully read** (17,237 of 32,717), 68.9% of lines.
+
+### Round seventeen: a guard that forbade every question behind it
+
++56 cards, none lost, and the change is a guard moved four lines down the method it was already
+in. CR 603.4's intervening "if" wraps what a trigger does in an `OnlyIf`, and the compiler refused
+**any** line whose guarded effect held a deferred question - an offer, a search, a flip, a roll.
+The reason was true when it was written: `MayPay`, `ChooseAndMove`, `FlipCoin` and `RollDice` each
+carry a locator back to themselves, the lookup resolved it against an ability's *top-level*
+effects, and a wrapped question named the wrapper instead.
+
+**The two halves had never met.** `EffectTree.Locate` has walked the whole tree since the round it
+was written for - `EffectPhrase.OneQuestionCanBeNested` says so in its own remarks, and relies on
+it for a free offer's branch - and every one of the six deferred questions in `Game` is resolved
+through it. Wrapping an effect list in one `OnlyIf` cannot change what `Locate` answers: the
+wrapper carries no locator, and `Flatten` yields exactly the same questions with exactly the same
+indices underneath it. The refusal had been costing cards for nothing since the day `Locate`
+changed.
+
+So the guard now asks the question `Locate` actually asks, of the tree it is about to hand over
+rather than the list it started from: no two effects of one kind in the tree may carry one
+locator (`EffectPhrase.EveryQuestionFindsItself`, using `EffectTree.LocatorOf` so the check and the
+lookup can never disagree about what "findable" means).
+
+**That check refuses zero corpus cards**, measured by disabling it and diffing the complete set -
+byte-identical. It is a precondition rather than a filter, and it is kept for the reason every
+other refusal here is kept: a guard that is an argument stops being true when the parser changes,
+and a guard that is a check does not. The ambiguity it defends is asserted directly - two
+`MayPay`s sharing locator 0 make `Locate` answer null.
+
+**The set, not the number.** 17,181 -> 17,237, nothing lost. Land Tax, Knight of the White Orchid,
+Valakut, the Molten Pinnacle, Genesis, Oversold Cemetery, Deathreap Ritual, Flamewake Phoenix,
+Emeria, the Sky Ruin, Gatekeeper of Malakir, Pyrewild Shaman, Sygg, River Cutthroat, Fathom Fleet
+Captain, Mirror-Sigil Sergeant, Pit Keeper, Sand Strangler, Rocco, Cabaretti Caterer, the five
+Hedge-Mages and thirty-six more. Every one of them is "at the beginning of X, if `<condition>`,
+**you may** ...".
+
+**Five of the seven tests fail against the old code and two must not.** The two that pass either
+way are the refusals that had to survive: a guard that fails puts *no question at all* rather than
+a question whose answer is discarded, and a condition `BoardConditions` cannot name still leaves
+the whole line unread. The second check (CR 603.4) is asserted on the log rather than on a life
+total, because an engine that hoisted the offer out of its guard would still swallow the branch
+and would differ only in stopping the game for a click that decides nothing - that mutant was run,
+and that test is the one that catches it.
+
+### The instrument: rank by sub-shape, not by substring
+
+The dump is `(oracleId, name, isComplete, unhandled lines)` for all 32,717 cards, and the warning
+from round sixteen held everywhere it was checked. **Whole-line clustering is flat**: 17,662
+distinct templates with numbers and mana symbols folded out, and the largest completes **nine**
+cards. Cutting to the one sentence whose *removal* lets a line read is flat too - 8,382 shapes,
+largest **ten**. A substring row like `for each` at 831 is one word across a thousand templates.
+
+What is not flat is the **clause**, and the probe that finds it is an excision: take a structural
+clause out of a blocked line, ask whether the rest compiles, and ask separately whether
+`BoardConditions` reads the clause. That splits a family into vocabulary and composition, which no
+ranking by words can do:
+
+| clause excised | completes the card | clause refused | clause *reads* |
+|---|---|---|---|
+| intervening `if` on a trigger | 201 | 151 | **50 - the composition gap taken above** |
+| `unless <clause>` | 150 | 134 | 16 |
+| `as long as <clause>` | 29 | 13 | 16 |
+
+The 50 were the whole round. After it that row reads **0**, and the two 16s are the same shape one
+step away.
+
+### Round seventeen's ranked sub-shape table
+
+Re-measured on the corpus after the change. `sole` is cards where *every* unread line matches, so
+handling the shape completes the card; `touch` counts cards where any does. The families are
+substrings and are listed to be decomposed, not built:
+
+| sole | touch | family | the sub-shapes inside it |
+|---|---|---|---|
+| 810 | 1009 | `... this way` back-reference | did-it conditional 255 · the set as an object 213 · a count `for each ... this way` 192 · an amount 87 · a member chosen from the set 15 |
+| 729 | 930 | `where X is <expr>` | an amount grammar: `~'s power` 34 · `that spell's mana value` 18 · `the greatest power among ...` 15 · `the amount of life you gained` 15 · 347 shapes in all |
+| 672 | 920 | `can't` prohibitions | can't be blocked 147 · players can't 140 · can't attack 130 · can't block 96 · can't be regenerated 72 · can't be countered 26 · can't be targeted 24 |
+| 589 | 818 | a condition clause `, if <cond>,` | 151 refused by `BoardConditions`, flattest head in the file (max 7) |
+| 556 | 678 | `shuffle` | 271 of them are a bare trailing `shuffle.` after a search - riding along, blocking nothing |
+| 537 | 689 | `if you do` chain | already read in seven places; a co-occurrence row, not a gap |
+| 470 | 627 | `copy` | **a token that's a copy of 141** · becomes a copy 87 · copy that spell 67 · new targets for the copy 125 · copy target spell 32 (declined) |
+| 433 | 589 | `as long as` | 13 clauses refused; 16 are a group static the condition cannot be hung on |
+| 420 | 536 | `each player` scope | 321 sub-shapes - flat |
+| 372 | 540 | `each opponent` scope | damage to each opponent 69 · loses N life 57 · a trigger scope 40 · sacrifices 27 |
+| 363 | 544 | `you may cast` | |
+| 354 | 432 | `search your library` | |
+| 329 | 398 | `unless` | a payment offered to a player 57 · a non-mana cost 46 · **a fact about the board 25** |
+| 277 | 385 | `named` | |
+| 260 | 335 | `equal to the number of` | |
+| 228 | 273 | delayed `at the beginning of the next` | |
+| 215 | 335 | `the chosen ...` | chosen creature type 70 · chosen colour 47 |
+| 178 | 250 | `without paying its mana cost` | |
+| 136 | 153 | `of your choice` | |
+
+**The three best-shaped leads in it, measured and not taken:**
+
+- **A token that's a copy of a permanent (CR 707.2) - 141 sole blockers.** The largest single
+  buildable sub-shape in the table, and *not* the standing decline: "copy target instant or
+  sorcery" is a separate 32 and still needs a mid-resolution question.
+- **A result set named by the sentence that produced it - 810 across five readers.** "This way" is
+  one mechanism and five ways of spelling a reference to it. Nothing in the engine records what an
+  effect touched, which is why every one of the five is unread; build the record and the five
+  readers are readers.
+- **`<effect> unless <condition>` where the condition already reads - 16 cards.** The direct
+  sibling of what this round took: `OnlyIf` with the condition negated. Left for a reason rather
+  than for time - `OnlyIf.Resolve` needs `context.PhysicalSourceId` to still name an object, and
+  every card in this family that is an instant or sorcery would resolve *from the stack*. If that
+  lookup comes back empty the guard silently does nothing and sixteen cards compile and play as
+  blanks, which is the worse half of the trade. Check that first; the reader is ten lines after it.
 
 ### Round sixteen: 424 cards were already complete and already wrong
 

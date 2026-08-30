@@ -66,17 +66,28 @@ public static class EffectTree
     {
         var matches = Flatten(effects)
             .OfType<T>()
-            .Where(candidate => IndexOfLocator(candidate) == index)
+            .Where(candidate => LocatorOf(candidate) == index)
             .Take(2)
             .ToList();
 
         return matches.Count == 1 ? matches[0] : null;
     }
 
-    private static int? IndexOfLocator(IEffect effect) =>
-        effect.GetType().GetProperty("EffectIndex") is { } property
+    /// <summary>The locator an effect carries so a deferred question can find it again.</summary>
+    /// <remarks>
+    /// Public because the compiler has to ask the same question <see cref="Locate{T}"/> asks -
+    /// whether a question in a tree it is about to build would still be found uniquely - and the
+    /// only honest way to ask it is with the accessor the lookup itself uses. A second reflection
+    /// over the same property name is exactly the drift this file exists to prevent.
+    /// </remarks>
+    public static int? LocatorOf(IEffect effect)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+
+        return effect.GetType().GetProperty("EffectIndex") is { } property
             ? property.GetValue(effect) as int?
             : null;
+    }
 
     private static IEnumerable<IEffect> Children(IEffect effect)
     {

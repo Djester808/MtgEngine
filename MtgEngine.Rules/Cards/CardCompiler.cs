@@ -15784,19 +15784,24 @@ public static partial class CardCompiler
 
         if (intervening is { } condition)
         {
-            // A deferred question inside the wrapper could not find itself again, so the card is
-            // left unread rather than half-run — the same rule every other branch follows.
-            if (effects.Any(EffectPhrase.FindsItselfByIndex))
-            {
-                unhandled.Add(line);
-                return true;
-            }
-
             var inner = predicate;
             predicate = (e, state, source) =>
                 inner(e, state, source) && condition(state, source.Abilities, source);
 
             effects = [new OnlyIf(condition, effects)];
+
+            // A deferred question inside the wrapper is refused when it could not find itself
+            // again, and that used to mean any question at all: the locator was resolved against
+            // an ability's *top-level* effects, so a wrapped question named the wrapper.
+            // <c>EffectTree.Locate</c> walks the whole tree now, and this guard asks the tree it
+            // is about to hand over rather than the list it started from — the same relaxation
+            // <c>OneQuestionCanBeNested</c> already makes for a free offer's branch, and the same
+            // promise either way: what cannot be run correctly is not claimed.
+            if (!EffectPhrase.EveryQuestionFindsItself(effects))
+            {
+                unhandled.Add(line);
+                return true;
+            }
         }
 
         into.Add(new TriggeredAbilityDefinition

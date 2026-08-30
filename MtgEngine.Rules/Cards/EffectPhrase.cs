@@ -1223,6 +1223,41 @@ public static partial class EffectPhrase
         effect is MayPay or ChooseAndMove or FlipCoin or RollDice;
 
     /// <summary>
+    /// Whether every deferred question in a tree of effects would still find itself again.
+    /// </summary>
+    /// <remarks>
+    /// The question <see cref="FindsItselfByIndex"/> answers is "could this go wrong"; this one
+    /// answers "does it", for a tree that has already been built. <c>EffectTree.Locate</c> walks
+    /// the whole tree and takes the one effect of a kind carrying a locator, answering null rather
+    /// than guessing between two - so a question is findable exactly when no sibling of its own
+    /// type carries the same index anywhere in the tree. That is the condition asked here, with
+    /// the accessor the lookup itself uses, so the two can never disagree about what "findable"
+    /// means.
+    /// <para>
+    /// Wrapping a whole effect list in one guard cannot break this - the wrapper carries no
+    /// locator and the questions underneath keep the indices they were compiled with - but a
+    /// wrapper is not the only caller this could gain, so the check is the real invariant rather
+    /// than an argument about one of them.
+    /// </para>
+    /// </remarks>
+    internal static bool EveryQuestionFindsItself(IEnumerable<IEffect> effects)
+    {
+        var all = EffectTree.Flatten(effects).ToList();
+
+        foreach (var question in all.Where(FindsItselfByIndex))
+        {
+            if (EffectTree.LocatorOf(question) is not { } index)
+                return false;
+
+            var kind = question.GetType();
+            if (all.Count(e => e.GetType() == kind && EffectTree.LocatorOf(e) == index) != 1)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Whether a free offer may carry one deferred question inside it after all (CR 609.4).
     /// </summary>
     /// <remarks>
