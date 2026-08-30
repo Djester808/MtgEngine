@@ -2461,8 +2461,21 @@ public sealed class Game
                 if (amount <= 0)
                     continue;
 
+                // The narrow half of the restriction travels beside the type mask rather than
+                // inside it (CR 106.6): a tribe, a zone and a commander are not card types, and
+                // the pool has had somewhere to put all three for longer than anything could
+                // read the sentence that sets them. Dropping them here would be the same defect
+                // as not reading the clause at all, one step further along - mana that lost its
+                // restriction is strictly better than the mana printed.
                 Emit(new ManaAdded(
-                    playerId, colour, amount, production.Restriction, sourceId));
+                    playerId,
+                    colour,
+                    amount,
+                    production.Restriction,
+                    sourceId,
+                    production.RestrictedTo,
+                    production.RestrictedToZone,
+                    production.RestrictedToCommander));
             }
 
             // "{T}: Add {C}{C}. This land doesn't untap during your next untap step" - a mana

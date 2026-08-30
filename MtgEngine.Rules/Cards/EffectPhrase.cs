@@ -7290,12 +7290,36 @@ public static partial class EffectPhrase
     /// the engine dropped is strictly better than the mana printed, and a land that taps for
     /// unrestricted mana is a different and better card than the one in the deck.
     /// <para>
-    /// Subtypes and supertypes are deliberately not read — "spend this mana only to cast Dragon
-    /// spells", "only to cast legendary spells". The restriction is a card-type filter, and
-    /// answering a subtype question with a type filter would say yes to every creature.
+    /// The type mask is only half of what these clauses say, so this returns only the half that
+    /// fits in one: a clause naming a tribe, a supertype, a colour, a zone or a commander has an
+    /// answer this signature cannot carry, and reporting the type half of it alone would widen
+    /// the restriction. <see cref="SpendLimitFor"/> is the whole answer and is what the compiler
+    /// asks; this stays for callers that only want the mask.
     /// </para>
     /// </remarks>
-    public static ManaRestriction? RestrictionFor(string sentence)
+    public static ManaRestriction? RestrictionFor(string sentence) =>
+        SpendLimitFor(sentence) is { IsNarrow: false } limit ? limit.Restriction : null;
+
+    /// <summary>
+    /// Everything one "spend this mana only" clause says, or null if any of it is unread
+    /// (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// Null for anything it does not recognise, and the caller leaves the whole line unread when
+    /// it does. That matters more here than in most places: mana with a restriction the engine
+    /// dropped is strictly better than the mana printed, and a land that taps for unrestricted
+    /// mana is a different and better card than the one in the deck.
+    /// <para>
+    /// The type mask answers "which card types", and the corpus asks four more questions beside
+    /// it — a tribe ("Dragon spells"), a supertype ("legendary spells"), a colour ("colorless
+    /// spells") and a negation ("noncreature spells") — all of which go through the shared filter
+    /// vocabulary rather than a table of their own, so whatever that vocabulary learns, these
+    /// learn too. A clause is refused whole when one word of it is unread: a restriction narrower
+    /// than printed is a worse card and one wider than printed is a better one, and only the
+    /// second is silent.
+    /// </para>
+    /// </remarks>
+    public static ManaSpendLimit? SpendLimitFor(string sentence)
     {
         // "This mana can't be spent to cast a nonartifact spell" - the negative form, which is not
         // the same restriction said backwards: it forbids one kind of casting and leaves
@@ -7307,18 +7331,20 @@ public static partial class EffectPhrase
             {
                 // "This mana can't be spent to cast spells" - no casting at all, anything else
                 // allowed.
-                return new ManaRestriction(ManaPurpose.ActivateAbility, CardType.None);
+                return new ManaSpendLimit(
+                    new ManaRestriction(ManaPurpose.ActivateAbility, CardType.None));
             }
 
             if (TypesInRestriction(forbidden.Groups["types"].Value) is not { } allowed)
                 return null;
 
-            return new ManaRestriction(
-                ManaPurpose.CastSpell | ManaPurpose.ActivateAbility,
-                allowed)
-            {
-                TypesOnlyWhenCasting = true,
-            };
+            return new ManaSpendLimit(
+                new ManaRestriction(
+                    ManaPurpose.CastSpell | ManaPurpose.ActivateAbility,
+                    allowed)
+                {
+                    TypesOnlyWhenCasting = true,
+                });
         }
 
         var m = SpendOnlyLine().Match(sentence ?? string.Empty);
@@ -7327,6 +7353,9 @@ public static partial class EffectPhrase
 
         var purposes = ManaPurpose.Other;
         var types = CardType.None;
+        string? filter = null;
+        Zone? fromZone = null;
+        var commander = false;
 
         // "Cast artifact spells or activate abilities of artifacts" is one restriction with two
         // purposes over one type, so the clauses are read into the same pair rather than into a
@@ -7337,14 +7366,27 @@ public static partial class EffectPhrase
             if (trimmed.Length == 0)
                 continue;
 
+            if (SpendCommanderClause().IsMatch(trimmed))
+            {
+                purposes |= ManaPurpose.CastSpell;
+                commander = true;
+                continue;
+            }
+
             var cast = SpendCastClause().Match(trimmed);
             if (cast.Success)
             {
                 purposes |= ManaPurpose.CastSpell;
-                if (TypesInRestriction(cast.Groups["types"].Value) is not { } castTypes)
+
+                if (cast.Groups["zone"].Success
+                    && !SameZone(ref fromZone, cast.Groups["zone"].Value))
+                {
+                    return null;
+                }
+
+                if (!ReadKinds(cast.Groups["types"].Value, ref types, ref filter))
                     return null;
 
-                types |= castTypes;
                 continue;
             }
 
@@ -7352,17 +7394,91 @@ public static partial class EffectPhrase
             if (activate.Success)
             {
                 purposes |= ManaPurpose.ActivateAbility;
-                if (TypesInRestriction(activate.Groups["types"].Value) is not { } fromTypes)
+                if (!ReadKinds(activate.Groups["types"].Value, ref types, ref filter))
                     return null;
 
-                types |= fromTypes;
                 continue;
             }
 
             return null;
         }
 
-        return purposes == ManaPurpose.Other ? null : new ManaRestriction(purposes, types);
+        return purposes == ManaPurpose.Other
+            ? null
+            : new ManaSpendLimit(new ManaRestriction(purposes, types))
+            {
+                FilterId = filter,
+                FromZone = fromZone,
+                CommanderOnly = commander,
+            };
+    }
+
+    /// <summary>
+    /// Reads one clause's kinds as a card-type mask if it can, and as a filter otherwise.
+    /// </summary>
+    /// <remarks>
+    /// The mask is tried first so every restriction that read before this existed still reads
+    /// exactly the same way — "cast artifact spells" names a type and stays one — and only the
+    /// words the mask has no room for become a filter.
+    /// <para>
+    /// Two clauses may not disagree about the filter. "Cast Dragon spells or activate abilities
+    /// of Dragons" names one thing twice and is the shape the corpus prints; a pair naming two
+    /// different tribes would be a restriction with two answers and one field to put them in, so
+    /// it is refused rather than guessed at.
+    /// </para>
+    /// </remarks>
+    private static bool ReadKinds(string words, ref CardType types, ref string? filter)
+    {
+        if (TypesInRestriction(words) is { } asTypes)
+        {
+            // A clause that named types cannot stand beside one that named a filter: the two are
+            // asked as an "and" when the mana is spent, so "cast artifact spells or activate
+            // abilities of Dragons" would demand a card be both — narrower than either clause,
+            // and narrower than the card says. Nothing in the corpus prints it, and a shape
+            // nothing prints is one to refuse rather than one to guess the meaning of.
+            //
+            // Only a clause that actually named something counts. "Activate an ability" names no
+            // types at all and reaches here as an empty mask, which is how the commonest pairing
+            // in the corpus is spelled — "cast a colorless spell or to activate an ability".
+            if (asTypes != CardType.None && filter is not null)
+                return false;
+
+            types |= asTypes;
+            return true;
+        }
+
+        // A bare supertype is the one filter the shared reader will not name on its own: given a
+        // single word it answers a card type or a capitalised subtype, and "legendary" is
+        // neither. The atom reader knows the word perfectly well — SearchFilters.Matches has
+        // answered "legendary" since supertypes were added — so the fallback asks that directly
+        // rather than widening the shared reader, which every tutor in the corpus goes through.
+        var phrase = words.Trim();
+        if ((SearchFilterNamed(phrase) ?? AtomsOf(phrase, atLeast: 1)) is not { } named)
+            return false;
+
+        if (filter is not null && !string.Equals(filter, named, StringComparison.Ordinal))
+            return false;
+
+        // The other half of the guard above, for the clauses arriving in the other order.
+        if (types != CardType.None)
+            return false;
+
+        filter = named;
+        return true;
+    }
+
+    /// <summary>The zone a clause named, refusing a second clause that names a different one.</summary>
+    private static bool SameZone(ref Zone? zone, string words)
+    {
+        var named = words.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
+            ? Zone.Graveyard
+            : Zone.Exile;
+
+        if (zone is { } already && already != named)
+            return false;
+
+        zone = named;
+        return true;
     }
 
     /// <summary>The card types named in a restriction, or null if one of them is not a type.</summary>
@@ -10847,10 +10963,30 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex CantSpendLine();
 
-    [GeneratedRegex(@"\s+or(\s+to)?\s+", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// Only where a new clause starts, which is what the lookahead is for. "Cast an instant or
+    /// sorcery spell" is one clause naming two types, and splitting it on the bare "or" produced
+    /// "cast an instant" and "sorcery spell" - neither of which is a clause, so the restriction
+    /// came back null and the whole line went unread. Ten cards said it that way.
+    /// <para>
+    /// A clause always opens with its verb, so the verb is the thing to look for. "Or to" is
+    /// admitted whatever follows it, because the "to" is itself the marker of a new purpose.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s+or\s+to\s+|\s+or\s+(?=(?:cast|activate|pay|foretell|turn|unlock)\b)",
+        RegexOptions.IgnoreCase)]
     private static partial Regex SpendClauseSeparator();
 
-    [GeneratedRegex(@"^\s*(and|or|,)\s*|\s+(and|or)\s+|,\s*", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// Every group is non-capturing, and that is load-bearing rather than tidiness:
+    /// <see cref="Regex.Split(string)"/> puts the text of every <em>capturing</em> group into the
+    /// result, so "instant and sorcery" came back as three parts - "instant", "and", "sorcery" -
+    /// and the conjunction was then rejected as a card type, which refused the whole restriction.
+    /// The comma arm never captured, which is why "instant, sorcery" worked all along and the
+    /// commoner spelling did not.
+    /// </remarks>
+    [GeneratedRegex(@"^\s*(?:and|or|,)\s*|\s+(?:and|or)\s+|,\s*", RegexOptions.IgnoreCase)]
     private static partial Regex RestrictionTypeSeparator();
 
     /// <remarks>
@@ -10858,8 +10994,20 @@ public static partial class EffectPhrase
     /// optional rather than a second pattern.
     /// </remarks>
     [GeneratedRegex(
-        @"^cast (an?\s+)?(?<types>[A-Za-z, ]*?)\s*spells?$", RegexOptions.IgnoreCase)]
+        @"^cast (an?\s+)?(?<types>[A-Za-z, -]*?)\s*spells?"
+            + @"( from (?<zone>your graveyard|exile))?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex SpendCastClause();
+
+    /// <summary>"Spend this mana only to cast your commander" - Jeweled Lotus (CR 903.3).</summary>
+    /// <remarks>
+    /// Not something a filter can say: which card is a commander is a fact about this game rather
+    /// than about the card, and the same card in somebody else's deck is not one. The pool has
+    /// held the answer since <see cref="Mana.RestrictedMana.CommanderOnly"/> was added; nothing
+    /// could read the sentence that sets it.
+    /// </remarks>
+    [GeneratedRegex(@"^cast your commander$", RegexOptions.IgnoreCase)]
+    private static partial Regex SpendCommanderClause();
 
     [GeneratedRegex(
         @"^activate (an ability|abilities)( of (an?\s+)?(?<types>[A-Za-z, ]*?)"

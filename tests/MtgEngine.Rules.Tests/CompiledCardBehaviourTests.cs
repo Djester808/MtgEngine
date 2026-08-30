@@ -314,22 +314,51 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetObject(land).Permanent?.IsTapped);
     }
 
+    /// <summary>
+    /// A mana ability whose tail cannot be read is not read at all (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// This asserted "Dragon spells" as its unread example for as long as a restriction could
+    /// only be a card-type mask. It is read now — a tribe goes through the shared filter
+    /// vocabulary and is carried to the pool — so the example moved to a clause that genuinely
+    /// has no answer, and the tribe is asserted the other way beneath it.
+    /// <para>
+    /// The property being guarded never changed and is the reason the reader fails closed: a land
+    /// that taps for unrestricted mana is a strictly better card than the one printed, and it
+    /// would look complete. Widening what can be read is only safe while what cannot be read
+    /// still refuses the whole line.
+    /// </para>
+    /// </remarks>
     [Fact]
     public void A_mana_ability_whose_tail_cannot_be_read_is_not_read_at_all()
     {
-        // "Dragon spells" is a subtype restriction, which the vocabulary deliberately does not
-        // read. The whole line has to go unread with it: a land that taps for unrestricted mana
-        // is a strictly better card than the one printed, and it would have looked complete.
+        // "Pay cumulative upkeep costs" names a purpose the restriction vocabulary has no way to
+        // say, so the whole line goes unread rather than the land keeping the mana and losing
+        // what it was for.
         var hoard = Card(
             "Dragon Hoard Test",
-            "{T}: Add {R}. Spend this mana only to cast Dragon spells.",
+            "{T}: Add {R}. Spend this mana only to pay cumulative upkeep costs.",
             CardType.Land);
 
         var compiled = CardCompiler.Compile(hoard);
 
         Assert.False(compiled.IsComplete);
         Assert.Empty(compiled.Activated);
-        Assert.Contains(compiled.Unhandled, u => u.Contains("Dragon", StringComparison.Ordinal));
+        Assert.Contains(compiled.Unhandled, u => u.Contains("cumulative", StringComparison.Ordinal));
+
+        // The tribe that used to be this test's example: read, and read with its restriction
+        // intact rather than as plain red mana.
+        var lair = Card(
+            "Dragon Lair Test",
+            "{T}: Add {R}. Spend this mana only to cast Dragon spells.",
+            CardType.Land);
+
+        var dragons = CardCompiler.Compile(lair);
+        Assert.True(dragons.IsComplete, string.Join(" | ", dragons.Unhandled));
+
+        var produced = Assert.Single(Assert.Single(dragons.Activated).Produces);
+        Assert.Equal("Dragon", produced.RestrictedTo);
+        Assert.NotNull(produced.Restriction);
     }
 
     // ---- "That player" draws (CR 603.2) --------------------------------------
@@ -63505,6 +63534,365 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(ChosenCostKind.SacrificePermanents, sacrifice.Kind);
         Assert.Empty(choice.Options[1].Chosen);
         Assert.Equal(4, choice.Options[1].Mana.ManaValue);
+    }
+
+    // ---- What a "spend this mana only" clause says beyond a type mask (CR 106.6) ----
+
+    /// <summary>
+    /// "Cast an instant or sorcery spell" is one clause naming two types, not two clauses.
+    /// </summary>
+    /// <remarks>
+    /// The clause separator split on every "or", so the commonest restriction in the corpus came
+    /// apart into "cast an instant" and "sorcery spell" — neither of which is a clause, so the
+    /// reader returned null and the whole line went unread. Ten cards in the corpus say it
+    /// exactly this way, and none of them could be read at all.
+    /// <para>
+    /// A clause always opens with its verb, so the separator now splits only where a verb follows
+    /// the "or". Played rather than asserted against the parse, because the point is not that the
+    /// sentence parses: it is that the mana it makes pays for one kind of spell and refuses the
+    /// other, which is the whole of what the land is.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_restriction_naming_two_types_in_the_singular_is_read_as_one_clause()
+    {
+        // Vodalian Arcanist's wording on a land, the way the neighbouring restriction tests are
+        // written: the clause is what is under test, and a creature would spend the test on
+        // summoning sickness instead (CR 302.6).
+        var arcanist = Card(
+            "Arcanist Cave Test",
+            "{T}: Add {C}. Spend this mana only to cast an instant or sorcery spell.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(arcanist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var produced = Assert.Single(Assert.Single(compiled.Activated).Produces);
+        var restriction = Assert.NotNull(produced.Restriction);
+
+        // Both types, from one clause. Before the fix this reader saw two broken halves and
+        // reported nothing at all.
+        Assert.True(restriction.Allows(ManaPurpose.CastSpell, CardType.Instant));
+        Assert.True(restriction.Allows(ManaPurpose.CastSpell, CardType.Sorcery));
+        Assert.False(restriction.Allows(ManaPurpose.CastSpell, CardType.Creature));
+
+        var bolt = new CardDefinition
+        {
+            OracleId = "oracle-arcanist-bolt-test",
+            Name = "Arcanist Bolt Test",
+            OracleText = "~ deals 1 damage to any target.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{C}",
+            Cmc = 1,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, arcanist, Zone.Battlefield);
+        var bear = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Arcanist Bear Test", "{C}", 1));
+
+        game.ActivateAbility(alice, source, "mana");
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+
+        // A creature is neither of the two types the clause named.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, bear, []));
+
+        var instant = TestCards.PutInHand(game, alice, bolt);
+        game.CastSpell(alice, instant, [Target.ToPlayer(alice)]);
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+    }
+
+    /// <summary>
+    /// "Cast instant and sorcery spells" — the same restriction, joined with "and".
+    /// </summary>
+    /// <remarks>
+    /// A separate defect from the one above and invisible next to it, because the symptom is
+    /// identical: <see cref="System.Text.RegularExpressions.Regex.Split(string)"/> puts the text
+    /// of every <em>capturing</em> group into its result, and the type separator captured its
+    /// conjunctions. "Instant and sorcery" came back as three parts, the middle one being the
+    /// word "and", which was then rejected as a card type and refused the whole restriction.
+    /// <para>
+    /// The comma arm of that pattern never captured, which is why "instant, sorcery" had worked
+    /// all along while the spelling the cards actually use did not — the kind of split that a
+    /// ranking by opening words cannot see, because both spellings open identically.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_restriction_joining_its_types_with_and_is_read()
+    {
+        foreach (var wording in new[]
+        {
+            "Spend this mana only to cast instant and sorcery spells.",
+            "Spend this mana only to cast instant or sorcery spells.",
+            "Spend this mana only to cast an instant or sorcery spell.",
+        })
+        {
+            var limit = EffectPhrase.SpendLimitFor(wording);
+            Assert.NotNull(limit);
+
+            var restriction = limit!.Value.Restriction;
+            Assert.True(restriction.Allows(ManaPurpose.CastSpell, CardType.Instant), wording);
+            Assert.True(restriction.Allows(ManaPurpose.CastSpell, CardType.Sorcery), wording);
+            Assert.False(restriction.Allows(ManaPurpose.CastSpell, CardType.Creature), wording);
+
+            // Nothing narrower than the mask is being said, so the older signature still answers.
+            Assert.False(limit.Value.IsNarrow, wording);
+        }
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast Myr spells or activate abilities of Myr" (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// A tribe is not a card type, and the reader's only output was a type mask — so every clause
+    /// naming one was refused outright and the land went unread. The pool has been able to hold
+    /// the answer since <c>RestrictedMana.FilterId</c> was added; nothing could read the sentence
+    /// that sets it, and the two halves sat a field apart for a whole round.
+    /// <para>
+    /// The filter goes through the shared vocabulary rather than a table of its own, which is why
+    /// one change took tribes, supertypes, colours and negations together instead of four.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_a_tribe_is_read_from_the_printed_wording()
+    {
+        var reservoir = Card(
+            "Myr Reservoir Test",
+            "{T}: Add {C}{C}. Spend this mana only to cast Myr spells or activate abilities"
+                + " of Myr.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(reservoir);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var mana = Assert.Single(compiled.Activated);
+
+        // One entry per mana, because the restriction travels with the individual mana.
+        Assert.Equal(2, mana.Produces.Count);
+        Assert.All(mana.Produces, one => Assert.Equal("Myr", one.RestrictedTo));
+
+        var myr = new CardDefinition
+        {
+            OracleId = "oracle-reservoir-myr-test",
+            Name = "Reservoir Myr Test",
+            CardTypes = CardType.Artifact | CardType.Creature,
+            Subtypes = ["Myr"],
+            ManaCostRaw = "{C}",
+            Cmc = 1,
+        };
+
+        var golem = new CardDefinition
+        {
+            OracleId = "oracle-reservoir-golem-test",
+            Name = "Reservoir Golem Test",
+            CardTypes = CardType.Artifact | CardType.Creature,
+            Subtypes = ["Golem"],
+            ManaCostRaw = "{C}",
+            Cmc = 1,
+        };
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(null, mana.Produces[0].Restriction!.Value)
+            {
+                FilterId = mana.Produces[0].RestrictedTo,
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(myr, Zone.Hand)));
+
+        // Both are artifact creatures costing the same. Only the subtype tells them apart, and a
+        // type mask could not have said so.
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(golem, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Cast legendary spells", "cast colorless Eldrazi spells", "cast a Knight or Equipment
+    /// spell" — a supertype, a compound and an alternation, all from one vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// Worth asserting together because they are one change rather than three: each phrase is
+    /// handed to the same filter reader every tutor in the corpus goes through, so the compound
+    /// and the alternation needed no words of their own. The supertype is the exception and says
+    /// why — asked alone, that reader answers a card type or a capitalised subtype, and
+    /// "legendary" is neither, so it falls through to the atom reader that has known the word
+    /// since supertypes existed.
+    /// </remarks>
+    [Fact]
+    public void A_restriction_may_name_a_supertype_a_compound_or_an_alternation()
+    {
+        Assert.Equal(
+            "legendary",
+            EffectPhrase.SpendLimitFor("Spend this mana only to cast legendary spells.")
+                ?.FilterId);
+
+        Assert.Equal(
+            "colorless&Eldrazi",
+            EffectPhrase.SpendLimitFor(
+                "Spend this mana only to cast colorless Eldrazi spells or activate abilities"
+                    + " of colorless Eldrazi.")?.FilterId);
+
+        Assert.Equal(
+            "Knight|Equipment",
+            EffectPhrase.SpendLimitFor(
+                "Spend this mana only to cast a Knight or Equipment spell.")?.FilterId);
+
+        Assert.Equal(
+            "noncreature",
+            EffectPhrase.SpendLimitFor("Spend this mana only to cast noncreature spells.")
+                ?.FilterId);
+
+        var legendary = new CardDefinition
+        {
+            OracleId = "oracle-untaidake-legend-test",
+            Name = "Untaidake Legend Test",
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            ManaCostRaw = "{C}",
+            Cmc = 1,
+        };
+
+        var ordinary = TestCards.Costed("Untaidake Commoner Test", "{C}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(null, new ManaRestriction(ManaPurpose.CastSpell, CardType.None))
+            {
+                FilterId = "legendary",
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(legendary, Zone.Hand)));
+
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(ordinary, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast your commander" — Jeweled Lotus (CR 903.3).
+    /// </summary>
+    /// <remarks>
+    /// Not a filter and never could be: which card is a commander is a fact about this game
+    /// rather than about the card, and the same card in somebody else's deck is not one.
+    /// <para>
+    /// The colour is the part worth checking. "Add three mana of any one color" compiles to five
+    /// alternatives, one per colour, and the restriction has to ride on every one of them — an
+    /// alternative that lost it would be a Lotus that taps for three unrestricted mana, which is
+    /// a materially better card than the one printed and nothing downstream would notice.
+    /// </remarks>
+    [Fact]
+    public void Mana_restricted_to_a_commander_rides_on_every_colour_alternative()
+    {
+        var lotus = Card(
+            "Jeweled Lotus Test",
+            "{T}, Sacrifice this artifact: Add three mana of any one color. Spend this mana only"
+                + " to cast your commander.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(lotus);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One alternative per colour, and the restriction on all five.
+        Assert.Equal(5, compiled.Activated.Count);
+        Assert.All(compiled.Activated, ability =>
+        {
+            var produced = Assert.Single(ability.Produces);
+            Assert.Equal(3, produced.Amount);
+            Assert.True(produced.RestrictedToCommander);
+            Assert.Null(produced.RestrictedTo);
+        });
+
+        var general = TestCards.Costed("Jeweled Lotus General Test", "{G}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(
+                ManaColor.Green,
+                new ManaRestriction(ManaPurpose.CastSpell, CardType.None))
+            {
+                CommanderOnly = true,
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool,
+            ManaCostSpec.Parse("{G}"),
+            spend: ManaSpend.Casting(general, Zone.Command, isCommander: true)));
+
+        // The same card cast from hand as an ordinary spell is not the commander.
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{G}"), spend: ManaSpend.Casting(general, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// "Spend this mana only to cast a spell from your graveyard" — the zone, read (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// The clause pattern ended at the word "spells", so a zone printed after it left the whole
+    /// sentence unmatched. Read from where the card stands as its cost is worked out, before it
+    /// moves to the stack and stops being that object (CR 400.7).
+    /// </remarks>
+    [Fact]
+    public void A_restriction_may_name_the_zone_a_spell_is_cast_from()
+    {
+        var lord = Card(
+            "Lord of the Forsaken Test",
+            "Pay 1 life: Add {C}. Spend this mana only to cast a spell from your graveyard.",
+            CardType.Creature,
+            power: 6,
+            toughness: 6);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var produced = Assert.Single(Assert.Single(compiled.Activated).Produces);
+        Assert.Equal(Zone.Graveyard, produced.RestrictedToZone);
+
+        var bear = TestCards.Costed("Forsaken Bear Test", "{C}", 1);
+
+        var pool = ManaPool.Empty.AddRestricted(
+            new RestrictedMana(null, new ManaRestriction(ManaPurpose.CastSpell, CardType.None))
+            {
+                FromZone = Zone.Graveyard,
+            });
+
+        Assert.NotNull(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(bear, Zone.Graveyard)));
+
+        Assert.Null(ManaPayment.Pay(
+            pool, ManaCostSpec.Parse("{C}"), spend: ManaSpend.Casting(bear, Zone.Hand)));
+    }
+
+    /// <summary>
+    /// A clause the vocabulary cannot read leaves the whole line unread, as it always did.
+    /// </summary>
+    /// <remarks>
+    /// The failure that has to survive widening the reader. Mana that quietly lost its
+    /// restriction is strictly better than the mana printed, and a land that taps for
+    /// unrestricted mana is a different and better card than the one in the deck — so a clause
+    /// with one unread word in it is refused whole rather than kept for the parts that happened
+    /// to be understood.
+    /// <para>
+    /// The second case is the one a widened reader invites: two clauses each readable on their
+    /// own, naming two different tribes. There is one field to put a filter in, so a restriction
+    /// with two answers is refused rather than resolved to whichever was read last.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_restriction_naming_something_unread_leaves_the_line_unread()
+    {
+        Assert.Null(EffectPhrase.SpendLimitFor(
+            "Spend this mana only to pay cumulative upkeep costs."));
+
+        Assert.Null(EffectPhrase.SpendLimitFor(
+            "Spend this mana only to cast Dragon spells or activate abilities of Myr."));
+
+        var land = Card(
+            "Unread Restriction Test",
+            "{T}: Add {G}. Spend this mana only to pay cumulative upkeep costs.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(land);
+        Assert.False(compiled.IsComplete);
+        Assert.NotEmpty(compiled.Unhandled);
     }
 
     // ---- Fuse (CR 702.102) ---------------------------------------------------

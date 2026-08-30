@@ -14748,7 +14748,7 @@ public static partial class CardCompiler
         // whole line unread, because a land that pays and then does not pay the price back is a
         // strictly better card than the one printed.
         var rider = ImmutableList<IEffect>.Empty;
-        ManaRestriction? restriction = null;
+        ManaSpendLimit? restriction = null;
         if (m.Groups["rest"].Success)
         {
             var tail = m.Groups["rest"].Value.Trim();
@@ -14768,7 +14768,7 @@ public static partial class CardCompiler
 
             // "Spend this mana only to cast creature spells" is a restriction on the mana rather
             // than something the ability does, so it is lifted off the same way (CR 106.6).
-            if (EffectPhrase.RestrictionFor(tail) is { } only)
+            if (EffectPhrase.SpendLimitFor(tail) is { } only)
             {
                 restriction = only;
                 tail = string.Empty;
@@ -14807,7 +14807,13 @@ public static partial class CardCompiler
                 ActivateOnlyIf = onlyIf,
                 Timing = timing,
                 Produces = restriction is { } limited
-                    ? [.. produces.Select(one => one with { Restriction = limited })]
+                    ? [.. produces.Select(one => one with
+                    {
+                        Restriction = limited.Restriction,
+                        RestrictedTo = limited.FilterId,
+                        RestrictedToZone = limited.FromZone,
+                        RestrictedToCommander = limited.CommanderOnly,
+                    })]
                     : produces,
                 Effects = rider,
                 MaxActivationsPerTurn = manaLimit,
