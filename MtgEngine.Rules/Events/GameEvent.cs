@@ -480,6 +480,16 @@ public sealed record LookAndTakeRequested(
     /// <summary>Whether a taken card arrives on the battlefield tapped (CR 701.26a).</summary>
     public bool TappedOnTaken { get; init; }
 
+    /// <summary>
+    /// The permanent whose ability is doing the looking, when the taken card must remember it.
+    /// </summary>
+    /// <remarks>
+    /// Hideaway only. It travels on the request rather than being looked up at the settle, for
+    /// the reason every other field here does: the answer arrives a priority later, and by then
+    /// the resolution that knew whose ability this was has finished.
+    /// </remarks>
+    public ObjectId? Source { get; init; }
+
     public override string Rule => "701.20a";
 
     public override string Describe() =>

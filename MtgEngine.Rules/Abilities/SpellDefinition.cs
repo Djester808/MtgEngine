@@ -831,6 +831,24 @@ public sealed record AlternativeCastZone(
     /// </para>
     /// </remarks>
     public int LifeCost { get; init; }
+
+    /// <summary>
+    /// What has to be true for the permission to exist at all, or null when nothing does.
+    /// </summary>
+    /// <remarks>
+    /// Gravecrawler's "as long as you control a Zombie". Every keyword in this field grants its
+    /// permission unconditionally; the plain printed sentence often does not — nine cards spell
+    /// it out and five of those hang it on the board — and a permission whose gate went unread
+    /// is not a card being generous, it is a different card: a Gravecrawler that comes back with
+    /// no Zombie in play.
+    /// <para>
+    /// Asked at the moment of the cast rather than folded in when the card was compiled, because
+    /// the board it asks about is the board now. It is a delegate for the reason
+    /// <see cref="ConditionalModes.IsAvailable"/> is one: nothing in the state holds it, the
+    /// compiled definition is rebuilt from the card, and a predicate cannot be folded from a log.
+    /// </para>
+    /// </remarks>
+    public Func<GameState, IAbilitySource, GameObject, bool>? Available { get; init; }
 }
 
 /// <summary>

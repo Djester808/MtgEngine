@@ -8461,6 +8461,36 @@ spot: it cannot see a field a compiler reads at runtime, only one it reads at co
   state rebuilt from the log would compare unequal to the original; and the permission bypasses
   the zone rule *and* the timing rule, because the whole point is that the card is somewhere a
   spell is not normally cast from.
+  **Hideaway now lands on it too, and so does the free half of the impulse family.** The keyword
+  had compiled for a long time and could never pay out: `Hideaway N` buries a card and the *second*
+  line every one of the twelve cards prints - "you may play the exiled card without paying its mana
+  cost if `<condition>`" - was the one thing on them nothing read. It is the same offer, with two
+  additions. The exiled card remembers which permanent buried it (`LookAndTake.LinksTakenToSource`
+  writes `GameObject.ExiledBy`), because "the exiled card" means the one *this* permanent hid and
+  two hideaway permanents can share a board; and the offer is read as permission to **play a land**
+  as well as to cast, since the buried card is a land about as often as anything else and every
+  printing of the line says "play". Three things are declines rather than gaps.
+  **The verb is the test**: all twelve cards saying "you may *play* the exiled card" are hideaway
+  cards and all fourteen saying "*cast*" mean a card some other sentence of their own exiled, with
+  no link to read - so the wider verb is refused rather than compiled into an ability that finds
+  nothing and silently does nothing. **A gate that cannot be read refuses the line**: Windbrisk
+  Heights ("you attacked with three or more creatures this turn") and Spinerock Knoll ("an opponent
+  was dealt 7 or more damage this turn") need counts the state keeps only as booleans, and a
+  hideaway that pays out with its condition dropped is a strictly better card than the one printed.
+  And **the "Word — " strip cannot tell an ability word from a gate**: `AbilityWord` removes any
+  capitalised prefix as flavour (CR 207.2c), which is right for "Landfall — " and wrong for
+  "Max speed — ", so `TryCastFromGraveyard` takes only a line that arrived without one.
+- **"You may cast this card from your graveyard" is flashback's static ability written out in
+  full**, and it lands in the same field: `AlternativeCastZone(Graveyard, the card's own cost,
+  ExileOnResolve: false)`. What it needed that no keyword did is a **gate** - nine cards print the
+  sentence and five of them hang it on the board ("as long as you control a Zombie"), so
+  `AlternativeCastZone.Available` is asked at the moment of the cast rather than folded in at
+  compile time, which is what "as long as" means. A condition `BoardConditions` cannot answer
+  refuses the whole line: Gravecrawler with the gate dropped is not a card being read, it is a
+  different card. The riders that charge something extra - "by discarding two cards in addition to
+  paying its other costs", "if you pay {1} more for each other creature card in your graveyard" -
+  are declined for the same reason, since the permission has no way to charge them and admitting
+  them would hand out the zone for free.
 - **A modal card's header is a range, and reading it as a number silently halved 71 cards.**
   "Choose one or both" (53 cards) and "choose one or more" (18) both compiled — and both were
   counted as fully read — while the engine refused any cast that took more than one mode. That is

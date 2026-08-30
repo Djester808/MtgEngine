@@ -826,7 +826,15 @@ public sealed class Game
             // a foretold card sitting in exile is. It had to get there by being discarded, and on
             // this turn (CR 702.181a).
             && (!alternative.OnlyIfDiscardedThisTurn
-                || card.DiscardedOnTurn == State.TurnNumber);
+                || card.DiscardedOnTurn == State.TurnNumber)
+
+            // "As long as you control a Zombie." The keywords all grant their permission outright
+            // and the plain printed sentence usually does not, so the gate is asked here, against
+            // the board as it is at the moment of the cast - which is what "as long as" means.
+            // The card in the graveyard is the source the question is asked about, so a condition
+            // that names the card itself has the right object to look at.
+            && (alternative.Available is null
+                || alternative.Available(State, _abilities, card));
 
         // CR 601.2b: an offer to cast without paying is permission to cast from wherever the
         // card is, for nothing — and it has to be read before both the timing rule and the zone
@@ -3515,8 +3523,17 @@ public sealed class Game
 
         // A land is played from hand, or from exile while something says it may be - the same
         // permission a spell reads, and the reason this says "play" rather than "cast".
+        //
+        // A standing free-cast offer is one of those. "You may play the exiled card without
+        // paying its mana cost" is what hideaway pays out with, and the card it buried is a land
+        // about as often as it is anything else; an offer that only ever bought a cast would
+        // leave those lands stranded in exile with the card saying they may be played. Nothing is
+        // discounted by reading it here - a land has no mana cost - so the offer buys the zone and
+        // nothing else, the land drop is still spent, and it lapses on the same pass a cast offer
+        // does.
         var loosed = card.Zone == Zone.Exile
-            && ((card.MayPlayUntilTurn is { } through && State.TurnNumber <= through)
+            && (card.MayCastFree
+                || (card.MayPlayUntilTurn is { } through && State.TurnNumber <= through)
                 || card.MayPlayThroughOwnersNextTurn is not null);
 
         if (card.Zone != Zone.Hand && !loosed)
@@ -8462,6 +8479,14 @@ public sealed class Game
         foreach (var id in taken)
         {
             var landed = Move(id, owed.Destination, MoveCause.Other, owed.PlayerId);
+
+            // CR 702.75a: hideaway's card has to stay findable, because the second line on every
+            // hideaway card says "the exiled card" and means the one this permanent buried. The
+            // link is recorded here rather than by the effect that asked for the look, because a
+            // card that changes zones is a new object (CR 400.7) and only the move knows the id
+            // it landed under.
+            if (owed.Source is { } by && owed.Destination == Zone.Exile)
+                Emit(new ExiledUntilLeaves(landed, by));
 
             // "With three +1/+1 counters on it. It gains hexproof until your next turn." — the
             // dressing on the taking, done here because only the move knows the id the card
