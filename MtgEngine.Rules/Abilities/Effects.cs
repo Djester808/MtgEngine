@@ -4116,22 +4116,29 @@ public sealed record ShuffleSourceIntoLibrary : IEffect
 }
 
 public sealed record ShuffleLibrary(
-    PlayerScope Whose = PlayerScope.You, bool GraveyardFirst = false) : IEffect
+    PlayerScope Whose = PlayerScope.You,
+    bool GraveyardFirst = false,
+    int? TargetIndex = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        return
-        [
-            .. PlayerScopes.Resolve(Whose, context)
-                .Select(who => new ShuffleRequested(
-                    who,
-                    GraveyardFirst
-                        ? context.State.GetPlayer(who).Graveyard
-                        : [])),
-        ];
+        // A named target wins outright over a scope, the same way it does for drawing and
+        // discarding: the sentence named one player and the scope named none. "Target player
+        // shuffles their graveyard into their library" is five corpus cards whose only unread
+        // line was the subject - the shuffle itself had worked since the tutors were built.
+        if (TargetIndex is { } index)
+        {
+            var aimed = context.TargetAt(index)?.Player ?? context.ControllerId;
+            return [Requested(context, aimed)];
+        }
+
+        return [.. PlayerScopes.Resolve(Whose, context).Select(who => Requested(context, who))];
     }
+
+    private ShuffleRequested Requested(ResolutionContext context, Guid who) =>
+        new(who, GraveyardFirst ? context.State.GetPlayer(who).Graveyard : []);
 }
 
 /// <summary>

@@ -8095,8 +8095,17 @@ public sealed class Game
             if (AskOptionalUntaps())
                 return true;
 
+            // A shuffle asks nobody anything, so it is performed here and the sweep goes round
+            // again - the same treatment as a seek or a roll, and for the same reason. Returning
+            // as though a question were pending left the *second* of two owed shuffles unperformed
+            // until something else pushed the sweep round: "each player shuffles their graveyard
+            // into their library" emits one per player, and one player's graveyard sat there,
+            // unshuffled, while priority was handed back mid-resolution.
             if (SettleOwedShuffle())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedRingBearer())
                 return true;
