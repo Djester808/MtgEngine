@@ -491,9 +491,14 @@ public static partial class BoardConditions
         }
 
         // "As long as your devotion to black is less than five, ~ isn't a creature" - CR 700.5,
-        // and the whole God cycle turns on it. A count of *symbols* rather than of permanents,
-        // which is why it cannot go through the counting reader: one permanent costing {B}{B}{B}
-        // is three devotion and three permanents costing {1} are none.
+        // and the whole God cycle turns on it. A count of *symbols* rather than of permanents:
+        // one permanent costing {B}{B}{B} is three devotion and three permanents costing {1} are
+        // none, which is why the tally cannot be a permanent group like most conditions here.
+        //
+        // The tally itself is EffectPhrase's, because the same number is asked for as a quantity
+        // by the cards printed beside these - "you gain life equal to your devotion to green".
+        // Two answers to one rule would eventually disagree, and the God whose condition said
+        // four while the payoff said five would be a bug nothing here could see.
         var devoted = DevotionLine().Match(text);
         if (devoted.Success)
         {
@@ -519,28 +524,8 @@ public static partial class BoardConditions
 
             return (state, abilities, source) =>
             {
-                var symbols = 0;
-
-                foreach (var id in state.Battlefield)
-                {
-                    var obj = state.GetObject(id);
-
-                    // Control is computed (CR 613.1b); a permanent an opponent has taken stops
-                    // counting towards your devotion the moment they take it.
-                    if (Characteristics.Of(state, abilities, obj).ControllerId != source.ControllerId)
-                        continue;
-
-                    foreach (var symbol in Mana.ManaCostSpec.Parse(obj.Card.ManaCostRaw).Symbols)
-                    {
-                        // A hybrid symbol is each of its colours (CR 202.2b), so {W/U} counts
-                        // towards white, towards blue, and once towards white-and-black's
-                        // sibling - never twice, which is why this counts symbols and not
-                        // colours. CR 700.5 asks for symbols that *are* one of the named
-                        // colours, so a two-colour devotion is a union rather than a sum.
-                        if (wantedColours.Any(symbol.Colors.Contains))
-                            symbols++;
-                    }
-                }
+                var symbols = EffectPhrase.DevotionTo(
+                    state, abilities, source.ControllerId, wantedColours);
 
                 return below ? symbols < threshold : symbols >= threshold;
             };
