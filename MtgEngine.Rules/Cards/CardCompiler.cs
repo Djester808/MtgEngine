@@ -13483,6 +13483,21 @@ public static partial class CardCompiler
             return true;
         }
 
+        // CR 605.1a: an untargeted activated ability whose whole effect is adding mana *is* a
+        // mana ability, and a mana ability never uses the stack (CR 605.3b). TryManaAbility is
+        // the only place one may be built. A line that reached here has already been refused
+        // there - three colours in any combination, an amount this model cannot enumerate - and
+        // building it here would produce an ability an opponent can respond to, which is the
+        // worst shape of bug this compiler has: the card counts as covered, offers its button,
+        // and plays differently from what it prints. It stays unread instead.
+        if (parsed.Targets.IsEmpty
+            && !parsed.Effects.IsEmpty
+            && parsed.Effects.All(e => e is AddMana or AddChosenMana))
+        {
+            unhandled.Add(line);
+            return true;
+        }
+
         into.Add(new ActivatedAbilityDefinition
         {
             Id = "a" + Suffix(into.Count),

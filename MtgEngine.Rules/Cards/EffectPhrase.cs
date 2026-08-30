@@ -3675,20 +3675,34 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Add {G}{G}" outside a mana ability — a trigger that makes mana, or an ability that
-        // makes mana as well as doing something else. Both use the stack, unlike a mana ability
-        // (CR 605.3b), which is why they compile to an effect rather than to Produces.
+        // "Add {G}{G}" outside a mana ability - a trigger that makes mana, an ability that makes
+        // mana as well as doing something else, or a spell. All of them use the stack, unlike a
+        // mana ability (CR 605.3b), which is why they compile to an effect rather than to
+        // Produces - and it is that resolution which gives a colour somewhere to be chosen.
         m = AddManaLine().Match(sentence);
         if (m.Success)
         {
-            var alternatives = ManaWords.Alternatives(m.Groups["mana"].Value);
+            var whose = ScopeOf(m.Groups["who"].Value);
+            var what = m.Groups["mana"].Value.Trim();
 
-            // Only an unambiguous production can be an effect. "Add one mana of any color" is a
-            // choice made on resolution, and there is nowhere to ask it — the mana-ability path
-            // splits that into one ability per colour, which an effect cannot do.
+            // "Add one mana of any color", "add two mana of any one color", "add two mana in any
+            // combination of colors" - the colour is not known until this resolves, so the
+            // effect asks. Read before the fixed forms because the words reach both.
+            if (ChosenMana(what) is { } asking)
+            {
+                effects.Add(asking with { Who = whose });
+                return true;
+            }
+
+            var alternatives = ManaWords.Alternatives(what);
+
+            // Only an unambiguous production can be a fixed effect. Anything with more than one
+            // payout is a choice, and the ones this reader cannot turn into a question - "add X
+            // mana in any combination of {U} and/or {R}" - stay unread rather than being picked
+            // for the player.
             if (alternatives.Count == 1)
             {
-                effects.Add(new AddMana(alternatives[0]));
+                effects.Add(new AddMana(alternatives[0]) { Who = whose });
                 return true;
             }
         }
@@ -6354,6 +6368,40 @@ public static partial class EffectPhrase
         // Anything else is a named counter — charge, storage, depletion, age — and the engine
         // has never cared which names exist. Those are kept exactly as printed.
         return word.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// "One mana of any color" and the rest of the family whose colour is decided on resolution.
+    /// </summary>
+    /// <remarks>
+    /// Returns the effect with its player scope still unset, because the words that name whose
+    /// pool it goes into sit in front of the verb and are read by the caller.
+    /// <para>
+    /// "N mana of any one color" and "N mana in any combination of colors" differ by exactly one
+    /// thing and it is not the count: the first is one colour for all of it, the second a colour
+    /// per mana. Writing them as one matcher with a flag is what keeps that difference visible -
+    /// two matchers would let one of them quietly acquire the other's reading.
+    /// </para>
+    /// </remarks>
+    private static AddChosenMana? ChosenMana(string text)
+    {
+        var m = ChosenColorManaLine().Match(text);
+        if (!m.Success)
+            return null;
+
+        var many = Number(m.Groups["n"].Value);
+
+        // X is chosen as the spell is cast and is not a number this reader has; a count of zero
+        // adds nothing and is not worth an effect. Both stay unread.
+        if (many.IsVariable || many.Fixed < 1)
+            return null;
+
+        return new AddChosenMana(
+            many.Fixed,
+            m.Groups["produced"].Success
+                ? ManaPalette.TypesTheSubjectProduces
+                : ManaPalette.AnyColor,
+            EachSeparately: m.Groups["combination"].Success);
     }
 
     /// <summary>Which players a printed group word names (CR 109.5).</summary>
@@ -11073,8 +11121,34 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex SeekLine();
 
-    [GeneratedRegex(@"^add (?<mana>.+)$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// The subject is optional and the trailing full stop is not part of the mana, both for
+    /// the same reason the shared verbs elsewhere accept them: a card prints "Add {G}" with
+    /// no subject at all (CR 608.2) and "that player adds {G}" with one, and they are one
+    /// sentence with a different pool at the end of it.
+    /// <para>
+    /// "An additional" is swallowed rather than read. It is what the mana is <em>beside</em>,
+    /// not a fact about the mana: the trigger has already fired on the first lot, and this
+    /// clause adds its own on top whatever the word in front of it.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WOPT + @"adds? (an additional )?(?<mana>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex AddManaLine();
+
+    /// <remarks>
+    /// Anchored whole, so the count belongs to this clause and the words after the colour
+    /// are read rather than shrugged off. "Any type that land produced" carries its noun in
+    /// a group only so the shape is visible in the parse; which permanent it means comes
+    /// from the triggering event, not from the word.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>one|two|three|four|five|[0-9]+) mana "
+            + @"(of any (one )?color"
+            + @"|of any type that (?<produced>[a-z ]+) produced"
+            + @"|(?<combination>in any combination of colors))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenColorManaLine();
 
     /// <remarks>
     /// Two shapes in one pattern, because they are one idea: "you may pay [cost]" followed by the
@@ -11454,6 +11528,14 @@ public static partial class TriggerConditions
                 _ => false,
             };
         }
+
+        // "Whenever a player taps a land for mana" - the event names the permanent that made
+        // the mana, and Game.SubjectObjectOf answers with it, so "its controller" and "that
+        // land" each have exactly one thing they can mean. Admitted with the same discipline
+        // as the families below: the pronoun resolves to that land or to nobody, and never
+        // falls back to the permanent with the ability.
+        if (TappedForManaLine().IsMatch(condition))
+            return true;
 
         // CR 702.140c: a mutation is one spell merging with one creature, and the event names
         // that creature - so "put a +1/+1 counter on it" and "put a +1/+1 counter on that

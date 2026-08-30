@@ -924,6 +924,39 @@ public sealed record ColorChoiceRequested(
     public override string Describe() => $"{ChooserId:N} chooses a colour.";
 }
 
+/// <summary>
+/// A player must name the colour of mana an effect is adding, as it resolves (CR 106.1a).
+/// </summary>
+/// <remarks>
+/// The question the effect vocabulary had nowhere to put. "Add one mana of any color" outside a
+/// mana ability is a choice made on resolution, and until this existed the sentence was left
+/// unread rather than guessed at - the mana-ability path answers the same question by splitting
+/// itself into one ability per colour, which an effect cannot do.
+/// <para>
+/// It takes the shape every other mid-resolution question here takes: an event, then a
+/// <see cref="State.ChoiceKind"/>, so a replay reaches the same offer and the answer is read back
+/// out of the log rather than out of a captured continuation.
+/// </para>
+/// <para>
+/// The menu rides on the event rather than being worked out again when the answer arrives.
+/// "One mana of any type that land produced" is read off a permanent that may have left the
+/// battlefield by then, and a question whose options changed underneath it is not the question
+/// that was asked. <see cref="ManaColor.Colorless"/> in the list means colourless mana, which is
+/// a type of its own and not an absence of colour (CR 106.1b).
+/// </para>
+/// </remarks>
+public sealed record ManaColorChoiceRequested(
+    Guid PlayerId,
+    ImmutableList<ManaColor> Options,
+    int Amount = 1,
+    ObjectId? SourceId = null) : GameEvent
+{
+    public override string Rule => "106.1a";
+
+    public override string Describe() =>
+        $"{PlayerId:N} chooses a color for {Amount} mana.";
+}
+
 /// <summary>What a named colour is then used for.</summary>
 public enum ColorChoiceUse
 {

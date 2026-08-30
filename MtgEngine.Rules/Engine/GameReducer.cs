@@ -198,6 +198,10 @@ public static class GameReducer
             SpellCopied copied => CopyOnStack(state, copied),
             HandChoiceRequested => state,
             ColorChoiceRequested => state,
+
+            // The question only; the mana itself arrives as a ManaAdded once it is
+            // answered, so nothing about the state changes when it is asked.
+            ManaColorChoiceRequested => state,
             CreatureTypeChoiceRequested => state,
             ConniveRequested => state,
             ManifestDreadRequested => state,
