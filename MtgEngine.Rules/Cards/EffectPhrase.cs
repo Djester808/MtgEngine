@@ -1766,13 +1766,16 @@ public static partial class EffectPhrase
 
             var whose = targets.Count - 1;
 
-            effects.Add(m.Groups["draws"].Success
-                ? new DrawForTargetsController(many, whose)
-                : new ChangeLifeOfTargetsController(
-                    m.Groups["verb"].Value.StartsWith("gain", StringComparison.OrdinalIgnoreCase)
-                        ? many
-                        : -many,
-                    whose));
+            effects.Add(m.Groups["mills"].Success
+                ? new MillForTargetsController(many, whose)
+                : m.Groups["draws"].Success
+                    ? new DrawForTargetsController(many, whose)
+                    : new ChangeLifeOfTargetsController(
+                        m.Groups["verb"].Value.StartsWith(
+                            "gain", StringComparison.OrdinalIgnoreCase)
+                            ? many
+                            : -many,
+                        whose));
 
             return true;
         }
@@ -3437,6 +3440,52 @@ public static partial class EffectPhrase
         if (SelfBecomesChosenColourLine().IsMatch(sentence))
         {
             effects.Add(new ChooseColorForTarget(ColorChoiceUse.BecomesColor, TargetIndex: null));
+            return true;
+        }
+
+        // "~ gains protection from the color of your choice until end of turn" - the same
+        // question the targeted form below asks, aimed at the permanent whose ability it is.
+        // <see cref="ChooseColorForTarget"/> already reads a null index as the source, so this
+        // is the sentence and nothing else; it went unread only because no pattern said it.
+        if (SelfProtectionFromChosenColourLine().IsMatch(sentence))
+        {
+            effects.Add(new ChooseColorForTarget(
+                ColorChoiceUse.ProtectionFrom, TargetIndex: null));
+            return true;
+        }
+
+        // "~ can attack this turn as though it didn't have defender" - a permission that lasts
+        // the turn (CR 702.3b). Written as a floating effect on the source rather than as a
+        // keyword removal, because the creature keeps its defender: cards that count creatures
+        // with defender, and the Walls that care about being Walls, must not change because one
+        // of them was let through.
+        if (SelfMayAttackDespiteDefenderLine().IsMatch(sentence))
+        {
+            effects.Add(new PumpSourceUntilEndOfTurn(
+                GenerativeEffects.MayAttackAsThoughNoDefenderId()));
+            return true;
+        }
+
+        var released = TargetMayAttackDespiteDefenderLine().Match(sentence);
+        if (released.Success && Specs.Parse(released.Groups["t"].Value) is { } unwalled)
+        {
+            targets.Add(unwalled);
+            effects.Add(new PumpUntilEndOfTurn(
+                GenerativeEffects.MayAttackAsThoughNoDefenderId(), targets.Count - 1));
+            return true;
+        }
+
+        // "Put ~ on top of its owner's library" - the source sending itself back, matched here
+        // beside the other self-move sentences and before the general target grammar, which
+        // would otherwise read the tilde as a phrase naming something.
+        var deckbound = PutSelfOnLibraryLine().Match(sentence);
+        if (deckbound.Success)
+        {
+            effects.Add(new PutSourceOnLibrary(
+                deckbound.Groups["where"].Value.StartsWith(
+                    "bottom", StringComparison.OrdinalIgnoreCase)
+                    ? ZonePosition.Bottom
+                    : ZonePosition.Top));
             return true;
         }
 
@@ -9358,7 +9407,8 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(its|that spell's|that creature's|that permanent's) controller "
             + @"((?<verb>loses|gains) " + N + @" life"
-            + @"|(?<draws>draws) " + N + @" cards?)" + FOREACH + @"$",
+            + @"|(?<draws>draws) " + N + @" cards?"
+            + @"|(?<mills>mills) " + N + @" cards?)" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetControllerLine();
 
@@ -9959,6 +10009,30 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^~ becomes the colou?r of your choice until end of turn$", RegexOptions.IgnoreCase)]
     private static partial Regex SelfBecomesChosenColourLine();
+
+    /// <summary>"~ gains protection from the color of your choice until end of turn".</summary>
+    [GeneratedRegex(
+        @"^~ gains protection from the colou?r of your choice until end of turn\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfProtectionFromChosenColourLine();
+
+    /// <summary>"~ can attack this turn as though it didn't have defender" (CR 702.3b).</summary>
+    [GeneratedRegex(
+        @"^~ can attack (this turn )?as though it didn't have defender\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfMayAttackDespiteDefenderLine();
+
+    /// <summary>The same permission handed to something else.</summary>
+    [GeneratedRegex(
+        @"^" + T + @" can attack (this turn )?as though it didn't have defender\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetMayAttackDespiteDefenderLine();
+
+    /// <summary>"Put ~ on top of its owner's library" (CR 400.7).</summary>
+    [GeneratedRegex(
+        @"^put ~ on (the )?(?<where>top|bottom) of its owner's library\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PutSelfOnLibraryLine();
 
     /// <summary>The same line about creature types (CR 205.1b).</summary>
     [GeneratedRegex(

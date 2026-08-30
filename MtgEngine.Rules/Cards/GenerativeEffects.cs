@@ -464,6 +464,18 @@ public static partial class GenerativeEffects
     /// </remarks>
     public static string DoesNotUntapId() => "no-untap";
 
+    /// <summary>
+    /// The id for "can attack this turn as though it didn't have defender" (CR 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// A permission rather than the removal of a keyword, and the difference is not cosmetic:
+    /// stripping defender for the turn would also shrink every card that counts creatures with
+    /// defender or assigns damage by toughness, so the permanent would stop being what it is in
+    /// order to be allowed to attack. <see cref="State.ComputedCharacteristics
+    /// .MayAttackAsThoughNoDefender"/> is read beside the keyword instead, leaving it in place.
+    /// </remarks>
+    public static string MayAttackAsThoughNoDefenderId() => "may-attack-defender";
+
     /// <summary>The id for "becomes the colour of your choice" (CR 613.4d, layer 5).</summary>
     /// <remarks>
     /// Becoming a colour *replaces* what the permanent was, rather than adding to it (CR 202.2b),
@@ -942,6 +954,17 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.DoesNotUntap = true,
+            };
+        }
+
+        if (string.Equals(definitionId, "may-attack-defender", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
             };
         }
 

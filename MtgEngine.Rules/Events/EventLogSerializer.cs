@@ -153,6 +153,7 @@ public static class EventLogSerializer
             ["SpellTeamwork"] = typeof(SpellTeamwork),
             ["RippleRequested"] = typeof(RippleRequested),
             ["PermanentPhasedOut"] = typeof(PermanentPhasedOut),
+            ["RemovedFromCombat"] = typeof(RemovedFromCombat),
             ["PermanentPhasedIn"] = typeof(PermanentPhasedIn),
             ["SpellSneaked"] = typeof(SpellSneaked),
             ["SpellBestowed"] = typeof(SpellBestowed),

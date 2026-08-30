@@ -761,6 +761,12 @@ public static partial class CardCompiler
             if (TryRampage(line, card, triggers))
                 continue;
 
+            if (TryBlockedBonus(line, card, triggers))
+                continue;
+
+            if (TryStepOutOfCombat(line, card, triggers))
+                continue;
+
             if (TryEvolve(line, card, triggers))
                 continue;
 
@@ -5477,6 +5483,93 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Whenever this creature becomes blocked, it gets +N/+N until end of turn for each
+    /// creature blocking it" - rampage without the free first blocker.
+    /// </summary>
+    /// <remarks>
+    /// Five corpus lines print this beside the twelve that print rampage, and the two differ by
+    /// exactly one blocker: a lone blocker is worth nothing to a rampaging creature and one
+    /// whole bonus to this one. Reading them as one shape would have made one set or the other
+    /// wrong, whichever way the fold went, which is why <see cref="RampageBonus"/> takes the
+    /// distinction as an argument rather than either matcher assuming it.
+    /// </remarks>
+    private static bool TryBlockedBonus(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = BlockedBonusLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Only the symmetric bonus, because that is what RampageBonus can name: it builds one
+        // pump id from one number. A card printing +2/+0 for each blocker would be read as
+        // +2/+2 and is left unread instead.
+        var power = int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture);
+        var toughness = int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture);
+
+        if (power != toughness)
+            return false;
+
+        var blocked = TriggerConditions.Parse("~ becomes blocked");
+        if (blocked is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "blocked-bonus",
+            Text = $"Whenever {card.Name} becomes blocked, it gets +{power}/+{toughness} until "
+                + "end of turn for each creature blocking it.",
+            Triggers = blocked,
+            Effects = [new RampageBonus(power, BeyondTheFirst: false)],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Whenever this creature becomes blocked, you may untap it and remove it from combat"
+    /// (CR 506.4) - the Gustcloaks.
+    /// </summary>
+    /// <remarks>
+    /// Offered rather than done, because the card says "you may" and the creature that stays in
+    /// combat still deals its damage. The offer costs nothing, so it is a free
+    /// <see cref="MayPay"/> - the same shape riot uses to ask a question with no price on it.
+    /// <para>
+    /// Only the form that names the source. "Whenever a creature you control becomes blocked"
+    /// is the same sentence about somebody else, and the block events name a set rather than a
+    /// creature - so the pronoun has nothing to resolve to and that wording stays unread.
+    /// </para>
+    /// </remarks>
+    private static bool TryStepOutOfCombat(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        if (!StepOutOfCombatLine().IsMatch(line))
+            return false;
+
+        var blocked = TriggerConditions.Parse("~ becomes blocked");
+        if (blocked is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "blocked-steps-out",
+            Text = $"Whenever {card.Name} becomes blocked, you may untap it and remove it from "
+                + "combat.",
+            Triggers = blocked,
+            Effects =
+            [
+                new MayPay(
+                    ManaCostSpec.Free,
+                    IfYouDo: [new UntapSource(), new RemoveSourceFromCombat()],
+                    IfYouDont: [],
+                    YesLabel: "Untap and leave combat",
+                    NoLabel: "Stay blocked"),
+            ],
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "Evolve" - grows whenever something bigger arrives (CR 702.100a).
     /// </summary>
     /// <remarks>
@@ -7112,6 +7205,7 @@ public static partial class CardCompiler
             || TryCantBeBlockedExceptBy(line, card, statics)
             || TryCantBeBlockedBy(line, card, statics)
             || TryDoesNotUntap(line, card, statics)
+            || TryAbilitiesCantBeActivated(line, card, statics)
             || TryAttachedSilencing(line, card, statics)
             || TryAttachedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
@@ -7931,8 +8025,130 @@ public static partial class CardCompiler
             Apply = (_, _, builder) => builder.DoesNotUntap = true,
         });
 
+        // "…and its activated abilities can't be activated" - the second half of an Encrust,
+        // and the half that kept the family unread. A second effect rather than a second flag on
+        // the first, because the two restrict different things: one untapping (CR 502.3) and one
+        // activation (CR 602.5c). An Aura printing only the untap clause must not acquire the
+        // other, which is what a shared definition would have given it.
+        if (m.Groups["silenced"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"abilities-off:{card.Name}:{(onSelf ? "self" : "attached")}",
+                Layer = EffectLayer.Ability,
+                Applies = Applies,
+                Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
+            });
+        }
+
         return true;
     }
+
+    /// <summary>
+    /// "Activated abilities of artifacts can't be activated" (CR 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// A restriction on a whole group rather than on one permanent, setting the same flag an
+    /// Aura's silencing clause already sets. Mana abilities go with the rest, which is what
+    /// CR 602.5c says and what makes a Null Rod stop a Sol Ring.
+    /// <para>
+    /// The group goes through <see cref="ReadStaticGroup"/>, the same noun reader every lord
+    /// uses, so "artifacts", "creatures" and "creatures your opponents control" all arrive
+    /// without this knowing what an artifact is. A group it cannot narrow — the bare noun
+    /// "permanents" — is refused rather than applied to the whole board: the wrong half of a
+    /// restriction is worse than an unread line.
+    /// </para>
+    /// <para>
+    /// "…unless they're mana abilities" is deliberately not read. There is no flag for the
+    /// carve-out, and reading the sentence without one silences the mana abilities too — which
+    /// makes the card strictly stronger than printed, the one direction a half-read line may
+    /// never go.
+    /// </para>
+    /// </remarks>
+    private static bool TryAbilitiesCantBeActivated(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AbilitiesCantBeActivatedLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["group"].Value.Trim();
+        var side = string.Empty;
+
+        foreach (var clause in OwnershipClauses)
+        {
+            if (!printed.EndsWith(clause, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            side = clause;
+            printed = printed[..^clause.Length].Trim();
+            break;
+        }
+
+        if (ReadStaticGroup(printed) is not { } group)
+            return false;
+
+        // "Permanents" would ask nothing of the card types, which is a restriction on every
+        // permanent in the game written as though it were a group. No card says it, and a group
+        // this reader cannot narrow is one it must not apply.
+        if (group.Types.Count == 0 && group.Subtype is null)
+            return false;
+
+        var yours = side.Equals(" you control", StringComparison.OrdinalIgnoreCase);
+        var everyone = side.Length == 0;
+
+        // Read off the builder rather than by computing the candidate's characteristics, and that
+        // is not an optimisation: <see cref="Characteristics.Of"/> called from inside a layer
+        // computation is the CR 613.8 loop, and the first cut of this reader recursed until the
+        // stack ran out. The builder holds the types as computed so far, which is also the right
+        // answer - an animated artifact is an artifact for this.
+        bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
+        {
+            foreach (var required in group.Types)
+            {
+                if (!target.CardTypes.HasFlag(required))
+                    return false;
+            }
+
+            if (group.Adjective is { } describes && !describes(state, target))
+                return false;
+
+            if (group.Subtype is { } tribe
+                && !target.IsEveryCreatureType
+                && !target.HasSubtype(tribe))
+            {
+                return false;
+            }
+
+            if (everyone)
+                return true;
+
+            // The source's *computed* controller (CR 613.1b), through the control-only reader for
+            // the same reason the lord's filter uses it: a stolen Null Rod belongs to whoever has
+            // it now, and a full computation here would recurse.
+            var controller = source is null || source.Id == target.Subject.Id
+                ? target.ControllerId
+                : Characteristics.ControllerOf(state, target.Abilities, source);
+
+            return yours
+                ? target.ControllerId == controller
+                : target.ControllerId != controller;
+        }
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"abilities-off:{card.Name}:{group.Described}{side.Replace(' ', '-')}",
+            Layer = EffectLayer.Ability,
+            Applies = Matches,
+            Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
+        });
+
+        return true;
+    }
+
+    /// <summary>The ownership clauses a group sentence can end with, longest first.</summary>
+    private static readonly string[] OwnershipClauses =
+        [" your opponents control", " an opponent controls", " you control"];
 
     /// <summary>
     /// "~ gets +1/+1 for each artifact you control" — a static whose size is counted (CR 613.4c).
@@ -15420,6 +15636,17 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Rampage (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RampageLine();
 
+    [GeneratedRegex(
+        @"^Whenever ~ becomes blocked, it gets \+(?<p>\d+)/\+(?<tough>\d+) until end of turn "
+            + @"for each creature blocking it\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BlockedBonusLine();
+
+    [GeneratedRegex(
+        @"^Whenever ~ becomes blocked, you may untap (it|~) and remove (it|~) from combat\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StepOutOfCombatLine();
+
     [GeneratedRegex(@"^Afterlife (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex AfterlifeLine();
 
@@ -15561,9 +15788,15 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(?<who>~|(enchanted|equipped) " + AttachedSubject + @") doesn't untap during "
             + @"(your|its controller's|their controller's) untap step"
-            + @"( if (?<when>[^.]+))?\.?$",
+            + @"( if (?<when>[^.]+?))?"
+            + @"(?<silenced> and its activated abilities can't be activated)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DoesNotUntapLine();
+
+    [GeneratedRegex(
+        @"^Activated abilities of (?<group>[^.]+?) can't be activated\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AbilitiesCantBeActivatedLine();
 
     [GeneratedRegex(
         @"^As an additional cost to cast (~|this spell|it), (?<cost>.+?)\.?$",

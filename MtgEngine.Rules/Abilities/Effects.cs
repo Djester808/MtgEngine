@@ -1743,7 +1743,14 @@ public sealed record CopySpell(Amount Count = default, int? TargetIndex = null) 
 /// bonus smaller, which is the interaction the card is played around.
 /// </para>
 /// </remarks>
-public sealed record RampageBonus(int PerBlocker) : IEffect
+/// <param name="BeyondTheFirst">
+/// Whether the first blocker is free, which is what tells rampage from the plainer
+/// "+N/+N for each creature blocking it" the same trigger also prints. One creature
+/// blocking is worth nothing under rampage and worth one bonus under the other, so
+/// folding the two shapes together would have made one family or the other bigger or
+/// smaller than printed - five corpus lines say the second, twelve the first.
+/// </param>
+public sealed record RampageBonus(int PerBlocker, bool BeyondTheFirst = true) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -1751,11 +1758,12 @@ public sealed record RampageBonus(int PerBlocker) : IEffect
 
         var sourceId = context.PhysicalSourceId;
         var blockers = context.State.Combat.BlockersOf(sourceId);
+        var counted = BeyondTheFirst ? blockers.Count - 1 : blockers.Count;
 
-        if (blockers.Count <= 1)
+        if (counted <= 0)
             return [];
 
-        var bonus = PerBlocker * (blockers.Count - 1);
+        var bonus = PerBlocker * counted;
 
         return
         [
@@ -4028,16 +4036,56 @@ public sealed record MillCards(
             : PlayerScopes.Resolve(Scope, context);
 
         foreach (var who in told)
-        {
-            var library = context.State.GetPlayer(who).Library;
-            foreach (var card in library.Take(Count.In(context)))
-            {
-                events.Add(new ObjectMoved(
-                    card, ObjectId.New(), Zone.Library, Zone.Graveyard, who, MoveCause.Mill));
-            }
-        }
+            events.AddRange(Milling.From(context, who, Count.In(context)));
 
         return events;
+    }
+}
+
+/// <summary>Putting the top cards of a library into its graveyard (CR 701.13a).</summary>
+/// <remarks>
+/// Shared for the reason <see cref="Drawing"/> is: a second copy is where the empty-library
+/// arm gets forgotten. Milling more cards than a player has mills what they have and is not
+/// a loss - that only comes later, and only from a draw (CR 704.5b).
+/// </remarks>
+public static class Milling
+{
+    public static IReadOnlyList<GameEvent> From(
+        ResolutionContext context, Guid who, int count)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            .. context.State.GetPlayer(who).Library.Take(count).Select(card =>
+                new ObjectMoved(
+                    card, ObjectId.New(), Zone.Library, Zone.Graveyard, who,
+                    MoveCause.Mill)),
+        ];
+    }
+}
+
+/// <summary>
+/// The controller of a target mills cards - "Counter target spell. Its controller mills two
+/// cards" (CR 701.13a).
+/// </summary>
+/// <remarks>
+/// The third verb of the clause <see cref="ChangeLifeOfTargetsController"/> and
+/// <see cref="DrawForTargetsController"/> already read, and it finds its player the same way
+/// - through <see cref="TargetOwnership"/>, which follows a spell that has been countered
+/// into the graveyard it now sits in (CR 400.7). Whose spell it was is still a fact about
+/// the game after it stops being a spell, and every card printing this sentence counters
+/// something first.
+/// </remarks>
+public sealed record MillForTargetsController(Amount Count, int TargetIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return TargetOwnership.ControllerOf(context, TargetIndex) is { } who
+            ? Milling.From(context, who, Count.In(context))
+            : [];
     }
 }
 
@@ -4230,6 +4278,75 @@ public sealed record ReturnSourceToHand : IEffect
 /// itself. It finds the source through the ability on the stack, because by the time an ability
 /// resolves the object resolving is the ability and not the permanent that made it.
 /// </remarks>
+/// <summary>
+/// "Put this creature on top of its owner's library" (CR 400.7).
+/// </summary>
+/// <remarks>
+/// The source moving itself, which is why it is a source effect and not a targeted one: the
+/// sentence names no target, and a permanent that puts itself back is choosing nothing.
+/// <para>
+/// Owner rather than controller, because a library is a player's own zone (CR 400.3) and a
+/// stolen permanent goes home to the deck it came from.
+/// </para>
+/// </remarks>
+public sealed record PutSourceOnLibrary(ZonePosition Position = ZonePosition.Top) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var sourceId = context.PhysicalSourceId;
+
+        if (!context.State.TryGetObject(sourceId, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        return
+        [
+            new ObjectMoved(
+                sourceId,
+                ObjectId.New(),
+                Zone.Battlefield,
+                Zone.Library,
+                permanent.OwnerId,
+                MoveCause.Return,
+                Position),
+        ];
+    }
+}
+
+/// <summary>"Remove it from combat" - the source steps out (CR 506.4).</summary>
+/// <remarks>
+/// Aimed at the source rather than a target because every corpus line that says it says
+/// it about the permanent whose ability it is. It does nothing off the battlefield and
+/// nothing outside combat, which is the honest answer rather than an event describing a
+/// removal that is not happening.
+/// </remarks>
+public sealed record RemoveSourceFromCombat : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var sourceId = context.PhysicalSourceId;
+
+        if (!context.State.TryGetObject(sourceId, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        var combat = context.State.Combat;
+
+        return combat.Attackers.ContainsKey(sourceId)
+            || combat.Blockers.Any(pair => pair.Value.Contains(sourceId))
+                ? [new RemovedFromCombat(sourceId)]
+                : [];
+    }
+}
+
 public sealed record ReturnSourceFromBattlefield : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)

@@ -45658,6 +45658,398 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
     }
 
+    // ---- A sweep of small templates (round thirteen) --------------------------
+
+    /// <summary>
+    /// "Activated abilities of artifacts can't be activated" - Null Rod (CR 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// Two halves, and the second is the one worth the test: the restriction has to reach every
+    /// artifact and stop at the edge of the group it names. A reader that applied to whatever it
+    /// was handed would pass the first assertion and switch off the whole board.
+    /// <para>
+    /// Mana abilities go with the rest (CR 602.5c draws no distinction), which is what makes a
+    /// Null Rod stop a Sol Ring - so the artifact under it is given a mana ability rather than a
+    /// convenient one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_effect_can_switch_off_every_artifacts_activated_abilities()
+    {
+        var rod = Card(
+            "Null Rod Test",
+            "Activated abilities of artifacts can't be activated.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(rod);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ring = Card("Silenced Ring Test", "{T}: Add {C}{C}.", CardType.Artifact);
+        var elf = Card(
+            "Unsilenced Elf Test", "{T}: Add {C}{C}.", CardType.Creature, 1, 1,
+            KeywordAbility.Haste);
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, ring, Zone.Battlefield);
+        var creature = game.Create(alice, elf, Zone.Battlefield);
+
+        // Before the rod arrives the artifact taps like anything else.
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(artifact))
+                .AbilitiesCantBeActivated);
+
+        game.Create(alice, rod, Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(artifact))
+                .AbilitiesCantBeActivated);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, artifact, "mana"));
+
+        // The reason matters: "no such ability" would pass this line while proving nothing.
+        Assert.Contains("602.5c", refused.Message, StringComparison.Ordinal);
+
+        // The creature is not an artifact, so its identical ability is untouched. This is the
+        // half that fails when the group filter is dropped.
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(creature))
+                .AbilitiesCantBeActivated);
+
+        game.ActivateAbility(alice, creature, "mana");
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Enchanted permanent doesn't untap during its controller's untap step and its activated
+    /// abilities can't be activated" - Encrust (CR 502.3, 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// One sentence, two restrictions, and the second clause is why the family went unread: the
+    /// untap reader matched everything up to the full stop and the trailing "and" left the line
+    /// on the floor. Both halves are asserted because they are separate continuous effects, and
+    /// an Aura printing only the untap clause must not acquire the other.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_hold_a_permanent_down_and_silence_it_in_one_sentence()
+    {
+        var encrust = Card(
+            "Encrust Test",
+            "Enchant artifact or creature\n"
+                + "Enchanted permanent doesn't untap during its controller's untap step and "
+                + "its activated abilities can't be activated.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(encrust);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ring = game.Create(
+            alice, Card("Encrusted Ring Test", "{T}: Add {C}{C}.", CardType.Artifact),
+            Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, encrust), [Target.ToPermanent(ring)]);
+        Settle(game);
+
+        var held = Characteristics.Of(game.State, Pool, game.State.GetObject(ring));
+
+        Assert.True(held.DoesNotUntap);
+        Assert.True(held.AbilitiesCantBeActivated);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, ring, "mana"));
+    }
+
+    /// <summary>
+    /// "{2}{G}: This creature can attack this turn as though it didn't have defender"
+    /// (CR 702.3b, 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The permission is asked where the attack is declared and nowhere else, so the creature
+    /// still <em>has</em> defender the whole time. That is the assertion that matters: taking the
+    /// keyword away for the turn would let it attack too, and would quietly shrink every card
+    /// that counts creatures with defender.
+    /// </remarks>
+    [Fact]
+    public void A_wall_let_through_for_the_turn_still_has_defender()
+    {
+        var wall = Card(
+            "Nestguard Test",
+            "Defender\n{2}{G}: This creature can attack this turn as though it didn't have "
+                + "defender.",
+            CardType.Creature, 2, 4, KeywordAbility.Defender);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guard = game.Create(alice, wall, Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(guard))
+                .MayAttackAsThoughNoDefender);
+
+        game.AddMana(alice, ManaColor.Green);
+        game.AddMana(alice, null, 2);
+        game.ActivateAbility(alice, guard, "a");
+        Settle(game);
+
+        var let = Characteristics.Of(game.State, Pool, game.State.GetObject(guard));
+
+        Assert.True(let.MayAttackAsThoughNoDefender);
+        Assert.True(let.Has(KeywordAbility.Defender));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [guard] = AttackTarget.Player(bob) });
+
+        Assert.Contains(guard, game.State.Combat.Attackers.Keys);
+    }
+
+    /// <summary>The same permission handed to something else - Assault Formation.</summary>
+    [Fact]
+    public void The_permission_can_be_given_to_another_creature()
+    {
+        var formation = Card(
+            "Assault Formation Test",
+            "{1}{G}: Target creature with defender can attack this turn as though it didn't "
+                + "have defender.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(formation);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var banner = game.Create(alice, formation, Zone.Battlefield);
+        var wall = game.Create(
+            alice,
+            Card(
+                "Plain Wall Test", "Defender", CardType.Creature, 0, 4,
+                KeywordAbility.Defender),
+            Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.Green);
+        game.AddMana(alice, null, 1);
+        game.ActivateAbility(alice, banner, "a", [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        var let = Characteristics.Of(game.State, Pool, game.State.GetObject(wall));
+
+        Assert.True(let.MayAttackAsThoughNoDefender);
+        Assert.True(let.Has(KeywordAbility.Defender));
+    }
+
+    /// <summary>
+    /// "{W}: ~ gains protection from the color of your choice until end of turn" - Jareth
+    /// (CR 702.16a).
+    /// </summary>
+    /// <remarks>
+    /// The colour is named on resolution rather than when the ability is activated, so the
+    /// question is the last thing the ability does and the answer decides which flag lands. The
+    /// self form shares its effect with the targeted one - a null index means the source - which
+    /// is why this went unread for want of a pattern rather than for want of machinery.
+    /// </remarks>
+    [Fact]
+    public void A_creature_can_ward_itself_against_a_colour_it_names()
+    {
+        var jareth = Card(
+            "Leonine Titan Test",
+            "{W}: ~ gains protection from the color of your choice until end of turn.",
+            CardType.Creature, 4, 7);
+
+        var compiled = CardCompiler.Compile(jareth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var cat = game.Create(alice, jareth, Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.White);
+        game.ActivateAbility(alice, cat, "a");
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.ChooseColor });
+
+        var asked = game.State.Choice!;
+        game.Choose(asked.PlayerId, [nameof(ManaColor.Red)]);
+        Settle(game);
+
+        var warded = Characteristics.Of(game.State, Pool, game.State.GetObject(cat));
+
+        Assert.True(warded.Has(KeywordAbility.ProtectionFromRed));
+        Assert.False(warded.Has(KeywordAbility.ProtectionFromWhite));
+    }
+
+    /// <summary>"{U}: Put this creature on top of its owner's library" - Wayward Soul.</summary>
+    /// <remarks>
+    /// Owner rather than controller, and the top of the library rather than the bottom: both are
+    /// printed, and both are the kind of detail a move effect gets wrong silently. The card is
+    /// asserted to be the top card by identity, not by count.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_can_put_itself_back_on_top_of_its_library()
+    {
+        var soul = Card(
+            "Wayward Soul Test",
+            "Flying\n{U}: Put this creature on top of its owner's library.",
+            CardType.Creature, 2, 2, KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(soul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var spirit = game.Create(alice, soul, Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.Blue);
+        game.ActivateAbility(alice, spirit, "a");
+        Settle(game);
+
+        Assert.DoesNotContain(spirit, game.State.Battlefield);
+
+        var top = game.State.GetPlayer(alice).Library[0];
+        Assert.Equal("Wayward Soul Test", game.State.GetObject(top).Card.Name);
+    }
+
+    /// <summary>
+    /// "Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each
+    /// creature blocking it" - Rabid Elephant.
+    /// </summary>
+    /// <remarks>
+    /// Rampage without the free first blocker, and the single blocker is the whole test: rampage
+    /// gives nothing here and this gives one bonus. Reading the two shapes as one would have made
+    /// eight cards wrong in whichever direction the fold went.
+    /// </remarks>
+    [Fact]
+    public void A_blocked_creature_can_count_every_blocker_including_the_first()
+    {
+        var elephant = Card(
+            "Rabid Elephant Test",
+            "Whenever ~ becomes blocked, it gets +2/+2 until end of turn for each creature "
+                + "blocking it.",
+            CardType.Creature, 3, 3);
+
+        var compiled = CardCompiler.Compile(elephant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, elephant, Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Lone Elk Test", 1, 1), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        Settle(game);
+
+        // One blocker, one bonus: a 3/3 becomes a 5/5 where a rampaging one would still be 3/3.
+        Assert.Equal(
+            5, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+    }
+
+    /// <summary>
+    /// "Whenever this creature becomes blocked, you may untap it and remove it from combat"
+    /// - the Gustcloaks (CR 506.4).
+    /// </summary>
+    /// <remarks>
+    /// The removal is what this exists to prove, and it is not the same as the creature dying or
+    /// leaving: it stays on the battlefield, untapped, and simply stops being an attacking
+    /// creature - so the blocker it was facing deals it no combat damage and takes none.
+    /// </remarks>
+    [Fact]
+    public void A_blocked_creature_can_untap_and_step_out_of_combat()
+    {
+        var gustcloak = Card(
+            "Gustcloak Test",
+            "Whenever ~ becomes blocked, you may untap it and remove it from combat.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(gustcloak);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, gustcloak, Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Gust Blocker Test", 3, 3), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        // Attacking taps it, which is what makes the untap half visible.
+        Assert.True(game.State.GetObject(attacker).Permanent!.IsTapped);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        // Settle takes the first option, which is the offer.
+        Settle(game);
+
+        Assert.False(game.State.GetObject(attacker).Permanent!.IsTapped);
+        Assert.DoesNotContain(attacker, game.State.Combat.Attackers.Keys);
+        Assert.DoesNotContain(attacker, game.State.Combat.Blocked);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+
+        // A 3/3 blocker never got to swing at it, and it is still on the battlefield.
+        Assert.Contains(attacker, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(attacker).Permanent!.DamageMarked);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Contains(blocker, game.State.Battlefield);
+    }
+
+    /// <summary>"Counter target spell. Its controller mills two cards" - Psychic Strike.</summary>
+    /// <remarks>
+    /// "Its controller" is the third verb of a clause the engine already read for life and for
+    /// draws, and it finds its player the same way: through the target, followed into the
+    /// graveyard the countered spell now sits in (CR 400.7). By the time the mill happens the
+    /// spell is not a spell any more, which is exactly the case a naive lookup returns nobody
+    /// for - so the assertion is on the opponent's library, not on the effect firing.
+    /// </remarks>
+    [Fact]
+    public void A_counterspell_can_mill_the_countered_spells_controller()
+    {
+        var strike = Card(
+            "Psychic Strike Test", "Counter target spell. Its controller mills two cards.");
+
+        var compiled = CardCompiler.Compile(strike);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        var onStack = game.CastSpell(
+            bob, TestCards.PutInHand(game, bob, Card("Milled Gain Test", "You gain 5 life.")), []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, strike), [Target.ToSpell(onStack)]);
+
+        Settle(game);
+
+        // Countered, so no life; and two cards off the top of the caster's own library.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(before - 2, game.State.GetPlayer(bob).Library.Count);
+        Assert.Equal(3, game.State.GetPlayer(bob).Graveyard.Count);
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>
