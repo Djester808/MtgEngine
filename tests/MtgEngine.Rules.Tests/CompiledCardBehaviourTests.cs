@@ -49190,6 +49190,432 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(line, compiled.Unhandled, StringComparer.Ordinal);
     }
 
+    // ---- Lines unread for a joiner, a noun or an apostrophe ------------------
+
+    /// <summary>
+    /// A semicolon joins a keyword line exactly as a comma does (CR 702).
+    /// </summary>
+    /// <remarks>
+    /// Pikemen prints "First strike; banding" and Kjeldoran Skyknight "Flying; first strike;
+    /// banding". Every keyword on those lines is one the engine models, the line is nothing but
+    /// keywords, and it went unread whole because the list reader split on commas alone - so the
+    /// card lost its first strike along with its banding. **15 corpus templates and 20 cards are
+    /// one such line short**, and what they needed was a separator, not a rule.
+    /// <para>
+    /// The banding half is granted rather than checked against the card, because banding is not
+    /// a flag the bulk data carries: the sentence is what says the card has it, which is how the
+    /// whole-line table already reads it standing alone.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_semicolon_joins_a_keyword_line_the_way_a_comma_does()
+    {
+        var pikemen = Card(
+            "Semicolon Pikemen Test",
+            "First strike; banding",
+            CardType.Creature,
+            1,
+            2,
+            keywords: KeywordAbility.FirstStrike);
+
+        var compiled = CardCompiler.Compile(pikemen);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.GrantedKeywords.HasFlag(KeywordAbility.Banding));
+
+        var (game, alice, _) = InMainPhase();
+        var it = game.Create(alice, pikemen, Zone.Battlefield);
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(it));
+
+        // Both halves. The printed keyword is asserted as well as the granted one because a
+        // reader that claimed the line and dropped the flag would look identical from banding's
+        // side, and the first strike is the half the unread line was actually costing.
+        Assert.True(computed.Has(KeywordAbility.FirstStrike));
+        Assert.True(computed.Has(KeywordAbility.Banding));
+    }
+
+    /// <summary>A joined line with one unreadable part stays unread whole.</summary>
+    /// <remarks>
+    /// The rule every keyword list here follows, and the reason the fix above is safe to make.
+    /// Rampage and legendary landwalk are not modelled, so "Trample; rampage 2" is refused
+    /// entire rather than compiled as a plain trampler - a card that is strictly simpler than
+    /// the printed one looks implemented and plays wrong, and the queue is the right place for
+    /// it until the missing half exists.
+    /// </remarks>
+    [Theory]
+    [InlineData("Trample; rampage 2")]
+    [InlineData("First strike; legendary landwalk")]
+    public void A_joined_keyword_line_is_refused_whole_when_a_part_is_unread(string line)
+    {
+        var card = Card(
+            "Half Joined Test " + line.Length,
+            line,
+            CardType.Creature,
+            2,
+            2,
+            keywords: KeywordAbility.Trample | KeywordAbility.FirstStrike);
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// "Protection from black and from red" is two abilities and both of them land (CR 702.16e).
+    /// </summary>
+    /// <remarks>
+    /// Protection from several qualities is one ability per quality, and the engine holds each
+    /// as its own flag - it had every flag this line names. The reader looked the whole phrase up
+    /// as a single word, so Auriok Champion sat one line short of complete while "Protection from
+    /// black" on its own read perfectly.
+    /// <para>
+    /// The fixture carries no keyword flags at all, on purpose. The bulk data never says which
+    /// colour - it prints the bare word "Protection" - so the flags are recovered by looking for
+    /// "protection from red" in the text, and a conjunction never writes that phrase: it says red
+    /// without ever saying "protection from red". Requiring the flag would have refused the card
+    /// on the strength of a substring search, so the line grants what it names.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_protection_conjunction_grants_every_colour_it_names()
+    {
+        var champion = Card(
+            "Conjunction Champion Test",
+            "Protection from black and from red",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(champion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, champion, Zone.Battlefield);
+
+        var black = game.Create(
+            bob, Coloured("Conjunction Black Test", ManaColor.Black), Zone.Battlefield);
+        var red = game.Create(
+            bob, Coloured("Conjunction Red Test", ManaColor.Red), Zone.Battlefield);
+        var green = game.Create(
+            bob, Coloured("Conjunction Green Test", ManaColor.Green), Zone.Battlefield);
+
+        // Both named colours, because reading only the head of the conjunction leaves the second
+        // one able to block and looks identical from the first one's side.
+        foreach (var blocker in new[] { black, red })
+        {
+            var why = CombatRules.CannotBlock(
+                game.State,
+                Pool,
+                game.State.GetObject(blocker),
+                game.State.GetObject(attacker),
+                bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // And a colour the line does not name is still let through, so the two above are about
+        // the words rather than about protection refusing everything.
+        Assert.Null(CombatRules.CannotBlock(
+            game.State,
+            Pool,
+            game.State.GetObject(green),
+            game.State.GetObject(attacker),
+            bob));
+    }
+
+    /// <summary>A conjunction naming a quality that is not a flag stays in the queue.</summary>
+    /// <remarks>
+    /// Fail closed. The engine's protection is one flag per colour plus artifacts, and a creature
+    /// type is not among them, so reading these as the empty set of qualities would compile
+    /// Warren-Scourge Elf as a card protected from nothing - complete on the coverage number and
+    /// wrong at the table. Four templates and four cards stay unread on purpose.
+    /// </remarks>
+    [Theory]
+    [InlineData("Protection from Spirits and from Arcane")]
+    [InlineData("Protection from planeswalkers and from Wizards")]
+    public void A_protection_conjunction_naming_no_flag_stays_unread(string line)
+    {
+        var card = Card(
+            "Untyped Protection Test " + line.Length,
+            line,
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// An Aura silences its host in a sentence of its own (CR 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// The effect behind this was built already - it is the clause a pacifism prints after "can't
+    /// attack or block" - and Stupefying Touch was unread for want of an apostrophe: the attached
+    /// subject was only ever followed by a space, so "Enchanted creature's activated abilities
+    /// can't be activated" matched nothing. Worth knowing before deciding a line needs a new
+    /// mechanism: the neighbouring wording is the first place to look.
+    /// </remarks>
+    [Fact]
+    public void An_aura_silences_its_host_in_a_sentence_of_its_own()
+    {
+        var touch = Card(
+            "Stupefying Touch Test",
+            "Enchant creature\nEnchanted creature's activated abilities can't be activated.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(touch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var pinger = Card(
+            "Touched Pinger Test",
+            "{T}: ~ deals 1 damage to any target.",
+            CardType.Creature,
+            1,
+            1);
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, pinger, Zone.Battlefield);
+
+        // Reachable first, so the refusal below is evidence of the Aura rather than of an ability
+        // that never worked.
+        Assert.Contains(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(creature)),
+            a => a.Id == "a");
+
+        var aura = TestCards.PutInHand(game, alice, touch);
+        var land = game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+        game.CastSpell(alice, aura, [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        var why = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, creature, "a", [Target.ToPlayer(bob)]));
+
+        Assert.Contains("can't be activated", why.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// "You control enchanted land" takes the land (CR 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// The same effect the mind-control Aura uses, and it never reads the noun: control moves to
+    /// whatever the Aura is attached to, and which types that host may have was settled by the
+    /// card's own "Enchant ..." line. Two nouns were listed and four went unread, so Annex and
+    /// Conquer were one word short of complete.
+    /// </remarks>
+    [Fact]
+    public void An_aura_that_says_you_control_enchanted_land_takes_the_land()
+    {
+        var annex = Card(
+            "Annexed Land Test",
+            "Enchant land\nYou control enchanted land.",
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        var compiled = CardCompiler.Compile(annex);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Equal(
+            bob, Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).ControllerId);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, annex), [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(
+            alice, Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).ControllerId);
+
+        // And the point of taking it: Alice taps it for mana, which only a permanent she controls
+        // lets her do.
+        game.ActivateAbility(alice, theirs, "mana");
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// A defined power counts domain, and domain counts types rather than lands (CR 305.6).
+    /// </summary>
+    /// <remarks>
+    /// Two vocabularies answered one question. The counting phrases a spell can read live in one
+    /// place and knew domain; the ones a characteristic-defining ability can read lived in
+    /// another and did not - so "the number of basic land types among lands you control" was read
+    /// inside a spell and unread as a creature's own size, with **21 corpus cards one such line
+    /// short**. The defining reader now falls through to the shared vocabulary, which is what a
+    /// second copy should have been all along.
+    /// <para>
+    /// Two Forests counting as one is the whole assertion. A reader that counted permanents
+    /// instead of types - which is what the arm beside this one does for "the number of lands you
+    /// control" - would say two, and that is exactly why domain could not be spelled as a group.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_counts_domain_rather_than_lands()
+    {
+        var kavu = Card(
+            "Domain Kavu Test",
+            "Domain Kavu Test's power and toughness are each equal to the number of basic land "
+                + "types among lands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(kavu);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        var it = game.Create(alice, kavu, Zone.Battlefield);
+
+        // One type from two Forests, and Bob's Swamp is not among "lands you control".
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// The cost reduction counts domain through that same vocabulary (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The second reader on the far side of the shared count, and the reason the fix was worth
+    /// making there rather than beside the defining ability: "costs {1} less to cast for each
+    /// basic land type among lands you control" asks the same question, so Leyline Binding and
+    /// the Invasion beasts came with it at no extra cost.
+    /// </remarks>
+    [Fact]
+    public void A_cost_reduction_counts_domain_through_the_same_vocabulary()
+    {
+        var binding = new CardDefinition
+        {
+            OracleId = "oracle-domain-binding-test",
+            Name = "Domain Binding Test",
+            ManaCostRaw = "{4}",
+            Cmc = 4,
+            OracleText = "Domain Binding Test costs {1} less to cast for each basic land type "
+                + "among lands you control.",
+            CardTypes = CardType.Enchantment,
+        };
+
+        var compiled = CardCompiler.Compile(binding);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, binding);
+
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.AddMana(alice, ManaColor.Green);
+
+        // Two types off four is two, and there is one mana in the pool. A reader counting lands
+        // would have made it three types and cast the spell here.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, card, []));
+
+        game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        // Four types off four is nothing left to pay.
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Domain Binding Test");
+    }
+
+    /// <summary>
+    /// An Aura's bonus can be counted rather than printed (CR 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// The same shared vocabulary as the two above, reached from the third of the compiler's
+    /// readers that needs it. The attached-pump reader took two literal numbers, so Bonehoard,
+    /// Runechanter's Pike and Spontaneous Mutation were each one line short of a bonus the engine
+    /// could have applied the moment it was told the number - **14 templates and 15 cards**.
+    /// <para>
+    /// The count is the Aura's controller's and not the host's, which is the half a test
+    /// asserting only the size would miss: "your graveyard" on an Aura Alice controls is Alice's
+    /// graveyard even while the creature it shrinks belongs to Bob.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_shrinks_its_host_by_a_count_its_own_controller_makes()
+    {
+        var mutation = Card(
+            "Counted Mutation Test",
+            "Enchant creature\nEnchanted creature gets -X/-0, where X is the number of cards "
+                + "in your graveyard.",
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        var compiled = CardCompiler.Compile(mutation);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Creature("Mutated Ogre Test", 4, 4), Zone.Battlefield);
+
+        // Two in Alice's, three in Bob's. A reader that asked the creature's controller would
+        // say three and shrink the Ogre to a 1/4, which is why the two piles differ.
+        game.Create(alice, TestCards.Creature("Mutation Corpse One Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Mutation Corpse Two Test", 1, 1), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Mutation Enemy One Test", 1, 1), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Mutation Enemy Two Test", 1, 1), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Mutation Enemy Three Test", 1, 1), Zone.Graveyard);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, mutation), [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+
+        Assert.Equal(2, computed.Power);
+
+        // The nought half is a literal in the same sentence, and it stays nought: a reader that
+        // let X stand for both would have made this a 2/2.
+        Assert.Equal(4, computed.Toughness);
+
+        // And it keeps counting, with nothing going back to adjust it.
+        game.Create(alice, TestCards.Creature("Mutation Corpse Three Test", 1, 1), Zone.Graveyard);
+        Assert.Equal(
+            1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>A counted pump whose count needs "it" stays unread.</summary>
+    /// <remarks>
+    /// Fail closed on the far side of the same reader. A continuous effect is applied with no
+    /// source to point "it" at, so a phrase that names one is refused rather than answered as
+    /// nought - a pump that quietly comes out at zero compiles as a complete card and plays as a
+    /// blank one, which is the failure the whole counting vocabulary exists to avoid.
+    /// </remarks>
+    [Theory]
+    [InlineData("Equipped creature gets +X/+X, where X is the number of charge counters on ~.")]
+    [InlineData(
+        "Enchanted creature gets -X/-0, where X is the number of cards in its controller's "
+            + "graveyard.")]
+    public void A_counted_attached_pump_that_needs_a_source_stays_unread(string line)
+    {
+        var card = Card(
+            "Sourceless Count Test " + line.Length,
+            "Enchant creature\n" + line,
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>
