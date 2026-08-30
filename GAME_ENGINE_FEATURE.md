@@ -513,7 +513,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **53.4% of playable cards fully read** (17,477 of 32,717), 69.4% of lines.
+Coverage is **53.4% of playable cards fully read** (17,476 of 32,717), 69.4% of lines.
 
 ### Round eighteen: the prohibition family is half the size it was ranked at
 
@@ -545,7 +545,7 @@ The head is flat everywhere else too: **309 distinct sentence shapes for 329 car
 | 18 | can't be the target of | hexproof-from, which the flags cannot parameterise |
 | 15 | can't be regenerated | see above |
 
-**+45 cards, none lost** (17,432 -> 17,477, by set difference), across three changes that between
+**+44 cards, none lost** (17,432 -> 17,476, by set difference), across three changes that between
 them are one idea: the prohibitions are keywords this engine already models, and what was missing
 was the grammar around them.
 
@@ -563,11 +563,11 @@ for the same reason. Two decisions in it are the correctness:
   middle of itself and hands the prohibition to one creature of the two. Aquatic Ingress is that
   card, and it is left unread rather than read as a worse version of itself.
 
-**A group can now be forbidden something - 16 cards.** `MassStaticLine` could grant a keyword and
-could not forbid anything, so "Creatures you control can't attack", "Goaded creatures your
-opponents control can't block" and "Boars you control can't be blocked by more than one creature"
-were unread while every single-creature spelling of the same rule worked. Each maps to a keyword
-the declaration checks already read off the computed characteristics - defender *is* "can't
+**A group can now be forbidden something - 15 cards.** `MassStaticLine` could grant a keyword and
+could not forbid anything, so "Creatures you control can't attack", "Black creatures can't block"
+and "Boars you control can't be blocked by more than one creature" were unread while every
+single-creature spelling of the same rule worked. Each maps to a keyword the declaration checks
+already read off the computed characteristics - defender *is* "can't
 attack" (CR 702.3b), and "can't be blocked by more than one creature" *is* menace (CR 702.111a) -
 so a granted one is enforced by the code that enforces a printed one. The switch fails closed: a
 spelling it cannot map leaves the line unread rather than forbidding the nearest thing it knows.
@@ -589,6 +589,19 @@ Capitalisation is why it survived - the pronoun list is compared case-insensitiv
 mid-sentence "it" reached the right reader and a sentence-opening "That creature" did not. Found
 by a compiled-effect diff per card rather than by the set of complete cards, which could not see
 it: nothing was gained or lost, ten cards simply stopped being blank.
+
+**And the invariant suite caught the same class in the new reader, one card in.** The first build
+of the group prohibition read Bothersome Quasit's "Goaded creatures your opponents control can't
+block", and `Every_printed_noun_phrase_the_grammar_reads_can_be_satisfied` refused it: goading is a
+*designation* (CR 701.15b), the group reader's tribe fallback took the capitalised word for a
+creature type, and no card has the type "Goaded". A sixteenth card that forbade nothing. It is now
+refused at `GroupAdjective`, in that reader's own idiom for a word it recognises and cannot
+answer.
+
+Answering it properly is not a word in a table: goad is applied in layer 6 by a floating
+effect and so is the lord, so a static whose permanent arrived first is asked before the goad has
+been applied and sees nothing goaded. That is CR 613.8's dependency, which this engine does not
+model, and a prohibition that binds on some turns and not others is worse than an unread line.
 
 **Declined, with the measurement behind each:**
 
@@ -623,7 +636,7 @@ it: nothing was gained or lost, ten cards simply stopped being blank.
 - **A filtered one-shot** (3). "…and can't be blocked by Walls this turn" needs a block restriction
   with a filter *and* a duration; the static form of it exists and the floating form does not.
 
-Coverage is **53.4% of playable cards fully read** (17,477 of 32,717), 69.4% of lines.
+Coverage is **53.4% of playable cards fully read** (17,476 of 32,717), 69.4% of lines.
 
 Coverage is **53.5% of playable cards fully read** (17,489 of 32,717), 69.4% of lines.
 
