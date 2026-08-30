@@ -2626,6 +2626,27 @@ public sealed record MulligansFinished : GameEvent
     public override string Describe() => "Opening hands are settled.";
 }
 
+/// <summary>
+/// A player has taken whatever actions their opening hand allowed (CR 103.6).
+/// </summary>
+/// <remarks>
+/// Emitted for every player, including one holding nothing that offers an action — the step is a
+/// queue and this is what says the queue has moved on. Without it, a game rebuilt from its log
+/// mid-step could not tell a player who declined from a player not yet asked, and would ask the
+/// table again from the top.
+/// <para>
+/// The cards themselves arrive by the ordinary <see cref="ObjectMoved"/>, because starting the
+/// game with a Leyline on the battlefield is a card changing zones like any other. This event
+/// records the decision, not its result.
+/// </para>
+/// </remarks>
+public sealed record OpeningHandActionsTaken(Guid PlayerId) : GameEvent
+{
+    public override string Rule => "103.6";
+
+    public override string Describe() => $"{PlayerId:N} acted from their opening hand.";
+}
+
 // ---- Commander (CR 903) ---------------------------------------------------------------------
 
 /// <summary>A player's commander was designated as the game began (CR 903.3, 903.6).</summary>

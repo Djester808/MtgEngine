@@ -228,6 +228,7 @@ public static class EventLogSerializer
             ["MulliganKept"] = typeof(MulliganKept),
             ["MulliganTaken"] = typeof(MulliganTaken),
             ["MulligansFinished"] = typeof(MulligansFinished),
+            ["OpeningHandActionsTaken"] = typeof(OpeningHandActionsTaken),
             ["CommanderDesignated"] = typeof(CommanderDesignated),
             ["CommanderCastFromCommandZone"] = typeof(CommanderCastFromCommandZone),
             ["CommanderDamageDealt"] = typeof(CommanderDamageDealt),

@@ -425,6 +425,10 @@ public static class GameReducer
                 }),
             MulliganKept => state,
             MulligansFinished => state with { IsMulliganing = false },
+            OpeningHandActionsTaken acted => state with
+            {
+                OpeningHandActed = state.OpeningHandActed.Add(acted.PlayerId),
+            },
             AttackersDeclared attackers => (state with
             {
                 Combat = state.Combat with

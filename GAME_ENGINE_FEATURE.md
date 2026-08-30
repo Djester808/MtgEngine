@@ -487,7 +487,101 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **49.8% of playable cards fully read** (16,281 of 32,717), 66.9% of lines.
+Coverage is **49.8% of playable cards fully read** (16,298 of 32,717), 66.9% of lines.
+
+### Round thirteen: a pre-game step, a delayed ability that reaches the stack, and one prohibition
+
+Three families the compiler had been waiting on, each of which needed the *engine* to grow rather
+than the pattern list. **+19 cards, none lost** (16,279 → 16,298, by set difference). The three
+briefed counts were 6 / 4 / 5; measured, they are **6 / 4 / 9**, and the third is bigger than it
+was described because the family is one sentence with three slots rather than one wording.
+
+**The opening hand exists now, and it is a step rather than a flag.** `Game.BeginPlay` went from
+the last mulligan straight to `BeginTurn()`, so CR 103.6 — "once the mulligan process is complete,
+the starting player may take any such actions in any order, then each other player in turn order
+may do the same" — had nowhere to happen. The decline recorded further down this file was right
+that reading the Leyline line into `DeckRules` would have filed six cards as understood while
+deleting the only thing they do. What it needed was small and contained once the shape was clear:
+`ChoiceKind.OpeningHandBattlefield`, an `OpeningHandActionsTaken` event registered in both
+`GameReducer` and `EventLogSerializer`, and `AskNextOpeningHandAction` walking the table from the
+starting player.
+
+The one design decision worth keeping is **why the marker is in state**. Which players have
+already been past is a fact a saved game has to carry: `Game.Resume` folds a log and keeps no
+private fields, so a game rebuilt while the second player is being asked would otherwise go round
+the table again. `GameState.OpeningHandActed` is that fact, and it is a list rather than a flag
+because the step is a queue — a boolean can say the step is running and cannot say how far round
+it has got. A player holding nothing eligible is marked and skipped rather than asked to pick from
+an empty list.
+
+**+6**: Leyline Axe, Leyline of Abundance, Leyline of Lightning, Leyline of Sanctity, Leyline of
+Vitality, Leyline of the Meek. Twelve more Leylines now read the line and are still short of
+something else; Gemstone Caverns' longer version ("and you're not the starting player … with a
+luck counter on it") is deliberately left unread rather than compiled into a card that starts in
+play for nothing.
+
+**A pact could not be built on the delayed vocabulary, and finding out why is the useful part.**
+The obvious construction — a delayed trigger that asks for the payment when the upkeep begins —
+produces a card that **kills its caster every single time**. Mana empties as a step ends
+(CR 500.4) and `FireDelayedTriggers` runs on the way in, so the pool is guaranteed empty at the
+moment the question would be asked; CR 118.3 then declines for the player, correctly, and the
+else branch runs. Four cards would have compiled, counted towards coverage, and been strictly
+harsher than printed.
+
+`FireDelayedTriggers`' own note said what to do instead: "a delayed ability that drew a card would
+be wrong here, and should go through the trigger machinery instead." `DelayedActions.Ability` is
+that route. The prefix names an ability id on the delayed trigger's own card; `FireDelayedTriggers`
+looks the body up through the same `EffectsOfAbility` that resolves every other trigger and emits
+a `TriggerPutOnStack`. From there the pact is an ordinary object on the stack: an opponent may
+respond, and its controller may tap lands before it resolves and then be asked. The body is a
+plain `MayPay` whose `IfYouDont` is a new `LoseTheGame` effect (CR 104.3e), which is why CR 118.3
+needed no new code — a player who genuinely cannot pay is still not asked.
+
+The ability-bodied arm is also the first delayed trigger that waits for a **turn** rather than a
+step. Every card printing this shape says "at beginning of *your* next upkeep", and a pact that
+came due on the opponent's upkeep is the same always-fatal card by another route. `IsDueNow` scopes
+only that prefix, because the word-based delays genuinely mean the next such step in the game.
+**+4**: Pact of Negation, Pact of the Titan, Slaughter Pact, Summoner's Pact. Intervention Pact now
+reads the payment and is short its prevention clause.
+
+**One seam is open and written down in the code**: the ability is looked up through the card the
+delay was created by, so a pact whose card left the graveyard owes nothing. That is wrong — a pact
+is owed whatever became of the card — and fixing it means the delayed trigger carrying the cost
+and text itself, which changes what a stored delayed ability is.
+
+**The cast limit was the briefed count doubled, and needed no new state at all.** "Each player
+can't cast more than one spell each turn" is **5** sole blockers on that exact wording and **9**
+across the family, which is one sentence with three slots: the subject (`Each player`, `You`,
+`Enchanted player`), the number, and an optional qualifier that narrows what is stopped *and* what
+counts. Reading it as one reader rather than five is what makes the other four worth having.
+
+CR 601.3's second clause — "no rule or effect prohibits that player from casting it" — had no
+implementation: `SpellDefinition.CastOnlyWhen` is a restriction a card prints about *itself*, so
+nothing on the board could prohibit anything. `CastLimit` is a value on the card rather than a
+continuous effect because there is nothing to compute; CR 613 orders effects that change objects'
+characteristics, and a limit on casting changes no object. The counting came free:
+`PlayerState.SpellsCastThisTurn` and `SpellCardsCastThisTurn` have existed since "your first
+enchantment spell each turn", and keeping the *cards* rather than only a tally is exactly what
+makes "more than one non-Phyrexian spell" answerable.
+
+Two details are the rule rather than the code. **The hyphen is load-bearing**: "noncreature" is a
+card type written closed up and "non-Phyrexian" is a subtype written with one, and a reader that
+took them for the same thing builds a limit matching no card while reporting the card understood.
+And **the qualifier narrows both halves at once** — a limit on noncreature spells neither stops a
+creature spell nor counts one; applying it to only one half gives a card that stops the wrong part
+of a turn. A qualifier the reader has no meaning for refuses the whole line.
+
+**+9**: Arcane Laboratory, Archon of Emeria, Curse of Exhaustion, Deafening Silence, Eidolon of
+Rhetoric, High Noon, Moderation, Phyrexian Censor, Rule of Law. Two more read the line and are
+short something else (Colfenor's Plans, Yawgmoth's Agenda), and Hedonist's Trove's "more than one
+spell **this way** each turn" is a restriction on a granted permission rather than this rule, and
+is correctly refused.
+
+**What the board is not told.** A cast limit is the first refusal in the engine that comes off
+somebody else's permanent, and `GameView` carries no castability at all — so the board will offer
+a second spell and the engine will refuse it. That is the "offered and then refused" failure this
+document warns about, one card short of the client work that would fix it, and it is recorded here
+rather than guessed at from this repo.
 
 ### Round twelve: six structural walls, and what measuring them was worth
 
@@ -1330,9 +1424,13 @@ Recorded so the next pass does not re-spend the cycle. Each was probed or swept,
 - **The initiative** (24 cards that take it, 8 that ask for it). CR 726.2 gives it three inherent
   triggered abilities, two of which venture into Undercity — of which this engine has zero lines.
   Modelling the designation alone would compile 24 cards that then skip most of what they say.
-- **Opening hand** (20 cards) — both printed shapes need a pre-game question, which needs a new
-  choice kind and a declaration on the compiled card. Remembering the hand alone would be a field no
-  reader could act on.
+- ~~**Opening hand**~~ (20 cards) — **half of it is now built**, and the decline was right about
+  what it would take: it needed a pre-game question, a choice kind, and a declaration on the
+  compiled card, and it got all three (see round thirteen above). The battlefield half — CR 103.6a,
+  "you may begin the game with it on the battlefield" — completes **6** cards. The reveal half
+  (CR 103.6b) is still declined and for a better reason than before: it is a different action with
+  a different payload, the card stays revealed until the first turn begins, and no corpus card
+  printing it is otherwise readable, so offering it would be a question about nothing.
 
 - **`Craft with artifact`** (24 cards), **`Convert ~`** (39 lines across 22 cards, nearly all unique
   long sentences), **perpetual effects** (6 of 74).

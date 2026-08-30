@@ -413,6 +413,22 @@ public sealed record GameState
     public bool IsMulliganing { get; init; }
 
     /// <summary>
+    /// Players who have had their chance to act from their opening hand (CR 103.6).
+    /// </summary>
+    /// <remarks>
+    /// The step between the last mulligan and the first turn, in state rather than in a field on
+    /// <c>Game</c> because a saved game is a log and nothing else: a game rebuilt while the
+    /// starting player is being asked has to know that the player before them has already
+    /// answered, or the question goes round the table twice.
+    /// <para>
+    /// A list of who is <em>done</em> rather than a flag saying the step is running, because the
+    /// step is a queue: the game passes through it once per player, and a single boolean cannot
+    /// say how far round it has got.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<Guid> OpeningHandActed { get; init; } = [];
+
+    /// <summary>
     /// Set once the game has been dealt and the first turn has begun. Until then there is no
     /// turn and no priority, only seats and libraries.
     /// </summary>
@@ -609,6 +625,7 @@ public sealed record GameState
         Choice == other.Choice &&
         IsMulliganing == other.IsMulliganing &&
         Structural.Same(MulligansTaken, other.MulligansTaken) &&
+        Structural.Same(OpeningHandActed, other.OpeningHandActed) &&
         Structural.Same(Objects, other.Objects);
 
     public override int GetHashCode() =>

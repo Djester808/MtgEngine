@@ -16270,6 +16270,12 @@ public sealed class CompiledCardBehaviourTests
         public bool RevealsTopOfLibrary(CardDefinition card) =>
             _compiled.RevealsTopOfLibrary(card);
 
+        public bool MayBeginOnBattlefield(CardDefinition card) =>
+            _compiled.MayBeginOnBattlefield(card);
+
+        public IReadOnlyList<CastLimit> CastLimitsOf(CardDefinition card) =>
+            _compiled.CastLimitsOf(card);
+
         public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
             _compiled.AttacksOnlyIfDefenderControls(card);
 
@@ -52811,11 +52817,14 @@ public sealed class CompiledCardBehaviourTests
     /// second one: a no-op reader that quietly built something would be worse than leaving the
     /// line unread, because the card would report itself understood either way.
     /// <para>
-    /// <strong>The Leyline line is deliberately absent from this list.</strong> "If ~ is in your
-    /// opening hand, you may begin the game with it on the battlefield" is CR 103.6 and a real
-    /// game rule — eighteen corpus cards genuinely start in play — so reading it as a no-op
-    /// would file them as understood while removing the only thing they do. It stays unread
-    /// until the engine offers an opening-hand decision to hang it on.
+    /// <strong>The Leyline line is deliberately absent from this list, and now for a second
+    /// reason.</strong> "If ~ is in your opening hand, you may begin the game with it on the
+    /// battlefield" is CR 103.6 and a real game rule — twenty corpus cards genuinely start in
+    /// play — so recording it here as text nothing acts on would file them as understood while
+    /// removing the only thing they do. It was left unread for exactly that reason until the
+    /// engine had an opening-hand step to hang it on; it now compiles to
+    /// <c>MayBeginOnBattlefield</c>, which is an answer the game asks for rather than a string
+    /// filed away, and the assertion below is what keeps it out of the no-op list.
     /// </para>
     /// </remarks>
     [Fact]
@@ -52851,8 +52860,12 @@ public sealed class CompiledCardBehaviourTests
             "If ~ is in your opening hand, you may begin the game with it on the battlefield.",
             CardType.Enchantment));
 
-        Assert.False(leyline.IsComplete);
+        // Read, and read as a permission the game acts on rather than as deck-construction
+        // text: it is a pre-game action (CR 103.6a), so it belongs to the step that offers it.
+        Assert.True(leyline.IsComplete, string.Join(" | ", leyline.Unhandled));
         Assert.Empty(leyline.DeckRules);
+        Assert.True(leyline.MayBeginOnBattlefield);
+        Assert.True(leyline.HasAbilities);
     }
 
     // ---- Battles (CR 310) ----------------------------------------------------
@@ -54347,6 +54360,683 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(first)).Power);
         Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(third)).Power);
         Assert.DoesNotContain(second, game.State.Battlefield);
+    }
+
+    // ---- Beginning the game with a card on the battlefield (CR 103.6) --------
+
+    /// <summary>The Leyline, exactly as nineteen of them are printed.</summary>
+    private static CardDefinition LeylineCard(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        ManaCostRaw = "{2}{G}{G}",
+        Cmc = 4,
+        CardTypes = CardType.Enchantment,
+        OracleText =
+            "If this card is in your opening hand, you may begin the game with it on the "
+            + "battlefield.\nCreatures you control get +0/+1.",
+    };
+
+    /// <summary>A game about to ask the opening-hand question, with one deck full of Leylines.</summary>
+    /// <remarks>
+    /// The whole deck rather than one copy salted into it, because the question is only asked of
+    /// a hand that holds one and a shuffle decides what a hand holds. A test that depends on a
+    /// seed dealing the right card is a test that starts failing when an unrelated shuffle
+    /// changes.
+    /// </remarks>
+    private static (Game Game, Guid Alice, Guid Bob) DealtLeylines(CardDefinition leyline)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, [.. Enumerable.Repeat(leyline, 40)]),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        return (game, alice, bob);
+    }
+
+    /// <summary>
+    /// A Leyline kept in the opening hand is on the battlefield before turn one (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// The rule the whole family turns on, and the reason the line could not be filed under
+    /// deck-construction text: "the player taking this action puts that card onto the
+    /// battlefield", and the battlefield it arrives on is the one the first turn begins with.
+    /// <para>
+    /// Asserted against the log's own ordering rather than against the board at the end. A
+    /// permanent that reached the battlefield at any point in turn one would satisfy "it is on
+    /// the battlefield now"; only the position of the move relative to the first turn beginning
+    /// says it was there <em>before the game started</em>, which is the whole of what the card
+    /// promises.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_leyline_kept_in_hand_begins_the_game_on_the_battlefield()
+    {
+        var leyline = LeylineCard("Leyline Of Testing");
+        var compiled = CardCompiler.Compile(leyline);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.MayBeginOnBattlefield);
+
+        var (game, alice, _) = DealtLeylines(leyline);
+
+        // CR 103.6: the starting player is asked first, and the game has not begun.
+        Assert.Equal(ChoiceKind.OpeningHandBattlefield, game.State.Choice!.Kind);
+        Assert.Equal(alice, game.State.Choice.PlayerId);
+        Assert.Equal(0, game.State.Choice.MinPicks);
+        Assert.Equal(7, game.State.Choice.Options.Count);
+        Assert.False(game.State.HasBegun);
+
+        game.Choose(alice, [game.State.Choice.Options[0].Id]);
+
+        // It is on the battlefield, it belongs to Alice, and the first turn has begun.
+        var permanent = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == leyline.Name);
+
+        Assert.Equal(alice, permanent.ControllerId);
+        Assert.Equal(1, game.State.TurnNumber);
+        Assert.Equal(6, game.State.GetPlayer(alice).Hand.Count);
+
+        // And it arrived before the first turn did, which is the claim the card makes.
+        var arrived = game.Log
+            .Select((e, i) => (Event: e, Index: i))
+            .First(pair => pair.Event is ObjectMoved { To: Zone.Battlefield })
+            .Index;
+
+        var began = game.Log
+            .Select((e, i) => (Event: e, Index: i))
+            .First(pair => pair.Event is TurnBegan)
+            .Index;
+
+        Assert.True(began > arrived, $"arrived at {arrived}, turn began at {began}");
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>Declining leaves it in hand, and the game starts anyway (CR 103.6).</summary>
+    /// <remarks>
+    /// "May", so nothing is as good an answer as anything else — which is why the choice has no
+    /// minimum. A yes/no followed by a selection would let a player answer yes and then have to
+    /// name a card, and would give the log two answers where the rules have one decision.
+    /// </remarks>
+    [Fact]
+    public void Declining_the_offer_leaves_the_leyline_in_hand()
+    {
+        var leyline = LeylineCard("Leyline Of Declining");
+        var (game, alice, _) = DealtLeylines(leyline);
+
+        game.Choose(alice, []);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Equal(7, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(1, game.State.TurnNumber);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A hand with nothing to offer is not asked, and the game starts (CR 118.3's lesson).
+    /// </summary>
+    /// <remarks>
+    /// The negative control for the whole step. Bob holds forty vanilla creatures and is never
+    /// stopped for a question; if the step asked everybody, a two-player game would halt twice
+    /// before its first untap and every existing test that starts a game would hang.
+    /// </remarks>
+    [Fact]
+    public void A_player_with_no_such_card_is_never_asked()
+    {
+        var (game, alice, bob) = TestCards.TwoPlayer(40);
+        game.BeginPlay(withMulligans: false);
+
+        Assert.Null(game.State.Choice);
+        Assert.Equal(1, game.State.TurnNumber);
+        Assert.Contains(alice, game.State.OpeningHandActed);
+        Assert.Contains(bob, game.State.OpeningHandActed);
+    }
+
+    /// <summary>
+    /// Each player is offered in turn order, starting with the player who goes first (CR 103.6).
+    /// </summary>
+    /// <remarks>
+    /// The order is the rule rather than a detail: what a Leyline is worth depends on what is
+    /// already on the table when the offer reaches you, and the starting player answers first
+    /// however the seats are numbered.
+    /// </remarks>
+    [Fact]
+    public void Every_player_is_offered_in_turn_order()
+    {
+        var leyline = LeylineCard("Leyline Of Turn Order");
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, [.. Enumerable.Repeat(leyline, 40)]),
+                new PlayerSetup(bob, "Bob", 20, [.. Enumerable.Repeat(leyline, 40)]),
+            ],
+            new GameRandom(1),
+            startingPlayerId: bob,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+
+        // Bob starts, so Bob is asked first even though Alice is seated first.
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+        game.Choose(bob, [game.State.Choice.Options[0].Id]);
+
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        game.Choose(alice, [game.State.Choice.Options[0].Id]);
+
+        Assert.Equal(2, game.State.Battlefield.Count);
+        Assert.Equal(1, game.State.TurnNumber);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>The step survives the mulligan procedure it follows (CR 103.5, 103.6).</summary>
+    /// <remarks>
+    /// "Once the mulligan process is complete" — so the question comes after the bottoming, not
+    /// before it, and a hand that has just been reduced is the hand the offer is made from.
+    /// </remarks>
+    [Fact]
+    public void The_offer_comes_after_the_mulligans()
+    {
+        var leyline = LeylineCard("Leyline Of Mulligans");
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, [.. Enumerable.Repeat(leyline, 40)]),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay();
+
+        // Alice mulligans once and keeps; Bob keeps.
+        game.Choose(alice, ["mulligan"]);
+        game.Choose(bob, ["keep"]);
+        game.Choose(alice, ["keep"]);
+
+        // The bottoming question comes first (CR 103.5), and only then the opening-hand offer.
+        Assert.Equal(ChoiceKind.BottomAfterMulligan, game.State.Choice!.Kind);
+        game.Choose(alice, [game.State.Choice.Options[0].Id]);
+
+        Assert.Equal(ChoiceKind.OpeningHandBattlefield, game.State.Choice!.Kind);
+        Assert.Equal(6, game.State.Choice.Options.Count);
+
+        game.Choose(alice, [game.State.Choice.Options[0].Id]);
+
+        Assert.Single(game.State.Battlefield);
+        Assert.Equal(1, game.State.TurnNumber);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    // ---- Pacts: a delayed payment that ends the game (CR 603.7, 104.3e) ------
+
+    /// <summary>Pact of the Titan, printed word for word.</summary>
+    /// <remarks>
+    /// The token half is deliberately kept: the whole point of a pact is that it does something
+    /// now and charges for it later, and a test on the payment alone would pass just as well
+    /// against a card that had quietly lost its first line.
+    /// </remarks>
+    private static CardDefinition PactCard(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        ManaCostRaw = "{0}",
+        Cmc = 0,
+        CardTypes = CardType.Instant,
+        OracleText =
+            "Create a 4/4 red Giant creature token.\n"
+            + "At the beginning of your next upkeep, pay {4}{R}. If you don't, you lose the game.",
+    };
+
+    /// <summary>Casts a pact on turn one and walks the game to its caster's next upkeep.</summary>
+    private static (Game Game, Guid Alice, Guid Bob) PactCastAndWaiting(CardDefinition pact)
+    {
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, pact);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // The token arrived, so the spell resolved rather than being read as the payment alone.
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Giant");
+
+        // The promise is waiting, and it is waiting for a turn of Alice's.
+        var owed = Assert.Single(game.State.Delayed);
+        Assert.Equal(alice, owed.ControllerId);
+        Assert.Equal(TurnStep.Upkeep, owed.Step);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.Upkeep);
+
+        return (game, alice, bob);
+    }
+
+    /// <summary>
+    /// A pact that goes unpaid loses its caster the game (CR 104.3e).
+    /// </summary>
+    /// <remarks>
+    /// The half the card is named for, and the reason the line could not compile as a payment
+    /// with the tail dropped: a pact read without its consequence is a free spell, which is a
+    /// different and much better card than the one printed.
+    /// <para>
+    /// Alice is given the mana first, so that she is actually <em>asked</em> and answers no. The
+    /// case where she has nothing is its own test below, and the two are not the same event: one
+    /// is a decision and the other is CR 118.3.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pact_left_unpaid_loses_the_game()
+    {
+        var pact = PactCard("Pact Of Testing");
+        var compiled = CardCompiler.Compile(pact);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = PactCastAndWaiting(pact);
+
+        // The delayed ability is on the stack, which is what gives Alice a window to find the
+        // mana at all — a payment asked at the moment the step began would be one nobody could
+        // ever make, because pools empty between steps (CR 500.4).
+        Assert.Single(game.State.Stack);
+
+        game.AddMana(alice, ManaColor.Red);
+        game.AddMana(alice, null, 4);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(alice, game.State.Choice!.PlayerId);
+        game.Choose(alice, ["no"]);
+        Run(game);
+
+        Assert.True(game.State.GetPlayer(alice).HasLost);
+        Assert.False(game.State.GetPlayer(bob).HasLost);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>Paying it keeps the caster in the game, and costs the mana (CR 601.2h).</summary>
+    [Fact]
+    public void A_pact_that_is_paid_costs_the_mana_and_nothing_else()
+    {
+        var pact = PactCard("Pact Of Paying");
+        var (game, alice, _) = PactCastAndWaiting(pact);
+
+        game.AddMana(alice, ManaColor.Red);
+        game.AddMana(alice, null, 4);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        game.Choose(alice, ["yes"]);
+        Run(game);
+
+        Assert.False(game.State.GetPlayer(alice).HasLost);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// A caster who cannot pay is not asked; the else branch simply runs (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// "A player can't pay a cost without having the necessary resources to pay it fully", so
+    /// there is nothing to decide and no question to stop the game with. The engine already
+    /// answered this for every optional payment; the pact is where the answer is worth the most,
+    /// because the alternative — offering a button whose only outcome is losing — is a question
+    /// with one possible answer.
+    /// </remarks>
+    [Fact]
+    public void A_caster_who_cannot_pay_is_never_asked()
+    {
+        var pact = PactCard("Pact Of Poverty Test");
+        var (game, alice, _) = PactCastAndWaiting(pact);
+
+        // No mana added: Alice's pool is empty, as it is at the start of every step.
+        Run(game);
+
+        Assert.True(game.State.GetPlayer(alice).HasLost);
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// It waits for the caster's own upkeep, not the next one in the game (CR 603.7).
+    /// </summary>
+    /// <remarks>
+    /// The rule the whole shape turns on, and the one a step-only delayed trigger cannot express.
+    /// A pact cast on turn one comes due on turn three; if it fired on turn two's upkeep it would
+    /// demand payment a turn early and, because nobody can pay on an opponent's turn any more
+    /// than on their own empty pool, would kill its caster every time.
+    /// </remarks>
+    [Fact]
+    public void A_pact_does_not_come_due_on_the_opponents_upkeep()
+    {
+        var pact = PactCard("Pact Of Patience Test");
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, pact);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.Draw);
+
+        // Bob's upkeep came and went with the promise untouched, and Alice is still playing.
+        Assert.False(game.State.GetPlayer(alice).HasLost);
+        Assert.Single(game.State.Delayed);
+        Assert.Empty(game.State.Stack);
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    // ---- A limit on how many spells a turn holds (CR 601.3) ------------------
+
+    /// <summary>A spell that needs nothing and does nothing, for counting casts.</summary>
+    private static CardDefinition LimitFiller(string name) =>
+        Card(name, "Draw a card.");
+
+    /// <summary>
+    /// A second spell in a turn is refused, and refused to the enchantment's own side (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Rule of Law's printed line, and five corpus cards share it word for word. The engine had
+    /// no way to say it: <c>CastOnlyWhen</c> is a restriction a card prints about <em>itself</em>,
+    /// so nothing on the board could prohibit anything, and CR 601.3's second clause — "no rule or
+    /// effect prohibits that player from casting it" — had no implementation at all.
+    /// <para>
+    /// Both halves are asserted because "each player" is the half that is easy to get wrong: a
+    /// missing subject read as "you control" is the 83-card defect this suite already records one
+    /// layer over, and here it would leave the enchantment's controller free to combo out under
+    /// their own Rule of Law.
+    /// </para>
+    /// <para>
+    /// Nothing is resolved in between. The tally moves when a spell is <em>cast</em> (CR 601.2i),
+    /// not when it resolves, so the second refusal lands while the first spell is still on the
+    /// stack — which is also the position the card is played from.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_cast_limit_refuses_a_second_spell_from_either_player()
+    {
+        var law = Card(
+            "Rule Of Law Test",
+            "Each player can't cast more than one spell each turn.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(law);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var limit = Assert.Single(compiled.CastLimits);
+        Assert.Equal(1, limit.Max);
+        Assert.Equal(PlayerScope.EachPlayer, limit.Who);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, law, Zone.Battlefield);
+
+        var filler = LimitFiller("Cast Limit Filler Test");
+        var aliceFirst = TestCards.PutInHand(game, alice, filler);
+        var aliceSecond = TestCards.PutInHand(game, alice, filler);
+        var bobFirst = TestCards.PutInHand(game, bob, filler);
+        var bobSecond = TestCards.PutInHand(game, bob, filler);
+
+        game.CastSpell(alice, aliceFirst, []);
+
+        var refusedAlice = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, aliceSecond, []));
+
+        Assert.Contains("Rule Of Law Test", refusedAlice.Message, StringComparison.Ordinal);
+        Assert.Contains(aliceSecond, game.State.GetPlayer(alice).Hand);
+
+        // And the opponent, who controls nothing: "each player" is everyone at the table.
+        game.PassPriority(alice);
+        game.CastSpell(bob, bobFirst, []);
+
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, bobSecond, []));
+        Assert.Contains(bobSecond, game.State.GetPlayer(bob).Hand);
+    }
+
+    /// <summary>
+    /// A limit that names a kind neither stops nor counts the other kind (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Deafening Silence, and the qualifier is one word doing two jobs: a creature spell is not
+    /// refused by it, and casting one does not use up the turn's noncreature spell. Reading the
+    /// adjective on only one of the two halves gives a card that is wrong in one direction or the
+    /// other — either a Silence that stops everything after the first creature, or one a creature
+    /// slips past twice.
+    /// </remarks>
+    [Fact]
+    public void A_cast_limit_that_names_a_kind_leaves_the_other_kind_alone()
+    {
+        var silence = Card(
+            "Deafening Silence Test",
+            "Each player can't cast more than one noncreature spell each turn.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(silence);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(CardType.Creature, Assert.Single(compiled.CastLimits).ExceptTypes);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, silence, Zone.Battlefield);
+
+        var bear = Card("Silence Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var filler = LimitFiller("Silence Filler Test");
+
+        var firstBear = TestCards.PutInHand(game, alice, bear);
+        var secondBear = TestCards.PutInHand(game, alice, bear);
+        var firstFiller = TestCards.PutInHand(game, alice, filler);
+        var secondFiller = TestCards.PutInHand(game, alice, filler);
+
+        // Two creature spells: neither is limited, and neither counts. They resolve one at a
+        // time because a creature spell wants an empty stack (CR 505.6a), which is a timing rule
+        // and nothing to do with the limit under test.
+        game.CastSpell(alice, firstBear, []);
+        Settle(game);
+        game.CastSpell(alice, secondBear, []);
+        Settle(game);
+
+        game.CastSpell(alice, firstFiller, []);
+
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, secondFiller, []));
+        Assert.Contains(secondFiller, game.State.GetPlayer(alice).Hand);
+    }
+
+    /// <summary>
+    /// "You can't cast" limits its controller and nobody else (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Moderation, which is the same sentence with the subject changed — and the negative control
+    /// for the reader, because a scope that always meant "each player" would pass every other
+    /// test in this section.
+    /// </remarks>
+    [Fact]
+    public void A_cast_limit_on_you_alone_leaves_the_opponent_free()
+    {
+        var moderation = Card(
+            "Moderation Test",
+            "You can't cast more than one spell each turn.\n"
+                + "Whenever you cast a spell, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(moderation);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(PlayerScope.You, Assert.Single(compiled.CastLimits).Who);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, moderation, Zone.Battlefield);
+
+        var filler = LimitFiller("Moderation Filler Test");
+        var aliceFirst = TestCards.PutInHand(game, alice, filler);
+        var aliceSecond = TestCards.PutInHand(game, alice, filler);
+        var bobFirst = TestCards.PutInHand(game, bob, filler);
+        var bobSecond = TestCards.PutInHand(game, bob, filler);
+
+        game.CastSpell(alice, aliceFirst, []);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, aliceSecond, []));
+
+        // Bob controls nothing that says this, and casts as many as he likes.
+        game.PassPriority(alice);
+        game.CastSpell(bob, bobFirst, []);
+        game.CastSpell(bob, bobSecond, []);
+
+        Assert.DoesNotContain(bobFirst, game.State.GetPlayer(bob).Hand);
+        Assert.DoesNotContain(bobSecond, game.State.GetPlayer(bob).Hand);
+        Assert.Contains(aliceSecond, game.State.GetPlayer(alice).Hand);
+    }
+
+    /// <summary>
+    /// A Curse limits the player it is attached to, not its controller (CR 303.4b, 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Curse of Exhaustion, the ninth card in this family and the one that needs a scope no other
+    /// spell restriction in the engine has. The Curse's own controller is deliberately shown
+    /// casting twice under it: an Aura on a player says nothing whatever about the player holding
+    /// it, and reading "enchanted player" as "you" would turn a Curse into a Moderation.
+    /// </remarks>
+    [Fact]
+    public void A_curse_limits_the_player_it_is_attached_to()
+    {
+        var curse = Card(
+            "Curse Of Exhaustion Test",
+            "Enchant player\nEnchanted player can't cast more than one spell each turn.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(curse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(PlayerScope.EnchantedPlayer, Assert.Single(compiled.CastLimits).Who);
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, curse);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Bob's turn, so nobody's tally carries over from the turn the Curse was cast on.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var filler = LimitFiller("Curse Filler Test");
+        var bobFirst = TestCards.PutInHand(game, bob, filler);
+        var bobSecond = TestCards.PutInHand(game, bob, filler);
+        var aliceFirst = TestCards.PutInHand(game, alice, filler);
+        var aliceSecond = TestCards.PutInHand(game, alice, filler);
+
+        game.CastSpell(bob, bobFirst, []);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, bobSecond, []));
+
+        // The Curse's controller is not the enchanted player and is not limited.
+        game.PassPriority(bob);
+        game.CastSpell(alice, aliceFirst, []);
+        game.CastSpell(alice, aliceSecond, []);
+
+        Assert.Contains(bobSecond, game.State.GetPlayer(bob).Hand);
+    }
+
+    /// <summary>
+    /// The allowance is per turn, and a new turn is a new allowance (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The half a static field would get wrong. The count it reads is
+    /// <c>PlayerState.SpellsCastThisTurn</c>, which the reducer already clears as each turn
+    /// begins — so this needed no new state and, more to the point, no second place that has to
+    /// remember to clear it.
+    /// </remarks>
+    [Fact]
+    public void A_cast_limit_starts_over_each_turn()
+    {
+        var law = Card(
+            "Renewing Law Test",
+            "Each player can't cast more than one spell each turn.",
+            CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, law, Zone.Battlefield);
+
+        var filler = LimitFiller("Renewing Filler Test");
+        var first = TestCards.PutInHand(game, alice, filler);
+        var second = TestCards.PutInHand(game, alice, filler);
+
+        game.CastSpell(alice, first, []);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, second, []));
+
+        Settle(game);
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // A fresh card, because the harness discards to hand size at every cleanup it passes
+        // through and the one held over may not be the card it was (CR 514.1, 400.7).
+        var afterwards = TestCards.PutInHand(game, alice, filler);
+
+        game.CastSpell(alice, afterwards, []);
+        Assert.DoesNotContain(afterwards, game.State.GetPlayer(alice).Hand);
+    }
+
+    /// <summary>
+    /// A qualifier the reader cannot understand leaves the line unread (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Phyrexian Censor is the one corpus card whose qualifier is a subtype rather than a card
+    /// type — "non-Phyrexian" with the hyphen the printing uses — and the pair below is the whole
+    /// argument for reading the hyphen rather than guessing: one of these is a limit on a card
+    /// type and the other on a creature type, and a reader that took them for the same thing
+    /// would build a limit matching no card while reporting the card understood.
+    /// </remarks>
+    [Fact]
+    public void A_cast_limit_tells_a_subtype_from_a_card_type()
+    {
+        var censor = CardCompiler.Compile(Card(
+            "Phyrexian Censor Test",
+            "Each player can't cast more than one non-Phyrexian spell each turn.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.True(censor.IsComplete, string.Join(" | ", censor.Unhandled));
+
+        var bySubtype = Assert.Single(censor.CastLimits);
+        Assert.Equal("Phyrexian", bySubtype.ExceptSubtype);
+        Assert.Equal(CardType.None, bySubtype.ExceptTypes);
+
+        // A Phyrexian spell is neither counted nor stopped by it; anything else is both.
+        Assert.False(bySubtype.Counts(
+            Card("Censor Phyrexian Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Phyrexian")));
+        Assert.True(bySubtype.Counts(Card("Censor Other Test", string.Empty)));
+
+        // An adjective the reader has no meaning for refuses the whole line rather than
+        // building a limit that stops everything.
+        var unknown = CardCompiler.Compile(Card(
+            "Nonsense Limit Test",
+            "Each player can't cast more than one nonpermanent spell each turn.",
+            CardType.Enchantment));
+
+        Assert.False(unknown.IsComplete);
+        Assert.Empty(unknown.CastLimits);
     }
 
     // ---- Fuse (CR 702.102) ---------------------------------------------------

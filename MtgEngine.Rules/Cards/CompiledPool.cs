@@ -137,6 +137,11 @@ public sealed class CompiledPool : IAbilitySource
 
     public bool RevealsTopOfLibrary(CardDefinition card) => For(card).RevealsTopOfLibrary;
 
+    public bool MayBeginOnBattlefield(CardDefinition card) => For(card).MayBeginOnBattlefield;
+
+    public IReadOnlyList<Abilities.CastLimit> CastLimitsOf(CardDefinition card) =>
+        For(card).CastLimits;
+
     public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
         For(card).Replacements;
 

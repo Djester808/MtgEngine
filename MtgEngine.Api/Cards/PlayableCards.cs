@@ -132,6 +132,12 @@ public sealed class PlayableCards : IAbilitySource
 
     public bool SkipsDrawStep(CardDefinition card) => For(card).SkipsDrawStep(card);
 
+    public bool MayBeginOnBattlefield(CardDefinition card) =>
+        For(card).MayBeginOnBattlefield(card);
+
+    public IReadOnlyList<CastLimit> CastLimitsOf(CardDefinition card) =>
+        For(card).CastLimitsOf(card);
+
     public bool RevealsTopOfLibrary(CardDefinition card) => For(card).RevealsTopOfLibrary(card);
 
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>

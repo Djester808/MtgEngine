@@ -17,6 +17,18 @@ public enum ChoiceKind
     /// <summary>Which cards to put on the bottom after a mulligan (CR 103.5).</summary>
     BottomAfterMulligan,
 
+    /// <summary>
+    /// Which cards in your opening hand start the game on the battlefield (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// The one question asked between the last mulligan and the first turn, and the only one in
+    /// the game whose options are cards a player is holding rather than things on a board.
+    /// Picking nothing is declining — "you may" — so it has no minimum, and the maximum is every
+    /// eligible card, because CR 103.6 lets the player take any such action "in any order" and a
+    /// hand can hold two Leylines.
+    /// </remarks>
+    OpeningHandBattlefield,
+
     /// <summary>Which duplicate legendary permanent to keep (CR 704.5j).</summary>
     LegendRule,
 
