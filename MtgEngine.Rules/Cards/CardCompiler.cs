@@ -360,6 +360,7 @@ public static partial class CardCompiler
         var costModifiers = ImmutableList.CreateBuilder<CostModifier>();
         var showsTop = false;
         var noHandLimit = false;
+        HandSizeChange? handSizeChange = null;
         var chooses = ChoiceOnEntry.None;
         var devour = 0;
         var amplify = 0;
@@ -673,6 +674,39 @@ public static partial class CardCompiler
             if (NoMaximumHandSizeLine().IsMatch(line))
             {
                 noHandLimit = true;
+                continue;
+            }
+
+            // "Your maximum hand size is reduced by three" and "each opponent's maximum hand
+            // size is reduced by two" are one sentence with the seat swapped, and the corpus
+            // prints the increase as well - Trusted Advisor, Minamo Scrollkeeper. Read as a
+            // signed delta against CR 402.2's seven rather than as a new limit, because that is
+            // what the words say and because two of them on one table have to add up.
+            //
+            // The *set* form - "your maximum hand size is eight" - is deliberately not here.
+            // Every corpus card printing it is short something else as well, so reading it
+            // completes nobody, and it is a different question: an assignment two permanents
+            // could disagree about, where CR 613's ordering does not reach because a player is
+            // not an object. Left unread rather than guessed at.
+            // NumberWordOrDigits, and it matters which: NumberWord beside it reads
+            // "once"/"twice" and answers 1 to everything else, so wiring this to that one
+            // compiled every card in the family and moved each hand size by exactly one.
+            // Coverage rose by eight and eight cards were wrong; only a test that played one
+            // could tell. The cardinal is checked in the guard rather than inside, so a word
+            // this cannot read leaves the line unread instead of taking a fallback of 1.
+            if (HandSizeChangeLine().Match(line) is { Success: true } handSize
+                && IsCardinal(handSize.Groups["n"].Value))
+            {
+                var by = NumberWordOrDigits(handSize.Groups["n"].Value);
+                var less = handSize.Groups["dir"].Value
+                    .StartsWith("reduc", StringComparison.OrdinalIgnoreCase);
+
+                var scope = handSize.Groups["whose"].Value
+                    .StartsWith("your", StringComparison.OrdinalIgnoreCase)
+                        ? PlayerScope.You
+                        : PlayerScope.EachOpponent;
+
+                handSizeChange = new HandSizeChange(scope, less ? -by : by);
                 continue;
             }
 
@@ -1769,6 +1803,7 @@ public static partial class CardCompiler
             CostModifiers = costModifiers.ToImmutable(),
             ShowsTopOfLibrary = showsTop,
             RemovesHandLimit = noHandLimit,
+            HandSizeChange = handSizeChange,
             ChoosesOnEntry = chooses,
             DevourCount = devour,
             AmplifyCount = amplify,
@@ -2912,6 +2947,7 @@ public static partial class CardCompiler
         && section.DevourCount == 0
         && !section.ShowsTopOfLibrary
         && !section.RemovesHandLimit
+        && section.HandSizeChange is null
         && section.ChoosesOnEntry == ChoiceOnEntry.None
         && section.ExtraLandDrops == 0
         && !section.MayDeclineUntap
@@ -7112,6 +7148,7 @@ public static partial class CardCompiler
             || TryCantBeBlockedExceptBy(line, card, statics)
             || TryCantBeBlockedBy(line, card, statics)
             || TryDoesNotUntap(line, card, statics)
+            || TryMayAttackDespiteDefender(line, card, statics)
             || TryAttachedSilencing(line, card, statics)
             || TryAttachedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
@@ -7935,6 +7972,57 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "~ can attack as though it didn't have defender" (CR 609.4, 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// The unconditional spelling. The conditional one - "as long as you control a creature with
+    /// power 4 or greater, ~ can attack as though it didn't have defender" - is read by
+    /// <see cref="TryConditionalStatic"/>, which already owns the condition vocabulary; this is
+    /// what is left when nothing gates it, and it is the form a *quoted* ability arrives in:
+    /// Prison Barricade enters with "~ can attack as though it didn't have defender" on it.
+    /// <para>
+    /// **A permission, not the removal of a keyword.** The creature still has defender, so a
+    /// lord reading "creatures with defender get +0/+2" keeps finding it and a second effect
+    /// keyed to the keyword is unaffected (CR 609.4). Compiling it as "loses defender" would
+    /// make every such card better than printed on exactly those boards.
+    /// </para>
+    /// <para>
+    /// The attached form names what the Aura is on - "Enchanted Wall can attack as though it
+    /// didn't have defender" - and, like the untap restriction above, asks nothing about the
+    /// host's type: what the Aura could legally be attached to was settled when it was cast, and
+    /// re-testing the noun is what kept an Aura on something the printed word did not name from
+    /// working at all.
+    /// </para>
+    /// </remarks>
+    private static bool TryMayAttackDespiteDefender(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = MayAttackDespiteDefenderLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var onSelf = m.Groups["who"].Value.Trim().Equals("~", StringComparison.Ordinal);
+
+        bool Applies(GameState state, GameObject? source, CharacteristicsBuilder target) =>
+            source is not null
+            && (onSelf
+                ? target.Subject.Id == source.Id
+                : source.Permanent?.AttachedTo == target.Subject.Id);
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id =
+                $"{GenerativeEffects.MayAttackDespiteDefenderId()}:{card.Name}:"
+                    + (onSelf ? "self" : "attached"),
+            Layer = EffectLayer.Ability,
+            Applies = Applies,
+            Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "~ gets +1/+1 for each artifact you control" — a static whose size is counted (CR 613.4c).
     /// </summary>
     /// <remarks>
@@ -8540,6 +8628,23 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = OnSelfWhile,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "As long as you control a creature with power 4 or greater, ~ can attack as though it
+        // didn't have defender" - the wall that unlocks on a board state, and the commonest
+        // spelling of the permission in the corpus. It is emitted beside the keyword grant rather
+        // than folded into it because it is not a keyword: defender stays on the creature
+        // (CR 609.4), and an anthem reading "creatures with defender" has to go on finding it.
+        if (m.Groups["mayattack"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id =
+                    $"while:{card.Name}:{GenerativeEffects.MayAttackDespiteDefenderId()}",
+                Layer = EffectLayer.Ability,
+                Applies = OnSelfWhile,
+                Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
             });
         }
 
@@ -13897,6 +14002,12 @@ public static partial class CardCompiler
         };
     }
 
+    /// <summary>Whether a printed word is a number this compiler can read (CR 107.1).</summary>
+    private static bool IsCardinal(string word) =>
+        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+        || word.ToLowerInvariant() is "one" or "two" or "three" or "four" or "five"
+            or "six" or "seven" or "eight" or "nine" or "ten";
+
     /// <summary>"once" / "twice" / "three times" as a number.</summary>
     private static int NumberWord(string word) => word.ToLowerInvariant() switch
     {
@@ -14235,7 +14346,8 @@ public static partial class CardCompiler
 
     /// <summary>The ability that may ride along with a conditional bonus.</summary>
     private const string BUFF =
-        @"( and (has (?<kw>[a-z ,]+?)|can't (?<cant>attack or block|attack|block|be blocked)))?";
+        @"( and (has (?<kw>[a-z ,]+?)|can't (?<cant>attack or block|attack|block|be blocked)"
+            + @"|(?<mayattack>can attack as though it didn't have defender)))?";
 
     /// <summary>The colour a printed word names, or null if it is not one (CR 105.1).</summary>
     private static ManaColor? ColorNamed(string word) => word.ToLowerInvariant() switch
@@ -14821,11 +14933,14 @@ public static partial class CardCompiler
             + @"|[Aa]s long as (?<cond>[^,]+), "
                 + @"(?<subject>~|it|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) "
                 + @"(gets (an additional )?(?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF
+                + @"|has (?<kw>[a-z ,]+?) and (?<mayattack>can attack as though it didn't have defender)"
                 + @"|has (?<kw>[a-z ,]+)"
+                + @"|(?<mayattack>can attack as though it didn't have defender)"
                 + @"|can't (?<cant>attack or block|attack|block|be blocked))"
             + @"|(?<subject>~|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) "
                 + @"(gets (an additional )?(?<p>[+-]\d+)/(?<tough>[+-]\d+)" + BUFF
                 + @"|has (?<kw>[a-z ,]+?)"
+                + @"|(?<mayattack>can attack as though it didn't have defender)"
                 + @"|can't (?<cant>attack or block|attack|block|be blocked)) "
                 + @"(as long as|if|(?<unless>unless)) (?<cond>[^.]+))\.?$",
         RegexOptions.None)]
@@ -15566,6 +15681,12 @@ public static partial class CardCompiler
     private static partial Regex DoesNotUntapLine();
 
     [GeneratedRegex(
+        @"^(?<who>~|(enchanted|equipped) [A-Za-z]+) can attack as though it didn't have "
+            + @"defender\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MayAttackDespiteDefenderLine();
+
+    [GeneratedRegex(
         @"^As an additional cost to cast (~|this spell|it), (?<cost>.+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditionalCostLine();
@@ -16048,6 +16169,17 @@ public static partial class CardCompiler
         @"^You may look at the top card of your library any time\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ShowTopOfLibraryLine();
 
+    /// <remarks>
+    /// The scope clause is matched rather than skipped: a pattern loose enough to take an
+    /// unrecognised one would read "the chosen player's maximum hand size is four" as the
+    /// controller's, which is the wrong seat on a card whose whole point is choosing a seat.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<whose>your|each opponent's) maximum hand size is "
+            + @"(?<dir>reduced|increased) by (?<n>[a-z]+|\d+)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HandSizeChangeLine();
+
     [GeneratedRegex(@"^you have no maximum hand size\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex NoMaximumHandSizeLine();
 
@@ -16376,6 +16508,9 @@ public sealed record CompiledCard
     /// </summary>
     public bool RemovesHandLimit { get; init; }
 
+    /// <summary>How far this permanent moves a maximum hand size, and whose (CR 402.2).</summary>
+    public HandSizeChange? HandSizeChange { get; init; }
+
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     public ChoiceOnEntry ChoosesOnEntry { get; init; }
 
@@ -16421,6 +16556,7 @@ public sealed record CompiledCard
         || !CostModifiers.IsEmpty
         || ShowsTopOfLibrary
         || RemovesHandLimit
+        || HandSizeChange is not null
         || ChoosesOnEntry != ChoiceOnEntry.None
         || DevourCount > 0
         || AmplifyCount > 0

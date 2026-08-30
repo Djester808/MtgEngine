@@ -16259,6 +16259,9 @@ public sealed class CompiledCardBehaviourTests
 
         public bool RemovesHandLimit(CardDefinition card) => _compiled.RemovesHandLimit(card);
 
+        public HandSizeChange? HandSizeChangeOf(CardDefinition card) =>
+            _compiled.HandSizeChangeOf(card);
+
         public ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => _compiled.ChoosesOnEntry(card);
 
         public int ExtraLandDrops(CardDefinition card) => _compiled.ExtraLandDrops(card);
@@ -47946,6 +47949,394 @@ public sealed class CompiledCardBehaviourTests
         var compiled = CardCompiler.Compile(card);
 
         Assert.Empty(compiled.PlayerQualities);
+        Assert.Contains(line, compiled.Unhandled, StringComparer.Ordinal);
+    }
+
+    // ---- Attacking as though it had no defender (CR 609.4, 702.3b) -----------
+
+    /// <summary>
+    /// Bristlepack Sentry: the permission is switched on and off by the board (CR 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The engine has had <c>MayAttackAsThoughNoDefender</c> and the combat rule that reads it
+    /// since the wall tests were written; nothing in the compiler could produce it, so every card
+    /// in the family sat one line short with the whole of the rest of the card read. It is one
+    /// grammar item across five printed spellings - a static gated by a condition, the same
+    /// static with the condition trailing, a bare static, an activated permission with a pump in
+    /// front of it, and the quoted form an Aura grants - and it is worth more than any row of the
+    /// work queue naming any one of them, because no row could see the other four.
+    /// <para>
+    /// The condition is load-bearing here rather than decoration: the wall is refused, the
+    /// creature the sentence asks for arrives, and the same wall is then allowed. A reader that
+    /// dropped the condition and granted the permission outright would pass every assertion an
+    /// only-allowed test could make.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_wall_attacks_only_while_the_condition_it_names_holds()
+    {
+        var sentry = Card(
+            "Conditional Defender Test",
+            "Defender\nAs long as you control a creature with power 4 or greater, this creature"
+                + " can attack as though it didn't have defender.",
+            CardType.Creature,
+            power: 1,
+            toughness: 4,
+            keywords: KeywordAbility.Defender);
+
+        var compiled = CardCompiler.Compile(sentry);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(alice, sentry, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        // Nothing on the board answers the condition, so the printed keyword still stops it.
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, Pool, game.State.GetObject(wall), alice, bob)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        game.Create(
+            alice, TestCards.Creature("Conditional Defender Ally Test", 4, 4), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(wall), alice, bob));
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [wall] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Mobile Fort: the activated spelling, where the pump and the permission are one sentence.
+    /// </summary>
+    /// <remarks>
+    /// Two effects for one sentence, in two layers: the size change is 7c and the permission is
+    /// not a characteristic change at all (CR 609.4, 613.4c). Reading only the pump leaves a card
+    /// that grows and still cannot attack, which is what every wall of this shape did before.
+    /// <para>
+    /// The turn boundary is asserted because "this turn" is the whole difference between this
+    /// spelling and the static one, and the two share the named effect underneath. An
+    /// until-end-of-turn effect that was quietly permanent would look identical on the turn it
+    /// was activated.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_activated_permission_carries_its_pump_and_ends_with_the_turn()
+    {
+        var fort = Card(
+            "Activated Defender Test",
+            "Defender\n{3}: This creature gets +3/-1 until end of turn and can attack this turn"
+                + " as though it didn't have defender. Activate only once each turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 6,
+            keywords: KeywordAbility.Defender);
+
+        var compiled = CardCompiler.Compile(fort);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(alice, fort, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.AddMana(alice, null, 3);
+        game.ActivateAbility(alice, wall, "a");
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(wall));
+        Assert.Equal(5, computed.Power);
+        Assert.Equal(5, computed.Toughness);
+        Assert.True(computed.MayAttackAsThoughNoDefender);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(wall), alice, bob));
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [wall] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+
+        // And it is gone by the next combat, which is what "this turn" buys over the static.
+        PassTo(game, 5, TurnStep.DeclareAttackers);
+
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, Pool, game.State.GetObject(wall), alice, bob)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The permission is not the removal of the keyword (CR 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The cheapest wrong implementation of this whole family is one line - take defender out of
+    /// the computed keywords - and it passes every assertion about attacking. What it breaks is
+    /// everything <em>else</em> that asks: an anthem keyed to "creatures you control with
+    /// defender" stops finding the creature, and the card silently plays as better than printed
+    /// on exactly the board it was designed for.
+    /// <para>
+    /// So the assertion is the anthem's, not the attack's: the wall still answers yes to having
+    /// defender, and still collects the +0/+2 the enchantment gives creatures that do.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_permission_leaves_defender_on_the_creature()
+    {
+        var rampart = Card(
+            "Permission Keeps Keyword Test",
+            "Defender\nThis creature can attack as though it didn't have defender.",
+            CardType.Creature,
+            power: 3,
+            toughness: 4,
+            keywords: KeywordAbility.Defender);
+
+        var anthem = Card(
+            "Defender Anthem Test",
+            "Creatures you control with defender get +0/+2.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(rampart).IsComplete);
+        Assert.True(CardCompiler.Compile(anthem).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var wall = game.Create(alice, rampart, Zone.Battlefield);
+        game.Create(alice, anthem, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(wall));
+
+        Assert.True(computed.Has(KeywordAbility.Defender));
+        Assert.True(computed.MayAttackAsThoughNoDefender);
+        Assert.Equal(6, computed.Toughness);
+    }
+
+    /// <summary>
+    /// Animate Wall: an Aura's copy of the permission lands on its host, not on itself.
+    /// </summary>
+    /// <remarks>
+    /// The Aura is an enchantment and can never attack, so a reader that put its own effect on
+    /// itself would compile clean, apply cleanly, and do nothing at all - the silent no-op this
+    /// file records against several other attached readers. Nothing here asks what the host's
+    /// printed noun is: what the Aura could legally be attached to was settled when it was cast
+    /// (CR 303.4), and re-testing the word is what stopped an earlier attached reader working on
+    /// anything the sentence did not literally name.
+    /// </remarks>
+    [Fact]
+    public void An_aura_gives_the_permission_to_what_it_enchants()
+    {
+        var animate = Card(
+            "Animate Wall Test",
+            "Enchant Wall\nEnchanted Wall can attack as though it didn't have defender.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(animate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var wall = Card(
+            "Animated Wall Host Test",
+            "Defender",
+            CardType.Creature,
+            power: 2,
+            toughness: 5,
+            keywords: KeywordAbility.Defender,
+            subtypes: "Wall");
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, wall, Zone.Battlefield);
+        var aura = TestCards.PutInHand(game, alice, animate);
+
+        game.CastSpell(alice, aura, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(host), alice, bob));
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [host] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The plural form names a group and stays unread.
+    /// </summary>
+    /// <remarks>
+    /// "Wall creatures can attack as though they didn't have defender" is Rolling Stones, and it
+    /// is a mass static about permanents the source does not own - a different reader entirely,
+    /// with a group phrase to parse and a scope clause that decides whose walls it means.
+    /// Widening the singular pattern to take it would give one creature's permission to a whole
+    /// board, so the plural is left for whoever builds the group form.
+    /// </remarks>
+    [Theory]
+    [InlineData("Wall creatures can attack as though they didn't have defender.")]
+    [InlineData("Modified creatures you control can attack as though they didn't have defender.")]
+    public void The_group_spelling_of_the_permission_is_left_unread(string line)
+    {
+        var card = Card(
+            "Unread Group Permission Test " + line.Length,
+            line,
+            CardType.Enchantment);
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
+    // ---- Moving a maximum hand size (CR 402.2) -------------------------------
+
+    /// <summary>
+    /// Thought Eater and Locust Miser: the delta reaches the seat the sentence names.
+    /// </summary>
+    /// <remarks>
+    /// Two rows of the work queue and one missing word. The engine had asked one question about
+    /// hand size for a long time - "is there a permanent that removes the limit" - and every card
+    /// that <em>moves</em> the limit had nowhere to compile to, however plain its sentence.
+    /// <para>
+    /// Both scopes are on the board at once and the assertion is that they do not cross. This is
+    /// the shape of the 83-card defect this file already records one layer over: a reader that
+    /// defaulted the missing scope to the controller would shrink the wrong hand, and with only
+    /// one of the two cards in play nothing could tell the difference - Alice's hand would be
+    /// short either way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_hand_size_reduction_reaches_only_the_seat_its_sentence_names()
+    {
+        var eater = Card(
+            "Own Hand Size Test",
+            "Your maximum hand size is reduced by three.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var miser = Card(
+            "Opponent Hand Size Test",
+            "Each opponent's maximum hand size is reduced by two.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.True(CardCompiler.Compile(eater).IsComplete);
+        Assert.True(CardCompiler.Compile(miser).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, eater, Zone.Battlefield);
+        game.Create(alice, miser, Zone.Battlefield);
+
+        for (var i = 0; i < 12; i++)
+        {
+            TestCards.PutInHand(game, alice, TestCards.Creature($"Hand Size Alice {i} Test", 1, 1));
+            TestCards.PutInHand(game, bob, TestCards.Creature($"Hand Size Bob {i} Test", 1, 1));
+        }
+
+        // Through Alice's cleanup: seven less the three her own card takes.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(4, game.State.GetPlayer(alice).Hand.Count);
+
+        // And through Bob's: seven less the two the other card takes from opponents, with
+        // Alice's own reduction not reaching him and his not reaching her.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(5, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// The deltas add, and one of them is an increase (CR 402.2).
+    /// </summary>
+    /// <remarks>
+    /// Addition rather than assignment is the whole reason this is a signed number and not a new
+    /// limit: two Misers take four cards between them, and the rules impose no ordering because
+    /// none is needed. Trusted Advisor is the increase, held by the player the reductions are
+    /// aimed at, so the two directions have to meet on one seat and cancel to a number that is
+    /// neither seven nor either card's own answer.
+    /// </remarks>
+    [Fact]
+    public void Hand_size_changes_from_both_sides_add_up()
+    {
+        var miser = Card(
+            "Stacked Hand Size Test",
+            "Each opponent's maximum hand size is reduced by two.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var advisor = Card(
+            "Raised Hand Size Test",
+            "Your maximum hand size is increased by two.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.True(CardCompiler.Compile(advisor).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Two copies of the same card, because that is what stacking means here: the delta is
+        // read off the card and applied once per permanent, not once per distinct card.
+        game.Create(alice, miser, Zone.Battlefield);
+        game.Create(alice, miser, Zone.Battlefield);
+        game.Create(bob, advisor, Zone.Battlefield);
+
+        for (var i = 0; i < 12; i++)
+            TestCards.PutInHand(game, bob, TestCards.Creature($"Stacked Hand {i} Test", 1, 1));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Seven, less two twice, plus his own two.
+        Assert.Equal(5, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// The forms that set a hand size rather than move it stay unread.
+    /// </summary>
+    /// <remarks>
+    /// Recorded as a decline rather than an omission, and measured: every corpus card printing
+    /// "your maximum hand size is eight" is short something else as well, so reading it completes
+    /// nobody - and it is a different question. A delta adds; an assignment is two permanents
+    /// able to disagree, and CR 613's ordering does not reach the argument because a player is
+    /// not an object. "The chosen player's" names a seat chosen as the permanent entered, which
+    /// is a third thing again, and reading it as the controller's would put the reduction on the
+    /// wrong side of the table on a card whose entire point is choosing a side.
+    /// </remarks>
+    [Theory]
+    [InlineData("Your maximum hand size is eight.")]
+    [InlineData("The chosen player's maximum hand size is four.")]
+    [InlineData("Players have no maximum hand size.")]
+    public void A_hand_size_that_is_set_rather_than_moved_is_left_unread(string line)
+    {
+        var card = Card(
+            "Unread Hand Size Test " + line.Length,
+            line,
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.Null(compiled.HandSizeChange);
         Assert.Contains(line, compiled.Unhandled, StringComparer.Ordinal);
     }
 

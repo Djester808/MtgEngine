@@ -4763,6 +4763,17 @@ public static partial class EffectPhrase
             if (selfGranted is { } selfKeywords)
                 effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfKeywords)));
 
+            // "~ gets +3/-1 until end of turn and can attack this turn as though it didn't
+            // have defender" - the wall-animation shape, where the permission is the whole
+            // point and the pump is what it costs. A third effect rather than a flag on the
+            // pump: the permission is not a size change, and it is the same named effect the
+            // static form uses, so both spellings of the card reach one place.
+            if (m.Groups["mayattack"].Success)
+            {
+                effects.Add(new PumpSourceUntilEndOfTurn(
+                    GenerativeEffects.MayAttackDespiteDefenderId()));
+            }
+
             return true;
         }
 
@@ -4901,6 +4912,17 @@ public static partial class EffectPhrase
         {
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.GrantId(KeywordAbility.CantBeBlocked)));
+            return true;
+        }
+
+        // "~ can attack this turn as though it didn't have defender" - a permission written as a
+        // rule rather than as a keyword, and the one the wall cards are printed around. It does
+        // not take defender away (CR 609.4): anything that asks whether the creature has the
+        // keyword still gets yes, and only the attacking rule is told to look past it.
+        if (SelfMayAttackLine().IsMatch(sentence))
+        {
+            effects.Add(new PumpSourceUntilEndOfTurn(
+                GenerativeEffects.MayAttackDespiteDefenderId()));
             return true;
         }
 
@@ -11153,13 +11175,26 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^~ gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
-            + @"( and gains (?<kw>[a-z ,]+?))? until end of turn$",
+            + @"( and gains (?<kw>[a-z ,]+?))? until end of turn"
+            + @"(?<mayattack> and can attack this turn as though it didn't have defender)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PumpSelf();
 
     [GeneratedRegex(
         @"^~ can't be blocked this turn$", RegexOptions.IgnoreCase)]
     private static partial Regex SelfUnblockableLine();
+
+    /// <remarks>
+    /// "This turn" is optional because the same sentence is printed both ways: an activated
+    /// ability says it, a quoted static granted by an Aura does not. Both reach the same
+    /// permission and the duration is carried by the effect around it - an until-end-of-turn
+    /// effect for the first, a permanent one for the second - rather than by the words, which is
+    /// the same split every other grant in this grammar already has.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ can attack( this turn)? as though it didn't have defender$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfMayAttackLine();
 
     [GeneratedRegex(
         @"^enchanted (creature|permanent) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) "

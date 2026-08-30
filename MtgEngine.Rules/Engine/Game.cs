@@ -442,12 +442,45 @@ public sealed class Game
     /// permanent enters or leaves, and a number written into the cleanup step would go on being
     /// seven while the card that says otherwise sat on the battlefield doing nothing.
     /// </remarks>
-    private int? HandLimitFor(Guid playerId) =>
-        State.Battlefield
-            .Select(State.GetObject)
-            .Any(o => ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card))
-            ? null
-            : MaxHandSize;
+    private int? HandLimitFor(Guid playerId)
+    {
+        var permanents = State.Battlefield.Select(State.GetObject).ToList();
+
+        if (permanents.Any(o =>
+            ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card)))
+        {
+            return null;
+        }
+
+        // Every delta on the table, added (CR 402.2). Whose is decided by the *computed*
+        // controller and not the id the object was created with, for the same reason every
+        // other question here goes through ControllerOf: control is layer 2 (CR 613.1b), so a
+        // stolen Gnat Miser shrinks the hand of whoever holds it now and of nobody else.
+        //
+        // One seam is left open here and is the same one the line above it has: the delta is
+        // asked of the *printed* card, so a Clone of Gnat Miser is not a Miser for this purpose
+        // (CR 613.2c). Closing it is one call to Characteristics.CardOf, and it belongs to both
+        // reads at once rather than to this family - fixing one of the pair would leave the
+        // method asking two different questions about the same battlefield.
+        var limit = MaxHandSize;
+        foreach (var permanent in permanents)
+        {
+            if (_abilities.HandSizeChangeOf(permanent.Card) is not { } change)
+                continue;
+
+            var controller = ControllerOf(permanent);
+            var reaches = change.Scope == PlayerScope.You
+                ? controller == playerId
+                : controller != playerId;
+
+            if (reaches)
+                limit += change.Delta;
+        }
+
+        // A hand size cannot go below nothing: a player under three Misers discards to zero and
+        // then stops, rather than owing cards they do not have (CR 402.2, 514.1).
+        return Math.Max(0, limit);
+    }
 
     /// <summary>
     /// Asks a player over their maximum hand size which cards to discard (CR 514.1).

@@ -464,6 +464,23 @@ public static partial class GenerativeEffects
     /// </remarks>
     public static string DoesNotUntapId() => "no-untap";
 
+    /// <summary>
+    /// The id for "can attack as though it didn't have defender" (CR 609.4, 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// A permission rather than the removal of a keyword, which is why it is its own name and
+    /// not <see cref="GrantId"/> of nothing: the creature still <em>has</em> defender, so an
+    /// anthem keyed to "creatures with defender" keeps finding it, and only the one rule the
+    /// permission names is treated as though the keyword were absent. Taking the keyword away
+    /// instead would read the card as better than printed on every board with such an anthem.
+    /// <para>
+    /// No duration in the name. On its own it is permanent, which is what the printed static
+    /// says; the cards that print "this turn" reach it through an until-end-of-turn effect, and
+    /// the ones that print a condition wrap it in a static of their own.
+    /// </para>
+    /// </remarks>
+    public static string MayAttackDespiteDefenderId() => "may-attack";
+
     /// <summary>The id for "becomes the colour of your choice" (CR 613.4d, layer 5).</summary>
     /// <remarks>
     /// Becoming a colour *replaces* what the permanent was, rather than adding to it (CR 202.2b),
@@ -869,6 +886,22 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.MustBeBlockedByAll = true,
+            };
+        }
+
+        if (string.Equals(definitionId, "may-attack", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+
+                // Layer 6 is where the engine keeps every permission of this shape, and an
+                // "as though" effect (CR 609.4) is not a characteristic change at all - it
+                // modifies a rule. The builder flag is the seam, so it rides in the layer that
+                // already carries the rest of what an ability grant does.
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
             };
         }
 

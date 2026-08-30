@@ -294,6 +294,24 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>Whether this permanent removes its controller's hand limit (CR 402.2).</summary>
     bool RemovesHandLimit(CardDefinition card) => false;
 
+    /// <summary>
+    /// How this permanent moves a maximum hand size, and whose (CR 402.2).
+    /// </summary>
+    /// <remarks>
+    /// A number and a scope rather than a number alone, because the printed sentence carries
+    /// both and the two halves are on opposite sides of the table: "your maximum hand size is
+    /// reduced by three" is the controller's, "each opponent's maximum hand size is reduced by
+    /// two" is everybody else's. Defaulting a missing scope to the controller is the defect this
+    /// engine already recorded once over group statics, so the scope is read rather than assumed
+    /// and a sentence naming neither leaves the line unread.
+    /// <para>
+    /// Null rather than zero for "this permanent says nothing about hand size", so the untap
+    /// question can tell a card that has no opinion from one printing a delta of nought - which
+    /// no card does, and which the type should not have to pretend it might.
+    /// </para>
+    /// </remarks>
+    HandSizeChange? HandSizeChangeOf(CardDefinition card) => null;
+
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => ChoiceOnEntry.None;
 
