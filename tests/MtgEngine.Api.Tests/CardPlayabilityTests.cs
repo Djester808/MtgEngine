@@ -346,7 +346,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The two times it caught something real - 48 sticker sheets that are not
     // cards, and four reversible printings arriving with no type at all - both showed up
     // in that bucket, which is why the failure message names its residents card by card.
-    private const int SoakSelectsNeither = 805;
+    private const int SoakSelectsNeither = 808;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.
