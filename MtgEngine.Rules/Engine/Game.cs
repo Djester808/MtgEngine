@@ -1336,6 +1336,20 @@ public sealed class Game
                 $"You cannot pay {alternative.LifeCost} life for {card.Card.Name} (CR 118.8).");
         }
 
+        // The same check for an additional cost that asks for life — "Kicker—Pay 3 life",
+        // "Buyback—Pay 4 life". Both are optional, so this is only owed when the caster said they
+        // would pay it, and it is checked here with the mana rather than charged optimistically
+        // later: a caster who cannot afford it is refused with nothing spent (CR 601.2h).
+        var keywordLife =
+            (kicked ? definition?.KickerLifeCost ?? 0 : 0)
+            + (buyback ? definition?.BuybackLifeCost ?? 0 : 0);
+
+        if (keywordLife > State.GetPlayer(playerId).Life)
+        {
+            throw new InvalidOperationException(
+                $"You cannot pay {keywordLife} life for {card.Card.Name} (CR 118.8).");
+        }
+
         // CR 903.8: {2} more for each previous cast from the command zone — the commander tax.
         // It counts casts from that zone specifically, so a commander cast from hand after being
         // bounced there is not taxed and does not add to the count.
@@ -1686,6 +1700,17 @@ public sealed class Game
             owed = owed.AddRange(giving.Payments);
         }
 
+        // CR 118.3, 702.33a: a kicker's price need not be mana - "Kicker—Sacrifice a land" - and
+        // what it asks for besides mana is paid on the same footing as everything else the cast
+        // pays, so it joins this list rather than needing a channel of its own. Only when the
+        // caster said they would kick: nothing is charged for declining.
+        if (kicked && definition is { KickerPayments.IsEmpty: false } kickerPrice)
+            owed = owed.AddRange(kickerPrice.KickerPayments);
+
+        // CR 118.3, 702.27a: the same for buyback, which is the same kind of additional cost.
+        if (buyback && definition is { BuybackPayments.IsEmpty: false } buybackPrice)
+            owed = owed.AddRange(buybackPrice.BuybackPayments);
+
         // CR 702.194a: teamwork's cost is optional, so it joins the list only when the caster
         // has said they will pay it. Nothing is charged for saying no.
         if (teamwork)
@@ -1849,6 +1874,15 @@ public sealed class Game
         {
             var before = State.GetPlayer(playerId).Life;
             Emit(new LifeChanged(playerId, -fromZone.LifeCost, before - fromZone.LifeCost));
+        }
+
+        // An additional cost paid in life — kicker's or buyback's, or both, since a card could
+        // print each and a caster could take both. Counted once above so the affordability check
+        // and the charge cannot disagree.
+        if (keywordLife > 0)
+        {
+            var before = State.GetPlayer(playerId).Life;
+            Emit(new LifeChanged(playerId, -keywordLife, before - keywordLife));
         }
 
         // The permanent never leaves the battlefield and so never becomes a new object. Losing

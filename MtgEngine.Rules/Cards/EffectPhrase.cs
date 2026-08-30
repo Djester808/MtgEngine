@@ -7840,6 +7840,24 @@ public static partial class EffectPhrase
                 }));
         }
 
+        // Devotion (CR 700.5), spelled out by the compiler into the rule's own words. Like domain
+        // above it counts something *about* the permanents rather than the permanents themselves -
+        // mana symbols among their costs - so the group grammar cannot express it: one permanent
+        // costing {B}{B}{B} is three devotion and three permanents costing {1} are none.
+        //
+        // A count and not only a condition. It had been read in one place, as the "as long as your
+        // devotion to black is less than five" the God cycle prints, and every card asking for the
+        // same number as a *quantity* went unread beside it - "you gain life equal to your devotion
+        // to green", "where X is your devotion to black". Both now ask one reader.
+        var devoted = DevotionSymbolsLine().Match(people);
+        if (devoted.Success)
+        {
+            if (DevotionColours(devoted) is not { } wanted)
+                return null;
+
+            return (state, abilities, you, _) => DevotionTo(state, abilities, you, wanted);
+        }
+
         // "The number of colors among permanents you control" - like domain above, this counts
         // something *about* the permanents rather than the permanents themselves, so the group
         // grammar cannot express it. Colour is read from the computed characteristics, because a
@@ -7978,6 +7996,77 @@ public static partial class EffectPhrase
                 state, abilities, state.GetObject(id), you) != false);
     }
 
+    /// <summary>The colours a devotion phrase names, or null when it names one this cannot read.</summary>
+    /// <remarks>
+    /// Fail closed rather than count nothing: a colour word the table does not know would leave an
+    /// empty list, and an empty list tallies zero on every board while the card compiles as read.
+    /// </remarks>
+    private static List<ManaColor>? DevotionColours(Match devoted)
+    {
+        var colours = new List<ManaColor>();
+
+        foreach (var group in new[] { "c1", "c2" })
+        {
+            var word = devoted.Groups[group].Value;
+            if (word.Length == 0)
+                continue;
+
+            if (ColourNamed(word) is not { } named)
+                return null;
+
+            colours.Add(named);
+        }
+
+        return colours.Count == 0 ? null : colours;
+    }
+
+    /// <summary>
+    /// A player's devotion to one or two colours (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// The one answer to CR 700.5, shared with <see cref="BoardConditions"/> so that the God cycle's
+    /// condition and the cards that ask for the same number as a quantity cannot disagree about it.
+    /// <para>
+    /// Control is computed (CR 613.1b): a permanent an opponent has taken stops counting towards
+    /// your devotion the moment they take it. So is which card the cost is read off — CR 700.5a
+    /// says devotion is worked out <em>after</em> copy, control and text-changing effects, so a
+    /// Clone of something costing {B}{B}{B} is three devotion and a face-down permanent has no
+    /// mana cost at all (CR 708.2) and is none.
+    /// </para>
+    /// <para>
+    /// A hybrid symbol is each of its colours (CR 202.2b), and a two-colour devotion counts a symbol
+    /// that is either of them <em>once</em> — CR 700.5 asks for symbols that are one of the named
+    /// colours, so it is a union and not a sum. Six {W/B} are six devotion to white and black, not
+    /// twelve.
+    /// </para>
+    /// </remarks>
+    internal static int DevotionTo(
+        GameState state, IAbilitySource abilities, Guid you, IReadOnlyList<ManaColor> colours)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(colours);
+
+        var symbols = 0;
+
+        foreach (var id in state.Battlefield)
+        {
+            var permanent = state.GetObject(id);
+
+            if (Characteristics.Of(state, abilities, permanent).ControllerId != you)
+                continue;
+
+            var printed = Characteristics.CardOf(state, abilities, permanent);
+
+            foreach (var symbol in Mana.ManaCostSpec.Parse(printed.ManaCostRaw).Symbols)
+            {
+                if (colours.Any(symbol.Colors.Contains))
+                    symbols++;
+            }
+        }
+
+        return symbols;
+    }
+
     /// <summary>The four creature types a party is made of (CR 700.8).</summary>
     private static readonly string[] PartyRoles = ["Cleric", "Rogue", "Warrior", "Wizard"];
 
@@ -8062,6 +8151,19 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^basic land types? among lands you control$", RegexOptions.IgnoreCase)]
     private static partial Regex DomainPhrase();
+
+    /// <summary>Devotion, in the words CR 700.5 defines it with.</summary>
+    /// <remarks>
+    /// Not the phrase any card prints. Cards say "your devotion to green", and the compiler spells
+    /// that out into this before any matcher sees the line — which is what puts devotion into every
+    /// position that already reads "the number of …" instead of into one verb at a time. The
+    /// alternative was teaching six wrappers a second spelling of the same idea.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<c1>white|blue|black|red|green)( and (?<c2>white|blue|black|red|green))?"
+            + @" mana symbols among the mana costs of permanents you control$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DevotionSymbolsLine();
 
     /// <summary>"Colors among permanents you control" - how many colours, not how many things.</summary>
     /// <remarks>

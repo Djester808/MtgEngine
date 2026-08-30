@@ -378,8 +378,12 @@ public static partial class CardCompiler
         var assist = false;
         ManaCostSpec? escalate = null;
         ManaCostSpec? kicker = null;
+        var kickerPayments = ImmutableList<ChosenCost>.Empty;
+        var kickerLife = 0;
         ChosenCost? bargain = null;
         ManaCostSpec? buyback = null;
+        var buybackPayments = ImmutableList<ChosenCost>.Empty;
+        var buybackLife = 0;
         ManaCostSpec? dash = null;
         ManaCostSpec? evoke = null;
         ConditionalCost? conditionalCost = null;
@@ -1022,7 +1026,7 @@ public static partial class CardCompiler
             if (TryHarmonize(line, ref castFrom))
                 continue;
 
-            if (TryKicker(line, ref kicker))
+            if (TryKicker(line, ref kicker, ref kickerPayments, ref kickerLife))
                 continue;
 
             // CR 702.33b: "Kicker [A] and/or [B]" is two kicker abilities, not one cost — the
@@ -1391,6 +1395,18 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // "Buyback—Sacrifice a land." Kicker's shape one keyword along, and read by the same
+            // price parser: buyback is an additional cost too, so what it asks for joins the cast's
+            // payments rather than replacing the mana cost.
+            if (BuybackCostLine().Match(line) is { Success: true } boughtWith
+                && ReadKeywordCost(boughtWith.Groups["cost"].Value.Trim()) is { } boughtPrice)
+            {
+                buyback = boughtPrice.Mana;
+                buybackPayments = boughtPrice.Chosen;
+                buybackLife = boughtPrice.Life;
+                continue;
+            }
+
             if (ForetellLine().Match(line) is { Success: true } told)
             {
                 foretell = ManaCostSpec.Parse(told.Groups["cost"].Value);
@@ -1690,12 +1706,16 @@ public static partial class CardCompiler
             HasAssist = assist,
             EscalateCost = escalate,
             KickerCost = kicker,
+            KickerPayments = kickerPayments,
+            KickerLifeCost = kickerLife,
             KickerCosts = kickerCosts.ToImmutable(),
             BargainCost = bargain,
             BargainDiscount = bargainDiscount,
             ModesOnFact = factModes,
             ModesFromX = modesFromX,
             BuybackCost = buyback,
+            BuybackPayments = buybackPayments,
+            BuybackLifeCost = buybackLife,
             DashCost = dash,
             BlitzCost = blitz,
             MultikickerCost = multikicker,
@@ -3205,6 +3225,20 @@ public static partial class CardCompiler
             // saying "enters tapped" was. Normalised here for the same reason "this creature"
             // becomes "~": one template should not have to be written twice.
             cleaned = EntersTheBattlefield().Replace(cleaned, "enters");
+
+            // "Your devotion to green" is a number (CR 700.5), and the counting vocabulary reads
+            // numbers written as "the number of …" — so the phrase is spelled out into the rule's
+            // own words here rather than taught to each verb that can carry a count. Six wrappers
+            // hardcode "the number of" between them; one rewrite puts devotion behind all of them
+            // at once, which is what a shared vocabulary is for.
+            //
+            // Only where the phrase is being used as a quantity: "as long as your devotion to red
+            // is less than five" is a *condition*, read whole by BoardConditions, and rewriting it
+            // would take a family that works away from the reader that works on it.
+            cleaned = DevotionAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " the number of " + m.Groups["colours"].Value
+                    + " mana symbols among the mana costs of permanents you control");
 
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
@@ -10335,10 +10369,41 @@ public static partial class CardCompiler
         string line, ImmutableList<ActivatedAbilityDefinition>.Builder into)
     {
         var m = EquipLine().Match(line);
-        if (!m.Success)
-            return false;
+        var narrowed = string.Empty;
+        PaidCost paid;
 
-        var narrowed = m.Groups["what"].Value.Trim();
+        if (m.Success)
+        {
+            narrowed = m.Groups["what"].Value.Trim();
+            paid = new PaidCost(
+                ManaCostSpec.Parse(m.Groups["cost"].Value),
+                RequiresTap: false,
+                SelfCost.None,
+                Life: 0,
+                Chosen: [],
+                Counters: null,
+                Energy: 0);
+        }
+        else
+        {
+            // "Equip—Sacrifice a creature.", "Equip—Pay 3 life." An equip ability is an ordinary
+            // activated ability with a fixed effect, so its price goes through the same cost
+            // reader every other activation cost does and everything that reader knows — life,
+            // energy, counters, a sacrifice, a discard — arrives working.
+            //
+            // A cost paid with the Equipment itself is refused: SelfCost decides which zone an
+            // ability functions from, and an equip ability functions from the battlefield.
+            var priced = EquipCostLine().Match(line);
+            if (!priced.Success
+                || ReadCost(priced.Groups["cost"].Value.Trim()) is not { } read
+                || read.SelfCost is not SelfCost.None)
+            {
+                return false;
+            }
+
+            paid = read;
+        }
+
         var who = EffectPhrase.Specs.TargetCreatureYouControl;
 
         if (narrowed.Length > 0)
@@ -10359,7 +10424,13 @@ public static partial class CardCompiler
                 ? "equip"
                 : "equip-" + narrowed.Replace(' ', '-').ToLowerInvariant(),
             Text = line,
-            ManaCost = ManaCostSpec.Parse(m.Groups["cost"].Value),
+            RequiresTap = paid.RequiresTap,
+            ManaCost = paid.Mana,
+            LifeCost = paid.Life,
+            ChosenCosts = paid.Chosen,
+            CounterCost = paid.Counters,
+            CounterCostIsChosen = paid.CountersChosen,
+            EnergyCost = paid.Energy,
             Targets = [who],
             Effects = [new AttachSourceTo()],
         });
@@ -10899,14 +10970,70 @@ public static partial class CardCompiler
         return EffectPhrase.Specs.Parse("target " + phrase);
     }
 
+    /// <summary>
+    /// A keyword's printed cost when it is not only mana, or null (CR 118.3, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// "Kicker—Sacrifice a land", "Buyback—Discard two cards", "Kicker—{2}{R}, Sacrifice a land".
+    /// A keyword cost may be paid in anything a cost can be made of, and the only thing between
+    /// these cards and the compiler was that a keyword cost was assumed to be mana: every one of
+    /// them completes the moment the price is read.
+    /// <para>
+    /// This is <see cref="ReadCost"/> — the activation-cost reader — pointed at a keyword's price
+    /// rather than at an ability's, so sacrifices, discards, returns, taps, exiles and life all
+    /// arrive already working, and a form neither can read leaves the line unread in both places
+    /// at once.
+    /// </para>
+    /// <para>
+    /// What a spell on the stack has no way to pay is refused rather than dropped: it is not a
+    /// permanent, so it cannot tap, cannot sacrifice or discard itself, and carries no counters,
+    /// and no cast charges energy. Charging nothing instead would make the card strictly cheaper
+    /// than the one printed — a kicker that costs nothing is always kicked.
+    /// </para>
+    /// </remarks>
+    private static PaidCost? ReadKeywordCost(string cost)
+    {
+        if (ReadCost(cost) is not { } paid)
+            return null;
+
+        if (paid.RequiresTap
+            || paid.SelfCost is not SelfCost.None
+            || paid.Counters is not null
+            || paid.Energy > 0)
+        {
+            return null;
+        }
+
+        return paid;
+    }
+
     /// <summary>"Kicker [cost]" — an optional additional cost (CR 702.33a).</summary>
-    private static bool TryKicker(string line, ref ManaCostSpec? into)
+    private static bool TryKicker(
+        string line,
+        ref ManaCostSpec? into,
+        ref ImmutableList<ChosenCost> payments,
+        ref int life)
     {
         var m = KickerLine().Match(line);
-        if (!m.Success)
-            return false;
+        if (m.Success)
+        {
+            into = ManaCostSpec.Parse(m.Groups["cost"].Value);
+            return true;
+        }
 
-        into = ManaCostSpec.Parse(m.Groups["cost"].Value);
+        // "Kicker—Sacrifice a land." The em dash is the printed sign that the price is not only
+        // mana (CR 702.33a's own examples), and it is spelled without spaces around it, which is
+        // what keeps it clear of the ability-word rewrite that eats "Landfall — ".
+        var priced = KickerCostLine().Match(line);
+        if (!priced.Success
+            || ReadKeywordCost(priced.Groups["cost"].Value.Trim()) is not { } paid)
+        {
+            return false;
+        }
+
+        into = paid.Mana;
+        payments = paid.Chosen;
+        life = paid.Life;
         return true;
     }
 
@@ -11284,15 +11411,35 @@ public static partial class CardCompiler
     private static bool TryFlashback(string line, ref AlternativeCastZone? into)
     {
         var m = FlashbackLine().Match(line);
-        if (!m.Success)
+        if (m.Success)
+        {
+            into = new AlternativeCastZone(
+                Zone.Graveyard, ManaCostSpec.Parse(m.Groups["cost"].Value), ExileOnResolve: true)
+            {
+                LifeCost = m.Groups["life"].Success
+                    ? NumberWordOrDigits(m.Groups["life"].Value)
+                    : 0,
+            };
+
+            return true;
+        }
+
+        // "Flashback—Sacrifice a Mountain.", "Flashback—Tap three untapped creatures you control."
+        // The permission has somewhere to put these: `Extra` is charged only on a cast from the
+        // graveyard, which is exactly what a keyword cost is, and retrace's land discard already
+        // rides it. Until this, the em-dash form was admitted only when a mana group followed it,
+        // on the stated grounds that the permission had no way to charge the rest — it has.
+        var priced = FlashbackCostLine().Match(line);
+        if (!priced.Success
+            || ReadKeywordCost(priced.Groups["cost"].Value.Trim()) is not { } paid)
+        {
             return false;
+        }
 
         into = new AlternativeCastZone(
-            Zone.Graveyard, ManaCostSpec.Parse(m.Groups["cost"].Value), ExileOnResolve: true)
+            Zone.Graveyard, paid.Mana, ExileOnResolve: true, Extra: paid.Chosen)
         {
-            LifeCost = m.Groups["life"].Success
-                ? NumberWordOrDigits(m.Groups["life"].Value)
-                : 0,
+            LifeCost = paid.Life,
         };
 
         return true;
@@ -15560,6 +15707,27 @@ public static partial class CardCompiler
     [GeneratedRegex(@"enters the battlefield", RegexOptions.IgnoreCase)]
     private static partial Regex EntersTheBattlefield();
 
+    /// <summary>"Equal to your devotion to green", "where X is your devotion to white and black".</summary>
+    /// <remarks>
+    /// The lead is what says the phrase is being used as a number rather than asked about as a
+    /// condition, and it is the whole safety of the rewrite: every corpus line naming devotion is
+    /// one or the other, and "as long as your devotion to red is less than five" matches neither
+    /// word. "Less than or equal to your devotion to black" ends in the same two words as the
+    /// plain form, so it is caught by the same arm.
+    /// <para>
+    /// Only the one- and two-colour forms. "Your devotion to Abzan", "to hybrid" and "to that
+    /// color" are printed too and stay unread — a rewrite that dropped the colour would compile
+    /// them into a number counting nothing, which is the failure the whole counting vocabulary
+    /// exists to avoid.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) your devotion to "
+            + @"(?<colours>(?:white|blue|black|red|green)"
+            + @"(?: and (?:white|blue|black|red|green))?)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DevotionAsANumber();
+
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.
     /// </summary>
@@ -16047,6 +16215,16 @@ public static partial class CardCompiler
         @"^equip( (?<what>[a-z]+ creature))? (?<cost>(\{[^}]+\})+)$", RegexOptions.IgnoreCase)]
     private static partial Regex EquipLine();
 
+    /// <summary>"Equip—Sacrifice a creature." — an equip cost that is not mana (CR 702.6b).</summary>
+    /// <remarks>
+    /// Anchored whole, so a line carrying a restriction after the price — "Equip—Pay 3 life.
+    /// Activate only once each turn." — does not match at all. Reading the price and dropping the
+    /// restriction would hand the card an equip every turn where it prints one, which is the
+    /// direction this compiler may never be wrong in.
+    /// </remarks>
+    [GeneratedRegex(@"^equip—(?<cost>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex EquipCostLine();
+
     [GeneratedRegex(
         @"^~ enters tapped( unless (?<unless>.+?))?\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex EntersTapped();
@@ -16333,13 +16511,17 @@ public static partial class CardCompiler
     /// <remarks>
     /// The separator is a space or an em dash because the cardboard uses both: Scryfall prints
     /// "Flashback {2}{R}" when the cost is mana alone and "Flashback\u2014{1}{U}, Pay 3 life."
-    /// when it is not. The mana group is still required, so the em dash cannot let in
-    /// "Flashback\u2014Sacrifice a Mountain", whose cost this permission has no way to charge.
+    /// when it is not. The mana group is still required here; a price with no mana in it at all
+    /// goes to <see cref="FlashbackCostLine"/>, which reads the whole of it.
     /// </remarks>
     [GeneratedRegex(
         @"^flashback[ \u2014](?<cost>(\{[^}]+\})+)(, Pay (?<life>\d+) life)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FlashbackLine();
+
+    /// <summary>"Flashback\u2014Sacrifice a Mountain." \u2014 a flashback price that is not mana.</summary>
+    [GeneratedRegex(@"^flashback\u2014(?<cost>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FlashbackCostLine();
 
     /// <summary>"Harmonize {X}{R}{R}" (CR 702.180a).</summary>
     [GeneratedRegex(@"^harmonize (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
@@ -16773,6 +16955,10 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^kicker (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex KickerLine();
 
+    /// <summary>"Kicker—Sacrifice a land." — a price that is not only mana (CR 702.33a).</summary>
+    [GeneratedRegex(@"^Kicker—(?<cost>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex KickerCostLine();
+
     /// <summary>"Kicker {1}{U} and/or {B}" — two kicker abilities on one line (CR 702.33b).</summary>
     [GeneratedRegex(
         @"^kicker (?<a>(\{[^}]+\})+) and/or (?<b>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
@@ -16785,6 +16971,16 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^Buyback (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex BuybackLine();
+
+    /// <summary>"Buyback—Sacrifice a land." — a price that is not only mana (CR 702.27a).</summary>
+    /// <remarks>
+    /// The em dash with no spaces around it is how a keyword introduces a cost it cannot write in
+    /// symbols, and it is also what keeps this clear of the ability-word rewrite, which requires
+    /// spaces. The cost runs to the end of the line rather than to the first full stop: a price
+    /// with two parts is written with a comma, never with a sentence break.
+    /// </remarks>
+    [GeneratedRegex(@"^Buyback—(?<cost>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex BuybackCostLine();
 
     [GeneratedRegex(@"^Dash (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex DashLine();

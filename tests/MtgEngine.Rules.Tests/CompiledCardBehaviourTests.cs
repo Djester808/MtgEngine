@@ -50844,6 +50844,392 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
     }
 
+    // ---- Devotion as a number, and keyword costs that are not mana ------------
+
+    /// <summary>
+    /// "You gain life equal to your devotion to green" is a number, not only a condition (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// Devotion had been read in exactly one place — the God cycle's "as long as your devotion to
+    /// black is less than five" — and every card printed beside those asking for the same number
+    /// as a <em>quantity</em> went unread. It counts mana symbols among the costs of the permanents
+    /// you control, so the three assertions here are the three ways a permanent count would get it
+    /// wrong: three permanents with no green symbol between them are nought devotion, one permanent
+    /// costing {G}{G}{G} is three, and an opponent's green permanent is their devotion and not
+    /// yours (CR 613.1b — control is computed, so it moves when the permanent does).
+    /// </remarks>
+    [Fact]
+    public void Devotion_is_read_as_a_number_and_counts_symbols_not_permanents()
+    {
+        var gift = Card("Devotion Number Test", "You gain life equal to your devotion to green.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var n in new[] { 1, 2, 3 })
+        {
+            game.Create(
+                alice,
+                TestCards.Costed("Devotion Number Peasant " + n, "{1}", 1),
+                Zone.Battlefield);
+        }
+
+        game.Create(
+            alice, TestCards.Costed("Devotion Number Grove", "{G}{G}{G}", 3), Zone.Battlefield);
+
+        game.Create(
+            bob, TestCards.Costed("Devotion Number Rival", "{G}{G}", 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gift));
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Devotion reaches every verb that can carry a count, not one verb at a time.
+    /// </summary>
+    /// <remarks>
+    /// The phrase is spelled out into the counting vocabulary's own wording before any matcher
+    /// sees the line, so each of these reads through the reader it was already going to use — the
+    /// life verb, the "where X is" wrapper, the counter's unless-clause, the draw. Teaching them
+    /// one at a time is the work this avoids, and a test per verb is how it stays avoided: a
+    /// rewrite that only satisfied the first of them would pass a single-card test.
+    /// </remarks>
+    [Theory]
+    [InlineData("You gain life equal to your devotion to green.")]
+    [InlineData("Target creature gets +X/+X until end of turn, where X is your devotion to green.")]
+    [InlineData("Counter target spell unless its controller pays {X}, where X is your devotion to blue.")]
+    [InlineData("You draw X cards and you lose X life, where X is your devotion to black.")]
+    [InlineData("You gain life equal to your devotion to white and black.")]
+    public void A_devotion_count_reads_wherever_a_count_is_written(string line)
+    {
+        var card = Card("Devotion Reach Test " + line.Length, line);
+
+        var compiled = CardCompiler.Compile(card);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// A permanent whose power <em>is</em> its controller's devotion tracks the board (CR 700.5).
+    /// </summary>
+    /// <remarks>
+    /// The other shape the same number is printed in, and the one that has to keep answering: it
+    /// is a characteristic-defining ability, so the power is recomputed every time anything asks,
+    /// and a reader that took the count once when the card was compiled would report the same
+    /// number on an empty board and a full one.
+    /// </remarks>
+    [Fact]
+    public void A_power_defined_by_devotion_recounts_as_the_board_changes()
+    {
+        var nymph = Card(
+            "Devotion Power Test",
+            "~'s power is equal to your devotion to green.",
+            CardType.Creature,
+            power: 0,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(nymph);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var her = game.Create(alice, nymph, Zone.Battlefield);
+        Settle(game);
+
+        int PowerOfHer() =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(her)).Power ?? 0;
+
+        Assert.Equal(0, PowerOfHer());
+
+        game.Create(
+            alice, TestCards.Costed("Devotion Power Grove", "{G}{G}{G}", 3), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, PowerOfHer());
+    }
+
+    /// <summary>A devotion this cannot colour stays unread rather than counting nothing.</summary>
+    /// <remarks>
+    /// "Your devotion to Abzan" is three colours named by a clan, "to hybrid" counts a kind of
+    /// symbol rather than a colour, and "to that color" means one chosen while the spell resolves.
+    /// None of them can be spelled into a colour list, and a rewrite that dropped the word would
+    /// leave a count of nothing behind — which compiles as a complete card and plays as a blank
+    /// one. That is the failure the whole counting vocabulary exists to avoid, so these are
+    /// refused where they are printed.
+    /// </remarks>
+    [Theory]
+    [InlineData("You gain life equal to your devotion to Abzan.")]
+    [InlineData("~ gets +X/+X, where X is your devotion to hybrid.")]
+    [InlineData("Choose a color. You gain life equal to your devotion to that color.")]
+    public void A_devotion_whose_colour_cannot_be_read_stays_unread(string line)
+    {
+        var card = Card("Devotion Refusal Test " + line.Length, line);
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A kicker whose price is a sacrifice is charged, and only when it is taken (CR 702.33a).
+    /// </summary>
+    /// <remarks>
+    /// A keyword cost need not be mana. Every one of these had been assumed to be — the reader
+    /// took a run of mana symbols and nothing else — so the whole family sat one line short with
+    /// the rest of the card already read.
+    /// <para>
+    /// Both arms are asserted because only the pair distinguishes a working payment from no
+    /// payment at all: an unkicked cast must leave the land alone, and a kicked one with nothing
+    /// offered must be refused outright rather than kicked for free (CR 601.2h).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_kicker_paid_by_sacrificing_a_land_charges_only_when_it_is_taken()
+    {
+        var bolt = Card(
+            "Kicker Sacrifice Test",
+            "~ deals 2 damage to any target.\nKicker—Sacrifice a land.\n"
+                + "If this spell was kicked, you gain 3 life.");
+
+        var compiled = CardCompiler.Compile(bolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        // Declining pays nothing: the land stays and the kicked half never happens.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Contains(swamp, game.State.Battlefield);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // CR 601.2h: a cost that cannot be met refuses the whole cast, with nothing spent.
+        var second = TestCards.PutInHand(game, alice, bolt);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(
+            alice, second, [Target.ToPlayer(bob)], variableValue: 0, tapToPay: null, modes: null,
+            kicked: true));
+
+        Assert.Contains(swamp, game.State.Battlefield);
+
+        game.CastSpell(
+            alice, second, [Target.ToPlayer(bob)], variableValue: 0, tapToPay: null, modes: null,
+            kicked: true, costPayment: [swamp]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(swamp, game.State.Battlefield);
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Buyback bought with a discard still buys the card back (CR 702.27a).
+    /// </summary>
+    /// <remarks>
+    /// Buyback is kicker's shape with a different reward, and its price is read by the same cost
+    /// parser — so the discard rides the cast's existing payment list rather than needing a
+    /// channel of its own, and the reward at the end of the resolution is untouched by how the
+    /// cost was paid.
+    /// </remarks>
+    [Fact]
+    public void A_buyback_paid_by_discarding_still_returns_the_spell_to_hand()
+    {
+        var chant = Card(
+            "Buyback Discard Test", "You gain 2 life.\nBuyback—Discard two cards.");
+
+        var compiled = CardCompiler.Compile(chant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var spell = TestCards.PutInHand(game, alice, chant);
+        var fodder = new[] { 1, 2 }
+            .Select(n => TestCards.PutInHand(
+                game, alice, TestCards.Creature("Buyback Discard Fodder " + n)))
+            .ToList();
+
+        game.CastSpell(
+            alice, spell, targets: null, variableValue: 0, tapToPay: null, modes: null,
+            kicked: false, costPayment: fodder, faceDown: false, delve: null, buyback: true);
+
+        Settle(game);
+
+        // Asserted by name rather than by id, because a card that changes zone becomes a new
+        // object (CR 400.7) — both the discarded pair and the spell coming back.
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(
+            2,
+            game.State.GetPlayer(alice).Graveyard.Count(
+                id => game.State.GetObject(id).Card.Name.StartsWith(
+                    "Buyback Discard Fodder", StringComparison.Ordinal)));
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Buyback Discard Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name.StartsWith(
+                "Buyback Discard Fodder", StringComparison.Ordinal));
+    }
+
+    /// <summary>A keyword cost paid in life is charged with the rest of it (CR 118.8).</summary>
+    /// <remarks>
+    /// Life is neither mana nor a card, so it has nowhere to go but its own field — and it is
+    /// checked before anything is spent for the same reason the mana is (CR 601.2h). Nothing is
+    /// charged for declining, which is the second assertion.
+    /// </remarks>
+    [Fact]
+    public void A_keyword_cost_paid_in_life_is_charged_only_when_the_offer_is_taken()
+    {
+        var bolt = Card(
+            "Kicker Life Test",
+            "~ deals 2 damage to any target.\nKicker—Pay 3 life.\n"
+                + "If this spell was kicked, you gain 1 life.");
+
+        var compiled = CardCompiler.Compile(bolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(bob)],
+            variableValue: 0, tapToPay: null, modes: null, kicked: true);
+
+        Settle(game);
+
+        // Three paid, one gained back by the clause that only happens when it was kicked.
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>An equip cost that is not mana is charged as the ability is activated.</summary>
+    /// <remarks>
+    /// Equip is an ordinary activated ability with a fixed effect, so its price goes through the
+    /// same cost reader every other activation cost does — and the payment travels <em>with</em>
+    /// the activation, because a suspended cost payment would be a continuation and a folded log
+    /// cannot rebuild one.
+    /// </remarks>
+    [Fact]
+    public void An_equip_cost_that_is_not_mana_is_charged()
+    {
+        var blade = Card(
+            "Equip Sacrifice Test",
+            "Equipped creature gets +2/+2.\nEquip—Sacrifice a creature.",
+            CardType.Artifact,
+            null,
+            null,
+            KeywordAbility.None,
+            "Equipment");
+
+        var compiled = CardCompiler.Compile(blade);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var equipment = game.Create(alice, blade, Zone.Battlefield);
+        var bearer = game.Create(
+            alice, TestCards.Creature("Equip Sacrifice Bearer"), Zone.Battlefield);
+        var offering = game.Create(
+            alice, TestCards.Creature("Equip Sacrifice Offering"), Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, equipment, "equip", [Target.ToPermanent(bearer)], costPayment: [offering]);
+
+        Settle(game);
+
+        Assert.DoesNotContain(offering, game.State.Battlefield);
+        Assert.Equal(
+            4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bearer)));
+    }
+
+    /// <summary>
+    /// A flashback cost that is not mana is charged for the cast from the graveyard (CR 702.34a).
+    /// </summary>
+    /// <remarks>
+    /// The permission already had somewhere to put this — retrace's land discard rides the same
+    /// list — and what makes it the zone's cost rather than the spell's is that the same card cast
+    /// from hand pays nothing extra. The exile on the way out is untouched by how it was paid.
+    /// </remarks>
+    [Fact]
+    public void A_flashback_cost_that_is_not_mana_is_charged()
+    {
+        var rite = Card(
+            "Flashback Sacrifice Test",
+            "You gain 3 life.\nFlashback—Sacrifice a creature.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = game.Create(alice, rite, Zone.Graveyard);
+        var offering = game.Create(
+            alice, TestCards.Creature("Flashback Sacrifice Offering"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, card, targets: null, variableValue: 0, tapToPay: null, modes: null,
+            kicked: false, costPayment: [offering]);
+
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.DoesNotContain(offering, game.State.Battlefield);
+
+        // CR 702.34a: exiled on the way out, so it cannot be cast a second time. By name,
+        // because the card became a new object when it left the graveyard (CR 400.7).
+        Assert.Contains(
+            game.State.Exile,
+            id => game.State.GetObject(id).Card.Name == "Flashback Sacrifice Test");
+    }
+
+    /// <summary>A keyword cost this cannot charge leaves the line unread.</summary>
+    /// <remarks>
+    /// Fail closed, and the direction matters: a keyword whose price was read as nothing is
+    /// strictly better than the card printed, because an additional cost of nothing is always
+    /// worth paying. "Forage" is a keyword action this compiler does not know; "X cards" is a
+    /// number chosen as the spell is cast and the cost reader deliberately admits no X, because
+    /// the word reader beside it answers one to anything it does not recognise.
+    /// </remarks>
+    [Theory]
+    [InlineData("Kicker—Forage.")]
+    [InlineData("Buyback—Discard X cards.")]
+    [InlineData("Kicker—Remove a charge counter from ~.")]
+    public void A_keyword_cost_this_cannot_charge_stays_unread(string line)
+    {
+        var card = Card("Keyword Cost Refusal Test " + line.Length, "You gain 2 life.\n" + line);
+
+        Assert.Contains(line, CardCompiler.Compile(card).Unhandled, StringComparer.Ordinal);
+    }
+
+    /// <summary>An equip cost printed with a restriction behind it stays unread.</summary>
+    /// <remarks>
+    /// "Equip—Pay 3 life. Activate only once each turn." is one line carrying two things, and the
+    /// price is the easy half. Reading it and dropping the restriction would hand the card an
+    /// equip every turn where it prints one — better than printed, which is the one direction
+    /// this compiler may not be wrong in — so the whole line is refused instead.
+    /// </remarks>
+    [Fact]
+    public void An_equip_cost_with_a_restriction_behind_it_stays_unread()
+    {
+        var line = "Equip—Pay 3 life. Activate only once each turn.";
+
+        var blade = Card(
+            "Equip Restriction Refusal Test",
+            "Equipped creature gets +1/+1.\n" + line,
+            CardType.Artifact,
+            null,
+            null,
+            KeywordAbility.None,
+            "Equipment");
+
+        Assert.Contains(line, CardCompiler.Compile(blade).Unhandled, StringComparer.Ordinal);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

@@ -140,6 +140,19 @@ public sealed record SpellDefinition
     public ManaCostSpec? BuybackCost { get; init; }
 
     /// <summary>
+    /// What buying this back asks for besides mana (CR 118.3, 702.27a).
+    /// </summary>
+    /// <remarks>
+    /// "Buyback—Sacrifice a land", "Buyback—Discard two cards". The same pair of fields kicker
+    /// carries, for the same reason: buyback's price is an additional cost like kicker's, and the
+    /// only thing that had ever been read of either was the mana.
+    /// </remarks>
+    public ImmutableList<ChosenCost> BuybackPayments { get; init; } = [];
+
+    /// <summary>Life buying this back costs (CR 118.8) — "Buyback—Pay 4 life".</summary>
+    public int BuybackLifeCost { get; init; }
+
+    /// <summary>
     /// What casting this costs instead of its mana cost, in exchange for losing it (CR 702.74a).
     /// </summary>
     public ManaCostSpec? EvokeCost { get; init; }
@@ -571,6 +584,25 @@ public sealed record SpellDefinition
     /// casting (CR 601.2b), so the player decides before committing.
     /// </remarks>
     public ManaCostSpec? KickerCost { get; init; }
+
+    /// <summary>
+    /// What kicking this asks for besides mana (CR 118.3, 702.33a).
+    /// </summary>
+    /// <remarks>
+    /// "Kicker—Sacrifice a land", "Kicker—Return a creature you control to its owner's hand". A
+    /// keyword cost may be paid in anything a cost can be made of, and this pair of fields is the
+    /// whole of the difference between reading those cards and assuming every kicker is mana.
+    /// <para>
+    /// Beside <see cref="KickerCost"/> rather than replacing it, because the two halves are
+    /// printed together as often as apart — "Kicker—{2}{R}, Sacrifice a land" is one price with a
+    /// mana part and a chosen part — and because everything that already reads the mana half, the
+    /// board's cost preview included, keeps working unchanged.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<ChosenCost> KickerPayments { get; init; } = [];
+
+    /// <summary>Life kicking this costs (CR 118.8) — "Kicker—Pay 3 life".</summary>
+    public int KickerLifeCost { get; init; }
 
     /// <summary>
     /// The two optional kicker prices an "and/or" card offers, in printed order (CR 702.33b).
