@@ -356,6 +356,7 @@ public static partial class CardCompiler
         var modalTriggerAt = -1;
         ManaCostSpec? entwine = null;
         ManaCostSpec? splice = null;
+        var spliceOnto = "Arcane";
         ManaCostSpec? squad = null;
         var costModifiers = ImmutableList.CreateBuilder<CostModifier>();
         var showsTop = false;
@@ -473,9 +474,6 @@ public static partial class CardCompiler
             if (paired.Contains(line))
                 continue;
 
-            // CR 702.47a: only "onto Arcane" is read. Splice onto a quality the engine cannot
-            // test would compile to a permission it could not check, and every printing but one
-            // says Arcane.
             if (AssistLine().IsMatch(line))
             {
                 assist = true;
@@ -488,9 +486,15 @@ public static partial class CardCompiler
                 continue;
             }
 
-            if (SpliceLine().Match(line) is { Success: true } spliced)
+            // CR 702.47a: the keyword names the spells it splices onto, and two of the three
+            // printed qualities are readable - "Arcane" is a subtype and "instant or sorcery" is
+            // two card types. A quality the filter vocabulary cannot test leaves the line unread,
+            // because a permission the engine could not check is worse than an unread card.
+            if (SpliceLine().Match(line) is { Success: true } spliced
+                && SpliceOntoFilter(spliced.Groups["onto"].Value.Trim()) is { } onto)
             {
                 splice = ManaCostSpec.Parse(spliced.Groups["cost"].Value);
+                spliceOnto = onto;
                 continue;
             }
 
@@ -1317,6 +1321,61 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // "Freerunning-Return a blue creature you control to its owner's hand." The em dash
+            // is the printed sign that the price is not only mana, exactly as it is for kicker
+            // and flashback, and an alternative cost has had somewhere to put a chosen payment
+            // since emerge - so the whole of it goes through the shared reader.
+            if (FreerunningCostLine().Match(line) is { Success: true } paidFreerunning
+                && ReadKeywordCost(paidFreerunning.Groups["cost"].Value.Trim()) is { } freeRun)
+            {
+                conditionalCost = new ConditionalCost(
+                    "freerunning",
+                    "CR 702.173a",
+                    freeRun.Mana,
+                    static (state, playerId) =>
+                        state.GetPlayer(playerId).AssassinOrCommanderConnectedThisTurn)
+                {
+                    Payments = freeRun.Chosen,
+                    LifeCost = freeRun.Life,
+                };
+
+                continue;
+            }
+
+            // CR 702.188a: web-slinging is emerge's shape with a fixed price and no discount -
+            // "you may cast this by paying [cost] and returning a tapped creature you control to
+            // its owner's hand rather than paying its mana cost". The creature is not named by
+            // the card, so the payment is written here rather than read off the line; the line
+            // itself carries only the mana.
+            if (WebSlingingLine().Match(line) is { Success: true } slinging
+                && EffectPhrase.Specs.Parse("target tapped creature you control")
+                    is { Kind: TargetKind.Permanent } swinging)
+            {
+                conditionalCost = new ConditionalCost(
+                    "web-slinging",
+                    "CR 702.188a",
+                    ManaCostSpec.Parse(slinging.Groups["cost"].Value),
+
+                    // No board question of its own, for the same reason emerge has none: what
+                    // gates the offer is whether there is a tapped creature to give up, and the
+                    // cost payment refuses that on its own terms.
+                    static (_, _) => true)
+                {
+                    Payments =
+                    [
+                        new ChosenCost(
+                            ChosenCostKind.ReturnToHand,
+                            Count: 1,
+                            What: swinging with
+                            {
+                                Description = "a tapped creature you control",
+                            }),
+                    ],
+                };
+
+                continue;
+            }
+
             // CR 702.119a: emerge is two static abilities in one word - an alternative cost paid
             // with mana *and* a creature, and a reduction of that cost by what the creature was
             // worth. Both halves ride the one offer: an emerge that charged the mana and not the
@@ -1712,6 +1771,7 @@ public static partial class CardCompiler
             ExtraModes = extraModes,
             EntwineCost = entwine,
             SpliceCost = splice,
+            SpliceOnto = spliceOnto,
             SquadCost = squad,
             HasAssist = assist,
             EscalateCost = escalate,
@@ -3617,6 +3677,14 @@ public static partial class CardCompiler
     /// printed together constantly. That is why "counter it" is its own effect rather than the
     /// ordinary counter-target-spell.
     /// </para>
+    /// <para>
+    /// The price goes through <see cref="OfferedCost"/>, which is <see cref="ReadCost"/> — the
+    /// same reader kicker, buyback, equip and flashback use. Ward had grown its own three-shape
+    /// vocabulary (mana, "pay N life", "discard/sacrifice a &lt;noun&gt;") and it was the smaller
+    /// one: "Ward—{2}, Pay 3 life", "Ward—Sacrifice two permanents", "Ward—Sacrifice a permanent
+    /// with mana value 1 or greater" and "Ward—Discard an enchantment, instant, or sorcery card"
+    /// were all shapes the shared reader already knew and this one did not.
+    /// </para>
     /// </remarks>
     private static bool TryWard(
         string line, ImmutableList<TriggeredAbilityDefinition>.Builder into, CardDefinition card)
@@ -3625,60 +3693,19 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        // "Ward-Pay 3 life" is the same ability with a different currency, and the offer already
-        // knows how to charge life. "Ward-Discard a card" and "Ward-Sacrifice a creature" are
-        // the third currency: a card or a permanent chosen by the player being taxed. The offer
-        // could not ask for one until the engine learned chosen costs, which is why this line
-        // was read as three shapes rather than one.
-        var wardLife = m.Groups["life"].Success
-            ? int.Parse(m.Groups["life"].Value, CultureInfo.InvariantCulture)
-            : 0;
-
-        // The noun goes through the shared filter vocabulary, so "a creature" and "a permanent
-        // with mana value 3 or greater" are one question asked of the same table every search and
-        // every other chosen cost asks. A noun it does not know leaves the line unread rather
-        // than taxing the opponent a card of any kind - which would be a harder ward than the one
-        // printed, and on the wrong player's cards.
-        ChosenCostKind? wardKind = null;
-        var wardFilter = SearchFilters.AnyCard;
-
-        if (m.Groups["verb"].Success)
-        {
-            var noun = m.Groups["what"].Value.Trim();
-
-            // "Discard a card" names no type at all, which the noun table reads as a word it does
-            // not know rather than as "any". Answered here, where the difference is visible.
-            if (noun.Length > 0)
-            {
-                if (EffectPhrase.SearchFilterFor(noun) is not { } named)
-                    return false;
-
-                wardFilter = named;
-            }
-
-            wardKind = m.Groups["verb"].Value.StartsWith(
-                "discard", StringComparison.OrdinalIgnoreCase)
-                ? ChosenCostKind.DiscardCards
-                : ChosenCostKind.SacrificePermanents;
-        }
-
-        var cost = wardLife > 0 || wardKind is not null
-            ? ManaCostSpec.Parse(string.Empty)
-            : ManaCostSpec.Parse(m.Groups["cost"].Value);
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (mana, life, chosen))
+            return false;
 
         into.Add(WardTrigger(
             "ward",
             $"Whenever {card.Name} becomes the target of a spell or ability an opponent "
-                + "controls, counter it unless that player "
-                + (wardKind is not null
-                    ? $"{m.Groups["verb"].Value.ToLowerInvariant()}s a {wardFilter}."
-                    : wardLife > 0
-                        ? $"pays {wardLife} life."
-                        : $"pays {m.Groups["cost"].Value}."),
-            cost,
-            wardLife,
-            wardKind,
-            wardFilter));
+                + $"controls, counter it unless that player pays "
+                + $"{AsPrice(m.Groups["cost"].Value.Trim())}.",
+            mana,
+            life,
+            chosen?.Kind,
+            chosen?.Count ?? 1,
+            chosen?.What));
 
         return true;
     }
@@ -3698,9 +3725,10 @@ public static partial class CardCompiler
         string id,
         string text,
         ManaCostSpec cost,
-        int life,
-        ChosenCostKind? kind,
-        string filter)
+        int life = 0,
+        ChosenCostKind? kind = null,
+        int count = 1,
+        TargetSpec? what = null)
     {
         // CR 702.21a: only an opponent's spell taxes. Your own targeting is free, which is what
         // makes ward a defensive ability rather than a drawback. For a granted ward the source
@@ -3727,7 +3755,8 @@ public static partial class CardCompiler
                     AskSubjectPlayer: true,
                     LifeCost: life,
                     ChosenKind: kind,
-                    ChosenFilterId: filter),
+                    ChosenCount: count,
+                    ChosenWhat: what),
             ],
         };
     }
@@ -6379,6 +6408,12 @@ public static partial class CardCompiler
     /// <summary>
     /// "Echo [cost]" — pay again on your next upkeep or lose it (CR 702.29a).
     /// </summary>
+    /// <remarks>
+    /// The price is whatever a cost can be made of, not only mana: "Echo—Discard a card" and
+    /// "Echo—Sacrifice two lands" are the same keyword with the same timing, and they go through
+    /// the same <see cref="OfferedCost"/> ward and cumulative upkeep use. Nothing about the
+    /// trigger changes with the currency, which is why one reader covers both printings.
+    /// </remarks>
     private static bool TryEcho(
         string line,
         CardDefinition card,
@@ -6389,7 +6424,8 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        var cost = ManaCostSpec.Parse(m.Groups["cost"].Value);
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (cost, life, chosen))
+            return false;
 
         replacements.Add(new ReplacementEffectDefinition
         {
@@ -6412,7 +6448,7 @@ public static partial class CardCompiler
             Id = "echo",
             Text = $"At the beginning of your upkeep, if {card.Name} came under your control "
                 + $"since the beginning of your last upkeep, sacrifice it unless you pay "
-                + $"{m.Groups["cost"].Value}.",
+                + $"{AsPrice(m.Groups["cost"].Value.Trim())}.",
 
             // CR 603.4: the intervening if. It is asked of the counter, which is only there for a
             // permanent that has not yet seen one of its controller's upkeeps.
@@ -6425,7 +6461,15 @@ public static partial class CardCompiler
                 // Taken off first, so the payment cannot be asked twice for one arrival even if
                 // something responds to the trigger.
                 new PutCountersOnSource(EchoCounter, -1),
-                new MayPay(cost, IfYouDo: [], IfYouDont: [new SacrificeSource()], EffectIndex: 1),
+                new MayPay(
+                    cost,
+                    IfYouDo: [],
+                    IfYouDont: [new SacrificeSource()],
+                    EffectIndex: 1,
+                    LifeCost: life,
+                    ChosenKind: chosen?.Kind,
+                    ChosenCount: chosen?.Count ?? 1,
+                    ChosenWhat: chosen?.What),
             ],
         });
 
@@ -8208,10 +8252,7 @@ public static partial class CardCompiler
                 "granted-ward:" + tax,
                 "Whenever this permanent becomes the target of a spell or ability an opponent "
                     + $"controls, counter it unless that player pays {tax}.",
-                ManaCostSpec.Parse(tax),
-                life: 0,
-                kind: null,
-                SearchFilters.AnyCard);
+                ManaCostSpec.Parse(tax));
 
             into.Add(new ContinuousEffectDefinition
             {
@@ -10183,10 +10224,7 @@ public static partial class CardCompiler
                 "granted:" + card.Name + ":ward",
                 "Whenever this permanent becomes the target of a spell or ability an opponent "
                     + $"controls, counter it unless that player pays {wardTax}.",
-                ManaCostSpec.Parse(wardTax),
-                life: 0,
-                kind: null,
-                SearchFilters.AnyCard);
+                ManaCostSpec.Parse(wardTax));
 
             into.Add(new ContinuousEffectDefinition
             {
@@ -11160,6 +11198,78 @@ public static partial class CardCompiler
         return paid;
     }
 
+    /// <summary>
+    /// A keyword's printed price as an <em>offer</em> the player may decline, or null (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="ReadKeywordCost"/>. Kicker, buyback, equip and flashback take
+    /// a price as part of an action the player is taking, so they get the whole
+    /// <see cref="PaidCost"/>; ward, echo and cumulative upkeep charge theirs through a
+    /// <see cref="MayPay"/>, which asks one question and takes one answer. So the price has to
+    /// fit in one question, and this is where that is decided rather than in three readers.
+    /// <para>
+    /// <b>Everything it cannot ask as one question is refused.</b> Two chosen costs would be two
+    /// picks (<c>Ward—{2}, Sacrifice a creature</c> is fine; two selections are not), and a kind
+    /// the offer cannot take payment in — exiling from a graveyard, discarding at random, tapping
+    /// — would be silently declined at the table, which reads as a free ward and a free upkeep.
+    /// Leaving the line unread is the direction that costs nothing.
+    /// </para>
+    /// </remarks>
+    private static (ManaCostSpec Mana, int Life, ChosenCost? Chosen)? OfferedCost(string cost)
+    {
+        if (ReadKeywordCost(cost) is not { } paid || paid.Chosen.Count > 1)
+            return null;
+
+        if (paid.Chosen.Count == 0)
+            return (paid.Mana, paid.Life, null);
+
+        var chosen = paid.Chosen[0];
+
+        // The three kinds Game.PayableFor can offer and Game.TakeChosenPayment can move. A kind
+        // outside them is not a cheaper offer, it is an unpayable one - so the card keeps its
+        // line unread rather than compiling into an ability nobody is ever charged for.
+        if (chosen.Kind is not (ChosenCostKind.SacrificePermanents
+            or ChosenCostKind.DiscardCards
+            or ChosenCostKind.ReturnToHand))
+        {
+            return null;
+        }
+
+        // "Sacrifice another creature" excludes the source, and an offer has nowhere to say so:
+        // the payer is not always the permanent's controller (ward taxes an opponent), so the
+        // exclusion cannot even be re-derived. Refused rather than widened.
+        return chosen.ExcludesSource || chosen.MinTotalPower > 0
+            ? null
+            : (paid.Mana, paid.Life, chosen);
+    }
+
+    /// <summary>
+    /// Which spells a splice keyword names, as a filter id, or null for one it does not
+    /// (CR 702.47a).
+    /// </summary>
+    /// <remarks>
+    /// Two of the three printed qualities are things the shared filter vocabulary already knows:
+    /// "Arcane" is a subtype and "instant or sorcery" is a union of two card types. The third,
+    /// "Anything", is a joke card's word for no restriction at all and is left unread - the
+    /// permission it asks for is not one the rest of the card could survive anyway.
+    /// </remarks>
+    private static string? SpliceOntoFilter(string onto) => onto.ToLowerInvariant() switch
+    {
+        "arcane" => "Arcane",
+        "instant or sorcery" => "instant|sorcery",
+        _ => null,
+    };
+
+    /// <summary>How a keyword's printed price reads inside a sentence about paying it.</summary>
+    /// <remarks>
+    /// "pays {2}" is a sentence; "pays Sacrifice two permanents" is not. The ability text is what
+    /// the log and the board show, and a price that is a whole instruction is set off in brackets
+    /// rather than jammed into the verb - which also keeps the printed words exactly as printed,
+    /// so a reader can check the ability against the card.
+    /// </remarks>
+    private static string AsPrice(string printed) =>
+        PayableCost().IsMatch(printed) ? printed : $"its printed cost ({printed})";
+
     /// <summary>"Kicker [cost]" — an optional additional cost (CR 702.33a).</summary>
     private static bool TryKicker(
         string line,
@@ -12039,6 +12149,15 @@ public static partial class CardCompiler
     /// gives and also the only order that works: on the first upkeep there would otherwise be no
     /// counters and the tax would be free.
     /// </para>
+    /// <para>
+    /// The price is not always mana. "Cumulative upkeep-Pay 1 life", "-Discard a card" and
+    /// "-Sacrifice a land" are the same keyword charging a different currency, and they read
+    /// through the same <see cref="OfferedCost"/> ward and echo use. What they needed that those
+    /// two did not is the <em>count</em>: mana repeats itself as text, and one land is one land
+    /// however many age counters are on the permanent, so the multiplier travels on the event
+    /// (<see cref="Events.OptionalPaymentRequested.Times"/>) and the engine multiplies as it asks.
+    /// Without that the mechanic is not the mechanic - a tax that never grows is just a tax.
+    /// </para>
     /// </remarks>
     private static bool TryCumulativeUpkeep(
         string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
@@ -12057,29 +12176,40 @@ public static partial class CardCompiler
         // repeating {W/U} means. Only the plain coloured pair folds - anything else with an "or"
         // in it leaves the line unread rather than being guessed at.
         var printed = m.Groups["cost"].Success
-            ? m.Groups["cost"].Value
+            ? m.Groups["cost"].Value.Trim()
             : $"{m.Groups["a"].Value} or {m.Groups["b"].Value}";
 
-        var charged = m.Groups["cost"].Success
-            ? m.Groups["cost"].Value
-            : $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}";
+        var priced = m.Groups["cost"].Success
+            ? OfferedCost(printed)
+            : (ManaCostSpec.Parse(
+                $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}"),
+                0,
+                (ChosenCost?)null);
+
+        if (priced is not var (charged, life, chosen))
+            return false;
 
         into.Add(new TriggeredAbilityDefinition
         {
             Id = "cumulative-upkeep",
             Text = $"At the beginning of your upkeep, put an age counter on {card.Name}, then "
-                + $"sacrifice it unless you pay {printed} for each age counter "
+                + $"sacrifice it unless you pay "
+                + $"{(m.Groups["cost"].Success ? AsPrice(printed) : printed)} for each age counter "
                 + $"on it.",
             Triggers = atUpkeep,
             Effects =
             [
                 new PutCountersOnSource(AgeCounter, 1),
                 new MayPay(
-                    ManaCostSpec.Parse(charged),
+                    charged,
                     IfYouDo: [],
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
-                    TimesCounter: AgeCounter),
+                    TimesCounter: AgeCounter,
+                    LifeCost: life,
+                    ChosenKind: chosen?.Kind,
+                    ChosenCount: chosen?.Count ?? 1,
+                    ChosenWhat: chosen?.What),
             ],
         });
 
@@ -16706,7 +16836,7 @@ public static partial class CardCompiler
     private const string CountWords = "one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+";
 
     [GeneratedRegex(
-        @",?\s*sacrifice (?<scope>another|an?|" + CountWords + @")\s+(?<what>[a-z ]+?)\s*(,|$)",
+        @",?\s*sacrifice (?<scope>another|an?|" + CountWords + @")\s+(?<what>[a-z0-9 ]+?)\s*(,|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex SacrificeChosenCost();
 
@@ -16884,16 +17014,27 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^[A-Z][A-Za-z' !]{2,24}[—―-] ")]
     private static partial Regex ChapterFlavourWord();
 
-    [GeneratedRegex(
-        @"^Ward([ —―-]|—)((?<cost>(\{[^}]+\})+)|[Pp]ay (?<life>\d+) life"
-            + @"|(?<verb>[Dd]iscard|[Ss]acrifice) an? (?<what>[A-Za-z' ]*?)\s*(cards?)?)\.?$",
-        RegexOptions.IgnoreCase)]
+    /// <summary>"Ward {2}", "Ward—Sacrifice two permanents." — a tax of any shape (CR 702.21a).</summary>
+    /// <remarks>
+    /// The price is taken whole and handed to the shared cost reader rather than being spelled
+    /// out here. It used to be three alternations — mana, "pay N life", "discard/sacrifice a
+    /// &lt;noun&gt;" — which is a private copy of a vocabulary that lives next door, and it was
+    /// missing every combination ("{2}, Pay 3 life"), every count ("Sacrifice two permanents")
+    /// and every comma'd noun ("Discard an enchantment, instant, or sorcery card"). A price the
+    /// shared reader cannot read now leaves the line unread, exactly as it did before.
+    /// </remarks>
+    [GeneratedRegex(@"^Ward[ —―-](?<cost>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex WardLine();
 
     [GeneratedRegex(@"^Bloodthirst (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex BloodthirstLine();
 
-    [GeneratedRegex(@"^Echo (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    /// <summary>"Echo {2}{R}", "Echo—Discard a card." (CR 702.29a).</summary>
+    /// <remarks>
+    /// The em dash is the printed sign that the price is not only mana, exactly as it is for
+    /// kicker and flashback, and the price is taken whole for the shared reader to read.
+    /// </remarks>
+    [GeneratedRegex(@"^Echo[ —](?<cost>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex EchoLine();
 
     [GeneratedRegex(@"^Fading (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
@@ -17371,9 +17512,14 @@ public static partial class CardCompiler
     /// otherwise match the first symbol and leave " or {U}" behind. What it means is a hybrid
     /// symbol (CR 107.4e): "cumulative upkeep {W} or {U}" charges a choice of two colours once per
     /// age counter, which is exactly what one {W/U} charged once per counter is.
+    /// <para>
+    /// Anything else is taken whole as the printed price, separator and all - Scryfall writes an
+    /// em dash when the cost is not only mana, the same sign kicker and flashback use - and handed
+    /// to the shared cost reader, which refuses what it cannot charge.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^Cumulative upkeep ((?<a>\{[WUBRG]\}) or (?<b>\{[WUBRG]\})|(?<cost>(\{[^}]+\})+))\.?$",
+        @"^Cumulative upkeep[ —]((?<a>\{[WUBRG]\}) or (?<b>\{[WUBRG]\})|(?<cost>.+?))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CumulativeUpkeepLine();
 
@@ -17449,7 +17595,7 @@ public static partial class CardCompiler
     private static partial Regex EntwineLine();
 
     [GeneratedRegex(
-        @"^Splice onto Arcane (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+        @"^Splice onto (?<onto>.+?) (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex SpliceLine();
 
     [GeneratedRegex(@"^Squad (?<cost>(\{[^}]+\})+)[.]?$", RegexOptions.IgnoreCase)]
@@ -17476,6 +17622,14 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^Freerunning (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex FreerunningLine();
+
+    /// <summary>"Freerunning-Return a blue creature you control to its owner's hand."</summary>
+    [GeneratedRegex(@"^Freerunning—(?<cost>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FreerunningCostLine();
+
+    /// <summary>"Web-slinging {2}{G}" (CR 702.188a).</summary>
+    [GeneratedRegex(@"^Web-slinging (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex WebSlingingLine();
 
     [GeneratedRegex(
         @"^Prototype (?<cost>(\{[^}]+\})+)\s*[—―-]\s*(?<p>\d+)/(?<t>\d+)\.?$",

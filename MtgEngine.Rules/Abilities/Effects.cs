@@ -5232,10 +5232,16 @@ public sealed record PumpBlockersOfSource(string DefinitionId, KeywordAbility Ex
 /// last one turns the question from a yes/no into a pick, because "unless that player discards a
 /// card" cannot be answered without naming the card. It stays <em>one</em> question: asking
 /// "will you pay?" and then "with what?" lets a player answer yes and then have nothing legal to
-/// name, and gives the log two answers to keep in step where the rules have one decision. A
-/// chosen cost does <em>not</em> scale with <see cref="TimesCounter"/> — that repeats the printed
-/// mana text and nothing repeats the count — so cumulative upkeep's non-mana form would ask for
-/// one of something on its fourth turn as readily as on its first, and is not built on this yet.
+/// name, and gives the log two answers to keep in step where the rules have one decision.
+/// </para>
+/// <para>
+/// <b>Every part of the price scales with <see cref="TimesCounter"/>, not only the mana.</b> The
+/// mana does it by repeating the printed text, which is what the player is shown; the life and
+/// the count of chosen objects cannot be said in text, so the multiplier itself travels on
+/// <see cref="OptionalPaymentRequested.Times"/> and the engine multiplies at the point of asking.
+/// Without it "Cumulative upkeep—Pay 1 life" charged 1 on its fifth upkeep instead of 5, and
+/// "Cumulative upkeep—Sacrifice a land" asked for one land forever — a card strictly better than
+/// the one printed, which is the direction this compiler may never be wrong in.
 /// </para>
 /// </remarks>
 /// <param name="AskTargetController">
@@ -5254,9 +5260,16 @@ public sealed record PumpBlockersOfSource(string DefinitionId, KeywordAbility Ex
 /// How many objects the chosen cost takes. Partial payments are not payments (CR 601.2h), so
 /// fewer picks than this is a decline and not a discount.
 /// </param>
-/// <param name="ChosenFilterId">
-/// Which objects qualify, as a <see cref="SearchFilters"/> id — "creature" for "sacrifice a
-/// creature". The default accepts anything, which is what "discard a card" means.
+/// <param name="ChosenWhat">
+/// Which objects qualify — "target creature you control" for "sacrifice a creature". Null accepts
+/// anything, which is what "discard a card" means.
+/// <para>
+/// A <see cref="TargetSpec"/> and not a <see cref="SearchFilters"/> id, because that is what an
+/// <em>activation</em> cost already says (<see cref="ChosenCost.What"/>) and one offer speaking a
+/// smaller vocabulary than the other is how the two drift. The id could only ask about a printed
+/// card, so "sacrifice a permanent with mana value 1 or greater" and "an untapped creature" had
+/// nowhere to go and the whole keyword line stayed unread.
+/// </para>
 /// </param>
 public sealed record MayPay(
     Mana.ManaCostSpec Cost,
@@ -5272,7 +5285,7 @@ public sealed record MayPay(
     int LifeCost = 0,
     ChosenCostKind? ChosenKind = null,
     int ChosenCount = 1,
-    string ChosenFilterId = SearchFilters.AnyCard) : IEffect
+    TargetSpec? ChosenWhat = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -5312,10 +5325,11 @@ public sealed record MayPay(
             asked = aimedAt.ControllerId;
         }
 
-        // Cumulative upkeep asks for its cost once per counter (CR 702.24a). The cost travels
+        // Cumulative upkeep asks for its cost once per counter (CR 702.24a). The mana travels
         // to the player as printed text, so charging it several times is the printed cost written
         // out several times - which is also how the card reads it aloud.
         var asking = Cost.ToString();
+        var times = 1;
 
         if (TimesCounter is { } kind)
         {
@@ -5323,7 +5337,8 @@ public sealed record MayPay(
                 ? counted.Permanent?.Counters.GetValueOrDefault(kind, 0) ?? 0
                 : 0;
 
-            asking = string.Concat(Enumerable.Repeat(asking, Math.Max(0, counters)));
+            times = Math.Max(0, counters);
+            asking = string.Concat(Enumerable.Repeat(asking, times));
         }
 
         return
@@ -5339,6 +5354,11 @@ public sealed record MayPay(
                 SubjectObject = context.SubjectObject,
                 YesLabel = YesLabel,
                 NoLabel = NoLabel,
+
+                // Worked out here and carried, for the same reason the mana text is: by the time
+                // the answer comes back the counter may have moved, and a replay has to reach the
+                // price that was actually offered rather than the price today's board implies.
+                Times = times,
             },
         ];
     }
