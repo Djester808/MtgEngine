@@ -532,6 +532,9 @@ public static partial class CardCompiler
                 continue;
             }
 
+            if (TryJoinedKeywordLine(line, card, ref grantedKeywords))
+                continue;
+
             if (DelveLine().IsMatch(line))
             {
                 hasDelve = true;
@@ -3352,6 +3355,116 @@ public static partial class CardCompiler
             // without flying is granting it to something else, which is a different sentence.
             if (!KeywordNames.TryGetValue(word, out var flag) || !card.Keywords.HasFlag(flag))
                 return null;
+
+            found |= flag;
+        }
+
+        return found == KeywordAbility.None ? null : found;
+    }
+
+    /// <summary>
+    /// A line of nothing but keywords, joined by something the plain reader does not split on.
+    /// </summary>
+    /// <remarks>
+    /// Two spellings, one cause. Old cards separate their keywords with semicolons - "First
+    /// strike; banding", "Flying; first strike; banding", "Defender; reach" - and protection
+    /// names several qualities in one breath: "Protection from black and from red". The keyword
+    /// reader splits on commas only and looks each part up whole, so both arrived as a single
+    /// unknown word and the whole line went unread, taking keywords the engine models perfectly
+    /// well down with it. **28 cards are one such line short**, and not one of them needed a
+    /// rule the engine did not already have - only a joiner it had never been shown.
+    /// <para>
+    /// Whole or not at all, like every keyword list here: a part this cannot name leaves the
+    /// line unread rather than granting the half it understood, so "Trample; rampage 2" stays in
+    /// the queue with its rampage rather than playing as a plain trampler.
+    /// </para>
+    /// <para>
+    /// A part is checked against the card the way <see cref="KeywordsOn"/> checks one, except
+    /// for the sentence keywords - banding, fear, shadow - which are granted instead. Those are
+    /// not flags the bulk data carries: the sentence is what says the card has them, which is
+    /// why the whole-line table grants them too.
+    /// </para>
+    /// </remarks>
+    private static bool TryJoinedKeywordLine(
+        string line, CardDefinition card, ref KeywordAbility granted)
+    {
+        var body = line.TrimEnd('.', ' ');
+        if (body.Length == 0)
+            return false;
+
+        var found = KeywordAbility.None;
+
+        foreach (var part in body.Split(';'))
+        {
+            var word = part.Trim();
+            if (word.Length == 0)
+                continue;
+
+            if (KeywordNames.TryGetValue(word, out var flag) && card.Keywords.HasFlag(flag))
+            {
+                found |= flag;
+                continue;
+            }
+
+            if (SentenceKeywords.TryGetValue(word, out var spelled))
+            {
+                found |= spelled;
+                continue;
+            }
+
+            if (ProtectionsNamed(word) is { } shielded)
+            {
+                found |= shielded;
+                continue;
+            }
+
+            return false;
+        }
+
+        if (found == KeywordAbility.None)
+            return false;
+
+        granted |= found;
+        return true;
+    }
+
+    /// <summary>"Protection from blue, from black, and from red" (CR 702.16e).</summary>
+    /// <remarks>
+    /// Protection from several qualities is several abilities, one per quality (CR 702.16e), and
+    /// the engine holds each as its own flag - so the conjunction is read by asking the keyword
+    /// table the same question once per quality rather than by learning a new shape.
+    /// <para>
+    /// The qualities are <em>granted</em> rather than checked against the card, which is the
+    /// one place this differs from every other keyword list here, and the conjunction is why.
+    /// The bulk data carries the bare word "Protection" and never the colour, so the loader
+    /// recovers each flag by looking for "protection from red" in the text - and in a
+    /// conjunction that phrase is never written: "Protection from black and from red" says
+    /// red without ever saying "protection from red". Auriok Champion therefore arrived
+    /// carrying half of its own line, and requiring the flag would have refused the card on
+    /// the strength of a substring search. The line is what says the card has them.
+    /// </para>
+    /// <para>
+    /// A quality the table cannot name refuses the whole phrase, so "Protection from Vampires,
+    /// from Werewolves, and from Zombies" stays unread: a card read as protected from nothing
+    /// in particular is a different card, and the queue is the right place for it until
+    /// protection can name a creature type.
+    /// </para>
+    /// </remarks>
+    private static KeywordAbility? ProtectionsNamed(string phrase)
+    {
+        var m = ProtectionConjunctionLine().Match(phrase);
+        if (!m.Success)
+            return null;
+
+        var found = KeywordAbility.None;
+
+        foreach (Capture quality in m.Groups["q"].Captures)
+        {
+            if (!KeywordNames.TryGetValue(
+                "Protection from " + quality.Value.Trim(), out var flag))
+            {
+                return null;
+            }
 
             found |= flag;
         }
@@ -7471,6 +7584,7 @@ public static partial class CardCompiler
             || TryAbilitiesCantBeActivated(line, card, statics)
             || TryAttachedSilencing(line, card, statics)
             || TryAttachedBuff(line, statics)
+            || TryAttachedCountedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
             || TryAttachedTypeAddition(line, statics)
             || TryGrantedAbility(line, card, statics)
@@ -7709,6 +7823,85 @@ public static partial class CardCompiler
         });
 
         into.AddRange(scratch);
+        return true;
+    }
+
+    /// <summary>
+    /// "Enchanted creature gets -X/-0, where X is the number of cards in your graveyard"
+    /// (CR 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// The pump below reads two literals, so an Aura whose bonus is counted rather than printed
+    /// went unread whole - **14 templates and 15 cards**, every one of them a pump the engine
+    /// could apply if only it could be told the number. The count goes through the shared
+    /// counting vocabulary, where "cards in your graveyard" and "artifacts you control" already
+    /// live, so nothing about what may be counted is decided here.
+    /// <para>
+    /// Asked with no source, so a phrase that means "it" - "the number of charge counters on ~",
+    /// "the number of cards in its controller's graveyard" - is refused rather than answered as
+    /// nought. A layer applying a floating effect is handed no source, and a counted pump that
+    /// quietly came out at zero would compile as a complete card that does nothing.
+    /// </para>
+    /// <para>
+    /// The count is read as the Aura's controller sees it: "your graveyard" means the controller
+    /// of the permanent whose ability this is, not the controller of the creature it sits on.
+    /// Control comes from the control-only reader for the same reason the goad arm below uses it
+    /// - a full computation from inside the layers is the CR 613.8 loop.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedCountedBuff(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedCountedBuffLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // One of the two halves has to be the counted one, or the clause after the comma
+        // defines a letter the sentence never used.
+        var powerCounts = string.Equals(
+            m.Groups["pv"].Value, "X", StringComparison.OrdinalIgnoreCase);
+        var toughnessCounts = string.Equals(
+            m.Groups["tv"].Value, "X", StringComparison.OrdinalIgnoreCase);
+
+        if (!powerCounts && !toughnessCounts)
+            return false;
+
+        var what = m.Groups["what"].Value.Trim();
+        if (EffectPhrase.Counting(what, hasSource: false) is not { } count)
+            return false;
+
+        var powerSign = m.Groups["p"].Value == "-" ? -1 : 1;
+        var toughnessSign = m.Groups["t"].Value == "-" ? -1 : 1;
+
+        var flatPower = powerCounts
+            ? 0
+            : int.Parse(m.Groups["pv"].Value, CultureInfo.InvariantCulture);
+        var flatToughness = toughnessCounts
+            ? 0
+            : int.Parse(m.Groups["tv"].Value, CultureInfo.InvariantCulture);
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "attached:counted-pt:"
+                + m.Groups["p"].Value + m.Groups["pv"].Value + "/"
+                + m.Groups["t"].Value + m.Groups["tv"].Value + ":" + what,
+            Layer = EffectLayer.PowerToughnessModify,
+            Applies = (_, source, target) =>
+                source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host,
+            Apply = (state, source, builder) =>
+            {
+                if (source is null)
+                    return;
+
+                var you = Characteristics.ControllerOf(state, builder.Abilities, source);
+                var many = count(state, EmptyAbilities.Instance, you, default);
+
+                builder.Modify(
+                    powerSign * (powerCounts ? many : flatPower),
+                    toughnessSign * (toughnessCounts ? many : flatToughness));
+            },
+        });
+
         return true;
     }
 
@@ -8951,16 +9144,20 @@ public static partial class CardCompiler
         }
 
         // And everything else the compiler counts, asked last. The arms above are this reader's
-        // own vocabulary and the pile arm knows exactly two piles - "your hand" and "your
-        // graveyard" - while the shared reader has read "creature cards in all graveyards" for
-        // as long as it has had a zone arm at all. So Mortivore, whose whole card is that
-        // sentence, was unread beside Lhurgoyf, whose whole card is the same sentence about one
-        // graveyard. The gap was never the sentence; it was which of the two vocabularies the
-        // sentence happened to reach.
+        // own vocabulary - the pile arm knows exactly two piles, "your hand" and "your
+        // graveyard" - while the shared reader has known domain, the colours among permanents you
+        // control, differently named lands and every zone including "all graveyards" for as long
+        // as it has had a zone arm at all. So Mortivore, whose whole card is that sentence, was
+        // unread beside Lhurgoyf, whose whole card is the same sentence about one graveyard, and
+        // "the number of basic land types among lands you control" was read inside a spell and
+        // unread as a creature's own size, with 21 corpus cards one such line short. The gap was
+        // never the sentence; it was which of the compiler's two vocabularies the sentence
+        // happened to reach. Two agents found this from opposite ends of the queue in one round.
         //
-        // Asked with no source: this is a characteristic-defining ability and it applies in
-        // every zone (CR 604.3), so a phrase that needs to point at a permanent on the
-        // battlefield is refused rather than answered about one that may not be there.
+        // Asked last, so nothing that reads today changes its answer, and asked with no source:
+        // this is a characteristic-defining ability and it applies in every zone (CR 604.3), so a
+        // phrase that needs to point at a permanent on the battlefield is refused rather than
+        // answered about one that may not be there - or quietly counted as nought.
         return EffectPhrase.Counting(what, hasSource: false) is { } shared
             ? (state, you) => shared(state, EmptyAbilities.Instance, you, default)
             : null;
@@ -15006,6 +15203,17 @@ public static partial class CardCompiler
         ];
 
     /// <summary>Keyword words the engine models, by the name printed on the card.</summary>
+    /// <remarks>
+    /// The first quality is captured by the same group as the rest, so the captures are the
+    /// qualities and the reader needs no special case for the head of the list. At least one
+    /// repetition is required, which leaves a plain "Protection from red" with the table that
+    /// already had it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Protection from (?<q>[A-Za-z]+)(?:,? (?:and )?from (?<q>[A-Za-z]+))+$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ProtectionConjunctionLine();
+
     private static readonly Dictionary<string, KeywordAbility> KeywordNames =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -15521,22 +15729,44 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedTypeAdditionLine();
 
+    /// <remarks>
+    /// The possessive arm is the same silencing clause the pacifism tail already reads, printed
+    /// as a sentence of its own: "Enchanted creature's activated abilities can't be activated"
+    /// is Stupefying Touch, and the effect behind it was built here all along. It was unread for
+    /// want of the apostrophe - the subject was only ever followed by a space - which is the
+    /// shape of gap worth looking for before deciding a line needs a new mechanism.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(enchanted|equipped) " + AttachedSubject + " "
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @"(?:'s (?<silenced>activated abilities can't be activated)| "
             + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
-            + @"( and (has (?<kw>[a-z0-9{} ,]+?)"
+            + @"(,? and (has (?<kw>[a-z0-9{} ,]+?)"
             + @"|loses (?<lost>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
-            + @"|(?<must>attacks each combat if able)))?"
+            + @"|(?<must>attacks each combat if able)"
+            + @"|(?<silenced>its activated abilities can't be activated)))?"
             + @"|has base power and toughness (?<basep>\d+)/(?<baset>\d+)"
             + @"|has (?<kw>[a-z0-9{} ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)"
-            + @"|(?<goaded>is goaded))\.?$",
+            + @"|(?<goaded>is goaded)))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedBuffLine();
+
+    /// <remarks>
+    /// The two halves are captured apart because a card writes either one as the counted one:
+    /// "gets -X/-0" shrinks the power alone and "gets +X/+X" moves both. A second letter - the Y
+    /// in "gets +X/+Y, where X is half the number of Forests you control ..." - is not admitted,
+    /// because the clause after the comma defines only X and reading Y as X is a different card.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @" gets (?<p>[+-])(?<pv>X|\d+)/(?<t>[+-])(?<tv>X|\d+), "
+            + @"where X is the number of (?<what>[^.]+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedCountedBuffLine();
 
     /// <remarks>
     /// Three orders in one pattern, because the cards print it every way: the condition leads on
@@ -16220,8 +16450,18 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex MustBeBlockedLine();
 
+    /// <remarks>
+    /// The noun is every kind of permanent an Aura says "enchant" about, because the effect does
+    /// not read it: control moves to whatever this is attached to, and which types that host may
+    /// have was decided by the card's own "Enchant ..." line. Two nouns were listed and the other
+    /// four went unread - Annex and Conquer steal a land, Aura Thief's cousins steal an artifact
+    /// or an enchantment - for a word the rule never consults.
+    /// </remarks>
     [GeneratedRegex(
-        @"^You control enchanted (creature|permanent)\.?$", RegexOptions.IgnoreCase)]
+        @"^You control enchanted "
+            + @"(artifact creature|creature|permanent|land|artifact|enchantment|planeswalker)"
+            + @"\.?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex StealHostLine();
 
     [GeneratedRegex(@"^Umbra armor\.?$", RegexOptions.IgnoreCase)]
