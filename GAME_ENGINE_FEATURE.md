@@ -487,7 +487,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **49.4% of playable cards fully read** (16,165 of 32,717), 66.6% of lines.
+Coverage is **49.8% of playable cards fully read** (16,281 of 32,717), 66.9% of lines.
 
 ### A delayed destroy, and an idiom that could not stand a sentence beside it
 
@@ -545,8 +545,6 @@ is read rather than dropped, so a tail nothing can read still refuses the whole 
 ranked in it, which is what a flat queue looks like from the inside: the leverage has moved out
 of the line ranking and into shapes that have to be found by probing a hypothesis against the
 corpus.
-
-Coverage is **49.4% of playable cards fully read** (16,156 of 32,717), 66.6% of lines.
 
 ### Somebody else's arrival, and a family measured before it was built
 
@@ -668,8 +666,6 @@ produce, read at resolution; and an `AddMana` with a player scope, since it puts
 else's pool and the effect always uses `context.ControllerId`. The other 3 of the 7 want a
 different effect again (Price of Glory destroys the land; Overabundance and Barbflare Gremlin add
 damage). Worth doing as a mana-choice change, not as a card-reader one.
-
-Coverage is **49.3% of playable cards fully read** (16,146 of 32,717), 66.6% of lines.
 
 ### A player is not an object, and now has abilities of its own
 
@@ -866,7 +862,8 @@ rules suite could see this: the cards compile, and they play.
 **The two "near-misses" turned out to belong to other families.** Helicarrier Strike and Crossover
 Collaboration were being diagnosed as cast-fact failures and are not: the teamwork rider reads on
 both, and the sentence it wraps does not. Helicarrier's inner sentence — "it deals 4 damage to
-that creature" — is unread on its own, a back-reference family worth at most 95 cards. Crossover's
+that creature" — is unread on its own, a back-reference family: 552 cards print one, 76 are reachable by respelling it, and 47
+were taken in round twelve. Crossover's
 line is the impulse idiom with a third sentence after it, and the same line with an ordinary third
 sentence is equally unread, so the blocker is the impulse reader's intolerance of a tail, worth at
 most 15. Both are separate work with their own tests; neither is evidence against the readers this
