@@ -59975,6 +59975,352 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(20, game.State.GetPlayer(bob).Life);
     }
 
+    // ---- "Instead": one instruction with two arms (CR 614.15) ----------------
+
+    /// <summary>
+    /// "[A]. If [condition], [B] instead." — B happens <em>rather than</em> A.
+    /// </summary>
+    /// <remarks>
+    /// The card count is the assertion rather than "something was drawn", because only a count
+    /// separates the three readings: two cards is the sentence in front of the clause, three is
+    /// the replacement, and five is the misreading — "instead" read as "as well", which compiles
+    /// clean and plays a strictly better card than the one printed.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 3)]
+    public void An_instead_clause_replaces_the_sentence_in_front_of_it(bool kicked, int drawn)
+    {
+        // Field Research.
+        var research = Kicked(
+            "Instead Draw Test", "{1}",
+            "Kicker {1}" + (char)10
+                + "Draw two cards. If this spell was kicked, draw three cards instead.");
+
+        var compiled = CardCompiler.Compile(research);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, research);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        game.CastSpell(
+            alice, card, targets: null, variableValue: 0, tapToPay: null, modes: null,
+            kicked: kicked);
+
+        Settle(game);
+
+        Assert.Equal(before - drawn, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// "That creature" in the replacement is the creature the sentence in front of it targeted.
+    /// </summary>
+    /// <remarks>
+    /// The printed replacement almost never repeats the target phrase, so this pronoun is what
+    /// makes the family readable at all — and it was read wrongly. A matcher for the bare "that
+    /// creature gets +N/+N until end of turn" sat in front of the pronoun reader that knows the
+    /// order and aimed the pump at the <em>source</em>: on an instant that is the spell itself,
+    /// so the kicked half of every card of this shape did nothing whatsoever. A 2/2 left at 2/2
+    /// is the fourth reading this one number tells apart, beside 5, 7 and the additive 10.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 5)]
+    [InlineData(true, 7)]
+    public void The_replacement_is_aimed_at_what_the_sentence_before_it_targeted(
+        bool kicked, int power)
+    {
+        // Might of Murasa.
+        var might = Kicked(
+            "Instead Pump Test", "{1}",
+            "Kicker {1}" + (char)10
+                + "Target creature gets +3/+3 until end of turn. If this spell was kicked, "
+                + "that creature gets +5/+5 until end of turn instead.");
+
+        var compiled = CardCompiler.Compile(might);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Instead Pump Bear", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, might);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice, card, [Target.ToPermanent(bear)], variableValue: 0, tapToPay: null,
+            modes: null, kicked: kicked);
+
+        Settle(game);
+
+        Assert.Equal(power, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>Only the sentence in front of the clause is replaced, not the whole phrase.</summary>
+    /// <remarks>
+    /// Gift of Growth is three sentences and "instead" replaces one of them: the untap happens
+    /// whether the spell was kicked or not. A rider that swallowed everything read so far would
+    /// print a card that stops untapping the moment you pay more for it, and nothing about the
+    /// compile would look wrong.
+    /// </remarks>
+    [Fact]
+    public void An_instead_replaces_one_sentence_rather_than_everything_before_it()
+    {
+        var gift = Kicked(
+            "Instead Untap Test", "{1}",
+            "Kicker {1}" + (char)10
+                + "Untap target creature. It gets +2/+2 until end of turn. If this spell was "
+                + "kicked, that creature gets +4/+4 until end of turn instead.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Instead Untap Bear", 2, 2), Zone.Battlefield);
+
+        var tapper = Card("Instead Tapper Test", "Tap target creature.");
+        var tap = TestCards.PutInHand(game, alice, tapper);
+        game.CastSpell(alice, tap, [Target.ToPermanent(bear)]);
+        Settle(game);
+        Assert.True(game.State.GetObject(bear).Permanent?.IsTapped);
+
+        var card = TestCards.PutInHand(game, alice, gift);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice, card, [Target.ToPermanent(bear)], variableValue: 0, tapToPay: null,
+            modes: null, kicked: true);
+
+        Settle(game);
+
+        // The untap is the sentence before the one that was replaced, so it still happens; the
+        // pump is 4 rather than 2, and not 6, which is what running both arms would give.
+        Assert.False(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.Equal(6, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>A board condition decides which of the two arms happens.</summary>
+    /// <remarks>
+    /// The control case is the point: with the condition false the card has to do exactly what
+    /// its first sentence says. A replacement that applied either way, or one that never applied,
+    /// both compile — and only playing the card with the condition unmet can tell them apart.
+    /// </remarks>
+    [Theory]
+    [InlineData(1, 4)]
+    [InlineData(4, 6)]
+    public void A_board_condition_chooses_which_arm_of_the_instruction_happens(
+        int creatures, int power)
+    {
+        // For the Family.
+        var family = Card(
+            "Instead Condition Test",
+            "Target creature gets +2/+2 until end of turn. If you control four or more creatures, "
+                + "that creature gets +4/+4 until end of turn instead.");
+
+        var compiled = CardCompiler.Compile(family);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Instead Condition Bear", 2, 2), Zone.Battlefield);
+
+        foreach (var extra in Enumerable.Range(1, creatures - 1))
+        {
+            game.Create(
+                alice,
+                TestCards.Creature(
+                    "Instead Condition Friend "
+                        + extra.ToString(CultureInfo.InvariantCulture),
+                    1,
+                    1),
+                Zone.Battlefield);
+        }
+
+        var card = TestCards.PutInHand(game, alice, family);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(power, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>
+    /// The other word order, and the line break the ability word forces in front of it.
+    /// </summary>
+    /// <remarks>
+    /// Mirran Mettle prints one instruction across two lines: an ability word is flavour with no
+    /// rules meaning (CR 207.2c), and what follows it is half a sentence — a replacement whose
+    /// branch is on the line above. A line is the unit the compiler reads, so both halves of this
+    /// family meet here: the trailing word order, and the fold that gives the clause something to
+    /// replace. Forty-six cards print the replacement this way round and every one of them is
+    /// behind an ability word.
+    /// <para>
+    /// The control case is the assertion that matters. With no artifacts out the card has to be
+    /// the +2/+2 its first line prints; a fold that ran both lines would be +6/+6, and one that
+    /// ran only the second would be +4/+4 for free.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0, 4)]
+    [InlineData(3, 6)]
+    public void The_other_word_order_survives_the_line_the_ability_word_broke(
+        int artifacts, int power)
+    {
+        var mettle = Card(
+            "Instead Trailing Test",
+            "Target creature gets +2/+2 until end of turn." + (char)10
+                + "Metalcraft — That creature gets +4/+4 until end of turn instead if you "
+                + "control three or more artifacts.");
+
+        var compiled = CardCompiler.Compile(mettle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Instead Trailing Bear", 2, 2), Zone.Battlefield);
+
+        foreach (var made in Enumerable.Range(1, artifacts))
+        {
+            game.Create(
+                alice,
+                Card(
+                    "Instead Trailing Relic " + made.ToString(CultureInfo.InvariantCulture),
+                    string.Empty,
+                    CardType.Artifact),
+                Zone.Battlefield);
+        }
+
+        var card = TestCards.PutInHand(game, alice, mettle);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(power, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>A replaced instruction goes into the branch whole, clauses and all.</summary>
+    /// <remarks>
+    /// Primal Growth is one printed sentence cut into three clauses by ", then", and the unit the
+    /// word "instead" replaces is the sentence. Taking only the last clause would leave the search
+    /// outside the swap, so a kicked spell would search twice and fetch three lands.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 2)]
+    public void A_multi_clause_instruction_is_replaced_whole(bool kicked, int fetched)
+    {
+        var growth = Kicked(
+            "Instead Search Test", "{1}",
+            "Kicker {1}" + (char)10
+                + "Search your library for a basic land card, put that card onto the battlefield, "
+                + "then shuffle. If this spell was kicked, instead search your library for up to "
+                + "two basic land cards, put them onto the battlefield, then shuffle.");
+
+        var compiled = CardCompiler.Compile(growth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        foreach (var _ in Enumerable.Range(0, 2))
+            game.Create(alice, TestCards.BasicLand("Instead Search Forest"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, growth);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.CastSpell(
+            alice, card, targets: null, variableValue: 0, tapToPay: null, modes: null,
+            kicked: kicked);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+        game.Choose(alice, [.. game.State.Choice!.Options!.Take(fetched).Select(o => o.Id)]);
+
+        Settle(game);
+
+        Assert.Equal(
+            fetched,
+            game.State.Battlefield.Count(
+                id => game.State.GetObject(id).Card.Name == "Instead Search Forest"));
+    }
+
+    /// <summary>An "instead" whose branch cannot be found stays unread.</summary>
+    /// <remarks>
+    /// The other side of the fold above, and the reason the fold can be as blunt as it is: the
+    /// two lines are joined only when they read as one phrase together. Galvanic Blast's
+    /// replacement is elliptical — "~ deals 4 damage", with no recipient, because the recipient
+    /// is the one the line above named — and the damage grammar will not read a sentence with
+    /// nothing to aim at. So the join is declined and the line stays unread.
+    /// <para>
+    /// Read alone it would be a card that deals its bigger damage <em>as well as</em> its
+    /// smaller, which is the worst available misreading of the word on the gentlest available
+    /// wording. Unread is a card the deck check refuses rather than one that plays wrongly.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_instead_with_nothing_in_front_of_it_stays_unread()
+    {
+        // Galvanic Blast.
+        var blast = Card(
+            "Instead Orphan Test",
+            "~ deals 2 damage to any target." + (char)10
+                + "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts.");
+
+        var compiled = CardCompiler.Compile(blast);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("instead", StringComparison.Ordinal));
+    }
+
+    /// <summary>A replacement that lands somewhere else than the sentence it replaces is refused.</summary>
+    /// <remarks>
+    /// Blade of the Bloodchief. "It" is the equipped creature the sentence in front named, and the
+    /// pronoun readers answer with the creature the trigger was about — the one that just died.
+    /// Two counters on a card in a graveyard is not the card, so the reader refuses: the two arms
+    /// of one instruction have to be about the same thing, and where they are aimed is asked
+    /// through the one thing that knows whether an index is a target at all.
+    /// </remarks>
+    [Fact]
+    public void A_replacement_aimed_elsewhere_than_what_it_replaces_stays_unread()
+    {
+        var blade = Card(
+            "Instead Aim Test",
+            "Whenever a creature dies, put a +1/+1 counter on equipped creature. If equipped "
+                + "creature is a Vampire, put two +1/+1 counters on it instead."
+                + (char)10 + "Equip {1}",
+            CardType.Artifact,
+            null,
+            null,
+            KeywordAbility.None,
+            "Equipment");
+
+        var compiled = CardCompiler.Compile(blade);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("two +1/+1 counters on it instead", StringComparison.Ordinal));
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

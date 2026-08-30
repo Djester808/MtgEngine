@@ -320,13 +320,28 @@ public static partial class EffectPhrase
         // offered as a pair before either is read on its own - the same reason the optional
         // payment and the slow blink are read before the splitter. Alone, "Otherwise, you lose 1
         // life" is an instruction with no question attached to it.
-        var sentences = Sentences(text).ToList();
+        var clauses = Clauses(text).ToList();
+        var sentences = clauses.ConvertAll(c => c.Clause);
 
-        // Where the previous sentence's effects begin, for the one sentence that repeats them.
+        // Where the previous clause's effects begin, for the one sentence that repeats them.
         var lastSentenceStart = 0;
+
+        // The same boundary at the full stop rather than at ", then", for the one sentence that
+        // *replaces* them. The two are not the same line: "Search your library for a basic land
+        // card, put that card onto the battlefield, then shuffle" is one printed instruction and
+        // three clauses, and an "instead" that swallowed only the last of them would leave the
+        // search behind and do both.
+        var sentenceStart = 0;
+        var previousSentenceStart = 0;
 
         for (var i = 0; i < sentences.Count; i++)
         {
+            if (i > 0 && clauses[i].StartsSentence)
+            {
+                previousSentenceStart = sentenceStart;
+                sentenceStart = effects.Count;
+            }
+
             if (i + 1 < sentences.Count
                 && OtherwiseSentence().Match(sentences[i + 1]) is { Success: true } fallback
                 && TryConditionalPair(
@@ -353,6 +368,28 @@ public static partial class EffectPhrase
             {
                 effects.Add(new RepeatForOpponentsAttackingEnchanted(
                     [.. effects.Skip(lastSentenceStart)]));
+                continue;
+            }
+
+            // "[A]. If [condition], [B] instead." - the sentence replaces the one in front of
+            // it rather than adding to it, so it is read here, where that sentence's effects can
+            // still be found. The whole printed sentence goes in, clauses and all, and the
+            // clauses it covers are stepped over: its own ", then" halves belong to the branch,
+            // not to the phrase after it.
+            if (i > 0
+                && clauses[i].StartsSentence
+                && effects.Count > previousSentenceStart
+                && TryInsteadRider(
+                    clauses[i].Sentence,
+                    previousSentenceStart,
+                    targets,
+                    effects,
+                    objectNamedByTrigger))
+            {
+                while (i + 1 < clauses.Count && !clauses[i + 1].StartsSentence)
+                    i++;
+
+                sentenceStart = previousSentenceStart;
                 continue;
             }
 
@@ -480,6 +517,231 @@ public static partial class EffectPhrase
             : GenerativeEffects.ControlHeldWhile.Controlled;
 
     /// <summary>
+    /// "[A]. If [condition], [B] instead." — B replaces A rather than happening beside it.
+    /// </summary>
+    /// <remarks>
+    /// The commonest thing the word "instead" does in this corpus, and it is not a CR 614
+    /// replacement effect at all: nothing outside the card is being replaced, so there is no
+    /// shield to hang on the battlefield and nothing to order against anybody else's. It is one
+    /// spell choosing between two of its own instructions as it resolves — CR 614.15's
+    /// self-replacement written the way cards print it — and the branch it replaces is the
+    /// sentence in front of it.
+    /// <para>
+    /// So this is <see cref="TryConditionalPair"/> with the else branch taken from behind rather
+    /// than from an "Otherwise" sentence in front, and it compiles to the same wrapper for the
+    /// same CR 608.2c reason: two sibling guards would ask their question at two different
+    /// moments, and a then branch that falsifies its own condition would let the other one fire
+    /// as well.
+    /// </para>
+    /// <para>
+    /// <strong>Only the previous sentence is replaced, not everything read so far.</strong> Gift
+    /// of Growth is "Untap target creature. It gets +2/+2 until end of turn. If ~ was kicked,
+    /// that creature gets +4/+4 until end of turn instead" — the untap happens either way, and a
+    /// rider that swallowed the whole phrase would print a card that stops untapping the moment
+    /// you pay more for it. <paramref name="replacedFrom"/> is the boundary the sentence loop
+    /// already tracks for the Curse family's repeat.
+    /// </para>
+    /// <para>
+    /// <strong>An "instead" with nothing in front of it is refused.</strong> The ability-word
+    /// cards print the two halves on two lines — "~ deals 2 damage to any target." then
+    /// "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts." — and the
+    /// sentence grammar cannot see the line above. Read alone, the second line is a card that
+    /// deals its bigger damage <em>on top of</em> the first, which is the worst available
+    /// misreading of the word. The line stays unread instead.
+    /// </para>
+    /// <para>
+    /// Kicker is the one fact here that is not a board condition: it is read off the spell as it
+    /// resolves rather than off the board (CR 702.33e), so that arm builds the kicker wrapper.
+    /// Bargain, teamwork and the per-cost kicker read back the same way and are taken by
+    /// <see cref="TryCastFactRider"/>, which is reached from a sentence rather than from the
+    /// loop; this runs first and does not claim their wordings.
+    /// </para>
+    /// </remarks>
+    private static bool TryInsteadRider(
+        string sentence,
+        int replacedFrom,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        string condition;
+        string inner;
+
+        var leading = ConditionalSentence().Match(sentence.Trim());
+        var trailing = TrailingInsteadSentence().Match(sentence.Trim().TrimEnd('.'));
+
+        if (leading.Success)
+        {
+            condition = leading.Groups["cond"].Value.Trim();
+            inner = leading.Groups["effect"].Value.Trim().TrimEnd('.');
+
+            // Both spellings of the same clause, and the trailing one is anchored to the end so
+            // that "instead of putting it into your hand" mid-sentence stays what it is: unread.
+            if (inner.StartsWith("instead ", StringComparison.OrdinalIgnoreCase))
+                inner = inner["instead ".Length..].Trim();
+            else if (InsteadTail().Match(inner) is { Success: true } tail)
+                inner = inner[..tail.Index].Trim();
+            else
+                return false;
+        }
+        else if (trailing.Success)
+        {
+            condition = trailing.Groups["cond"].Value.Trim();
+            inner = trailing.Groups["effect"].Value.Trim();
+        }
+        else
+        {
+            return false;
+        }
+
+        if (inner.Length == 0)
+            return false;
+
+        // A condition whose subject is a pronoun is about the thing the sentence it replaces was
+        // about — "put a +1/+1 counter on it instead if it's a Mount" asks about the creature the
+        // spell targeted. A board condition cannot ask that: it is handed a state and the source,
+        // and the source of a resolving instant is the spell, which is on the stack and is never
+        // a Mount. Read anyway it compiles clean, answers no every time, and prints a card whose
+        // better half can never happen — five of them, before this line existed. It costs the
+        // cards where "it" is English's dummy subject rather than a pronoun ("if it's night"),
+        // and that is the cheaper mistake.
+        var kicked = KickedFact().IsMatch(condition);
+
+        // Asked after the kicker fact, which spells its own subject the same way: "if it
+        // was kicked" is a fact about the spell and not a question about the board.
+        if (!kicked && DeicticCondition().IsMatch(condition))
+            return false;
+
+        var holds = kicked ? null : BoardConditions.Parse(condition);
+
+        if (!kicked && holds is null)
+            return false;
+
+        // What the sentence in front of it did. Nothing there means nothing to replace, and the
+        // clause is refused rather than read as an addition.
+        var replaced = effects.Skip(replacedFrom).ToImmutableList();
+        if (replaced.Count == 0 || replaced.Any(FindsItselfByIndex))
+            return false;
+
+        // The branches share the caller's target list, so "that creature" and "that player" in
+        // the replacement find whatever the sentence in front of it named — which is the whole
+        // reason this family is readable at all, since the printed replacement almost never
+        // repeats the target phrase.
+        var chosenSoFar = targets.Count;
+        var scratch = ImmutableList.CreateBuilder<IEffect>();
+
+        var read =
+            TryOne(inner, targets, scratch, objectNamedByTrigger)
+            && scratch.Count > 0
+            && !scratch.Any(FindsItselfByIndex)
+
+            // …and may not choose a target of its own. Targets are chosen as the spell is cast
+            // and every one has to be legal then (CR 601.2c), so a branch that will not run
+            // would still make the card uncastable for want of something to aim it at.
+            && targets.Count == chosenSoFar
+
+            // …and has to be about the same thing the sentence it replaces was about.
+            && AimedAt(scratch).SetEquals(AimedAt(replaced));
+
+        if (!read)
+        {
+            while (targets.Count > chosenSoFar)
+                targets.RemoveAt(targets.Count - 1);
+
+            return false;
+        }
+
+        while (effects.Count > replacedFrom)
+            effects.RemoveAt(effects.Count - 1);
+
+        effects.Add(
+            kicked
+                ? new IfKicked(scratch.ToImmutable(), replaced)
+                : new OnlyIf(
+                    Whatever,
+                    [
+                        new OnlyIf(holds!, scratch.ToImmutable()),
+                        new OnlyIf(
+                            (state, abilities, source) => !holds!(state, abilities, source),
+                            replaced),
+                    ]));
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a line is a replacement clause with nothing in front of it (CR 614.15).
+    /// </summary>
+    /// <remarks>
+    /// Half a sentence, the way a dice results row is: "Threshold — ~ deals 5 damage instead if
+    /// there are seven or more cards in your graveyard" says nothing without the damage it
+    /// replaces, and the ability word in front of it is flavour with no rules meaning (CR 207.2c)
+    /// that happens to force a line break. So the corpus prints one instruction across two lines,
+    /// and a line is the unit the compiler reads.
+    /// <para>
+    /// Public so <see cref="CardCompiler.Lines"/> can fold the pair back together before anything
+    /// reads either half — the same one-way fold, in the same place, as the results row.
+    /// </para>
+    /// <para>
+    /// Only a single printed sentence qualifies. A line that already says something before its
+    /// "instead" has the branch it replaces, and folding it onto its neighbour would hand the
+    /// clause the wrong one.
+    /// </para>
+    /// </remarks>
+    public static bool IsOrphanedReplacement(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        var text = line.Trim();
+        if (SplitOutsideQuotes(text).Count() > 1)
+            return false;
+
+        var trimmed = text.TrimEnd('.');
+        if (TrailingInsteadSentence().IsMatch(trimmed))
+            return true;
+
+        var leading = ConditionalSentence().Match(text);
+        if (!leading.Success)
+            return false;
+
+        var effect = leading.Groups["effect"].Value.Trim().TrimEnd('.');
+
+        return effect.StartsWith("instead ", StringComparison.OrdinalIgnoreCase)
+            || InsteadTail().IsMatch(effect);
+    }
+
+    /// <summary>Where a branch's effects are aimed — a target, or something that is not one.</summary>
+    /// <remarks>
+    /// The guard the replacement rider needs and could not get any other way. Two arms of one
+    /// printed instruction are about the same thing — "target creature gets +3/+3 until end of
+    /// turn. … that creature gets +5/+5 until end of turn instead" is one creature named twice —
+    /// so a replacement that lands somewhere else has misread its pronoun, and reading it anyway
+    /// compiles a card that pumps the instant that cast it, or puts the counters on the creature
+    /// that died rather than the one wearing the Equipment. Both of those were live before this
+    /// existed, and both compiled clean.
+    /// <para>
+    /// Asked through <see cref="EffectTargets.ReadsATarget"/> rather than by looking at the index,
+    /// because that is the one place that knows whether an effect's index is a target at all or
+    /// a leftover beside a subject that names something else.
+    /// </para>
+    /// <para>
+    /// It costs the cards whose two arms genuinely aim differently — a bestowed Aura pumping what
+    /// it enchants where the creature form pumps itself — and that is the right price. A branch
+    /// this cannot vouch for leaves the line unread, which is a card the deck check refuses
+    /// rather than a card that plays wrongly.
+    /// </para>
+    /// </remarks>
+    private static ImmutableHashSet<string> AimedAt(IEnumerable<IEffect> branch) =>
+        [.. EffectTree.Flatten(branch).Select(Aim)];
+
+    private static string Aim(IEffect effect) =>
+        EffectTargets.ReadsATarget(effect)
+            ? "target " + EffectTargets.IndexOf(effect)?.ToString(CultureInfo.InvariantCulture)
+            : effect.GetType().GetProperty("Subject")?.GetValue(effect) is EffectSubject subject
+                ? subject.ToString()
+                : "-";
+
+    /// <summary>
     /// "If [condition], [then]. Otherwise, [else]." — one instruction printed as two sentences.
     /// </summary>
     /// <remarks>
@@ -576,15 +838,38 @@ public static partial class EffectPhrase
 
     private static IEnumerable<string> Sentences(string text)
     {
+        foreach (var clause in Clauses(text))
+            yield return clause.Clause;
+    }
+
+    /// <summary>
+    /// The same clauses, each knowing which printed sentence it came from.
+    /// </summary>
+    /// <remarks>
+    /// Nearly every reader here wants the clause and nothing else, which is what
+    /// <see cref="Sentences"/> hands it. The replacement rider wants the other unit: "instead"
+    /// replaces a printed instruction, and ", then" cuts inside one. So it needs to know where a
+    /// full stop was and what stood between two of them, and both facts are cheapest here, where
+    /// the text is being cut anyway.
+    /// </remarks>
+    private static IEnumerable<(string Clause, bool StartsSentence, string Sentence)> Clauses(
+        string text)
+    {
         foreach (var part in SplitOutsideQuotes(text))
         {
+            var whole = part.Trim();
+            var first = true;
+
             foreach (var clause in ThenSeparator().Split(part))
             {
                 // A clause after "then" often opens with "then" again on cards that print
                 // "Do X. Then do Y."; either way the word carries no rules meaning of its own.
                 var s = LeadingThen().Replace(clause.Trim(), string.Empty).Trim();
-                if (s.Length > 0)
-                    yield return s;
+                if (s.Length == 0)
+                    continue;
+
+                yield return (s, first, whole);
+                first = false;
             }
         }
     }
@@ -5299,15 +5584,18 @@ public static partial class EffectPhrase
             return effects.Count > 0;
         }
 
-        // "that creature gets +N/+N until end of turn" — exalted's tail, where "that creature"
-        // is the one that attacked alone. With a lone attacker there is only one it can mean.
-        m = ThatCreaturePumps().Match(sentence);
-        if (m.Success)
-        {
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
-            return true;
-        }
+        // "that creature gets +N/+N until end of turn" used to be read here, aimed at the source
+        // and nothing else — a second, blinder spelling of the pronoun <see cref="ItPumps"/>
+        // below already reads, sitting in front of it and claiming the shorter half. It is gone
+        // rather than fixed because everything it matched, that matches, and that one answers in
+        // the order the rest of this file does: the target the sentence before it chose, then the
+        // object the trigger was about, then the source.
+        //
+        // Nothing about exalted moves. Its keyword form is built in the compiler and never came
+        // through here, and the longhand trigger names no object, so the pronoun still resolves
+        // to the source exactly as it did. What changes is the case that has a target: "target
+        // creature gets +3/+3 … that creature gets +5/+5 instead" pumped the *instant* that cast
+        // it, so the better half of every card of that shape did nothing at all.
 
         // "it gets +1/+1 until end of turn for each other Goblin you control" — the same tail
         // with its size counted rather than printed. The group rides in the effect's id and is
@@ -12436,6 +12724,52 @@ public static partial class EffectPhrase
     private static partial Regex InsteadTail();
 
     /// <remarks>
+    /// The other word order, which is what the ability-word cards print: "Threshold — ~ deals 5
+    /// damage instead if there are seven or more cards in your graveyard." Lazy on the effect
+    /// and anchored on the tail, so the condition is taken off the end and nothing shorter, and
+    /// the condition may hold no comma for the reason the leading form's may not — the comma is
+    /// all that separates a condition from an instruction.
+    /// <para>
+    /// " instead if " and not " instead " with anything after it: "you may put that card onto
+    /// the battlefield instead of putting it into your hand if a creature died this turn" names
+    /// what it replaces in its own words, and is a different sentence this does not read.
+    /// </para>
+    /// <para>
+    /// "As long as" is deliberately not an alternation here. "It gets -5/-5 instead as long as
+    /// you've completed a dungeon" is a continuous effect whose size changes while the game
+    /// does, not one instruction choosing between two at resolution, and reading it as this
+    /// would fix the answer at the moment the spell resolved.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^(?<effect>.+?),? instead if (?<cond>[^,]+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingInsteadSentence();
+
+    /// <remarks>
+    /// The plain kicker read-back (CR 702.33e), which is a fact about the cast rather than a
+    /// question about the board and so cannot go through <see cref="BoardConditions"/>. The
+    /// subject alternation is broad because the printed subject varies with where the clause
+    /// sits — "this spell" on an instant, "it" inside a trigger.
+    /// </remarks>
+    [GeneratedRegex(@"^(~|it|this spell) was kicked$", RegexOptions.IgnoreCase)]
+    private static partial Regex KickedFact();
+
+    /// <remarks>
+    /// The subjects a replacement rider may not ask about, because <see cref="BoardConditions"/>
+    /// is given the source and nothing else. Every one of these words points at something the
+    /// sentence in front of the clause named — a target, a triggering creature, an attachment —
+    /// and the condition would quietly be asked of the wrong permanent.
+    /// <para>
+    /// Deliberately not an exemption list. "If it's night" is a global designation and reads
+    /// perfectly well, and it is turned down anyway: telling the two "it"s apart means knowing
+    /// which reader inside the condition grammar took the clause, and a rider that guessed at
+    /// that would be the same list one repository further out.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(it|that|those|these|equipped|enchanted)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DeicticCondition();
+
+    /// <remarks>
     /// The head and tail are kept so the rewritten sentence reads as the card would have written
     /// it for one target — "Return " + "target creature card from your graveyard" + " to your
     /// hand" — which is what lets the ordinary matchers take it.
@@ -13617,17 +13951,12 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex RegenerateLine();
 
-    [GeneratedRegex(
-        @"^that creature gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex ThatCreaturePumps();
-
     /// <remarks>
     /// Carries the same optional keyword tail as <see cref="PumpSelf"/>, and for the same
     /// measurement: the pronoun form of the pump-and-grant is the commoner of the two at 37
-    /// corpus occurrences against 34. <see cref="ThatCreaturePumps"/> is tried first and has no
-    /// tail, so "that creature gets +1/+1 and gains trample" reaches this reader rather than
-    /// being cut in half by the shorter one.
+    /// corpus occurrences against 34. It spells both pronouns, which is why the bare "that
+    /// creature gets +N/+N" reader that used to sit in front of it was removable rather than
+    /// fixable: everything it matched, this matches, and this answers in the right order.
     /// </remarks>
     [GeneratedRegex(
         @"^(it|that creature) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
