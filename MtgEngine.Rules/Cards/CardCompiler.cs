@@ -288,6 +288,9 @@ public static partial class CardCompiler
 
         var spellEffects = ImmutableList.CreateBuilder<IEffect>();
         var spellTargets = ImmutableList.CreateBuilder<TargetSpec>();
+
+        // The line that said "any number of target ...", if one did.
+        string? variableTargetLine = null;
         var activated = ImmutableList.CreateBuilder<ActivatedAbilityDefinition>();
         var triggers = ImmutableList.CreateBuilder<TriggeredAbilityDefinition>();
         var replacements = ImmutableList.CreateBuilder<ReplacementEffectDefinition>();
@@ -378,6 +381,7 @@ public static partial class CardCompiler
         ConditionalCost? conditionalCost = null;
         ManaCostSpec? blitz = null;
         ManaCostSpec? multikicker = null;
+        ManaCostSpec? strive = null;
         var kickerCosts = ImmutableList.CreateBuilder<KickerOption>();
         var bargainDiscount = 0;
         FactModes? factModes = null;
@@ -1174,6 +1178,18 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // CR 702.122a: strive. The reminder text calls it a cost and it is one, charged at
+            // CR 601.2f against the number of targets announced at CR 601.2c - so unlike every
+            // other additional cost here there is nothing to ask the caster. Reading this line
+            // on its own was rightly refused before now: every strive card also prints "any
+            // number of target ...", so the cost would have been a price on a choice the engine
+            // could not offer, and 22 cards would have moved a line and finished none of them.
+            if (StriveLine().Match(line) is { Success: true } striving)
+            {
+                strive = ManaCostSpec.Parse(striving.Groups["cost"].Value);
+                continue;
+            }
+
             if (BlitzLine().Match(line) is { Success: true } rushed)
             {
                 blitz = ManaCostSpec.Parse(rushed.Groups["cost"].Value);
@@ -1447,6 +1463,14 @@ public static partial class CardCompiler
                     spellEffects.Add(EffectTargets.Shift(effect, offset));
 
                 spellTargets.AddRange(parsed.Targets);
+
+                // Remembered rather than checked here, because whether an "any number of target"
+                // block is the spell's last target is not knowable until every line has been
+                // read. A later line that targets anything at all puts it in the middle, where
+                // the count it grows by would move every index after it.
+                if (VariableTargets.Present(parsed.Targets))
+                    variableTargetLine = line;
+
                 continue;
             }
 
@@ -1530,6 +1554,34 @@ public static partial class CardCompiler
             awaken = null;
         }
 
+        // An "any number of target" block has to be the spell's last target, and only now is it
+        // known whether it is: a second block, or any line after it that targets, puts it in the
+        // middle of a list every index downstream reads by position. The line goes back unread
+        // for the same reason the awaken above does - a card that would aim its pump at whatever
+        // the next sentence chose is worse than a card that is not implemented, and this way the
+        // coverage figure says so.
+        if (variableTargetLine is not null
+            && !VariableTargets.CanExpand(spellTargets.ToImmutable()))
+        {
+            unhandled.Add(variableTargetLine);
+        }
+
+        // And a block is only read for the *spell*. The count is announced by the caster
+        // (CR 601.2c), and a spell is the one kind of ability whose targets the caster hands over
+        // as a list of their own choosing: a trigger is asked for its targets one question at a
+        // time as it goes on the stack (CR 603.3d), and neither that loop nor the deferred
+        // questions an ability can leave behind know anything about a block. Left in, such a
+        // card would not throw - it would resolve against exactly one target, every time, which
+        // is a quietly weaker card than the one printed. So the line goes back unread and the
+        // coverage figure carries the debt where it can be seen.
+        var strayBlock =
+            activated.FirstOrDefault(a => VariableTargets.Present(a.Targets))?.Text
+            ?? triggers.FirstOrDefault(t => VariableTargets.Present(t.Targets))?.Text
+            ?? modes.FirstOrDefault(m => VariableTargets.Present(m.Targets))?.Text;
+
+        if (strayBlock is not null)
+            unhandled.Add(strayBlock);
+
         var built = new SpellDefinition
         {
             Targets = spellTargets.ToImmutable(),
@@ -1560,6 +1612,7 @@ public static partial class CardCompiler
             DashCost = dash,
             BlitzCost = blitz,
             MultikickerCost = multikicker,
+            StriveCost = strive,
             EvokeCost = evoke,
             ConditionalAlternativeCost = conditionalCost,
             HasSplitSecond = splitSecond,
@@ -15378,6 +15431,16 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^Multikicker (?<cost>(\{[^}]+\})+)[.]?$", RegexOptions.IgnoreCase)]
     private static partial Regex MultikickerLine();
+
+    /// <summary>Strive, which is printed as a cost and not as a keyword (CR 702.122a).</summary>
+    /// <remarks>
+    /// The word "Strive" is an ability word with no rules meaning of its own (CR 207.2c) and is
+    /// stripped before this sees the line, so the sentence left behind is the whole ability.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ costs (?<cost>(\{[^}]+\})+) more to cast for each target beyond the first[.]?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StriveLine();
 
     [GeneratedRegex(@"^Cast ~ only (?<when>[^.]+)[.]?$", RegexOptions.IgnoreCase)]
     private static partial Regex CastOnlyLine();

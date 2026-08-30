@@ -158,9 +158,25 @@ public sealed partial class MechanicCoverageTests
                 if (line.Length == 0)
                     continue;
 
-                lines.Add(line);
-                lines.Add(TestCardName().Replace(line, "~"));
-                lines.Add(SelfWord().Replace(line, "~"));
+                // An ability word is flavour with no rules meaning (CR 207.2c), and the
+                // compiler strips it before any template sees the line - so "Strive - This
+                // spell costs ..." reaches the matchers as the sentence behind it, and a
+                // reader that did not strip it reported that shape unplayed while a test was
+                // playing it. Added as a second reading rather than replacing the first, so a
+                // pattern written against either form is still found.
+                foreach (var reading in new[]
+                {
+                    line,
+                    AbilityWordPrefix().Replace(line, string.Empty),
+                })
+                {
+                    var named = TestCardName().Replace(reading, "~");
+
+                    lines.Add(reading);
+                    lines.Add(named);
+                    lines.Add(SelfWord().Replace(reading, "~"));
+                    lines.Add(SelfWord().Replace(named, "~"));
+                }
             }
         }
 
@@ -197,6 +213,29 @@ public sealed partial class MechanicCoverageTests
     [GeneratedRegex(@"\bTest [A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*")]
     private static partial Regex TestCardName();
 
-    [GeneratedRegex(@"\bthis (creature|permanent|Saga|Class|Case|Room|Spacecraft)\b")]
-    private static partial Regex SelfWord();
+    /// <summary>
+    /// The words a card uses for itself, taken from the compiler rather than restated.
+    /// </summary>
+    /// <remarks>
+    /// This was a hand-written list of seven against the compiler's twenty-five, and it had
+    /// drifted exactly the way this file argues lists do: "this spell" was not on it, so a
+    /// line saying so reached the matchers unnormalised and the shape behind it was reported
+    /// unplayed while a test was playing it. Built from
+    /// <see cref="CardCompiler.SelfReferenceTypeNames"/> so the reader normalises a line the
+    /// same way the thing it is checking does.
+    /// </remarks>
+    private static readonly Regex SelfWordRegex = new(
+        @"\bthis (" + string.Join('|', CardCompiler.SelfReferenceTypeNames) + @")\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static Regex SelfWord() => SelfWordRegex;
+
+    /// <summary>An ability word and the em dash after it (CR 207.2c).</summary>
+    /// <remarks>
+    /// Not the compiler's own pattern, which is private, and deliberately narrower: it
+    /// refuses the roman numerals a Saga chapter opens with, so a chapter keeps its whole
+    /// line rather than being beheaded into a sentence no card prints.
+    /// </remarks>
+    [GeneratedRegex(@"^(?![IVX]+(?:, ?[IVX]+)* \u2014 )[A-Z][A-Za-z0-9' -]{2,24} \u2014 ")]
+    private static partial Regex AbilityWordPrefix();
 }

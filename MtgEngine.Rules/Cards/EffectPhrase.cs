@@ -2865,6 +2865,52 @@ public static partial class EffectPhrase
             return false;
         }
 
+        // "Any number of target creatures get +1/+1 and gain flying until end of turn" — the
+        // same instruction aimed at several things, with the caster choosing how many rather
+        // than the card. Read exactly the way the counted form above is: rewrite to the singular,
+        // parse that with the ordinary vocabulary, and keep what came back — but keep it once,
+        // as a block, because there is no number here to make copies with. The number arrives
+        // when the spell is cast (CR 601.2c) and the block is counted out then.
+        var unbounded = AnyNumberTargetLine().Match(sentence);
+        if (unbounded.Success)
+        {
+            var one = unbounded.Groups["head"].Value
+                + (unbounded.Groups["other"].Success ? "another target " : "target ")
+                + Singular(unbounded.Groups["t"].Value.Trim())
+                + Agreeing(unbounded.Groups["tail"].Value);
+
+            var blockTargets = ImmutableList.CreateBuilder<TargetSpec>();
+            var blockEffects = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(one, blockTargets, blockEffects)
+                || blockTargets.Count != 1
+                || blockEffects.Count == 0)
+            {
+                return false;
+            }
+
+            // Deferred questions are refused for a reason expansion makes sharper than nesting
+            // ever did. Each of them finds itself again by an index into its ability's effect
+            // list, and a block expanded to three targets is the same effect three times over —
+            // three records carrying one index, which the lookup answers with nothing. Asked
+            // over the whole tree rather than the top level, because a locator one branch down
+            // is copied just the same.
+            if (EffectTree.Flatten(blockEffects).Any(FindsItselfByIndex))
+                return false;
+
+            var at = targets.Count;
+
+            // Written against the block's own position and not against zero: the corpus
+            // invariant that every chosen target is read by something walks this template where
+            // it sits, and one numbered from zero would report the block's target as chosen and
+            // ignored on every card whose block is not the first thing it targets.
+            targets.Add(blockTargets[0] with { AnyNumber = true });
+            effects.Add(new ToEachChosenTarget(
+                [.. blockEffects.Select(effect => EffectTargets.Shift(effect, at))], at));
+
+            return true;
+        }
+
         // "Put a +1/+1 counter on each creature you control" — the same group grammar the
         // sweepers use, with counters instead of a verb.
         var massCounters = MassCountersLine().Match(sentence);
@@ -10029,6 +10075,25 @@ public static partial class EffectPhrase
             + @"(?<tail>| (get|gain|become|have|are)\s.*| to .*| from .*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MultiTargetLine();
+
+    /// <summary>
+    /// "Any number of target creatures ..." — the same sentence with the count left to the
+    /// caster (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// The counted form's twin, and written to match it group for group so the same singular
+    /// rewrite reads both. The tail alternation is wider by exactly the verbs this phrase is
+    /// printed with and the counted one is not — "any number of target players each mill two
+    /// cards", "any number of target creatures can't block this turn" — because a card that
+    /// says "any number" is far more often a whole sentence about a group than a pump.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.*?)any number of (?<other>other )?target "
+            + @"(?<t>[A-Za-z' ]+?)"
+            + @"(?<tail>| (get|gain|become|have|are|can't|each|deal|die|phase|lose|draw|"
+            + @"may|shuffle|mill|discard|sacrifice|search|untap|tap)\s.*| to .*| from .*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AnyNumberTargetLine();
 
     [GeneratedRegex(@"^copy (?<t>target [a-z0-9'’ ]+ spell)$", RegexOptions.IgnoreCase)]
     private static partial Regex CopyTargetSpellLine();

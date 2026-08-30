@@ -3007,8 +3007,10 @@ actually for is which are still *infeasible*, and the honest answers differ:
 - **Protection from a tribe** - still genuinely blocked. Protection lives in keyword flags and a
   tribe is a string; there is nowhere to put it.
 - **Firebending** - still blocked. Mana that lasts beyond the step has no representation.
-- **"Any number of target creatures"** - still deliberate. An unbounded target list is a decision,
-  not a gap.
+- **"Any number of target creatures"** - **built since, and the note was wrong about why it was
+  hard.** The decision it defends - no arbitrary ceiling - is right and is kept; what the note
+  missed is that the engine had already been counting a target list for as long as "up to one
+  target" had existed. See the section at the end of this file.
 - **Enlist** - closer than the note says. The runtime-amount pump it needed exists now; what is
   left is an optional tap *as the creature attacks*, which is a hook the declaration step does not
   have.
@@ -5709,9 +5711,10 @@ amounts of damage at all, because a **negative** share would let a division sum 
 while healing its target — the sort of thing a client can send and the rules never contemplate.
 
 "One, two, or three targets" compiles to three specs of which only the first is required, which is
-what the phrase says. **"Any number of targets" is left unread**: a spell whose target list has no
-length cannot be expressed by a fixed list of specs, and giving it an arbitrary ceiling would be a
-different card whenever the ceiling mattered.
+what the phrase says. **"Any number of target ..." reads now**, and without a ceiling - the
+objection this paragraph used to raise still stands and is what the shape is built to avoid. One
+spec is marked as standing for a block, and the count arrives when the caster announces it. See
+the section at the end of this file.
 
 **The remaining work is a genuine long tail, and the work queue now says so.** It ranks blocked
 lines, and that ranking went flat once the big families were read — everything left is six or
@@ -7090,3 +7093,87 @@ so the next sweep does not re-hope for them:
   stores run out (`MayPlayUntilTurn`, `MayPlayThroughOwnersNextTurn`), and "you may play them for
   as long as they remain exiled" needs one that does not. A third field, not a fourth duration.
 
+### The block of targets, and the strive cost that could not be built without it
+
+> Strive — This spell costs {2}{W} more to cast for each target beyond the first.
+> Any number of target creatures each get +1/+1 and gain indestructible until end of turn.
+
+Declined twice, on a reason this file stated plainly: a spell whose target list has no length
+cannot be written as a fixed list of specs, and an arbitrary ceiling would be a different card
+whenever the ceiling mattered. Both halves of that are still true. What was wrong was the
+conclusion, and the thing that makes it wrong had been in the engine since "up to one target" was
+read: **`RequireLegalTargets` has always checked a range, not a number.** It counts how many specs
+are not optional, and accepts any list between that and the whole. A cast already hands its
+targets over as a list of the caster's own length.
+
+So CR 601.2c is not asking for a new mechanism, it is describing the one that is there. "If the
+spell has a variable number of targets, the player announces how many targets they will choose
+before they announce those targets", and "once the number of targets the spell has is determined,
+that number doesn't change". The announcement *is* the list. `TargetSpec.AnyNumber` marks one spec
+as standing for the block, `ToEachChosenTarget` holds what happens to each of them, and
+`VariableTargets.Expand` turns the pair into an ordinary counted spell against a number read off
+the stack object. Nothing is remembered that was not already: no state field, no event, no
+argument on the wire, and a game folded back from its log reaches the same spell it was cast as.
+
+**Strive falls out of it, and could not have been built before it.** "Costs {2}{W} more for each
+target beyond the first" is multikicker's shape with nothing to ask: the number was settled at
+CR 601.2c and CR 601.2f only prices it, so the cost is read off the announced list. A previous
+round refused to build this line on its own and was right to - every strive card also prints "any
+number of target ...", so the cost would have been a price on a choice no player could make.
+
+**Three rules the shape turns on, each of them a card:**
+
+- **Zero is a legal announcement.** CR 601.2c's own worked example is Loaming Shaman resolving
+  with "no cards are targeted". So an empty block is a cast, not a refusal - and such a spell can
+  never fizzle for having no legal target, because it never had one. A strive spell cast for none
+  of its targets pays what it prints, since there is no target beyond the first when there is no
+  first.
+- **The expanded copies are required, not optional.** That is the point of expanding at all.
+  Optional says "the caster may stop here"; these say "the caster stopped here", so every one of
+  them has to be legal at CR 601.2c and each fizzles its own share at CR 608.2b.
+- **The block must be the spell's last target, and the compiler refuses to emit one anywhere
+  else.** Every index downstream is positional - the effects' target indices, the slices modes and
+  spliced text take - so a block that grew in the middle would move everything after it and aim
+  one sentence's effect at another sentence's creature. A second block, or any later line that
+  targets, sends the line back unread.
+
+It is read for **spells only**, and that is a fail-closed choice rather than an oversight. A
+trigger is asked for its targets one question at a time as it goes on the stack (CR 603.3d), and
+that loop knows nothing about a block; the deferred questions an ability can leave behind find
+themselves again by an index that expansion would duplicate. Left in, such a card would not throw
+- it would resolve against exactly one target every time, which is a quietly weaker card than the
+one printed. So a block on a trigger, an activated ability or a mode sends its line back unread,
+and the coverage figure carries the debt where it can be seen. The same guard refuses a block
+whose per-target effects contain a deferred question at all.
+
+**16,138 → 16,156 complete cards, +18, none lost, measured by set difference.** Eight of the
+eighteen are strive (Aerial Formation, Ajani's Presence, Blinding Flare, Cruel Feeding, Desperate
+Stand, Kiora's Dismissal, Phalanx Formation, Rouse the Mob); the other ten are the block on its
+own (Bone Harvest, Eerie Interlude, Footbottom Feast, Forever Young, Frantic Salvage, Gravepurge,
+Hunters' Feast, Rabid Attack, Scapegoat, Sway of Illusion).
+
+**And the measurement that matters most is the one that says to stop.** 173 corpus cards print
+"any number of target"; 165 were unread. A first count said 126 of them would finish once the
+phrase was expressible - that number was an upper bound and it was wrong, because it asked only
+whether any *other* line was blocking, never whether the sentence carrying the phrase was one the
+engine could read. Asked properly - every remaining card recompiled with **"up to two target"**
+substituted for the block, which routes the identical sentence through the counted path that has
+worked for a year - **not one further card completes.** Zero of 147.
+
+That is a decisive answer and it is worth stating as one: **the block grammar is now as complete
+as the effect vocabulary behind it allows.** Everything left in this family is blocked on the
+sentence, not on the target list - "shuffle target creature card from your graveyard into your
+library", "distribute four +1/+1 counters among target creature", "exile target creature
+controlled by a different player" are each their own unread instruction and would be just as
+unread with a count in front of them. Widening the block's own pattern buys nothing. The next
+person tempted to spend a round on "any number of targets" should spend it on effect sentences
+instead, and this paragraph is here so they do not have to re-derive that.
+
+**A side finding, in the instrument.** `MechanicCoverageTests` asserts that every line shape the
+compiler reads is played by some behaviour test, and it read the test source through a
+hand-written list of the seven words a card calls itself by - against the compiler's twenty-five.
+"This spell" was not on it, so the strive line reached the matchers unnormalised and the shape was
+reported unplayed while a test was playing it. It also did not strip ability words, which the
+compiler does before any template sees a line. Both now derive from the compiler:
+`CardCompiler.SelfReferenceTypeNames` is exposed for exactly this reason, and it is the third
+vocabulary list in this project to be caught having drifted from a copy of itself.

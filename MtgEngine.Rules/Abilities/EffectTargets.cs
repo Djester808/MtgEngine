@@ -394,6 +394,18 @@ public static class EffectTargets
             (e, n) => e with { FirstIndex = e.FirstIndex + n },
             e => Enumerable.Range(e.FirstIndex, e.TargetCount));
 
+        // The block moves and so does everything written against it. Shifting only the outer
+        // index would leave the per-target effects pointing at whatever the ability targeted
+        // before this clause was folded in — the same defect that made a card print the same
+        // pump three times and put all of it on one creature.
+        Add<ToEachChosenTarget>(
+            e => e.FirstIndex,
+            (e, n) => e with
+            {
+                FirstIndex = e.FirstIndex + n,
+                Effects = [.. e.Effects.Select(inner => Shift(inner, n))],
+            });
+
         // Two slots, and both move together. The read returns the one that is always present —
         // a fight always has an opponent, and only sometimes names its own fighter.
         Add<Fight>(
