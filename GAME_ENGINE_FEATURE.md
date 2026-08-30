@@ -513,9 +513,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **54.0% of playable cards fully read** (17,658 of 32,717), 69.8% of lines.
-
-Coverage is **54.0% of playable cards fully read** (17,651 of 32,717), 69.7% of lines.
+Coverage is **54.3% of playable cards fully read** (17,759 of 32,717), 70.0% of lines.
 
 ### Round nineteen: the recorded set as an object, and the second fail-closed line
 
@@ -761,8 +759,6 @@ sentence** — `FoldGrantedTokenAbility` knows two spellings and the corpus prin
 Alchemy's **`perpetually gains "Q"`** (10 cards) and **emblems** (6) are mechanics the engine does
 not model at all.
 
-Coverage is **54.0% of playable cards fully read** (17,683 of 32,717), 69.8% of lines.
-
 ### Round eighteen: the prohibition family is half the size it was ranked at
 
 The shape table put `can't` third at **672 sole blockers / 920 cards**. That number is a
@@ -883,10 +879,6 @@ model, and a prohibition that binds on some turns and not others is worse than a
   during the declare attackers step.
 - **A filtered one-shot** (3). "…and can't be blocked by Walls this turn" needs a block restriction
   with a filter *and* a duration; the static form of it exists and the floating form does not.
-
-Coverage is **53.4% of playable cards fully read** (17,476 of 32,717), 69.4% of lines.
-
-Coverage is **53.5% of playable cards fully read** (17,489 of 32,717), 69.4% of lines.
 
 ### Round eighteen: "this way", and the difference between a ceiling and a reader
 
@@ -1020,8 +1012,6 @@ green, and the count had gone up.
   they controlled that were destroyed this way": a different number for each player being asked, and
   one total would be wrong for all of them.
 
-Coverage is **53.5% of playable cards fully read** (17,489 of 32,717), 69.4% of lines.
-
 ### Round eighteen: a token that's a copy, and the 141 that was really 37
 
 The lead the round-seventeen table ranked first — "a token that's a copy of a permanent, 141
@@ -1125,8 +1115,6 @@ refused by the sentence beside it, so the rows do not sum to 37 - 16:
 "Tapped and attacking" is in the reader's decomposition and **not** in the build: 14 corpus
 sentences say it and not one of them is on a card the copy clause is the only defect of, so it
 would have been machinery with no card to reach it.
-
-Coverage is **53.3% of playable cards fully read** (17,445 of 32,717).
 
 ### Round seventeen: a guard that forbade every question behind it
 
@@ -1241,8 +1229,6 @@ substrings and are listed to be decomposed, not built:
   lookup comes back empty the guard silently does nothing and sixteen cards compile and play as
   blanks, which is the worse half of the trade. Check that first; the reader is ten lines after it.
 
-Coverage is **52.7% of playable cards fully read** (17,232 of 32,717), 68.9% of lines.
-
 ### Round seventeen: the frame around an ability the compiler already understood
 
 **655 cards sat one line short of complete with a quotation in that line, and on 213 of them the
@@ -1323,8 +1309,6 @@ take its filter from `ReadStaticGroup` instead of its own hand-written pattern, 
 "vocabulary restated in a second pattern" bug one more time and the right next thing here;
 `perpetually` (10) and emblems (6) are mechanics the engine does not model at all.
 
-Coverage is **52.8% of playable cards fully read** (17,264 of 32,717), 69.0% of lines.
-
 ### Round seventeen: "look at the top N" decomposed, and the half of it that is one reader
 
 The last large coherent family anybody had identified, and it had been declined once — eight
@@ -1401,8 +1385,6 @@ card entered; and **"put the rest on top of your library in any order"** (7) is 
 destination the resolution cannot honour, because the rest go to the *bottom* whenever they go
 back to a library. Reading that last one would quietly bury cards Diabolic Vision leaves on top —
 a card that compiles, plays, and is wrong in a way nothing downstream can see.
-
-Coverage is **52.7% of playable cards fully read** (17,242 of 32,717), 68.9% of lines.
 
 ### Round seventeen: "instead" is mostly not a replacement effect
 
@@ -10036,5 +10018,3 @@ ability sacrifices the copy and leaves the creature it copied on the battlefield
 Cannon shape is a `[Theory]` over both verbs asserting that the token goes and the permanent that
 made it stays. That second claim is the one the old reading failed — something did go away at end
 of turn, and it was the card that made the token.
-
-Coverage is **54.0% of playable cards fully read** (17,658 of 32,717), 69.8% of lines.
