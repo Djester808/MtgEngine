@@ -3098,6 +3098,38 @@ internal static class Subjects
 }
 
 /// <summary>
+/// A pump whose size is not known until it resolves — the "+X/+X" of a card (CR 613.4c).
+/// </summary>
+/// <remarks>
+/// Every ordinary pump <em>names</em> a continuous effect that was written when the card
+/// compiled, because the size is printed on the card and the id literally contains the numbers.
+/// "+X/+X" has no size until X does, so the id is built as the ability resolves and the layer
+/// machinery receives a definition like any other — one that did not exist a moment earlier.
+/// <para>
+/// One record shared by every pump rather than a variable twin of each. The pump effects differ
+/// only in <em>which</em> permanents they find — the source, a pronoun, a target, a group, an
+/// Aura's host — and the size is the same question in all of them. That was the defect this
+/// closed: "target creature gets +X/+X" read while "~ gets +X/+X", "it gets +X/+X" and
+/// "creatures you control get +X/+X" did not, because only the targeted reader had ever been
+/// taught the variable spelling, and the other four wrote the size out again with a digit in it.
+/// </para>
+/// <para>
+/// Power and toughness are two amounts rather than one, because the cards separate them: "+X/+0"
+/// is as common as "+X/+X", and reading the same X twice is a coincidence of wording.
+/// </para>
+/// </remarks>
+public sealed record VariablePumpSize(Amount Power, Amount Toughness)
+{
+    /// <summary>The definition id this size comes to, for the resolution asking.</summary>
+    public string DefinitionIdIn(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Cards.GenerativeEffects.PumpId(Power.In(context), Toughness.In(context));
+    }
+}
+
+/// <summary>
 /// Gives a target creature a bonus until end of turn — the pump effect (CR 611.2).
 /// </summary>
 /// <remarks>
@@ -3131,6 +3163,14 @@ public sealed record PumpUntilEndOfTurn(
     /// </summary>
     public bool ForTheTurn { get; init; } = true;
 
+    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    /// <remarks>
+    /// Null on every pump whose size was printed, which is nearly all of them: the id already
+    /// carries the numbers. When it is set the id is built from it as the effect resolves, and
+    /// <see cref="DefinitionId"/> is a placeholder nothing reads.
+    /// </remarks>
+    public VariablePumpSize? Size { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3147,7 +3187,7 @@ public sealed record PumpUntilEndOfTurn(
         [
             new ContinuousEffectCreated(
                 Guid.NewGuid(),
-                DefinitionId,
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
                 [subject],
                 UntilYourNextTurn || !ForTheTurn ? null : context.State.TurnNumber)
             {
@@ -3260,6 +3300,9 @@ public sealed record BecomeCopyOfTarget(
 /// </remarks>
 public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
 {
+    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    public VariablePumpSize? Size { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3270,7 +3313,10 @@ public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
         return
         [
             new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, [subject], context.State.TurnNumber),
+                Guid.NewGuid(),
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
+                [subject],
+                context.State.TurnNumber),
         ];
     }
 }
@@ -3285,6 +3331,9 @@ public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
 /// </remarks>
 public sealed record PumpHostUntilEndOfTurn(string DefinitionId) : IEffect
 {
+    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    public VariablePumpSize? Size { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3433,6 +3482,9 @@ public sealed record EndSourceEffect(string DefinitionId) : IEffect
 /// </remarks>
 public sealed record PumpCreaturesYouControl(string DefinitionId) : IEffect
 {
+    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    public VariablePumpSize? Size { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3450,7 +3502,10 @@ public sealed record PumpCreaturesYouControl(string DefinitionId) : IEffect
         return
         [
             new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, affected, context.State.TurnNumber),
+                Guid.NewGuid(),
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
+                affected,
+                context.State.TurnNumber),
         ];
     }
 }
@@ -6094,6 +6149,9 @@ public sealed record LookAndTake(
 public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIndex = null)
     : IEffect
 {
+    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    public VariablePumpSize? Size { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -6117,7 +6175,10 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
             :
             [
                 new ContinuousEffectCreated(
-                    Guid.NewGuid(), DefinitionId, affected, context.State.TurnNumber),
+                    Guid.NewGuid(),
+                    Size?.DefinitionIdIn(context) ?? DefinitionId,
+                    affected,
+                    context.State.TurnNumber),
             ];
     }
 }
@@ -8311,41 +8372,6 @@ public sealed record WithCountedVariable(
             events.AddRange(effect.Resolve(bound));
 
         return events;
-    }
-}
-
-/// <summary>
-/// Pumps a target by an amount that is not known until the ability resolves (CR 613.4c).
-/// </summary>
-/// <remarks>
-/// Every other pump names a continuous effect that was written when the card compiled, because the
-/// size was on the card. "+X/+X" has no size until X does, so the definition is *built* here from
-/// the amount and handed over by the same event — the layer machinery is unchanged and never
-/// learns that a pump can be variable.
-/// <para>
-/// Power and toughness are separate amounts rather than one, because the cards separate them:
-/// "+X/+0" is far commoner than "+X/+X" and reads the same X twice only by coincidence of
-/// wording.
-/// </para>
-/// </remarks>
-public sealed record PumpTargetByVariable(
-    Amount Power, Amount Toughness, int TargetIndex = 0) : IEffect
-{
-    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Permanent } target)
-            return [];
-
-        return
-        [
-            new ContinuousEffectCreated(
-                Guid.NewGuid(),
-                Cards.GenerativeEffects.PumpId(Power.In(context), Toughness.In(context)),
-                [target.Subject],
-                context.State.TurnNumber),
-        ];
     }
 }
 

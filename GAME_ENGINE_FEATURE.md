@@ -589,7 +589,7 @@ substrings and are listed to be decomposed, not built:
 | sole | touch | family | the sub-shapes inside it |
 |---|---|---|---|
 | 810 | 1009 | `... this way` back-reference | did-it conditional 255 · the set as an object 213 · a count `for each ... this way` 192 · an amount 87 · a member chosen from the set 15 |
-| 729 | 930 | `where X is <expr>` | an amount grammar: `~'s power` 34 · `that spell's mana value` 18 · `the greatest power among ...` 15 · `the amount of life you gained` 15 · 347 shapes in all |
+| 729 | 930 | `where X is <expr>` | **not one gap but two, and only 325 of the 729 are about the clause at all** — see "Where X is: the clause was rarely the blocker" below |
 | 672 | 920 | `can't` prohibitions | can't be blocked 147 · players can't 140 · can't attack 130 · can't block 96 · can't be regenerated 72 · can't be countered 26 · can't be targeted 24 |
 | 589 | 818 | a condition clause `, if <cond>,` | 151 refused by `BoardConditions`, flattest head in the file (max 7) |
 | 556 | 678 | `shuffle` | 271 of them are a bare trailing `shuffle.` after a search - riding along, blocking nothing |
@@ -9202,3 +9202,118 @@ neither is what it was briefed as:
   its text. The payment gate above was the opposite - it changed outcomes silently - and mixing the
   two in one commit would have put eight behaviour changes with no rules consequence next to the
   one with all of it.
+
+### Where X is: the clause was rarely the blocker
+
+`where X is <expr>` ranked second in the shape table at 729 sole blockers across 347 distinct
+expressions, and the obvious reading was that it wanted an amount grammar. It did not. Compiling
+the whole corpus and asking three questions of each of the 729 lines separates the family into
+parts that want different work:
+
+- **does the head read at all** with X replaced by a literal `2`?
+- **does the frame carry a bound X**, with the expression replaced by one `Counting` answers?
+- **does the expression read**, in a frame the compiler already takes?
+
+| | cards | what it means |
+|---|---|---|
+| head does not read with a number either | **394** | not a `where X is` card at all. The clause is riding along; the sentence in front of it is unread for its own reasons, and no amount grammar would finish one of them |
+| head reads, frame carries X, expression unknown | **183** | a vocabulary gap — 114 distinct expressions, the largest 18 |
+| head reads, expression known, frame refuses X | **142** | a *frame* gap: `Counting` already answers the clause and the sentence in front cannot hold the answer |
+| head reads, both unknown | 73 | needs one of each |
+
+So the family is 45% mirage, and the half that is real splits evenly between vocabulary and frame.
+The ranked expression table below is the vocabulary half; the frame half is not an expression
+question at all and is the bigger single lever.
+
+**Ranked by family, over all 729:**
+
+| family | cards | head reads | frame carries X | expression known |
+|---|---|---|---|---|
+| a count — `the number of <group>` | 360 | 160 | 78 | 183 |
+| a possessive stat — `<x>'s power/toughness/mana value` | 174 | 86 | 58 | 28 |
+| everything else (a long tail of one-offs) | 74 | 22 | 17 | 0 |
+| greatest/least among — `the greatest power among ...` | 47 | 29 | 15 | 0 |
+| life gained/lost — `the amount of life you gained this turn` | 22 | 15 | 7 | 0 |
+| mana spent/paid — `the amount of mana spent to cast ~` | 14 | 3 | 2 | 0 |
+| damage — `that excess damage` | 13 | 5 | 3 | 0 |
+| a die roll — `the result` | 8 | 1 | 0 | 0 |
+| a life total — `your life total` | 7 | 4 | 3 | 0 |
+
+**The commonest single expressions** (`head` = the sentence reads with a literal, `frame` = it
+reads with a counted X already, `expr` = the shared vocabulary already answers the clause):
+
+| cards | head | frame | expr | expression |
+|---|---|---|---|---|
+| 46 | 25 | 18 | 0 | `~'s power` |
+| 21 | 13 | 9 | 0 | `that spell's mana value` |
+| 16 | 7 | 2 | 16 | `its power` |
+| 15 | 12 | 6 | 0 | `the amount of life you gained this turn` |
+| 13 | 8 | 7 | 0 | `the number of colors of mana spent to cast ~` |
+| 12 | 6 | 6 | 0 | `that creature's power` |
+| 12 | 7 | 4 | 0 | `the greatest power among creatures you control` |
+| 12 | 8 | 5 | 0 | `the sacrificed creature's power` |
+| 11 | 4 | 2 | 11 | `its mana value` |
+| 11 | 4 | 0 | 11 | `the number of creatures you control` |
+| 10 | 6 | 0 | 10 | `the number of cards in your hand` |
+| 9 | 4 | 0 | 9 | `the number of creature cards in your graveyard` |
+| 8 | 1 | 0 | 8 | `the number of attacking creatures` |
+| 8 | 0 | 0 | 0 | `that card's mana value` |
+| 7 | 0 | 0 | 0 | `the result` |
+| 7 | 4 | 3 | 0 | `your life total` |
+| 7 | 3 | 3 | 0 | `that creature's mana value` |
+
+The three rows where `frame` is 0 and `expr` is the full count are the shape of the frame gap: the
+compiler knows the clause perfectly and the sentence in front of it cannot take the answer.
+
+### Five readers wrote a pump's size out five times, and one of them knew about X
+
+Of the 142 frame-gap cards, **102 are a pump** and they split three ways by what the sentence
+pumps: `~ gets +X/+X` 23, `it gets +X/+X` 22, `<group> get +X/+X` 27, and the rest already worked.
+Which is the whole story: the size fragment `(?<p>[+-]\d+)/(?<tough>[+-]\d+)` was written out
+separately in **six** pump readers — target, source, pronoun, group, "creatures you control", and
+an Aura's host — and only the *targeted* one had ever been widened to `[+-](\d+|X)`. So
+"target creature gets +X/+X until end of turn, where X is the number of Elves you control" read,
+and the same clause about any of the other five did not.
+
+Not a missing feature: `WithCountedVariable` had been binding X for two rounds and the pronoun
+reader was already resolving the right permanent. The five readers simply could not read a size
+that was not a digit, and the sentence never reached the wrapper.
+
+The fix is one regex fragment (`PT`) and one shared record. `VariablePumpSize(Amount, Amount)`
+carries the size beside a placeholder id; each pump effect builds the real id as it resolves, so
+the layer machinery is untouched and never learns a pump can be variable. `PumpSizeOf` is the one
+place that decides whether a printed size is a number or an X — the previous arrangement had that
+decision twice, and the second copy is what `PumpTargetByVariable` was. That record is gone: the
+targeted reader now uses `PumpUntilEndOfTurn { Size }` like the other five, which resolves the
+target through exactly the same permanent check it did.
+
+### `~'s power` is not the pronoun, and it never needed to be
+
+The largest single expression in the whole family, 46 cards, and it was blocked by one word.
+`VariableIsStatLine` read `where X is its power` and refused everything else — but `~` is the
+card's own name, which the compiler substitutes before any of this runs, so `~'s power` names the
+**source** and nothing else. None of the pronoun's difficulty applies: "its" has to be worked out
+from the shape of the head, and the reader refuses a head that has a target because it cannot tell
+Onward's reading from Dying Wish's. A card that says its own name has nothing to work out, so the
+possessive is read where the pronoun is refused, with a target in front of it or without one.
+
+Read off `Characteristics.Of` rather than the printed card, for the reason the whole engine does:
+a Wild Beastmaster wearing two +1/+1 counters pumps by three.
+
+**Declined, and why**: `that spell's mana value` (21), `that creature's power` (12), `the
+sacrificed creature's power` (12), `that card's mana value` (8), `the discarded/exiled/revealed/
+milled card's ...` (11 between them). Each names an object this clause has no way to find — a
+spell on the stack the trigger was about, a permanent sacrificed as a cost, a card a previous
+sentence moved — and a stat read off the wrong permanent is a card that compiles, resolves and
+plays a different number. They stay unread, which is the answer a deck check can refuse.
+
+**The fail-closed edge, tested**: an X the vocabulary cannot compute leaves the line unread rather
+than settling at nought. A spell dealing X damage where X silently resolves to 0 compiles, passes
+the deck gate, goes on the stack, resolves and does nothing, and the coverage number goes *up*.
+Every one of the 63 cards this round completed has X bound by a `where X is` clause the compiler
+now reads or by a `{X}` it was cast for; none has a pump whose size nothing supplies.
+
+**Still open**: `Counting` gets a phrase and no target builder, so a count phrase cannot *introduce*
+a target. "Target player draws X cards, where X is the number of cards in that player's hand" reads
+because the head named the player; "draw X cards, where X is the number of cards in target player's
+hand" does not, because the clause would have to add the target itself. Unchanged by this round.
