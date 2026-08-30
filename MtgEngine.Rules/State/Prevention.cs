@@ -70,6 +70,36 @@ public sealed record PreventionEffect
     public ObjectId? Permanent { get; init; }
 
     /// <summary>
+    /// One object whose damage it prevents — "dealt by enchanted creature", "dealt by target
+    /// creature".
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="Permanent"/>, and a field rather than a
+    /// <see cref="SourceFilter"/> because no description of a card can say "that one": the
+    /// eleven cards printing this name a single object, and a filter derived from what it
+    /// happens to be would shield against every creature of that kind.
+    /// <para>
+    /// CR 609.7a fixes the source when the effect is created, so this is compared by id and
+    /// never looked up. A source that has since left the game answers no rather than answering
+    /// everything, which is the fail-closed direction: the alternative reading makes the shield
+    /// wider every time its object dies.
+    /// </para>
+    /// </remarks>
+    public ObjectId? Source { get; init; }
+
+    /// <summary>
+    /// One permanent <see cref="PermanentFilter"/> does not cover — the word "other".
+    /// </summary>
+    /// <remarks>
+    /// "Prevent all noncombat damage that would be dealt to other creatures you control" is a
+    /// filter with a hole in it, and the hole is an identity rather than a description: it is
+    /// the permanent whose static ability printed the sentence. Read as the filter alone, Tajic
+    /// would shield himself — a better card than the printed one, which is the failure the
+    /// prevention family is most dangerous for.
+    /// </remarks>
+    public ObjectId? Excludes { get; init; }
+
+    /// <summary>
     /// Permanents answering this filter, in the shared vocabulary, or null for none by
     /// description.
     /// </summary>
@@ -112,4 +142,115 @@ public sealed record PreventionEffect
     /// </remarks>
     public bool ShieldsEverything =>
         Permanent is null && PermanentFilter is null && Player is null && Players is null;
+}
+
+/// <summary>
+/// Whether a prevention effect applies to a damage event (CR 615.1).
+/// </summary>
+/// <remarks>
+/// One copy, because the engine keeps two kinds of prevention that mean the same thing. A
+/// described prevention a spell resolves is state held in
+/// <see cref="GameState.Preventions"/> until the turn ends; the identical words printed as a
+/// permanent's static ability are a replacement effect functioning from the battlefield, which
+/// stops the moment the permanent does (CR 611.2c). Only the <em>lifetime</em> differs — so
+/// "does this shield cover this damage" is asked here by both, rather than twice in two places
+/// that would drift about what "creatures you control" means.
+/// </remarks>
+public static class Preventions
+{
+    /// <summary>
+    /// Whether a prevention effect watches this damage at all — its kind and its source.
+    /// </summary>
+    /// <remarks>
+    /// CR 609.7: "damage from a source" is a question about the object dealing it, so a source
+    /// that has left the game answers nothing rather than everything. Preventing damage from a
+    /// source that cannot be examined would make "prevent all damage that would be dealt by
+    /// creatures" prevent a burn spell too.
+    /// </remarks>
+    public static bool Watches(
+        PreventionEffect effect,
+        GameState state,
+        IAbilitySource abilities,
+        bool isCombat,
+        ObjectId sourceId)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var kindMatches = effect.Kind switch
+        {
+            DamageKind.Combat => isCombat,
+            DamageKind.Noncombat => !isCombat,
+            _ => true,
+        };
+
+        if (!kindMatches)
+            return false;
+
+        // CR 609.7a: the named source is fixed when the shield is made, so this is an identity
+        // and not a description. It is asked before the lookup below because it needs none.
+        if (effect.Source is { } named && named != sourceId)
+            return false;
+
+        if (effect.SourceFilter is null && effect.SourceController is null)
+            return true;
+
+        if (!state.TryGetObject(sourceId, out var source))
+            return false;
+
+        if (effect.SourceFilter is { } filter && !SearchFilters.Matches(filter, source.Card))
+            return false;
+
+        return effect.SourceController is not { } scope
+            || PlayerScopes.Around(scope, state, effect.ControllerId)
+                .Contains(Characteristics.ControllerOf(state, abilities, source));
+    }
+
+    /// <summary>Whether a prevention effect shields this permanent (CR 615.1).</summary>
+    /// <remarks>
+    /// The filter is asked of the printed card, as every other card-filter question at this level
+    /// is. That is a deviation worth naming: a land animated into a creature is not shielded by
+    /// "damage that would be dealt to creatures you control", where CR 613 layer 4 says it should
+    /// be. The alternative is a second filter vocabulary over computed characteristics, and the
+    /// cards that print this shield name a type the animation cases do not reach.
+    /// </remarks>
+    public static bool Covers(
+        PreventionEffect effect, GameState state, IAbilitySource abilities, GameObject damaged)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(damaged);
+
+        // "Other creatures you control" leaves out the permanent whose ability said it, and no
+        // card filter can say that: the exclusion is about which object is speaking rather than
+        // about what the card is. Asked first, so that no later arm can shield the one thing the
+        // sentence took out — the word only ever narrows.
+        if (effect.Excludes == damaged.Id)
+            return false;
+
+        if (effect.ShieldsEverything || effect.Permanent == damaged.Id)
+            return true;
+
+        if (effect.PermanentFilter is not { } filter
+            || !SearchFilters.Matches(filter, damaged.Card))
+        {
+            return false;
+        }
+
+        return effect.PermanentController is not { } scope
+            || PlayerScopes.Around(scope, state, effect.ControllerId)
+                .Contains(Characteristics.ControllerOf(state, abilities, damaged));
+    }
+
+    /// <summary>Whether a prevention effect shields this player (CR 615.1).</summary>
+    public static bool CoversPlayer(PreventionEffect effect, GameState state, Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(state);
+
+        return effect.ShieldsEverything
+            || effect.Player == playerId
+            || (effect.Players is { } scope
+                && PlayerScopes.Around(scope, state, effect.ControllerId).Contains(playerId));
+    }
 }

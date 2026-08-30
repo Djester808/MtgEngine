@@ -11866,72 +11866,304 @@ public static partial class CardCompiler
     private static bool TryStaticPrevention(
         string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {
-        var m = StaticPreventionLine().Match(line);
-        if (!m.Success)
-            return false;
+        var sentence = line;
+        Func<GameState, IAbilitySource, GameObject, bool>? when = null;
 
-        var direction = m.Groups["dir"].Value.ToLowerInvariant();
-        var shieldsVictim = direction is "to" or "to and dealt by";
-        var shieldsDealer = direction is "by" or "to and dealt by";
-        var onSelf = m.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
-
-        var kind = m.Groups["kind"].Value.Trim().ToLowerInvariant();
-        var combatOnly = kind == "combat";
-        var noncombatOnly = kind == "noncombat";
-
-        // "Prevent all damage that would be dealt to ~ by artifact creatures" — a filter on
-        // whoever is dealing, which only means anything when the shield is on the victim.
-        string? from = null;
-        if (m.Groups["by"].Success)
+        // "During your turn, prevent all damage that would be dealt to you" — a static ability
+        // with a condition on it (CR 604.3). A replacement effect asks its question when the
+        // event would happen, which is exactly when the condition has to hold, so this is one
+        // more clause in Applies rather than anything with a duration. Through
+        // BoardConditions so "your turn" means the same thing here as everywhere else; a
+        // condition that vocabulary cannot read leaves the whole line unread rather than
+        // producing an unconditional shield, which is a strictly better card than the printed
+        // one.
+        if (ConditionalPreventionLine().Match(line) is { Success: true } guarded)
         {
-            if (!shieldsVictim || shieldsDealer)
+            when = BoardConditions.Parse(guarded.Groups["cond"].Value.Trim());
+            if (when is null)
                 return false;
 
-            var dealer = m.Groups["by"].Value.Trim();
-            if (dealer.EndsWith(" sources", StringComparison.OrdinalIgnoreCase))
-                dealer = dealer[..^" sources".Length];
-
-            from = EffectPhrase.SearchFilterFor(EffectPhrase.Singular(dealer));
-            if (from is null)
-                return false;
+            sentence = guarded.Groups["rest"].Value;
         }
 
-        bool Watches(bool isCombat) => (!combatOnly || isCombat) && (!noncombatOnly || !isCombat);
+        if (EffectPhrase.ReadPreventionSentence(sentence) is not { } read || read.ForTheTurn)
+            return false;
 
-        bool DealtBy(GameState state, ObjectId sourceId) =>
-            from is null
-            || (state.TryGetObject(sourceId, out var dealer)
-                && Abilities.SearchFilters.Matches(from, dealer.Card));
+        var built = new List<ReplacementEffectDefinition>();
 
-        into.Add(new ReplacementEffectDefinition
+        // "To and dealt by enchanted creature" is two shields around one noun, and they are
+        // alternatives: damage reaching it is prevented, and so is damage it deals. One shield
+        // with both slots filled would be the conjunction of the two — only the damage it dealt
+        // to itself, which is a card that does nothing.
+        var ok = read.BothWays
+            ? StaticShields(read.Kind, read.Victims, null, when, built)
+                && StaticShields(read.Kind, null, read.Sources, when, built)
+            : StaticShields(read.Kind, read.Victims, read.Sources, when, built);
+
+        if (!ok)
+            return false;
+
+        into.AddRange(built);
+        return true;
+    }
+
+    /// <summary>Which object a static prevention's clause names, when it names one.</summary>
+    private enum PreventionAnchor
+    {
+        /// <summary>A described set, or nothing at all — no single object is named.</summary>
+        None,
+
+        /// <summary>The permanent whose ability this is — "~".</summary>
+        Self,
+
+        /// <summary>What it is attached to — "enchanted creature", "equipped creature".</summary>
+        Host,
+    }
+
+    /// <summary>
+    /// The nouns a static prevention can use to name one object rather than describe a set.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="EffectPhrase.PreventVictim"/> because these three words mean
+    /// nothing to a resolving spell: a permanent is the only thing that has a "this" or a host.
+    /// The described-set vocabulary is shared with the sentence reader; this is the part that is
+    /// only ever true of a static ability.
+    /// </remarks>
+    private static PreventionAnchor StaticPreventionAnchor(string phrase) =>
+        phrase.Trim().ToLowerInvariant() switch
         {
-            Id = "static-prevention-" + direction.Replace(' ', '-') + "-" + (kind.Length == 0 ? "any" : kind)
-                + (from is null ? string.Empty : "-" + from),
+            "~" => PreventionAnchor.Self,
+            "enchanted creature" or "equipped creature" or "enchanted permanent"
+                => PreventionAnchor.Host,
+            _ => PreventionAnchor.None,
+        };
+
+    /// <summary>
+    /// One prevention sentence's clauses, compiled to a shield each (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// "To you and creatures you control" is two shields and not one: a player and a set of
+    /// permanents are covered by different fields, and one effect cannot hold both. Every part
+    /// has to be readable — a sentence with one clause the vocabulary cannot say is left unread
+    /// rather than shielded by the parts that were understood, because a prevention read wider
+    /// than printed is what makes a creature invulnerable.
+    /// </remarks>
+    private static bool StaticShields(
+        DamageKind kind,
+        string? victims,
+        string? sources,
+        Func<GameState, IAbilitySource, GameObject, bool>? when,
+        List<ReplacementEffectDefinition> built)
+    {
+        // A sentence naming neither what it shields nor whose damage it watches is a permanent
+        // preventing every point of damage in the game for the rest of it. Nothing prints that,
+        // so it is far likelier to be a mis-parse than a card, and it is refused.
+        if (victims is null && sources is null)
+            return false;
+
+        var dealer = PreventionAnchor.None;
+        (string? Filter, PlayerScope? Who) from = (null, null);
+
+        if (sources is { } by)
+        {
+            dealer = StaticPreventionAnchor(by);
+
+            if (dealer is PreventionAnchor.None)
+            {
+                if (EffectPhrase.PreventSource(by) is not { } described)
+                    return false;
+
+                from = described;
+            }
+        }
+
+        if (victims is null)
+        {
+            built.Add(
+                StaticShield(kind, PreventionAnchor.None, (null, null, false), dealer, from, when));
+            return true;
+        }
+
+        var before = built.Count;
+
+        foreach (var part in victims.Split(
+            " and ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (StaticPreventionAnchor(part) is var anchor and not PreventionAnchor.None)
+            {
+                built.Add(StaticShield(kind, anchor, (null, null, false), dealer, from, when));
+                continue;
+            }
+
+            if (EffectPhrase.PreventVictim(part) is not { } who)
+                return false;
+
+            built.Add(StaticShield(kind, PreventionAnchor.None, who, dealer, from, when));
+        }
+
+        return built.Count > before;
+    }
+
+    /// <summary>
+    /// One shield a permanent's static ability puts up (CR 615.1) — a replacement effect.
+    /// </summary>
+    /// <remarks>
+    /// A replacement rather than a <see cref="PreventDescribedDamage"/>, and the choice is
+    /// forced: a described prevention is state the engine keeps until the turn ends, so one with
+    /// no duration would sit on the board after the Aura holding it had been destroyed. A
+    /// replacement lives on its permanent — <see cref="ReplacementEffectDefinition.FunctionsFrom"/>
+    /// is the battlefield — so it stops the moment the permanent does, which is what a static
+    /// ability means (CR 611.2c).
+    /// <para>
+    /// What it shields is described by a <see cref="PreventionEffect"/> built fresh for each
+    /// event, so the two kinds of prevention answer "does this cover that damage" through the
+    /// one predicate in <see cref="Preventions"/>. Only the object slots are filled here, and
+    /// only they can be: "~" and "enchanted creature" are ids that are not known until there is
+    /// a board, and the same words on a spell name nothing at all.
+    /// </para>
+    /// <para>
+    /// The controller is read through the control-only layer reader so that a stolen permanent
+    /// shields its new controller's creatures (CR 613.1b). It is asked with no ability source,
+    /// which is the compiler's standing compromise everywhere a replacement predicate needs one:
+    /// <see cref="ReplacementEffectDefinition.Applies"/> is handed a state and an object and no
+    /// abilities, so a control effect <em>granted</em> to a permanent rather than printed on it
+    /// is invisible here. Threading an <c>IAbilitySource</c> through that signature is the fix,
+    /// and it is forty-two call sites wide.
+    /// </para>
+    /// </remarks>
+    private static ReplacementEffectDefinition StaticShield(
+        DamageKind kind,
+        PreventionAnchor victim,
+        (string? Filter, PlayerScope? Who, bool Other) described,
+        PreventionAnchor dealer,
+        (string? Filter, PlayerScope? Who) from,
+        Func<GameState, IAbilitySource, GameObject, bool>? when)
+    {
+        var template = new PreventionEffect
+        {
+            Id = Guid.Empty,
+            ControllerId = Guid.Empty,
+            Kind = kind,
+
+            // A filter names permanents and a bare scope names players — "to creatures you
+            // control" and "to you" are the two halves of the same slot and never both.
+            PermanentFilter = described.Filter,
+            PermanentController = described.Filter is null ? null : described.Who,
+            Players = described.Filter is null ? described.Who : null,
+            SourceFilter = from.Filter,
+            SourceController = from.Who,
+        };
+
+        // The shield with its object slots filled from the board, or null when a slot names
+        // something that is not there. An Aura that has come unattached shields nobody rather
+        // than falling back to shielding itself.
+        PreventionEffect? Bind(GameState state, GameObject source)
+        {
+            ObjectId? Anchored(PreventionAnchor which) => which switch
+            {
+                PreventionAnchor.Self => source.Id,
+                PreventionAnchor.Host => source.Permanent?.AttachedTo,
+                _ => null,
+            };
+
+            ObjectId? shielded = null;
+            if (victim is not PreventionAnchor.None)
+            {
+                shielded = Anchored(victim);
+                if (shielded is null)
+                    return null;
+            }
+
+            ObjectId? dealing = null;
+            if (dealer is not PreventionAnchor.None)
+            {
+                dealing = Anchored(dealer);
+                if (dealing is null)
+                    return null;
+            }
+
+            return template with
+            {
+                ControllerId = Characteristics.ControllerOf(state, EmptyAbilities.Instance, source),
+                Permanent = shielded,
+                Source = dealing,
+                Excludes = described.Other ? source.Id : null,
+            };
+        }
+
+        return new ReplacementEffectDefinition
+        {
+            Id = StaticShieldId(kind, victim, described, dealer, from),
             FunctionsFrom = Zone.Battlefield,
             Applies = (e, state, source) =>
             {
-                // The Aura's shield is about its host, and an Aura that has come unattached
-                // shields nobody rather than falling back to shielding itself.
-                if ((onSelf ? source.Id : source.Permanent?.AttachedTo) is not { } shielded)
+                if (when is not null && !when(state, EmptyAbilities.Instance, source))
+                    return false;
+
+                if (Bind(state, source) is not { } shield)
                     return false;
 
                 return e switch
                 {
-                    Events.DamageMarked marked when Watches(marked.IsCombat) =>
-                        (shieldsVictim && marked.Id == shielded && DealtBy(state, marked.SourceId))
-                        || (shieldsDealer && marked.SourceId == shielded),
-                    Events.PlayerDamaged hit when Watches(hit.IsCombat) =>
-                        shieldsDealer && hit.SourceId == shielded,
+                    Events.DamageMarked marked =>
+                        Preventions.Watches(
+                            shield, state, EmptyAbilities.Instance, marked.IsCombat,
+                            marked.SourceId)
+                        && state.TryGetObject(marked.Id, out var damaged)
+                        && Preventions.Covers(shield, state, EmptyAbilities.Instance, damaged),
+                    Events.PlayerDamaged hit =>
+                        Preventions.Watches(
+                            shield, state, EmptyAbilities.Instance, hit.IsCombat, hit.SourceId)
+                        && Preventions.CoversPlayer(shield, state, hit.PlayerId),
                     _ => false,
                 };
             },
 
             // Nothing comes back: the damage event is replaced by no events at all, which is
-            // what preventing all of it means (CR 615.1).
+            // what preventing all of it means (CR 615.1). Every line read here says "prevent
+            // all"; CR 615.10's numbered form is a differently-shaped sentence this does not
+            // claim, so the amount is never partial.
             Replace = (_, _, _) => [],
-        });
+        };
+    }
 
-        return true;
+    /// <summary>
+    /// A name for one static shield, distinct from every other on the same permanent.
+    /// </summary>
+    /// <remarks>
+    /// CR 614.5 keys an application on the permanent and this id, so Fog Bank's two shields
+    /// would be one if they shared a name — and the second direction would never apply.
+    /// </remarks>
+    private static string StaticShieldId(
+        DamageKind kind,
+        PreventionAnchor victim,
+        (string? Filter, PlayerScope? Who, bool Other) described,
+        PreventionAnchor dealer,
+        (string? Filter, PlayerScope? Who) from)
+    {
+        var to = victim switch
+        {
+            PreventionAnchor.Self => "self",
+            PreventionAnchor.Host => "host",
+
+            // Whose it is belongs in the name as much as what it is. "Creatures you control" and
+            // "creatures your opponents control" are one word apart and would otherwise be the
+            // same shield to CR 614.5, which keys an application on this string.
+            _ => (described.Other ? "other-" : string.Empty)
+                + (described.Filter ?? "all")
+                + (described.Who is { } whose ? ":" + whose : string.Empty),
+        };
+
+        var by = dealer switch
+        {
+            PreventionAnchor.Self => "self",
+            PreventionAnchor.Host => "host",
+            _ => from.Filter is null && from.Who is null
+                ? "any"
+                : (from.Filter ?? "source") + (from.Who is { } who ? ":" + who : string.Empty),
+        };
+
+        return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}";
     }
 
     /// <summary>
@@ -15129,18 +15361,15 @@ public static partial class CardCompiler
     private static partial Regex DeckConstructionLine();
 
     /// <remarks>
-    /// Only the source and its host are named, and deliberately: every other noun these lines
-    /// print — "creatures you control", "attacking creatures", "you" — is a described set the
-    /// replacement machinery cannot ask about from one permanent, and a shield that covered more
-    /// than the printed one is the failure this reader exists to avoid. There is no "this turn"
-    /// arm because a line carrying it is not a static ability at all.
+    /// The condition leads and the shield follows, which is the only order the cards print for
+    /// this family — "During your turn, prevent …", "As long as you control a permanent of each
+    /// color, prevent …". The trailing form ("… to ~ during your turn") is deliberately not read
+    /// here: it would have to be cut out of the middle of the noun the shield is about, and the
+    /// one card printing it is blocked by two other lines anyway.
     /// </remarks>
     [GeneratedRegex(
-        @"^prevent all (?<kind>combat |noncombat )?damage that would be dealt "
-            + @"(?<dir>to and dealt by|to|by) (?<who>~|enchanted creature|equipped creature)"
-            + @"( by (?<by>[a-z][a-z' -]*))?\.?$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex StaticPreventionLine();
+        @"^(?<cond>[Dd]uring [^,]+|[Aa]s long as [^,]+), (?<rest>[Pp]revent all .+)$")]
+    private static partial Regex ConditionalPreventionLine();
 
     [GeneratedRegex(
         @"^~ costs \{(?<n>\d+)\} less to cast if it targets an? (?<what>.+?)\.?$",

@@ -46223,6 +46223,407 @@ public sealed class CompiledCardBehaviourTests
             o => o.Card.Name == "Licid Rider Host");
     }
 
+    // ---- Prevention shields that have no duration (CR 615.1, 611.2c) ---------
+
+    /// <summary>
+    /// Tajic: "Prevent all noncombat damage that would be dealt to other creatures you control."
+    /// </summary>
+    /// <remarks>
+    /// A static prevention over a <em>described set</em> rather than over the permanent itself,
+    /// which is the shape the compiler refused until now: the reader knew "~", "enchanted
+    /// creature" and "equipped creature" and nothing else, so every line naming a group stayed
+    /// unread.
+    /// <para>
+    /// Three words in that sentence each do work, and each is a way to compile a strictly better
+    /// card than the printed one. <strong>"Noncombat"</strong> — the blocked bear still dies to
+    /// three points of combat damage. <strong>"You control"</strong> — Bob's brute is not
+    /// shielded by Alice's enchantment. <strong>"Other"</strong> — Tajic is not covered by his
+    /// own sentence, and no filter over card types can say so, because what is excluded is an
+    /// object rather than a kind of card.
+    /// </para>
+    /// <para>
+    /// The last assertion is the one the whole design turns on: with Tajic dead, the next bolt
+    /// kills the creature the shield had been covering. A described prevention with no duration
+    /// would have gone on shielding it for the rest of the turn — the card would look
+    /// implemented, play correctly all game, and be wrong exactly once.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_shield_leaves_out_its_own_permanent_and_stops_when_that_permanent_does()
+    {
+        var tajic = Card(
+            "Tajic Shield Test",
+            "Prevent all noncombat damage that would be dealt to other creatures you control.",
+            CardType.Creature,
+            3,
+            2);
+
+        var bolt = Card("Tajic Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(tajic).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(tajic).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var captain = game.Create(alice, tajic, Zone.Battlefield);
+        var blocker = game.Create(
+            alice, TestCards.Creature("Tajic Blocker Test", 2, 2), Zone.Battlefield);
+        var spare = game.Create(
+            alice, TestCards.Creature("Tajic Spare Test", 2, 2), Zone.Battlefield);
+        var brute = game.Create(bob, TestCards.Creature("Tajic Brute Test", 3, 3), Zone.Battlefield);
+
+        // Combat first, because "noncombat" is the word most easily lost: a shield that dropped
+        // it would keep this blocker alive and pass every other assertion below.
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [brute] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [brute] = [blocker] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.DoesNotContain(blocker, game.State.Battlefield);
+
+        // Noncombat damage to another creature Alice controls is prevented outright.
+        PassToMainPhaseOfTurn(game, 3);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(spare)]);
+        Settle(game);
+
+        Assert.Contains(spare, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(spare).Permanent?.DamageMarked);
+
+        // Bob's creature is nobody's "you control".
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(brute)]);
+        Settle(game);
+
+        Assert.DoesNotContain(brute, game.State.Battlefield);
+
+        // "Other": the shield covers everything Alice controls except the permanent saying it.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(captain)]);
+        Settle(game);
+
+        Assert.DoesNotContain(captain, game.State.Battlefield);
+
+        // And with it gone the shield is gone, on the same turn it was working.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(spare)]);
+        Settle(game);
+
+        Assert.DoesNotContain(spare, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Personal Sanctuary: "During your turn, prevent all damage that would be dealt to you."
+    /// </summary>
+    /// <remarks>
+    /// Two things at once. A shield around a <em>player</em>, which is a different field from
+    /// the one that holds permanents and a different event to watch — damage to a player is life
+    /// loss (CR 120.3c) and never passes the permanent arm at all. And a condition on a static
+    /// ability (CR 604.3), which a replacement effect gets for free: it asks its question when
+    /// the event would happen, which is exactly when the condition has to hold.
+    /// <para>
+    /// The opponent's turn is the control. Read without its condition this is a card that stops
+    /// every burn spell in the game, and it would compile just as cleanly.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_conditional_shield_around_a_player_holds_only_while_its_condition_does()
+    {
+        var sanctuary = Card(
+            "Personal Sanctuary Test",
+            "During your turn, prevent all damage that would be dealt to you.",
+            CardType.Enchantment);
+
+        var bolt = Card("Sanctuary Bolt Test", "~ deals 3 damage to any target.");
+
+        Assert.True(
+            CardCompiler.Compile(sanctuary).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(sanctuary).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, sanctuary, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Sanctuary Bear Test", 2, 2), Zone.Battlefield);
+        SettleIn(game);
+
+        // Alice's own turn: the damage never arrives.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // A player is not a permanent, and the sentence names one of them. Her creature is not
+        // covered by a shield that says "to you".
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+
+        // Bob's turn, same enchantment, same target: the condition no longer holds.
+        PassToMainPhaseOfTurn(game, 4);
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, bolt), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Statecraft: "Prevent all combat damage that would be dealt to and dealt by creatures you
+    /// control."
+    /// </summary>
+    /// <remarks>
+    /// One noun in both slots, which is two shields and not one. A single shield with both slots
+    /// filled would be their conjunction — only the damage a creature you control dealt to
+    /// another creature you control — and the card would do almost nothing while reporting
+    /// itself complete.
+    /// <para>
+    /// The unblocked attacker is the control that keeps the two shields honest: the sentence is
+    /// about creatures, so Alice's life total is not covered by either half.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void One_noun_in_both_directions_is_two_shields_rather_than_their_conjunction()
+    {
+        var statecraft = Card(
+            "Statecraft Test",
+            "Prevent all combat damage that would be dealt to and dealt by creatures you control.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(statecraft);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Replacements.Count);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, statecraft, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Statecraft Bear Test", 2, 2), Zone.Battlefield);
+        var brute = game.Create(
+            bob, TestCards.Creature("Statecraft Brute Test", 3, 3), Zone.Battlefield);
+        var raider = game.Create(
+            bob, TestCards.Creature("Statecraft Raider Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [brute] = AttackTarget.Player(alice),
+                [raider] = AttackTarget.Player(alice),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [brute] = [bear] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Damage reaching Alice's creature is prevented, and so is the damage it deals.
+        Assert.Equal(0, game.State.GetObject(bear).Permanent?.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(brute).Permanent?.DamageMarked);
+
+        // The unblocked attacker still connects: neither shield says anything about a player.
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+
+        // And neither says anything about noncombat damage.
+        PassToMainPhaseOfTurn(game, 3);
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Statecraft Bolt Test", "~ deals 3 damage to any target.")),
+            [Target.ToPermanent(bear)]);
+
+        Settle(game);
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Kor Haven: "Prevent all combat damage that would be dealt by target attacking creature
+    /// this turn."
+    /// </summary>
+    /// <remarks>
+    /// The half of prevention that names <em>one object</em> as the damage's source (CR 609.7a).
+    /// It is a field on the shield rather than a filter, and the second attacker is why: a
+    /// reading that turned the chosen creature into a description of its kind would fog the
+    /// whole attack, because both of these creatures are attacking creatures. Alice takes three
+    /// and not six, and not none.
+    /// </remarks>
+    [Fact]
+    public void A_shield_aimed_at_one_dealer_stops_that_creature_and_no_other()
+    {
+        var haven = Card(
+            "Kor Haven Test",
+            "{T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+            CardType.Land);
+
+        Assert.True(
+            CardCompiler.Compile(haven).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(haven).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var sanctuary = game.Create(alice, haven, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Haven Brute Test", 3, 3), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Haven Raider Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(alice),
+                [second] = AttackTarget.Player(alice),
+            });
+
+        // The active player receives priority first once attackers are declared (CR 117.3c), so
+        // Alice's answer comes after Bob has passed on his own attack.
+        if (game.State.Priority.Holder == bob)
+            game.PassPriority(bob);
+
+        game.ActivateAbility(alice, sanctuary, "a", [Target.ToPermanent(first)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Goblin Furrier: "Prevent all damage that ~ would deal to snow creatures."
+    /// </summary>
+    /// <remarks>
+    /// The active voice, where the dealer is the sentence's subject and the two halves swap
+    /// places. Both slots are filled at once here — the source is this permanent, the victims
+    /// answer a filter — which is the combination the old reader could not express in either
+    /// direction.
+    /// <para>
+    /// Damage <em>to</em> the Furrier is the control. A shield read as covering its own permanent
+    /// rather than describing what it deals would make this creature very hard to remove in
+    /// combat, and the card would still compile.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_active_voice_shield_names_the_source_and_describes_the_victims()
+    {
+        var furrier = Card(
+            "Goblin Furrier Test",
+            "Prevent all damage that ~ would deal to Goblins.",
+            CardType.Creature,
+            2,
+            5,
+            KeywordAbility.None,
+            "Goblin");
+
+        Assert.True(
+            CardCompiler.Compile(furrier).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(furrier).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wolf = game.Create(alice, furrier, Zone.Battlefield);
+        var goblin = game.Create(
+            bob,
+            Card("Furrier Goblin Test", string.Empty, CardType.Creature, 3, 3, KeywordAbility.None, "Goblin"),
+            Zone.Battlefield);
+
+        var bear = game.Create(bob, TestCards.Creature("Furrier Bear Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [goblin] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [goblin] = [wolf] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Nothing reached the Goblin, and the Furrier took its three all the same.
+        Assert.Equal(0, game.State.GetObject(goblin).Permanent?.DamageMarked);
+        Assert.Equal(3, game.State.GetObject(wolf).Permanent?.DamageMarked);
+
+        // A creature that is not a Goblin is not described by the sentence.
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [bear] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [bear] = [wolf] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(bear).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// The duration is what decides which reader owns the sentence, and neither may take both.
+    /// </summary>
+    /// <remarks>
+    /// The control for this whole section. A single pattern loose enough to claim both wordings
+    /// would pass every test above and fail this one, and both directions of that mistake are
+    /// bad in the same way:
+    /// <list type="bullet">
+    /// <item>
+    /// "…this turn" on a permanent compiled as a static ability is a shield that never comes
+    /// down — the fog on Isochron Scepter would fog every turn of the game.
+    /// </item>
+    /// <item>
+    /// A line with no duration on an instant compiled as a described prevention is a shield the
+    /// engine keeps until the turn ends, put up by a card that is already in a graveyard.
+    /// </item>
+    /// </list>
+    /// Both are left unread instead, which is what <c>Unhandled</c> is for.
+    /// </remarks>
+    [Fact]
+    public void The_no_duration_wording_is_a_static_and_the_this_turn_wording_is_not()
+    {
+        var permanent = CardCompiler.Compile(Card(
+            "Duration Permanent Test",
+            "Prevent all combat damage that would be dealt to ~ this turn.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.False(permanent.IsComplete);
+        Assert.Empty(permanent.Replacements);
+
+        var spell = CardCompiler.Compile(Card(
+            "Duration Spell Test",
+            "Prevent all damage that would be dealt to creatures you control."));
+
+        Assert.False(spell.IsComplete);
+        Assert.Empty(spell.Replacements);
+        Assert.Null(spell.Spell);
+
+        // And the two readings that *are* right still are: the same sentence with its duration
+        // on an instant, and without one on a permanent.
+        var fog = CardCompiler.Compile(Card(
+            "Duration Fog Test",
+            "Prevent all damage that would be dealt to creatures you control this turn."));
+
+        Assert.True(fog.IsComplete, string.Join(" | ", fog.Unhandled));
+
+        var wall = CardCompiler.Compile(Card(
+            "Duration Wall Test",
+            "Prevent all combat damage that would be dealt to ~.",
+            CardType.Creature,
+            0,
+            4));
+
+        Assert.True(wall.IsComplete, string.Join(" | ", wall.Unhandled));
+        Assert.Single(wall.Replacements);
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>

@@ -5122,7 +5122,7 @@ public static partial class EffectPhrase
         // "Prevent all combat damage that would be dealt this turn by creatures your opponents
         // control" — the shield described rather than aimed (CR 615.1). Read after the two
         // targeted forms above so that everything they already answer for stays theirs.
-        if (TryPreventDescribed(sentence, effects))
+        if (TryPreventDescribed(sentence, targets, effects))
             return true;
 
         m = ScryLine().Match(sentence);
@@ -5350,33 +5350,176 @@ public static partial class EffectPhrase
     /// gives a card an unbounded shield it was never printed with.
     /// </para>
     /// </remarks>
-    private static bool TryPreventDescribed(string sentence, ImmutableList<IEffect>.Builder effects)
+    private static bool TryPreventDescribed(
+        string sentence,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects)
     {
-        var passive = PreventDescribedPassiveLine().Match(sentence);
+        // No duration at all is a permanent's static ability, which the compiler reads into a
+        // replacement effect that functions from the battlefield. Compiled here it would be a
+        // shield the engine kept until the turn ended — put up by a card that has since gone to
+        // a graveyard, or by an Aura that has been destroyed.
+        //
+        // "To and dealt by" is refused for a different reason: it is two shields around one
+        // noun, and the two cards that print it with a duration name their noun with a pronoun
+        // this reader cannot resolve anyway.
+        if (ReadPreventionSentence(sentence) is not { ForTheTurn: true, BothWays: false } read)
+            return false;
+
+        (string? Filter, PlayerScope? Who) from = (null, null);
+        TargetSpec? aimedSource = null;
+
+        if (read.Sources is { } dealt)
+        {
+            if (PreventSource(dealt) is { } dealer)
+            {
+                from = dealer;
+            }
+            else if (Specs.Parse(dealt) is { Kind: TargetKind.Permanent } chosen)
+            {
+                // "Prevent all combat damage that would be dealt by target creature this turn" —
+                // one object rather than a description of one (CR 609.7a). It cannot be read as
+                // a filter derived from whatever the target happens to be: that would shield
+                // against every creature of the kind instead of the one the card aimed at.
+                aimedSource = chosen;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        var shields = ImmutableList.CreateBuilder<IEffect>();
+
+        // No "to" clause at all means the shield covers everyone and everything, which is what
+        // a fog says: "prevent all combat damage that would be dealt this turn".
+        if (read.Victims is null)
+        {
+            shields.Add(new PreventDescribedDamage
+            {
+                Kind = read.Kind,
+                SourceFilter = from.Filter,
+                SourceController = from.Who,
+            });
+        }
+        else
+        {
+            // "To you and creatures you control" is two shields and not one: a player and a set
+            // of permanents are covered by different fields, and one effect cannot hold both.
+            foreach (var part in read.Victims.Split(
+                " and ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                // "Other creatures you control" leaves out the permanent that said it, and a
+                // resolving spell is not on the battlefield to be left out. The static reader
+                // fills that slot; here the word has nothing to point at, so the line is left
+                // unread rather than widened to every creature.
+                if (PreventVictim(part) is not { Other: false } who)
+                    return false;
+
+                shields.Add(new PreventDescribedDamage
+                {
+                    Kind = read.Kind,
+                    PermanentFilter = who.Filter,
+                    PermanentController = who.Filter is null ? null : who.Who,
+                    Players = who.Filter is null ? who.Who : null,
+                    SourceFilter = from.Filter,
+                    SourceController = from.Who,
+                });
+            }
+        }
+
+        if (shields.Count == 0)
+            return false;
+
+        // The target is claimed last, so a sentence that defeats the vocabulary above leaves the
+        // ability's target list exactly as it found it.
+        if (aimedSource is { } spec)
+        {
+            targets.Add(spec);
+            var index = targets.Count - 1;
+
+            for (var i = 0; i < shields.Count; i++)
+            {
+                shields[i] = ((PreventDescribedDamage)shields[i]) with
+                {
+                    TargetIndex = index,
+                    TargetIsSource = true,
+                };
+            }
+        }
+
+        effects.AddRange(shields);
+        return true;
+    }
+
+    /// <summary>
+    /// A prevention sentence taken apart — what it watches, what it shields, whose damage, and
+    /// whether it lasts the turn.
+    /// </summary>
+    /// <param name="Kind">Combat, noncombat, or any (CR 615.1).</param>
+    /// <param name="Victims">The "to …" clause, or null for everyone and everything.</param>
+    /// <param name="Sources">The "by …" clause, or null for anyone's damage.</param>
+    /// <param name="BothWays">
+    /// Whether the two clauses are the same noun said once — "to and dealt by enchanted
+    /// creature", which shields what reaches it <em>or</em> what it deals, and is therefore two
+    /// shields rather than one with both slots filled.
+    /// </param>
+    /// <param name="ForTheTurn">Whether the sentence printed "this turn" (CR 514.2).</param>
+    internal readonly record struct PreventionSentence(
+        DamageKind Kind, string? Victims, string? Sources, bool BothWays, bool ForTheTurn);
+
+    /// <summary>
+    /// Reads a prevention sentence in either voice, without deciding what it means.
+    /// </summary>
+    /// <remarks>
+    /// Shared with <c>CardCompiler.TryStaticPrevention</c>, which reads the same sentence when it
+    /// carries no duration and has to compile it to something that stops when its permanent does.
+    /// Both readers need the same three answers out of the same two patterns, and the sentence is
+    /// awkward enough — "this turn" lands in any of three places — that a second parse of it
+    /// would be a second set of the four corrections this one already took.
+    /// </remarks>
+    internal static PreventionSentence? ReadPreventionSentence(string sentence)
+    {
+        ArgumentNullException.ThrowIfNull(sentence);
+
+        // A whole rules line arrives with its full stop; a sentence split out of one does not.
+        // Both patterns end at the first period, so it is taken off here rather than in each.
+        var text = sentence.Trim().TrimEnd('.').Trim();
+
+        var passive = PreventDescribedPassiveLine().Match(text);
         var active = passive.Success
             ? Match.Empty
-            : PreventDescribedActiveLine().Match(sentence);
+            : PreventDescribedActiveLine().Match(text);
 
         var read = passive.Success ? passive : active;
         if (!read.Success)
-            return false;
+            return null;
 
         string? victims;
         string? sources;
+        bool bothWays;
+        bool forTheTurn;
 
         if (passive.Success)
         {
-            if (!SplitPreventClauses(passive.Groups["rest"].Value, out victims, out sources))
-                return false;
+            if (!SplitPreventClauses(
+                passive.Groups["rest"].Value, out victims, out sources, out bothWays,
+                out forTheTurn))
+            {
+                return null;
+            }
         }
         else
         {
             // "Prevent all damage that creatures would deal to players this turn" — the same
             // sentence with the dealer as its subject, which is why the two halves swap places.
-            if (!SplitPreventClauses(active.Groups["rest"].Value, out victims, out var trailing)
-                || trailing is not null)
+            if (!SplitPreventClauses(
+                    active.Groups["rest"].Value, out victims, out var trailing, out bothWays,
+                    out forTheTurn)
+                || trailing is not null
+                || bothWays)
             {
-                return false;
+                return null;
             }
 
             sources = active.Groups["by"].Value.Trim();
@@ -5389,56 +5532,7 @@ public static partial class EffectPhrase
             _ => DamageKind.Any,
         };
 
-        (string? Filter, PlayerScope? Who) from = (null, null);
-
-        if (sources is not null)
-        {
-            if (PreventSource(sources) is not { } dealer)
-                return false;
-
-            from = dealer;
-        }
-
-        // No "to" clause at all means the shield covers everyone and everything, which is what
-        // a fog says: "prevent all combat damage that would be dealt this turn".
-        if (victims is null)
-        {
-            effects.Add(new PreventDescribedDamage
-            {
-                Kind = kind,
-                SourceFilter = from.Filter,
-                SourceController = from.Who,
-            });
-
-            return true;
-        }
-
-        // "To you and creatures you control" is two shields and not one: a player and a set of
-        // permanents are covered by different fields, and one effect cannot hold both.
-        var shields = ImmutableList.CreateBuilder<IEffect>();
-
-        foreach (var part in victims.Split(
-            " and ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (PreventVictim(part) is not { } who)
-                return false;
-
-            shields.Add(new PreventDescribedDamage
-            {
-                Kind = kind,
-                PermanentFilter = who.Filter,
-                PermanentController = who.Filter is null ? null : who.Who,
-                Players = who.Filter is null ? who.Who : null,
-                SourceFilter = from.Filter,
-                SourceController = from.Who,
-            });
-        }
-
-        if (shields.Count == 0)
-            return false;
-
-        effects.AddRange(shields);
-        return true;
+        return new PreventionSentence(kind, victims, sources, bothWays, forTheTurn);
     }
 
     /// <summary>
@@ -5447,28 +5541,62 @@ public static partial class EffectPhrase
     /// <remarks>
     /// The cards print "this turn" in three different places — before the "to", after it, and
     /// after the "by" — so it is taken out wherever it is rather than pinned to a position in
-    /// the pattern. Its absence is what says the line is a static ability, and those are refused.
+    /// the pattern.
+    /// <para>
+    /// Its presence is <em>reported</em> rather than required, because it is the one thing that
+    /// separates the two readers of this sentence. With it, the line is a one-shot effect a
+    /// resolving spell creates and the shield is state that ends with the turn (CR 514.2);
+    /// without it, the same words are a permanent's static ability and the shield has to stop
+    /// when the permanent does (CR 611.2c). Both readers parse the clauses identically — a
+    /// second copy of this vocabulary is how the two halves would start disagreeing about what
+    /// "creatures you control" means.
+    /// </para>
     /// </remarks>
-    private static bool SplitPreventClauses(string rest, out string? victims, out string? sources)
+    private static bool SplitPreventClauses(
+        string rest,
+        out string? victims,
+        out string? sources,
+        out bool bothWays,
+        out bool forTheTurn)
     {
         victims = null;
         sources = null;
+        bothWays = false;
+        forTheTurn = false;
 
         const string ThisTurn = " this turn";
 
         var at = rest.IndexOf(ThisTurn, StringComparison.OrdinalIgnoreCase);
-        if (at < 0
-            || rest.IndexOf(ThisTurn, at + 1, StringComparison.OrdinalIgnoreCase) >= 0)
-        {
+
+        // Twice is a sentence naming two durations, which neither reader can answer.
+        if (at >= 0 && rest.IndexOf(ThisTurn, at + 1, StringComparison.OrdinalIgnoreCase) >= 0)
             return false;
-        }
+
+        forTheTurn = at >= 0;
 
         var clauses = WhitespaceRun()
-            .Replace(rest.Remove(at, ThisTurn.Length), " ")
-            .Trim();
+            .Replace(at >= 0 ? rest.Remove(at, ThisTurn.Length) : rest, " ")
+            .Trim()
+            .TrimEnd('.');
 
         if (clauses.Length == 0)
             return true;
+
+        // "To and dealt by enchanted creature" is one noun in both slots, and it has to be
+        // recognised before the "by" search below — which would otherwise cut the sentence at
+        // that same "by" and report the shield as covering something called "and dealt".
+        const string BothDirections = "to and dealt by ";
+        if (clauses.StartsWith(BothDirections, StringComparison.OrdinalIgnoreCase))
+        {
+            var both = clauses[BothDirections.Length..].Trim();
+            if (both.Length == 0)
+                return false;
+
+            victims = both;
+            sources = both;
+            bothWays = true;
+            return true;
+        }
 
         if (clauses.StartsWith("by ", StringComparison.OrdinalIgnoreCase))
         {
@@ -5502,23 +5630,30 @@ public static partial class EffectPhrase
     /// Null for anything the shared filter vocabulary cannot say, which is the safe answer:
     /// "attacking creatures you control" read as "creatures you control" is a strictly better
     /// card than the printed one.
+    /// <para>
+    /// "Other" is reported rather than answered, because what it excludes is an object and not a
+    /// kind of card. Only a static ability has one to point at, so the two readers of this
+    /// sentence do different things with the same word.
+    /// </para>
     /// </remarks>
-    private static (string? Filter, PlayerScope? Who)? PreventVictim(string phrase)
+    internal static (string? Filter, PlayerScope? Who, bool Other)? PreventVictim(string phrase)
     {
+        ArgumentNullException.ThrowIfNull(phrase);
+
         var what = phrase.Trim();
 
         switch (what.ToLowerInvariant())
         {
             case "you":
-                return (null, PlayerScope.You);
+                return (null, PlayerScope.You, false);
             case "players":
             case "each player":
             case "all players":
-                return (null, PlayerScope.EachPlayer);
+                return (null, PlayerScope.EachPlayer, false);
             case "your opponents":
             case "each opponent":
             case "opponents":
-                return (null, PlayerScope.EachOpponent);
+                return (null, PlayerScope.EachOpponent, false);
             default:
                 break;
         }
@@ -5537,12 +5672,22 @@ public static partial class EffectPhrase
             whose = PlayerScope.EachOpponent;
         }
 
-        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose) : null;
+        // "Other creatures you control" (CR 109.5's "other"). Taken off the front and handed
+        // back as a flag, because the rest of the phrase is an ordinary filter and the word is
+        // not a property of any card — read as part of the filter it would either match nothing
+        // or, worse, be ignored, and an ignored "other" is Tajic shielding himself.
+        var other = what.StartsWith("other ", StringComparison.OrdinalIgnoreCase);
+        if (other)
+            what = what["other ".Length..].Trim();
+
+        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose, other) : null;
     }
 
     /// <summary>What one "by" clause describes — the filter a damage source has to answer.</summary>
-    private static (string? Filter, PlayerScope? Who)? PreventSource(string phrase)
+    internal static (string? Filter, PlayerScope? Who)? PreventSource(string phrase)
     {
+        ArgumentNullException.ThrowIfNull(phrase);
+
         var what = phrase.Trim();
         PlayerScope? whose = null;
 
