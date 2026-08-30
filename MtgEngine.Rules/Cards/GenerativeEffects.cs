@@ -141,33 +141,40 @@ public static partial class GenerativeEffects
     /// source to the same place the unchanged one would.
     /// </para>
     /// <para>
-    /// Types are added rather than replaced, because that is what "in addition to its other
-    /// types" says. CR 707.9d turns on that distinction — an exception that adds a type still
-    /// copies a characteristic-defining ability, while one that <em>sets</em> a characteristic
-    /// does not — and the second half of that rule is not done here: "except it's 7/7" writes the
-    /// size onto the card and does not take away a copied ability that defines the size, so a
-    /// Quicksilver Gargantuan copying a creature whose power is characteristic-defining ends up
-    /// the size that ability says. Left that way deliberately: dropping an ability by
-    /// <em>what it defines</em> needs the compiler to say which characteristic each one defines,
-    /// and it does not.
+    /// Types are added rather than replaced when the clause says "in addition to its other
+    /// types", because that is what it says, and <em>set</em> when it does not — "except it's a
+    /// 1/1 green Frog" leaves a token with no other creature type at all. CR 707.9d turns on that
+    /// distinction — an exception that adds a type still copies a characteristic-defining
+    /// ability, while one that <em>sets</em> a characteristic does not — and the second half of
+    /// that rule is not done here: "except it's 7/7" writes the size onto the card and does not
+    /// take away a copied ability that defines the size, so a Quicksilver Gargantuan copying a
+    /// creature whose power is characteristic-defining ends up the size that ability says. Left
+    /// that way deliberately: dropping an ability by <em>what it defines</em> needs the compiler
+    /// to say which characteristic each one defines, and it does not.
+    /// </para>
+    /// <para>
+    /// Colour is added or set by the same distinction, and the printed templating is what draws
+    /// it: "in addition to its other <em>colors and</em> types" adds the colour, and the same
+    /// sentence without those two words replaces it. Ratadrabik of Urborg's Zombie is black
+    /// <em>and</em> whatever it was; Croaking Counterpart's Frog is only green.
     /// </para>
     /// </remarks>
-    public static CardDefinition Excepting(
-        CardDefinition card,
-        CardType addTypes = default,
-        IReadOnlyList<string>? addSubtypes = null,
-        bool dropLegendary = false,
-        int? power = null,
-        int? toughness = null,
-        KeywordAbility addKeywords = KeywordAbility.None)
+    public static CardDefinition Excepting(CardDefinition card, CopyException? except)
     {
         ArgumentNullException.ThrowIfNull(card);
 
-        var subtypes = addSubtypes is { Count: > 0 }
-            ? card.Subtypes
-                .Concat(addSubtypes.Where(s => !card.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)))
-                .ToArray()
-            : card.Subtypes;
+        if (except is null)
+            return card;
+
+        var subtypes = except.SetSubtypes.Count > 0
+            ? except.SetSubtypes
+            : except.AddSubtypes.Count > 0
+                ? [.. card.Subtypes.Concat(
+                    except.AddSubtypes.Where(
+                        s => !card.Subtypes.Contains(s, StringComparer.OrdinalIgnoreCase)))]
+                : card.Subtypes;
+
+        var colours = Recolour(card.Colors, except);
 
         return new CardDefinition
         {
@@ -176,19 +183,24 @@ public static partial class GenerativeEffects
             ManaCost = card.ManaCost,
             ManaCostRaw = card.ManaCostRaw,
             Cmc = card.Cmc,
-            CardTypes = card.CardTypes | addTypes,
+            CardTypes = card.CardTypes | except.AddTypes,
             Subtypes = subtypes,
-            Supertypes = dropLegendary
+            Supertypes = except.DropLegendary
                 ? [.. card.Supertypes.Where(
                     s => !string.Equals(s, "Legendary", StringComparison.OrdinalIgnoreCase))]
                 : card.Supertypes,
             OracleText = card.OracleText,
-            Power = power ?? card.Power,
-            Toughness = toughness ?? card.Toughness,
+            Power = except.Power ?? card.Power,
+            Toughness = except.Toughness ?? card.Toughness,
             StartingLoyalty = card.StartingLoyalty,
-            Keywords = card.Keywords | addKeywords,
-            ColorIdentity = card.ColorIdentity,
-            Colors = card.Colors,
+            Keywords = card.Keywords | except.AddKeywords,
+
+            // The identity moves with the colour, because a token that is black has black in its
+            // identity whatever the card it copied cost. Left alone when the clause says nothing
+            // about colour, so an ordinary "in addition to its other types" copy keeps the
+            // identity its mana cost gave it.
+            ColorIdentity = colours is null ? card.ColorIdentity : colours,
+            Colors = colours ?? card.Colors,
             Faces = card.Faces,
             ImageUriNormal = card.ImageUriNormal,
             ImageUriLarge = card.ImageUriLarge,
@@ -196,6 +208,19 @@ public static partial class GenerativeEffects
             ImageUriArtCrop = card.ImageUriArtCrop,
             ImageUriNormalBack = card.ImageUriNormalBack,
         };
+    }
+
+    /// <summary>The copy's colours, or null when the clause did not mention any (CR 707.9b).</summary>
+    private static IReadOnlyList<ManaColor>? Recolour(
+        IReadOnlyList<ManaColor> printed, CopyException except)
+    {
+        if (except.SetColors.Count > 0)
+            return except.SetColors;
+
+        if (except.AddColors.Count == 0)
+            return null;
+
+        return [.. printed.Concat(except.AddColors.Where(c => !printed.Contains(c)))];
     }
 
     /// <summary>Compact, and stable across runs — the id has to compare and to replay.</summary>
@@ -1239,4 +1264,50 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^control:(?<p>[0-9a-f]{32})$")]
     private static partial Regex ControlName();
+}
+
+/// <summary>
+/// What an "except" clause changes about a copied card (CR 707.9b).
+/// </summary>
+/// <remarks>
+/// Data rather than a <c>Func&lt;CardDefinition, CardDefinition&gt;</c>, because two different
+/// kinds of thing have to hold one of these: the replacement effect that turns an arriving
+/// permanent into a copy, which is built once at compile time and may hold a delegate quite
+/// happily, and <c>CreateTokenCopy</c>, which is a record in a compiled spell's effect list and
+/// has to compare like one. One shape for both is the whole point — the alternative was
+/// <c>CreateTokenCopy</c> growing a private <c>ExceptNotLegendary</c> flag beside a full
+/// exception parser it could not reach, which is the "vocabulary restated in a second pattern"
+/// bug this codebase keeps paying for.
+/// <para>
+/// It is applied by <see cref="GenerativeEffects.Excepting"/> and nowhere else: an exception is
+/// not a rule the engine enforces, it is two words different on the card the copy machinery is
+/// handed.
+/// </para>
+/// </remarks>
+public sealed record CopyException
+{
+    /// <summary>Card types the clause adds — "an artifact in addition to its other types".</summary>
+    public CardType AddTypes { get; init; }
+
+    /// <summary>Subtypes the clause adds, keeping the copied card's own.</summary>
+    public IReadOnlyList<string> AddSubtypes { get; init; } = [];
+
+    /// <summary>Subtypes the clause replaces the copied card's with — "it's a 1/1 green Frog".</summary>
+    public IReadOnlyList<string> SetSubtypes { get; init; } = [];
+
+    /// <summary>Whether the copy loses the legendary supertype (CR 707.9b).</summary>
+    public bool DropLegendary { get; init; }
+
+    public int? Power { get; init; }
+
+    public int? Toughness { get; init; }
+
+    /// <summary>Keywords the clause grants — "except it has haste".</summary>
+    public KeywordAbility AddKeywords { get; init; }
+
+    /// <summary>Colours added by "in addition to its other colors and types".</summary>
+    public IReadOnlyList<ManaColor> AddColors { get; init; } = [];
+
+    /// <summary>Colours that replace the copied card's, which is the commoner templating.</summary>
+    public IReadOnlyList<ManaColor> SetColors { get; init; } = [];
 }

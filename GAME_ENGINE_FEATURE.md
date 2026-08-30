@@ -515,6 +515,112 @@ cheaper of the two.
 
 Coverage is **52.7% of playable cards fully read** (17,237 of 32,717), 68.9% of lines.
 
+### Round eighteen: a token that's a copy, and the 141 that was really 37
+
+The lead the round-seventeen table ranked first — "a token that's a copy of a permanent, 141
+sole blockers, the largest single buildable sub-shape in the file" — **is worth 37 cards, not
+141**, and the gap is entirely in how the 141 was counted. A card counts as a sole blocker when
+every one of its unread *lines* matches the family substring, and an unread line is a whole
+printed line rather than a clause: "{2}: Create a token that's a copy of target artifact. That
+token gains haste. Exile it at the beginning of the next end step." is one line, matches the
+family, and would still not read if the copy clause were perfect.
+
+Measured the way the "look at the top N" round learned to measure it — cut the clause out and
+ask whether the rest compiles — the family decomposes like this. 353 corpus cards print a
+token-copy sentence; 95 of them already read (populate and embalm/eternalize are the bulk, and
+their reminder text is what puts them in the substring count at all). Of the remaining 258, each
+copy clause was rewritten in place onto a token reader that already works — `create a 1/1 white
+Soldier creature token`, keeping the frame around it, so an activated ability keeps its cost and
+"if you do" keeps its payment:
+
+| cards | what the rewrite showed |
+|---|---|
+| **37** | complete afterwards — the copy clause is the only defect, and a reader can have them |
+| 221 | still incomplete — a second defect on the same line that no copy reader reaches |
+
+The 221 have no head at all. Grouped by the whole line left unread after the rewrite, the
+commonest shape is worth **four** cards and it is squad's reminder text; every other row is one
+or two. What the lines have in common is not a template but a length — they are two and three
+sentence lines, and the copy is one sentence of them. That is the same flatness the corpus has
+everywhere else, arrived at from a family that looked like an exception to it.
+
+**+16 cards, 3 lost, net +13** (17,432 → 17,445). The three losses are the round's second
+finding and are below; the gains are one-sided. A compiled-effect fingerprint moved on 27 cards
+before the losses were taken: the gains, and six that gained an ability while staying incomplete
+— Jace, Cunning Castaway's `−2`, The Scarab God's activated ability, Mirror Room, The Cloning of
+Shredder, Fable of the Mirror-Breaker's Kiki-Jiki line, and Lorehold Archivist, which is the
+repair below. The 88 other cards whose print changed are the record's shape changing, not the
+card's: `CreateTokenCopy` gained fields and its default count became explicit.
+
+**Almost all of it was one parser, connected.** `CardCompiler.CopyExceptions` had read CR 707.9b
+clauses since the "enters as a copy" work, and `CreateTokenCopy` could not reach it — it carried
+its own `ExceptNotLegendary` flag instead, which read one of the dozen printed exceptions and
+silently refused the other eleven. That is the vocabulary-restated-in-a-second-pattern bug again,
+and the fix is the same one: one parser, and a `CopyException` record both callers hold. The
+clause list itself gained the spellings the token half prints and the permanent half does not —
+"the token isn't legendary", "they're 3/3 creatures", a size in front of the types, and a bare
+keyword inheriting `has` from the conjunction that split it off.
+
+Two things in that grammar are rules rather than patterns:
+
+- **"In addition to its other colors and types" adds the colour; the same sentence without those
+  two words replaces it.** Ratadrabik of Urborg's Zombie is black *and* the green it copied;
+  Croaking Counterpart's Frog is only green, and has no creature type but Frog. The templating
+  draws that line itself and the reader follows it rather than guessing, because a reader that
+  treated every colour as a replacement is right about half the family and looks right about all
+  of it.
+- **The one "and" the clause splitter may not cut on is the one inside that phrase.** Splitting
+  it left a fragment reading "types", which matched nothing and refused the line — so *every*
+  card whose exception adds a colour was blocked by a conjunction that was not one.
+
+**One repair, and it was a card counted as complete for as long as the reader has existed.**
+Lorehold Archivist // Restore Relic reads "Exile target artifact or creature card from your
+graveyard. Create a token that's a copy of it." The pronoun names a *card*, and `CreateTokenCopy`
+took every pronoun for a permanent: it looked for one that was not on the battlefield, found
+none, and made no token at all. Coverage counted the card and nothing ever played it. A copy of a
+card is read from the card itself (CR 707.2) rather than from copiable values only a permanent
+has, so the effect is told which it is — and the exile in the sentence before is what makes the
+last-known-information path load-bearing, because by the time the copy runs the targeted id names
+nothing (CR 400.7, 608.2g). Feldon of the Third Path reads its whole ability on the same change,
+and is then held back by the sentence after it — which is the next finding.
+
+**And the second finding, which cost three cards.** Kiki-Jiki, Mirror Breaker completed on this
+work and then failed the test that plays it: "{T}: Create a token that's a copy of target
+nonlegendary creature you control, except it has haste. Sacrifice it at the beginning of the next
+end step" sacrificed **the creature it copied** and left the token on the battlefield forever.
+The pronoun ladder answers "it" with the target an earlier sentence chose, and on this family the
+sentence before it created a token that no referent in the vocabulary can name. That is the
+declined "a pronoun naming a token" family arriving from a direction nobody had it arriving from
+— and it is exactly the shape this file keeps recording, a line that reads perfectly and plays a
+different card.
+
+The sentence is now refused where the pronoun resolves to a target, which cost **three cards that
+were complete and wrong**: The Fire Crystal, Tempestra, Dame of Games, and Nemesis Trap, each
+sacrificing or exiling the permanent it had just copied. The refusal is deliberately not widened
+to the arm where nothing was targeted and "it" falls back to the permanent with the ability: that
+one is wrong on a further 14 cards, its own comment in `EffectPhrase` already says so, and
+correcting it wants a delayed action that can name a token — which is the measured pass that
+comment asks for, not a side effect of this sentence becoming reachable. Refusing it here as well
+was measured: 14 cards, all of them currently sacrificing the wrong permanent.
+
+Declined, with counts. The first four rows are what is left of the 37 once the built shapes are
+taken out; the last is the five whose copy clause this round *did* build and whose card is
+refused by the sentence beside it, so the rows do not sum to 37 - 16:
+
+| cards | shape | why |
+|---|---|---|
+| 7 | an exception granting a quoted ability — "except it has haste and \"At the beginning of the end step, sacrifice this token.\"" | a token's abilities come from the card it copies, and `CompiledPool` throws when two cards share an id with different text — so the quotation cannot be appended to the copied card's rules text. It needs a granted-ability list on the token, which is an effect change, not a reader |
+| 7 | a copied referent nothing names — "the exiled card", "that card", "a card exiled with this Saga", "the sacrificed creature", "a random creature card with mana value X" | each is a different record of what an earlier sentence did, which is the "this way" family |
+| 3 | a target phrase that does not parse — "target creature token that entered the battlefield this turn", "target token you control not named ~" | |
+| 3 | one each: "loses soulbond", a token created under another player's control, "except it enters with an additional +1/+1 counter on it" | |
+| 5 | the copy clause reads and the sentence after it says "sacrifice it" — Kiki-Jiki, Feldon of the Third Path, Molten Duplication, Saheeli, the Sun's Brilliance, The Jolly Balloon Man | the token-pronoun family above; the clause is built, the card is refused |
+
+"Tapped and attacking" is in the reader's decomposition and **not** in the build: 14 corpus
+sentences say it and not one of them is on a card the copy clause is the only defect of, so it
+would have been machinery with no card to reach it.
+
+Coverage is **53.3% of playable cards fully read** (17,445 of 32,717).
+
 ### Round seventeen: a guard that forbade every question behind it
 
 +56 cards, none lost, and the change is a guard moved four lines down the method it was already
@@ -612,7 +718,11 @@ substrings and are listed to be decomposed, not built:
 
 - **A token that's a copy of a permanent (CR 707.2) - 141 sole blockers.** The largest single
   buildable sub-shape in the table, and *not* the standing decline: "copy target instant or
-  sorcery" is a separate 32 and still needs a mid-resolution question.
+  sorcery" is a separate 32 and still needs a mid-resolution question. **Taken in round eighteen,
+  and the 141 was wrong**: cut the clause out and ask whether the rest compiles and it is 37. See
+  "a token that's a copy, and the 141 that was really 37" above - the count is a warning about
+  this whole table, because a sole blocker is a whole unread *line* and most of these lines carry
+  a second clause.
 - **A result set named by the sentence that produced it - 810 across five readers.** "This way" is
   one mechanism and five ways of spelling a reference to it. Nothing in the engine records what an
   effect touched, which is why every one of the five is unread; build the record and the five

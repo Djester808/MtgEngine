@@ -13162,12 +13162,12 @@ public static partial class CardCompiler
         if (CopyChoice(m.Groups["what"].Value) is not { } spec)
             return false;
 
-        var exceptions = m.Groups["except"] is { Success: true } clauses
-            ? CopyExceptions(clauses.Value)
-            : Unchanged;
-
-        if (exceptions is null)
+        CopyException? exceptions = null;
+        if (m.Groups["except"] is { Success: true } clauses
+            && !TryCopyExceptions(clauses.Value, out exceptions))
+        {
             return false;
+        }
 
         var tapped = m.Groups["tapped"].Success;
 
@@ -13216,7 +13216,7 @@ public static partial class CardCompiler
         IAbilitySource abilities,
         GameObject source,
         TargetSpec spec,
-        Func<CardDefinition, CardDefinition> exceptions,
+        CopyException? exceptions,
         bool tapped)
     {
         if (Arriving(e, source) is null)
@@ -13238,7 +13238,7 @@ public static partial class CardCompiler
             // CR 707.3: the copiable values are what the permanent *is*, so a copy of a copy
             // copies the card the first one became rather than the card it was printed as.
             var now = Characteristics.Of(state, abilities, candidate);
-            var copied = exceptions(now.Card);
+            var copied = GenerativeEffects.Excepting(now.Card, exceptions);
 
             // The computed controller, not the stored one: control is layer 2 (CR 613.1b), and a
             // label naming the player a stolen permanent used to belong to is a label that
@@ -13278,9 +13278,6 @@ public static partial class CardCompiler
 
         return branches;
     }
-
-    /// <summary>An exception clause list that changes nothing.</summary>
-    private static readonly Func<CardDefinition, CardDefinition> Unchanged = card => card;
 
     /// <summary>
     /// Which permanents "any creature on the battlefield" offers, as a target phrase.
@@ -13333,18 +13330,38 @@ public static partial class CardCompiler
         ["card", "graveyard", "exile", "library", "hand", "stack", "battlefield", "spell"];
 
     /// <summary>
-    /// Reads "except it's an artifact in addition to its other types" (CR 707.9).
+    /// Reads "except it's an artifact in addition to its other types" (CR 707.9b).
     /// </summary>
     /// <remarks>
-    /// Returns null for anything it does not fully understand, which leaves the whole line
+    /// Returns false for anything it does not fully understand, which leaves the whole line
     /// unread. That is the direction to fail in: an exception silently dropped makes the copy
-    /// better than the card that was printed, and 79 of the 135 printed copy sentences carry one
-    /// of these clauses, so guessing would have been wrong at scale rather than occasionally.
+    /// better than the card that was printed, and 128 of the 364 sentences that create a token
+    /// copy carry one of these clauses, so guessing would have been wrong at scale rather than
+    /// occasionally.
+    /// <para>
+    /// <b>The one parser for the whole copy family.</b> Both the permanent that arrives as a copy
+    /// and the token that is created as one come through here, because the two print the same
+    /// clauses in the same words and a second reader for the second caller is how the two would
+    /// start disagreeing about what "except it isn't legendary" means. <c>CreateTokenCopy</c> used
+    /// to carry its own <c>ExceptNotLegendary</c> flag, which read one of these clauses out of the
+    /// dozen printed and silently refused the rest.
+    /// </para>
+    /// <para>
+    /// A <see langword="true"/> return with a null <paramref name="except"/> is "no exception
+    /// clause here", which is not the same answer as refusing one — the sentinel a
+    /// <c>Func</c>-returning version needed for that distinction is what makes this a
+    /// <c>Try</c> method.
+    /// </para>
     /// </remarks>
-    private static Func<CardDefinition, CardDefinition>? CopyExceptions(string clauses)
+    internal static bool TryCopyExceptions(string clauses, out CopyException? except)
     {
+        except = null;
+
         var addTypes = default(CardType);
         var addSubtypes = new List<string>();
+        var setSubtypes = new List<string>();
+        var addColors = new List<ManaColor>();
+        var setColors = new List<ManaColor>();
         var addKeywords = KeywordAbility.None;
         var dropLegendary = false;
         int? power = null;
@@ -13371,36 +13388,78 @@ public static partial class CardCompiler
 
             if (InAdditionClause().Match(clause) is { Success: true } added)
             {
-                if (!ReadCopyTypes(added.Groups["types"].Value, ref addTypes, addSubtypes))
-                    return null;
+                if (added.Groups["size"].Success)
+                {
+                    power = int.Parse(added.Groups["p"].Value, CultureInfo.InvariantCulture);
+                    toughness = int.Parse(added.Groups["t"].Value, CultureInfo.InvariantCulture);
+                }
+
+                // "In addition to its other colors and types" is the templating's own way of
+                // saying the colour is added rather than replaced; without those two words the
+                // same sentence recolours the copy outright.
+                var colours = added.Groups["also"].Success ? addColors : setColors;
+
+                if (!ReadCopyTypes(added.Groups["types"].Value, ref addTypes, addSubtypes, colours))
+                    return false;
 
                 continue;
             }
 
-            if (HasKeywordClause().Match(clause) is { Success: true } has)
+            // "Except it's a 1/1 green Frog" — no "in addition", so the copy is *only* that:
+            // 1/1, green, and a Frog with none of the creature types it copied (CR 707.9b).
+            if (BecomesClause().Match(clause) is { Success: true } becomes)
             {
-                if (ReadCopyKeyword(has.Groups["kw"].Value) is not { } keyword)
-                    return null;
+                if (becomes.Groups["size"].Success)
+                {
+                    power = int.Parse(becomes.Groups["p"].Value, CultureInfo.InvariantCulture);
+                    toughness = int.Parse(becomes.Groups["t"].Value, CultureInfo.InvariantCulture);
+                }
 
-                addKeywords |= keyword;
+                if (!ReadCopyTypes(becomes.Groups["types"].Value, ref addTypes, setSubtypes, setColors))
+                    return false;
+
                 continue;
             }
 
-            return null;
+            // A bare keyword is one the conjunction split off its own verb: "it has flying and
+            // haste" is two clauses and only the first says "has". The same lesson the quoted
+            // abilities taught — a clause standing beside another inherits its verb — and it is
+            // safe here because an unknown word is refused rather than guessed at.
+            var keywordWords = HasKeywordClause().Match(clause) is { Success: true } has
+                ? has.Groups["kw"].Value
+                : clause;
+
+            if (ReadCopyKeyword(keywordWords) is not { } keyword)
+                return false;
+
+            addKeywords |= keyword;
         }
 
-        return card => GenerativeEffects.Excepting(
-            card, addTypes, addSubtypes, dropLegendary, power, toughness, addKeywords);
+        except = new CopyException
+        {
+            AddTypes = addTypes,
+            AddSubtypes = addSubtypes,
+            SetSubtypes = setSubtypes,
+            DropLegendary = dropLegendary,
+            Power = power,
+            Toughness = toughness,
+            AddKeywords = addKeywords,
+            AddColors = addColors,
+            SetColors = setColors,
+        };
+
+        return true;
     }
 
-    /// <summary>"a Synth artifact creature" — card types and subtypes, mixed (CR 205).</summary>
+    /// <summary>"a black Synth artifact creature" — colours, card types and subtypes (CR 205).</summary>
     /// <remarks>
-    /// Case is what separates them, which is not a heuristic: CR 205.2a prints card types in
+    /// Case is what separates the types, which is not a heuristic: CR 205.2a prints card types in
     /// lower case and CR 205.3a prints subtypes capitalised, and every card in the corpus that
-    /// says this says it that way. A lower-case word that is not a card type is something else
-    /// entirely — "a Vehicle artifact with crew 3" — and refuses the clause.
+    /// says this says it that way. A lower-case word that is neither a card type nor a colour is
+    /// something else entirely — "a Vehicle artifact with crew 3" — and refuses the clause.
     /// </remarks>
-    private static bool ReadCopyTypes(string phrase, ref CardType types, List<string> subtypes)
+    private static bool ReadCopyTypes(
+        string phrase, ref CardType types, List<string> subtypes, List<ManaColor> colours)
     {
         var words = phrase.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0)
@@ -13414,11 +13473,29 @@ public static partial class CardCompiler
         {
             var word = words[i];
 
-            if (CopiableTypes.TryGetValue(word, out var type))
+            // Plural because the sentence is about several tokens — "except they're 3/3 Dragon
+            // creatures". The subtypes stay singular even then, which is how the type line is
+            // printed, so only the card types need the trailing letter taken off.
+            if (CopiableTypes.TryGetValue(word, out var type)
+                || (word.EndsWith('s') && CopiableTypes.TryGetValue(word[..^1], out type)))
             {
                 types |= type;
                 continue;
             }
+
+            if (CopiableColours.TryGetValue(word, out var colour))
+            {
+                if (!colours.Contains(colour))
+                    colours.Add(colour);
+
+                continue;
+            }
+
+            // "Black and green" reaches here as two colour words with a joiner between them,
+            // because the clause splitter leaves an "and" alone when what follows it is not a
+            // clause of its own.
+            if (word is "and")
+                continue;
 
             if (!char.IsUpper(word[0]))
                 return false;
@@ -13428,6 +13505,17 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>The colours an exception may name (CR 105.1).</summary>
+    private static readonly Dictionary<string, ManaColor> CopiableColours =
+        new(StringComparer.Ordinal)
+        {
+            ["white"] = ManaColor.White,
+            ["blue"] = ManaColor.Blue,
+            ["black"] = ManaColor.Black,
+            ["red"] = ManaColor.Red,
+            ["green"] = ManaColor.Green,
+        };
 
     /// <summary>The card types an exception may add (CR 205.2a) — permanents only.</summary>
     private static readonly Dictionary<string, CardType> CopiableTypes =
@@ -13442,8 +13530,17 @@ public static partial class CardCompiler
         };
 
     /// <summary>"except it has flying" — one keyword the engine already models (CR 702).</summary>
+    /// <remarks>
+    /// Letters and spaces only, checked before the parse rather than trusted to it.
+    /// <c>Enum.TryParse</c> will read a bare number as a flag value and a comma-separated list as
+    /// several, so a clause reading "3" would come back a keyword nothing printed — which matters
+    /// now that an unmatched clause is offered here rather than refused outright.
+    /// </remarks>
     private static KeywordAbility? ReadCopyKeyword(string word)
     {
+        if (word.Length == 0 || !word.All(c => char.IsAsciiLetter(c) || c == ' '))
+            return null;
+
         var spelled = word.Replace(" ", string.Empty, StringComparison.Ordinal);
 
         return Enum.TryParse<KeywordAbility>(spelled, ignoreCase: true, out var keyword)
@@ -17099,22 +17196,62 @@ public static partial class CardCompiler
     /// "It's a Faerie Shapeshifter in addition to its other types <b>and</b> it has flying" is
     /// two clauses; so is "it isn't legendary, is an artifact …, <b>and</b> has myriad". A clause
     /// list this splits wrongly produces a part that matches nothing, which refuses the line.
+    /// <para>
+    /// The one "and" it may not cut on is the one inside "in addition to its other <b>colors
+    /// and</b> types", which is a fixed phrase and not a conjunction of clauses. Splitting it left
+    /// a fragment reading "types", and every card whose exception adds a colour — the whole
+    /// templating that distinguishes an added colour from a replaced one — was refused over it.
+    /// </para>
     /// </remarks>
-    [GeneratedRegex(@",\s*and\s+|,\s*|\s+and\s+", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@",\s*and\s+|,\s*|\s+and\s+(?!types\b)", RegexOptions.IgnoreCase)]
     private static partial Regex ExceptionClauses();
 
-    [GeneratedRegex(@"^(?:it\s+)?isn't legendary$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// Four spellings for one clause, and the subject is optional because the clause splitter has
+    /// usually taken it: "except it isn't legendary and is a Mutant …" leaves the second half
+    /// without one. "The token" and "they" are the same sentence written about a token that has
+    /// not been created yet, and about several of them.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:it's|it|the token's|the token|they're|they)?\s*"
+            + @"(?:isn't|is not|aren't|are not|not)\s+legendary$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex NotLegendaryClause();
 
-    [GeneratedRegex(@"^it's (?<p>\d+)/(?<t>\d+)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"^(?:it's|it is|the token's|the token is|they're|they are) (?<p>\d+)/(?<t>\d+)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex SetSizeClause();
 
+    /// <remarks>
+    /// The size rides in front of the types because that is where it is printed — "except it's a
+    /// 3/3 black Zombie creature in addition to its other types" is one clause saying three
+    /// things, and reading it as a type clause alone made a Zombie the size of whatever it copied.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?:it's|it is|is) (?<types>.+?) in addition to its other (?:card |creature )?types$",
+        @"^(?:it's|it is|is|the token's|the token is|they're|they are|are)\s+(?:a |an )?"
+            + @"(?<size>(?<p>\d+)/(?<t>\d+)\s+)?(?<types>.+?)"
+            + @"\s+in addition to (?:its|their) other (?:card |creature )?(?<also>colors and )?types$",
         RegexOptions.IgnoreCase)]
     private static partial Regex InAdditionClause();
 
-    [GeneratedRegex(@"^(?:it\s+)?has (?<kw>[a-z][a-z ]*)$", RegexOptions.IgnoreCase)]
+    /// <summary>"except it's a 1/1 green Frog" — the copy is that and nothing else (CR 707.9b).</summary>
+    /// <remarks>
+    /// Tried only after <see cref="InAdditionClause"/>, because the two differ by the four words
+    /// this one does not have and the difference decides whether a characteristic is added or
+    /// replaced. Letters only in the types group: it is the last arm before the keyword reader,
+    /// so a permissive pattern here would swallow clauses nothing understands — "it's a Vehicle
+    /// artifact with crew 3" has to reach the refusal, not compile to a Vehicle.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:it's|it is|the token's|the token is|they're|they are)\s+(?:a |an )?"
+            + @"(?<size>(?<p>\d+)/(?<t>\d+)\s+)?(?<types>[A-Za-z][A-Za-z ]*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BecomesClause();
+
+    [GeneratedRegex(
+        @"^(?:(?:it|the token|they)\s+)?(?:has|have) (?<kw>[a-z][a-z ]*)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex HasKeywordClause();
 
     /// <remarks>

@@ -3761,26 +3761,44 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Create a token that's a copy of ..." — of this permanent, of something targeted, or
-        // of whatever the sentence before named. Three sources, one effect, because the only
-        // thing that differs is which permanent's card is taken.
+        // "Create [N] [tapped] token(s) that's a copy of ..." — of this permanent, of something
+        // targeted, or of whatever the sentence before named. Three sources, one effect, because
+        // the only thing that differs is which permanent's card is taken.
         var tokenCopy = TokenCopyLine().Match(sentence);
         if (tokenCopy.Success)
         {
-            var of = tokenCopy.Groups["of"].Value.Trim();
-            var plain = tokenCopy.Groups["except"].Success;
+            var of = tokenCopy.Groups["of"].Value.Trim().TrimEnd('.');
+
+            // CR 707.9b, read by the compiler's one exception parser rather than by a second
+            // copy of it here. A clause it does not fully understand refuses the sentence: a
+            // token copy that quietly forgot it was meant to be a 1/1 is a strictly better card
+            // than the one printed, which is the direction this family must not fail in.
+            Cards.CopyException? except = null;
+            if (tokenCopy.Groups["except"] is { Success: true } clauses
+                && !CardCompiler.TryCopyExceptions(clauses.Value, out except))
+            {
+                return false;
+            }
+
+            var many = Number(tokenCopy.Groups["n"].Value);
+            var tapped = tokenCopy.Groups["tapped"].Success;
 
             if (of == "~")
             {
-                effects.Add(new CreateTokenCopy(ExceptNotLegendary: plain));
+                effects.Add(new CreateTokenCopy(many, Except: except, Tapped: tapped));
                 return true;
             }
 
-            if (Specs.Parse(of) is { Kind: TargetKind.Permanent } copiedTarget)
+            if (Specs.Parse(of) is
+                { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard } copiedTarget)
             {
                 targets.Add(copiedTarget);
                 effects.Add(new CreateTokenCopy(
-                    TargetIndex: targets.Count - 1, ExceptNotLegendary: plain));
+                    many,
+                    targets.Count - 1,
+                    Except: except,
+                    Tapped: tapped,
+                    CopiesACard: copiedTarget.Kind is TargetKind.CardInGraveyard));
 
                 return true;
             }
@@ -3791,11 +3809,31 @@ public static partial class EffectPhrase
                 // whatever the trigger was about - "whenever a creature dies, create a token
                 // that's a copy of that creature", where the creature is neither targeted nor
                 // the permanent with the ability.
-                effects.Add(targets.Count > 0
-                    ? new CreateTokenCopy(
-                        TargetIndex: targets.Count - 1, ExceptNotLegendary: plain)
-                    : new CreateTokenCopy(
-                        Subject: EffectSubject.TriggeringObject, ExceptNotLegendary: plain));
+                if (targets.Count == 0)
+                {
+                    effects.Add(new CreateTokenCopy(
+                        many, Subject: EffectSubject.TriggeringObject,
+                        Except: except, Tapped: tapped));
+
+                    return true;
+                }
+
+                // And the copy has to be told which it is. "Exile target artifact or creature card
+                // from your graveyard. Create a token that's a copy of it" points the pronoun at
+                // a card, and a copy of a card is read from the card itself (CR 707.2) rather
+                // than from the copiable values only a permanent has. Told nothing, the effect
+                // took the pronoun for a permanent, found it was not on the battlefield and made
+                // no token at all - a card filed as fully understood and played as a blank.
+                var kind = targets[^1].Kind;
+                if (kind is not (TargetKind.Permanent or TargetKind.CardInGraveyard))
+                    return false;
+
+                effects.Add(new CreateTokenCopy(
+                    many,
+                    targets.Count - 1,
+                    Except: except,
+                    Tapped: tapped,
+                    CopiesACard: kind is TargetKind.CardInGraveyard));
 
                 return true;
             }
@@ -4695,9 +4733,29 @@ public static partial class EffectPhrase
                 // all where it can see neither. "Destroy that creature at end of combat" on a
                 // basilisk is the second of those; "target creature you control gets +X/+X until
                 // end of turn. Destroy it at the beginning of the next end step" is the first.
+                //
+                // Unless this ability made a token on the way here, in which case "it" is the
+                // token and none of those answers is it. Kiki-Jiki's "create a token that's a
+                // copy of target nonlegendary creature you control, except it has haste.
+                // Sacrifice it at the beginning of the next end step" would sacrifice the
+                // creature it copied - a strictly different card, and one that reads perfectly.
+                // Narrowed to the arm that names a target on purpose: the source fallback below
+                // is wrong on the same cards for the same reason, and correcting that one is the
+                // measured pass its own comment asks for rather than a side effect of this
+                // sentence becoming reachable.
                 if (ObjectOf(who, targets, objectNamedByTrigger) is { } named
                     && named.Subject != EffectSubject.Source)
                 {
+                    // Only "it" is ambiguous this way. "That creature" and "that permanent" name
+                    // something the sentence has already been told about, which is the target
+                    // and not the token beside it.
+                    if (named.Subject == EffectSubject.Target
+                        && string.Equals(who, "it", StringComparison.OrdinalIgnoreCase)
+                        && EffectTree.Flatten(effects).Any(MakesAToken))
+                    {
+                        return false;
+                    }
+
                     effects.Add(
                         new DelayObjectAction(doing, moment, named.Subject, named.Index));
 
@@ -13121,6 +13179,15 @@ public static partial class EffectPhrase
         return new PumpUntilEndOfTurn(definitionId, targets.Count - 1);
     }
 
+    /// <summary>Whether an effect puts a new permanent on the battlefield (CR 111.1).</summary>
+    /// <remarks>
+    /// Asked by the pronoun readers, which have no way to name a token: an ability that has just
+    /// created one and then says "it" means the token, and every referent this vocabulary can
+    /// express would be the wrong one.
+    /// </remarks>
+    private static bool MakesAToken(IEffect effect) =>
+        effect is CreateToken or CreateTokenCopy or CreateTokenAndAttach;
+
     private static int? PronounObject(
         Match m,
         ImmutableList<TargetSpec>.Builder targets,
@@ -13195,9 +13262,18 @@ public static partial class EffectPhrase
         return (EffectSubject.Target, targets.Count - 1);
     }
 
+    /// <remarks>
+    /// The copied phrase may contain commas — "target artifact, creature, or land" is one target
+    /// phrase and the pattern used to stop at its first comma — so the split between what is
+    /// copied and what is excepted is made on the word "except" rather than on punctuation. The
+    /// exception group then goes to <c>CardCompiler.TryCopyExceptions</c>, which is the same
+    /// parser the "enters as a copy" replacement uses; the clause list that used to be spelled
+    /// out here read exactly one of the dozen printed exceptions.
+    /// </remarks>
     [GeneratedRegex(
-        @"^create a token that's a copy of (?<of>[^,]+)"
-            + @"(?<except>, except it isn't legendary)?$",
+        @"^create (?<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|X|\d+) "
+            + @"(?<tapped>tapped )?tokens? that(?:'s| is| are) (?:a )?cop(?:y|ies) of "
+            + @"(?<of>.+?)(?:,? except (?<except>.+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TokenCopyLine();
 
