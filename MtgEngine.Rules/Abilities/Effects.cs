@@ -1476,6 +1476,60 @@ public sealed record DrawForTargetsController(Amount Count, int TargetIndex = 0)
     }
 }
 
+/// <summary>
+/// The controller of a target gets tokens - "its controller creates a Treasure token" (CR 111.1).
+/// </summary>
+/// <remarks>
+/// The same player <see cref="ChangeLifeOfTargetsController"/> and
+/// <see cref="DrawForTargetsController"/> find, found the same way, and here for the same reason
+/// none of them is a <see cref="PlayerScope"/>: a scope names a relation to the controller of the
+/// ability, and this names a relation to something the ability <em>targeted</em>. Nothing in the
+/// scope vocabulary can say it.
+/// <para>
+/// Kept apart from <see cref="CreateToken"/>'s own <c>TargetIndex</c>, which means a targeted
+/// <em>player</em>. Folding the two would put two different questions behind one field, and the
+/// index shifter could no longer say what either one pointed at.
+/// </para>
+/// <para>
+/// The target is nearly always gone by the time this runs - the sentence in front of it destroyed
+/// or exiled the permanent whose controller this is - which is exactly what
+/// <see cref="TargetOwnership"/> is for: whose it was is still a fact about the game, so the
+/// controller is followed back rather than given up on (CR 400.7, 608.2h).
+/// </para>
+/// </remarks>
+public sealed record CreateTokenForTargetsController(
+    Domain.Models.CardDefinition Token,
+    Amount Count = default,
+    int TargetIndex = 0,
+    bool Tapped = false) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (TargetOwnership.ControllerOf(context, TargetIndex) is not { } owner)
+            return [];
+
+        // The same reading of an unset count that CreateToken makes: no number printed means
+        // one, and a number that counts to nothing means none.
+        var count = Count.Equals(default(Amount)) ? 1 : Math.Max(0, Count.In(context));
+
+        var made = new List<GameEvent>();
+
+        foreach (var _ in Enumerable.Range(0, count))
+        {
+            var id = ObjectId.New();
+
+            made.Add(new ObjectCreated(id, Token, owner, owner, Zone.Battlefield));
+
+            if (Tapped)
+                made.Add(new PermanentTapped(id));
+        }
+
+        return made;
+    }
+}
+
 /// <summary>Which player a target belongs to (CR 608.2).</summary>
 /// <remarks>
 /// One question asked by more than one effect — "its controller loses 2 life", "its controller

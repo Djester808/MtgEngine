@@ -46082,6 +46082,348 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, game.State.GetPlayer(bob).Graveyard.Count);
     }
 
+    // ---- One vocabulary, several readers (r14) --------------------------------
+
+    /// <summary>
+    /// "Whenever ~ deals combat damage to a player, that player sacrifices a creature of their
+    /// choice" - Demon of Loathing, Cabal Executioner.
+    /// </summary>
+    /// <remarks>
+    /// The edict's subject, not its verb. "Each opponent sacrifices a creature of their choice"
+    /// has read for as long as the effect has existed and this had not, because the edict reader
+    /// carried its own two-word list of players while the shared player vocabulary next door
+    /// spells seven. The instruction, the effect and the question asked are identical; only the
+    /// subject differed, and 42 corpus cards sat behind that difference.
+    /// <para>
+    /// "That player" is the trigger's subject (CR 603.2), which is the case worth playing rather
+    /// than merely compiling: the sacrifice has to reach the player the damage was dealt to and
+    /// nobody else, so Alice keeps her creature and Bob loses his.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_edict_can_name_the_player_its_trigger_was_about()
+    {
+        var demon = Card(
+            "Loathing Demon Test",
+            "Whenever ~ deals combat damage to a player, "
+                + "that player sacrifices a creature of their choice.",
+            CardType.Creature, 3, 3);
+
+        var compiled = CardCompiler.Compile(demon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, demon, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Loathing Keeper Test"), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Loathing Victim Test"), Zone.Battlefield);
+        var theirLand = game.Create(bob, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+        PlayOnAnswering(game, () => game.State.CurrentStep >= TurnStep.EndOfCombat);
+
+        // The damaged player pays, and only a creature: the land beside it is not what the
+        // sentence asked for, and the attacker's controller is not who it asked.
+        Assert.DoesNotContain(theirs, game.State.Battlefield);
+        Assert.Contains(theirLand, game.State.Battlefield);
+        Assert.Contains(mine, game.State.Battlefield);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Whenever a creature dies, that creature's controller sacrifices a land of their choice"
+    /// - Burning Sands, Earthlink.
+    /// </summary>
+    /// <remarks>
+    /// The same edict with the other kind of subject: a player the event names by relation to an
+    /// object rather than directly (CR 603.2), which the vocabulary spells "the subject's
+    /// controller" once the guard has decided the words are not about a target. Worth its own
+    /// test because it is the arm where getting it wrong is invisible - the enchantment's own
+    /// controller is a plausible reading, and it would take the land off the wrong player.
+    /// </remarks>
+    [Fact]
+    public void An_edict_can_name_the_controller_of_the_permanent_a_trigger_was_about()
+    {
+        var sands = Card(
+            "Burning Sands Test",
+            "Whenever a creature dies, that creature's controller sacrifices a land of their choice.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sands);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, sands, Zone.Battlefield);
+        var myLand = game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+        var theirLand = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        var doomed = game.Create(bob, TestCards.Creature("Sands Victim Test"), Zone.Battlefield);
+
+        var kill = TestCards.PutInHand(
+            game, alice, Card("Sands Removal Test", "Destroy target creature."));
+
+        game.CastSpell(alice, kill, [Target.ToPermanent(doomed)]);
+        Settle(game);
+
+        // The dead creature's controller loses a land; the enchantment's controller does not.
+        Assert.DoesNotContain(theirLand, game.State.Battlefield);
+        Assert.Contains(myLand, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "~ gets +1/+0 for each basic land type among lands you control" - Kavu Scout's domain.
+    /// </summary>
+    /// <remarks>
+    /// Domain is not a count of permanents at all - it counts the five basic land types at
+    /// CR 305.6, so five Forests are one and a dual land is two - and the shared counting
+    /// vocabulary has answered it since it was written. The static pump beside it had its own
+    /// three-arm vocabulary and could only walk the battlefield through a target filter, so this
+    /// sentence went unread on eighteen cards while the *floating* version of the same pump
+    /// counted domain correctly, because that one reads the shared vocabulary back off its own
+    /// generated name.
+    /// <para>
+    /// The two land types are deliberately printed on three lands: a reader that counted
+    /// permanents would say three here, and one that counts types says two.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_static_pump_counts_anything_the_shared_vocabulary_counts()
+    {
+        var scout = Card(
+            "Domain Scout Test",
+            "~ gets +1/+0 for each basic land type among lands you control.",
+            CardType.Creature, 1, 1);
+
+        var compiled = CardCompiler.Compile(scout);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var kavu = game.Create(alice, scout, Zone.Battlefield);
+
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(kavu)));
+
+        foreach (var name in new[] { "Forest", "Forest", "Island" })
+            game.Create(alice, TestCards.BasicLand(name), Zone.Battlefield);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(kavu)));
+        Assert.Equal(1, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(kavu)));
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to the number of creature cards in all graveyards"
+    /// - Mortivore, Magnivore, Terravore.
+    /// </summary>
+    /// <remarks>
+    /// The same defect one reader over. The characteristic-defining reader knew exactly two piles
+    /// - "your hand" and "your graveyard" - so Mortivore was unread beside Lhurgoyf, whose card
+    /// is the same sentence about one graveyard. "All graveyards" is a pile the shared vocabulary
+    /// has always been able to count; the gap was never the sentence, it was which of the two
+    /// vocabularies the sentence happened to reach.
+    /// <para>
+    /// One creature card in each graveyard, so a reading that counted only the controller's would
+    /// say one and pass a laxer assertion. The land in a graveyard is there for the other half:
+    /// the noun still has to filter.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_counts_every_graveyard_when_the_card_says_all()
+    {
+        var lhurgoyf = Card(
+            "All Graveyards Test",
+            "~'s power and toughness are each equal to the number of creature cards "
+                + "in all graveyards.",
+            CardType.Creature, 0, 0);
+
+        var compiled = CardCompiler.Compile(lhurgoyf);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var goyf = game.Create(alice, lhurgoyf, Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("Buried Mine Test"), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Buried Theirs Test"), Zone.Graveyard);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Graveyard);
+
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(goyf)));
+        Assert.Equal(2, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(goyf)));
+    }
+
+    /// <summary>
+    /// "Destroy all artifacts, creatures, and enchantments" - Nevinyrral's Disk, Purify,
+    /// Cleansing Nova.
+    /// </summary>
+    /// <remarks>
+    /// The group grammar has read "artifact or enchantment" for a long time; these lines are the
+    /// same group with the printed conjunction spelled the other way, and sixteen wipes were
+    /// unread for the word "and" alone.
+    /// <para>
+    /// The plural on every element is what tells a union apart from one noun with a compound
+    /// adjective, which is why the reader tests it before folding the plural away. The land here
+    /// is the assertion that matters most: a sweeper that had quietly become "destroy all
+    /// permanents" would pass every other line in this test.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_sweeper_can_name_several_kinds_joined_by_and()
+    {
+        var disk = Card(
+            "Disk Sweeper Test", "Destroy all artifacts, creatures, and enchantments.");
+
+        var compiled = CardCompiler.Compile(disk);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var artifact = game.Create(
+            alice, Card("Swept Artifact Test", "", CardType.Artifact), Zone.Battlefield);
+        var enchantment = game.Create(
+            alice, Card("Swept Enchantment Test", "", CardType.Enchantment), Zone.Battlefield);
+        var creature = game.Create(bob, TestCards.Creature("Swept Bear Test"), Zone.Battlefield);
+        var land = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, disk);
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        Assert.DoesNotContain(artifact, game.State.Battlefield);
+        Assert.DoesNotContain(enchantment, game.State.Battlefield);
+        Assert.DoesNotContain(creature, game.State.Battlefield);
+        Assert.Contains(land, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Destroy target nonland permanent. Its controller creates a 3/3 green Beast creature
+    /// token" - Beast Within, Generous Gift, Pongify.
+    /// </summary>
+    /// <remarks>
+    /// "Its controller" is a player named by relation to something the spell <em>targeted</em>,
+    /// which no <see cref="PlayerScope"/> can say - a scope is a relation to the controller of
+    /// the ability. The life, draw and mill verbs already had an effect apiece for it; creating a
+    /// token did not, so 36 corpus cards ended on a sentence the rest of that family reads.
+    /// <para>
+    /// The awkward half is that the target is gone by the time the token is made: the sentence in
+    /// front destroyed it, and the permanent is a card in a graveyard under a new id (CR 400.7).
+    /// Whose it was is still a fact about the game, which is what the shared ownership reader is
+    /// for - so the assertion is on who controls the Beast, not merely that one exists.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_can_be_made_for_the_controller_of_what_was_targeted()
+    {
+        var beastWithin = Card(
+            "Beast Within Test",
+            "Destroy target nonland permanent. "
+                + "Its controller creates a 3/3 green Beast creature token.");
+
+        var compiled = CardCompiler.Compile(beastWithin);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var doomed = game.Create(bob, TestCards.Creature("Within Victim Test"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, beastWithin);
+        game.CastSpell(alice, card, [Target.ToPermanent(doomed)]);
+        Settle(game);
+
+        Assert.DoesNotContain(doomed, game.State.Battlefield);
+
+        var beast = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Subtypes.Contains("Beast"));
+
+        Assert.Equal(bob, beast.ControllerId);
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, beast));
+    }
+
+    /// <summary>
+    /// "Whenever you attack with two or more creatures, draw a card" - the attack trigger with a
+    /// count on it (CR 508.1).
+    /// </summary>
+    /// <remarks>
+    /// One trigger for the whole declaration, exactly as the bare "whenever you attack" is, with
+    /// the group counted out of the attackers the event carries. Both halves are asserted because
+    /// only the negative one can fail quietly: a condition that ignored its own count would fire
+    /// on every attack, which is a strictly better card than the one printed and nothing
+    /// downstream could tell.
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_can_require_more_than_one_attacker()
+    {
+        var herald = Card(
+            "Attack Count Test",
+            "Whenever you attack with two or more creatures, draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        Assert.Equal(0, DrawnWhileAttackingWith(herald, 1));
+        Assert.Equal(1, DrawnWhileAttackingWith(herald, 2));
+    }
+
+    /// <summary>
+    /// Plays on to a condition, answering whatever the game stops to ask on the way.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TestCards.PassUntil"/> deliberately throws on an outstanding question, so that
+    /// a test which was not expecting one is told rather than left to time out. A test whose
+    /// whole subject <em>is</em> the question needs the other behaviour, and the first option is
+    /// the answer when the assertion is about who was asked rather than what they picked.
+    /// </remarks>
+    private static void PlayOnAnswering(Game game, Func<bool> until)
+    {
+        for (var guard = 0; guard < 60 && !until(); guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                game.Choose(
+                    choice.PlayerId,
+                    [.. choice.Options.Take(Math.Max(choice.MinPicks, 1)).Select(o => o.Id)]);
+
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                return;
+
+            game.PassPriority(holder);
+        }
+    }
+
+    /// <summary>How many cards the attacking player drew from declaring that many attackers.</summary>
+    private static int DrawnWhileAttackingWith(CardDefinition watcher, int howMany)
+    {
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, watcher, Zone.Battlefield);
+
+        var creatures = Enumerable
+            .Range(0, 2)
+            .Select(i => game.Create(
+                alice,
+                TestCards.Creature(
+                    "Attack Count Bear " + i.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + " Test"),
+                Zone.Battlefield))
+            .ToList();
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.DeclareAttackers(
+            alice,
+            creatures.Take(howMany).ToDictionary(id => id, _ => AttackTarget.Player(bob)));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        return game.State.GetPlayer(alice).Hand.Count - before;
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

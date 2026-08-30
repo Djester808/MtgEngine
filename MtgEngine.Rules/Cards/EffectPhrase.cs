@@ -3117,6 +3117,13 @@ public static partial class EffectPhrase
                     targets.Add(named);
                     maker = maker with { TargetIndex = targets.Count - 1 };
                 }
+                else if (TargetsControllerMakes(whose, targets) is { } index)
+                {
+                    effects.Add(new CreateTokenForTargetsController(
+                        minted, many, index, m.Groups["tapped"].Success));
+
+                    return true;
+                }
                 else
                 {
                     maker = maker with { Scope = ScopeOf(whose) };
@@ -3155,6 +3162,13 @@ public static partial class EffectPhrase
 
                     targets.Add(named);
                     minting = minting with { TargetIndex = targets.Count - 1 };
+                }
+                else if (TargetsControllerMakes(whose, targets) is { } index)
+                {
+                    effects.Add(new CreateTokenForTargetsController(
+                        known, howMany, index, m.Groups["tapped"].Success));
+
+                    return true;
                 }
                 else
                 {
@@ -6603,6 +6617,32 @@ public static partial class EffectPhrase
             : GenerativeEffects.SetPowerId(power);
     }
 
+    /// <summary>
+    /// Which target's controller a subject names, or null when it names a scope instead.
+    /// </summary>
+    /// <remarks>
+    /// "Its controller" is two different players depending on what the sentence in front of it
+    /// did, and the guard in <see cref="TryOne"/> has already decided which: with nothing
+    /// targeted the words are rewritten to the one spelling the scope vocabulary knows, so
+    /// anything still saying "its controller" here is talking about a target. That is why this
+    /// asks about the printed words rather than re-deciding - two places deciding one question
+    /// is how "destroy target creature, its controller creates a token" comes to make the token
+    /// for the wrong player.
+    /// <para>
+    /// Null when nothing has been targeted at all, which leaves the sentence unread rather than
+    /// pointing an index at a target that is not there.
+    /// </para>
+    /// </remarks>
+    private static int? TargetsControllerMakes(
+        string subject, ImmutableList<TargetSpec>.Builder targets) =>
+        targets.Count > 0 && TargetsControllerWords().IsMatch(subject)
+            ? targets.Count - 1
+            : null;
+
+    /// <summary>"Its controller", "that creature's controller" - as a subject, and after a target.</summary>
+    [GeneratedRegex(@"^(its|that [a-z]+'s) controller$", RegexOptions.IgnoreCase)]
+    private static partial Regex TargetsControllerWords();
+
     private static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch
     {
         "each opponent" => PlayerScope.EachOpponent,
@@ -8667,7 +8707,7 @@ public static partial class EffectPhrase
                 text = string.Join(' ', words);
             }
 
-            var group = Parse("target " + text);
+            var group = Parse("target " + text) ?? Union(phrase);
 
             if (group is null || !excludesSelf)
                 return group;
@@ -8684,6 +8724,71 @@ public static partial class EffectPhrase
                     && (source is null || obj.Id != source.Id),
             };
         }
+
+        /// <summary>
+        /// "All artifacts, creatures, and enchantments" — several plural nouns meaning any of
+        /// them (CR 109.2).
+        /// </summary>
+        /// <remarks>
+        /// The grammar reads "artifact or enchantment" already, and every one of these lines is
+        /// that group with the printed conjunction spelled the other way. Seventeen corpus wipes
+        /// were unread for the word "and" alone — Nevinyrral's Disk beside Akroma's Vengeance,
+        /// which says the same thing with "or" and has compiled for months.
+        /// <para>
+        /// <strong>Plural on every element, or nothing.</strong> That is the whole of what tells
+        /// a union apart from a single noun with a compound adjective: "artifacts and
+        /// enchantments" is two groups, and "artifact and enchantment creatures" — were a card
+        /// ever to print it — is one, whose members must be both. Reading the second as the first
+        /// would destroy every artifact on the board, which is a far worse card than an unread
+        /// line. So the test is made against what was printed, before the plural is folded away.
+        /// </para>
+        /// <para>
+        /// Asked only where the ordinary reading has already failed, so a phrase that reads today
+        /// cannot start reading as a union tomorrow.
+        /// </para>
+        /// </remarks>
+        private static TargetSpec? Union(string phrase)
+        {
+            var text = GroupOpener()
+                .Replace(phrase.Trim().TrimEnd('.'), string.Empty)
+                .Trim();
+
+            var parts = UnionJoin().Split(text);
+            if (parts.Length < 2)
+                return null;
+
+            var singular = new List<string>(parts.Length);
+
+            foreach (var part in parts)
+            {
+                var one = part.Trim();
+
+                // Every element has to be a plural noun the grammar knows, and it has to be the
+                // last word: "all creatures you control and artifacts" is not a shape any card
+                // prints, and admitting it here would quietly drop the "you control".
+                if (!PluralNoun().IsMatch(one) || !one.EndsWith('s'))
+                    return null;
+
+                singular.Add(PluralNoun().Replace(one, "$1"));
+            }
+
+            return Parse("target " + string.Join(" or ", singular));
+        }
+
+        /// <summary>The conjunctions a printed list of groups is joined by.</summary>
+        /// <remarks>
+        /// The Oxford comma is taken with the "and" rather than left as an empty element, and the
+        /// bare comma is here for the same list's middle. "Or" is included so that a list mixing
+        /// the two — no card prints one, but nothing here has to care — reads the same way.
+        /// <para>
+        /// Every group is non-capturing, and that is not tidiness: <c>Regex.Split</c> returns the
+        /// captured groups <em>alongside</em> the pieces it split, so a capturing "and" arrives as
+        /// an element of the list and the plural test below rejects the whole phrase. It read
+        /// nothing at all until the groups came out.
+        /// </para>
+        /// </remarks>
+        [GeneratedRegex(@",\s+(?:and\s+|or\s+)?|\s+(?:and|or)\s+", RegexOptions.IgnoreCase)]
+        private static partial Regex UnionJoin();
 
         [GeneratedRegex(@"^(all|each|every)\s+", RegexOptions.IgnoreCase)]
         private static partial Regex GroupOpener();
@@ -9553,7 +9658,11 @@ public static partial class EffectPhrase
     /// read as an untargeted effect, which is a different card entirely.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<verb>destroy|exile|tap|untap|return) (?<t>(all|each|every) [A-Za-z0-9'’ ]+?)"
+        // The comma is in the class for a list of groups - "destroy all artifacts, creatures,
+        // and enchantments" - and reaches no further than that: a sweeper's own sentence has
+        // already been cut from its neighbours before it arrives here, and the group grammar
+        // refuses a comma'd phrase whose parts are not each a plural noun.
+        @"^(?<verb>destroy|exile|tap|untap|return) (?<t>(all|each|every) [A-Za-z0-9,'’ ]+?)"
             + @"( to (its|their) owners?'? hands?)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ToEachLine();
@@ -9900,20 +10009,38 @@ public static partial class EffectPhrase
     /// that takes a player takes any of them, so widening the word list widens every sentence at
     /// once instead of adding a matcher per verb.
     /// </remarks>
-    private const string W =
-        // "Each other player" before "each player": alternation is ordered, and though these two
-        // share no prefix the longer phrasings are kept in front so a later addition that does
-        // share one cannot be swallowed by the shorter neighbour it was written beside.
-        //
-        // "Enchanted player" is the same idea one relation further out: a Curse is an Aura whose
-        // host is a player (CR 303.4b), and every verb below already takes a player, so the word
-        // belongs in the list rather than in a matcher of its own.
-        //
-        // "The subject's controller" is not printed on any card: it is what "its controller" and
-        // "that creature's controller" are rewritten to once the guard in TryOne has decided
-        // they name the triggering event's object rather than a target (CR 603.2).
-        @"(?<who>you|each opponent|each other player|each player|that player|defending player"
-            + @"|enchanted player|the subject's controller)";
+    private const string W = @"(?<who>you|" + WhoElse + @")";
+
+    /// <summary>
+    /// Every player a sentence can name except the one whose spell or ability it is.
+    /// </summary>
+    /// <remarks>
+    /// "Each other player" before "each player": alternation is ordered, and though these two
+    /// share no prefix the longer phrasings are kept in front so a later addition that does share
+    /// one cannot be swallowed by the shorter neighbour it was written beside.
+    /// <para>
+    /// "Enchanted player" is the same idea one relation further out: a Curse is an Aura whose
+    /// host is a player (CR 303.4b), and every verb below already takes a player, so the word
+    /// belongs in the list rather than in a matcher of its own.
+    /// </para>
+    /// <para>
+    /// "The subject's controller" is not printed on any card: it is what "its controller" and
+    /// "that creature's controller" are rewritten to once the guard in TryOne has decided they
+    /// name the triggering event's object rather than a target (CR 603.2).
+    /// </para>
+    /// <para>
+    /// Held apart from <see cref="W"/> rather than spelled out twice, so a verb whose imperative
+    /// form belongs to another matcher can take every subject except "you" without a second copy
+    /// of the list. One vocabulary written down twice is how the two come to disagree, and this
+    /// one already had: the edict below knew two of these seven.
+    /// </para>
+    /// </remarks>
+    private const string WhoElse =
+        @"each opponent|each other player|each player|that player|defending player"
+            + @"|enchanted player|the subject's controller";
+
+    /// <summary>The same group with "you" left out.</summary>
+    private const string WThem = @"(?<who>" + WhoElse + @")";
 
     /// <summary>
     /// The same group, optional — because half of these sentences are imperative.
@@ -11159,12 +11286,20 @@ public static partial class EffectPhrase
     /// wrong player.
     /// </remarks>
     /// <remarks>
-    /// Only sacrifice, and only "each opponent"/"each player". An edict aimed at one player is a
-    /// different sentence, and one aimed at "target opponent" would need the target machinery —
-    /// this is the shape that names a group and asks each of them.
+    /// Only sacrifice. An edict aimed at "target opponent" is a different sentence and needs
+    /// the target machinery; this is the shape that names its player by relation rather than
+    /// by choosing one.
+    /// <para>
+    /// It knew two of the seven subjects the shared player vocabulary spells, and the five it
+    /// did not were the whole of why "whenever ~ deals combat damage to a player, <em>that
+    /// player</em> sacrifices a creature of their choice" went unread beside "each opponent
+    /// sacrifices a creature of their choice" - one instruction, one effect, and a subject the
+    /// grammar had already been taught next door. Every scope in the list resolves through
+    /// <see cref="PlayerScopes"/>, so nothing underneath had to learn what any of them mean.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>each opponent|each player) sacrifices an? (?<what>[a-z ]+?)"
+        @"^" + WThem + @" sacrifices an? (?<what>[a-z ]+?)"
             + @"( of their choice)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EdictLine();
@@ -11410,7 +11545,8 @@ public static partial class EffectPhrase
     /// verb has to spell out both cases, since the sentence may open a line or follow a trigger.
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent) "
+        @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent"
+            + @"|[Ii]ts controller|[Tt]hat [a-z]+'s controller|[Tt]he subject's controller) "
             + @"creates?|[Cc]reate) " + N
             + @" (?<tapped>tapped )?(?<p>\d+)/(?<tough>\d+) (?<colours>[a-z, ]*?)\s*"
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
@@ -11426,7 +11562,9 @@ public static partial class EffectPhrase
     private static partial Regex GrantedTokenAbilityLine();
 
     [GeneratedRegex(
-        @"^((?<who>you|each opponent|each player|target player|target opponent) creates?|create) "
+        @"^((?<who>you|each opponent|each player|target player|target opponent"
+            + @"|its controller|that [a-z]+'s controller|the subject's controller) "
+            + @"creates?|create) "
             + N
             + @"(?<tapped> tapped)?"
             + @" (?<kind>Treasure|Clue|Food|Gold|Blood|Lander|Map|Junk|Mutagen|Powerstone)"
@@ -12238,6 +12376,29 @@ public static partial class TriggerConditions
             return (e, state, source) =>
                 e is AttackersDeclared { Attackers.IsEmpty: false }
                 && state.ActivePlayerId == source.ControllerId;
+        }
+
+        // "Whenever you attack with one or more creatures with counters on them", "with two or
+        // more legendary creatures", "with one or more Elves" — the same declaration and the
+        // same once-per-combat rule, counting only the attackers a group phrase describes.
+        //
+        // The group goes through the shared target grammar, so every noun it reads arrives here
+        // working and a noun it cannot read leaves the line unread rather than firing on
+        // anything. That refusal is the point: a trigger that ignored its own condition would
+        // fire on every attack, which is a strictly better card than the one printed and nothing
+        // downstream could tell.
+        var attackWith = YouAttackWith().Match(condition);
+        if (attackWith.Success
+            && EffectPhrase.Specs.ParseGroup(attackWith.Groups["what"].Value.Trim())
+                is { Kind: TargetKind.Permanent, ObjectFilter: not null } attackers)
+        {
+            var least = EffectPhrase.Number(attackWith.Groups["n"].Value).Fixed;
+
+            return (e, state, source) =>
+                e is AttackersDeclared declared
+                && state.ActivePlayerId == source.ControllerId
+                && declared.Attackers.Keys.Count(
+                    id => Describes(attackers, state, source, id)) >= least;
         }
 
         if (YouCastThis().IsMatch(condition))
@@ -14122,6 +14283,17 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^you attack$", RegexOptions.IgnoreCase)]
     private static partial Regex YouAttack();
+
+    /// <summary>"You attack with one or more creatures with counters on them" (CR 508.1).</summary>
+    /// <remarks>
+    /// The group is left whole for the target grammar rather than cut up here: "creatures with
+    /// counters on them", "legendary creatures", "Goblins and/or Orcs" and "non-Gnome creatures"
+    /// are one vocabulary's problem and not four patterns.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you attack with (?<n>one|two|three|four|five|\d+) or more (?<what>.+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex YouAttackWith();
 
     [GeneratedRegex(@"^~ becomes tapped$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomesTapped();

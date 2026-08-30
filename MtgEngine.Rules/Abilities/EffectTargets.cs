@@ -362,6 +362,10 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        Add<CreateTokenForTargetsController>(
+            e => e.TargetIndex,
+            (e, n) => e with { TargetIndex = e.TargetIndex + n });
+
         Add<DiscardCards>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);

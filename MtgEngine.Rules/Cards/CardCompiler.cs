@@ -8606,6 +8606,61 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "gets +N/+N for each [group]" where the group is one the shared vocabulary counts.
+    /// </summary>
+    /// <remarks>
+    /// The board-group arm beside this one walks the battlefield through a target filter, which
+    /// is the right reading for "each creature you control" and has nothing to say about a count
+    /// of something the permanents merely <em>have</em> - basic land types among them, colours
+    /// among them, how many of them are differently named. Those are
+    /// <see cref="EffectPhrase.Counting"/>'s, and it is the same vocabulary the until-end-of-turn
+    /// pump already reaches through its generated name; this is what stops the static half of the
+    /// family from being the poorer reader of the two.
+    /// <para>
+    /// The source is handed down because the shared vocabulary can be asked about it - "for each
+    /// +1/+1 counter on it" - and a static ability always has one. When the layers are computing
+    /// with no source at all the count is asked about nothing and comes back zero, which is the
+    /// same answer the arms above give in that case.
+    /// </para>
+    /// </remarks>
+    private static void AddSharedCount(
+        CardDefinition card,
+        ImmutableList<ContinuousEffectDefinition>.Builder into,
+        Match m,
+        string group,
+        EffectPhrase.CountFn counted)
+    {
+        var power = int.Parse(
+            m.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        var toughness = int.Parse(
+            m.Groups["tough"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+
+        var attached = m.Groups["subject"].Value.StartsWith("En", StringComparison.Ordinal)
+            || m.Groups["subject"].Value.StartsWith("Eq", StringComparison.Ordinal);
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"counted:{card.Name}:{power}/{toughness}:{group}",
+            Layer = EffectLayer.PowerToughnessModify,
+            Applies = attached
+                ? (_, source, target) =>
+                    source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host
+                : (_, source, target) => source is not null && target.Subject.Id == source.Id,
+            Apply = (state, source, builder) =>
+            {
+                var you = source is null
+                    ? builder.ControllerId
+                    : Characteristics.Of(state, EmptyAbilities.Instance, source).ControllerId;
+
+                var many = counted(
+                    state, EmptyAbilities.Instance, you, source?.Id ?? default);
+
+                builder.Modify(power * many, toughness * many);
+            },
+        });
+    }
+
+    /// <summary>
     /// "gets +N/+N for each Aura attached to it" — a count of what is attached to the permanent
     /// being pumped, rather than of a group on the battlefield.
     /// </summary>
@@ -8684,6 +8739,23 @@ public static partial class CardCompiler
         if (EffectPhrase.Specs.ParseGroup(group) is not
             { Kind: Abilities.TargetKind.Permanent } counted)
         {
+            // Everything else the compiler counts, asked last. The three arms above are this
+            // reader's own private vocabulary, and the shared one already answered domain,
+            // colours, distinct names, party size, opponents, cards drawn this turn and every
+            // zone but "your" - so "~ gets +1/+0 for each basic land type among lands you
+            // control" sat unread beside a *floating* pump-per-each that has counted domain
+            // since the day it was written, because GenerativeEffects reads the shared
+            // vocabulary back off its own name. One question, two implementations, and only one
+            // of them kept up.
+            //
+            // Asked after the arms above rather than instead of them, so that nothing which
+            // reads today reads differently tomorrow.
+            if (EffectPhrase.Counting(group, hasSource: true) is { } shared)
+            {
+                AddSharedCount(card, into, m, group, shared);
+                return true;
+            }
+
             return false;
         }
 
@@ -8788,6 +8860,12 @@ public static partial class CardCompiler
     /// questions: the battlefield is filtered by the target grammar, which knows about control
     /// and computed types; a hand or a graveyard is a pile of cards, filtered by the search
     /// vocabulary, and control does not come into it.
+    /// <para>
+    /// Those arms are answered first and <see cref="EffectPhrase.Counting"/> last, so that
+    /// nothing which reads today reads differently tomorrow — and so that everything the shared
+    /// vocabulary already knows and this one never learned arrives without a fourth arm being
+    /// written here.
+    /// </para>
     /// </remarks>
     private static Func<GameState, Guid, int>? DefinedCount(string phrase)
     {
@@ -8857,10 +8935,26 @@ public static partial class CardCompiler
         if (what.EndsWith(" on the battlefield", StringComparison.OrdinalIgnoreCase))
             what = what[..^" on the battlefield".Length].Trim();
 
-        return EffectPhrase.Specs.ParseGroup(what) is { Kind: Abilities.TargetKind.Permanent } group
-            ? (state, you) => state.Battlefield.Count(
+        if (EffectPhrase.Specs.ParseGroup(what) is { Kind: Abilities.TargetKind.Permanent } group)
+        {
+            return (state, you) => state.Battlefield.Count(
                 id => group.ObjectFilter?.Invoke(
-                    state, EmptyAbilities.Instance, state.GetObject(id), you) != false)
+                    state, EmptyAbilities.Instance, state.GetObject(id), you) != false);
+        }
+
+        // And everything else the compiler counts, asked last. The arms above are this reader's
+        // own vocabulary and the pile arm knows exactly two piles - "your hand" and "your
+        // graveyard" - while the shared reader has read "creature cards in all graveyards" for
+        // as long as it has had a zone arm at all. So Mortivore, whose whole card is that
+        // sentence, was unread beside Lhurgoyf, whose whole card is the same sentence about one
+        // graveyard. The gap was never the sentence; it was which of the two vocabularies the
+        // sentence happened to reach.
+        //
+        // Asked with no source: this is a characteristic-defining ability and it applies in
+        // every zone (CR 604.3), so a phrase that needs to point at a permanent on the
+        // battlefield is refused rather than answered about one that may not be there.
+        return EffectPhrase.Counting(what, hasSource: false) is { } shared
+            ? (state, you) => shared(state, EmptyAbilities.Instance, you, default)
             : null;
     }
 
