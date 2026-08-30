@@ -715,7 +715,7 @@ public static partial class GenerativeEffects
                 Apply = (state, _, builder) =>
                 {
                     var many = counted(
-                        state, EmptyAbilities.Instance, builder.ControllerId, default);
+                        state, EmptyAbilities.Instance, builder.ControllerId, default, null);
 
                     builder.Modify(perPower * many, perToughness * many);
                 },

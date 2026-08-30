@@ -234,6 +234,15 @@ all as subjects would have mis-compiled about half to do nothing, and because co
 compilation the number would have gone *up* while the cards got worse. Only templates that write
 their own ability text, and therefore know they are building a trigger, may use it.
 
+The **possessive** form is read, and it is a different scope for exactly that reason.
+`PlayerScope.NamedPlayer` is what a printed "that player's" compiles to, and it asks the targets
+first and the trigger's subject only behind them. The order is the whole rule: a target is named
+by the ability's own words and a trigger subject only by its condition, and asked the other way
+round The Mouth of Sauron counts the graveyard of whoever its "when this enters" trigger was
+about — which is its own controller. `SubjectController` gained the same fallback and the same
+order, so "destroy target creature. Its controller discards a card" finds the creature this spell
+chose rather than a triggering object no spell has.
+
 **A permanent's characteristics need not come from its card.** A face-down permanent is a 2/2
 colourless creature with no name, types or abilities (CR 707.2) — and that is not an effect
 applied to the card, it is what the object *is*. `IsFaceDown` redirects where the characteristics
@@ -575,6 +584,8 @@ it** - this box drifts by more than the effect being looked for.
   change to a constant five branches are editing this round, and the slack it currently carries is
   the same slack it was set with.
 
+Coverage is **52.0% of playable cards fully read** (17,021 of 32,717), 68.3% of lines.
+
 ### Two cards that compiled perfectly and could not be played
 
 The round-end soak found both, and neither was reachable by any unit test, because each needs a
@@ -600,6 +611,100 @@ player gives, never by weakening the rule - the engine was right to refuse both 
 **The round is not done when the branches merge; it is done when the soak agrees.** That has now
 been true in four of the last five rounds, and twice this round the unit suites were green while
 a card in the corpus was unplayable.
+
+### Round sixteen: the player a sentence already named
+
++19 cards, none lost, and it is round fourteen's finding once more — except that this time there
+was **no shared vocabulary to have drifted from.** Five readers each carried a private list of
+the possessive player words and no two agreed:
+
+| the reader | the possessives it knew | what it could not say |
+|---|---|---|
+| `CardsInZoneLine` (counts a pile) | your, all, each player's | that player's, each opponent's, its controller's |
+| `ZoneCountLine` (the static pump beside it) | your, each | everything else, including "your opponents'" |
+| `HandSizeChangeLine` | your, each opponent's | anything — and it answered *each opponent* to every other word |
+| `BeginningOfStep` | seven | each other player's |
+| `BeginningOfCombatOn` (beside it) | three | the other six |
+
+They now all read `EffectPhrase.WHOSE`, and the word list maps to a `PlayerScope` through
+`PossessiveScopeOf`, which recovers the bare subject and hands it to the *subject* vocabulary's
+`ScopeOf`. One list of words, one mapping, and a word added to either spelling is understood in
+both. Three more copies of "its controller / that creature's controller" collapsed into
+`ItsController` for the same reason, and that one had already cost something (below).
+
+**The structural half is that a count had no parameter for a player.** `CountFn` is handed the
+state, the abilities, "you" and the source, and "that player's graveyard" is none of those four.
+It now takes a `PlayerLookup`, and the caller declares how far its answer reaches with
+`CountSeats`:
+
+- **`Board`** — what the battlefield settles on its own: you, each player, each opponent, each
+  other player. Every phrase this vocabulary could count before.
+- **`Host`** — the board plus "its controller", which is what an *attached* continuous effect
+  knows: it only ever computes the permanent it is attached to, so the pronoun's seat is the one
+  in front of it. No resolution needed, and it is what Righteous Authority, Death's Approach and
+  Disturbing Conversion were behind.
+- **`Resolution`** — everything, because a resolution has the targets and the trigger's subject.
+
+One statement of reach rather than a bool per relation, because three callers genuinely reach
+three distances. A phrase whose seat the caller cannot find is **refused at compile time**: a
+count of nobody's pile is nought, and nought compiles as a complete card that does nothing.
+
+What the shared list reached beyond the seven cards the audit had priced:
+
+| what fell out | cards |
+|---|---|
+| "that player's hand/graveyard" meaning the player the spell targeted | 8 |
+| "its controller" as a subject *after* a target — Swords to Plowshares' shape | 4 |
+| "its controller's hand/graveyard" inside a count on an Aura | 3 |
+| "your opponents' graveyards/hands" in a static pump — a reader nobody was measuring | 2 |
+| "each other player's draw step" | 1 |
+| "your opponents'", "each other player's", "all" and "the end step of *X*" in the step readers | 0 today |
+
+#### The refusals are the load-bearing half
+
+The prefix tests the step reader used — `owner.StartsWith("your")`, `StartsWith("each opponent")`
+— answered **"everybody"** to every word not in their four. Handing those a list of nine would
+have turned "at the beginning of that player's upkeep" into a trigger firing on all four turns:
+a strictly better card than the one printed, and a change coverage counts as a win. So the reader
+was rewritten to resolve a `PlayerScope` and refuse the ones a *turn* cannot belong to — a
+target, a trigger's subject, the defending player. `HandSizeChangeLine` had the identical
+fall-through and lost it the same way.
+
+#### A widened rewrite stole a neighbour's clause, and only a behaviour test saw it
+
+Lifting the refusal on "its controller" — it used to be left alone whenever anything had been
+targeted — broke "Destroy target creature. Its controller loses 1 life for each creature you
+control", because the reader that had been taking that clause tests for the phrase *by hand* and
+did not know the rewritten spelling. **The corpus diff showed nothing**: every card printing that
+shape is short something else as well, so the complete count moved neither way. `MechanicCoverage`
+and the ratchet were both green. The one thing that caught it was a behaviour test written when
+the clause was built, which is the argument for writing them.
+
+The fix is the reason `ItsController` is one fragment: the rewrite produces one of its own
+alternatives, so it is idempotent and every reader downstream recognises the phrase whether or not
+the rewrite has already been over the sentence.
+
+#### What is still out, and why
+
+Everything below was measured with a substitution probe on the compile dump, so these are prices
+rather than guesses.
+
+- **A count phrase that has to *add a target*** — "the number of cards in target player's hand",
+  Corpse Augur, Gerrard Capashen, Recurring Insight. **3 cards.** `Counting` is handed a phrase
+  and no target builder, so a possessive that targets cannot announce one. Structural, and a
+  bigger change than the possessives were.
+- **A target spec scoped to a named player's graveyard** — "exile target card from that player's
+  graveyard", Skullsnatcher, Ink-Eyes, Scion of Darkness, Zombie Cannibal, Graven Abomination,
+  Rakshasa Debaser. **6 cards.** A `TargetSpec`'s filter is handed the controller, not the
+  trigger's subject, so the pile cannot be narrowed to a seat.
+- **The top *N* of a named player's library** — Elemental Augury, Architects of Will, Korvold and
+  the Noble Thief, Orochi Soul-Reaver. **4 cards**, and mostly the targeted possessive again.
+- **"The colour of its controller's choice"** — Pale Wayfarer, Wishmonger. **2 cards**, and not a
+  vocabulary gap: it is a choice made by a player who is not the controller.
+- **The subject-position "that player"** was deliberately left where it is. `ScopeOf` still
+  answers `TriggerSubject`, and moving it to `NamedPlayer` would change what already-complete
+  cards *do* — which no set diff can see. It is the same measurement this file records against
+  reading all 1,588 of those lines one way, and it wants its own round and its own soak.
 
 ### Round fifteen: chosen by grepping for a shape, not by reading down the queue
 

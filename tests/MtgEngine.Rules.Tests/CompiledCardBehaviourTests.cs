@@ -51612,12 +51612,17 @@ public sealed class CompiledCardBehaviourTests
     /// source to point "it" at, so a phrase that names one is refused rather than answered as
     /// nought - a pump that quietly comes out at zero compiles as a complete card and plays as a
     /// blank one, which is the failure the whole counting vocabulary exists to avoid.
+    /// <para>
+    /// "Its controller's graveyard" used to be a second case here and no longer is. It was filed
+    /// beside the counter count because both were phrases the layers could not answer, but only
+    /// one of them was: an attached effect applies to exactly the permanent it is attached to, so
+    /// "its controller" is the seat being computed and needs no resolution to find. Disturbing
+    /// Conversion and Death's Approach are the cards, and the Aura test below plays one with the
+    /// two hands different sizes, which is the check this refusal could never have been.
+    /// </para>
     /// </remarks>
     [Theory]
     [InlineData("Equipped creature gets +X/+X, where X is the number of charge counters on ~.")]
-    [InlineData(
-        "Enchanted creature gets -X/-0, where X is the number of cards in its controller's "
-            + "graveyard.")]
     public void A_counted_attached_pump_that_needs_a_source_stays_unread(string line)
     {
         var card = Card(
@@ -55187,6 +55192,361 @@ public sealed class CompiledCardBehaviourTests
         Assert.DoesNotContain(
             game.State.Battlefield.Select(game.State.GetObject),
             o => o.Card.Name == "Costly Threat Test");
+    }
+
+    // ---- The player a sentence already named (CR 603.2, 109.5) ---------------
+
+    /// <summary>
+    /// "That player's hand" is the hand of the player this spell targeted, not the caster's.
+    /// </summary>
+    /// <remarks>
+    /// Storm Seeker's wording, and the whole family behind it - Sudden Impact, Gaze of Adamaro,
+    /// Toil // Trouble - reads the same sentence. The count was unreadable before because the
+    /// counting vocabulary had no word for a player at all: it is handed the state, the
+    /// controller and the source, and "that player" is none of those three.
+    /// <para>
+    /// The two hands are made different sizes on purpose. Equal hands is the shape in which every
+    /// possible reading of the pronoun gives the same answer, and it is the shape a two-player
+    /// test falls into by default.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_hand_is_the_hand_of_the_player_the_spell_named()
+    {
+        var seeker = Card(
+            "Storm Seeker Test",
+            "~ deals damage to target player equal to the number of cards in that player's hand.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(seeker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        // Three cards to the seat that will be aimed at, and none to anybody else, so the number
+        // the spell arrives at can only have come from the right pile.
+        for (var i = 0; i < 3; i++)
+            TestCards.PutInHand(game, seats[2], TestCards.Creature($"Held Card {i} Test", 1, 1));
+
+        var mine = game.State.GetPlayer(seats[0]).Hand.Count;
+        var theirs = game.State.GetPlayer(seats[2]).Hand.Count;
+        Assert.NotEqual(mine, theirs);
+
+        var before = game.State.GetPlayer(seats[2]).Life;
+        var card = TestCards.PutInHand(game, seats[0], seeker);
+        game.AddMana(seats[0], ManaColor.Green, 4);
+        game.CastSpell(seats[0], card, [Target.ToPlayer(seats[2])]);
+        Settle(game);
+
+        // The spell itself has left the caster's hand, so "mine" would be one lower again - the
+        // point is only that it is not the number that landed.
+        Assert.Equal(before - theirs, game.State.GetPlayer(seats[2]).Life);
+        Assert.NotEqual(before - mine, game.State.GetPlayer(seats[2]).Life);
+    }
+
+    /// <summary>
+    /// An activated ability names its own target the same way a spell does (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// Keening Stone. The pronoun is resolved off the announcement rather than off a triggering
+    /// event, and an activated ability has no triggering event at all - so a reading that looked
+    /// only at the trigger would mill nobody's library and the card would compile perfectly.
+    /// </remarks>
+    [Fact]
+    public void An_activated_ability_counts_the_pile_of_the_player_it_named()
+    {
+        var stone = Card(
+            "Keening Stone Test",
+            "{5}, {T}: Target player mills X cards, where X is the number of cards in that"
+                + " player's graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(stone);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var rock = game.Create(seats[0], stone, Zone.Battlefield);
+
+        // Four cards in the victim's graveyard and one in the activating player's, so the two
+        // possible answers are four and one.
+        for (var i = 0; i < 4; i++)
+            game.Create(seats[1], TestCards.Creature($"Dead Card {i} Test", 1, 1), Zone.Graveyard);
+
+        game.Create(seats[0], TestCards.Creature("My Dead Card Test", 1, 1), Zone.Graveyard);
+
+        var before = game.State.GetPlayer(seats[1]).Library.Count;
+
+        game.AddMana(seats[0], null, 5);
+        game.ActivateAbility(seats[0], rock, CardCompiler.Compile(stone).Activated[0].Id,
+            [Target.ToPlayer(seats[1])]);
+
+        Settle(game);
+
+        Assert.Equal(before - 4, game.State.GetPlayer(seats[1]).Library.Count);
+    }
+
+    /// <summary>
+    /// "Its controller" after a target is the controller of what was targeted (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// Assassin's Strike, Desecrated Earth, Dismal Failure and Pistus Strike are one sentence
+    /// apart and were all unread, because the pronoun rewrite refused outright whenever anything
+    /// had been targeted. That refusal was written when the readers it protected tested for the
+    /// printed spelling; they now test for the rewritten one as well, so the phrase can be
+    /// normalised in one place for everything.
+    /// </remarks>
+    [Fact]
+    public void Its_controller_after_a_target_is_the_targets_controller()
+    {
+        var strike = Card(
+            "Assassin's Strike Test",
+            "Destroy target creature. Its controller discards a card.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(strike);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Struck Bear Test", 2, 2), Zone.Battlefield);
+
+        var mine = game.State.GetPlayer(alice).Hand.Count;
+        var theirs = game.State.GetPlayer(bob).Hand.Count;
+
+        var card = TestCards.PutInHand(game, alice, strike);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Bob is one card poorer; Alice is only down the spell she cast.
+        Assert.Equal(theirs - 1, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Equal(mine, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The two-part damage reader still recognises its own second half.
+    /// </summary>
+    /// <remarks>
+    /// The control on the change above. That reader tests the sentence's second clause for the
+    /// pronoun by hand, and widening the rewrite is exactly the way a reader loses a clause to
+    /// its neighbour - the failure this suite exists to catch. It is here rather than trusted to
+    /// the coverage number because every card printing this shape is short something else as
+    /// well, so no corpus count would have moved either way.
+    /// </remarks>
+    [Fact]
+    public void Two_part_damage_still_reaches_the_targeted_creatures_controller()
+    {
+        var shock = Card(
+            "Two Part Damage Test",
+            "~ deals 2 damage to target creature and 2 damage to that creature's controller.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(shock);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Shocked Bear Test", 3, 3), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, shock);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Each other player's draw step" is everybody's but your own (CR 500.1).
+    /// </summary>
+    /// <remarks>
+    /// Well of Ideas, and the only card in the corpus the two step-owner lists were costing. The
+    /// words were on sixteen corpus cards and neither list had them, because each list was
+    /// written out beside the reader that wanted it rather than taken from the vocabulary next
+    /// door - the whole reason this round exists.
+    /// </remarks>
+    [Fact]
+    public void A_trigger_on_each_other_players_step_skips_your_own()
+    {
+        var well = Card(
+            "Well of Ideas Test",
+            "At the beginning of each other player's draw step, that player draws an additional"
+                + " card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(well);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, well, Zone.Battlefield);
+
+        // Turn 2 is Bob's: his draw step draws him two cards rather than one.
+        var his = game.State.GetPlayer(bob).Library.Count;
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        Assert.Equal(his - 2, game.State.GetPlayer(bob).Library.Count);
+
+        // Turn 3 is Alice's own, and "each other player" is not her.
+        var hers = game.State.GetPlayer(alice).Library.Count;
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Assert.Equal(hers - 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// A step trigger refuses a possessive that names nobody a turn can belong to.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half of sharing the vocabulary, and the reason the reader was rewritten
+    /// rather than merely re-pointed. The prefix tests it replaced answered "everybody" to every
+    /// word that was not one of the four they knew, so handing them a list of nine would have
+    /// turned "that player's upkeep" into a trigger firing on all four turns - a strictly better
+    /// card than the one printed, and a change coverage would have counted as a win.
+    /// </remarks>
+    [Fact]
+    public void A_step_trigger_refuses_a_possessive_no_turn_can_belong_to()
+    {
+        var wrong = Card(
+            "Unseated Upkeep Test",
+            "At the beginning of that player's upkeep, you gain 1 life.",
+            CardType.Enchantment);
+
+        Assert.False(CardCompiler.Compile(wrong).IsComplete);
+
+        var alsoWrong = Card(
+            "Unseated Combat Test",
+            "At the beginning of combat on that player's turn, you gain 1 life.",
+            CardType.Enchantment);
+
+        Assert.False(CardCompiler.Compile(alsoWrong).IsComplete);
+    }
+
+    /// <summary>
+    /// "Your opponents' graveyards" is all of them, and none of yours (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// Wight of Precinct Six. A static pump that counts a zone, and it fell out of sharing the
+    /// possessives with no work of its own: the reader that answers it had a private list of two
+    /// words and this is a third. Counted at four players because at two, "your opponents'" and
+    /// "each opponent's" and "target opponent's" all name the same person.
+    /// </remarks>
+    [Fact]
+    public void A_static_count_of_your_opponents_graveyards_counts_every_opponent()
+    {
+        var wight = Card(
+            "Wight of Precinct Six Test",
+            "~ gets +1/+1 for each creature card in your opponents' graveyards.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(wight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var body = game.Create(seats[0], wight, Zone.Battlefield);
+
+        // One creature card in each opponent's graveyard, and two in the controller's own - so
+        // "each player's" would say five and "your" would say two.
+        for (var i = 1; i < seats.Count; i++)
+            game.Create(seats[i], TestCards.Creature($"Buried Bear {i} Test", 2, 2), Zone.Graveyard);
+
+        game.Create(seats[0], TestCards.Creature("My Buried Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(seats[0], TestCards.Creature("My Other Bear Test", 2, 2), Zone.Graveyard);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(body)));
+    }
+
+    /// <summary>
+    /// On an Aura, "its controller" is whoever controls the creature it is on.
+    /// </summary>
+    /// <remarks>
+    /// Righteous Authority, Death's Approach and Disturbing Conversion. There is no resolution
+    /// here to ask - a continuous effect is computed with no targets and no trigger - but there
+    /// is a seat, and it is the one being computed: an attached effect only ever applies to the
+    /// permanent it is attached to. That is the whole of what the <c>Host</c> reach means.
+    /// </remarks>
+    [Fact]
+    public void An_aura_counting_its_controllers_hand_counts_the_hosts_controller()
+    {
+        var authority = Card(
+            "Righteous Authority Test",
+            "Enchant creature\nEnchanted creature gets +1/+1 for each card in its controller's"
+                + " hand.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(authority);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.Creature("Authorised Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, authority, Zone.Battlefield);
+        game.Attach(aura, theirs);
+        Settle(game);
+
+        // Two more cards in Bob's hand than Alice's, so the two readings cannot agree.
+        TestCards.PutInHand(game, bob, TestCards.Creature("Bob Card One Test", 1, 1));
+        TestCards.PutInHand(game, bob, TestCards.Creature("Bob Card Two Test", 1, 1));
+
+        var his = game.State.GetPlayer(bob).Hand.Count;
+        var hers = game.State.GetPlayer(alice).Hand.Count;
+        Assert.NotEqual(his, hers);
+
+        Assert.Equal(
+            2 + his, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// The same reader still counts <em>your</em> graveyard when the card says "your".
+    /// </summary>
+    /// <remarks>
+    /// The control on the Aura above. "Your" on an Aura means the Aura's controller and not the
+    /// enchanted creature's, and the two come apart only when the Aura is on somebody else's
+    /// creature - which is what most of them are for.
+    /// </remarks>
+    [Fact]
+    public void An_aura_counting_your_graveyard_still_counts_the_auras_controller()
+    {
+        var weight = Card(
+            "Aura Your Graveyard Test",
+            "Enchant creature\nEnchanted creature gets +1/+1 for each creature card in your"
+                + " graveyard.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(weight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.Creature("Weighed Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, weight, Zone.Battlefield);
+        game.Attach(aura, theirs);
+
+        game.Create(alice, TestCards.Creature("Alice Dead Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Bob Dead Bear One Test", 2, 2), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Bob Dead Bear Two Test", 2, 2), Zone.Graveyard);
+        Settle(game);
+
+        // One from Alice's graveyard, not two from Bob's.
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// A continuous effect refuses a possessive only a resolution could seat.
+    /// </summary>
+    /// <remarks>
+    /// The other half of failing closed. A static ability has no targets and no triggering
+    /// event, so "that player" names nobody there - and a count of nobody's pile is nought,
+    /// which compiles as a complete card that quietly does nothing. Refused instead.
+    /// </remarks>
+    [Fact]
+    public void A_static_count_refuses_a_player_only_a_resolution_could_find()
+    {
+        var wrong = Card(
+            "Unseated Static Count Test",
+            "Enchant creature\nEnchanted creature gets +1/+1 for each card in that player's"
+                + " graveyard.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.False(CardCompiler.Compile(wrong).IsComplete);
     }
 
     // ---- Adventures (CR 715) -------------------------------------------------
