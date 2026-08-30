@@ -513,7 +513,59 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **52.0% of playable cards fully read** (17,025 of 32,717), 68.5% of lines.
+Coverage is **52.5% of playable cards fully read** (17,183 of 32,717), 68.8% of lines.
+
+### Round sixteen: 424 cards were already complete and already wrong
+
+The round's largest result moved coverage by **zero**. CR 605.3a lets a player activate mana
+abilities whenever a rule asks them for a payment; this engine required the mana to be floating
+already, so **424 complete cards auto-declined every payment they print** - ward, echo,
+cumulative upkeep, extort, and every "counter target spell unless its controller pays {3}".
+They compiled, they counted as read, and they answered no on the player's behalf.
+
+The fix was one gate, because **the other two halves already existed and had never met**:
+`ActivateAbility` already skips `RequirePriority` for a mana ability and returns without
+settling, so a pending question survives the taps, and `ResolveOptionalPayment` already
+re-checked the real pool before charging. Only `AskOwedPayment`'s CR 118.3 test was wrong -
+"has the mana" rather than "has, or could produce, the mana". Set diff: byte-identical.
+
+### A wall three rounds hit, and two diagnosed wrongly
+
+Ashmouth Hound and eight siblings were recorded twice as blocked by `SubjectObjectOf` refusing
+`BlockersDeclared`. Flipping that arm completes five cards and **none of the nine**. The nine
+were behind `DealDamage` having no `EffectSubject` at all - and both halves were required, since
+building only the effect half makes all nine damage *themselves*. Now one trigger per blocking
+pair (CR 509.3c/d), with the batch wording still firing once. It also found **Flailing Drake
+pumping itself**, **Quagmire Lamprey countering itself**, and bushido firing for an attacker
+nobody blocked.
+
+### Four walkers that were walking nothing
+
+`FiltersIn` had no `Flatten`; `EveryEffect` had no modes; **none** of the four `CompiledCard`
+walkers reached `Adventure`, `PreparedSpell`, `CleaveSpell`, `GiftSpell` or `Halves`. Every
+adventure, prepared half, cleave text, gift and split-card face was checked by nothing while the
+invariant suite reported clean over 32,765 cards. `AssertEveryFieldCounts` now guards all 35
+`GameState` properties, verified by a negative control that drops six fields and names all six.
+
+### The queue is flat at the line level, and the leverage is elsewhere
+
+A full-corpus compile dump grouped by shape shows the top rows are **substrings, not buildable
+units**: `for each` looks like 831 sole blockers and is one word across a thousand unrelated
+templates. Clustering by whole line gives **11,897 distinct templates, the largest completing
+20 cards**. What pays is shared vocabulary, which is why this round's convergence work was worth
+more than its readers.
+
+The best-shaped lead found and not taken: of 655 cards one line short whose unread line contains
+a quoted ability, **314 have an inner quotation that already compiles**. The compiler understands
+the ability and cannot read the frame granting it - a composition gap, not a vocabulary one.
+
+### A stolen neighbour no instrument could see
+
+Widening the "its controller" rewrite broke `Destroy target creature. Its controller loses 1
+life for each creature you control`, because the reader taking that clause tests for the phrase
+by hand and did not know the new spelling. **The corpus diff showed nothing** - every card
+printing that shape is short something else too - and coverage, the ratchet and
+`MechanicCoverageTests` were all green. Only a played game saw it.
 
 ### Round sixteen: one trigger per blocking pair
 
@@ -599,8 +651,6 @@ it** - this box drifts by more than the effect being looked for.
 - **The coverage ratchet was left at 0.517** against a measured 52.0%. Raising it is a one-character
   change to a constant five branches are editing this round, and the slack it currently carries is
   the same slack it was set with.
-
-Coverage is **52.0% of playable cards fully read** (17,021 of 32,717), 68.3% of lines.
 
 ### Two cards that compiled perfectly and could not be played
 
