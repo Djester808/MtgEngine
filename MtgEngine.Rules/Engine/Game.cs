@@ -4816,15 +4816,6 @@ public sealed class Game
     }
 
     /// <summary>
-    /// Asks the oldest offered optional payment, if any (CR 601.2b).
-    /// </summary>
-    /// <remarks>
-    /// The offer is skipped when the player plainly cannot take it, so a game does not stop to
-    /// ask a question with one answer. Mana already in the pool is what counts: this engine has
-    /// no way to activate a mana ability inside a resolution, so a player who means to pay floats
-    /// the mana first — the same as they must for any other cost.
-    /// </remarks>
-    /// <summary>
     /// What an offer actually charges, which is not always what the card prints (CR 702.24a).
     /// </summary>
     /// <remarks>
@@ -4836,6 +4827,222 @@ public sealed class Game
     /// </remarks>
     private static ManaCostSpec CostOwed(OptionalPaymentRequested owed, MayPay offer) =>
         string.IsNullOrEmpty(owed.CostText) ? offer.Cost : ManaCostSpec.Parse(owed.CostText);
+
+    /// <summary>
+    /// How far the search below will go before it gives up and asks (CR 605.3a).
+    /// </summary>
+    /// <remarks>
+    /// A board with many lands that each make several colours is the only shape that reaches
+    /// this, and it is also the shape most able to pay. Running out is answered "ask", never
+    /// "decline" - see the note on <see cref="CouldPayMidResolution"/> for why the two are not
+    /// symmetrical.
+    /// </remarks>
+    private const int ManaSearchBudget = 4096;
+
+    /// <summary>
+    /// Whether a player asked for mana in the middle of a resolution could produce it
+    /// (CR 605.3a, 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The pool is not the answer to "can you pay?" while an effect is asking. CR 605.3a lets a
+    /// player activate mana abilities at exactly that moment, so a player holding three untapped
+    /// Forests can pay a {3} they do not yet have - and answering for them is how "unless its
+    /// controller pays {3}" became a hard counter against everyone who had not floated first.
+    /// <para>
+    /// <strong>Optimistic on purpose, and the direction is the point.</strong> A wrong "no" here
+    /// is silent and unrecoverable: the player is never asked, and the "if you don't" branch runs
+    /// as though they had refused a question nobody put. A wrong "yes" costs one question they
+    /// answer no to, and <see cref="ResolveOptionalPayment"/> re-checks the real pool before
+    /// charging it, so nothing is paid that was not there. Every approximation below therefore
+    /// leans towards asking.
+    /// </para>
+    /// <para>
+    /// Only abilities that are free to activate are counted. One that itself costs mana cannot
+    /// conjure mana the player does not have, and chasing the ones that merely convert it is a
+    /// fixpoint this does not need - the offers that print this shape ask for generic mana, and
+    /// lands are what pays them.
+    /// </para>
+    /// </remarks>
+    private bool CouldPayMidResolution(Guid playerId, ManaCostSpec cost)
+    {
+        var pool = State.GetPlayer(playerId).ManaPool;
+        if (ManaPayment.CanPay(pool, cost))
+            return true;
+
+        var sources = ManaSourcesAvailableTo(playerId);
+        if (sources.Count == 0)
+            return false;
+
+        var budget = ManaSearchBudget;
+        return CanReachCost(pool, cost, sources, 0, ref budget);
+    }
+
+    /// <summary>
+    /// One mana ability's payout, flattened to what it would put in the pool.
+    /// </summary>
+    /// <remarks>
+    /// A restriction travels with the mana rather than being dropped, because the pool arithmetic
+    /// that decides payability already knows about restricted mana - and "spend this mana only to
+    /// cast creature spells" genuinely cannot pay a counterspell's tax. Dropping it would be the
+    /// one approximation here that errs towards asking a question with no answer.
+    /// </remarks>
+    private readonly record struct ManaBundle(ImmutableList<ManaProduction> Produces)
+    {
+        public ManaPool AddedTo(ManaPool pool)
+        {
+            foreach (var production in Produces)
+            {
+                if (production.Restriction is { } restricted)
+                {
+                    pool = pool.AddRestricted(
+                        new RestrictedMana(production.Color, restricted), production.Amount);
+                }
+                else if (production.Color is { } colour)
+                {
+                    pool = pool.Add(colour, production.Amount);
+                }
+                else
+                {
+                    pool = pool.AddColorless(production.Amount);
+                }
+            }
+
+            return pool;
+        }
+    }
+
+    /// <summary>
+    /// What each of a player's permanents could add to their pool right now (CR 605.1a).
+    /// </summary>
+    /// <remarks>
+    /// One entry per permanent, holding every payout that permanent offers, because a permanent
+    /// with two mana abilities taps once and makes one of the two - counting both would let a
+    /// single dual land pay a cost of two colours. Which of them it makes is the player's choice,
+    /// so the caller searches over them rather than picking.
+    /// <para>
+    /// The abilities are the <em>computed</em> ones (CR 613.1): a granted mana ability counts and
+    /// a face-down permanent has none, which is the same rule the mana-colour menu reads.
+    /// </para>
+    /// </remarks>
+    private List<List<ManaBundle>> ManaSourcesAvailableTo(Guid playerId)
+    {
+        var sources = new List<List<ManaBundle>>();
+        var player = State.GetPlayer(playerId);
+
+        foreach (var id in State.Battlefield)
+        {
+            var obj = State.GetObject(id);
+            if (obj.Permanent is not { } permanent || ControllerOf(obj) != playerId)
+                continue;
+
+            var computed = Characteristics.Of(State, _abilities, obj);
+
+            // CR 602.5c: an effect can shut the abilities off outright, mana abilities included.
+            if (computed.AbilitiesCantBeActivated)
+                continue;
+
+            var bundles = new List<ManaBundle>();
+
+            foreach (var ability in ActivatedAbilitiesOf(State, _abilities, obj))
+            {
+                if (!ability.IsManaAbility || ability.FunctionsFrom != Zone.Battlefield)
+                    continue;
+
+                // Free to activate, in every currency. See the note above on why the ones that
+                // cost mana are left out rather than chased.
+                if (!ability.ManaCost.Symbols.IsEmpty
+                    || ability.CounterCost is not null
+                    || !ability.ChosenCosts.IsEmpty
+                    || ability.SelfCost != SelfCost.None
+                    || ability.LifeCost > player.Life
+                    || ability.EnergyCost > player.Energy)
+                {
+                    continue;
+                }
+
+                // CR 602.5b, 302.6: a {T} cost needs an untapped permanent, and a creature that
+                // has been around since the turn began or has haste.
+                if (ability.RequiresTap
+                    && (permanent.IsTapped
+                        || (permanent.HasSummoningSickness
+                            && computed.IsCreature
+                            && !computed.Has(KeywordAbility.Haste))))
+                {
+                    continue;
+                }
+
+                if (ability.ActivateOnlyIf?.Invoke(State, _abilities, obj) == false)
+                    continue;
+
+                var produces = ImmutableList.CreateBuilder<ManaProduction>();
+
+                foreach (var production in ability.Produces)
+                {
+                    // The counter-priced amount is a number the player names as they activate,
+                    // and it is not known here. Counted as the one mana its floor guarantees
+                    // rather than skipped, which keeps the lean towards asking.
+                    var amount = production.FromCounterCost ? 1 : production.Amount;
+                    if (amount <= 0)
+                        continue;
+
+                    if (!production.FromChosenColor)
+                    {
+                        produces.Add(production with { Amount = amount });
+                        continue;
+                    }
+
+                    // A permanent that has not answered its colour question cannot tap for a
+                    // colour it has not chosen - the same reading the activation itself takes.
+                    if (ColorNamed(obj.Chosen) is { } named)
+                        produces.Add(production with { Color = named, Amount = amount });
+                }
+
+                if (produces.Count > 0)
+                    bundles.Add(new ManaBundle(produces.ToImmutable()));
+            }
+
+            if (bundles.Count > 0)
+                sources.Add(bundles);
+        }
+
+        return sources;
+    }
+
+    /// <summary>
+    /// Whether some choice of one payout per permanent pays the cost (CR 605.3a).
+    /// </summary>
+    /// <remarks>
+    /// A search rather than a sum, because a dual land is a decision: {W}{U} is payable off two
+    /// Hallowed Fountains and unpayable off one, and a "how much mana could you make" total says
+    /// yes to both. Each permanent may be used once or left alone, and the cost is re-asked of
+    /// the pool at every step so a search that has already found enough stops.
+    /// </remarks>
+    private static bool CanReachCost(
+        ManaPool pool,
+        ManaCostSpec cost,
+        List<List<ManaBundle>> sources,
+        int index,
+        ref int budget)
+    {
+        if (ManaPayment.CanPay(pool, cost))
+            return true;
+
+        if (index >= sources.Count)
+            return false;
+
+        // Out of budget is answered "ask". A needless question costs a click; a needless decline
+        // costs the card the rule it prints.
+        if (--budget <= 0)
+            return true;
+
+        foreach (var bundle in sources[index])
+        {
+            if (CanReachCost(bundle.AddedTo(pool), cost, sources, index + 1, ref budget))
+                return true;
+        }
+
+        return CanReachCost(pool, cost, sources, index + 1, ref budget);
+    }
 
     /// <summary>
     /// How many objects a chosen cost takes, floored at one.
@@ -4877,6 +5084,32 @@ public sealed class Game
         return $"{asking}, or pick nothing to decline.";
     }
 
+    /// <summary>
+    /// Asks the oldest offered optional payment, if any (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The offer is skipped when the player plainly cannot take it, so a game does not stop to
+    /// ask a question with one answer (CR 118.3). What <em>cannot</em> means is the whole of this
+    /// method's history. It used to mean an empty mana pool, and that made every "counter target
+    /// spell unless its controller pays {3}" decline itself against anybody who had not floated
+    /// the mana in advance — the engine playing a different game from the printed card, rather
+    /// than a card going unread. CR 605.3a lets a player activate mana abilities whenever a rule
+    /// or effect asks them for a mana payment, so untapped lands <em>are</em> mana this player
+    /// has, and the question is theirs to answer.
+    /// <para>
+    /// The other two halves of that were already here and only the gate was shut.
+    /// <see cref="ActivateAbility"/> asks for priority only when the ability is not a mana
+    /// ability, and a mana ability returns from it without settling or granting priority — so
+    /// the pending question is still pending when the mana arrives, and the answer is an
+    /// ordinary <c>ChoiceMade</c> after ordinary logged activations. Nothing here is a
+    /// continuation, which is why a replay reaches the same offer.
+    /// </para>
+    /// <para>
+    /// <see cref="ResolveOptionalPayment"/> then re-checks the real pool before charging it, so a
+    /// player who answers yes and taps nothing declines. That is what makes it safe for the check
+    /// below to be optimistic: the board, not the answer, decides whether the cost was paid.
+    /// </para>
+    /// </remarks>
     private bool AskOwedPayment()
     {
         if (_paymentsOwed.Count == 0 || State.IsWaitingForChoice)
@@ -4892,7 +5125,7 @@ public sealed class Game
         // not a margin - a player on exactly 2 may pay 2.
         if (offer.EnergyCost > State.GetPlayer(owed.PlayerId).Energy
             || offer.LifeCost > State.GetPlayer(owed.PlayerId).Life
-            || !ManaPayment.CanPay(State.GetPlayer(owed.PlayerId).ManaPool, CostOwed(owed, offer)))
+            || !CouldPayMidResolution(owed.PlayerId, CostOwed(owed, offer)))
         {
             RunDeferredBranch(
                 owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);

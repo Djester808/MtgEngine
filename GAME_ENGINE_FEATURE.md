@@ -702,12 +702,13 @@ the convention the sweep runs on - an arm named `Ask...` may return, every other
 continue. It catches all six reverts at once, and it is the only thing covering cascade, which
 always settles with its own spell still on the stack so no card can show the harm.
 
-**The largest correctness gap it names is not fixed.** CR 605.3a lets a player activate mana
-abilities whenever a rule asks for a payment, mid-resolution; this engine cannot, and
-`AskOwedPayment` admits as much. So every "counter target spell unless its controller pays {3}"
-is auto-declined against anyone who did not pre-float the mana - CR 118.3 declining on their
-behalf. That is the Pact finding generalised, and it is the engine playing a different game
-rather than a card going unread.
+**The largest correctness gap it names has since been closed** - see "A mana payment asked while
+an effect resolves" at the end of this file. What it named: CR 605.3a lets a player activate mana
+abilities whenever a rule asks for a payment, mid-resolution; this engine could not, and
+`AskOwedPayment` admitted as much. So every "counter target spell unless its controller pays {3}"
+was auto-declined against anyone who did not pre-float the mana - CR 118.3 declining on their
+behalf from a false premise. That is the Pact finding generalised, and it was the engine playing a
+different game rather than a card going unread.
 
 ### What predicts value now, and it is no longer rank
 
@@ -8268,3 +8269,89 @@ Sentinel, Red Death Shipwrecker, Lavaleaper, Buried in the Garden, Rosethorn Aco
 Ritual.** Half of them are the player scope rather than the colour, which is the finding the
 mutation probe would have missed if it had only been run one way.
 
+### A mana payment asked while an effect resolves
+
+CR 605.3a lets a player activate mana abilities whenever a rule or effect asks them for a mana
+payment, in the middle of a resolution included. This engine read the mana **pool** instead, so
+`AskOwedPayment` skipped the question whenever the pool was short and ran the "if you don't"
+branch. CR 118.3 was applied correctly - a question with one possible answer is not a question -
+to a premise that was false. Every "counter target spell unless its controller pays {3}" was a
+hard counter against anybody who had not floated the mana before the counterspell was cast.
+
+**The measured surface, and the distinction that matters more than the count here.** 1,445 corpus
+cards print a payment asked while something resolves, once the cast-time wordings (kicker,
+multikicker, buyback, "rather than pay") are stripped out: 612 complete, 833 not. The number to
+look at is the first one:
+
+| | cards |
+|---|---|
+| Complete, and compiling to a `MayPay` with a mana cost - **asked, and auto-declining** | **424** |
+| Print the shape, still unread (long tail; no family above 5 rows) | 833 |
+| Complete cards overall, before and after | 17,002 |
+
+A card that compiles and auto-declines is worse than one that does not compile, and the coverage
+number cannot tell them apart - both of these rounds' numbers are 17,002. The 424 sort into seven
+families: 164 "you may pay {N}. If you do", 83 ward, 58 "counter ... unless its controller pays",
+45 echo, 33 "sacrifice/destroy unless you pay", 24 cumulative upkeep, 11 extort.
+
+**Only the gate was shut, and that is the finding.** The two other halves of this were already in
+the engine and had never met:
+
+- `Game.ActivateAbility` calls `RequirePriority` **only** for an ability that is not a mana
+  ability (CR 117.1d), and a mana ability returns from it early - without settling, without
+  granting priority. So a pending question is still pending after the player taps three lands.
+- `ResolveOptionalPayment` already re-checked the real pool before charging it, and ran the "if
+  you don't" branch when it came up short.
+
+So nothing here is a suspended continuation: the taps are ordinary logged activations and the
+answer is an ordinary `ChoiceMade`. The one line that had to change was the CR 118.3 test, from
+"has the mana" to "has, or could produce, the mana".
+
+**The check is optimistic on purpose, and the asymmetry is the whole argument.** A wrong "no" is
+silent and unrecoverable - the player is never asked and the else-branch runs as though they had
+refused a question nobody put. A wrong "yes" costs one question answered no, and the real pool is
+still checked before anything is charged. Every approximation in `CouldPayMidResolution` therefore
+leans towards asking, including the search budget: running out answers "ask".
+
+**It is a search rather than a total, because a dual land is a decision.** One land that taps for
+{G} or {U} cannot pay {G}{U} - it taps once and makes one of them - and "how much mana could this
+board make" says yes. One entry per permanent holding every payout that permanent offers, and the
+caller chooses one per permanent. Restrictions travel with the mana rather than being dropped:
+"spend this mana only to cast creature spells" genuinely cannot pay a counterspell's tax, and
+dropping it would be the one approximation that errs towards a question with no answer.
+
+**Nothing was gained and nothing was lost - 17,002 before, 17,002 after, the sets byte-identical.**
+That is the right result for the change and the reason it needed a set diff to say so: this is not
+a compiler change, it is 424 already-complete cards that now play the rule they print. The proof is
+in games rather than in a count. A player with three untapped Forests and an empty pool is asked,
+taps them while the question stands, and pays; a player with one Forest is not asked at all and the
+spell is countered; a player who answers yes and taps nothing declines. All seven tests were
+mutation-checked in both directions - three fail against the old pool-only gate, and the four
+"not asked" ones fail against a check that always says yes.
+
+**Declined, measured, and named.** The audit's two smaller relatives were both re-measured and
+neither is what it was briefed as:
+
+- **A `MayPay` inside a coin-flip or die-roll branch is a zero-card surface today.** The wording
+  does not compile at all - "Flip a coin. If you win the flip, you may pay {2}. If you do, ..." is
+  unread - and no corpus card compiles to a mana payment nested inside a `FlipCoin` or `RollDice`.
+  39 complete cards flip or roll; none of them nest a payment. The defect the audit named is real
+  and latent, and this change retires it in advance: the branch's payment reaches `AskOwedPayment`
+  at the next settle like any other, and now counts untapped lands.
+- **The forced-answer arms are eight, not nine.** Walked deliberately, every `Ask` arm of the sweep
+  is `MinPicks = 1, MaxPicks = 1`, and eight of them can be handed a one-item list with no decline
+  option in it: `AskOwedPermanentChoice`, `AskOwedPopulate`, `AskOwedManifestDread`,
+  `AskOwedConnive`, `AskOwedCreatureTypeChoice`, `AskOwedEntryChoice`, `AskOwedVenture`,
+  `AskOwedReadAhead`. Three more look forced and are not - `AskOwedEnlist`, `AskOwedExploit` and
+  `AskOwedSoulbond` always append a decline option, so their menus are never shorter than two -
+  and `AskOwedLibraryEnd` and `AskOwedColorChoice` have fixed menus of two and five. The four that
+  already settle are `AskOwedCounterChoice`, `AskOwedRingBearer`, `SettleForcedManaColors` (with
+  `AskOwedManaColorChoice`'s `Count <= 1`) and `ChooseForcedProtectors` (with `AskOwedProtector`'s
+  `Count < 2`), which is the model each of the eight wants.
+
+  Left undone deliberately rather than for time: a forced one-option question **breaks no rule**.
+  The player does choose, and there is one legal choice; the harm is a game that stops to collect a
+  click, which is an ergonomic and soak-driver problem rather than a card playing differently from
+  its text. The payment gate above was the opposite - it changed outcomes silently - and mixing the
+  two in one commit would have put eight behaviour changes with no rules consequence next to the
+  one with all of it.

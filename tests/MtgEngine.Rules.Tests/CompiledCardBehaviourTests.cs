@@ -37084,8 +37084,9 @@ public sealed class CompiledCardBehaviourTests
             && game.State.CurrentStep == TurnStep.PrecombatMain
             && game.State.Priority.Holder == bob);
 
-        // He needs the mana in hand for the question to be worth asking — an offer he plainly
-        // cannot take is answered for him rather than put to him.
+        // Floated up front, so this test is about the decline and not about where the mana came
+        // from. An offer he plainly could not take - no pool and no untapped land - would be
+        // answered for him rather than put to him (CR 118.3).
         var bobsForest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
         game.ActivateAbility(bob, bobsForest, "mana");
 
@@ -37124,8 +37125,9 @@ public sealed class CompiledCardBehaviourTests
             && game.State.CurrentStep == TurnStep.PrecombatMain
             && game.State.Priority.Holder == bob);
 
-        // Bob floats the mana before casting, because the engine cannot tap lands inside a
-        // resolution — the same constraint every optional payment has.
+        // Bob floats the mana before casting, which is one of the two ways to pay now: mana
+        // already in the pool still answers the question. Tapping the land after being asked is
+        // the other, and CR 605.3a is why - see the mid-resolution section further down.
         var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
         game.ActivateAbility(bob, forest, "mana");
 
@@ -58158,6 +58160,304 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.Equal(0, TimesTriggered(game, watcher));
         Assert.Equal(0, GrowthOn(game, watcher));
+    }
+
+    // ---- A mana payment asked mid-resolution (CR 605.3a) ---------------------
+
+    /// <summary>A land with two basic types, which still taps only once.</summary>
+    /// <remarks>
+    /// The fixture the per-permanent half of the search needs. Its two mana abilities come from
+    /// its two subtypes (CR 305.6), so it offers a choice of two colours and delivers one of
+    /// them - which is exactly the case a "how much mana could you make" total gets wrong.
+    /// </remarks>
+    private static CardDefinition Dual(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        Cmc = 0,
+        CardTypes = CardType.Land,
+        Subtypes = ["Forest", "Island"],
+        ColorIdentity = [ManaColor.Green, ManaColor.Blue],
+    };
+
+    /// <summary>
+    /// Walks a game to Bob's main phase with a spell of his on the stack, taxed by Alice.
+    /// </summary>
+    /// <remarks>
+    /// Every test in this section needs the same six steps, and the interesting line is always
+    /// the one after them. The threat gains life rather than doing nothing so that whether it
+    /// resolved is a number on the board and not an absence.
+    /// </remarks>
+    private static (Game Game, Guid Alice, Guid Bob) TaxedSpell(string label, string cost)
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var threat = TestCards.PutInHand(
+            game, bob, Card($"{label} Threat Test", "You gain 6 life."));
+
+        // A card becomes a new object when it moves to the stack (CR 400.7), so the id to target
+        // is the one casting returns - not the one it had in hand.
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var leak = Card(
+            $"{label} Leak Test", $"Counter target spell unless its controller pays {cost}.");
+
+        var compiled = CardCompiler.Compile(leak);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, leak), [Target.ToSpell(onStack)]);
+        return (game, alice, bob);
+    }
+
+    /// <summary>Every land Bob controls, so a test can tap them one at a time.</summary>
+    private static List<ObjectId> LandsOf(Game game, Guid playerId) =>
+        [.. game.State.Battlefield
+            .Where(id => game.State.GetObject(id).OwnerId == playerId
+                && game.State.GetObject(id).Card.CardTypes.HasFlag(CardType.Land))];
+
+    /// <summary>
+    /// A player with untapped lands is asked for the tax and may tap them to pay it (CR 605.3a).
+    /// </summary>
+    /// <remarks>
+    /// The largest "the answer is forced" surface this engine had. CR 605.3a lets a player
+    /// activate mana abilities whenever a rule or effect asks them for a mana payment, including
+    /// in the middle of a resolution; this engine read the mana <em>pool</em> instead, so every
+    /// "counter target spell unless its controller pays {3}" auto-declined against anyone who had
+    /// not floated the mana before the counterspell was even cast. CR 118.3 was declining on
+    /// their behalf, correctly, from a false premise.
+    /// <para>
+    /// Bob's pool is empty when the question arrives and he pays anyway, which is the whole
+    /// claim. The two halves that make it work were already in the engine and had never met:
+    /// <c>Game.ActivateAbility</c> requires priority only for an ability that is not a mana
+    /// ability, and a mana ability returns from it without settling, so the pending question
+    /// survives the three activations below.
+    /// </para>
+    /// <para>
+    /// <c>Settle</c> asserts the log replays to this state, which is the other thing worth
+    /// proving here: nothing about this is a suspended continuation. The taps are ordinary
+    /// logged activations and the answer is an ordinary <c>ChoiceMade</c>.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_player_with_untapped_lands_is_asked_the_tax_and_may_tap_to_pay_it()
+    {
+        var (game, _, bob) = TaxedSpell("Untapped", "{3}");
+
+        for (var i = 0; i < 3; i++)
+            game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Asked, with nothing floated - which is the line that used to be unreachable.
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+
+        // CR 605.3a: the mana abilities are activated while the question stands, and the
+        // question is still standing after each of them.
+        foreach (var land in LandsOf(game, bob))
+        {
+            game.ActivateAbility(bob, land, "mana");
+            Assert.NotNull(game.State.Choice);
+        }
+
+        Assert.Equal(3, game.State.GetPlayer(bob).ManaPool[ManaColor.Green]);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        // The spell resolved and the tax was actually charged.
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+    }
+
+    /// <summary>
+    /// A player who could not make the mana is still not asked (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The half of the old behaviour that was right, and the one the fix must not lose: a
+    /// question with one possible answer is not a question, and stopping the game to put it is
+    /// how a game stalls. One Forest cannot pay {3}, so nothing is asked and the counter simply
+    /// resolves.
+    /// <para>
+    /// Asserted against the log rather than the state: a question asked and answered leaves no
+    /// trace in the state, so "nothing outstanding now" would pass either way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_player_who_could_not_make_the_mana_is_not_asked_at_all()
+    {
+        var (game, _, bob) = TaxedSpell("Short", "{3}");
+
+        game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        // Countered, so he gained nothing.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// A tapped land is not mana the player has (CR 602.5b).
+    /// </summary>
+    /// <remarks>
+    /// The same board as the paying test and the same cost, with the lands already down. Without
+    /// this the check could have counted every permanent on the battlefield and passed everything
+    /// else in this section.
+    /// </remarks>
+    [Fact]
+    public void Lands_already_tapped_do_not_make_the_question_worth_asking()
+    {
+        var (game, _, bob) = TaxedSpell("Tapped", "{3}");
+
+        foreach (var land in Enumerable.Range(0, 3)
+            .Select(_ => game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield))
+            .ToList())
+        {
+            game.Tap(land);
+        }
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Saying yes without tapping anything is a decline (CR 601.2h).
+    /// </summary>
+    /// <remarks>
+    /// What makes it safe for the gate to be optimistic. The question is now asked on the
+    /// strength of what a player <em>could</em> produce, so the answer alone can no longer be
+    /// trusted - <c>ResolveOptionalPayment</c> re-checks the real pool before charging it, and a
+    /// yes it cannot honour runs the "if you don't" branch instead of granting the cost for free.
+    /// <para>
+    /// This is the failure mode a looser fix would have shipped: an offer that pays out on the
+    /// word rather than on the mana is a card strictly better than the one printed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Answering_yes_without_tapping_anything_declines()
+    {
+        var (game, _, bob) = TaxedSpell("Bluff", "{3}");
+
+        for (var i = 0; i < 3; i++)
+            game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        // Countered anyway, and the lands are all still untapped: nothing was taken and nothing
+        // was given.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.All(
+            LandsOf(game, bob),
+            id => Assert.False(game.State.GetObject(id).Permanent!.IsTapped));
+    }
+
+    /// <summary>
+    /// A land with two types taps once, so two colours want two lands (CR 106.7).
+    /// </summary>
+    /// <remarks>
+    /// The reason the check is a search rather than a total. One land that could make {G} or {U}
+    /// cannot pay {G}{U}: it taps once and makes one of them. Adding up everything the board
+    /// could produce says yes, and a game that asks the question then hands the player a decision
+    /// they cannot carry out - which is the same defect as the auto-decline, pointing the other
+    /// way.
+    /// </remarks>
+    [Fact]
+    public void One_dual_land_cannot_pay_a_cost_of_two_colours()
+    {
+        var (game, _, bob) = TaxedSpell("Single Dual", "{G}{U}");
+
+        game.Create(bob, Dual("Solo Dual Test"), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Two of them can, and the second colour comes from the second land (CR 605.3a).
+    /// </summary>
+    /// <remarks>
+    /// The other side of the test above, on a board one land larger. Bob taps each for a
+    /// different colour, which is a choice the engine could not have made for him - and the
+    /// reason the payment is a question at all rather than something the settle could pay off.
+    /// </remarks>
+    [Fact]
+    public void Two_dual_lands_pay_a_cost_of_two_colours()
+    {
+        var (game, _, bob) = TaxedSpell("Pair Dual", "{G}{U}");
+
+        game.Create(bob, Dual("First Dual Test"), Zone.Battlefield);
+        game.Create(bob, Dual("Second Dual Test"), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+
+        // The subtypes are read in order, so "mana" is the Forest half and "mana1" the Island
+        // half (CR 305.6).
+        var lands = LandsOf(game, bob);
+        game.ActivateAbility(bob, lands[0], "mana");
+        game.ActivateAbility(bob, lands[1], "mana1");
+
+        Assert.Equal(1, game.State.GetPlayer(bob).ManaPool[ManaColor.Green]);
+        Assert.Equal(1, game.State.GetPlayer(bob).ManaPool[ManaColor.Blue]);
+
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(26, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A creature's mana ability is not available the turn it arrives (CR 302.6).
+    /// </summary>
+    /// <remarks>
+    /// A mana creature is the other thing that pays a tax, and summoning sickness is the one
+    /// restriction on it that a land never shows. The same board, one turn later, is the paying
+    /// test above; here the question is never put, because the {T} cost cannot be paid.
+    /// </remarks>
+    [Fact]
+    public void A_summoning_sick_mana_creature_does_not_make_the_question_worth_asking()
+    {
+        var elf = Card(
+            "Sick Elf Test", "{T}: Add {G}.", CardType.Creature, 1, 1, KeywordAbility.None, "Elf");
+
+        var compiled = CardCompiler.Compile(elf);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, _, bob) = TaxedSpell("Sick", "{1}");
+
+        game.Create(bob, elf, Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
     }
 
     // ---- Rooms (CR 709.5) ----------------------------------------------------
