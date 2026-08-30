@@ -2821,18 +2821,27 @@ public sealed record PreventAllCombatDamage : IEffect
 /// dealt damage — a fight needs two fighters.
 /// </para>
 /// </remarks>
-public sealed record Fight(int TheirIndex, int? MyIndex = null, bool BothWays = true)
-    : IEffect
+public sealed record Fight(
+    int TheirIndex,
+    int? MyIndex = null,
+    bool BothWays = true,
+    EffectSubject MySubject = EffectSubject.Source) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        // Who deals it. A target index when the sentence named one, and otherwise whatever the
+        // pronoun resolved to - which defaults to the source and so leaves every "~ fights" card
+        // reading exactly as it did. It could not be anything else before, and half a fight
+        // written as "target creature you control gets +1/+0. It deals damage equal to its power
+        // to target creature you don't control" then had the *instant* deal it: a spell is not on
+        // the battlefield, so the whole effect returned nothing and Ambuscade did nothing at all.
         var mine = MyIndex is { } index
             ? context.TargetAt(index) is { Kind: TargetKind.Permanent } chosen
                 ? chosen.Subject
                 : (ObjectId?)null
-            : context.PhysicalSourceId;
+            : Subjects.Resolve(context, MySubject, 0);
 
         if (mine is not { } myId
             || context.TargetAt(TheirIndex) is not { Kind: TargetKind.Permanent } theirs
@@ -3460,23 +3469,12 @@ public sealed record Regenerate(EffectSubject Subject, int TargetIndex = 0) : IE
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        ObjectId? shielded = null;
-
-        if (Subject == EffectSubject.Target)
-        {
-            if (context.TargetAt(TargetIndex) is { Kind: TargetKind.Permanent } aimed)
-                shielded = aimed.Subject;
-        }
-        else if (Subject == EffectSubject.AttachedHost)
-        {
-            shielded = Attachment.HostOf(context);
-        }
-        else
-        {
-            shielded = context.PhysicalSourceId;
-        }
-
-        return shielded is { } subject ? [new RegenerationShieldsChanged(subject, +1)] : [];
+        // Through the shared resolver rather than a third copy of the order of answers. This
+        // effect had its own switch over the same three subjects, which is how it came to be the
+        // one that could not take a pronoun.
+        return Subjects.Resolve(context, Subject, TargetIndex) is { } shielded
+            ? [new RegenerationShieldsChanged(shielded, +1)]
+            : [];
     }
 }
 
@@ -4433,7 +4431,8 @@ public sealed record DiscardHandThenDraw(PlayerScope Scope = PlayerScope.You) : 
 /// the library is empty: drawing from nothing is a loss the player takes later (CR 704.5b), not
 /// a reason for the rest of the ability to stop.
 /// </remarks>
-public sealed record Connive(Amount Count, int? TargetIndex = null) : IEffect
+public sealed record Connive(
+    Amount Count, int TargetIndex = 0, EffectSubject Subject = EffectSubject.Source) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -4447,15 +4446,13 @@ public sealed record Connive(Amount Count, int? TargetIndex = null) : IEffect
         // sentence names, and it is *its* controller who draws and discards and *it* that grows.
         // Defaulting both to the source would have drawn the right cards onto the wrong player
         // at any table where the target was not the caster's own.
-        var conniver = context.PhysicalSourceId;
-
-        if (TargetIndex is { } index)
-        {
-            if (context.TargetAt(index) is not { Kind: TargetKind.Permanent } aimed)
-                return [];
-
-            conniver = aimed.Subject;
-        }
+        //
+        // Through the shared subject resolver rather than the target list alone, because the
+        // sentence has a third spelling: "target attacking creature can't be blocked this turn.
+        // It connives" names the creature two words earlier and never targets again, and reading
+        // that pronoun as the source made Kamiz and Doctor Doom connive *themselves*.
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } conniver)
+            return [];
 
         if (!context.State.TryGetObject(conniver, out var permanent))
             return [];
@@ -7234,7 +7231,7 @@ public sealed record IfKickedWith(
 }
 
 /// <summary>
-/// The source explores (CR 701.44a).
+/// A permanent explores (CR 701.44a).
 /// </summary>
 /// <remarks>
 /// Three instructions that decompose entirely into things the engine already had: reveal the top
@@ -7246,14 +7243,34 @@ public sealed record IfKickedWith(
 /// The library is looked at here rather than the choice being asked blind, because whether it is
 /// a land decides which branch happens and the rules only offer a choice in one of them.
 /// </para>
+/// <para>
+/// Named for what explores rather than for the source, because it is not always the source.
+/// CR 701.44a says <em>a permanent</em> explores and <em>its</em> controller does the revealing,
+/// and the cards say so too: "whenever a creature you control enters, it explores" is about the
+/// creature that entered, and Path of Discovery read it as itself — an enchantment quietly
+/// collecting +1/+1 counters it can do nothing with, on a card that compiled and counted as read.
+/// </para>
 /// </remarks>
-public sealed record ExploreSource : IEffect
+public sealed record Explore(
+    EffectSubject Subject = EffectSubject.Source, int TargetIndex = 0) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var library = context.State.GetPlayer(context.ControllerId).Library;
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } explorer)
+            return [];
+
+        // Whose library is revealed from is the explorer's controller, not the ability's
+        // (CR 701.44a). The two differ the moment the sentence names somebody else's creature,
+        // and a permanent that has already left is read from the state as it is — last known
+        // information, which is the same rule the counter below relies on.
+        var who = context.State.TryGetObject(explorer, out var permanent)
+            && permanent.Zone == Zone.Battlefield
+                ? Characteristics.Of(context.State, context.Abilities, permanent).ControllerId
+                : context.ControllerId;
+
+        var library = context.State.GetPlayer(who).Library;
         if (library.IsEmpty)
             return [];
 
@@ -7265,16 +7282,16 @@ public sealed record ExploreSource : IEffect
             [
                 new ObjectMoved(
                     library[0], ObjectId.New(), Zone.Library, Zone.Hand,
-                    context.ControllerId, MoveCause.Other),
+                    who, MoveCause.Other),
             ];
         }
 
-        // CR 701.44c: the counter goes on the exploring permanent, which is the source even if it
-        // has since left — last known information decides who explored.
+        // CR 701.44c: the counter goes on the exploring permanent, which is the source only when
+        // the sentence says so — last known information decides who explored.
         return
         [
-            new CountersChanged(context.PhysicalSourceId, CounterKinds.PlusOnePlusOne, 1),
-            new LookAtTopRequested(context.ControllerId, 1, ToGraveyard: true),
+            new CountersChanged(explorer, CounterKinds.PlusOnePlusOne, 1),
+            new LookAtTopRequested(who, 1, ToGraveyard: true),
         ];
     }
 }

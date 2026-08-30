@@ -915,6 +915,75 @@ Galvanic Blast among them, because "~ deals 4 damage" names nothing to aim at.
   entries have to be matched by `Game.SubjectObjectOf` really answering with that creature. Out of
   this round’s scope and worth naming: the pronoun reader is now ready for it.
 
+### Round seventeen: 35 cards that aimed a pronoun at the source
+
+The set diff is **byte-identical** - 17,181 complete cards before and after, none gained, none
+lost - and 35 of them stopped doing the wrong thing. This class cannot move the coverage number
+in either direction, because every card in it already compiled.
+
+Six readers resolved a pronoun to the permanent with the ability without ever asking whether the
+sentence had named something else. All six predate `EffectSubject` or sit in front of the reader
+that knows about it, and each was found the same way: by playing the card, since a pump landing
+on the wrong one of two creatures looks exactly like a game working.
+
+| reader | verdict | what it was doing |
+|---|---|---|
+| `ThatCreaturePumps` | aimed at the source wrongly | deleted; `ItPumps` already read the same sentence with the three answers |
+| `ItPumpsPerEach` | aimed at the source wrongly | Asari Captain grew at home while the Samurai it sent out stayed small |
+| `ExploreLine` | aimed at the source wrongly | Path of Discovery put the +1/+1 counter on the enchantment |
+| `ConniveLine` | aimed at the source wrongly | Doctor Doom connived himself instead of the Villain he named |
+| `RegenerateLine` | aimed at the source wrongly | four instants put the regeneration shield on themselves |
+| `BiteLine` | aimed at the source wrongly | fourteen cards had the *spell* deal damage equal to its power, and a spell is not on the battlefield, so nothing happened at all |
+
+**The condition allow-list gained the attacks-alone family, and that is what exalted's own
+sentence needed.** CR 702.90a is "whenever a creature you control attacks alone, that creature
+gets +1/+1 until end of turn", and the creature attacking alone is very often not the one with
+exalted on it. `TryExalted` had been given the right subject by hand; the cards that print the
+sentence out rather than saying the keyword reached `NamesAnObject` and were told there was no
+subject. Admitting it is safe on the same terms as every other entry: all four spellings of
+"attacks alone" fire only on a declaration holding exactly one attacker, which is exactly when
+`Game.SubjectObjectOf` answers.
+
+The 35, by what changed:
+
+| what landed | cards |
+|---|---|
+| the pump moved to the creature the sentence named | Primal Forcemage, Ambuscade Shaman, Ardoz, Flailing Drake, Agents of S.H.I.E.L.D., Eiganjo Exemplar (+A-), Asari Captain (+A-), Strategic Intervention, Derelict Attic // Widow's Walk, Candy Grapple |
+| half a fight found its dealer | Ambuscade, Clear Shot, Rabid Gnaw, Nature's Way, Hunter's Mark, Hunter's Edge, Bite Down on Crime, Colossal Collision, Diplomatic Relations, Domri's Ambush, Felling Blow, Huatli's Final Strike, Knockout Maneuver, Halana Kessig Ranger |
+| the regeneration shield found its creature | Boon of Erebos, Butcher's Glee, Necrobite, Unnatural Endurance |
+| explore and connive found theirs | Path of Discovery, Doctor Doom |
+| unchanged in play, and asserted as controls | Reckless Ogre, Rogue Kavu, Lunk Errant - their lone attacker *is* the source |
+
+**`Fight` and the bite family are the worst of the six, and were the least visible.** "Target
+creature you control gets +1/+0 until end of turn. It deals damage equal to its power to target
+creature you don't control" put the *instant* in the dealer's seat; `Fight.Resolve` checks that
+the dealer is on the battlefield, a spell is not, and the whole effect returned no events. The
+pump landed, the damage never happened, and the card was complete, castable and silent. Fourteen
+cards, all in a family the corpus prints forty times.
+
+**A round-sixteen claim in this file was wrong and is corrected above.** It recorded Flailing
+Drake as fixed by the block-pair work "because the block condition is now in the allow-list and
+the earlier reader no longer wins". The subject arrived; the earlier reader still won. The Drake
+was still pumping itself, and a played game is what showed it - the compile dump could not,
+because the card compiles either way.
+
+#### Declined here, with the measurement behind each
+
+- **`TransformSelfLine` aims "transform it" at the source: 2 cards.** Vildin-Pack Alpha
+  ("whenever a Werewolf you control enters, you may transform it") and Vincent Valentine are the
+  whole family, and `TransformSource` carries no subject at all - so this is an effect change and
+  a state question (which face, whose permanent) for two cards, not a reader gate.
+- **`ItDealsDamage` aims its dealer at the source: 1 card.** Chainer's Torment's "create an X/X
+  Nightmare Horror token. It deals X damage to you" means the token, and `ObjectOf` refuses a
+  token referent by design - that refusal is the thing standing between this parser and a
+  pronoun aimed at whatever happened to be last.
+- **`GoadLine`, `SuspectLine`, `ItLine`, `SkipUntapLine` refuse a pronoun they cannot resolve.**
+  They leave the line unread rather than aim at the source, which is the fail-closed side of this
+  class and costs cards rather than correctness. Worth taking, and it is a different pass.
+- **`EndureLine`, `SacrificeSelfLine`, `DelayedSelfCountersLine`, `BecomesPreparedSentence`
+  aim at the source correctly.** Checked against every corpus printing: 7, 36, 13 and 5 cards
+  respectively, and on all of them the word means the card.
+
 ### Round sixteen: 424 cards were already complete and already wrong
 
 The round's largest result moved coverage by **zero**. CR 605.3a lets a player activate mana
@@ -1011,9 +1080,9 @@ fourteen came from the same two changes reaching further than the nine:
 
 **Three cards were already compiling and playing wrongly, and the count could not show it.**
 Flailing Drake ("that creature gets +1/+1") pumped *itself*; Quagmire Lamprey put its -1/-1 counter
-on *itself*. Both were "complete" before this round and are right after it, and neither appears in
-the set diff, because the diff only sees cards crossing from unread to read. The count is blind to
-this class in both directions.
+on *itself*. The Lamprey was fixed here. The Drake was not - the claim that it was is corrected in
+round seventeen below - and neither appears in the set diff, because the diff only sees cards
+crossing from unread to read. The count is blind to this class in both directions.
 
 **And one card was better than printed.** The reader for "~ blocks or becomes blocked" asked only
 whether the source's id was *in* the declaration, so bushido fired for an attacker nobody blocked -
@@ -1052,6 +1121,12 @@ it** - this box drifts by more than the effect being looked for.
   ride-along. **Built in round seventeen, below, and two halves of this were wrong: the fix was a
   deletion rather than a gate, and Flailing Drake was not fixed here at all - the unconditional
   reader still won, and a probe on either side of the change is what showed it.**
+
+  Flailing Drake was recorded as fixed here by the block condition reaching the allow-list; that was
+  wrong, and round seventeen measured it - the subject arrived and the earlier reader still won.
+  All seven were still pumping the wrong creature. It is a one-line gate on a reader shared with
+  exalted and 73 corpus lines, which is a measured pass rather than a ride-along. **Taken in round
+  seventeen**, along with five more readers of the same shape.
 - **The coverage ratchet was left at 0.517** against a measured 52.0%. Raising it is a one-character
   change to a constant five branches are editing this round, and the slack it currently carries is
   the same slack it was set with.

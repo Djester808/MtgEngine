@@ -318,9 +318,17 @@ public static class EffectTargets
         Add<GainControlUntilEndOfTurn>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        Add<Explore>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
+
         Add<Connive>(
-            e => e.TargetIndex,
-            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
 
         Add<GoadTarget>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });

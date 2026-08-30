@@ -3189,14 +3189,32 @@ public static partial class EffectPhrase
             }
 
             int? mineIndex2 = null;
+            var mineSubject = EffectSubject.Source;
+
             if (dealer is not null)
             {
                 targets.Add(dealer);
                 mineIndex2 = targets.Count - 1;
             }
+            else if (bite.Groups["pronoun"].Success
+                && ObjectOf(bite.Groups["pronoun"].Value, targets, objectNamedByTrigger) is
+                { } biter)
+            {
+                // "It" here is the creature the sentence in front chose, or the object the
+                // trigger was about - Ambuscade and its six siblings are the first, Efteekay is
+                // the second. Only when the reader can see neither does the word mean the
+                // permanent with the ability, which is what Heartfire Immolator's activated
+                // ability says and the reading those cards already had.
+                if (biter.Subject == EffectSubject.Target)
+                    mineIndex2 = biter.Index;
+                else
+                    mineSubject = biter.Subject;
+            }
 
             targets.Add(bitten);
-            effects.Add(new Fight(targets.Count - 1, mineIndex2, BothWays: false));
+            effects.Add(new Fight(
+                targets.Count - 1, mineIndex2, BothWays: false, MySubject: mineSubject));
+
             return true;
         }
 
@@ -4044,9 +4062,26 @@ public static partial class EffectPhrase
                 ? Number(conniving.Groups["n"].Value)
                 : new Amount(1);
 
+            // "~ connives", "it connives", "that creature connives" - one keyword action asked
+            // of three subjects, and the pronoun goes through the shared reader like every other
+            // pronoun. It has to: "target attacking creature can't be blocked this turn. It
+            // connives" is the creature the sentence already chose, and reading the word as the
+            // source drew the cards onto the wrong player and grew the wrong permanent. Where
+            // the reader can see no referent the word can only be the permanent with the
+            // ability, which is what every "when ~ enters, it connives" says.
             if (!conniving.Groups["t"].Success)
             {
-                effects.Add(new Connive(many));
+                // Asked as "it" whichever pronoun was printed: "he", "she" and "they" are on
+                // this pattern because three cards spell a creature that way, and all of them
+                // mean what "it" means. Only "~" is the card naming itself outright.
+                var conniver = conniving.Groups[0].Value.StartsWith('~')
+                    ? null
+                    : ObjectOf("it", targets, objectNamedByTrigger);
+
+                effects.Add(conniver is { } pronoun
+                    ? new Connive(many, pronoun.Index, pronoun.Subject)
+                    : new Connive(many));
+
                 return true;
             }
 
@@ -4054,7 +4089,7 @@ public static partial class EffectPhrase
                 return false;
 
             targets.Add(named);
-            effects.Add(new Connive(many, targets.Count - 1));
+            effects.Add(new Connive(many, targets.Count - 1, EffectSubject.Target));
             return true;
         }
 
@@ -5189,9 +5224,23 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (ExploreLine().IsMatch(sentence))
+        // "It explores" (CR 701.44a). The permanent that explores is the one the sentence is
+        // about, which is the source on the forty cards that say "when ~ enters, it explores"
+        // and is not on Path of Discovery, where "it" is the creature that just arrived. The
+        // shared reader answers all three; where it cannot see a referent at all the word can
+        // only mean the permanent with the ability, which is the reading those forty already had.
+        var exploring = ExploreLine().Match(sentence);
+        if (exploring.Success)
         {
-            effects.Add(new ExploreSource());
+            var explorer =
+                exploring.Groups["who"].Value.Equals("~", StringComparison.Ordinal)
+                    ? null
+                    : ObjectOf(exploring.Groups["who"].Value, targets, objectNamedByTrigger);
+
+            effects.Add(explorer is { } named
+                ? new Explore(named.Subject, named.Index)
+                : new Explore());
+
             return true;
         }
 
@@ -5758,15 +5807,31 @@ public static partial class EffectPhrase
         // "it gets +1/+1 until end of turn for each other Goblin you control" — the same tail
         // with its size counted rather than printed. The group rides in the effect's id and is
         // counted when the layer applies, so a Goblin that dies in response makes it smaller.
+        //
+        // The pronoun takes the same three answers as the printed-size reader below it, and for
+        // the same reason: melee and Muxus say "it" about the creature that attacked, which is
+        // this card on most of them and is not on Asari Captain - "whenever a Samurai or Warrior
+        // you control attacks alone, it gets +1/+0 for each Samurai or Warrior you control"
+        // pumped the Captain sitting at home. "~" is spelled out on the cards that mean
+        // themselves and keeps the source form, whatever came before it in the ability.
         m = ItPumpsPerEach().Match(sentence);
         if (m.Success
             && Counting(m.Groups["group"].Value.Trim(), hasSource: false) is not null)
         {
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.PerEachPumpId(
-                    Signed(m.Groups["p"].Value),
-                    Signed(m.Groups["tough"].Value),
-                    m.Groups["group"].Value.Trim())));
+            var perEachId = GenerativeEffects.PerEachPumpId(
+                Signed(m.Groups["p"].Value),
+                Signed(m.Groups["tough"].Value),
+                m.Groups["group"].Value.Trim());
+
+            effects.Add(
+                m.Groups["who"].Value.Equals("~", StringComparison.Ordinal)
+                    ? new PumpSourceUntilEndOfTurn(perEachId)
+                    : targets.Count > 0
+                        ? new PumpUntilEndOfTurn(perEachId, targets.Count - 1)
+                        : objectNamedByTrigger
+                            ? new PumpUntilEndOfTurn(
+                                perEachId, 0, EffectSubject.TriggeringObject)
+                            : new PumpSourceUntilEndOfTurn(perEachId));
 
             return true;
         }
@@ -6167,11 +6232,27 @@ public static partial class EffectPhrase
                 return true;
             }
 
-            effects.Add(new Regenerate(
-                who.StartsWith("enchanted", StringComparison.OrdinalIgnoreCase)
-                || who.StartsWith("equipped", StringComparison.OrdinalIgnoreCase)
-                    ? EffectSubject.AttachedHost
-                    : EffectSubject.Source));
+            if (who.StartsWith("enchanted", StringComparison.OrdinalIgnoreCase)
+                || who.StartsWith("equipped", StringComparison.OrdinalIgnoreCase))
+            {
+                effects.Add(new Regenerate(EffectSubject.AttachedHost));
+                return true;
+            }
+
+            // "Target creature gets +2/+0 until end of turn. Regenerate it." - the creature the
+            // sentence in front of it chose, and on all five cards printing that shape the
+            // sentence is a spell's. Read as the source, the shield went onto the *instant*,
+            // which is not a permanent and cannot be destroyed: Boon of Erebos, Butcher's Glee,
+            // Unnatural Endurance and Necrobite each compiled, counted as read, and regenerated
+            // nothing at all. "~" and a pronoun with no referent still mean the permanent with
+            // the ability, which is what Duskworker and the Holy Nimbus pair say.
+            var regenerated = who.Equals("~", StringComparison.Ordinal)
+                ? null
+                : ObjectOf(who, targets, objectNamedByTrigger);
+
+            effects.Add(regenerated is { } named
+                ? new Regenerate(named.Subject, named.Index)
+                : new Regenerate(EffectSubject.Source));
 
             return true;
         }
@@ -12169,11 +12250,15 @@ public static partial class EffectPhrase
 
     /// <remarks>
     /// The dealer is optional because it is sometimes the card itself - "~ deals damage equal to
-    /// its power to target creature" - and sometimes a target of its own. "It" and "that
-    /// creature" mean the source in the tail of a trigger, which is the same thing.
+    /// its power to target creature" - and sometimes a target of its own. The pronoun is a third
+    /// case and was read as the second for a long time: "target creature you control gets +1/+0
+    /// until end of turn. It deals damage equal to its power to target creature you don't
+    /// control" is fourteen corpus cards, and reading "it" as the source put an <em>instant</em>
+    /// in the dealer's seat. A spell is not on the battlefield, so <c>Fight</c> returned nothing
+    /// and Ambuscade did nothing at all - complete, castable and silent.
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<mine>[Tt]arget [a-z’' ]+?)|~|[Ii]t|[Tt]hat creature) "
+        @"^((?<mine>[Tt]arget [a-z’' ]+?)|~|(?<pronoun>[Ii]t|[Tt]hat creature)) "
             + @"deals damage equal to its power to (?<theirs>target [a-z’' ]+?)\.?$",
         RegexOptions.None)]
     private static partial Regex BiteLine();
@@ -12298,7 +12383,7 @@ public static partial class EffectPhrase
     /// "it", a static-turned-trigger says the card's name, and the effect is the same either way.
     /// </remarks>
     [GeneratedRegex(
-        @"^(it|~) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn "
+        @"^(?<who>it|~) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn "
             + @"for (?<group>each [A-Za-z0-9'’ ]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ItPumpsPerEach();
@@ -12760,7 +12845,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^(it|that creature) gains (?<kw>[a-z ,]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ItGainsLine();
 
-    [GeneratedRegex(@"^(it|~) explores$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?<who>it|~) explores$", RegexOptions.IgnoreCase)]
     private static partial Regex ExploreLine();
 
     [GeneratedRegex(@"^proliferate$", RegexOptions.IgnoreCase)]
@@ -14489,6 +14574,27 @@ public static partial class TriggerConditions
         // object (CR 730.2c).
         if (MutatesLine().IsMatch(condition))
             return true;
+
+        // The attacks-alone family, and it is admitted for the reason the batch verbs are
+        // refused: every one of these four spellings *checks* that the declaration holds exactly
+        // one attacker before it fires, and Game.SubjectObjectOf answers AttackersDeclared
+        // precisely when it holds one. The condition and the subject are the same fact, so a
+        // pronoun this admits can never resolve to nothing.
+        //
+        // Exalted is the card that shows what refusing it cost. CR 702.90a's own text is
+        // "whenever a creature you control attacks alone, that creature gets +1/+1 until end of
+        // turn", and the creature that attacked alone is very often not the one with exalted on
+        // it - so a pronoun falling back to the source pumped the wrong permanent, quietly, in
+        // exactly the games where it mattered. The one-word keyword had been given the right
+        // subject by hand in TryExalted; every card that prints the sentence out reached this
+        // question instead and was told there was no subject.
+        if (AttacksAloneLine().IsMatch(condition)
+            || AttacksAlone().IsMatch(condition)
+            || AnyCreatureAttacksAlone().IsMatch(condition)
+            || GroupAttacksAloneLine().IsMatch(condition))
+        {
+            return true;
+        }
 
         // The zone-change family, and it is admitted one verb at a time rather than whole. Most
         // of its verbs name an event carrying exactly one object - the permanent that entered,

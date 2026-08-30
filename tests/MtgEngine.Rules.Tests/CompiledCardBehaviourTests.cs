@@ -53460,6 +53460,551 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains("702.47a", refused.Message, StringComparison.Ordinal);
     }
 
+    // ---- A pronoun that names somebody else (CR 603.2) ------------------------
+
+    /// <summary>
+    /// "That creature" in an enters trigger is the creature that entered.
+    /// </summary>
+    /// <remarks>
+    /// The reader for this sentence aimed at the source unconditionally and sat <em>in front of</em>
+    /// the reader that knows about a trigger's subject, so Primal Forcemage pumped the Forcemage.
+    /// It compiled, it counted as read, and the only way to see it was to play it: the card is
+    /// usually on the board beside the creature that just arrived, and a +3/+3 landing on the wrong
+    /// one of two creatures looks like a game working.
+    /// </remarks>
+    [Fact]
+    public void That_creature_in_an_enters_trigger_pumps_the_creature_that_entered()
+    {
+        var forcemage = Card(
+            "Forcemage Pronoun Test",
+            "Whenever another creature you control enters, that creature gets +3/+3 until end of turn.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(forcemage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var mage = game.Create(alice, forcemage, Zone.Battlefield);
+        var arrival = game.Create(
+            alice, TestCards.Creature("Forcemage Arrival Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, game.State.GetObject(arrival)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(mage)).Power);
+    }
+
+    /// <summary>
+    /// "That creature" behind a target phrase is that target, not the card that said it.
+    /// </summary>
+    /// <remarks>
+    /// The same reader, reached from the other direction. Ana Sanctuary's second sentence and every
+    /// kicker rider printing "that creature gets -5/-5 until end of turn instead" name the creature
+    /// the sentence in front of them chose; aimed at the source they pumped an enchantment, or a
+    /// spell on the stack, which is not a creature and takes no pump at all.
+    /// </remarks>
+    [Fact]
+    public void That_creature_behind_a_target_phrase_means_the_target()
+    {
+        var blessing = Card(
+            "Sanctuary Pronoun Test",
+            "Target creature gets +1/+1 until end of turn. That creature gets +5/+5 until end of turn.");
+
+        var compiled = CardCompiler.Compile(blessing);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Sanctuary Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, blessing);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Both sentences are about one creature, so both bonuses are on it (CR 613.4c).
+        Assert.Equal(8, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+    }
+
+    /// <summary>
+    /// "That creature" on a blocking trigger is the other creature in the pair (CR 509.3d).
+    /// </summary>
+    /// <remarks>
+    /// Flailing Drake was recorded as fixed by the round that gave the block family a subject, and
+    /// it was not: the subject arrived, and the reader in front of it still took the sentence and
+    /// still aimed at the source. The Drake pumped itself in front of the creature it had just
+    /// blocked, every time, on a card the census counted as complete.
+    /// </remarks>
+    [Fact]
+    public void That_creature_on_a_block_pair_pumps_the_other_creature()
+    {
+        var drake = Card(
+            "Flailing Pronoun Test",
+            "Whenever ~ blocks or becomes blocked by a creature, that creature gets +1/+1 until end of turn.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(drake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, drake, Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Flailing Blocker Test", 1, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        Settle(game);
+
+        // The creature it became blocked by grew; the Drake did not.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(blocker)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+    }
+
+    /// <summary>
+    /// "A creature you control attacks alone" names the creature that attacked (CR 702.90a).
+    /// </summary>
+    /// <remarks>
+    /// This is exalted's own sentence, and the cards that print it out rather than saying the
+    /// keyword reached a reader that had no subject to give them. The one-word form had been
+    /// given the right answer by hand in <c>TryExalted</c>; Agents of S.H.I.E.L.D., Eiganjo
+    /// Exemplar, Strategic Intervention and Derelict Attic spell it and pumped themselves.
+    /// <para>
+    /// The condition is admitted to the allow-list because it already checks what the subject
+    /// needs: every spelling of "attacks alone" fires only on a declaration holding exactly one
+    /// attacker, which is exactly when <c>Game.SubjectObjectOf</c> answers.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_attacks_alone_is_what_that_creature_names()
+    {
+        var agent = Card(
+            "Alone Pronoun Test",
+            "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(agent);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, agent, Zone.Battlefield);
+        var attacker = game.Create(
+            alice, TestCards.Creature("Alone Attacker Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+    }
+
+    /// <summary>
+    /// The control: a card whose lone attacker really is itself still pumps itself.
+    /// </summary>
+    /// <remarks>
+    /// Reckless Ogre, Rogue Kavu and Lunk Errant say "whenever <em>this creature</em> attacks
+    /// alone, it gets +N/+0" and mean themselves. Admitting the condition to the allow-list
+    /// changes what the pronoun compiles to on all of them, so the reading has to be checked on
+    /// this side too - the strict subject resolves to the sole attacker, and on these cards the
+    /// sole attacker is the source.
+    /// </remarks>
+    [Fact]
+    public void A_lone_attacker_that_is_the_source_still_pumps_the_source()
+    {
+        var ogre = Card(
+            "Reckless Pronoun Test",
+            "Whenever ~ attacks alone, it gets +3/+0 until end of turn.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(ogre);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, ogre, Zone.Battlefield);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Reckless Bystander Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bystander)).Power);
+    }
+
+    /// <summary>
+    /// A pump whose size is counted lands on the same creature the printed one does.
+    /// </summary>
+    /// <remarks>
+    /// Asari Captain: "whenever a Samurai or Warrior you control attacks alone, it gets +1/+0
+    /// until end of turn for each Samurai or Warrior you control." The counted form had its own
+    /// reader and its own unconditional aim at the source, so the Captain grew at home while the
+    /// Samurai it sent out stayed the size it was.
+    /// </remarks>
+    [Fact]
+    public void A_counted_pump_lands_on_the_creature_the_sentence_named()
+    {
+        var captain = Card(
+            "Asari Pronoun Test",
+            "Whenever a Samurai or Warrior you control attacks alone, it gets +1/+0 until end of "
+                + "turn for each Samurai or Warrior you control.",
+            CardType.Creature, 2, 2, KeywordAbility.None, "Samurai");
+
+        var compiled = CardCompiler.Compile(captain);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, captain, Zone.Battlefield);
+        var attacker = game.Create(
+            alice,
+            Card("Asari Blade Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Samurai"),
+            Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        // Two Samurai on the board, so +2/+0 - and it is on the one that attacked.
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(watcher)).Power);
+    }
+
+    /// <summary>
+    /// The control: the counted pump written about the source still grows the source.
+    /// </summary>
+    /// <remarks>
+    /// Muxus and every melee creature say "whenever <em>this creature</em> attacks, it gets
+    /// +1/+1 for each ...", and the word means the card. Its condition names no object, so the
+    /// pronoun has nothing else it could mean and falls to the permanent with the ability - the
+    /// reading it already had, and the one this test exists to keep.
+    /// </remarks>
+    [Fact]
+    public void A_counted_pump_written_about_the_source_still_grows_the_source()
+    {
+        var grandee = Card(
+            "Muxus Pronoun Test",
+            "Whenever ~ attacks, it gets +1/+1 until end of turn for each other Goblin you control.",
+            CardType.Creature, 2, 2, KeywordAbility.None, "Goblin");
+
+        var compiled = CardCompiler.Compile(grandee);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, grandee, Zone.Battlefield);
+        var ally = game.Create(
+            alice,
+            Card("Muxus Ally Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Goblin"),
+            Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        // The size is the counting reader's business and is asserted where that lives; what this
+        // test owns is which permanent the bonus is on.
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(attacker)).Power > 2);
+        Assert.Equal(1, Characteristics.Of(game.State, Pool, game.State.GetObject(ally)).Power);
+    }
+
+    /// <summary>
+    /// "It explores" in an enters trigger is the creature that entered (CR 701.44a).
+    /// </summary>
+    /// <remarks>
+    /// Path of Discovery is an enchantment, so the counter it was putting on itself did nothing at
+    /// all and the library was revealed on behalf of the wrong permanent. A silent no-op counted
+    /// as a complete card, which is the direction of this whole class that is hardest to see.
+    /// </remarks>
+    [Fact]
+    public void It_explores_in_an_enters_trigger_is_the_creature_that_entered()
+    {
+        var path = Card(
+            "Discovery Pronoun Test",
+            "Whenever a creature you control enters, it explores.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(path);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var enchantment = game.Create(alice, path, Zone.Battlefield);
+
+        // A nonland on top, so the counter branch is the one that runs (CR 701.44c).
+        game.Create(alice, TestCards.Creature("Discovery Top Test", 2, 2), Zone.Library);
+
+        var arrival = game.Create(
+            alice, TestCards.Creature("Discovery Arrival Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Surveil });
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(arrival).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        Assert.Equal(
+            0,
+            game.State.GetObject(enchantment).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// The control: "when this creature enters, it explores" is still about itself.
+    /// </summary>
+    [Fact]
+    public void It_explores_on_its_own_enters_trigger_is_still_the_source()
+    {
+        var scout = Card(
+            "Scout Pronoun Test", "When ~ enters, it explores.", CardType.Creature, 1, 1);
+
+        var compiled = CardCompiler.Compile(scout);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Scout Top Test", 2, 2), Zone.Library);
+
+        var explorer = game.Create(alice, scout, Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Surveil });
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(explorer).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// "It connives" behind a target phrase is that target (CR 701.50a).
+    /// </summary>
+    /// <remarks>
+    /// Doctor Doom and Kamiz name a creature and then say "it connives" about it. The keyword
+    /// action drew for the wrong player and grew the wrong permanent, because the pronoun arm of
+    /// the reader never consulted the target the sentence in front of it had chosen.
+    /// </remarks>
+    [Fact]
+    public void It_connives_behind_a_target_phrase_connives_that_creature()
+    {
+        var doom = Card(
+            "Latveria Pronoun Test",
+            "At the beginning of combat on your turn, target Villain you control gains menace "
+                + "until end of turn. It connives.",
+            CardType.Creature, 2, 2, KeywordAbility.None, "Noble");
+
+        var compiled = CardCompiler.Compile(doom);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var schemer = game.Create(alice, doom, Zone.Battlefield);
+
+        // The source is a Noble and not a Villain, so the only legal target is the other
+        // creature - which is the whole question this asks.
+        var villain = game.Create(
+            alice,
+            Card("Latveria Villain Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Villain"),
+            Zone.Battlefield);
+
+        var fodder = TestCards.PutInHand(game, alice, TestCards.Creature("Latveria Fodder Test"));
+
+        // The trigger asks for its target before it resolves (CR 603.3d), and with one legal
+        // Villain there is one answer.
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        var aiming = game.State.Choice!;
+        Assert.Contains("Villain", aiming.Prompt, StringComparison.Ordinal);
+        game.Choose(aiming.PlayerId, [Assert.Single(aiming.Options!).Id]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Connive });
+        game.Choose(game.State.Choice!.PlayerId, [fodder.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(villain)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(schemer)).Power);
+    }
+
+    /// <summary>
+    /// The control: "when this creature enters, it connives" is still about itself.
+    /// </summary>
+    [Fact]
+    public void It_connives_with_nothing_named_is_still_the_source()
+    {
+        var rogue = Card(
+            "Snoop Pronoun Test", "When ~ enters, it connives.", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(rogue);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var fodder = TestCards.PutInHand(game, alice, TestCards.Creature("Snoop Fodder Test"));
+        var bystander = game.Create(
+            alice, TestCards.Creature("Snoop Bystander Test", 2, 2), Zone.Battlefield);
+
+        var conniver = game.Create(alice, rogue, Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.Connive });
+        game.Choose(game.State.Choice!.PlayerId, [fodder.Value.ToString("N")]);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(conniver)).Power);
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bystander)).Power);
+    }
+
+    /// <summary>
+    /// "Regenerate it" behind a target phrase shields that creature (CR 701.15a).
+    /// </summary>
+    /// <remarks>
+    /// The reader of this class whose failure is loudest to a player and quietest to every
+    /// instrument. Boon of Erebos, Butcher's Glee, Unnatural Endurance and Necrobite are all
+    /// "target creature gets +N/+0 until end of turn. Regenerate it." - and "it" was read as the
+    /// source, which for a spell is the card on the stack. The shield went onto the instant, the
+    /// creature it was cast on died to the next destroy, and the card compiled, counted as read
+    /// and played as a strictly worse card than the one printed.
+    /// <para>
+    /// <c>Regenerate</c> kept its own switch over the three subjects instead of going through
+    /// <c>Subjects.Resolve</c>, which is how it stayed the one that could not take a pronoun.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Regenerate_it_behind_a_target_phrase_shields_that_creature()
+    {
+        var boon = Card(
+            "Erebos Pronoun Test",
+            "Target creature gets +2/+0 until end of turn. Regenerate it.");
+
+        var compiled = CardCompiler.Compile(boon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Erebos Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, boon);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+        Assert.Equal(1, game.State.GetObject(bear).Permanent!.RegenerationShields);
+
+        // And it is a shield rather than a number: the destruction is replaced (CR 701.15a) and
+        // the creature is still on the battlefield afterwards.
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var survivor = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .SingleOrDefault(o => o.Card.Name == "Erebos Bear Test");
+
+        Assert.NotNull(survivor);
+        Assert.Equal(0, survivor!.Permanent!.RegenerationShields);
+    }
+
+    /// <summary>
+    /// The control: "regenerate this creature" is still about the permanent that said it.
+    /// </summary>
+    [Fact]
+    public void Regenerate_written_about_the_source_still_shields_the_source()
+    {
+        var troll = Card(
+            "Troll Pronoun Test", "{G}: Regenerate ~.", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(troll);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var beast = game.Create(alice, troll, Zone.Battlefield);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Troll Bystander Test", 2, 2), Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, beast, "a");
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(beast).Permanent!.RegenerationShields);
+        Assert.Equal(0, game.State.GetObject(bystander).Permanent!.RegenerationShields);
+    }
+
+    /// <summary>
+    /// "It deals damage equal to its power" is the creature the sentence named (CR 701.12a).
+    /// </summary>
+    /// <remarks>
+    /// The widest reader of this class and the quietest failure in it. Ambuscade, Clear Shot,
+    /// Rabid Gnaw, Wolf Strike, Huatli's Final Strike, Diplomatic Relations and Archdruid's
+    /// Charm all pump a creature and then say "it deals damage equal to its power to target
+    /// creature you don't control" - and "it" was the source, which for an instant is the card
+    /// on the stack. A spell is not on the battlefield, so the effect returned no events at all:
+    /// the pump landed, the damage never happened, and nothing anywhere reported a problem.
+    /// </remarks>
+    [Fact]
+    public void It_deals_damage_equal_to_its_power_is_the_creature_the_sentence_named()
+    {
+        var ambuscade = Card(
+            "Ambuscade Pronoun Test",
+            "Target creature you control gets +1/+0 until end of turn. It deals damage equal to "
+                + "its power to target creature an opponent controls.");
+
+        var compiled = CardCompiler.Compile(ambuscade);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, TestCards.Creature("Ambuscade Mine Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Ambuscade Theirs Test", 4, 4), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, ambuscade);
+        game.CastSpell(alice, card, [Target.ToPermanent(mine), Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        // Three, not two: the damage is the pumped power, read when the spell resolves.
+        Assert.Equal(3, game.State.GetObject(theirs).Permanent!.DamageMarked);
+
+        // And nothing came back - this is half a fight (CR 701.12a is the two-way form).
+        Assert.Equal(0, game.State.GetObject(mine).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The control: an activated ability's "it" is still the permanent that has the ability.
+    /// </summary>
+    /// <remarks>
+    /// Heartfire Immolator and Blazing Bomb say "{R}, Sacrifice this creature: It deals damage
+    /// equal to its power to target creature", and there the word can only mean the card. The
+    /// reader sees no target and no triggering object, and that is exactly when it must keep the
+    /// source.
+    /// </remarks>
+    [Fact]
+    public void An_activated_it_deals_damage_still_means_the_source()
+    {
+        var immolator = Card(
+            "Immolator Pronoun Test",
+            "{G}: It deals damage equal to its power to target creature.",
+            CardType.Creature, 3, 1);
+
+        var compiled = CardCompiler.Compile(immolator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var burner = game.Create(alice, immolator, Zone.Battlefield);
+        var victim = game.Create(bob, TestCards.Creature("Immolator Victim Test", 4, 4), Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, burner, "a", [Target.ToPermanent(victim)]);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(victim).Permanent!.DamageMarked);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>
