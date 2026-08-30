@@ -2314,15 +2314,27 @@ public sealed class Game
         // cost, so CR 601.2f's increases and reductions apply to it in the same way. This is the
         // half that had no hook at all - the printed cost went straight to the pool - so every
         // "abilities you activate cost {1} less to activate" on the board was inert.
-        var activationCost = CostModification.Apply(
-            ability.ManaCost,
-            CostModifiersFor(
-                CostModifierKind.ActivatedAbilities,
-                source.Card,
-                playerId,
-                null,
-                sourceId,
-                ability.IsManaAbility));
+        var modifiers = CostModifiersFor(
+            CostModifierKind.ActivatedAbilities,
+            source.Card,
+            playerId,
+            null,
+            sourceId,
+            ability.IsManaAbility).ToList();
+
+        // "This ability costs {1} less to activate for each Shrine you control" — a discount the
+        // ability prints about itself, whose amount is not known until it is activated. It joins
+        // the list the board contributed rather than being applied on its own, so CR 601.2f's
+        // ordering decides between it and everything else: every increase first, then every
+        // reduction, and the mana component floored at {0} once rather than twice.
+        if (ability.CostReduction is { } printed)
+        {
+            var less = printed(State, _abilities, source, playerId);
+            if (less > 0)
+                modifiers.Add(new CostModifier { Amount = less });
+        }
+
+        var activationCost = CostModification.Apply(ability.ManaCost, modifiers);
 
         // The announced X is handed to the payment, not only to the cost checks above. An
         // activation cost may contain {X} the way a spell's mana cost can (CR 602.2b), and

@@ -9783,9 +9783,38 @@ public static partial class EffectPhrase
         if (Specs.ParseGroup(phrase) is not { Kind: TargetKind.Permanent } counted)
             return null;
 
-        return (state, abilities, you, _, _) => state.Battlefield.Count(
-            id => counted.ObjectFilter?.Invoke(
-                state, abilities, state.GetObject(id), you) != false);
+        if (counted.SourceFilter is null)
+        {
+            return (state, abilities, you, _, _) => state.Battlefield.Count(
+                id => counted.ObjectFilter?.Invoke(
+                    state, abilities, state.GetObject(id), you) != false);
+        }
+
+        // "For each other Equipment you control". <see cref="Specs.ParseGroup"/> reads the word
+        // and puts the exclusion on the spec's *source* filter, and this arm asked only the
+        // object filter - so the word was parsed, dropped, and the permanent doing the asking
+        // counted itself. Every phrase of that shape came back exactly one too high, which on a
+        // cost reduction is a card cheaper than it prints (CR 109.5).
+        //
+        // Asked with whatever source the caller gave and not refused for having none: a caller
+        // with nothing to point at gets today's answer, because that is precisely what a null
+        // source already means to <c>NotTheSource</c>. Refusing there instead would unread the
+        // fourteen "gets +1/+1 for each other attacking Goblin" cards, whose count is made by a
+        // floating effect that genuinely has no source to exclude - a real defect, but a
+        // different one from this, and one this arm is not where you fix.
+        return (state, abilities, you, source, _) => state.Battlefield.Count(
+            id =>
+            {
+                var obj = state.GetObject(id);
+
+                return counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false
+                    && counted.SourceFilter(
+                        state,
+                        abilities,
+                        obj,
+                        state.TryGetObject(source, out var itself) ? itself : null,
+                        you);
+            });
     }
 
     /// <summary>
