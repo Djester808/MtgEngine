@@ -8264,9 +8264,11 @@ public sealed class Game
 
         // "You may reveal a creature card from among them" - the same look, with only some of
         // what was seen worth offering. The filter vocabulary is the one searching already uses,
-        // rather than a second one that would drift away from it.
+        // rather than a second one that would drift away from it - and so is the mana-value
+        // ceiling beside it, which is the search's own bound asked of a smaller pile.
         var takeable = top
-            .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card))
+            .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card)
+                && (owed.MaxManaValue is not { } cap || State.GetObject(id).Card.Cmc <= cap))
             .ToList();
 
         // CR 118.3, the same rule the optional payment states in as many words: a question with
@@ -8285,7 +8287,34 @@ public sealed class Game
             return true;
         }
 
+        // "Put all Goblin cards revealed this way into your hand" names no choice: every match
+        // goes, and the only legal answer to a prompt built from it would be all of its options.
+        // Carried out here for the same reason the empty pile above is - CR 118.3 - rather than
+        // stopping the game on a question whose answer the card has already given.
+        if (owed.TakeAll)
+        {
+            _lookAndTakeBeingAsked = owed;
+            ResolveLookAndTake([.. takeable.Select(id => id.Value.ToString("N"))]);
+            return true;
+        }
+
+        // How many the sentence allows, clamped to how many of the cards seen the filter admits.
+        // Null is "any number of permanent cards from among them", which is bounded only by the
+        // pile itself, and the clamp is what keeps a prompt from offering more picks than options.
+        var limit = owed.TakeLimit is { } allowed
+            ? Math.Min(allowed, takeable.Count)
+            : takeable.Count;
+
+        if (limit <= 0)
+        {
+            _lookAndTakeBeingAsked = owed;
+            ResolveLookAndTake([]);
+            return true;
+        }
+
         _lookAndTakeBeingAsked = owed;
+
+        var howMany = limit == 1 ? "one" : $"up to {limit}";
 
         Ask(new PendingChoice
         {
@@ -8293,14 +8322,15 @@ public sealed class Game
             PlayerId = owed.PlayerId,
             Kind = ChoiceKind.LookAndTake,
             Prompt = owed.ShuffleAfter
-                ? $"Choose one to put into your {owed.Destination}; "
+                ? $"Choose {howMany} to put into your {owed.Destination}; "
                     + "the rest are shuffled into your library."
-                : $"Choose one to put into your {owed.Destination}; the rest go on the bottom.",
+                : $"Choose {howMany} to put into your {owed.Destination}; "
+                    + "the rest go on the bottom.",
             Options = [.. takeable.Select(id => new ChoiceOption(
                 id.Value.ToString("N"), State.GetObject(id).Card.Name))],
             // Taking nothing is legal, and is the right answer when none of them is worth having.
             MinPicks = 0,
-            MaxPicks = 1,
+            MaxPicks = limit,
         });
 
         return true;
@@ -8308,7 +8338,13 @@ public sealed class Game
 
     private LookAndTakeRequested? _lookAndTakeBeingAsked;
 
-    /// <summary>Takes the chosen card and buries the rest in a random order (CR 701.20a).</summary>
+    /// <summary>Takes the chosen cards and buries the rest in a random order (CR 701.20a).</summary>
+    /// <remarks>
+    /// Reads a list rather than one answer, because "put two of them into your hand" and "put any
+    /// number of permanent cards from among them onto the battlefield" are the same instruction
+    /// with a different ceiling — and because the take-all shape settles through here with every
+    /// match named at once, never having asked.
+    /// </remarks>
     private void ResolveLookAndTake(IReadOnlyList<string> picks)
     {
         if (_lookAndTakeBeingAsked is not { } owed)
@@ -8317,48 +8353,68 @@ public sealed class Game
         _lookAndTakeBeingAsked = null;
 
         var top = State.GetPlayer(owed.PlayerId).Library.Take(owed.Count).ToList();
-        var taken = picks.Count > 0 ? new ObjectId(Guid.ParseExact(picks[0], "N")) : default;
 
-        // Checked again rather than trusted: the filter decided what was offered, and an answer
-        // naming something else has to be refused rather than quietly honoured.
-        if (taken != default
-            && top.Contains(taken)
-            && !SearchFilters.Matches(owed.FilterId, State.GetObject(taken).Card))
+        // Checked again rather than trusted: the filter and the mana-value bound decided what was
+        // offered, and an answer naming something else has to be refused rather than quietly
+        // honoured. The ceiling is re-applied for the same reason - an answer longer than the
+        // sentence allows is not one the card offered.
+        var taken = new List<ObjectId>();
+        foreach (var pick in picks)
         {
-            taken = default;
+            if (!Guid.TryParseExact(pick, "N", out var picked))
+                continue;
+
+            var id = new ObjectId(picked);
+            if (!top.Contains(id) || taken.Contains(id))
+                continue;
+
+            var card = State.GetObject(id).Card;
+            if (!SearchFilters.Matches(owed.FilterId, card))
+                continue;
+
+            if (owed.MaxManaValue is { } cap && card.Cmc > cap)
+                continue;
+
+            taken.Add(id);
         }
 
-        if (taken != default && top.Contains(taken))
+        if (owed.TakeLimit is { } allowed && taken.Count > allowed)
+            taken = [.. taken.Take(allowed)];
+
+        foreach (var id in taken)
         {
-            var landed = Move(taken, owed.Destination, MoveCause.Other, owed.PlayerId);
+            var landed = Move(id, owed.Destination, MoveCause.Other, owed.PlayerId);
 
             // "With three +1/+1 counters on it. It gains hexproof until your next turn." — the
             // dressing on the taking, done here because only the move knows the id the card
             // lands under (CR 400.7). Battlefield only: counters live on permanents, and the
             // reducer refuses one anywhere else.
-            if (owed.Destination == Zone.Battlefield)
-            {
-                if (owed.CountersOnTaken > 0)
-                {
-                    Emit(new CountersChanged(
-                        landed, CounterKinds.PlusOnePlusOne, owed.CountersOnTaken));
-                }
+            if (owed.Destination != Zone.Battlefield)
+                continue;
 
-                if (owed.TakenGrantId is { } granted)
+            if (owed.TappedOnTaken)
+                Emit(new PermanentTapped(landed));
+
+            if (owed.CountersOnTaken > 0)
+            {
+                Emit(new CountersChanged(
+                    landed, CounterKinds.PlusOnePlusOne, owed.CountersOnTaken));
+            }
+
+            if (owed.TakenGrantId is { } granted)
+            {
+                Emit(new ContinuousEffectCreated(
+                    Guid.NewGuid(),
+                    granted,
+                    [landed],
+                    owed.GrantUntilTakersNextTurn ? null : State.TurnNumber)
                 {
-                    Emit(new ContinuousEffectCreated(
-                        Guid.NewGuid(),
-                        granted,
-                        [landed],
-                        owed.GrantUntilTakersNextTurn ? null : State.TurnNumber)
-                    {
-                        UntilTurnOf = owed.GrantUntilTakersNextTurn ? owed.PlayerId : null,
-                    });
-                }
+                    UntilTurnOf = owed.GrantUntilTakersNextTurn ? owed.PlayerId : null,
+                });
             }
         }
 
-        var rest = top.Where(id => id != taken).ToList();
+        var rest = top.Where(id => !taken.Contains(id)).ToList();
 
         if (owed.RestTo != Zone.Library)
         {

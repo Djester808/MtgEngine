@@ -55815,6 +55815,406 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(wrong).IsComplete);
     }
 
+    // ---- Looking at the top, and taking more than one (CR 701.20a) -----------
+
+    /// <summary>A creature that costs something, so a mana-value bound has work to do.</summary>
+    private static CardDefinition Priced(string name, int manaValue) => new()
+    {
+        OracleId = "oracle-r17-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        Cmc = manaValue,
+        CardTypes = CardType.Creature,
+        Subtypes = ["Goblin"],
+        Power = 1,
+        Toughness = 1,
+    };
+
+    /// <summary>
+    /// "Put two of them into your hand and the rest into your graveyard" — a look whose answer
+    /// is more than one card.
+    /// </summary>
+    /// <remarks>
+    /// The engine took exactly one pick until this family was measured, so every printing that
+    /// keeps two was unread. The ceiling is on the answer rather than on the question: taking
+    /// fewer stays legal, as it has been for the one-card form since that form existed.
+    /// </remarks>
+    [Fact]
+    public void A_look_that_keeps_two_offers_two_picks_and_takes_both()
+    {
+        var dig = Card(
+            "R17 Stock Up Test",
+            "Look at the top four cards of your library. Put two of them into your hand and "
+                + "the rest into your graveyard.");
+
+        var compiled = CardCompiler.Compile(dig);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("R17 Stock Bear Test", 2, 2), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Stock Forest Test"), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Stock Plains Test"), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Stock Island Test"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, dig);
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        var choice = game.State.Choice!;
+        Assert.Equal(4, choice.Options!.Count);
+        Assert.Equal(2, choice.MaxPicks);
+
+        var kept = new[] { choice.Options[0], choice.Options[1] };
+        game.Choose(alice, [.. kept.Select(o => o.Id)]);
+        Settle(game);
+
+        var hand = game.State.GetPlayer(alice).Hand
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        foreach (var one in kept)
+            Assert.Contains(one.Label, hand);
+
+        // The other two were binned rather than buried, which is what this printing says and
+        // what the shape it was built from does not. Named rather than counted: the spell itself
+        // is in the graveyard too, and a count would have passed on the wrong two cards.
+        var graveyard = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var binned in choice.Options.Skip(2))
+            Assert.Contains(binned.Label, graveyard);
+    }
+
+    /// <summary>
+    /// "Put all Goblin cards revealed this way into your hand" — every match, and no question.
+    /// </summary>
+    /// <remarks>
+    /// The sentence gives the player nothing to decide, so asking would raise a prompt whose only
+    /// legal answer is every option on it — CR 118.3, the rule the empty filter already obeyed
+    /// one branch along. This is the half of the family that needs no chooser at all, and reading
+    /// it as a chooser with an unlimited ceiling would have been a question nobody can answer
+    /// wrongly and everybody has to answer.
+    /// </remarks>
+    [Fact]
+    public void Putting_all_of_a_kind_into_your_hand_asks_nobody()
+    {
+        var ringleader = Card(
+            "R17 Ringleader Test",
+            "Reveal the top four cards of your library. Put all Goblin cards revealed this way "
+                + "into your hand and the rest on the bottom of your library in any order.");
+
+        var compiled = CardCompiler.Compile(ringleader);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("R17 Ring Forest Test"), Zone.Library);
+        game.Create(alice, Priced("R17 Ring Goblin One Test", 1), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Ring Plains Test"), Zone.Library);
+        game.Create(alice, Priced("R17 Ring Goblin Two Test", 2), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, ringleader);
+        var libraryBefore = game.State.GetPlayer(alice).Library.Count;
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.LookAndTake);
+
+        var hand = game.State.GetPlayer(alice).Hand
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Contains("R17 Ring Goblin One Test", hand);
+        Assert.Contains("R17 Ring Goblin Two Test", hand);
+        Assert.DoesNotContain("R17 Ring Forest Test", hand);
+
+        // Both Goblins left the library and the two lands went back into it.
+        Assert.Equal(libraryBefore - 2, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>
+    /// "You may put a creature card with mana value 2 or less from among them onto the
+    /// battlefield" — the search's own bound, asked of a smaller pile.
+    /// </summary>
+    [Fact]
+    public void A_mana_value_ceiling_keeps_the_bigger_card_off_the_list()
+    {
+        var company = Card(
+            "R17 Company Test",
+            "Look at the top three cards of your library. You may put a creature card with mana "
+                + "value 2 or less from among them onto the battlefield. Put the rest on the "
+                + "bottom of your library in a random order.");
+
+        var compiled = CardCompiler.Compile(company);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Priced("R17 Company Giant Test", 6), Zone.Library);
+        game.Create(alice, Priced("R17 Company Whelp Test", 2), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Company Forest Test"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, company);
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        var choice = game.State.Choice!;
+
+        // Two creatures were seen and only the cheap one may be taken. Offering the six-drop
+        // would be a strictly better card than the one printed.
+        var offered = choice.Options!.Select(o => o.Label).ToList();
+        Assert.Contains("R17 Company Whelp Test", offered);
+        Assert.DoesNotContain("R17 Company Giant Test", offered);
+
+        game.Choose(alice, [choice.Options[0].Id]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "R17 Company Whelp Test");
+    }
+
+    /// <summary>
+    /// "With mana value 3 or greater" is a floor, and this reader carries only a ceiling.
+    /// </summary>
+    /// <remarks>
+    /// Left unread rather than taken as the bound beside it. Read as "3 or less" the card would
+    /// offer exactly the cards it puts out of reach — a mistake nothing downstream could see,
+    /// because the card would compile and play perfectly happily.
+    /// </remarks>
+    [Fact]
+    public void A_mana_value_floor_is_refused_rather_than_read_as_a_ceiling()
+    {
+        var mayael = Card(
+            "R17 Mayael Test",
+            "Look at the top five cards of your library. You may put a creature card with mana "
+                + "value 6 or greater from among them onto the battlefield. Put the rest on the "
+                + "bottom of your library in a random order.");
+
+        Assert.False(CardCompiler.Compile(mayael).IsComplete);
+    }
+
+    /// <summary>"Onto the battlefield tapped" — how the taken card arrives (CR 701.26a).</summary>
+    [Fact]
+    public void A_taken_land_can_arrive_tapped()
+    {
+        var rejuvenator = Card(
+            "R17 Rejuvenator Test",
+            "Look at the top three cards of your library. You may put a land card from among "
+                + "them onto the battlefield tapped. Put the rest on the bottom of your library "
+                + "in a random order.");
+
+        var compiled = CardCompiler.Compile(rejuvenator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("R17 Rejuv Bear Test", 2, 2), Zone.Library);
+        game.Create(alice, TestCards.Creature("R17 Rejuv Cub Test", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Rejuv Forest Test"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, rejuvenator);
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options![0].Id]);
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name == "R17 Rejuv Forest Test");
+
+        Assert.True(arrived.Permanent!.IsTapped);
+    }
+
+    /// <summary>"Put one of them into your hand, and exile the rest" — Browse's ending.</summary>
+    [Fact]
+    public void The_rest_can_be_exiled_rather_than_buried()
+    {
+        var browse = Card(
+            "R17 Browse Test",
+            "Look at the top three cards of your library. Put one of them into your hand and "
+                + "exile the rest.");
+
+        var compiled = CardCompiler.Compile(browse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("R17 Browse Forest Test"), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Browse Plains Test"), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("R17 Browse Island Test"), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, browse);
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        game.Choose(alice, [game.State.Choice!.Options![0].Id]);
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .Count(n => n.StartsWith("R17 Browse ", StringComparison.Ordinal));
+
+        Assert.Equal(2, exiled);
+    }
+
+    /// <summary>
+    /// A reveal shows everybody what the choice was made from; a look shows only the player.
+    /// </summary>
+    /// <remarks>
+    /// The two verbs are one instruction with different audiences (CR 701.20a, 701.20e), and the
+    /// opening verb is the whole of the difference. Reading "reveal the top five cards" as a look
+    /// would hide from every opponent which five cards the choice was made from — a card strictly
+    /// better than the one printed, and one no assertion about the hand would catch.
+    /// </remarks>
+    [Fact]
+    public void Revealing_records_what_was_seen_and_looking_does_not()
+    {
+        var revealed = Card(
+            "R17 Revealed Dig Test",
+            "Reveal the top two cards of your library. Put one of them into your hand and the "
+                + "rest into your graveyard.");
+
+        var looked = Card(
+            "R17 Looked Dig Test",
+            "Look at the top two cards of your library. Put one of them into your hand and the "
+                + "rest into your graveyard.");
+
+        Assert.True(CardCompiler.Compile(revealed).IsComplete);
+        Assert.True(CardCompiler.Compile(looked).IsComplete);
+
+        var (openly, alice, _) = InMainPhase();
+        openly.CastSpell(alice, TestCards.PutInHand(openly, alice, revealed), targets: null);
+        Run(openly);
+        Assert.Contains(openly.Log.OfType<CardsRevealed>(), e => e.PlayerId == alice);
+
+        var (privately, carol, _) = InMainPhase();
+        privately.CastSpell(carol, TestCards.PutInHand(privately, carol, looked), targets: null);
+        Run(privately);
+        Assert.DoesNotContain(privately.Log.OfType<CardsRevealed>(), e => e.PlayerId == carol);
+    }
+
+    /// <summary>Only the player being asked is sent the cards to choose from.</summary>
+    /// <remarks>
+    /// A look is shown to one player (CR 701.20e), and the options on this question <em>are</em>
+    /// the top of that player's library. The projector holds that line for every choice rather
+    /// than for each kind in turn, but a look is the kind where getting it wrong hands an
+    /// opponent the top of a library — so it is asserted here rather than assumed.
+    /// </remarks>
+    [Fact]
+    public void Only_the_player_looking_is_sent_what_they_are_choosing_from()
+    {
+        var dig = Card(
+            "R17 Private Dig Test",
+            "Look at the top three cards of your library. Put one of them into your hand and "
+                + "the rest on the bottom of your library in a random order.");
+
+        var (game, alice, bob) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, dig), targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        var mine = Views.PlayerViewProjector.Project(game.State, alice, Pool).Choice;
+        var theirs = Views.PlayerViewProjector.Project(game.State, bob, Pool).Choice;
+
+        Assert.NotNull(mine!.Options);
+        Assert.Equal(3, mine.Options!.Count);
+        Assert.Null(theirs!.Options);
+    }
+
+    /// <summary>
+    /// "…, where X is the number of lands you control" — a count the board decides, in front of
+    /// an idiom that has to be read across two sentences.
+    /// </summary>
+    /// <remarks>
+    /// The clause is read here rather than by the sentence-level wrapper that reads it
+    /// everywhere else, because that wrapper anchors it to the end of a sentence and here it
+    /// ends the <em>first</em> of the two sentences the look needs read together. Splitting the
+    /// line to reach the wrapper is the one thing this idiom exists not to do.
+    /// </remarks>
+    [Fact]
+    public void A_look_can_be_as_deep_as_the_board_makes_it()
+    {
+        var machinate = Card(
+            "R17 Machinate Test",
+            "Look at the top X cards of your library, where X is the number of lands you "
+                + "control. Put one of those cards into your hand and the rest on the bottom of "
+                + "your library in any order.");
+
+        var compiled = CardCompiler.Compile(machinate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("R17 Mach Land One Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("R17 Mach Land Two Test"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, machinate);
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        // Two lands on the battlefield, so two cards were looked at - not the one a fixed
+        // reading of X would have given, and not the zero an uncast X comes to.
+        Assert.Equal(2, game.State.Choice!.Options!.Count);
+    }
+
+    /// <summary>
+    /// The idiom printed after a sentence that has nothing to do with it.
+    /// </summary>
+    /// <remarks>
+    /// Prophetic Bolt's shape. The look and its taking still have to reach the reader together,
+    /// so the line is cut in front of the look rather than at every full stop — anchoring the
+    /// idiom to the start of the line refused every card with a sentence in front of it, and that
+    /// sentence was usually one the vocabulary had read for years.
+    /// </remarks>
+    [Fact]
+    public void A_look_printed_after_another_instruction_is_still_read()
+    {
+        var bolt = Card(
+            "R17 Prophetic Bolt Test",
+            "~ deals 4 damage to any target. Look at the top three cards of your library. Put "
+                + "one of those cards into your hand and the rest on the bottom of your library "
+                + "in any order.");
+
+        var compiled = CardCompiler.Compile(bolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, bolt);
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.LookAndTake });
+
+        // The damage happened first and the look is waiting, which is the order printed.
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+        Assert.Equal(3, game.State.Choice!.Options!.Count);
+
+        game.Choose(alice, [game.State.Choice.Options[0].Id]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A filter the vocabulary cannot read leaves the whole line unread.
+    /// </summary>
+    /// <remarks>
+    /// The failure this family is most exposed to is a reader that widens until it claims lines
+    /// it half-understands: every one of these sentences ends in a destination and a rest clause,
+    /// so a filter quietly dropped would produce a card that digs five cards deep and offers all
+    /// five. Refused instead — which is also why "with power 2 or less" is still unread rather
+    /// than read as "creature".
+    /// </remarks>
+    [Fact]
+    public void A_filter_the_vocabulary_cannot_read_refuses_the_whole_look()
+    {
+        var bugler = Card(
+            "R17 Bugler Test",
+            "Look at the top four cards of your library. You may reveal a creature card with "
+                + "power 2 or less from among them and put it into your hand. Put the rest on "
+                + "the bottom of your library in any order.");
+
+        Assert.False(CardCompiler.Compile(bugler).IsComplete);
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>
