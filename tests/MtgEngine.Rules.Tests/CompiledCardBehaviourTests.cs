@@ -57890,6 +57890,355 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(bugler).IsComplete);
     }
 
+    // ---- A pump whose size is X, in the four spellings that were left behind ---
+
+    /// <summary>
+    /// "{1}{R}: ~ gets +X/+0 until end of turn, where X is the number of artifacts you control."
+    /// — Hellkite Igniter, the source's own pump with a counted size.
+    /// </summary>
+    /// <remarks>
+    /// A pump's size is one idea however the sentence names what it pumps, and it was written out
+    /// five times: once for a target, once for the source, once for the pronoun, once for a group
+    /// and once for an Aura's host. Only the targeted one had ever been widened to admit X, so
+    /// "target creature gets +X/+X until end of turn, where X is …" read while the same clause on
+    /// any of the other four did not — 72 corpus cards, each of them defining X in the same
+    /// breath and none of them able to say how big the pump was.
+    /// <para>
+    /// Two artifacts and a 2/2, so a bonus of two is distinguishable from a bonus of one, of
+    /// three, and from the printed size — the failure the shared size exists to prevent is an X
+    /// that quietly comes out as nought, and a 2/2 that stayed a 2/2 would look identical to a
+    /// card that never compiled.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_source_pumps_itself_by_a_counted_x()
+    {
+        var igniter = Card(
+            "Variable Self Pump Test",
+            "{1}{R}: ~ gets +X/+0 until end of turn, "
+                + "where X is the number of artifacts you control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(igniter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var dragon = game.Create(alice, igniter, Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card("Variable Pump Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Variable Pump Idol Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.ActivateAbility(alice, dragon, compiled.Activated.Single().Id);
+        Settle(game);
+
+        // Two artifacts, so +2/+0 on a 2/2 — and the toughness is untouched, because the card
+        // prints "+X/+0" and reading the same X twice would be a different card.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(dragon)));
+        Assert.Equal(2, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(dragon)));
+    }
+
+    /// <summary>
+    /// "Whenever ~ attacks, it gets +X/+0 until end of turn, where X is the number of attacking
+    /// creatures you control." — Akroan Hoplite, the pronoun form.
+    /// </summary>
+    /// <remarks>
+    /// The pronoun reader answers the same three questions the printed-size one does — the target
+    /// the sentence chose, the object the trigger was about, the source — and none of them is
+    /// what was missing: it simply could not read a size that was not a digit.
+    /// <para>
+    /// Three attackers, so the bonus is three rather than one: a test with a single attacker
+    /// cannot tell "the number of attacking creatures" from "one", and a count that came out as
+    /// the number of attackers minus the two that were not the Hoplite would look right.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_pronoun_pumps_what_the_trigger_was_about_by_a_counted_x()
+    {
+        var hoplite = Card(
+            "Variable Pronoun Pump Test",
+            "Whenever ~ attacks, it gets +X/+0 until end of turn, "
+                + "where X is the number of attacking creatures you control.",
+            CardType.Creature,
+            power: 1,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(hoplite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, hoplite, Zone.Battlefield);
+        var friend = game.Create(
+            alice, TestCards.Creature("Variable Pump Ally Test", 1, 1), Zone.Battlefield);
+        var other = game.Create(
+            alice, TestCards.Creature("Variable Pump Comrade Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [attacker] = AttackTarget.Player(bob),
+                [friend] = AttackTarget.Player(bob),
+                [other] = AttackTarget.Player(bob),
+            });
+
+        Run(game);
+
+        // Three attackers, so a 1/2 swings as a 4/2. The two 1/1s beside it are what makes three
+        // the only number this can be. Measured before the damage step, because the bonus is
+        // what the Hoplite hits with rather than something the combat leaves behind.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(attacker)));
+        Assert.Equal(2, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(attacker)));
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "All creatures get -X/-X until end of turn, where X is the number of creature cards in your
+    /// graveyard." — Terror Tide, the group form, and a sweeper that has to kill.
+    /// </summary>
+    /// <remarks>
+    /// The minus is what makes this worth its own test rather than another size. A negative size
+    /// is a negation of the <em>amount</em>, not a negative X — the fixed part of X is zero, so
+    /// anything that negated that instead would leave the board untouched and the card would
+    /// compile, resolve and sweep nothing.
+    /// <para>
+    /// Two creature cards in the graveyard against a 2/2 and a 3/3: minus two is exactly lethal
+    /// for one and not the other, so a count one high or one low is visible either way round.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_shrinks_by_a_counted_x_and_the_lethal_half_dies()
+    {
+        var tide = Card(
+            "Variable Group Shrink Test",
+            "All creatures get -X/-X until end of turn, "
+                + "where X is the number of creature cards in your graveyard.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(tide);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Variable Shrink Corpse Test", 1, 1), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Variable Shrink Bones Test", 1, 1), Zone.Graveyard);
+
+        var small = game.Create(
+            bob, TestCards.Creature("Variable Shrink Bear Test", 2, 2), Zone.Battlefield);
+        var large = game.Create(
+            bob, TestCards.Creature("Variable Shrink Ogre Test", 3, 3), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tide), targets: null);
+        Settle(game);
+
+        Assert.DoesNotContain(small, game.State.Battlefield);
+        Assert.Contains(large, game.State.Battlefield);
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(large)));
+    }
+
+    /// <summary>
+    /// "Creatures you control get +X/+X until end of turn, where X is the number of creatures you
+    /// control." — the fifth spelling, whose group is named by the verb rather than by a phrase.
+    /// </summary>
+    [Fact]
+    public void Creatures_you_control_grow_by_a_counted_x()
+    {
+        var anthem = Card(
+            "Variable Anthem Test",
+            "Creatures you control get +X/+X until end of turn, "
+                + "where X is the number of creatures you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(anthem);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(
+            alice, TestCards.Creature("Variable Anthem Bear Test", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Variable Anthem Cub Test", 1, 1), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Variable Anthem Rival Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, anthem), targets: null);
+        Settle(game);
+
+        // Two of mine, so +2/+2 — and the opponent's creature is untouched, which is the half of
+        // "creatures you control" a group phrase would lose by counting the whole battlefield.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    // ---- "where X is ~'s power": the card measuring itself (CR 107.3) --------
+
+    /// <summary>
+    /// "{T}: Target creature gets +X/+X until end of turn, where X is this creature's power."
+    /// — Auriok Bladewarden.
+    /// </summary>
+    /// <remarks>
+    /// The compiler puts a tilde where a card's own name was before any of this runs, so
+    /// "this creature's power" arrives as "~'s power" and names the source and nothing else.
+    /// That is why it may be read where the pronoun may not: "its" has to be worked out from the
+    /// shape of the head, and the head here has a target, which is exactly the case the pronoun
+    /// reader refuses because it cannot tell Onward's reading from Dying Wish's. There is nothing
+    /// to work out for a card that says its own name.
+    /// <para>
+    /// The Bladewarden is a 1/4 and the bear a 2/2, so the bonus is one — a number that is
+    /// neither the target's power nor the printed size of anything on the board, and would come
+    /// out as four if the tilde were read as the source's toughness or as two if it were read as
+    /// the target's own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void X_can_be_the_sources_own_power_even_when_the_sentence_has_a_target()
+    {
+        var bladewarden = Card(
+            "Variable Self Stat Test",
+            "{T}: Target creature gets +X/+X until end of turn, where X is ~'s power.",
+            CardType.Creature,
+            power: 1,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(bladewarden);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var warden = game.Create(alice, bladewarden, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Variable Self Stat Bear Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.ActivateAbility(
+            alice, warden, compiled.Activated.Single().Id, [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(3, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+
+        // And the source, which is not what the sentence pumps, is the size it always was.
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(warden)));
+    }
+
+    /// <summary>
+    /// The same clause read off the source as it is <em>now</em>, not as it was printed.
+    /// </summary>
+    /// <remarks>
+    /// Power is a computed characteristic (CR 613.1), so a counter on the source changes what
+    /// "~'s power" comes to. Reading the printed card instead would be the same class of bug as
+    /// reading a stored controller: it compiles, it resolves, and it plays a different number.
+    /// </remarks>
+    [Fact]
+    public void The_sources_own_power_is_the_one_it_has_now()
+    {
+        var beastmaster = Card(
+            "Variable Grown Stat Test",
+            "{T}: Target creature gets +X/+X until end of turn, where X is ~'s power.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(beastmaster);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var master = game.Create(alice, beastmaster, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Variable Grown Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(master, CounterKinds.PlusOnePlusOne, 2);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.ActivateAbility(
+            alice, master, compiled.Activated.Single().Id, [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        // Three, not the printed one: a 1/1 wearing two +1/+1 counters is a 3/3.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
+    // ---- An X nothing can compute leaves the line unread (CR 107.3) ---------
+
+    /// <summary>
+    /// A "where X is" clause naming something the amount vocabulary cannot answer must leave the
+    /// line unread, never settle X at nought.
+    /// </summary>
+    /// <remarks>
+    /// This is the failure mode the whole family is arranged around, and it is invisible from the
+    /// outside: a spell whose X came out as zero compiles, passes the deck check, goes on the
+    /// stack, resolves, and does nothing at all. Nothing is logged, nothing goes unread, and the
+    /// coverage number goes <em>up</em>. An unread line is the honest answer — a deck check can
+    /// refuse it, and the work queue can count it.
+    /// <para>
+    /// Both cases here are the head this round taught to carry a variable, so they are exactly
+    /// the lines that would be admitted by a reader that stopped checking the clause once the
+    /// head could take an X. The first names a fact no vocabulary keeps; the second names a
+    /// possessive that was deliberately declined — "that creature" is an object this clause has
+    /// no way to find, and a stat read off the wrong permanent is a different card.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("All creatures get -X/-X until end of turn, "
+        + "where X is the number of unique vowels on that sticker.")]
+    [InlineData("All creatures get -X/-X until end of turn, where X is that creature's power.")]
+    [InlineData("Creatures you control get +X/+X until end of turn, "
+        + "where X is the sacrificed creature's power.")]
+    public void An_x_the_vocabulary_cannot_compute_leaves_the_line_unread(string printed)
+    {
+        var spell = Card("Uncomputable X Test", printed, CardType.Sorcery);
+        var compiled = CardCompiler.Compile(spell);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, line => line.Contains("where X is", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The pumps that print a number are unchanged by all of the above.
+    /// </summary>
+    /// <remarks>
+    /// The size fragment was widened in six readers at once, which is the sort of change that
+    /// takes a family with it silently: a group that admits X also admits anything else the
+    /// alternation lets through, and a pump reading one size where the card prints another looks
+    /// exactly like a pump that works. Both directions of a printed pump, on two of the readers
+    /// that were widened.
+    /// </remarks>
+    [Fact]
+    public void A_printed_pump_size_still_reads_as_the_number_it_prints()
+    {
+        var anthem = Card(
+            "Printed Group Pump Test",
+            "Creatures you control get +2/+1 until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(anthem);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Printed Pump Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, anthem), targets: null);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+        Assert.Equal(3, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

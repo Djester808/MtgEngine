@@ -2335,10 +2335,17 @@ public static partial class EffectPhrase
         var byStat = VariableIsStatLine().Match(sentence);
         if (byStat.Success)
         {
+            // "~'s power" is the card naming itself, and the compiler has already put the tilde
+            // where the name was - so the object is the source, whatever the head turned out to
+            // be. None of the pronoun's difficulty applies: there is nothing to work out, so the
+            // target restriction below does not apply either, and "attacking creatures get +X/+0
+            // until end of turn, where X is ~'s power" reads with a group in front of it.
+            var namesSource = byStat.Groups["whose"].Value.Equals("~'s", StringComparison.Ordinal);
+
             // Only what this head adds. A target left by an earlier sentence on the same line is
             // not something this clause may claim - "Untap target creature. It gets +X/+X" would
             // be a different reading of the pronoun, and one this cannot tell apart.
-            if (targets.Count > 0)
+            if (targets.Count > 0 && !namesSource)
                 return false;
 
             var scratch = ImmutableList.CreateBuilder<IEffect>();
@@ -2350,7 +2357,16 @@ public static partial class EffectPhrase
 
             Func<ResolutionContext, int> measure;
 
-            if (targets.Count == 0)
+            if (namesSource)
+            {
+                measure = context => StatOfObject(
+                    context,
+                    context.State.TryGetObject(context.PhysicalSourceId, out var itself)
+                        ? itself
+                        : null,
+                    stat);
+            }
+            else if (targets.Count == 0)
             {
                 measure = context => StatOfObject(context, SubjectOrSource(context), stat);
             }
@@ -2819,9 +2835,9 @@ public static partial class EffectPhrase
             && Keywords(m.Groups["kw"].Value) is { } alsoGranted
             && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } bothTo)
         {
-            effects.Add(new PumpGroup(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value)),
-                bothTo));
+            var (bothId, bothSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpGroup(bothId, bothTo) { Size = bothSize });
             effects.Add(new PumpGroup(GenerativeEffects.GrantId(alsoGranted), bothTo));
             return true;
         }
@@ -2865,9 +2881,9 @@ public static partial class EffectPhrase
         if (m.Success
             && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } pumpedGroup)
         {
-            effects.Add(new PumpGroup(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value)),
-                pumpedGroup));
+            var (groupId, groupSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpGroup(groupId, pumpedGroup) { Size = groupSize });
             return true;
         }
 
@@ -5878,8 +5894,9 @@ public static partial class EffectPhrase
             if (m.Groups["kw"].Success && selfGranted is null)
                 return false;
 
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
+            var (selfId, selfSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpSourceUntilEndOfTurn(selfId) { Size = selfSize });
 
             // Two effects for one sentence, because modifying power is layer 7c and adding an
             // ability is layer 6 (CR 613.4c, 613.1f) — one continuous effect cannot be in both.
@@ -5921,21 +5938,13 @@ public static partial class EffectPhrase
             if (power.Success)
             {
                 // "+X/+X" has no size until X does, so the continuous effect cannot be named when
-                // the card compiles. Both halves are read as amounts and the definition is built
-                // when the ability resolves; a printed number takes the same path with an amount
-                // that happens to be constant, so there is one reader rather than two that have to
-                // agree about the target phrase.
-                var toughnessText = m.Groups["tough"].Value;
+                // the card compiles: the size travels beside a placeholder id and the effect
+                // builds the real one as it resolves. A printed number takes the same path with
+                // no size at all, so there is one reader rather than two that have to agree about
+                // the target phrase - and one pump effect rather than a variable twin of it.
+                var (pumpedId, pumpedSize) = PumpSizeOf(m);
 
-                effects.Add(
-                    power.Value.Contains('X', StringComparison.OrdinalIgnoreCase)
-                    || toughnessText.Contains('X', StringComparison.OrdinalIgnoreCase)
-                        ? new PumpTargetByVariable(
-                            SignedAmount(power.Value), SignedAmount(toughnessText), index)
-                        : new PumpUntilEndOfTurn(
-                            GenerativeEffects.PumpId(
-                                Signed(power.Value), Signed(toughnessText)),
-                            index));
+                effects.Add(new PumpUntilEndOfTurn(pumpedId, index) { Size = pumpedSize });
             }
 
             if (granted is { } keywords)
@@ -6008,30 +6017,40 @@ public static partial class EffectPhrase
             if (m.Groups["kw"].Success && alsoGains is null)
                 return false;
 
-            var pumpId = GenerativeEffects.PumpId(
-                Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value));
+            var (pumpId, pumpSize) = PumpSizeOf(m);
 
-            effects.Add(PumpPronoun(pumpId));
+            effects.Add(PumpPronoun(pumpId, pumpSize));
 
             // Layer 6 beside layer 7c (CR 613.1f, 613.4c), aimed at whichever of the three the
             // pump was: reading the pronoun twice is what keeps the pair on one permanent.
             if (alsoGains is { } gained)
-                effects.Add(PumpPronoun(GenerativeEffects.GrantId(gained)));
+                effects.Add(PumpPronoun(GenerativeEffects.GrantId(gained), null));
 
             return true;
 
-            IEffect PumpPronoun(string definitionId) =>
-                targets.Count > 0 ? new PumpUntilEndOfTurn(definitionId, targets.Count - 1)
-                : objectNamedByTrigger
-                    ? new PumpUntilEndOfTurn(definitionId, 0, EffectSubject.TriggeringObject)
-                    : new PumpSourceUntilEndOfTurn(definitionId);
+            IEffect PumpPronoun(string definitionId, VariablePumpSize? size)
+            {
+                if (targets.Count > 0)
+                    return new PumpUntilEndOfTurn(definitionId, targets.Count - 1) { Size = size };
+
+                if (objectNamedByTrigger)
+                {
+                    return new PumpUntilEndOfTurn(definitionId, 0, EffectSubject.TriggeringObject)
+                    {
+                        Size = size,
+                    };
+                }
+
+                return new PumpSourceUntilEndOfTurn(definitionId) { Size = size };
+            }
         }
 
         m = MassPump().Match(sentence);
         if (m.Success)
         {
-            effects.Add(new PumpCreaturesYouControl(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
+            var (yoursId, yoursSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpCreaturesYouControl(yoursId) { Size = yoursSize });
             return true;
         }
 
@@ -6041,9 +6060,9 @@ public static partial class EffectPhrase
         m = HostPumpLine().Match(sentence);
         if (m.Success)
         {
-            effects.Add(new PumpHostUntilEndOfTurn(
-                GenerativeEffects.PumpId(
-                    Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
+            var (hostId, hostSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpHostUntilEndOfTurn(hostId) { Size = hostSize });
             return true;
         }
 
@@ -7259,6 +7278,39 @@ public static partial class EffectPhrase
             // "enchanted permanent has phasing" was unreadable over this one missing word.
             ["phasing"] = KeywordAbility.Phasing,
         };
+
+    /// <summary>
+    /// A pump's size as the cards write it: two signed numbers, either of which may be X.
+    /// </summary>
+    /// <remarks>
+    /// One fragment for every pump reader, because a pump's size is one idea however the sentence
+    /// names what it pumps. Written out separately in each of them, only the targeted reader was
+    /// ever widened to admit X - so "target creature gets +X/+X until end of turn" read, and the
+    /// same sentence about the source, a pronoun, a group or an Aura's host did not. Seventy-two
+    /// corpus cards say one of the other four and define X in the same breath.
+    /// </remarks>
+    private const string PT = @"(?<p>[+-](\d+|X))/(?<tough>[+-](\d+|X))";
+
+    /// <summary>
+    /// A pump's size: the named definition when it was printed, an amount when it was written X.
+    /// </summary>
+    /// <remarks>
+    /// The id has to be written when the card compiles and "+X/+X" has no size until X does, so a
+    /// variable pump carries a placeholder id and the size beside it; the effect builds the real
+    /// id as it resolves. Returning both from one place is what keeps the five pump readers from
+    /// disagreeing again about whether X is a size a card may print.
+    /// </remarks>
+    private static (string Id, VariablePumpSize? Size) PumpSizeOf(Match m)
+    {
+        var power = m.Groups["p"].Value;
+        var toughness = m.Groups["tough"].Value;
+
+        return power.Contains('X', StringComparison.OrdinalIgnoreCase)
+            || toughness.Contains('X', StringComparison.OrdinalIgnoreCase)
+                ? (GenerativeEffects.PumpId(0, 0),
+                    new VariablePumpSize(SignedAmount(power), SignedAmount(toughness)))
+                : (GenerativeEffects.PumpId(Signed(power), Signed(toughness)), null);
+    }
 
     /// <summary>A signed modifier as printed, e.g. "+3" or "-1".</summary>
     private static int Signed(string word) =>
@@ -11760,9 +11812,18 @@ public static partial class EffectPhrase
     /// mana value minus 4" are printed too, and an arithmetic tail admitted here would be read as
     /// the bare stat and give a card a bigger number than it prints — so the pattern ends at the
     /// word and those stay unread.
+    /// <para>
+    /// Two possessives, because the cards use two and mean different things by them. "Its" is the
+    /// pronoun and has to be worked out from the shape of the head; <c>~</c> is the card's own
+    /// name, substituted before any of this runs, and names the source and nothing else — so it
+    /// is read where the pronoun is refused, and forty-six corpus cards were sitting behind that
+    /// one spelling. Nothing else is admitted: "that creature's power" and "the sacrificed
+    /// creature's power" name an object this clause cannot find on its own, and a stat read off
+    /// the wrong permanent is a card that compiles and plays a different number.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<head>.+?), where X is its (?<stat>power|toughness|mana value)$",
+        @"^(?<head>.+?), where X is (?<whose>its|~'s) (?<stat>power|toughness|mana value)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsStatLine();
 
@@ -12060,7 +12121,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
-            + @" (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
+            + @" " + PT + @" until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassPumpLine();
 
@@ -12092,7 +12153,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
-            + @" (?<p>[+-]\d+)/(?<tough>[+-]\d+) and gains? (?<kw>[a-z ,]+?) until end of turn$",
+            + @" " + PT + @" and gains? (?<kw>[a-z ,]+?) until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassPumpAndGrantLine();
 
@@ -14343,7 +14404,7 @@ public static partial class EffectPhrase
     /// matchers that must agree about the target phrase.
     /// </remarks>
     [GeneratedRegex(
-        @"^" + T + @" (gets (?<p>[+-](\d+|X))/(?<tough>[+-](\d+|X))"
+        @"^" + T + @" (gets " + PT
             + @"( and gains (?<kw>[a-z ,]+?))?"
             + @"|gains (?<kw>[a-z ,]+?)) until end of turn$",
         RegexOptions.IgnoreCase)]
@@ -14356,7 +14417,7 @@ public static partial class EffectPhrase
     /// printed anthem into a combat trick that wears off at cleanup.
     /// </remarks>
     [GeneratedRegex(
-        @"^~ gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+        @"^~ gets " + PT
             + @"( and gains (?<kw>[a-z ,]+?))? until end of turn"
             + @"(?<mayattack> and can attack this turn as though it didn't have defender)?$",
         RegexOptions.IgnoreCase)]
@@ -14393,7 +14454,7 @@ public static partial class EffectPhrase
     private static partial Regex ConjoinedProhibitionLine();
 
     [GeneratedRegex(
-        @"^enchanted (creature|permanent) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) "
+        @"^enchanted (creature|permanent) gets " + PT + @" "
             + @"until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HostPumpLine();
@@ -14582,13 +14643,13 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(it|that creature) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
+        @"^(it|that creature) gets " + PT
             + @"( and gains (?<kw>[a-z ,]+?))? until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ItPumps();
 
     [GeneratedRegex(
-        @"^creatures you control get (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
+        @"^creatures you control get " + PT + @" until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassPump();
 }

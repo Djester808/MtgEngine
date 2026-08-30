@@ -298,8 +298,6 @@ public static class EffectTargets
             (e, n) => e.Subject == EffectSubject.Target
                 ? e with { TargetIndex = e.TargetIndex + n }
                 : e);
-        Add<PumpTargetByVariable>(
-            e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<PumpPairedPartner>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<AttachSourceTo>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
