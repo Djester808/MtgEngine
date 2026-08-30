@@ -179,6 +179,12 @@ public static class EffectTargets
     /// Needed wherever a clause is parsed on its own and then folded into a larger ability: the
     /// phrase parser numbers targets from zero because it does not know what it is being folded
     /// into. Effects that aim at nothing are returned unchanged.
+    /// <para>
+    /// So is an effect aimed somewhere that is not a target. Its index is never read - that is
+    /// what <see cref="ReadsATarget"/> says - so moving it changes nothing about how the effect
+    /// resolves, and leaves behind a number pointing past the end of the target list that looks
+    /// exactly like the malformed card the invariant test hunts for.
+    /// </para>
     /// </remarks>
     public static IEffect Shift(IEffect effect, int offset)
     {
@@ -187,7 +193,7 @@ public static class EffectTargets
         if (offset == 0 || !Table.TryGetValue(effect.GetType(), out var accessor))
             return effect;
 
-        return accessor.WithOffset(effect, offset);
+        return ReadsATarget(effect) ? accessor.WithOffset(effect, offset) : effect;
     }
 
     private static ImmutableDictionary<Type, Accessor> Build()

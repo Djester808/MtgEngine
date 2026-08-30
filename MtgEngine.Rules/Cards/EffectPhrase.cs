@@ -207,9 +207,22 @@ public static partial class EffectPhrase
             var thenTargets = ImmutableList.CreateBuilder<TargetSpec>();
             var thenEffects = ImmutableList.CreateBuilder<IEffect>();
 
-            if (TryOne(didIt.Groups["doing"].Value.Trim(), doingTargets, doingEffects)
+            // Both halves are told what the trigger named, and the second one is why. "Sacrifice
+            // ~. If you do, ~ deals 4 damage to that creature" is one sentence about the creature
+            // the trigger saw, and the clause that says so is behind the conjunction - parsed
+            // without the flag it lost its referent and the whole line went unread, on a card
+            // whose first half had nothing to do with the pronoun at all.
+            if (TryOne(
+                    didIt.Groups["doing"].Value.Trim(),
+                    doingTargets,
+                    doingEffects,
+                    objectNamedByTrigger)
                 && doingEffects.Count > 0
-                && TryOne(didIt.Groups["then"].Value.Trim(), thenTargets, thenEffects)
+                && TryOne(
+                    didIt.Groups["then"].Value.Trim(),
+                    thenTargets,
+                    thenEffects,
+                    objectNamedByTrigger)
                 && thenEffects.Count > 0
                 && !doingEffects.Any(FindsItselfByIndex)
                 && !thenEffects.Any(FindsItselfByIndex))
@@ -1827,22 +1840,25 @@ public static partial class EffectPhrase
         // chose, which is the rule <see cref="ObjectOf"/> already applies for destroy, exile and
         // tap. Damage was the verb that never got it, on thirty-six cards.
         //
-        // Only the arm that resolves to a target is honoured. DealDamage carries a target index
-        // and nothing else, so a pronoun meaning the *trigger's* subject has nowhere to go here -
-        // and answering it with the last target instead is the exact mistake this codebase
-        // reverted once already, where "whenever ~ blocks a creature, destroy that creature"
-        // destroyed the blocker. Refusing leaves the line unread, which is the safe half.
+        // Both arms are honoured now that DealDamage carries a subject like its neighbours. The
+        // note that stood here said the trigger arm had nowhere to go, and left nine cards unread
+        // for want of one field - Ashmouth Hound and its siblings, whose whole text is this
+        // sentence. The reason it was refused rather than aimed at the last target still holds
+        // and is why the arm that arrives is the *strict* subject: it resolves to the object the
+        // trigger named or to nothing, and can never fall back to the permanent with the ability.
+        // That is what stops "whenever ~ blocks a creature, deal damage to that creature" from
+        // burning its own source, which is the mistake this codebase reverted once already.
         //
         // Placed after the target form rather than inside it, so that a phrase the target grammar
         // cannot read still falls through to the readers below as it always did.
-        var burnPronoun = PronounObject(m, targets, objectNamedByTrigger);
+        var burnPronoun = PronounSubject(m, targets, objectNamedByTrigger);
 
         if (burnPronoun is { } already)
         {
             if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } dealt)
                 return false;
 
-            effects.Add(new DealDamage(dealt, already));
+            effects.Add(new DealDamage(dealt, already.Index, Subject: already.Subject));
             return true;
         }
 
@@ -5442,6 +5458,22 @@ public static partial class EffectPhrase
         {
             targets.Add(hit);
             effects.Add(new DealDamage(Number(m.Groups["n"].Value), targets.Count - 1));
+            return true;
+        }
+
+        // "It deals 2 damage to that creature" - the same instruction as the "~ deals" reader
+        // above, spelled the way a trigger spells it. Two spellings of one sentence should not
+        // read differently, which is a rule this file has already had to learn once: the named
+        // form of the damage sentence was narrower than the pronoun form beside it and a card
+        // read only through the wider one. Here it was the other way round - the "~" form learned
+        // the pronoun object and this one did not, which left Acolyte of the Inferno unread for
+        // the difference between "it deals" and "Acolyte of the Inferno deals".
+        if (m.Success
+            && PronounSubject(m, targets, objectNamedByTrigger) is { } scorched)
+        {
+            effects.Add(new DealDamage(
+                Number(m.Groups["n"].Value), scorched.Index, Subject: scorched.Subject));
+
             return true;
         }
 
@@ -12088,15 +12120,32 @@ public static partial class EffectPhrase
         ImmutableList<TargetSpec>.Builder targets,
         bool objectNamedByTrigger)
     {
+        var named = PronounSubject(m, targets, objectNamedByTrigger);
+
+        return named is { Subject: EffectSubject.Target } ? named.Value.Index : null;
+    }
+
+    /// <summary>
+    /// The same reading as <see cref="PronounObject"/>, with the subject kept rather than dropped.
+    /// </summary>
+    /// <remarks>
+    /// Its caller is any verb that can be aimed somewhere other than a target. The narrower
+    /// sibling above exists for the verbs that cannot, and answers by throwing away the arm they
+    /// have nowhere to put - which is the honest refusal for them and a lost sentence for the
+    /// rest.
+    /// </remarks>
+    private static (EffectSubject Subject, int Index)? PronounSubject(
+        Match m,
+        ImmutableList<TargetSpec>.Builder targets,
+        bool objectNamedByTrigger)
+    {
         if (!m.Success || !Pronouns.Contains(
                 m.Groups["t"].Value.Trim(), StringComparer.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        var named = ObjectOf(m.Groups["t"].Value, targets, objectNamedByTrigger);
-
-        return named is { Subject: EffectSubject.Target } ? named.Value.Index : null;
+        return ObjectOf(m.Groups["t"].Value, targets, objectNamedByTrigger);
     }
 
     private static (EffectSubject Subject, int Index)? ObjectOf(
@@ -13235,6 +13284,55 @@ public static partial class TriggerConditions
         _ => null,
     };
 
+    /// <summary>
+    /// Whether this trigger fires once per blocking pair, naming the other creature in it.
+    /// </summary>
+    /// <remarks>
+    /// A block declaration is a batch of pairs, which is why <c>Game.SubjectObjectOf</c> answers
+    /// nothing for it: with several creatures in the declaration there is no one object the whole
+    /// event was about. But a card of this family is not asking about the declaration - it is
+    /// asking about <em>its own</em> pair, and there the other creature is unambiguous. So the
+    /// subject is supplied per pair by <c>Game.Consider</c>, which decomposes the declaration and
+    /// records one trigger for each pair this ability answers to.
+    /// <para>
+    /// <strong>The object in the sentence is what decides it, and that is the whole rule.</strong>
+    /// CR 509.3c: "whenever this creature becomes blocked" triggers <em>once</em> each combat
+    /// however many creatures block it. CR 509.3d: "whenever this creature becomes blocked by a
+    /// creature" triggers once for <em>each</em> of them. CR 603.2b's own example is these two
+    /// sentences side by side - one event against two. So a condition naming no creature is
+    /// refused here, both because it fires once and because a sentence that names nothing has no
+    /// pronoun to resolve.
+    /// </para>
+    /// <para>
+    /// Only the self family - the conditions written about <c>~</c> - is admitted. An Aura's
+    /// "whenever enchanted creature blocks" is a different question with a different answer (the
+    /// host), and it is answered by <see cref="NamesAnObject"/>'s attached arm or not at all.
+    /// </para>
+    /// </remarks>
+    public static bool BlockPairSubject(string condition)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        // "~ becomes blocked by a creature" - CR 509.3d. The "by" group is the object, and
+        // without it the sentence is CR 509.3c's once-per-combat trigger instead.
+        var caught = BecomesBlocked().Match(condition);
+        if (caught.Success)
+            return caught.Groups["what"].Success;
+
+        // "~ blocks a creature" - the same rule from the other side of the declaration. A
+        // creature can block more than one attacker only because an effect said so, and then
+        // CR 509.3e wants the ability once for each of them.
+        var blocks = BlocksLine().Match(condition);
+        if (blocks.Success)
+            return blocks.Groups["what"].Success;
+
+        // "~ blocks or becomes blocked by a creature" - both sides of the pair in one sentence,
+        // and the object distributes over both arms. Bushido's bare "blocks or becomes blocked"
+        // (CR 702.45a) is the same pattern without the object and is refused with it.
+        var either = BlocksOrIsBlocked().Match(condition);
+        return either.Success && either.Groups["what"].Success;
+    }
+
     /// <summary>The predicate for a trigger condition, or null if it is not one we read.</summary>
     /// <summary>
     /// Whether a trigger on this condition hands its effects an object to call "that creature".
@@ -13253,6 +13351,14 @@ public static partial class TriggerConditions
     public static bool NamesAnObject(string condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
+
+        // The block family is the one shape whose subject does not come from the event at all -
+        // it comes from the pair, and Game.Consider supplies it one pair at a time. The same
+        // discipline the rest of this method follows still holds, only the other end of the check
+        // is TriggeredAbilityDefinition.PerBlockPair rather than Game.SubjectObjectOf: both flags
+        // are set from this one query, so a sentence admitted here always has a subject waiting.
+        if (BlockPairSubject(condition))
+            return true;
 
         var damage = DealsDamageTo().Match(condition);
         if (damage.Success)
@@ -14241,9 +14347,15 @@ public static partial class TriggerConditions
         {
             // CR 702.46a: bushido triggers on blocking or on becoming blocked, which are the two
             // sides of the same declaration.
+            //
+            // CR 509.1h decides the first half: an attacker becomes blocked when at least one
+            // creature is declared as blocking it, and being named in the declaration with an
+            // empty list is not blocked at all. Asking only whether the id is a key fired bushido
+            // for an attacker nobody blocked - a strictly better card than the one printed, and
+            // the sibling reader for "~ becomes blocked" had said so all along.
             return (e, _, source) =>
                 e is BlockersDeclared declared
-                && (declared.Blockers.ContainsKey(source.Id)
+                && ((declared.Blockers.TryGetValue(source.Id, out var by) && !by.IsEmpty)
                     || declared.Blockers.Values.Any(list => list.Contains(source.Id)));
         }
 
@@ -15584,8 +15696,13 @@ public static partial class TriggerConditions
     [GeneratedRegex(@"^a creature you control attacks alone$", RegexOptions.IgnoreCase)]
     private static partial Regex AnyCreatureAttacksAlone();
 
+    /// <remarks>
+    /// The object is captured rather than merely allowed, because it is what tells CR 509.3c's
+    /// once-a-combat trigger from CR 509.3d's once-per-blocker one. Bushido prints this sentence
+    /// without it and Ashmouth Hound prints it with, and the two fire a different number of times.
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ blocks or becomes blocked( by a creature)?$", RegexOptions.IgnoreCase)]
+        @"^~ blocks or becomes blocked( by (?<what>a creature))?$", RegexOptions.IgnoreCase)]
     private static partial Regex BlocksOrIsBlocked();
 
     /// <remarks>

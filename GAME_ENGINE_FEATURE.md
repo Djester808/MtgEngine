@@ -488,7 +488,92 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **51.8% of playable cards fully read** (16,936 of 32,717), 68.3% of lines.
+Coverage is **52.0% of playable cards fully read** (17,025 of 32,717), 68.5% of lines.
+
+### Round sixteen: one trigger per blocking pair
+
++23 cards, none lost, and the whole round is one commit because it changes `Game.Consider` —
+the hottest path in the engine. The wall was recorded wrongly twice and correctly once; this
+built what the corrected diagnosis named, and the corrected diagnosis was right.
+
+**A block declaration is a batch of pairs, and now the engine can say which pair.**
+`SubjectObjectOf` still answers nothing for `BlockersDeclared`, because the *event* is about no
+one creature. But a card of this family is not asking about the declaration - it asks about its
+own pair, and there the other creature is unambiguous. So `Game.Consider` cuts the declaration
+into single pairs, asks the ability's own predicate about each one alone, and records one
+`AbilityTriggered` per pair with the *other* creature as its subject. That is the same
+singleton-probe technique `AmountFor` already uses on an attack batch, and it is what the
+`Func<…, bool>` predicate shape can express after all: a predicate cannot be asked how many, and
+it can be asked once per candidate.
+
+**Both halves were required and neither was worth anything alone**, exactly as recorded:
+
+- `TriggerConditions.BlockPairSubject` is the subject half - a static query on the condition text,
+  a sibling of `NamesAnObject` on the same channel, so no signature changed. It sets both
+  `namesAnObject` (so the pronoun compiles) and `TriggeredAbilityDefinition.PerBlockPair` (so the
+  subject exists), from one query, so the two can never disagree.
+- `DealDamage` gained an `EffectSubject`. It was the last of the four pronoun verbs without one -
+  destroy, exile and tap all had it - and it read `context.TargetAt(index)` and nothing else.
+
+**The object in the sentence decides how often it fires, and that is the whole rule.** CR 509.3c:
+"whenever this creature becomes blocked" triggers *once* each combat however many creatures block
+it. CR 509.3d: "becomes blocked **by a creature**" triggers once for *each* of them. CR 603.2b's
+own example is those two sentences side by side. A condition naming no creature is refused, both
+because it fires once and because a sentence that names nothing has no pronoun to resolve - and
+that refusal is asserted, because getting it generous prints a strictly better card than the one
+on the table.
+
+The set, not the number. Nine cards were named in the diagnosis and all nine landed; the other
+fourteen came from the same two changes reaching further than the nine:
+
+| what landed | cards |
+|---|---|
+| the nine, whose whole text is "~ deals N damage to that creature" | Ashmouth Hound, Inferno Elemental, Ornery Goblin, Acolyte of the Inferno, Kolaghan Aspirant, Flame-Kin War Scout, Kessig Forgemaster, Skewer Slinger, Somberwald Vigilante |
+| the same pair subject with a different verb | Engulfing Slagwurm, Infernal Medusa, Sylvan Basilisk, Tangle Asp, Venomous Dragonfly, Ogre Leadfoot, Phyrexian Reaper, Phyrexian Slayer, Nessian Boar, Gloom Sower, Vicious Battlerager |
+| the damage subject in the families that already had a subject | Aether Flash, Caltrops, Raking Canopy |
+
+**Three cards were already compiling and playing wrongly, and the count could not show it.**
+Flailing Drake ("that creature gets +1/+1") pumped *itself*; Quagmire Lamprey put its -1/-1 counter
+on *itself*. Both were "complete" before this round and are right after it, and neither appears in
+the set diff, because the diff only sees cards crossing from unread to read. The count is blind to
+this class in both directions.
+
+**And one card was better than printed.** The reader for "~ blocks or becomes blocked" asked only
+whether the source's id was *in* the declaration, so bushido fired for an attacker nobody blocked -
+CR 509.1h says an attacker with an empty blocker list did not become blocked, and the sibling
+reader for "~ becomes blocked" had had that check from the start. Two spellings of one rule, one of
+them right, which is this file's most-repeated shape of defect.
+
+**Cost on the hot path: none that a run can see, and the reason is where the branch sits.** It is
+after the `continue` that a non-firing predicate takes, so the millions of false answers the corpus
+checks produce reach nothing new at all; a trigger that actually fires then pays one field read and
+one type test. Measured on the rules suite, which is the thing that runs `Consider` in anger:
+interleaved with the baseline on a machine five branches were sharing, 36/42/43s before against
+38/40/40/42s after, with seven more tests in the second figure. An earlier non-interleaved pair read
+28-32 against 31-41 and looked like a 30% regression; re-measuring the baseline in the same window
+put it at 36-43, which is the whole of the difference. **Interleave the measurement or do not report
+it** - this box drifts by more than the effect being looked for.
+
+#### Declined here, with the measurement behind each
+
+- **The same decomposition for `AttackersDeclared`: 139 distinct corpus lines.** "Whenever a
+  creature attacks, ~ deals 1 damage to it" is the identical shape one batch along, and
+  `SubjectObjectOf` answers it only when the declaration holds exactly one attacker (CR 508.1) -
+  so Caltrops and Raking Canopy read now and do nothing when two creatures attack. That is the
+  pre-existing policy for the attack arm, written down in `NamesAnObject` and deliberate; extending
+  the pair machinery to it would change every "whenever a creature attacks" card in the corpus and
+  wants its own commit and its own soak, exactly as this one did.
+- **`ThatCreaturePumps` aims at the source unconditionally: 7 cards.** Primal Forcemage, Gahiji,
+  Wild Defiance, Ambuscade Shaman, Ardoz, Werewolf Lightning Mage and Flailing Drake all print
+  "that creature gets +N/+N until end of turn" on a trigger that names an object, and the reader
+  that takes the sentence is the one *before* the reader that knows about the trigger's subject.
+  Flailing Drake is fixed here only because the block condition is now in the allow-list and the
+  earlier reader no longer wins; the other six still pump the wrong creature. It is a one-line gate
+  on a reader shared with exalted and 73 corpus lines, which is a measured pass rather than a
+  ride-along.
+- **The coverage ratchet was left at 0.517** against a measured 52.0%. Raising it is a one-character
+  change to a constant five branches are editing this round, and the slack it currently carries is
+  the same slack it was set with.
 
 ### Two cards that compiled perfectly and could not be played
 
@@ -633,6 +718,9 @@ So the two halves are **both** required and neither is worth anything alone:
   creature" would fall back to the source — which is the exact failure this file already records
   for "whenever ~ blocks a creature, destroy that creature", found by the corpus structural gate
   and reverted.
+
+**Built in round sixteen, below, and the corrected diagnosis was right: all nine landed.** The
+costing that follows is what it was costed at, kept because the estimate held.
 
 Costed, having mapped it: `EffectPhrase.BlockPairSubject(condition)` as a sibling of
 `NamesAnObject` (the channel already exists — `NamesAnObject` is a separate static query on the

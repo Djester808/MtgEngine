@@ -39270,11 +39270,23 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// A trigger whose event carries no object leaves the line unread rather than compiling a
-    /// sentence that means nothing. This is the case that reverted the first attempt.
+    /// "Whenever ~ blocks a creature, destroy that creature" destroys the attacker (CR 509.3d).
     /// </summary>
+    /// <remarks>
+    /// This card is the one that reverted the first attempt at reading the block pronoun, and for
+    /// two rounds it was asserted here as a line that must stay <em>unread</em> - correctly, while
+    /// the engine had no subject to give it. A declaration is a batch of pairs and the batch is
+    /// about no one creature, so the pronoun had nothing to mean and the only thing left to aim at
+    /// was the permanent with the ability, which destroyed the blocker.
+    /// <para>
+    /// The subject now comes from the pair rather than from the batch, so the sentence has a
+    /// referent and the card is played here rather than refused. The half that has not changed is
+    /// asserted alongside: the source survives. A subject that fell back to it would be the same
+    /// bug wearing a passing test.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void That_creature_stays_unread_when_the_trigger_names_no_object()
+    public void That_creature_after_a_blocks_trigger_means_the_creature_it_blocked()
     {
         var blockerKiller = new CardDefinition
         {
@@ -39288,11 +39300,30 @@ public sealed class CompiledCardBehaviourTests
         };
 
         var compiled = CardCompiler.Compile(blockerKiller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            "Whenever ~ blocks a creature, destroy that creature.",
-            compiled.Unhandled);
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(
+            alice, TestCards.Creature("Block Slayer Victim Test", 0, 4), Zone.Battlefield);
+
+        var blocker = game.Create(bob, blockerKiller, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        Settle(game);
+
+        // A 0/4, so nothing in combat could have killed it. Only the trigger can, which is what
+        // makes the assertion mean something.
+        Assert.DoesNotContain(attacker, game.State.Battlefield);
+        Assert.Contains(blocker, game.State.Battlefield);
     }
 
     /// <summary>
@@ -39333,11 +39364,19 @@ public sealed class CompiledCardBehaviourTests
 
     /// <summary>
     /// The verbs are admitted one at a time, so a family member that names no object stays
-    /// refused. This is the same card that reverted the first attempt, asserted twice over.
+    /// refused.
     /// </summary>
+    /// <remarks>
+    /// These three are the block sentences with the creature taken out of them, and CR 509.3c is
+    /// why the word matters: without it the ability triggers once for the whole declaration, which
+    /// is about no one creature, so "that creature" has no referent and never gets one. The two
+    /// wordings that <em>do</em> name a creature used to sit in this list and are now played
+    /// instead - the refusal was the honest answer only while the subject did not exist.
+    /// </remarks>
     [Theory]
-    [InlineData("Whenever ~ blocks a creature, destroy that creature.")]
-    [InlineData("Whenever ~ becomes blocked by a creature, destroy that creature.")]
+    [InlineData("Whenever ~ blocks, destroy that creature.")]
+    [InlineData("Whenever ~ becomes blocked, destroy that creature.")]
+    [InlineData("Whenever ~ blocks or becomes blocked, destroy that creature.")]
     public void A_trigger_verb_that_names_no_object_still_leaves_the_line_unread(string printed)
     {
         var card = new CardDefinition
@@ -49129,6 +49168,298 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, game.State.GetPlayer(bob).Graveyard.Count);
     }
 
+    // ---- One trigger per blocking pair (CR 509.3c/d, 603.2b) -----------------
+
+    /// <summary>Every trigger this ability filed, in the order it filed them.</summary>
+    /// <remarks>
+    /// Read off the log rather than off the board, because the count and the subject are the two
+    /// halves of what CR 603.2b decides and only one of them is visible from the battlefield. A
+    /// card that fired twice where it should have fired once can leave a board indistinguishable
+    /// from one that fired once, and a card that damaged the wrong creature can leave one that
+    /// looks right for the turn it happened on.
+    /// </remarks>
+    private static List<AbilityTriggered> TriggersFiledBy(Game game, ObjectId source) =>
+        [.. game.Log.OfType<AbilityTriggered>().Where(t => t.SourceId == source)];
+
+    [Fact]
+    public void A_block_pair_trigger_damages_the_creature_it_blocked_and_not_itself()
+    {
+        var hound = Card(
+            "Ashmouth Pair Test",
+            "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to that creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(hound);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Triggers[0].PerBlockPair);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A 0/1, so nothing it does in combat can be mistaken for what the ability did. The
+        // ability's one damage is the only damage in this test.
+        var attacker = game.Create(
+            alice, TestCards.Creature("Ashmouth Attacker Test", 0, 1), Zone.Battlefield);
+
+        var blocker = game.Create(bob, hound, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        Settle(game);
+
+        // The subject is the other creature in the pair - here the attacker, because the source
+        // is on the blocking side of it. This is the assertion the whole mechanism exists for:
+        // "that creature" resolved to something the ability never chose and never targeted.
+        var filed = TriggersFiledBy(game, blocker);
+        Assert.Single(filed);
+        Assert.Equal(attacker, filed[0].SubjectObject);
+
+        // And it went where the subject said. A pronoun falling back to the permanent with the
+        // ability - the failure this codebase reverted a first attempt for - would have left the
+        // 0/1 alive and put a damage marker on the Hound instead.
+        Assert.DoesNotContain(attacker, game.State.Battlefield);
+        Assert.Contains(blocker, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(blocker).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// CR 509.3d: "becomes blocked <em>by a creature</em>" fires once for each of them.
+    /// </summary>
+    /// <remarks>
+    /// CR 603.2b's own example is this sentence beside the one below it: an attacker blocked by
+    /// two creatures is one event for "whenever this creature becomes blocked" and two events for
+    /// "whenever this creature becomes blocked by a creature". A declaration is a batch of pairs,
+    /// and this is the family for which a batch is not one occurrence.
+    /// <para>
+    /// Both subjects are asserted, not just the count. A trigger that fired twice with the same
+    /// subject would kill one creature twice and leave the other alone, and a board with two
+    /// blockers dead is the only thing that tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_block_pair_trigger_fires_once_for_each_creature_that_blocks_it()
+    {
+        var slinger = Card(
+            "Skewer Pair Test",
+            "Whenever ~ becomes blocked by a creature, ~ deals 1 damage to that creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(slinger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, slinger, Zone.Battlefield);
+        var first = game.Create(
+            bob, TestCards.Creature("Skewer Blocker One Test", 0, 1), Zone.Battlefield);
+
+        var second = game.Create(
+            bob, TestCards.Creature("Skewer Blocker Two Test", 0, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] });
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, attacker);
+        Assert.Equal(2, filed.Count);
+        Assert.Equal(
+            new HashSet<ObjectId> { first, second },
+            [.. filed.Select(t => t.SubjectObject!.Value)]);
+
+        // One damage each is lethal to a 0/1, so both are gone and the attacker took nothing.
+        // Asked of the battlefield rather than of the graveyard, because a graveyard collects
+        // everything a player discarded on the way here and would have counted a card the test
+        // never played.
+        Assert.DoesNotContain(first, game.State.Battlefield);
+        Assert.DoesNotContain(second, game.State.Battlefield);
+        Assert.Contains(attacker, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(attacker).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// CR 509.3c: "becomes blocked" with no creature named fires once for the whole declaration.
+    /// </summary>
+    /// <remarks>
+    /// The half that keeps the family honest. Paying this trigger once per blocker would print a
+    /// strictly better card than the one on the table, and the only thing separating it from the
+    /// test above is whether the sentence names an object - so the two are written side by side.
+    /// </remarks>
+    [Fact]
+    public void A_becomes_blocked_trigger_naming_no_creature_fires_once_for_the_batch()
+    {
+        var afflict = Card(
+            "Afflict Batch Test",
+            "Whenever ~ becomes blocked, you gain 2 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(afflict);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.False(compiled.Triggers[0].PerBlockPair);
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, afflict, Zone.Battlefield);
+        var first = game.Create(
+            bob, TestCards.Creature("Afflict Blocker One Test", 0, 1), Zone.Battlefield);
+
+        var second = game.Create(
+            bob, TestCards.Creature("Afflict Blocker Two Test", 0, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] });
+
+        Settle(game);
+
+        Assert.Single(TriggersFiledBy(game, attacker));
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// CR 509.1h: an attacker nobody blocked did not become blocked, however it was declared.
+    /// </summary>
+    /// <remarks>
+    /// A declaration may name an attacker and give it no blockers, and the reader for "blocks or
+    /// becomes blocked" asked only whether the id was in the declaration at all - so bushido fired
+    /// for an attacker that got through. Its sibling reader for "becomes blocked" had the emptiness
+    /// check from the start, which is the shape of defect this file keeps recording: two spellings
+    /// of one rule, and only one of them right.
+    /// </remarks>
+    [Fact]
+    public void A_block_trigger_does_not_fire_for_an_attacker_nobody_blocked()
+    {
+        var bushido = Card(
+            "Bushido Empty Test",
+            "Whenever ~ blocks or becomes blocked, you gain 2 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(bushido);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, bushido, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        // Named in the declaration, with nothing declared as blocking it.
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [] });
+
+        Settle(game);
+
+        Assert.Empty(TriggersFiledBy(game, attacker));
+        Assert.Equal(before, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A block sentence with no creature in it leaves the pronoun unread rather than aiming it.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half, and the reason both halves of this feature had to be built together.
+    /// "Whenever ~ becomes blocked" supplies no subject - CR 509.3c makes it one trigger for a
+    /// batch of pairs, and no one creature is what it was about - so a "that creature" beside it
+    /// has nothing to mean. Compiling it anyway is what made an earlier attempt aim the damage at
+    /// the permanent with the ability, and this asserts the card is refused instead.
+    /// </remarks>
+    [Fact]
+    public void A_block_pronoun_with_no_creature_named_leaves_the_card_unread()
+    {
+        var refused = Card(
+            "Blocked Pronoun Refused Test",
+            "Whenever ~ becomes blocked, ~ deals 1 damage to that creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        Assert.False(CardCompiler.Compile(refused).IsComplete);
+
+        // The same sentence with the creature named reads, which is what makes the refusal above
+        // a reading of the rule rather than a gap in the grammar.
+        var read = Card(
+            "Blocked Pronoun Read Test",
+            "Whenever ~ becomes blocked by a creature, ~ deals 1 damage to that creature.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(read);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Triggers[0].PerBlockPair);
+    }
+
+    /// <summary>
+    /// The same subject on the same verb, one trigger family along (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// Damage was the last of the pronoun verbs without a subject, and the gap was never only
+    /// about blocking: Aether Flash says "whenever a creature enters, ~ deals 2 damage to it", an
+    /// arrival names exactly one object, and the sentence was unread for want of the same field.
+    /// </remarks>
+    [Fact]
+    public void Damage_to_the_trigger_subject_reaches_the_creature_that_arrived()
+    {
+        var flash = Card(
+            "Aether Flash Test",
+            "Whenever a creature enters, ~ deals 2 damage to it.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(flash);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, flash, Zone.Battlefield);
+        var arriving = game.Create(
+            bob, TestCards.Creature("Aether Flash Victim Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, enchantment);
+        Assert.Single(filed);
+        Assert.Equal(arriving, filed[0].SubjectObject);
+
+        // Two damage on a 2/2 is lethal, and the enchantment is not a creature to damage instead.
+        Assert.DoesNotContain(arriving, game.State.Battlefield);
+        Assert.Contains(enchantment, game.State.Battlefield);
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>
@@ -57034,21 +57365,20 @@ public sealed class CompiledCardBehaviourTests
     /// combat." - Tangle Asp, and the reading this family must never take.
     /// </summary>
     /// <remarks>
-    /// Blocking names no object the engine can hand a sentence: a declaration is a batch, and
-    /// <c>TriggerConditions.NamesAnObject</c> refuses the verb for exactly that reason. So
-    /// "that creature" here has no referent the reader can see, and the only thing left to aim
-    /// at would be the permanent with the ability - which is the basilisk, and destroying the
-    /// basilisk is the opposite of what the card says.
+    /// The reading it must never take is that "that creature" is the Asp. The first cut of the
+    /// destroy arm let the pronoun fall back to the source the way "it" may, and Tangle Asp,
+    /// Venomous Dragonfly and Infernal Medusa compiled into creatures that destroyed themselves
+    /// whenever they blocked - the complete-card count went up by three and all three were wrong,
+    /// which is why the measurement that matters is the set and not the number.
     /// <para>
-    /// This is not hypothetical. The first cut of the destroy arm let "that creature" fall back
-    /// to the source the way "it" may, and three corpus cards - Tangle Asp, Venomous Dragonfly
-    /// and Infernal Medusa - compiled into creatures that destroyed themselves whenever they
-    /// blocked. The complete-card count went up by three and the three cards were wrong, which
-    /// is why the measurement that matters is the set and not the number.
+    /// The three read now, and the difference is where the subject comes from: the pair rather
+    /// than the batch. So this asserts what it always meant to - the creature on the other side of
+    /// the declaration is destroyed and the Asp is not - instead of asserting that nothing happens
+    /// at all, which is what it had to say while there was no subject to hand it.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_delayed_destroy_after_a_blocks_trigger_is_left_unread()
+    public void A_delayed_destroy_after_a_blocks_trigger_takes_the_creature_it_blocked()
     {
         var asp = Card(
             "Tangle Asp Test",
@@ -57059,12 +57389,36 @@ public sealed class CompiledCardBehaviourTests
             toughness: 2);
 
         var compiled = CardCompiler.Compile(asp);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            compiled.Unhandled,
-            line => line.Contains(
-                "destroy that creature at end of combat", StringComparison.Ordinal));
+        var (game, alice, bob) = InMainPhase();
+
+        // A 0/4: it survives the Asp's one point of combat damage, so anything that happens to it
+        // happened because the delayed ability said so.
+        var attacker = game.Create(
+            alice, TestCards.Creature("Tangle Victim Test", 0, 4), Zone.Battlefield);
+
+        var blocker = game.Create(bob, asp, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        // Still there while the combat runs: the destruction is owed at end of combat, not now.
+        Settle(game);
+        Assert.Contains(attacker, game.State.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.PostcombatMain);
+        Settle(game);
+
+        Assert.DoesNotContain(attacker, game.State.Battlefield);
+        Assert.Contains(blocker, game.State.Battlefield);
     }
 
     /// <summary>
