@@ -89,6 +89,23 @@ public sealed record SpellDefinition
     public ImmutableList<ChosenCost> ChosenCosts { get; init; } = [];
 
     /// <summary>
+    /// Additional costs printed as a choice between two prices (CR 601.2b, 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// "As an additional cost to cast this spell, sacrifice a creature or pay {3}{B}." The cost
+    /// is mandatory the way every entry in <see cref="ChosenCosts"/> is — the spell cannot be
+    /// cast without paying it — and which of the two prices is paid is announced as the spell is
+    /// cast (CR 601.2b), so it cannot live in that list: a list is charged whole and this is
+    /// charged one arm of.
+    /// <para>
+    /// The pieces were all here. The half that reads as a chosen cost was read before this
+    /// existed and the mana half was not expressible at all, so the whole line went unread rather
+    /// than the card being made cheaper than it prints — 34 corpus cards on one shape.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<CostChoice> CostChoices { get; init; } = [];
+
+    /// <summary>
     /// The optional additional cost bargain charges, when the card has it (CR 702.166a).
     /// </summary>
     /// <remarks>
@@ -1057,6 +1074,35 @@ public sealed record ActivatedAbilityDefinition
 /// For crew: the combined power the tapped creatures must reach (CR 702.122a). Zero means the
 /// count is what matters instead.
 /// </param>
+/// <summary>
+/// An additional cost the caster picks one price out of (CR 601.2b).
+/// </summary>
+/// <remarks>
+/// Two or more prices and never fewer: a single-price additional cost is a
+/// <see cref="ChosenCost"/> and is read as one. The list is in printed order, which is the order
+/// the choice is resolved in — see <c>Game.ChooseCostOption</c> for the rule that decides.
+/// </remarks>
+public sealed record CostChoice(ImmutableList<CostOption> Options);
+
+/// <summary>One of the prices a <see cref="CostChoice"/> offers (CR 601.2f).</summary>
+/// <remarks>
+/// Three slots because the corpus prints all three and mixes them freely — "sacrifice a creature
+/// or pay {3}{B}", "discard a card or pay 3 life", "pay 5 life or sacrifice a creature or
+/// enchantment". A record that held only mana could hold the others only by dropping them, which
+/// is a cheaper card than the printed one and the direction this must never fail in.
+/// </remarks>
+public sealed record CostOption
+{
+    /// <summary>Mana added to the spell's total cost when this price is taken.</summary>
+    public Mana.ManaCostSpec Mana { get; init; } = MtgEngine.Rules.Mana.ManaCostSpec.Free;
+
+    /// <summary>Life paid when this price is taken (CR 118.8).</summary>
+    public int Life { get; init; }
+
+    /// <summary>What the caster gives up when this price is taken.</summary>
+    public ImmutableList<ChosenCost> Chosen { get; init; } = [];
+}
+
 public sealed record ChosenCost(
     ChosenCostKind Kind,
     int Count,

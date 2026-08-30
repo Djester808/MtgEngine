@@ -103,6 +103,8 @@ public sealed class CompiledPool : IAbilitySource
     public IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) =>
         For(card).PlayerQualities;
 
+    public State.StaticBans BansOf(CardDefinition card) => For(card).Bans;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 

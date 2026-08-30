@@ -71,6 +71,10 @@ public sealed class PlayableCards : IAbilitySource
     public IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) =>
         For(card).PlayerQualitiesOf(card);
 
+    /// <inheritdoc />
+    public MtgEngine.Rules.State.StaticBans BansOf(CardDefinition card) =>
+        For(card).BansOf(card);
+
     public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
         For(card).ReplacementsOf(card);
 

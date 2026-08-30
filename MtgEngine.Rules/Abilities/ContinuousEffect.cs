@@ -639,6 +639,19 @@ public sealed record ReplacementEffectDefinition
     public required Func<GameEvent, GameState, GameObject, bool> Applies { get; init; }
 
     /// <summary>
+    /// Whether this one is a prevention effect, and so answerable to CR 615.12.
+    /// </summary>
+    /// <remarks>
+    /// A permanent's "prevent all combat damage that would be dealt to enchanted creature" is a
+    /// replacement effect functioning from the battlefield (CR 611.2c) rather than an entry in
+    /// <see cref="GameState.Preventions"/> — which means damage that can't be prevented would
+    /// walk straight into it while the state-held shields next door correctly let it through.
+    /// A flag rather than a naming convention on <see cref="Id"/>, because the engine has to be
+    /// able to <em>ask</em>, and a string comparison is a rule nobody can find later.
+    /// </remarks>
+    public bool IsPrevention { get; init; }
+
+    /// <summary>
     /// What happens instead. An empty list means the event simply does not happen — which is how
     /// prevention works (CR 615.1).
     /// </summary>

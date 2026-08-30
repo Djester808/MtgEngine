@@ -427,11 +427,14 @@ public static partial class CardCompiler
         ManaCostSpec? foretell = null;
         string? madness = null;
         var additionalCosts = ImmutableList.CreateBuilder<ChosenCost>();
+        var costChoices = ImmutableList.CreateBuilder<CostChoice>();
         Func<GameState, Guid, IReadOnlyList<Target>, int>? costReduction = null;
         ManaCostSpec? morphCost = null;
         var hasDelve = false;
         var morphAddsCounter = false;
         ManaCostSpec? faceDownWard = null;
+        var unpreventable = ImmutableList.CreateBuilder<UnpreventableStatic>();
+        var noLifeGain = ImmutableList.CreateBuilder<PlayerScope>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
         // the loop for the reason the one-line form is built as a pair: an exile that compiles
@@ -563,7 +566,7 @@ public static partial class CardCompiler
             if (TryTargetCostReduction(line, ref costReduction))
                 continue;
 
-            if (TryAdditionalCost(line, additionalCosts, unhandled))
+            if (TryAdditionalCost(line, additionalCosts, costChoices, unhandled))
                 continue;
 
             if (TrySoulshift(line, triggers, card, unhandled))
@@ -1495,6 +1498,13 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticPrevention(line, replacements))
                 continue;
 
+            // The two prohibitions a permanent prints, refused on an instant or sorcery for the
+            // same reason the shield above is: on a spell the same words say "this turn" and
+            // belong to the sentence parser, and a ban filed here would be one no permanent is
+            // holding up - nothing would ever take it down again.
+            if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain))
+                continue;
+
             if (TryDamageAmount(line, replacements))
                 continue;
 
@@ -1749,6 +1759,7 @@ public static partial class CardCompiler
             ForetellCost = foretell,
             MadnessCost = madness,
             ChosenCosts = additionalCosts.ToImmutable(),
+            CostChoices = costChoices.ToImmutable(),
             CostReduction = costReduction,
             MorphCost = morphCost,
             HasDelve = hasDelve,
@@ -1876,6 +1887,11 @@ public static partial class CardCompiler
             CastLimits = castLimits.ToImmutable(),
             Statics = statics.ToImmutable(),
             PlayerQualities = playerQualities.ToImmutable(),
+            Bans = new StaticBans
+            {
+                Unpreventable = unpreventable.ToImmutable(),
+                NoLifeGain = noLifeGain.ToImmutable(),
+            },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
             HasGift = hasGift,
@@ -10711,26 +10727,134 @@ public static partial class CardCompiler
     private static bool TryAdditionalCost(
         string line,
         ImmutableList<ChosenCost>.Builder into,
+        ImmutableList<CostChoice>.Builder choices,
         ImmutableList<string>.Builder unhandled)
     {
         var m = AdditionalCostLine().Match(line);
         if (!m.Success)
             return false;
 
-        if (ReadCost(m.Groups["cost"].Value.Trim()) is not { } paid
-            || paid.Chosen.Count == 0
-            || !paid.Mana.Symbols.IsEmpty
-            || paid.RequiresTap
-            || paid.Life > 0
-            || paid.SelfCost is not SelfCost.None
-            || paid.Counters is not null)
+        var text = m.Groups["cost"].Value.Trim();
+
+        if (ReadCost(text) is { } paid
+            && paid.Chosen.Count > 0
+            && paid.Mana.Symbols.IsEmpty
+            && !paid.RequiresTap
+            && paid.Life == 0
+            && paid.SelfCost is SelfCost.None
+            && paid.Counters is null)
         {
-            unhandled.Add(line);
+            into.AddRange(paid.Chosen);
             return true;
         }
 
-        into.AddRange(paid.Chosen);
+        // "Sacrifice a creature or pay {3}{B}" - one cost with two prices, and the caster picks
+        // (CR 601.2b). Read after the plain form and not before it, because "sacrifice an
+        // artifact or creature" is a single price whose noun happens to carry the same word, and
+        // the whole-cost reader answers that one correctly already.
+        if (ReadCostChoice(text) is { } choice)
+        {
+            choices.Add(choice);
+            return true;
+        }
+
+        unhandled.Add(line);
         return true;
+    }
+
+    /// <summary>
+    /// "Sacrifice a creature or pay {3}{B}" - an additional cost with two prices (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// The whole difficulty is that "or" does two unrelated jobs in these lines. It joins two
+    /// <em>prices</em> - "sacrifice a creature or pay {2}" - and it also joins two card types
+    /// inside one price - "sacrifice an artifact or creature", which fourteen cards print and
+    /// which is a single cost with a wider filter. A pattern cannot tell them apart; only trying
+    /// to read the pieces can.
+    /// <para>
+    /// So the text is cut at every separator and reassembled greedily, <strong>longest
+    /// first</strong>. "Sacrifice an artifact or creature or pay {4}" tries the whole line, then
+    /// "sacrifice an artifact or creature" - which reads - and carries on from there.
+    /// Shortest-first would take "sacrifice an artifact" and then be left holding the word
+    /// "creature", and a reader that dropped it would have compiled a card whose price is
+    /// narrower than the printed one.
+    /// </para>
+    /// <para>
+    /// Fewer than two prices is not a choice, and anything left over that will not read leaves
+    /// the whole line unread. Both refusals matter in the same direction: a price silently
+    /// dropped is a cheaper card than the one on the table.
+    /// </para>
+    /// </remarks>
+    private static CostChoice? ReadCostChoice(string text)
+    {
+        var parts = CostAlternativeSeparator().Split(text);
+        if (parts.Length < 2)
+            return null;
+
+        var options = ImmutableList.CreateBuilder<CostOption>();
+
+        for (var i = 0; i < parts.Length;)
+        {
+            var taken = -1;
+
+            for (var j = parts.Length; j > i; j--)
+            {
+                if (ReadCostOption(string.Join(" or ", parts[i..j])) is not { } option)
+                    continue;
+
+                options.Add(option);
+                taken = j;
+                break;
+            }
+
+            if (taken < 0)
+                return null;
+
+            i = taken;
+        }
+
+        return options.Count >= 2 ? new CostChoice(options.ToImmutable()) : null;
+    }
+
+    /// <summary>One price out of a cost choice, or null when nothing here can read it.</summary>
+    /// <remarks>
+    /// <see cref="ReadCost"/> does the reading, because a price in a choice is the same thing as
+    /// a cost anywhere else and a second vocabulary for it would drift from this one. Two
+    /// adjustments: the word "pay" comes off a bare mana price, which a cost line printed on an
+    /// activated ability never carries, and a price that is nothing at all is refused so that an
+    /// unreadable fragment cannot pass as a free option.
+    /// <para>
+    /// Tapping the source, sacrificing it, counters and energy are all refused. None appears in
+    /// this family, and each would need the cast path to charge something it has no arm for -
+    /// which would be a card that looks paid for and was not.
+    /// </para>
+    /// </remarks>
+    private static CostOption? ReadCostOption(string text)
+    {
+        var body = text.Trim();
+
+        if (PayManaOption().Match(body) is { Success: true } priced)
+            body = priced.Groups["m"].Value;
+
+        if (ReadCost(body) is not { } paid
+            || paid.RequiresTap
+            || paid.SelfCost is not SelfCost.None
+            || paid.Counters is not null
+            || paid.Energy > 0
+            || paid.CountersChosen)
+        {
+            return null;
+        }
+
+        if (paid.Mana.Symbols.IsEmpty && paid.Life == 0 && paid.Chosen.Count == 0)
+            return null;
+
+        return new CostOption
+        {
+            Mana = paid.Mana,
+            Life = paid.Life,
+            Chosen = paid.Chosen,
+        };
     }
 
     /// <summary>
@@ -13134,6 +13258,85 @@ public static partial class CardCompiler
     /// would still let it kill somebody.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The prohibitions a permanent's static ability prints (CR 119.7, 615.12).
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="TryStaticPrevention"/> and split from it the same way: with "this
+    /// turn" the sentence is a one-shot a spell resolves, and without it the sentence is a static
+    /// ability that has to stop when its permanent does (CR 611.2c). Neither is expressible as
+    /// the other, and a ban compiled with the wrong lifetime is invisible to any count of cards —
+    /// it is a card that plays differently, which is the failure this file is built to avoid.
+    /// <para>
+    /// Unlike the shield, the ban is not a replacement effect and is not filed as one. It changes
+    /// no characteristic and replaces no event: the engine asks whether anything on the
+    /// battlefield forbids a thing, at the moment it is about to happen. That is what makes the
+    /// ban stop dead when the permanent leaves, with no state anywhere to sweep.
+    /// </para>
+    /// <para>
+    /// <strong>No victim clause is read.</strong> "Damage that would be dealt to that creature
+    /// this turn can't be prevented" names one permanent by a pronoun this reader cannot resolve,
+    /// and every static ban in the corpus names a source or nothing at all. A "to" clause
+    /// therefore leaves the line unread rather than being widened into a ban on everything, which
+    /// is the direction a prohibition must never fail in.
+    /// </para>
+    /// </remarks>
+    private static bool TryStaticBans(
+        string line,
+        ImmutableList<UnpreventableStatic>.Builder unpreventable,
+        ImmutableList<PlayerScope>.Builder noLifeGain)
+    {
+        if (EffectPhrase.ReadLifeGainBanSentence(line) is { ForTheTurn: false } life)
+        {
+            noLifeGain.Add(life.Players);
+            return true;
+        }
+
+        // "The damage" is a spell talking about its own damage as it resolves, and a permanent
+        // has no such moment. Refused rather than read as the host, which would be a ban on
+        // everything the permanent ever deals from a card that said no such thing.
+        if (EffectPhrase.ReadPreventionBanSentence(line)
+            is not { ForTheTurn: false, BySelf: false } ban)
+        {
+            return false;
+        }
+
+        string? filter = null;
+        PlayerScope? whose = null;
+        var dealtByHost = false;
+
+        if (ban.Sources is { } dealt)
+        {
+            // "~" is the permanent itself, which is an identity the engine binds when it asks
+            // rather than a description anything could answer (CR 609.7a). "This creature" has
+            // already become "~" by the time a line reaches here.
+            if (string.Equals(dealt, "~", StringComparison.Ordinal))
+            {
+                dealtByHost = true;
+            }
+            else if (EffectPhrase.PreventSource(dealt) is { } dealer)
+            {
+                (filter, whose) = dealer;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        unpreventable.Add(new UnpreventableStatic
+        {
+            Id = "unpreventable:" + ban.Kind + ":"
+                + (dealtByHost ? "~" : filter ?? "any") + ":" + whose,
+            Kind = ban.Kind,
+            DealtBySource = dealtByHost,
+            SourceFilter = filter,
+            SourceController = whose,
+        });
+
+        return true;
+    }
+
     private static bool TryStaticPrevention(
         string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {
@@ -13366,6 +13569,11 @@ public static partial class CardCompiler
         {
             Id = StaticShieldId(kind, victim, described, dealer, from),
             FunctionsFrom = Zone.Battlefield,
+
+            // CR 615.12: unpreventable damage has to walk past this the same way it walks past
+            // the state-held shields. Without the flag the two halves of the prevention family
+            // would answer a Skullcrack differently, and only one of them would be right.
+            IsPrevention = true,
             Applies = (e, state, source) =>
             {
                 if (when is not null && !when(state, EmptyAbilities.Instance, source))
@@ -17639,6 +17847,16 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^(\{[^}]+\}|,|\s)*$")]
     private static partial Regex PayableCost();
 
+    /// <remarks>
+    /// The comma arm is what reads "sacrifice a creature, discard a card, or pay 4 life" - three
+    /// prices rather than two, and the only card in the corpus that prints one.
+    /// </remarks>
+    [GeneratedRegex(@",\s*or\s+|,\s+|\s+or\s+", RegexOptions.IgnoreCase)]
+    private static partial Regex CostAlternativeSeparator();
+
+    [GeneratedRegex(@"^pay (?<m>(\{[^}]+\})+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex PayManaOption();
+
     [GeneratedRegex(
         @"^(When|Whenever|At)\s+(?<when>[^,]+),\s*(?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex TriggerLine();
@@ -17825,6 +18043,16 @@ public sealed record CompiledCard
     /// </remarks>
     public ImmutableList<PlayerQualityDefinition> PlayerQualities { get; init; } = [];
 
+    /// <summary>
+    /// What this card's static abilities forbid outright (CR 119.7, 615.12).
+    /// </summary>
+    /// <remarks>
+    /// One record holding both bans rather than a list each, because Leyline of Punishment
+    /// prints them on consecutive lines and the engine asks two different questions of the
+    /// answer. See <see cref="StaticBans"/>.
+    /// </remarks>
+    public StaticBans Bans { get; init; } = StaticBans.None;
+
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
     /// <summary>
@@ -17923,5 +18151,6 @@ public sealed record CompiledCard
         || RevealsTopOfLibrary
         || MayBeginOnBattlefield
         || !CastLimits.IsEmpty
+        || !Bans.IsEmpty
         || AttacksOnlyIfDefenderControls is not null;
 }

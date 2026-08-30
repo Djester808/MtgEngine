@@ -61625,6 +61625,728 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Damage that can't be prevented, life that can't be gained (CR 615.12, 119.7) -------
+
+    /// <summary>
+    /// Plays on until this player can act again, without letting the turn roll over.
+    /// </summary>
+    /// <remarks>
+    /// Every one of these tests needs several casts on one turn, and <see cref="Settle"/> leaves
+    /// priority wherever the resolution did. The turn is asserted rather than assumed because
+    /// these are the tests where it matters most: a ban reading "this turn" would be swept by a
+    /// cleanup the test did not know it had crossed, and the test would pass for the wrong
+    /// reason.
+    /// </remarks>
+    private static void Ready(Game game, Guid playerId)
+    {
+        var turn = game.State.TurnNumber;
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == playerId);
+        Assert.Equal(turn, game.State.TurnNumber);
+    }
+
+    /// <summary>Whether a card of this name is in that player's graveyard.</summary>
+    /// <remarks>
+    /// By name rather than by id: a permanent that is sacrificed becomes a new object in the
+    /// graveyard (CR 400.7), so the id the battlefield knew it by finds nothing at all.
+    /// </remarks>
+    private static bool InGraveyard(Game game, Guid playerId, string name) =>
+        game.State.GetPlayer(playerId).Graveyard
+            .Select(game.State.GetObject)
+            .Any(o => o.Card.Name == name);
+
+    /// <summary>A shield that soaks, so the ban below has something to be measured against.</summary>
+    private static CardDefinition PreventionShield(string name) => Card(
+        name,
+        "Prevent the next 2 damage that would be dealt to target creature this turn.");
+
+    [Fact]
+    public void A_shield_holds_until_a_ban_says_the_damage_cant_be_prevented()
+    {
+        // The control half first, because a ban that reads more broadly than it prints makes
+        // every shield useless and nothing about the coverage number would notice. The shield
+        // has to be seen working before the ban is seen beating it.
+        var ban = Card("Flaring Pain Test", "Damage can't be prevented this turn.");
+
+        var compiled = CardCompiler.Compile(ban);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Painless Bear Test", 9, 9), Zone.Battlefield);
+        var source = game.Create(alice, TestCards.Creature("Painless Source Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Painless Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.MarkDamage(bear, 2, sourceId: source);
+        Settle(game);
+
+        // Control: the shield really does stop damage arriving.
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+
+        Ready(game, alice);
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Painless Shield Two Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ban), []);
+        Settle(game);
+
+        game.MarkDamage(bear, 2, sourceId: source);
+        Settle(game);
+
+        // And with the ban up, the same two points arrive.
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_shield_is_not_spent_by_damage_it_could_not_have_prevented()
+    {
+        // CR 615.12's last sentence, and the half that is invisible unless it is asserted:
+        // "existing damage prevention shields won't be reduced by damage that can't be
+        // prevented". A prevention arm that ran and prevented nothing would still have emptied
+        // the shield, and the card would look right for exactly one damage event.
+        var excruciator = Card(
+            "Excruciator Test",
+            "Damage that would be dealt by ~ can't be prevented.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(excruciator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Unsoaked Bear Test", 9, 9), Zone.Battlefield);
+        var banned = game.Create(alice, excruciator, Zone.Battlefield);
+        var ordinary = game.Create(
+            alice, TestCards.Creature("Ordinary Source Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Unsoaked Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.MarkDamage(bear, 3, sourceId: banned);
+        Settle(game);
+
+        // All three arrived, and the shield is untouched.
+        Assert.Equal(3, game.State.GetObject(bear).Permanent!.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageToPrevent);
+
+        // Which is the whole point: it is still there for the damage it can stop.
+        game.MarkDamage(bear, 2, sourceId: ordinary);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(bear).Permanent!.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageToPrevent);
+    }
+
+    [Fact]
+    public void A_bans_source_clause_leaves_every_other_source_preventable()
+    {
+        // The trap this family is most dangerous for. Read as "damage can't be prevented" with
+        // the "by ~" dropped, Excruciator would turn off every shield on the table.
+        var excruciator = Card(
+            "Narrow Ban Test",
+            "Damage that would be dealt by ~ can't be prevented.",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Narrow Bear Test", 9, 9), Zone.Battlefield);
+        game.Create(alice, excruciator, Zone.Battlefield);
+        var other = game.Create(alice, TestCards.Creature("Narrow Other Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Narrow Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.MarkDamage(bear, 2, sourceId: other);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_static_ban_stops_the_moment_its_permanent_does()
+    {
+        // CR 611.2c: a static ability's effect lasts exactly as long as the permanent. Held as
+        // state instead, the ban would go on working from the graveyard - the mistake the
+        // prevention shield made in the other direction, and which this file records.
+        var leyline = Card(
+            "Punishment Leyline Test",
+            "Players can't gain life.\nDamage can't be prevented.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(leyline);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Leyline Bear Test", 9, 9), Zone.Battlefield);
+        var source = game.Create(alice, TestCards.Creature("Leyline Source Test", 1, 1), Zone.Battlefield);
+        var enchantment = game.Create(alice, leyline, Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Leyline Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.MarkDamage(bear, 2, sourceId: source);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+
+        game.Move(enchantment, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        // The shield was never spent, so it is still there when the ban goes.
+        game.MarkDamage(bear, 2, sourceId: source);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void The_no_duration_ban_is_a_static_and_the_this_turn_ban_is_not()
+    {
+        // The control that keeps the two readers apart, and it asserts both directions of the
+        // mistake. A "this turn" ban compiled as a static would never come down; a no-duration
+        // ban compiled as a one-shot would be filed in state by a card already in a graveyard.
+        Assert.Contains(
+            "Damage can't be prevented.",
+            CardCompiler.Compile(Card("Undated Ban Test", "Damage can't be prevented.")).Unhandled);
+
+        Assert.Contains(
+            "Damage can't be prevented this turn.",
+            CardCompiler.Compile(
+                Card(
+                    "Dated Ban Test",
+                    "Damage can't be prevented this turn.",
+                    CardType.Enchantment)).Unhandled);
+    }
+
+    [Fact]
+    public void The_ban_ends_with_the_turn_that_bought_it()
+    {
+        // CR 514.2. Left standing, "damage can't be prevented this turn" would go on switching
+        // shields off for the rest of the game.
+        var ban = Card("Expiring Ban Test", "Damage can't be prevented this turn.");
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Expiring Bear Test", 9, 9), Zone.Battlefield);
+        var source = game.Create(alice, TestCards.Creature("Expiring Source Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ban), []);
+        Settle(game);
+
+        Assert.Single(game.State.Unpreventable);
+
+        TestCards.PassToTurn(game, game.State.TurnNumber + 2);
+        Assert.Empty(game.State.Unpreventable);
+
+        Ready(game, alice);
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Expiring Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.MarkDamage(bear, 2, sourceId: source);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_combat_only_ban_leaves_noncombat_damage_preventable()
+    {
+        // Questing Beast's line. "Combat" is the whole difference between a card that turns off
+        // one kind of shield and a card that turns off all of them.
+        var beast = Card(
+            "Questing Ban Test",
+            "Combat damage that would be dealt by creatures you control can't be prevented.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(beast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Questing Bear Test", 9, 9), Zone.Battlefield);
+        game.Create(alice, beast, Zone.Battlefield);
+        var pinger = game.Create(alice, TestCards.Creature("Questing Pinger Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Questing Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Noncombat damage from a creature Alice controls, which the ban does not cover.
+        game.MarkDamage(bear, 2, sourceId: pinger);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_ban_beats_a_fog_and_the_combat_damage_lands()
+    {
+        // The fog is applied wholesale in the combat damage step rather than per event, which is
+        // the same answer far cheaper - right up until a ban makes some events different from
+        // others. Without this the step would short-circuit and the ban would do nothing at all
+        // to the commonest prevention effect in the game.
+        var fog = Card("Ban Fog Test", "Prevent all combat damage that would be dealt this turn.");
+        var ban = Card("Ban Skullcrack Test", "Damage can't be prevented this turn.");
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(
+            alice, TestCards.Creature("Ban Attacker Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ban), []);
+        Settle(game);
+
+        Ready(game, bob);
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, fog), []);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_fog_still_stops_combat_damage_when_no_ban_is_in_play()
+    {
+        // The other half of the shortcut above, so a change to it cannot quietly turn every fog
+        // in the game off.
+        var fog = Card("Plain Fog Test", "Prevent all combat damage that would be dealt this turn.");
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(
+            alice, TestCards.Creature("Plain Attacker Test", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        Ready(game, bob);
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, fog), []);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void The_damage_cant_be_prevented_covers_this_spell_and_nothing_else()
+    {
+        // Combust and Pinpoint Avalanche print the rider *after* the damage it is about, so the
+        // ban has to exist before the sentence that deals it - and it names one source, so every
+        // other source stays shielded. Both halves are asserted, because the natural mistakes
+        // are opposite: a ban created too late does nothing, and a ban with its source slot
+        // empty fogs the whole table.
+        var combust = Card(
+            "Combust Test",
+            "~ deals 5 damage to target creature. The damage can't be prevented.");
+
+        var compiled = CardCompiler.Compile(combust);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Combust Bear Test", 9, 9), Zone.Battlefield);
+        var other = game.Create(alice, TestCards.Creature("Combust Other Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, PreventionShield("Combust Shield Test")),
+            [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, combust), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // All five arrived through a shield that is still standing.
+        Assert.Equal(5, game.State.GetObject(bear).Permanent!.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageToPrevent);
+
+        // And somebody else's damage is prevented exactly as before.
+        game.MarkDamage(bear, 2, sourceId: other);
+        Settle(game);
+
+        Assert.Equal(5, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void Players_cant_gain_life_stops_every_seat()
+    {
+        // CR 119.7. The control comes first for the same reason the shield's does: a ban asserted
+        // only by the presence of a state row proves nothing about whether life stops moving.
+        var gain = Card("Life Gift Test", "Target player gains 3 life.");
+        var festival = Card("Havoc Ban Test", "Players can't gain life.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(festival);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(bob).Life);
+
+        game.Create(alice, festival, Zone.Battlefield);
+        Settle(game);
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(bob).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void Your_opponents_cant_gain_life_leaves_you_gaining()
+    {
+        // The scope is the whole card. Read as "players", Rampaging Ferocidon would stop its own
+        // controller too - which is a different and much worse card.
+        var ferocidon = Card(
+            "Ferocidon Ban Test",
+            "Your opponents can't gain life.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(ferocidon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var gain = Card("Ferocidon Gift Test", "Target player gains 3 life.");
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, ferocidon, Zone.Battlefield);
+        Settle(game);
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(alice)]);
+        Settle(game);
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_life_ban_stops_gaining_and_not_losing()
+    {
+        // CR 119.7 is about one direction. A guard that filtered every life change would make
+        // the card protect the table it was printed to punish.
+        var festival = Card("One Way Ban Test", "Players can't gain life.", CardType.Enchantment);
+        var drain = Card("One Way Drain Test", "Target player loses 3 life.");
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, festival, Zone.Battlefield);
+        Settle(game);
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_life_ban_for_the_turn_ends_with_it()
+    {
+        // Atarka's Command's half, and the same CR 514.2 check the prevention ban gets. A ban
+        // that outlived its turn would be a permanent effect printed on an instant.
+        var command = Card("Atarka Ban Test", "Your opponents can't gain life this turn.");
+        var gain = Card("Atarka Gift Test", "Target player gains 3 life.");
+
+        var compiled = CardCompiler.Compile(command);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, command), []);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        TestCards.PassToTurn(game, game.State.TurnNumber + 2);
+        Assert.Empty(game.State.LifeGainBans);
+
+        Ready(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void Skullcrack_bans_both_things_and_still_deals_its_damage()
+    {
+        // The card the two halves were measured on. Neither clause pays for it alone: read one
+        // and the other line is still unread, and the card stays out of every deck.
+        var skullcrack = Card(
+            "Skullcrack Test",
+            "Players can't gain life this turn. Damage can't be prevented this turn. "
+                + "~ deals 3 damage to target player or planeswalker.");
+
+        var compiled = CardCompiler.Compile(skullcrack);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var shield = Card(
+            "Skullcrack Shield Test",
+            "Prevent the next 2 damage that would be dealt to you this turn.");
+
+        var gain = Card("Skullcrack Gift Test", "Target player gains 3 life.");
+
+        var (game, alice, bob) = InMainPhase();
+
+        Ready(game, bob);
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, shield), []);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetPlayer(bob).DamageToPrevent);
+
+        Ready(game, alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, skullcrack), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // All three arrived and the shield is unspent (CR 615.12).
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetPlayer(bob).DamageToPrevent);
+
+        Ready(game, bob);
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, gain), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    // ---- An additional cost that is a choice (CR 601.2b) ------------------------------------
+
+    /// <summary>A burn spell whose additional cost is the choice under test.</summary>
+    private static CardDefinition ChoiceSpell(string name, string cost, string manaCost) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = $"As an additional cost to cast ~, {cost}\n~ deals 3 damage to any target.",
+        CardTypes = CardType.Instant,
+        ManaCostRaw = manaCost,
+        Cmc = manaCost.Count(c => c == '{'),
+    };
+
+    [Fact]
+    public void A_cost_choice_takes_the_price_the_caster_offered()
+    {
+        // "Sacrifice a creature or discard a card" - two prices over two different zones, and
+        // what the caster hands over is the announcement (CR 601.2b).
+        var shards = ChoiceSpell(
+            "Bone Shards Test", "sacrifice a creature or discard a card.", "{B}");
+
+        var compiled = CardCompiler.Compile(shards);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var goat = game.Create(alice, TestCards.Creature("Shards Goat Test", 1, 1), Zone.Battlefield);
+        var spare = TestCards.PutInHand(game, alice, TestCards.Creature("Shards Spare Test", 2, 2));
+
+        game.ActivateAbility(alice, swamp, "mana");
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, shards),
+            [Target.ToPlayer(bob)],
+            costPayment: [goat]);
+        Settle(game);
+
+        // The creature went, the card in hand did not.
+        Assert.True(InGraveyard(game, alice, "Shards Goat Test"));
+        Assert.Equal(Zone.Hand, game.State.GetObject(spare).Zone);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void The_other_price_of_a_cost_choice_is_taken_from_the_other_zone()
+    {
+        var shards = ChoiceSpell(
+            "Bone Shards Two Test", "sacrifice a creature or discard a card.", "{B}");
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var goat = game.Create(alice, TestCards.Creature("Shards Two Goat Test", 1, 1), Zone.Battlefield);
+        var spare = TestCards.PutInHand(game, alice, TestCards.Creature("Shards Two Spare Test", 2, 2));
+
+        game.ActivateAbility(alice, swamp, "mana");
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, shards),
+            [Target.ToPlayer(bob)],
+            costPayment: [spare]);
+        Settle(game);
+
+        Assert.Equal(Zone.Battlefield, game.State.GetObject(goat).Zone);
+        Assert.True(InGraveyard(game, alice, "Shards Two Spare Test"));
+    }
+
+    [Fact]
+    public void The_mana_price_is_charged_when_nothing_is_offered()
+    {
+        // "Sacrifice a creature or pay {2}" - and the mana arm is the half that had nowhere to
+        // go, which is why the whole line went unread rather than the card being made cheaper.
+        var harvest = ChoiceSpell(
+            "Spark Harvest Test", "sacrifice a creature or pay {2}.", "{B}");
+
+        var compiled = CardCompiler.Compile(harvest);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, harvest);
+
+        game.ActivateAbility(alice, swamp, "mana");
+
+        // One mana pays the printed cost and not the extra two (CR 601.2h).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPlayer(bob)]));
+
+        var second = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var third = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        game.ActivateAbility(alice, second, "mana");
+        game.ActivateAbility(alice, third, "mana");
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void The_creature_price_is_taken_instead_of_the_mana_when_one_is_offered()
+    {
+        var harvest = ChoiceSpell(
+            "Spark Harvest Two Test", "sacrifice a creature or pay {2}.", "{B}");
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Harvest Goat Test", 1, 1), Zone.Battlefield);
+        var goat = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Harvest Goat Test")
+            .Id;
+
+        game.ActivateAbility(alice, swamp, "mana");
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, harvest),
+            [Target.ToPlayer(bob)],
+            costPayment: [goat]);
+        Settle(game);
+
+        // One swamp was enough, because the creature paid the rest.
+        Assert.True(InGraveyard(game, alice, "Harvest Goat Test"));
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_life_price_in_a_cost_choice_is_charged()
+    {
+        var triumph = ChoiceSpell(
+            "Bitter Triumph Test", "discard a card or pay 3 life.", "{B}");
+
+        var compiled = CardCompiler.Compile(triumph);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, swamp, "mana");
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, triumph), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void An_or_inside_one_price_is_not_a_choice_between_two()
+    {
+        // Fourteen corpus cards print "sacrifice an artifact or creature", which is one price
+        // with a wider filter. Split into two prices it would become a card that could be paid
+        // for by sacrificing an artifact *or* by doing nothing at all.
+        var glare = ChoiceSpell(
+            "Wide Filter Test", "sacrifice an artifact or creature.", "{B}");
+
+        var compiled = CardCompiler.Compile(glare);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var spell = Pool.For(glare).Spell;
+        Assert.NotNull(spell);
+        Assert.Empty(spell!.CostChoices);
+        Assert.Single(spell.ChosenCosts);
+    }
+
+    [Fact]
+    public void A_wide_filter_beside_a_mana_price_keeps_both_halves()
+    {
+        // "Sacrifice an artifact or creature or pay {4}" is three fragments and two prices, and
+        // only the longest-first reassembly gets it right: taken shortest-first the reader would
+        // be left holding the word "creature" and would have to refuse the line.
+        var trouble = ChoiceSpell(
+            "Stir Up Trouble Test", "sacrifice an artifact or creature or pay {4}.", "{B}");
+
+        var compiled = CardCompiler.Compile(trouble);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var choice = Assert.Single(Pool.For(trouble).Spell!.CostChoices);
+        Assert.Equal(2, choice.Options.Count);
+
+        var sacrifice = Assert.Single(choice.Options[0].Chosen);
+        Assert.Equal(ChosenCostKind.SacrificePermanents, sacrifice.Kind);
+        Assert.Empty(choice.Options[1].Chosen);
+        Assert.Equal(4, choice.Options[1].Mana.ManaValue);
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>

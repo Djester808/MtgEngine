@@ -3885,6 +3885,103 @@ public sealed record PreventDescribedDamage : IEffect
     }
 }
 
+/// <summary>
+/// Says that some damage can't be prevented (CR 615.12).
+/// </summary>
+/// <remarks>
+/// The exact inverse of <see cref="PreventDescribedDamage"/> and built on the same record, for
+/// the reason the state field is: the two sentences describe the same set of damage events in
+/// the same words. What CR 615.12 adds is what happens when both are true at once — every
+/// applicable prevention effect is still applied, prevents nothing, and, the clause that is
+/// invisible unless it is stated, <em>does not spend the shield</em>. The engine buys all three
+/// by skipping the prevention arms rather than by zeroing their amounts.
+/// <para>
+/// Nothing in this engine prints a prevention with an additional effect attached ("prevent that
+/// damage; if you do, draw a card"), so the half of CR 615.12 that keeps those riders running is
+/// vacuous here. It is written down rather than left implied, because the day a rider exists the
+/// skip above becomes wrong and this is the note that says so.
+/// </para>
+/// </remarks>
+public sealed record BanDamagePrevention : IEffect
+{
+    /// <summary>Whether it covers all damage or combat damage only.</summary>
+    public State.DamageKind Kind { get; init; }
+
+    /// <summary>
+    /// True for "the damage can't be prevented" — the damage this very spell deals.
+    /// </summary>
+    /// <remarks>
+    /// CR 609.7a fixes a source when the effect is created, so this is the resolving object's id
+    /// and not a description. A ban with the slot left empty covers <em>every</em> source at the
+    /// table, which is a wholly different card: Combust would stop the opponent's fog as well as
+    /// its own, and the coverage number cannot see the difference.
+    /// </remarks>
+    public bool BySource { get; init; }
+
+    /// <summary>
+    /// Whether it ends as the turn does (CR 514.2), which is what "this turn" means.
+    /// </summary>
+    /// <remarks>
+    /// Always true for the sentences a spell resolves — a ban printed with no duration at all is
+    /// a permanent's static ability, which is read off the battlefield rather than resolved.
+    /// The spell-scoped form keeps the duration too: its source has left the stack by the time
+    /// the turn ends, so the entry would never be reachable again in any case, and letting it
+    /// outlive the turn would leave the log holding rows nothing can ever match.
+    /// </remarks>
+    public bool ForTheTurn { get; init; } = true;
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new UnpreventableDamageDeclared(new State.PreventionEffect
+            {
+                Id = Guid.NewGuid(),
+                ControllerId = context.ControllerId,
+                Kind = Kind,
+                Source = BySource ? context.PhysicalSourceId : null,
+                UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
+            }),
+        ];
+    }
+}
+
+/// <summary>Stops a described set of players gaining life (CR 119.7).</summary>
+/// <remarks>
+/// The players are read off the scope when the ban is made rather than when it is asked, which
+/// is the wrong half of CR 119.7 to get wrong in only one direction: a scope re-read later would
+/// catch a player who joined the ban's set afterwards. It is stored as a scope for the same
+/// reason <see cref="PreventionEffect.Players"/> is — "your opponents" is a description the
+/// shared vocabulary already answers, and copying the answer into a list would be a second
+/// place for it to disagree.
+/// </remarks>
+public sealed record BanLifeGain : IEffect
+{
+    /// <summary>Which players it stops — "players", "your opponents".</summary>
+    public PlayerScope Players { get; init; } = PlayerScope.EachPlayer;
+
+    /// <summary>Whether it ends as the turn does (CR 514.2).</summary>
+    public bool ForTheTurn { get; init; } = true;
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new LifeGainBanned(new State.LifeGainBan
+            {
+                Id = Guid.NewGuid(),
+                ControllerId = context.ControllerId,
+                Players = Players,
+                UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
+            }),
+        ];
+    }
+}
+
 /// <summary>Counters a target spell (CR 701.6).</summary>
 /// <remarks>
 /// A countered spell is put into its owner's graveyard from the stack; it does not resolve, so

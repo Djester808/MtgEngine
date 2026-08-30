@@ -1088,6 +1088,31 @@ public sealed record PreventionEffectCreated(PreventionEffect Effect) : GameEven
         + " will be prevented.";
 }
 
+/// <summary>
+/// A resolving spell or ability said some damage can't be prevented (CR 615.12).
+/// </summary>
+/// <remarks>
+/// The mirror of <see cref="PreventionEffectCreated"/> and carries the same record, because a
+/// ban and a shield describe damage in the same words — "damage can't be prevented this turn"
+/// against "prevent all damage this turn". What differs is which side of the prevention pass
+/// reads it.
+/// </remarks>
+public sealed record UnpreventableDamageDeclared(PreventionEffect Damage) : GameEvent
+{
+    public override string Rule => "615.12";
+
+    public override string Describe() =>
+        (Damage?.Kind == DamageKind.Combat ? "Combat damage" : "Damage") + " can't be prevented.";
+}
+
+/// <summary>A resolving spell or ability stopped a player gaining life (CR 119.7).</summary>
+public sealed record LifeGainBanned(LifeGainBan Ban) : GameEvent
+{
+    public override string Rule => "119.7";
+
+    public override string Describe() => "Life can't be gained.";
+}
+
 /// <summary>A prevention shield was created, or spent (CR 615.7).</summary>
 public sealed record PreventionChanged(ObjectId Id, int Delta) : GameEvent
 {

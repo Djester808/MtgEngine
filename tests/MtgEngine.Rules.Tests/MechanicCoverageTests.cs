@@ -73,6 +73,13 @@ public sealed partial class MechanicCoverageTests
         "AlternativeManaPart",
         "AlternativeLifePart",
 
+        // One price out of an additional cost printed as a choice (CR 601.2b), not a line: the
+        // reader cuts "sacrifice a creature or pay {2}" at the "or" and offers each half to
+        // this in turn, so no card line is ever equal to it. Played through the lines that
+        // contain it, by The_mana_price_is_charged_when_nothing_is_offered and
+        // A_wide_filter_beside_a_mana_price_keeps_both_halves.
+        "PayManaOption",
+
         // One clause of a copy effect's exception list (CR 707.9), not a line: each is handed
         // only what was cut out after "except" and split on "and". Played through the line that
         // contains them - An_exception_to_the_copy_changes_the_card_that_is_copied for the

@@ -264,6 +264,20 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) => [];
 
     /// <summary>
+    /// What a card's static abilities forbid outright — prevention, and life gain
+    /// (CR 119.7, 615.12).
+    /// </summary>
+    /// <remarks>
+    /// A third list beside <see cref="StaticsOf"/> and <see cref="PlayerQualitiesOf"/>, and for
+    /// the reason those two are apart from each other: a prohibition is neither a characteristic
+    /// nor an ability granted to anyone. It changes nothing in CR 613's layers and replaces no
+    /// event — it is a question asked at the one moment it matters, answered from whatever is on
+    /// the battlefield right then, which is what makes it stop when the permanent does
+    /// (CR 611.2c) rather than needing to be swept.
+    /// </remarks>
+    State.StaticBans BansOf(CardDefinition card) => State.StaticBans.None;
+
+    /// <summary>
     /// Keywords the card's own rules text gives it beyond those printed as keywords (CR 702).
     /// </summary>
     /// <remarks>
