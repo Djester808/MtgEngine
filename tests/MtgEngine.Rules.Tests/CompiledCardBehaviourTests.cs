@@ -50749,6 +50749,515 @@ public sealed class CompiledCardBehaviourTests
             2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(source)));
     }
 
+    // ---- A token that's a copy, and its exceptions (CR 707.2, 707.9b) --------
+
+    /// <summary>
+    /// A token created as a copy is the copied card, abilities and all (CR 707.2a).
+    /// </summary>
+    /// <remarks>
+    /// The size is not the assertion that earns its place. A token minted at the right power and
+    /// toughness with none of the copied card's behaviour passes every characteristic check and
+    /// is the wrong card at the only moment anybody notices - so the copied <c>{T}</c> ability is
+    /// made to resolve and the copied attack trigger is made to fire, on a token that came from a
+    /// spell printing neither.
+    /// <para>
+    /// The two life totals are the whole test: 1 from the copied tap ability and 3 from the
+    /// copied trigger, against a starting 20. An engine that copied the numbers and dropped the
+    /// abilities leaves Alice on 20 with every other assertion still green.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_copy_plays_the_copied_cards_abilities()
+    {
+        var original = Card(
+            "Token Copy Source Test",
+            "Whenever this creature attacks, you gain 3 life.\n{T}: You gain 1 life.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.Flying,
+            "Bird");
+
+        var compiled = CardCompiler.Compile(original);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var maker = Card(
+            "Token Copy Maker Test",
+            "Create a token that's a copy of target creature you control.");
+
+        Assert.True(CardCompiler.Compile(maker).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var bird = game.Create(alice, original, Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, maker), [Target.ToPermanent(bird)]);
+
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Source Test");
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(token));
+
+        Assert.Equal(3, now.Power);
+        Assert.Equal(3, now.Toughness);
+        Assert.True(now.Has(KeywordAbility.Flying));
+        Assert.Contains("Bird", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // Summoning sickness is the token's too (CR 302.6): it waits a turn like anything else,
+        // and then the copied attack trigger fires - 20 -> 23, with Bob taking the copied card's
+        // 3 power rather than anything the spell printed.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [token] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+
+        // And the copied activated ability is offered on the token and resolves: 23 -> 24. A turn
+        // later than the attack because it costs {T} and the token spent its untapped turn
+        // attacking.
+        PassTo(game, 5, TurnStep.PrecombatMain);
+
+        var granted = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(token)));
+
+        game.ActivateAbility(alice, token, granted.Id);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// An "except" clause changes the copied card and nothing else (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// Ratadrabik of Urborg's clause, which is the one that separates an added characteristic
+    /// from a replaced one: "in addition to its other <em>colors and</em> types" adds black to
+    /// what the creature already was, while the same sentence without those two words would
+    /// replace the colour outright. Both halves are asserted, because a reader that treated every
+    /// colour as a replacement would leave this token black and not green and look perfectly
+    /// reasonable doing it.
+    /// <para>
+    /// The copied ability is asserted as well. CR 707.9b modifies a <em>characteristic</em>, so
+    /// the exception must not cost the copy its behaviour - a Zombie that forgot what it copied
+    /// is the failure this whole family fails towards.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_except_clause_adds_a_colour_and_keeps_the_copied_ability()
+    {
+        var lord = new CardDefinition
+        {
+            OracleId = "oracle-token-copy-legend-test",
+            Name = "Token Copy Legend Test",
+            OracleText = "Other creatures you control get +1/+1.",
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            Subtypes = ["Elf"],
+            Colors = [ManaColor.Green],
+            ColorIdentity = [ManaColor.Green],
+            Power = 4,
+            Toughness = 4,
+        };
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var maker = Card(
+            "Token Copy Zombie Maker Test",
+            "Create a token that's a copy of target creature you control, except it's not "
+                + "legendary and it's a 2/2 black Zombie in addition to its other colors and types.");
+
+        Assert.True(
+            CardCompiler.Compile(maker).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(maker).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var elf = game.Create(alice, lord, Zone.Battlefield);
+
+        // A third creature the spell never touches, so the copied anthem has somewhere to show.
+        var bystander = game.Create(
+            alice, TestCards.Creature("Token Copy Bystander Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, maker), [Target.ToPermanent(elf)]);
+
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Legend Test");
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(token));
+
+        // The size the clause names is written onto the copied card, which is what CR 707.9b
+        // says the exception does - and the board then reads 3/3, because the creature it copied
+        // is a lord and pumps it. Both are asserted: the copiable value proves the exception
+        // landed, and the computed one proves it landed in layer 1 rather than on top of the
+        // layers, where an anthem would have been overwritten by it.
+        Assert.Equal(2, now.Card.Power);
+        Assert.Equal(2, now.Card.Toughness);
+        Assert.Equal(3, now.Power);
+        Assert.Equal(3, now.Toughness);
+
+        // "Not legendary" is why the token is on the battlefield at all: kept, the legend rule
+        // would have made Alice bin one of the two (CR 704.5j).
+        Assert.DoesNotContain(
+            "Legendary", now.Card.Supertypes, StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(
+            2,
+            game.State.Battlefield.Count(
+                id => game.State.GetObject(id).Card.Name == "Token Copy Legend Test"));
+
+        // Added, not replaced: the token is a green Elf *and* a black Zombie.
+        Assert.Contains(ManaColor.Green, now.Colors);
+        Assert.Contains(ManaColor.Black, now.Colors);
+        Assert.Contains("Elf", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Zombie", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // Two anthems now, on a creature neither of them was aimed at: the exception changed the
+        // card's characteristics and left its static ability exactly where it was.
+        Assert.Equal(
+            3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bystander)));
+    }
+
+    /// <summary>
+    /// A clause with no "in addition" replaces what it names (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// Croaking Counterpart, and the other side of the sentence above. Its token is a 1/1 green
+    /// Frog and nothing else - not a green Frog Beast, and not a green and white one - which is
+    /// the whole reason the two clauses have to be read as different rules rather than as one
+    /// permissive pattern.
+    /// </remarks>
+    [Fact]
+    public void An_except_clause_without_in_addition_replaces_the_colour_and_the_types()
+    {
+        var beast = new CardDefinition
+        {
+            OracleId = "oracle-token-copy-beast-test",
+            Name = "Token Copy Beast Test",
+            OracleText = string.Empty,
+            CardTypes = CardType.Creature,
+            Subtypes = ["Beast", "Warrior"],
+            Colors = [ManaColor.White],
+            ColorIdentity = [ManaColor.White],
+            Power = 5,
+            Toughness = 5,
+        };
+
+        var maker = Card(
+            "Token Copy Frog Maker Test",
+            "Create a token that's a copy of target non-Frog creature, except it's a 1/1 green Frog.");
+
+        Assert.True(
+            CardCompiler.Compile(maker).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(maker).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var target = game.Create(alice, beast, Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, maker), [Target.ToPermanent(target)]);
+
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Beast Test");
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(token));
+
+        Assert.Equal(1, now.Power);
+        Assert.Equal(1, now.Toughness);
+        Assert.Equal([ManaColor.Green], now.Colors);
+        Assert.Contains("Frog", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Beast", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Warrior", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A sentence may ask for more than one copy, and for a tapped one (CR 111.6).</summary>
+    /// <remarks>
+    /// Skitterbeam Battalion's count and Compy Swarm's tapped arrival, which had both been read
+    /// as "a token" because the pattern only knew the article. The count is asserted as two
+    /// distinct objects rather than as a number on the effect, because a count read into the
+    /// wrong field compiles just as cleanly and makes one.
+    /// </remarks>
+    [Fact]
+    public void A_sentence_can_ask_for_two_copies_and_for_a_tapped_one()
+    {
+        var battalion = Card(
+            "Token Copy Battalion Test",
+            "When this creature enters, if you cast it, create two tokens that are copies of it.",
+            CardType.Creature,
+            1,
+            1);
+
+        Assert.True(
+            CardCompiler.Compile(battalion).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(battalion).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, battalion), targets: null);
+        Settle(game);
+
+        var copies = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Where(o => o.Card.Name == "Token Copy Battalion Test")
+            .ToList();
+
+        // Three in all: the creature that was cast and the two tokens its trigger made. The
+        // tokens do not go on making more, because they were created rather than cast and the
+        // intervening "if you cast it" is false for them (CR 603.4).
+        Assert.Equal(3, copies.Count);
+        Assert.Equal(2, copies.Count(o => o.Card.CardTypes.HasFlag(CardType.Token)));
+
+        var swarm = Card(
+            "Token Copy Swarm Test",
+            "At the beginning of your end step, if a creature died this turn, create a tapped "
+                + "token that's a copy of this creature.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.True(
+            CardCompiler.Compile(swarm).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(swarm).Unhandled));
+
+        // A second game, because the first has three creatures named for the card above and the
+        // tapped token has to be the only one of its own name on the board to be found.
+        var (second, owner, _) = InMainPhase();
+        second.Create(owner, swarm, Zone.Battlefield);
+
+        var doomed = second.Create(
+            owner, TestCards.Creature("Token Copy Doomed Test", 1, 1), Zone.Battlefield);
+
+        second.CastSpell(
+            owner,
+            TestCards.PutInHand(
+                second, owner, Card("Token Copy Kill Test", "Destroy target creature.")),
+            [Target.ToPermanent(doomed)]);
+
+        Settle(second);
+        TestCards.PassUntil(second, () => second.State.CurrentStep == TurnStep.End);
+        Settle(second);
+
+        var tapped = TokenNamed(second, "Token Copy Swarm Test");
+        Assert.True(second.State.GetObject(tapped).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// A token can be a copy of a card, which is read from the card itself (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// Restore Relic's wording, and this round's one repair rather than addition. The sentence
+    /// aims its pronoun at a card in a graveyard, and the effect took every pronoun for a
+    /// permanent - so it looked for a permanent that was not on the battlefield, found none, and
+    /// made no token at all. The card was filed as fully read the whole time, which is the quiet
+    /// half of this failure: coverage counted it and nothing played it.
+    /// <para>
+    /// The exile in the sentence before is what makes the last-known-information path
+    /// load-bearing (CR 400.7, 608.2g): by the time the copy runs, the id the spell targeted
+    /// names nothing and the card it became is in exile.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_copy_of_a_card_in_a_graveyard_brings_that_cards_abilities()
+    {
+        var buried = Card(
+            "Token Copy Buried Test",
+            "{T}: You gain 1 life.",
+            CardType.Creature,
+            2,
+            2,
+            KeywordAbility.Flying,
+            "Spirit");
+
+        Assert.True(CardCompiler.Compile(buried).IsComplete);
+
+        var relic = Card(
+            "Token Copy Relic Test",
+            "Exile target artifact or creature card from your graveyard. Create a token that's a "
+                + "copy of it.",
+            CardType.Sorcery);
+
+        Assert.True(
+            CardCompiler.Compile(relic).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(relic).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = game.Create(alice, buried, Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, relic), [Target.ToCard(card)]);
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Buried Test");
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(token));
+
+        Assert.Equal(2, now.Power);
+        Assert.True(now.Has(KeywordAbility.Flying));
+        Assert.Contains("Spirit", now.Subtypes, StringComparer.OrdinalIgnoreCase);
+
+        // The abilities came with it, which is the assertion the blank could never have passed.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var granted = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(token)));
+
+        game.ActivateAbility(alice, token, granted.Id);
+        Settle(game);
+
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// An exception the grammar cannot read leaves the whole card unread (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// Electroduplicate's clause, and the direction this family has to fail in. A copy that
+    /// silently dropped "it has haste and this quoted ability" would be strictly better than the
+    /// card printed - a hasty token that never sacrifices itself - and coverage would count it as
+    /// a win. Seven corpus cards sit behind this refusal and they are declined on purpose: the
+    /// quotation is an ability granted to the token, a token's abilities come from the card it
+    /// copies, and that card's text may not be edited without giving it an identity of its own.
+    /// </remarks>
+    [Fact]
+    public void An_exception_naming_a_quoted_ability_leaves_the_card_unread()
+    {
+        var duplicate = Card(
+            "Token Copy Quoted Test",
+            "Create a token that's a copy of target creature you control, except it has haste "
+                + "and \"At the beginning of the end step, sacrifice this token.\"");
+
+        var compiled = CardCompiler.Compile(duplicate);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("token that's a copy", StringComparison.Ordinal));
+
+        // And the compiler did not quietly keep the half it understood: nothing was emitted for
+        // the line at all, so no deck may contain the card and no game can play it as a blank.
+        Assert.Null(compiled.Spell);
+    }
+
+    /// <summary>
+    /// "Except it has haste" is the whole of Kiki-Jiki, and it has to play (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The keyword arm of the exception grammar, asserted by attacking rather than by reading the
+    /// keyword off the token. A copy that carried the word and not the permission would pass a
+    /// characteristic check and be the wrong card at the only moment the card exists for - the
+    /// combat it was made to join. The declaration is the assertion: without haste the engine
+    /// refuses it outright (CR 302.6).
+    /// <para>
+    /// The printed card is <em>not</em> this ability. Kiki-Jiki ends "Sacrifice it at the
+    /// beginning of the next end step", and that sentence is refused - see below.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_except_clause_granting_haste_lets_the_token_attack_at_once()
+    {
+        var kiki = Card(
+            "Token Copy Haste Test",
+            "{T}: Create a token that's a copy of target nonlegendary creature you control, "
+                + "except it has haste.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(kiki);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mirror = game.Create(alice, kiki, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Token Copy Hasty Bear Test", 3, 3), Zone.Battlefield);
+
+        // Alice's next turn, so the permanent with the {T} ability may use it.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var ability = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(mirror)));
+
+        game.ActivateAbility(alice, mirror, ability.Id, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Hasty Bear Test");
+
+        // The token was made this turn and attacks anyway, which only the exception can explain.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [token] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Sacrifice it" after a token was created means the token, and nothing here can say so.
+    /// </summary>
+    /// <remarks>
+    /// Kiki-Jiki's whole printed ability, refused. The pronoun ladder answers "it" with the
+    /// target an earlier sentence chose, which on this card is the creature that was copied - so
+    /// the compiled ability sacrificed the original at end of turn and let the token live
+    /// forever. Two different cards, both of them not Kiki-Jiki, and the line read perfectly.
+    /// <para>
+    /// The refusal is deliberately narrow: it fires only where the pronoun resolves to a
+    /// <em>target</em>, because the same sentence with nothing targeted falls back to the
+    /// permanent with the ability and is wrong in the same way on a further 14 cards. That
+    /// fallback is older than this round, its own comment already records it, and correcting it
+    /// wants the measured pass that comment asks for - a delayed action that can name a token -
+    /// rather than a side effect of this sentence becoming reachable.
+    /// </para>
+    /// <para>
+    /// Three cards were complete before and are not now: Kiki-Jiki's siblings The Fire Crystal,
+    /// Tempestra, Dame of Games, and Nemesis Trap. Every one of them was sacrificing or exiling
+    /// the permanent it had just copied.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_delayed_sacrifice_after_a_token_copy_is_refused_rather_than_aimed_at_the_target()
+    {
+        var kiki = Card(
+            "Token Copy Sacrifice Test",
+            "{T}: Create a token that's a copy of target nonlegendary creature you control, "
+                + "except it has haste. Sacrifice it at the beginning of the next end step.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(kiki);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Empty(compiled.Activated);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("Sacrifice it", StringComparison.Ordinal));
+
+        // The same sentence with nothing targeted before it still reads, because "it" can only
+        // be the permanent with the ability there - the refusal is about the ambiguity, not
+        // about the words.
+        var brute = Card(
+            "Token Copy Self Sacrifice Test",
+            "When this creature enters, sacrifice it at the beginning of the next end step.",
+            CardType.Creature,
+            4,
+            4);
+
+        Assert.True(
+            CardCompiler.Compile(brute).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(brute).Unhandled));
+    }
+
+    /// <summary>The one token on the battlefield copying this card.</summary>
+    private static ObjectId TokenNamed(Game game, string name) =>
+        game.State.Battlefield.Single(
+            id => game.State.GetObject(id) is { } o
+                && o.Card.Name == name
+                && o.Card.CardTypes.HasFlag(CardType.Token));
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>

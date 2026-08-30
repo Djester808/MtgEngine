@@ -2508,18 +2508,45 @@ public sealed record CreateTokenCopy(
     /// </remarks>
     EffectSubject? Subject = null,
 
-    /// <summary>Whether the token drops the legendary supertype (CR 707.2).</summary>
-    bool ExceptNotLegendary = false) : IEffect
+    /// <summary>
+    /// What the sentence's "except" clause changes about the copy (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The same record the "enters as a copy" replacement holds, read by the same parser. It
+    /// replaced a private <c>ExceptNotLegendary</c> flag, which was one of a dozen printed
+    /// exceptions and refused the other eleven - the copy family's vocabulary written out twice,
+    /// which is the bug this codebase keeps re-finding.
+    /// </remarks>
+    Cards.CopyException? Except = null,
+
+    /// <summary>Whether the token arrives tapped (CR 111.6).</summary>
+    bool Tapped = false,
+
+    /// <summary>
+    /// Whether what is copied is a card rather than a permanent (CR 707.2).
+    /// </summary>
+    /// <remarks>
+    /// "Exile target artifact or creature card from your graveyard. Create a token that's a copy
+    /// of it" copies a card, which has no copiable values worked out for it and is simply read as
+    /// itself. It is a flag rather than something inferred from the target at resolution time
+    /// because the two cases want opposite answers to the same question: a copy of a
+    /// <em>permanent</em> that has since left the battlefield copies nothing, and a copy of a
+    /// card is the one case where leaving is expected — the exile in the sentence before is what
+    /// moved it.
+    /// </remarks>
+    bool CopiesACard = false) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var aimed = TargetIndex is { } index ? context.TargetAt(index) : null;
+
         var subject = Subject is { } named
             ? Subjects.Resolve(context, named, TargetIndex ?? 0)
-            : TargetIndex is { } index
-            ? context.TargetAt(index) is { Kind: TargetKind.Permanent } aimed
-                ? aimed.Subject
+            : TargetIndex is not null
+            ? aimed is { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard }
+                ? aimed.Value.Subject
                 : (ObjectId?)null
             : context.PhysicalSourceId;
 
@@ -2539,9 +2566,10 @@ public sealed record CreateTokenCopy(
             return [];
 
         // A permanent that is still here has to be a permanent: "a copy of target creature" that
-        // has since been exiled copies nothing, and only the trigger-subject reading is allowed
-        // to reach back for something that has gone.
-        if (Subject is not EffectSubject.TriggeringObject
+        // has since been exiled copies nothing, and only the trigger-subject reading and the
+        // card reading are allowed to reach back for something that is not on the battlefield.
+        if (!CopiesACard
+            && Subject is not EffectSubject.TriggeringObject
             && original.Zone != Zone.Battlefield)
         {
             return [];
@@ -2555,16 +2583,30 @@ public sealed record CreateTokenCopy(
             ? Characteristics.CardOf(context.State, context.Abilities, original)
             : original.Card;
 
-        var copied = TokenCards.AsToken(copiable, dropLegendary: ExceptNotLegendary);
+        // CR 707.9b: the exception changes the card the copy is made from, so it is applied
+        // before the token is minted rather than to the permanent afterwards - what it modifies
+        // becomes one of the copy's own copiable values.
+        var copied = TokenCards.AsToken(Cards.GenerativeEffects.Excepting(copiable, Except));
 
-        var count = Math.Max(1, Count.In(context));
+        // An unset count means one, and a count that was given is used as it stands - "create X
+        // tokens that are copies of it" with X of zero makes none, and flooring that at one
+        // would be a card doing something it does not say. The same rule CreateToken follows.
+        var count = Count.Equals(default(Amount)) ? 1 : Math.Max(0, Count.In(context));
 
-        return
-        [
-            .. Enumerable.Range(0, count).Select(_ => new ObjectCreated(
-                ObjectId.New(), copied, context.ControllerId, context.ControllerId,
-                Zone.Battlefield)),
-        ];
+        var made = new List<GameEvent>();
+
+        foreach (var _ in Enumerable.Range(0, count))
+        {
+            var token = ObjectId.New();
+
+            made.Add(new ObjectCreated(
+                token, copied, context.ControllerId, context.ControllerId, Zone.Battlefield));
+
+            if (Tapped)
+                made.Add(new PermanentTapped(token));
+        }
+
+        return made;
     }
 }
 
@@ -2587,12 +2629,17 @@ internal static class TokenCards
     /// A size to print on the token instead of the card's own, for the few effects that make a
     /// copy of a different size - offspring's 1/1 is the reason this exists.
     /// </param>
+    /// <remarks>
+    /// It does <em>not</em> read exception clauses. "Except it isn't legendary" used to drop the
+    /// supertype here, which put half of CR 707.9b in the minting of the token and the other half
+    /// in <see cref="Cards.GenerativeEffects.Excepting"/>; the caller applies the whole clause to
+    /// the card first, and this only marks the result a token.
+    /// </remarks>
     public static Domain.Models.CardDefinition AsToken(
         Domain.Models.CardDefinition card,
         int? power = null,
         int? toughness = null,
-        string? oracleId = null,
-        bool dropLegendary = false) => new()
+        string? oracleId = null) => new()
         {
             OracleId = oracleId ?? card.OracleId,
             Name = card.Name,
@@ -2601,13 +2648,7 @@ internal static class TokenCards
             Cmc = card.Cmc,
             CardTypes = card.CardTypes | Domain.Enums.CardType.Token,
             Subtypes = card.Subtypes,
-            // CR 707.2: "except it isn't legendary" is one of the exceptions a copy effect may
-            // state. The supertype is dropped rather than the type line rewritten, because the
-            // legend rule reads the computed supertypes.
-            Supertypes = dropLegendary
-                ? [.. card.Supertypes.Where(
-                    s => !string.Equals(s, "Legendary", StringComparison.OrdinalIgnoreCase))]
-                : card.Supertypes,
+            Supertypes = card.Supertypes,
             OracleText = card.OracleText,
             Power = power ?? card.Power,
             Toughness = toughness ?? card.Toughness,
