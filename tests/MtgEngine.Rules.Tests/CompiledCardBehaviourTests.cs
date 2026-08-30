@@ -28347,8 +28347,19 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Dug Creature Test");
     }
 
+    /// <summary>
+    /// A filtered look with nothing matching is declined without anybody being asked (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// It used to be asked, and this test used to assert that it was: the game stopped on a
+    /// LookAndTake choice with an empty option list, and the only answer to it was the one the
+    /// engine could have given on the player's behalf. That is the zero-card discard's mistake in
+    /// a second place - a question with one possible answer is not a question - and a test written
+    /// against the behaviour it produced is how it survived. What the card does is unchanged;
+    /// what it no longer does is stop the game to say so.
+    /// </remarks>
     [Fact]
-    public void A_filtered_look_may_be_declined()
+    public void A_filtered_look_with_nothing_matching_is_declined_without_asking()
     {
         var dig = Card(
             "Declined Dig Test",
@@ -28362,17 +28373,29 @@ public sealed class CompiledCardBehaviourTests
 
         var card = TestCards.PutInHand(game, alice, dig);
         game.CastSpell(alice, card, targets: null);
-
-        TestCards.PassUntil(game, () => game.State.Choice is not null);
-
-        // Nothing matched, so the choice offers nothing and taking nothing is the answer.
-        Assert.Empty(game.State.Choice!.Options);
-        game.Choose(alice, []);
         Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.LookAndTake);
 
         Assert.DoesNotContain(
             game.State.GetPlayer(alice).Hand,
             id => game.State.GetObject(id).Card.Name.StartsWith("Declined ", StringComparison.Ordinal));
+
+        // "Put the rest on the bottom" still happened, which is the half that would have been
+        // lost had the request simply been dropped instead of resolved with no pick.
+        var bottom = game.State.GetPlayer(alice).Library
+            .TakeLast(2)
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal(
+            new HashSet<string>(StringComparer.Ordinal)
+            {
+                "Declined Forest Test",
+                "Declined Plains Test",
+            },
+            bottom);
     }
 
     // ---- Mana abilities with a cost that is not mana (CR 605.1a) -------------
@@ -54419,6 +54442,312 @@ public sealed class CompiledCardBehaviourTests
         // Nothing was built from it at all - neither a mana ability nor, worse, one that would
         // have gone on the stack.
         Assert.Empty(compiled.Activated);
+    }
+
+    // ---- A settle step that asks nobody anything (CR 117.5, 118.3) ------------
+
+    // Four rounds have now found the same bug in a different owed-settle step: a step that did
+    // its work without putting a question to anybody returned from the settle sweep as though
+    // one were outstanding, so everything after it in that sweep - the state-based actions among
+    // them - was abandoned. The roll left a creature standing with lethal damage marked on it;
+    // the shuffle performed one of two and handed priority back with the other graveyard
+    // untouched. These are the rest of them, found by reading every arm of the sweep against
+    // that rule rather than by waiting for the next soak to trip over one.
+    //
+    // Each is written as a card that owes two things at once: the settling step under test, and
+    // a scry, which sits later in the same sweep. The scry never being asked is the sweep having
+    // stopped - and it is observable where the abandoned state-based actions are not, because
+    // the driver's next pass finds an empty stack and stops passing.
+
+    /// <summary>
+    /// A coin flip is settled, not asked, so the sweep carries on to what is owed after it.
+    /// </summary>
+    /// <remarks>
+    /// Nobody chooses anything about a flip: the outcome comes from the one seeded source and
+    /// only the result goes in the log, exactly as a shuffle records its order. It nevertheless
+    /// returned from the sweep as though a player were being asked, which meant the branch it had
+    /// just run went unchecked by the state-based actions - and anything owed behind it, like the
+    /// scry here, was left where it stood.
+    /// </remarks>
+    [Fact]
+    public void A_settled_coin_flip_does_not_end_the_sweep()
+    {
+        var spell = Card(
+            "Flip Settle Test",
+            "Flip a coin. If you win the flip, you gain 4 life. If you lose the flip, "
+                + "you lose 2 life.\nScry 1.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<CoinFlipped>());
+        Assert.Contains(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.Scry);
+    }
+
+    /// <summary>
+    /// A discover is settled, not asked, so the sweep carries on to what is owed after it.
+    /// </summary>
+    /// <remarks>
+    /// Its own remark said so - "nobody is asked anything here; what the player gets is the offer
+    /// at the end, and they take it by casting the card like any other" - and it returned from the
+    /// sweep regardless. Cascade, written beside it and identical in this respect, had the same
+    /// mistake and is fixed with it; cascade cannot be caught by a card the way this can, because
+    /// it always settles with the cascading spell still on the stack, so the next pass re-enters
+    /// the sweep and finishes it. The structural guard below is what covers that arm.
+    /// </remarks>
+    [Fact]
+    public void A_settled_discover_does_not_end_the_sweep()
+    {
+        var spell = Card("Discover Settle Test", "Discover 3.\nScry 1.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<FreeCastOffered>());
+        Assert.Contains(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.Scry);
+    }
+
+    /// <summary>
+    /// Finishing a clash asks nobody anything, so the sweep carries on (CR 701.30d).
+    /// </summary>
+    /// <remarks>
+    /// A clash is three steps and only the middle one is a question. It reveals, it asks each
+    /// clashing player where their card goes, and then it works out who won and runs the branch -
+    /// and that last step, reached from the sweep after the final answer, returned as though
+    /// somebody were still being asked. So a clash paid out and priority went back with the
+    /// state-based actions unchecked and the scry below unasked.
+    /// </remarks>
+    [Fact]
+    public void A_finished_clash_does_not_end_the_sweep()
+    {
+        var spell = Card(
+            "Clash Settle Test",
+            "Clash with an opponent. If you win, draw a card.\nScry 1.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+        Settle(game);
+
+        // Both clashing players were asked, so the sweep was still working when it reached the
+        // finish - which is the moment under test.
+        Assert.Equal(
+            2,
+            game.Log.OfType<ChoiceRequested>()
+                .Count(e => e.Choice.Kind == ChoiceKind.ClashKeepOnTop));
+
+        Assert.Contains(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.Scry);
+    }
+
+    /// <summary>
+    /// A miracle is an offer rather than a question, so the sweep carries on (CR 702.94a).
+    /// </summary>
+    /// <remarks>
+    /// The card is turned face up and may be cast for its miracle cost; nobody is stopped to
+    /// answer anything, and the player takes it by casting like a cascade's hit. This one sits
+    /// near the top of the sweep, so returning from it abandoned nearly the whole of the rest -
+    /// every owed question, the state-based actions, and the triggers waiting to go on the stack.
+    /// </remarks>
+    [Fact]
+    public void A_miracle_offer_does_not_end_the_sweep()
+    {
+        var spell = Card("Miracle Settle Test", "Scry 1, then draw a card.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var miracle = new CardDefinition
+        {
+            OracleId = "oracle-miracle-settle-card-test",
+            Name = "Miracle Settle Card Test",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{2}{W}",
+            OracleText = "Miracle {W}\nYou gain 3 life.",
+        };
+
+        var (game, alice, _) = InMainPhase();
+
+        // On top, so it is the card the spell's own draw turns up - which is what owes a miracle
+        // offer in the same settle as the scry the spell asked for first.
+        game.Create(alice, miracle, Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<FreeCastOffered>());
+        Assert.Contains(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.Scry);
+    }
+
+    /// <summary>
+    /// Nothing among them worth taking is not a question, and is not asked (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// "You may reveal a creature card from among them" over four cards holding no creature was
+    /// stopping the game on a prompt with an empty list on it - the zero-card discard's mistake in
+    /// a second place, and the two sibling sites that have always guarded it (the mulligan bottom
+    /// and the cleanup discard) are what say this one was missing it.
+    /// <para>
+    /// The rest of the instruction still has to run, which is why the guard resolves the request
+    /// rather than dropping it: "put the rest on the bottom of your library" happens whether or
+    /// not anything was taken, and skipping the request outright would have left four cards
+    /// sitting on top of the library instead.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Nothing_worth_taking_among_them_is_not_asked()
+    {
+        var spell = Card(
+            "Take Settle Test",
+            "Look at the top four cards of your library. You may reveal a land card from among "
+                + "them and put it into your hand. Put the rest on the bottom of your library in "
+                + "a random order.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Every card in a test deck is a creature, so no land is among the four and there is
+        // nothing the filter admits. Held by name rather than by id: a card put back into the
+        // library is a new object (CR 400.7), so the ids do not survive the move.
+        var top = game.State.GetPlayer(alice).Library
+            .Take(4)
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(), e => e.Choice.Kind == ChoiceKind.LookAndTake);
+
+        // And the instruction ran anyway: the four are on the bottom, not still on top. The
+        // order among them is the game's own random one, so the set is what can be asserted.
+        var library = game.State.GetPlayer(alice).Library
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Equal(top, library.TakeLast(4).ToHashSet(StringComparer.Ordinal));
+        Assert.DoesNotContain(library.Take(4), top.Contains);
+    }
+
+    /// <summary>
+    /// Every settling step of the sweep goes round again rather than returning from it.
+    /// </summary>
+    /// <remarks>
+    /// The behaviour tests above each catch one arm. This catches the class, which is what four
+    /// rounds of finding the same bug by accident argues for - and it is the only thing that
+    /// covers the cascade arm, whose harm no card can show on its own.
+    /// <para>
+    /// The rule it enforces is the naming convention <c>SettleBeforePriority</c> runs on: a step
+    /// called <c>Ask…</c> only ever puts a question to somebody, so returning is the whole point
+    /// of it; every other step can finish without asking anybody anything, so the sweep has to go
+    /// round again after it. Written against the source rather than against behaviour because that
+    /// is the form the mistake takes - a one-line arm that reads perfectly, in a method whose
+    /// other forty arms are written the other way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_settling_step_of_the_sweep_goes_round_rather_than_returning()
+    {
+        var path = Path.Combine(RulesEngineDirectory(), "Game.cs");
+        var source = File.ReadAllLines(path);
+
+        var start = Array.FindIndex(
+            source,
+            line => line.Contains("private bool SettleBeforePriority()", StringComparison.Ordinal));
+
+        Assert.True(start >= 0, "SettleBeforePriority has been renamed; this guard has to follow it.");
+
+        var end = Array.FindIndex(
+            source,
+            start,
+            line => line.Contains(
+                "State-based actions and triggers did not settle", StringComparison.Ordinal));
+
+        Assert.True(end > start, "the end of the sweep moved; this guard has to follow it.");
+
+        var asking = 0;
+        var settling = 0;
+        var offenders = new List<string>();
+
+        for (var i = start; i < end; i++)
+        {
+            var line = source[i].Trim();
+
+            // An arm of the sweep, which is a bare no-argument call: `if (AskOwedLook())`. Any
+            // other condition here - a count, a field, a call with arguments - is not one.
+            if (!line.StartsWith("if (", StringComparison.Ordinal)
+                || !line.EndsWith("())", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var step = line[4..^3];
+            if (step.Contains('.', StringComparison.Ordinal)
+                || step.Contains(' ', StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // A question may return: the game halts, and nothing else in this sweep may happen
+            // until the answer comes back.
+            if (step.StartsWith("Ask", StringComparison.Ordinal))
+            {
+                asking++;
+                continue;
+            }
+
+            settling++;
+
+            // Everything else can finish without asking anybody, so it has to send the sweep
+            // round again: `{ didSomething = true; continue; }`. A bare `return true` on the
+            // next line is the bug this whole section is about.
+            if (!string.Equals(source[i + 1].Trim(), "{", StringComparison.Ordinal))
+                offenders.Add($"Game.cs:{i + 1}  {line}  ->  {source[i + 1].Trim()}");
+        }
+
+        // A guard that matched nothing would pass for the wrong reason, which is how a check
+        // quietly stops being one. Both halves, because either could stop matching on its own.
+        Assert.True(settling >= 12, $"only {settling} settling arms found; the sweep changed shape.");
+        Assert.True(asking >= 20, $"only {asking} asking arms found; the sweep changed shape.");
+
+        Assert.True(
+            offenders.Count == 0,
+            "a step of the sweep that can finish without asking anybody must send it round "
+                + "again — `{ didSomething = true; continue; }`, not `return true`. Rename it to "
+                + "Ask… only if it truly cannot finish without a question outstanding:"
+                + Environment.NewLine
+                + string.Join(Environment.NewLine, offenders));
+    }
+
+    /// <summary>Where the rules engine's source lives, for the guard above.</summary>
+    private static string RulesEngineDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null
+            && !File.Exists(Path.Combine(directory.FullName, "MtgEngine.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+        return Path.Combine(directory.FullName, "MtgEngine.Rules", "Engine");
     }
 
     // ---- Rooms (CR 709.5) ----------------------------------------------------

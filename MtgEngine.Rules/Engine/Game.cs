@@ -7258,9 +7258,16 @@ public sealed class Game
     }
 
     /// <summary>
-    /// Asks the oldest owed look-and-take, if any (CR 701.20a).
+    /// Settles or asks the oldest owed look-and-take, if any (CR 701.20a).
     /// </summary>
-    private bool AskOwedLookAndTake()
+    /// <remarks>
+    /// Named for the settling half rather than the asking one, and deliberately: with nothing
+    /// among the cards it turned up that the filter admits, the instruction is carried out here
+    /// rather than put to a player who has no answer to give (CR 118.3). Both outcomes send the
+    /// sweep round again, which is what a <c>Settle…</c> name promises its caller — see
+    /// <see cref="SettleBeforePriority"/>.
+    /// </remarks>
+    private bool SettleOwedLookAndTake()
     {
         if (_looksAndTakesOwed.Count == 0 || State.IsWaitingForChoice)
             return false;
@@ -7284,6 +7291,22 @@ public sealed class Game
         var takeable = top
             .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card))
             .ToList();
+
+        // CR 118.3, the same rule the optional payment states in as many words: a question with
+        // one possible answer is not a question. "You may reveal a creature card from among them"
+        // over four cards with no creature in them was stopping the game on a prompt with an
+        // empty list on it - the zero-card discard's mistake in a second place, and the sibling
+        // guards (the mulligan bottom, the cleanup discard) are what say this one is missing.
+        //
+        // Resolved rather than dropped, because the rest of the instruction still runs: "put the
+        // rest on the bottom of your library" happens whether or not anything was taken, and
+        // skipping the request outright would have left four cards sitting on top.
+        if (takeable.Count == 0)
+        {
+            _lookAndTakeBeingAsked = owed;
+            ResolveLookAndTake([]);
+            return true;
+        }
 
         _lookAndTakeBeingAsked = owed;
 
@@ -8301,6 +8324,23 @@ public sealed class Game
     /// collected triggers at all. Getting this loop right, in one place, is most of what slice 3
     /// is.
     /// </para>
+    /// <para>
+    /// <strong>The naming of the arms is the contract.</strong> A step called <c>Ask…</c> only
+    /// ever puts a question to somebody, so returning from the loop is the whole point of it: the
+    /// game halts and nothing else may happen until the answer comes back. A step called
+    /// <c>Settle…</c> or <c>Offer…</c> can finish without asking anybody anything, so it must send
+    /// the loop round again — <c>{ didSomething = true; continue; }</c> — because everything below
+    /// it here, the state-based actions and the waiting triggers among them, still has to run.
+    /// Returning from one of those is the bug this engine has now found four times, in the roll,
+    /// the shuffle, the coin flip and the miracle offer, each time by accident and each time after
+    /// shipping. <c>Every_settling_step_of_the_sweep_goes_round_rather_than_returning</c> is what
+    /// stops there being a fifth; a step that starts settling has to be renamed to match.
+    /// </para>
+    /// <para>
+    /// The <c>continue</c> is safe for a step that <em>sometimes</em> asks, which is what the
+    /// clash and the look-and-take do: the top of this loop returns the moment a question is
+    /// outstanding, so it never runs past one.
+    /// </para>
     /// </remarks>
     /// <returns>Whether anything happened, which means the game changed under the players.</returns>
     private bool SettleBeforePriority()
@@ -8325,8 +8365,16 @@ public sealed class Game
             if (AskOwedDiscard())
                 return true;
 
-            if (AskOwedLookAndTake())
-                return true;
+            // Look-and-take settles as well as asking: when nothing among the cards it turned up
+            // matches the filter there is nobody to ask, so it files them and the sweep goes
+            // round again. `continue` covers both halves, because the top of this loop returns
+            // the moment a question is outstanding - which is the shape every mixed step here
+            // now takes, rather than each one guessing which of the two it was.
+            if (SettleOwedLookAndTake())
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedSearch())
                 return true;
@@ -8349,8 +8397,16 @@ public sealed class Game
             if (AskOwedLibraryEnd())
                 return true;
 
+            // A miracle is an offer, not a question (CR 702.94a): the card is turned face up and
+            // may be cast for its miracle cost, and nobody is stopped to answer anything - the
+            // player takes it by casting, like a cascade's hit. Returning as though a question
+            // were pending abandoned the whole rest of this sweep, state-based actions included,
+            // on the strength of a settle step that had asked nothing at all.
             if (OfferOwedMiracles())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedProliferate())
                 return true;
@@ -8450,20 +8506,48 @@ public sealed class Game
             if (AskOwedVenture())
                 return true;
 
+            // A clash is three steps and only the middle one is a question: it reveals, asks each
+            // clashing player where their card goes, and then works out who won and runs the
+            // branch. Two of the three ask nobody - the reveal that found two empty libraries,
+            // and the finish - and both used to return as though somebody were being asked, so
+            // the branch a clash had just won ran and priority went back with the state-based
+            // actions unchecked. `continue` is right for all three, because the top of this loop
+            // returns the moment a question really is outstanding.
             if (SettleOwedClash())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
+            // Neither a discover nor a cascade asks anything: the exiling is not a decision, and
+            // what the player gets is an offer they take by casting the card (CR 701.57a,
+            // 702.85a). Both said so in their own remarks and both then returned from the sweep
+            // as though a question were pending, which is the third and fourth instance of one
+            // bug - the same one the shuffle and the roll above record.
             if (SettleOwedDiscover())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (SettleOwedCascade())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             if (AskOwedRipple())
                 return true;
 
+            // A coin flip asks nobody anything either - the flip is the game's decision, made
+            // through the one seeded source, and only its outcome goes in the log. So the branch
+            // it picks runs here and the sweep goes round again: a flip that burned a creature
+            // to death left it standing, and a scry owed alongside was never asked at all.
             if (SettleOwedFlip())
-                return true;
+            {
+                didSomething = true;
+                continue;
+            }
 
             // A roll asks nobody anything - there is no modifier to choose between (CR 706.2b
             // is a replacement, applied on the way in) - so it is made here and the sweep goes
