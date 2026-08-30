@@ -47926,6 +47926,449 @@ public sealed class CompiledCardBehaviourTests
                 id => bigger.State.GetObject(id).Card.Name == "Dalek"));
     }
 
+    // ---- Somebody else's arrival, tapped (CR 614.1d) ------------------------
+
+    /// <summary>A group entry replacement, on a permanent that is never the one arriving.</summary>
+    private static CardDefinition EntersTappedLock(string name, string oracleText) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = oracleText,
+        CardTypes = CardType.Enchantment,
+    };
+
+    /// <summary>A land with no basic supertype, so "nonbasic" has something to be true of.</summary>
+    private static CardDefinition NonbasicLand(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Land,
+        Subtypes = ["Gate"],
+    };
+
+    /// <summary>
+    /// "Creatures your opponents control enter tapped" — Authority of the Consuls (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// Both halves are the test, and the second is the one a loose reading fails. Until this
+    /// existed the compiler had no way at all to say "somebody else is entering":
+    /// <c>CardCompiler.Arriving</c> matches <c>moved.OldId == source.Id</c>, which asks only
+    /// whether the source itself is arriving, and every enters-tapped reader was built on it. So
+    /// the failure to avoid is not "the opponent's creature stays upright" — it is a reader that
+    /// forgets the ownership clause and taps its own controller's board too, which is a
+    /// materially different card and one nothing downstream would notice.
+    /// </remarks>
+    [Fact]
+    public void An_opponents_creature_arrives_tapped_and_your_own_arrives_upright()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var lock1 = game.Create(
+            alice,
+            EntersTappedLock(
+                "Arrival Consuls Test", "Creatures your opponents control enter tapped."),
+            Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, TestCards.Creature("Arrival Own Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Arrival Their Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(mine).Permanent!.IsTapped);
+
+        // CR 614.12's own example, in the other direction: the permanent carrying the line is
+        // never the permanent arriving. The pipeline builds an arriving object out of its own
+        // event and offers it its own replacements, so without the identity check this would
+        // have tapped itself on the way in.
+        Assert.False(game.State.GetObject(lock1).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// The same replacement against a permanent that was <em>played</em> rather than created.
+    /// </summary>
+    /// <remarks>
+    /// The two arrivals are different events and the wrinkle lives in one of them. A token is
+    /// <c>ObjectCreated</c> and carries its card and its controller on the event; a played land
+    /// is <c>ObjectMoved</c>, and the object it is about to become <b>does not exist in the state
+    /// yet</b> (CR 400.7) — so what is entering has to be read out of the object it still is in
+    /// the zone it is leaving. Looking the new id up returns nothing, which is exactly how
+    /// landfall once failed to fire at all, and a reader that did it here would leave every
+    /// played land upright while tokens tapped correctly.
+    /// </remarks>
+    [Fact]
+    public void A_played_land_is_reached_by_the_same_group_replacement()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(
+            alice,
+            EntersTappedLock(
+                "Arrival Aether Test",
+                "Artifacts, creatures, and lands your opponents control enter tapped."),
+            Zone.Battlefield);
+
+        // Alice's own land, played on Alice's turn: the clause says opponents, so it is upright.
+        var ours = TestCards.PutInHand(game, alice, TestCards.BasicLand("Forest"));
+        game.PlayLand(alice, ours);
+        Settle(game);
+
+        Assert.False(
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Forest")
+                .Permanent!.IsTapped);
+
+        PassToMainPhaseOf(game, bob);
+
+        var theirs = TestCards.PutInHand(game, bob, NonbasicLand("Arrival Their Land Test"));
+        game.PlayLand(bob, theirs);
+        Settle(game);
+
+        Assert.True(
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Arrival Their Land Test")
+                .Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// "Artifacts your opponents control enter tapped" — Manglehorn, and the type it leaves out.
+    /// </summary>
+    /// <remarks>
+    /// The noun is a filter and not decoration. A reader that took the ownership clause and threw
+    /// the types away would pass the test above and turn Manglehorn into Kismet, so the assertion
+    /// that matters here is the opponent's <em>creature</em> arriving upright.
+    /// </remarks>
+    [Fact]
+    public void A_group_taps_only_the_types_its_noun_names()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(
+            alice,
+            EntersTappedLock(
+                "Arrival Manglehorn Test", "Artifacts your opponents control enter tapped."),
+            Zone.Battlefield);
+
+        var relic = game.Create(
+            bob,
+            Card("Arrival Their Relic Test", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+        var beast = game.Create(
+            bob, TestCards.Creature("Arrival Untouched Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(relic).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(beast).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// "Creatures and nonbasic lands your opponents control enter tapped" — Thalia, Heretic
+    /// Cathar, whose group is two descriptions joined.
+    /// </summary>
+    /// <remarks>
+    /// The printed list is read as "any one of these" (CR 109.4), because nothing is a creature
+    /// and a land at once — and the second half carries a supertype that has to be true
+    /// <em>with</em> the type rather than instead of it. Bob's basic Forest arriving upright is
+    /// what proves the word "nonbasic" survived the read; a list flattened to its card types
+    /// would tap it.
+    /// </remarks>
+    [Fact]
+    public void A_two_part_group_keeps_the_qualifier_on_the_part_that_carries_it()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(
+            alice,
+            EntersTappedLock(
+                "Arrival Thalia Test",
+                "Creatures and nonbasic lands your opponents control enter tapped."),
+            Zone.Battlefield);
+
+        var basic = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var beast = game.Create(
+            bob, TestCards.Creature("Arrival Thalia Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(basic).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(beast).Permanent!.IsTapped);
+
+        PassToMainPhaseOf(game, bob);
+
+        var nonbasic = TestCards.PutInHand(game, bob, NonbasicLand("Arrival Thalia Gate Test"));
+        game.PlayLand(bob, nonbasic);
+        Settle(game);
+
+        Assert.True(
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Arrival Thalia Gate Test")
+                .Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// "Permanents enter tapped" — Orb of Dreams, which names nobody and so means everybody.
+    /// </summary>
+    /// <remarks>
+    /// A missing ownership clause is not a missing "you control". This file already records the
+    /// same defect one layer over, where the mass-static reader defaulted a missing clause to its
+    /// own controller and left 83 corpus cards quietly applying to half the board — a card that
+    /// reads as printed and plays as something weaker. Alice's own creature arriving tapped is
+    /// the assertion that keeps this reader on the right side of it.
+    /// <para>
+    /// The Orb's own arrival is the rule's worked example — "It won't affect itself" — and the
+    /// last assertion is that one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_with_no_ownership_clause_taps_the_whole_table()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var orb = game.Create(
+            alice,
+            EntersTappedLock("Arrival Orb Test", "Permanents enter tapped."),
+            Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, TestCards.Creature("Arrival Orb Own Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Arrival Orb Their Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(mine).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(orb).Permanent!.IsTapped);
+    }
+
+    /// <summary>A static ability functions from the battlefield and nowhere else (CR 604.3).</summary>
+    /// <remarks>
+    /// This is the guard that the identity check cannot stand in for, and it is not theoretical:
+    /// the replacement pipeline walks <em>every</em> object in the game, not the battlefield, so
+    /// that "as this enters" can function from the stack. A group replacement left at the same
+    /// setting would have a Kismet in its owner's hand locking down a board it is not on.
+    /// </remarks>
+    [Fact]
+    public void A_group_replacement_in_hand_replaces_nothing()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(
+            alice,
+            EntersTappedLock(
+                "Arrival In Hand Test", "Creatures your opponents control enter tapped."),
+            Zone.Hand);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Arrival In Hand Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(theirs).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// The three neighbouring wordings this reader refuses, and why each refusal is the point.
+    /// </summary>
+    /// <remarks>
+    /// A single pattern loose enough to claim any of these would pass every test above.
+    /// <list type="bullet">
+    /// <item><description><b>"this turn"</b> is Due Respect, a sorcery. The sentence is identical
+    /// and the effect is not: a one-shot with a duration read as a static hands that spell a
+    /// permanent lock on the table, which is the harshest possible misreading of the
+    /// gentlest available one.</description></item>
+    /// <item><description><b>"played by your opponents"</b> is Uphill Battle, and "played" is
+    /// narrower than "enters under their control" — a token an opponent creates was never played.
+    /// Reading it as the ownership clause would tap permanents the card does not name, and one
+    /// card is the right price for not doing that.</description></item>
+    /// <item><description><b>"enchanted player controls"</b> names a group by a relation to the
+    /// source rather than by a seat at the table. The mass-static reader has a branch for it and
+    /// this one does not, so the scope word is matched rather than skipped: an unrecognised
+    /// clause leaves the line unread instead of silently meaning everybody.</description></item>
+    /// </list>
+    /// </remarks>
+    [Theory]
+    [InlineData("Permanents enter tapped this turn.")]
+    [InlineData("Creatures played by your opponents enter tapped.")]
+    [InlineData("Creatures enchanted player controls enter tapped.")]
+    public void A_wording_the_group_reader_cannot_honour_leaves_the_card_unread(string oracleText)
+    {
+        var card = EntersTappedLock("Arrival Refusal Test", oracleText);
+        Assert.False(CardCompiler.Compile(card).IsComplete);
+    }
+
+    /// <summary>
+    /// The singular reader still owns the singular sentence, and the plural one the plural.
+    /// </summary>
+    /// <remarks>
+    /// The verb is the only thing telling these two apart, and they mean opposite things about
+    /// the same board: "~ enters tapped" is the card arriving and says nothing about anybody
+    /// else, while "Creatures enter tapped" is about everybody else and never about the card. A
+    /// reader that claimed both would turn every enters-tapped land in the game into a
+    /// table-wide lock, and the coverage number would not move a point.
+    /// </remarks>
+    [Fact]
+    public void The_singular_and_plural_enters_tapped_sentences_stay_apart()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var land = SlowLand("Arrival Singular Land Test", "~ enters tapped.");
+        var mine = TestCards.PutInHand(game, alice, land);
+        game.PlayLand(alice, mine);
+
+        var beast = game.Create(
+            bob, TestCards.Creature("Arrival Singular Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        // The land taps itself, as it always did.
+        Assert.True(
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Single(o => o.Card.Name == "Arrival Singular Land Test")
+                .Permanent!.IsTapped);
+
+        // And says nothing at all about Bob's creature.
+        Assert.False(game.State.GetObject(beast).Permanent!.IsTapped);
+    }
+
+    // ---- The source's own zone change, replaced (CR 614.1a) ------------------
+
+    /// <summary>The Colossus line, on a creature big enough to be worth shuffling back.</summary>
+    private static CardDefinition ShufflesBackColossus(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText =
+            "If " + name + " would be put into a graveyard from anywhere, reveal " + name
+            + " and shuffle it into its owner's library instead.",
+        CardTypes = CardType.Artifact | CardType.Creature,
+        Subtypes = ["Golem"],
+        Power = 11,
+        Toughness = 11,
+    };
+
+    /// <summary>
+    /// "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its
+    /// owner's library instead" — Darksteel Colossus (CR 614.1a).
+    /// </summary>
+    /// <remarks>
+    /// The sibling of the group replacement above: the same rule about a zone change, aimed at
+    /// the source's own move rather than somebody else's arrival. Two destinations of this
+    /// sentence were already read; this is the third, and it is the one that needed more than a
+    /// different zone.
+    /// <para>
+    /// <b>The graveyard assertion is the one that matters, and the library count is the one that
+    /// catches the lazy fix.</b> A reader that moved the card to the library and stopped would
+    /// pass "not in the graveyard" while leaving an 11/11 on top of its owner's deck — a card
+    /// that draws itself next turn, which is a strictly better card than the one printed. So the
+    /// library is counted before and after, and the shuffle is what puts it somewhere unknown.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_that_shuffles_itself_back_never_reaches_the_graveyard()
+    {
+        var colossus = ShufflesBackColossus("Shuffle Back Colossus Test");
+
+        var (game, alice, bob) = InMainPhase();
+        var golem = game.Create(bob, colossus, Zone.Battlefield);
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        var murder = TestCards.PutInHand(
+            game, alice, Card("Shuffle Back Murder Test", "Destroy target creature."));
+
+        game.CastSpell(alice, murder, [Target.ToPermanent(golem)]);
+        Settle(game);
+
+        Assert.DoesNotContain(golem, game.State.Battlefield);
+
+        // CR 614.6: the move to the graveyard never happened, so nothing is there to find.
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(before + 1, game.State.GetPlayer(bob).Library.Count);
+    }
+
+    /// <summary>"From anywhere" is not "from the battlefield" (CR 614.1a).</summary>
+    /// <remarks>
+    /// The clause the other two destinations of this sentence already honour, asserted here
+    /// because the shuffling arm is the one with an owner to get wrong: the card is discarded out
+    /// of a hand, so the player whose library it goes into has to be read off the card rather
+    /// than off whoever is doing the discarding. Reading the controller instead would send a
+    /// stolen or an opponent-discarded card into the wrong deck.
+    /// </remarks>
+    [Fact]
+    public void The_same_replacement_catches_a_discard_out_of_hand()
+    {
+        var colossus = ShufflesBackColossus("Shuffle Back Discard Test");
+
+        var (game, alice, _) = InMainPhase();
+        var held = TestCards.PutInHand(game, alice, colossus);
+        var before = game.State.GetPlayer(alice).Library.Count;
+
+        var pitch = TestCards.PutInHand(
+            game, alice, Card("Shuffle Back Pitch Test", "Discard a card."));
+
+        game.CastSpell(alice, pitch, []);
+        Settle(game);
+
+        Assert.DoesNotContain(held, game.State.GetPlayer(alice).Hand);
+
+        // The sorcery that made her discard is in that graveyard, so the assertion is about the
+        // card the replacement was on rather than about the pile being empty.
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Shuffle Back Discard Test");
+
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Library.Count);
+    }
+
+    /// <summary>The two older destinations of the same sentence still go where they went.</summary>
+    /// <remarks>
+    /// One pattern reads all three, so a third alternative is a chance to break the first two.
+    /// Exiling is the arm that shares no words with the new one and would fail loudest; the
+    /// bottom-of-library arm is the one that shares a destination with it and would fail
+    /// quietly, ending up shuffled instead of underneath.
+    /// </remarks>
+    [Fact]
+    public void The_exiling_and_bottoming_arms_of_the_same_sentence_are_unchanged()
+    {
+        var exiler = Card(
+            "Shuffle Back Exile Test",
+            "If ~ would be put into a graveyard from anywhere, exile it instead.",
+            CardType.Creature, 2, 2);
+
+        var (game, alice, bob) = InMainPhase();
+        var beast = game.Create(bob, exiler, Zone.Battlefield);
+        var murder = TestCards.PutInHand(
+            game, alice, Card("Shuffle Back Exile Murder Test", "Destroy target creature."));
+
+        game.CastSpell(alice, murder, [Target.ToPermanent(beast)]);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Contains(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Shuffle Back Exile Test");
+
+        var bottomer = Card(
+            "Shuffle Back Bottom Test",
+            "If ~ would be put into a graveyard from anywhere, "
+                + "put it on the bottom of its owner's library instead.",
+            CardType.Creature, 2, 2);
+
+        var (second, ally, foe) = InMainPhase();
+        var other = second.Create(foe, bottomer, Zone.Battlefield);
+        var again = TestCards.PutInHand(
+            second, ally, Card("Shuffle Back Bottom Murder Test", "Destroy target creature."));
+
+        second.CastSpell(ally, again, [Target.ToPermanent(other)]);
+        Settle(second);
+
+        Assert.Empty(second.State.GetPlayer(foe).Graveyard);
+        Assert.Equal(
+            "Shuffle Back Bottom Test",
+            second.State.GetObject(second.State.GetPlayer(foe).Library[^1]).Card.Name);
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>
