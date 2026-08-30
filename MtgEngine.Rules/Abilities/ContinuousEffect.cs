@@ -280,6 +280,50 @@ public sealed class CharacteristicsBuilder
     }
 
     /// <summary>
+    /// Whether a land's types were set to a basic land type, taking its own text with them
+    /// (CR 305.7).
+    /// </summary>
+    /// <remarks>
+    /// The narrower cousin of <see cref="HasLostAllAbilities"/>, and it has to be narrower in
+    /// both directions. CR 305.7: "It loses all abilities generated from its rules text, its old
+    /// land types, and any copiable effects affecting that land ... Note that this doesn't remove
+    /// any abilities that were granted to the land by other effects." So the printed abilities go
+    /// and the granted ones stay — which is the opposite of what
+    /// <see cref="LoseAllAbilities"/> does to the same two lists, and the reason this is a second
+    /// flag rather than a call to that one.
+    /// <para>
+    /// It is what makes Blood Moon a real card rather than a cantrip that adds a type: without
+    /// it an Ancient Tomb under one taps for {C}{C} <em>and</em> {R}, which is strictly better
+    /// than the printed board and invisible to anything that only checks the type line.
+    /// </para>
+    /// </remarks>
+    public bool HasLostPrintedAbilities { get; private set; }
+
+    /// <summary>
+    /// Sets a land's types to a basic land type, which takes its rules text with it (CR 305.7).
+    /// </summary>
+    /// <remarks>
+    /// Called from the layer-4 effect that does the setting rather than worked out afterwards,
+    /// because only that effect knows which of the two halves of CR 305.7 it is: a land told it
+    /// "is a Swamp" loses its text, and one told it "is a Swamp in addition to its other land
+    /// types" keeps every word of it.
+    /// <para>
+    /// The keywords go here rather than in the two ability readers, because a keyword <em>is</em>
+    /// an ability (CR 702.1) and this is the only place that holds them. Clearing them in layer 4
+    /// is also the right order for the exception: one granted afterwards, in layer 6, is an
+    /// ability "granted to the land by other effects" and survives, which is what CR 305.7's last
+    /// sentence asks for. It takes a copied card's keywords with it too - the copy read runs at
+    /// the end of layer 1 - and CR 305.7 names "any copiable effects affecting that land" in the
+    /// same breath as the rules text.
+    /// </para>
+    /// </remarks>
+    public void LoseAbilitiesFromRulesText()
+    {
+        HasLostPrintedAbilities = true;
+        Keywords = KeywordAbility.None;
+    }
+
+    /// <summary>
     /// Takes another card's copiable values, which is layer 1a (CR 613.2a, 707.2).
     /// </summary>
     /// <remarks>
@@ -403,6 +447,7 @@ public sealed class CharacteristicsBuilder
             MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
             MayAttackAsThoughNoDefender = MayAttackAsThoughNoDefender,
             HasLostAllAbilities = HasLostAllAbilities,
+            HasLostPrintedAbilities = HasLostPrintedAbilities,
             IsLegendary = IsLegendary,
         };
 
@@ -436,6 +481,7 @@ public sealed class CharacteristicsBuilder
         MayAssignAsThoughUnblocked = MayAssignAsThoughUnblocked,
         MayAttackAsThoughNoDefender = MayAttackAsThoughNoDefender,
         HasLostAllAbilities = HasLostAllAbilities,
+        HasLostPrintedAbilities = HasLostPrintedAbilities,
         IsLegendary = IsLegendary,
         GrantedActivated = [.. GrantedActivated],
         GrantedTriggers = [.. GrantedTriggers],
