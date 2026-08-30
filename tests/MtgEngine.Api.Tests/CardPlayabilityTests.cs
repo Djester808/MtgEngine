@@ -244,7 +244,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The production gate asks PlayableCards.Refuses, which admits all of them and
     // is held by PlayableCardsTests; this row documents the naive question's gap, and the
     // ratchet stays because it forces exactly the investigation that wrote this comment.
-    private const int CompiledGateRefusesComplete = 437;
+    private const int CompiledGateRefusesComplete = 458;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
