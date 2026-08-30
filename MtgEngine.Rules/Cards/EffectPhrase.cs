@@ -600,12 +600,19 @@ public static partial class EffectPhrase
     /// already tracks for the Curse family's repeat.
     /// </para>
     /// <para>
-    /// <strong>An "instead" with nothing in front of it is refused.</strong> The ability-word
-    /// cards print the two halves on two lines — "~ deals 2 damage to any target." then
-    /// "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts." — and the
-    /// sentence grammar cannot see the line above. Read alone, the second line is a card that
-    /// deals its bigger damage <em>on top of</em> the first, which is the worst available
-    /// misreading of the word. The line stays unread instead.
+    /// <strong>An "instead" with nothing in front of it is refused.</strong> A clause with no
+    /// effect before it has no branch to replace, and read alone it is a card that does its
+    /// bigger arm <em>on top of</em> a smaller one that never happened — the worst available
+    /// misreading of the word.
+    /// </para>
+    /// <para>
+    /// The ability-word cards look like that and are not. They print the two halves on two lines
+    /// because CR 207.2c's word forces a break — "~ deals 2 damage to any target." then
+    /// "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts." — and
+    /// <see cref="IsOrphanedReplacement"/> is what lets <c>CardCompiler.Lines</c> put the pair
+    /// back together before either half is read. What arrives here is one phrase with its branch
+    /// in front of it, and the clause is elliptical rather than orphaned: see
+    /// <see cref="Resized"/> for the recipient it leaves out and where that is taken from.
     /// </para>
     /// <para>
     /// Kicker is the one fact here that is not a board condition: it is read off the spell as it
@@ -688,8 +695,18 @@ public static partial class EffectPhrase
         var chosenSoFar = targets.Count;
         var scratch = ImmutableList.CreateBuilder<IEffect>();
 
+        // "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts."
+        // The commonest replacement in the corpus names no recipient at all, because the
+        // sentence it replaces already named one and no printed card says it twice. So the
+        // clause is not a sentence and no grammar can read it: "~ deals 4 damage" has nothing
+        // to aim at. Taken from the damage it replaces instead, with the one thing the words
+        // actually say changed.
+        var resized = Resized(inner, replaced);
+        if (resized is not null)
+            scratch.AddRange(resized);
+
         var read =
-            TryOne(inner, targets, scratch, objectNamedByTrigger)
+            (resized is not null || TryOne(inner, targets, scratch, objectNamedByTrigger))
             && scratch.Count > 0
             && !scratch.Any(FindsItselfByIndex)
 
@@ -766,6 +783,42 @@ public static partial class EffectPhrase
 
         return effect.StartsWith("instead ", StringComparison.OrdinalIgnoreCase)
             || InsteadTail().IsMatch(effect);
+    }
+
+    /// <summary>
+    /// "~ deals 4 damage instead" — the same damage, resized, aimed where the sentence before it
+    /// aimed.
+    /// </summary>
+    /// <remarks>
+    /// The elliptical half of the replacement family, and much the commonest one: an ability word
+    /// forces a line break (CR 207.2c), and the clause after it names a size and nothing else
+    /// because the sentence it replaces named the recipient. "~ deals 4 damage" is not a sentence
+    /// any grammar here can read — there is nothing to aim it at — so this does not try to read
+    /// it. It takes the damage being replaced and changes the one thing the clause says.
+    /// <para>
+    /// Which is why the result is exact rather than a best effort. The recipient is never
+    /// re-read, so this arm cannot land the bigger damage somewhere the printed card does not,
+    /// and <see cref="AimedAt"/> agrees with itself by construction rather than by luck. A clause
+    /// standing in for anything other than one plain damage is refused rather than guessed at:
+    /// two damages, a damage and a draw, or a pump are all sentences whose ellipsis would have to
+    /// be resolved differently, and none of them is printed this way.
+    /// </para>
+    /// <para>
+    /// "That much" is refused with them. It is a size carried forward from an earlier clause
+    /// rather than one the words state, and an "instead" that replaces a damage with the amount
+    /// that damage just dealt is a card that does nothing — which would compile clean and read
+    /// as implemented.
+    /// </para>
+    /// </remarks>
+    private static ImmutableList<IEffect>? Resized(string inner, ImmutableList<IEffect> replaced)
+    {
+        var elliptical = EllipticalDamage().Match(inner.Trim());
+        if (!elliptical.Success || IsThatMany(elliptical.Groups["n"].Value))
+            return null;
+
+        return replaced is [DealDamage printed]
+            ? [printed with { Amount = Number(elliptical.Groups["n"].Value) }]
+            : null;
     }
 
     /// <summary>Where a branch's effects are aimed — a target, or something that is not one.</summary>
@@ -1090,6 +1143,66 @@ public static partial class EffectPhrase
         return m.Success && TryLookAndTakeFrom(m, Zone.Hand, effects, out rest);
     }
 
+    /// <summary>
+    /// "Reveal the top card of your library. If it's a land card, put it onto the battlefield.
+    /// Otherwise, put it into your hand." — Coiling Oracle.
+    /// </summary>
+    /// <remarks>
+    /// The single-card look printed as a branch rather than as a take, and it says exactly what
+    /// the idiom above says: see one card, keep it where the sentence names if it matches, and
+    /// the rest go somewhere else named. So it compiles to that one and needs nothing new — the
+    /// filter decides the branch, the "if" arm is the destination, and "otherwise" is where the
+    /// rest go. A reveal the *conditions* could read would be a new machine; this family never
+    /// needed one, because the condition it asks is the filter the look already applies.
+    /// <para>
+    /// <c>TakeAll</c> rather than a ceiling of one, because the printed sentence offers nobody a
+    /// choice: a matching card is put where it says. A ceiling would stop the game on a prompt
+    /// whose options are the single card and declining it, and declining is not something this
+    /// card lets a player do (CR 118.3).
+    /// </para>
+    /// <para>
+    /// <strong>An "if" with no "otherwise" is refused</strong>, and that is the larger half of the
+    /// family. The unmatched card stays where it was, on top of the library, and this engine's
+    /// look puts everything it did not take on the *bottom* — so reading those would bury a card
+    /// the printed card leaves in place, face up and known to every player at the table. It is
+    /// the same destination <see cref="RESTGOES"/> refuses "on top of your library" for, and it
+    /// stays refused here for the same reason and until the same thing is built.
+    /// </para>
+    /// </remarks>
+    private static bool TryRevealTopCardBranch(
+        string text, ImmutableList<IEffect>.Builder effects, out string rest)
+    {
+        rest = string.Empty;
+
+        var m = RevealTopCardBranchLine().Match(text.Trim());
+        if (!m.Success || JoinedFilter(m.Groups["what"].Value) is not { } filter)
+            return false;
+
+        rest = m.Groups["after"].Value.Trim();
+
+        var restTo = Zone.Library;
+        if (m.Groups["rest"].Value.Contains("graveyard", StringComparison.OrdinalIgnoreCase))
+            restTo = Zone.Graveyard;
+        else if (m.Groups["rest"].Value.Contains("hand", StringComparison.OrdinalIgnoreCase))
+            restTo = Zone.Hand;
+
+        var destination = m.Groups["where"].Value.ToLowerInvariant() switch
+        {
+            "graveyard" => Zone.Graveyard,
+            "battlefield" => Zone.Battlefield,
+            _ => Zone.Hand,
+        };
+
+        effects.Add(new LookAndTake(1, destination, restTo, filter)
+        {
+            Reveal = true,
+            TakeAll = true,
+            TappedOnTaken = m.Groups["tapped"].Success,
+        });
+
+        return true;
+    }
+
     /// <summary>"Look at the top N. Put one into your hand and the rest on the bottom." (CR 701.20a)</summary>
     private static bool TryLookAndTake(
         string text, ImmutableList<IEffect>.Builder effects, out string rest)
@@ -1098,7 +1211,10 @@ public static partial class EffectPhrase
 
         var m = LookAndTakeLine().Match(text.Trim());
         if (!m.Success)
-            return TryLookAndReveal(text, effects, out rest);
+        {
+            return TryRevealTopCardBranch(text, effects, out rest)
+                || TryLookAndReveal(text, effects, out rest);
+        }
 
         var destination = m.Groups["where"].Value.ToLowerInvariant() switch
         {
@@ -6364,6 +6480,49 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new OnlyIf(required, guarded.ToImmutable()));
+            return true;
+        }
+
+        // "Then discard a card unless you attacked this turn." The mirror of the sentence above,
+        // and the same two halves already built: "unless" is "if not", so the condition goes
+        // through BoardConditions exactly as the "if" does and OnlyIf guards the effect with its
+        // negation. It was left when that reader landed on the belief that OnlyIf could not run
+        // from the stack — that its source lookup would come back empty for an instant and
+        // sixteen cards would compile as blanks. It does not: ResolveTop runs a spell's effects
+        // while the spell is still the object on the stack, so PhysicalSourceId names it, and
+        // "If you control a Swamp, destroy target nonblack creature" has been playing off a
+        // sorcery since the day it was written.
+        //
+        // Read after every reader that knows a particular "unless" — "unless you pay {2}",
+        // "unless its controller pays", "unless {B} was spent to cast it". Every one of those is
+        // an offer to *pay* something, which a reader that only asks whether a condition holds
+        // would turn into a free effect: nobody would ever be given the choice, and the card
+        // would do its worst arm every time.
+        var negative = UnlessSentence().Match(sentence);
+        if (negative.Success
+            && BoardConditions.Parse(negative.Groups["cond"].Value.Trim()) is { } forbidden)
+        {
+            var otherwise = ImmutableList.CreateBuilder<IEffect>();
+
+            // The whole remainder is guarded, and a remainder the parser cannot read leaves the
+            // sentence unread — both for the reason the "if" arm gives: falling through to the
+            // "and" split would guard one clause and leave the rest unconditional, which is a
+            // card strictly better than the one printed.
+            if (!TryOne(
+                    negative.Groups["effect"].Value.Trim(),
+                    targets,
+                    otherwise,
+                    objectNamedByTrigger)
+                || otherwise.Count == 0
+                || otherwise.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIf(
+                (state, abilities, source) => !forbidden(state, abilities, source),
+                otherwise.ToImmutable()));
+
             return true;
         }
 
@@ -12531,6 +12690,21 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^if (?<cond>[^,]+), (?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalSentence();
 
+    /// <summary>"[Do something] unless [condition]" — the negative of the sentence above.</summary>
+    /// <remarks>
+    /// The condition may not contain a comma, for the same reason its twin's may not: the word
+    /// "unless" is the only thing separating the two halves, and a condition allowed to swallow a
+    /// comma would take a following clause with it and fail on the rest.
+    /// <para>
+    /// The effect is lazy, so a sentence with two "unless" clauses in it splits at the first and
+    /// leaves the second inside the condition, where <see cref="BoardConditions"/> refuses it.
+    /// That is the wanted answer: no printed card stacks two, and a reader that took the last one
+    /// would guard half the sentence with a condition written about the other half.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^(?<effect>.+?) unless (?<cond>[^,]+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex UnlessSentence();
+
     /// <summary>The else branch of the sentence above, which is where its condition lives.</summary>
     /// <remarks>
     /// Matched only as the sentence <em>after</em> a conditional one. On its own it names no
@@ -12986,6 +13160,17 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(@"^(?<effect>.+?),? instead if (?<cond>[^,]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex TrailingInsteadSentence();
+
+    /// <summary>A damage clause with its recipient left to the sentence in front of it.</summary>
+    /// <remarks>
+    /// Anchored at both ends: anything after the word "damage" is a recipient the clause did
+    /// state, and a clause that states one is read by the ordinary sentence grammar rather than
+    /// by inheriting anything. The subject is only "~" — a pronoun that survived
+    /// <c>SourcePronounDamage</c> is one that reader could not prove meant the source, and
+    /// guessing here would undo that.
+    /// </remarks>
+    [GeneratedRegex(@"^~ deals " + N + @" damage$", RegexOptions.IgnoreCase)]
+    private static partial Regex EllipticalDamage();
 
     /// <remarks>
     /// The plain kicker read-back (CR 702.33e), which is a fact about the cast rather than a
@@ -13830,6 +14015,25 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(@"^(look at|reveal) the top ", RegexOptions.IgnoreCase)]
     private static partial Regex LookOpensLine();
+
+    /// <remarks>
+    /// The branch spelling of a one-card look. "That card" and "it" are the same pronoun here and
+    /// both are printed; "you may put" is deliberately absent from the otherwise arm, because an
+    /// offer is a question and this reader builds an instruction that asks nobody anything.
+    /// <para>
+    /// The otherwise clause is required rather than optional. Without it the unmatched card stays
+    /// on top of the library, which is the one destination the look cannot honour.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^reveal the top card of your library[.,]\s*(then\s+)?"
+            + @"[Ii]f (it's|it is|that card is) (?<what>[A-Za-z][A-Za-z, \-]*?) cards?, "
+            + @"put (it|that card) " + TAKEWHERE + @"\.\s*"
+            + @"Otherwise, put (it|that card) "
+            + @"(?<rest>into your hand|into your graveyard|on the bottom of your library)\."
+            + @"(?<after>.*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex RevealTopCardBranchLine();
 
     /// <remarks>
     /// The reveal-then-put spelling of the same take: "you may reveal a creature card from among

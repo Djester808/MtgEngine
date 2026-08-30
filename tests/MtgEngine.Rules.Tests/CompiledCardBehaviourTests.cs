@@ -61876,30 +61876,46 @@ public sealed class CompiledCardBehaviourTests
     /// <summary>An "instead" whose branch cannot be found stays unread.</summary>
     /// <remarks>
     /// The other side of the fold above, and the reason the fold can be as blunt as it is: the
-    /// two lines are joined only when they read as one phrase together. Galvanic Blast's
-    /// replacement is elliptical — "~ deals 4 damage", with no recipient, because the recipient
-    /// is the one the line above named — and the damage grammar will not read a sentence with
-    /// nothing to aim at. So the join is declined and the line stays unread.
+    /// two lines are joined only when they read as one phrase together, so a pair that does not
+    /// is left exactly as it was.
     /// <para>
-    /// Read alone it would be a card that deals its bigger damage <em>as well as</em> its
-    /// smaller, which is the worst available misreading of the word on the gentlest available
-    /// wording. Unread is a card the deck check refuses rather than one that plays wrongly.
+    /// Two ways that happens, and both are here. A clause with no line at all in front of it has
+    /// nothing to replace — it is the whole card — and one whose condition
+    /// <see cref="BoardConditions"/> cannot answer has no branch to guard. Read either way, the
+    /// card would deal its bigger damage <em>as well as</em> its smaller, which is the worst
+    /// available misreading of the word on the gentlest available wording. Unread is a card the
+    /// deck check refuses rather than one that plays wrongly.
+    /// </para>
+    /// <para>
+    /// Galvanic Blast used to be the example here, and is not any more: its clause is elliptical
+    /// rather than orphaned, and the recipient it leaves out is the one the line above named. It
+    /// now reads, and
+    /// <see cref="An_ability_words_instead_resizes_the_damage_on_the_line_above_it"/> plays it.
     /// </para>
     /// </remarks>
     [Fact]
     public void An_instead_with_nothing_in_front_of_it_stays_unread()
     {
-        // Galvanic Blast.
-        var blast = Card(
+        var orphan = CardCompiler.Compile(Card(
             "Instead Orphan Test",
-            "~ deals 2 damage to any target." + (char)10
-                + "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts.");
+            "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts."));
 
-        var compiled = CardCompiler.Compile(blast);
-
-        Assert.False(compiled.IsComplete);
+        Assert.False(orphan.IsComplete);
         Assert.Contains(
-            compiled.Unhandled,
+            orphan.Unhandled,
+            line => line.Contains("instead", StringComparison.Ordinal));
+
+        Assert.Null(BoardConditions.Parse("you flipped a coin and won three times this turn"));
+
+        var unaskable = CardCompiler.Compile(Card(
+            "Instead Unaskable Test",
+            "~ deals 2 damage to any target." + (char)10
+                + "Metalcraft — ~ deals 4 damage instead if you flipped a coin and won three "
+                + "times this turn."));
+
+        Assert.False(unaskable.IsComplete);
+        Assert.Contains(
+            unaskable.Unhandled,
             line => line.Contains("instead", StringComparison.Ordinal));
     }
 
@@ -66746,6 +66762,260 @@ public sealed class CompiledCardBehaviourTests
         var compiled = CardCompiler.Compile(oracle);
         Assert.False(compiled.IsComplete);
         Assert.NotEmpty(compiled.Unhandled);
+    }
+
+    // ---- Leftovers: three measured declines, re-measured (CR 608.2c, 614.15) --
+
+    /// <summary>
+    /// Galvanic Blast, from the corpus: the ability word's line resizes the damage above it.
+    /// </summary>
+    /// <remarks>
+    /// The commonest replacement the corpus prints, and the elliptical one: an ability word is
+    /// flavour with no rules meaning (CR 207.2c) that forces a line break, so the clause after it
+    /// names a size and nothing else — the sentence it replaces named the recipient, and no
+    /// printed card says it twice. The fold that puts the two lines back together already
+    /// existed; what did not is a reading for "~ deals 4 damage", which is not a sentence any
+    /// grammar here can read because there is nothing to aim it at.
+    /// <para>
+    /// Both arms are played, at the same target, because a condition quietly defaulted either way
+    /// compiles and passes every test that only ever satisfies it. Two damage without the
+    /// artifacts and four with them, and the recipient is the same player each time — which is
+    /// the half this reader could get wrong in a way the coverage number would applaud.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_words_instead_resizes_the_damage_on_the_line_above_it()
+    {
+        var blast = Card(
+            "Galvanic Blast Test",
+            "~ deals 2 damage to any target.\n"
+                + "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts.");
+
+        var compiled = CardCompiler.Compile(blast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        for (var i = 0; i < 3; i++)
+        {
+            game.Create(
+                alice,
+                Card(
+                    "Galvanic Relic Test " + i.ToString(CultureInfo.InvariantCulture),
+                    string.Empty,
+                    CardType.Artifact),
+                Zone.Battlefield);
+        }
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, blast), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(14, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// An elliptical "instead" standing in for something other than one plain damage is refused.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half, and the reason this reader rebuilds the damage rather than reading
+    /// the clause. "~ deals 4 damage" says which verb and how much and nothing about where, so
+    /// the recipient can only come from what is being replaced — and a sentence that did two
+    /// things has no single answer to give it. Read anyway, the bigger damage would land on
+    /// whichever of them happened to be first, on a card that compiled clean.
+    /// </remarks>
+    [Fact]
+    public void An_elliptical_instead_over_two_instructions_leaves_the_line_unread()
+    {
+        var muddled = Card(
+            "Muddled Instead Test",
+            "~ deals 2 damage to any target and you gain 2 life.\n"
+                + "Metalcraft — ~ deals 4 damage instead if you control three or more artifacts.");
+
+        var compiled = CardCompiler.Compile(muddled);
+        Assert.False(compiled.IsComplete);
+        Assert.NotEmpty(compiled.Unhandled);
+    }
+
+    /// <summary>
+    /// Chart a Course, from the corpus: "unless" is "if not", and it resolves off the stack.
+    /// </summary>
+    /// <remarks>
+    /// The direct sibling of the conditional sentence above, and it was left on the belief that
+    /// <see cref="OnlyIf"/> could not run from the stack at all — that its source lookup would
+    /// come back empty for an instant and the family would compile into blanks. It does not:
+    /// <c>ResolveTop</c> runs a spell's effects while the spell is still the object on the stack,
+    /// so <c>PhysicalSourceId</c> names it. This is a sorcery, and both arms are played to say so.
+    /// </remarks>
+    [Fact]
+    public void An_unless_clause_guards_its_effect_with_the_condition_negated()
+    {
+        var chart = Card(
+            "Chart a Course Test",
+            "Draw two cards. Then discard a card unless you control an artifact.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(chart);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Two games rather than two casts, because answering the discard costs the turn: this
+        // is a sorcery, and by the time the question has been put and answered its caster no
+        // longer has priority in a main phase.
+        var (unguarded, alice, _) = InMainPhase();
+
+        var held = unguarded.State.GetPlayer(alice).Hand.Count;
+        unguarded.CastSpell(
+            alice, TestCards.PutInHand(unguarded, alice, chart), targets: null);
+
+        // The copy cast is gone, two were drawn, and the discard the condition did not stop
+        // takes one back — so the question is asked, and answered before anything is counted.
+        TestCards.PassUntil(
+            unguarded, () => unguarded.State.Choice is { Kind: ChoiceKind.DiscardToEffect });
+        unguarded.Choose(alice, [unguarded.State.Choice!.Options![0].Id]);
+        Settle(unguarded);
+
+        Assert.Equal(held + 1, unguarded.State.GetPlayer(alice).Hand.Count);
+
+        var (guarded, amy, _) = InMainPhase();
+        guarded.Create(
+            amy, Card("Chart Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+
+        var before = guarded.State.GetPlayer(amy).Hand.Count;
+        guarded.CastSpell(amy, TestCards.PutInHand(guarded, amy, chart), targets: null);
+        Settle(guarded);
+
+        // With the artifact out nothing is discarded and nothing is asked.
+        Assert.Null(guarded.State.Choice);
+        Assert.Equal(before + 2, guarded.State.GetPlayer(amy).Hand.Count);
+    }
+
+    /// <summary>
+    /// The "unless" that offers a payment is still the payment, not a question about the board.
+    /// </summary>
+    /// <remarks>
+    /// The neighbour the general reader is placed behind. "Sacrifice ~ unless you pay {1}" is an
+    /// offer whose decline is what sacrifices the permanent, and a reader that only asked whether
+    /// a condition held would sacrifice it without ever offering anything — a strictly worse card
+    /// that compiles, plays, and looks implemented. Asserted on the compiled effect, because the
+    /// mistake is one of which reader claimed the sentence.
+    /// </remarks>
+    [Fact]
+    public void An_unless_that_names_a_payment_is_still_the_payment()
+    {
+        var echo = Card(
+            "Unless Payment Test",
+            "At the beginning of your upkeep, sacrifice ~ unless you pay {1}.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(echo);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var trigger = Assert.Single(compiled.Triggers);
+        var offer = Assert.IsType<MayPay>(Assert.Single(trigger.Effects));
+        Assert.IsType<SacrificeSource>(Assert.Single(offer.IfYouDont));
+    }
+
+    /// <summary>
+    /// Coiling Oracle, from the corpus: the branch spelling of a one-card look.
+    /// </summary>
+    /// <remarks>
+    /// Measured as needing "a reveal a condition can then read", which is true of the rest of the
+    /// family and not of this shape: the question it asks — is the revealed card a land? — is the
+    /// filter the look-and-take idiom already applies to the cards it saw. So it compiles to that
+    /// idiom with a pile of one, and nothing new was built. Both branches are played, because a
+    /// filter read as "any card" would put every top card on the battlefield and never reach the
+    /// hand.
+    /// </remarks>
+    [Fact]
+    public void Revealing_the_top_card_branches_on_what_it_is()
+    {
+        var oracle = Card(
+            "Coiling Oracle Test",
+            "When ~ enters, reveal the top card of your library. If it's a land card, put it "
+                + "onto the battlefield. Otherwise, put that card into your hand.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Coiling Forest Test"), Zone.Library);
+        game.Create(alice, oracle, Zone.Battlefield);
+        Settle(game);
+
+        // Nobody was asked: the card names the destination, so there is no choice to stop for
+        // (CR 118.3).
+        Assert.Null(game.State.Choice);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Coiling Forest Test");
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.Create(alice, TestCards.Creature("Coiling Bear Test", 2, 2), Zone.Library);
+        game.Create(alice, oracle, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Coiling Bear Test");
+    }
+
+    /// <summary>
+    /// The same sentence with no "otherwise", and a rest clause naming the top of the library,
+    /// both stay unread.
+    /// </summary>
+    /// <remarks>
+    /// One refusal with two spellings, and the decline behind both is the same fact: everything a
+    /// look did not take goes to the <em>bottom</em>. An unmatched revealed card is left where it
+    /// was — on top, face up, and known to the table — so reading the one-branch form would bury
+    /// it, and reading Diabolic Vision's "put the rest on top of your library in any order" would
+    /// bury four cards it hands the player in an order they chose.
+    /// <para>
+    /// The second of those needs the ordering question as well as the destination, which is why
+    /// it is not simply a wider alternation: on the bottom "in any order" is a difference nobody
+    /// can observe, and on top it is the whole of what the sentence gives away.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_revealed_card_that_would_be_left_on_top_leaves_the_line_unread()
+    {
+        var oneBranch = CardCompiler.Compile(Card(
+            "Llanowar Empath Test",
+            "When ~ enters, reveal the top card of your library. If it's a creature card, put "
+                + "it into your hand.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.False(oneBranch.IsComplete);
+        Assert.NotEmpty(oneBranch.Unhandled);
+
+        var onTop = CardCompiler.Compile(Card(
+            "Diabolic Vision Test",
+            "Look at the top five cards of your library. Put one of them into your hand and the "
+                + "rest on top of your library in any order.",
+            CardType.Sorcery));
+
+        Assert.False(onTop.IsComplete);
+        Assert.NotEmpty(onTop.Unhandled);
+
+        // The same sentence with the destination the engine can honour is read, which is what
+        // says the refusal is about the top of the library and not about the wording.
+        var onBottom = CardCompiler.Compile(Card(
+            "Diabolic Bottom Test",
+            "Look at the top five cards of your library. Put one of them into your hand and the "
+                + "rest on the bottom of your library in any order.",
+            CardType.Sorcery));
+
+        Assert.True(onBottom.IsComplete, string.Join(" | ", onBottom.Unhandled));
     }
 
     // ---- Fuse (CR 702.102) ---------------------------------------------------
