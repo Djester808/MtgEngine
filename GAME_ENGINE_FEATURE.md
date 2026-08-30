@@ -490,6 +490,32 @@ cheaper of the two.
 
 Coverage is **51.8% of playable cards fully read** (16,936 of 32,717), 68.3% of lines.
 
+### Two cards that compiled perfectly and could not be played
+
+The round-end soak found both, and neither was reachable by any unit test, because each needs a
+real card played in real company:
+
+- **A spell whose own text moves it off the stack faulted.** CR 608.2m's last step - put the
+  spell into its owner's graveyard - asked the game for the object unconditionally. "Exile Blood
+  for the Blood God!" exiles the card during its own resolution, so the step then looked up
+  something that had stopped existing. It took **five spells cast in front of it** to reproduce:
+  the card costs {1} less for each creature that died this turn and is uncastable on an empty
+  board. Nothing to move is the rule having nothing to do, not an error.
+- **A division was checked against targets it was not among.** CR 601.2d says each target *the
+  division is among* gets at least one; the validator asked it of every chosen target. Rhino,
+  Terrible Trampler destroys a target artifact or land and then distributes three counters among
+  up to three **other** target creatures - the artifact's slot has to be zero, so every possible
+  announcement was illegal and a fully read permanent could not be cast at all.
+
+Both are one rule applied one scope too wide, and both were invisible to 1,969 unit tests. The
+soak's own driver had to learn the same distinction the second fix encodes: one entry per chosen
+target, zero outside the divided slice. Where the harness was wrong it was taught the answer a
+player gives, never by weakening the rule - the engine was right to refuse both times it threw.
+
+**The round is not done when the branches merge; it is done when the soak agrees.** That has now
+been true in four of the last five rounds, and twice this round the unit suites were green while
+a card in the corpus was unplayable.
+
 ### Round fifteen: chosen by grepping for a shape, not by reading down the queue
 
 Rank had stopped predicting value, so every target this round was found by grepping the
