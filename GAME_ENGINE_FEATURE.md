@@ -487,7 +487,57 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **49.8% of playable cards fully read** (16,298 of 32,717), 66.9% of lines.
+Coverage is **50.5% of playable cards fully read** (16,507 of 32,717), 67.3% of lines.
+
+### Round thirteen: past half, and what a sweep is for
+
+The named families were gone, so this round sliced the work queue by rank and gave four agents
+fifty rows each. That shape earned its keep in a way a family round could not: **most of the
+gain came from cards outside the rows that were read.** One agent claimed eight rows worth 24
+cards and gained 50, because the shared vocabulary it touched freed 26 more elsewhere - the
+poison sentence alone moved 15, toxic having been the only path to `GivePoisonCounters`.
+Another took eight rows worth 16 and gained 58 for the same reason.
+
+Three defects the coverage count reported as gains, each caught only by diffing the *set*:
+
+- A causative reader that let its subject be anything undid a refusal this compiler had made
+  deliberately - Aether Charge's "you may have **it** deal 4 damage" would have dealt from the
+  enchantment rather than the Beast. Eight cards became different cards while the count rose
+  by eight.
+- A hand-size reader leaned on `NumberWord`, which answers 1 to anything it does not recognise.
+  All eight cards compiled and every one moved the limit by exactly one.
+- `~ attacks and isn't blocked` asked the **state** whether the attacker was blocked, but a
+  trigger condition is evaluated against the game as it was before the event (CR 603.6), and
+  before blockers are declared nothing is blocked. It fired on every attacker. Nobody had
+  noticed because **no card using it had ever compiled** - the effect sentence beside it was
+  unread, so the family sat in the queue behind a trigger that would have played every one of
+  them better than printed. A defect can hide behind an unread neighbour, not only a stolen one.
+
+**Two owed-settle bugs of one shape, making three this week.** `SettleOwedShuffle` returned from
+the settle sweep as though a question were pending, so "each player shuffles their graveyard"
+performed one and handed priority back with the other graveyard unshuffled - the same shape as
+`SettleOwedRoll` and the zero-card discard. Every owed-settle site is worth auditing against
+this: a step that asks nobody anything must continue the sweep rather than return from it.
+
+**The obvious construction of a Pact kills its caster every time.** Mana empties as a step ends
+(CR 500.4) and delayed triggers fire on entry, so a payment asked there is one nobody can ever
+make - and CR 118.3 correctly declines on the player's behalf, because a question with one
+possible answer is not a question. All four pacts would have compiled, passed the gate, and lost
+their controller the game on schedule. The delayed ability goes on the stack instead, so priority
+happens and lands can be tapped first.
+
+### Two measurement techniques worth keeping
+
+**The substitution probe.** Swap the suspect phrase for a known-read equivalent, recompile the
+whole corpus, diff the complete set. It corrected three estimates by more than 2x in both
+directions in one slice, and it is what proved the mid-resolution mana class was 19 cards rather
+than the 161 that were one line short - the other 142 die on something else in the same line.
+Run it in both directions: half of that agent's gain came from the player scope it added, not
+the colour choice it was sent to build.
+
+**Rebuild before measuring a baseline.** Two agents independently reported a warm worktree whose
+built output was stale - one by 94 cards, one by 135. A `--no-build` coverage run against it
+reports a baseline low by that much, and every gain measured from it is inflated.
 
 ### Round thirteen: a pre-game step, a delayed ability that reaches the stack, and one prohibition
 
