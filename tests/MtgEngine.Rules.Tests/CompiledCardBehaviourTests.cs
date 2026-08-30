@@ -62427,6 +62427,48 @@ public sealed class CompiledCardBehaviourTests
         Assert.Throws<InvalidOperationException>(
             () => game.CastSpell(alice, card, [], fused: true));
     }
+    /// <summary>
+    /// A spell whose own text moves it off the stack still finishes resolving (CR 608.2m).
+    /// </summary>
+    /// <remarks>
+    /// The last thing a resolving spell does is go to its owner's graveyard, and that step used
+    /// to ask the game for the object unconditionally. "Exile Blood for the Blood God!" is the
+    /// printed shape that breaks it: the spell's own effects exile the card, so by the time the
+    /// step runs there is nothing on the stack to move and the lookup threw.
+    /// <para>
+    /// Only the soak found this, and only with five cards in front of it - the card costs
+    /// {1} less for each creature that died this turn, so it is uncastable on an empty board.
+    /// That is the argument for a suite that plays every card in company rather than alone.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_spell_that_exiles_itself_finishes_resolving()
+    {
+        var selfExiling = Card(
+            "Self Exiling Bolt Test",
+            "~ deals 2 damage to any target. Exile ~.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(selfExiling);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, selfExiling);
+        TapForMana(game, alice, "Mountain");
+
+        var before = game.State.GetPlayer(bob).Life;
+
+        game.CastSpell(alice, card, targets: [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // The damage happened, the card is in exile rather than the graveyard, and the stack is
+        // empty - the resolution finished rather than throwing on its way out.
+        Assert.Equal(before - 2, game.State.GetPlayer(bob).Life);
+        Assert.True(game.State.Stack.IsEmpty);
+        Assert.Single(game.State.Exile);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+    }
+
     // ---- Verifying the mechanics play, not merely compile ---------------------
 
     /// <summary>

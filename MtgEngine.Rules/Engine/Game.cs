@@ -11690,6 +11690,18 @@ public sealed class Game
             return;
         }
 
+        // CR 608.2m: the last thing a resolving spell does is go to its owner's graveyard - but
+        // only if it is still on the stack to go. A spell whose own text moves it has already
+        // left, and "Exile Blood for the Blood God!" is the printed shape that does it: the
+        // effects above exile the card, and this move then asked the game for an object that had
+        // stopped existing. Nothing to move is not an error, it is the rule having nothing left
+        // to do. Found by the soak, which is the only thing that plays a card like this.
+        if (!State.TryGetObject(stackId, out _))
+        {
+            Emit(new StackObjectResolved(stackId, spell.Card.Name));
+            return;
+        }
+
         var landed = Move(stackId, destination, MoveCause.Resolve, spell.ControllerId);
 
         if (wentAdventuring && landed is { } exiled)

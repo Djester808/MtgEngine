@@ -346,7 +346,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The two times it caught something real - 48 sticker sheets that are not
     // cards, and four reversible printings arriving with no type at all - both showed up
     // in that bucket, which is why the failure message names its residents card by card.
-    private const int SoakSelectsNeither = 785;
+    private const int SoakSelectsNeither = 786;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.
@@ -668,7 +668,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
             foreach (var colour in Enum.GetValues<ManaColor>())
                 game.AddMana(alice, colour, 20);
 
-            if (Speak(game, alice, inHand))
+            if (Speak(game, alice, inHand, pool))
                 cast++;
 
             Empty(game);
@@ -736,14 +736,53 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         Settle(game);
     }
 
+    /// <summary>
+    /// A legal division for a spell that divides something among its targets (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// The soak plays every complete card, so it has to answer every question a player would be
+    /// asked, and a divided spell asks one at announcement. Without this the engine throws where
+    /// a real cast would have offered a choice — which is what it did the first time a divided
+    /// spell reached here, and it read as a faulting card rather than a harness that had not
+    /// learned the question. The engine is right to throw: CR 601.2d makes an announcement that
+    /// leaves a target with nothing illegal, not legal-and-inert.
+    /// <para>
+    /// One each and the remainder on the first, which is the simplest legal answer. Null when the
+    /// spell divides nothing, or when the total is counted off the board rather than printed —
+    /// the engine refuses to guess at those, and so does this.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<int>? Shares(
+        Game game, CompiledPool pool, ObjectId card, IReadOnlyList<Target> aimed)
+    {
+        var definition = pool.SpellOf(game.State.GetObject(card).Card);
+
+        if (definition?.Effects.OfType<IDividedEffect>().FirstOrDefault() is not { } dividing)
+            return null;
+
+        if (dividing.Total.IsVariable || dividing.Total.Fixed <= 0)
+            return null;
+
+        var covered = Math.Min(dividing.TargetCount, aimed.Count - dividing.FirstIndex);
+        if (covered <= 0 || dividing.Total.Fixed < covered)
+            return null;
+
+        var shares = new int[covered];
+        Array.Fill(shares, 1);
+        shares[0] += dividing.Total.Fixed - covered;
+
+        return shares;
+    }
+
     /// <summary>Casts this card, trying the target shapes in turn until one is accepted.</summary>
-    private static bool Speak(Game game, Guid player, ObjectId card)
+    private static bool Speak(Game game, Guid player, ObjectId card, CompiledPool pool)
     {
         foreach (var targets in Aims(game, player, card))
         {
             try
             {
-                game.CastSpell(player, card, targets);
+                game.CastSpell(
+                    player, card, targets, damageDivision: Shares(game, pool, card, targets));
                 return true;
             }
             catch (InvalidOperationException refused)
