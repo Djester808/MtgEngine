@@ -585,6 +585,23 @@ public sealed record GameObject
     /// </remarks>
     public string? Chosen { get; init; }
 
+    /// <summary>
+    /// The card name chosen as this permanent entered (CR 201.4, 614.12).
+    /// </summary>
+    /// <remarks>
+    /// Apart from <see cref="Chosen"/> rather than folded into it, and the separation is the
+    /// whole safety of the feature. That field holds a colour or a creature type, and every
+    /// reader of it treats a capitalised word as a creature type - which a card name always is.
+    /// One field would have handed "Meddling Mage" to the mass-static reader as a tribe and to
+    /// <c>SearchFilters</c> as a subtype, and both would have answered rather than refused.
+    /// <para>
+    /// Null until chosen, and null means <em>the question has not been asked, so this matches
+    /// nothing</em> - never "matches everything". A prohibition read too broadly makes every
+    /// spell in the game uncastable, so the null arm is the one that must fail closed.
+    /// </para>
+    /// </remarks>
+    public string? ChosenName { get; init; }
+
     /// <summary>Time counters on a suspended card in exile (CR 702.62a).</summary>
     /// <remarks>
     /// Not in <see cref="PermanentState.Counters"/>, which only exists on the battlefield: a
@@ -1067,6 +1084,7 @@ public sealed record GameObject
         OnAdventure == other.OnAdventure &&
         DiscardedOnTurn == other.DiscardedOnTurn &&
         string.Equals(Chosen, other.Chosen, StringComparison.Ordinal) &&
+        string.Equals(ChosenName, other.ChosenName, StringComparison.Ordinal) &&
         SuspendedBy == other.SuspendedBy &&
         ForetoldOnTurn == other.ForetoldOnTurn &&
         MayCastFree == other.MayCastFree &&

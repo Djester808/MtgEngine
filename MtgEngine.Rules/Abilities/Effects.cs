@@ -7180,6 +7180,22 @@ public sealed record CostModifier
     public bool TargetsSource { get; init; }
 
     /// <summary>
+    /// Whether the subject is the card name this permanent chose rather than
+    /// <see cref="FilterId"/> (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// A flag and not a filter id, and that is the point. A name is capitalised, and a
+    /// capitalised word handed to <see cref="SearchFilters"/> is read as a <em>subtype</em>:
+    /// "Disruptor Flute" would compile to a tax on cards with a creature type nothing has,
+    /// which is a card that looks finished and does nothing. So the name never becomes a
+    /// filter at all - the flag says "ask the host", and the host is asked by name.
+    /// <para>
+    /// Null on the host means the question has not been asked yet, and that taxes nothing.
+    /// </para>
+    /// </remarks>
+    public bool ChosenName { get; init; }
+
+    /// <summary>
     /// Printed symbols an increase adds, for a tax that is not generic mana (CR 601.2f).
     /// </summary>
     /// <remarks>

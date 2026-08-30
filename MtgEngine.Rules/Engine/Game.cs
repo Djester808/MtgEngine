@@ -1122,6 +1122,15 @@ public sealed class Game
                 + "may be cast this turn (CR 601.3).");
         }
 
+        // CR 601.3 again, with the prohibition coming from a name a player chose rather than
+        // from a tally. Beside the limit above and before anything is spent or moved, for the
+        // same reason: a cast this refuses must never have begun.
+        if (Bans.CastingForbidden(State, _abilities, card.Card, playerId) is { } naming)
+        {
+            throw new InvalidOperationException(
+                $"{card.Card.Name} cannot be cast: {naming.Card.Name} named it (CR 601.3).");
+        }
+
         // CR 702.37b: a card with morph may be cast face down as a 2/2 creature spell for {3}.
         // Nothing else about the card applies while it is being cast that way — not its targets,
         // not its modes, not its cost — because the spell on the stack is not that card's spell.
@@ -2181,6 +2190,18 @@ public sealed class Game
         {
             throw new InvalidOperationException(
                 $"{source.Card.Name}'s activated abilities can't be activated (CR 602.5c).");
+        }
+
+        // CR 602.5: the same prohibition said about a name somebody chose rather than about
+        // this permanent. Asked of the source's name and not of its characteristics, because
+        // "sources with the chosen name" reaches a card in any zone — and because a name is
+        // not a characteristic CR 613 can move.
+        if (Bans.ActivatingForbidden(State, _abilities, source, ability.IsManaAbility)
+            is { } forbidding)
+        {
+            throw new InvalidOperationException(
+                $"{source.Card.Name}'s activated abilities can't be activated: "
+                    + $"{forbidding.Card.Name} named it (CR 602.5).");
         }
 
         // CR 702.18a: while a spell with split second is on the stack, only mana abilities may
@@ -3359,8 +3380,19 @@ public sealed class Game
                 if (modifier.FromZone is { } only && only != castFrom)
                     continue;
 
-                if (!SearchFilters.Matches(modifier.FilterId, paying))
+                // "Spells with the chosen name cost {3} more to cast" - the subject is a name
+                // a player picked as this permanent entered, so it is asked of the permanent
+                // rather than of the modifier, and a permanent that has not been asked yet
+                // taxes nothing.
+                if (modifier.ChosenName)
+                {
+                    if (!Bans.NameMatches(permanent, paying.Name))
+                        continue;
+                }
+                else if (!SearchFilters.Matches(modifier.FilterId, paying))
+                {
                     continue;
+                }
 
                 yield return modifier;
             }
@@ -3832,8 +3864,17 @@ public sealed class Game
                 break;
 
             case ChoiceKind.NameCharacteristic:
+                // Two events for one question, because the two answers are different things:
+                // a colour and a creature type are characteristics, a card name is not one.
+                // Which was asked is read back off the card here rather than carried on the
+                // choice, because the card is what a replay reaches again.
                 if (_entryChoiceBeingAsked is { } naming && picks.Count > 0)
-                    Emit(new CharacteristicChosen(naming, picks[0]));
+                {
+                    Emit(_abilities.ChoosesOnEntry(State.GetObject(naming).Card)
+                            == ChoiceOnEntry.CardName
+                        ? new NameChosen(naming, picks[0])
+                        : new CharacteristicChosen(naming, picks[0]));
+                }
 
                 _entryChoiceBeingAsked = null;
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -6465,16 +6506,24 @@ public sealed class Game
         foreach (var id in State.Battlefield)
         {
             var obj = State.GetObject(id);
-            if (obj.Chosen is not null)
-                continue;
-
             var kind = _abilities.ChoosesOnEntry(obj.Card);
             if (kind == ChoiceOnEntry.None)
                 continue;
 
-            var options = kind == ChoiceOnEntry.Color
-                ? (IReadOnlyList<string>)["white", "blue", "black", "red", "green"]
-                : CreatureTypesInPlay();
+            // Asked of the field the answer lands in, not of a shared one: a card name and a
+            // characteristic are kept apart on the object, so "has this been asked yet" has
+            // to be asked of whichever half this card fills.
+            var answered = kind == ChoiceOnEntry.CardName ? obj.ChosenName : obj.Chosen;
+            if (answered is not null)
+                continue;
+
+            var options = kind switch
+            {
+                ChoiceOnEntry.Color =>
+                    (IReadOnlyList<string>)["white", "blue", "black", "red", "green"],
+                ChoiceOnEntry.CardName => CardNamesOffered(obj),
+                _ => CreatureTypesInPlay(),
+            };
 
             if (options.Count == 0)
                 continue;
@@ -6486,9 +6535,12 @@ public sealed class Game
                 Id = $"chosen:{id.Value:N}",
                 PlayerId = ControllerOf(obj),
                 Kind = ChoiceKind.NameCharacteristic,
-                Prompt = kind == ChoiceOnEntry.Color
-                    ? $"Choose a color for {obj.Card.Name}."
-                    : $"Choose a creature type for {obj.Card.Name}.",
+                Prompt = kind switch
+                {
+                    ChoiceOnEntry.Color => $"Choose a color for {obj.Card.Name}.",
+                    ChoiceOnEntry.CardName => $"Choose a card name for {obj.Card.Name}.",
+                    _ => $"Choose a creature type for {obj.Card.Name}.",
+                },
                 Options = [.. options.Select(o => new ChoiceOption(o, o))],
                 MinPicks = 1,
                 MaxPicks = 1,
@@ -6501,6 +6553,59 @@ public sealed class Game
     }
 
     private ObjectId? _entryChoiceBeingAsked;
+
+    /// <summary>
+    /// The card names this permanent's controller may be offered (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// CR 201.4 lets a player name any card in the Oracle reference — thirty-odd thousand of
+    /// them, which no board can show. So the offer is narrowed the way the creature-type offer
+    /// below is: to the names actually in this game. Naming a card nothing has is legal and
+    /// useless, and every card that asks this is naming something its controller is worried
+    /// about.
+    /// <para>
+    /// <strong>And narrowed to what the chooser is allowed to know.</strong> The list is the
+    /// public zones plus the chooser's own hand — never an opponent's hand or anybody's
+    /// library, because an option list is shown to the player and a list built from a hidden
+    /// zone would hand them its contents. That is not a nicety: Sorcerous Spyglass and
+    /// Anointed Peacekeeper pay real card text for the words "look at an opponent's hand"
+    /// before they name, and Meddling Mage does not. A shared offer would have given the
+    /// Mage what those two are printed to buy.
+    /// </para>
+    /// <para>
+    /// Filtered by what the card allows (CR 201.4a). A Meddling Mage offering Island is a
+    /// strictly better card than the printed one, and the qualifier is the only thing
+    /// standing between the two.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<string> CardNamesOffered(GameObject chooser)
+    {
+        var filter = _abilities.ChosenNameFilterOf(chooser.Card) ?? SearchFilters.AnyCard;
+        var controller = ControllerOf(chooser);
+        var seen = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var obj in State.Objects.Values)
+        {
+            // Exactly the zones the view already shows this player. Exile is left out
+            // although much of it is public, because the projection does not carry it at
+            // all - offering a name out of it would show something no board shows, and an
+            // offer that reveals more than the view is the same leak by another route.
+            var visible = obj.Zone switch
+            {
+                Zone.Battlefield or Zone.Graveyard or Zone.Stack => true,
+                Zone.Hand => obj.OwnerId == controller,
+                _ => false,
+            };
+
+            if (!visible || obj.Card.Name.Length == 0)
+                continue;
+
+            if (SearchFilters.Matches(filter, obj.Card))
+                seen.Add(obj.Card.Name);
+        }
+
+        return [.. seen];
+    }
 
     /// <summary>
     /// The creature types a player could sensibly name (CR 205.3m).

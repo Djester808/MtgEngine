@@ -98,8 +98,16 @@ public enum ChoiceKind
     /// ever offered after the hand has been revealed, which is what makes showing them legal.
     /// </remarks>
     /// <summary>
-    /// A colour or creature type named as a permanent enters (CR 614.12).
+    /// A colour, creature type or card name named as a permanent enters (CR 201.4, 614.12).
     /// </summary>
+    /// <remarks>
+    /// One kind for three questions, because the board asks all three the same way - a prompt
+    /// and a list of strings. Where they part is only what the answer becomes: a colour and a
+    /// creature type are characteristics and land in <c>GameObject.Chosen</c>, a card name is
+    /// not one and lands in <c>GameObject.ChosenName</c>. <c>Game.Resume</c> reads which was
+    /// asked off the card rather than off this kind, so no client had to learn a fourth word
+    /// for a question it already renders.
+    /// </remarks>
     NameCharacteristic,
 
     /// <summary>

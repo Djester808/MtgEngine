@@ -225,6 +225,7 @@ public static class EventLogSerializer
             ["ManaAdded"] = typeof(ManaAdded),
             ["StateTriggerArmed"] = typeof(StateTriggerArmed),
             ["CharacteristicChosen"] = typeof(CharacteristicChosen),
+            ["NameChosen"] = typeof(NameChosen),
             ["ManaSpent"] = typeof(ManaSpent),
             ["ManaPoolsEmptied"] = typeof(ManaPoolsEmptied),
             ["TargetsChosen"] = typeof(TargetsChosen),
