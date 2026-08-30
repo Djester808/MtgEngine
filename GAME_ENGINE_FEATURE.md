@@ -515,7 +515,6 @@ cheaper of the two.
 
 Coverage is **54.3% of playable cards fully read** (17,765 of 32,717), 70.0% of lines.
 
-
 ### Round twenty: a card name the player chooses, and a row that was 169 and is 8
 
 Meddling Mage, Pithing Needle, Nevermore and their kin ask a question no other entry choice
@@ -620,6 +619,7 @@ the one that can.
   number of cards named ~ in your graveyard" (108) and token naming (90). `SearchFilters`
   already has `name:` and reads the single-zone search; what blocks these is the zone list, the
   counting, and conjure — not the name.
+
 ### Round nineteen: the recorded set as an object, and the second fail-closed line
 
 Round eighteen built `ResolutionRecord` and read three of "this way"'s five grammars off it — a
