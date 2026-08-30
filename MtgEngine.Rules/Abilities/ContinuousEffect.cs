@@ -333,6 +333,16 @@ public sealed class CharacteristicsBuilder
         Toughness = toughness;
     }
 
+    /// <summary>
+    /// Sets power alone, which is still the layer 7b operation (CR 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// "Target creature has base power 0 until end of turn" leaves the toughness printed on the
+    /// card exactly where it was, so a 3/3 Island of Wak-Wak'd into a 0/3 still survives two
+    /// damage. Setting both and guessing the toughness would have been a different card.
+    /// </remarks>
+    public void SetPower(int power) => Power = power;
+
     /// <summary>Swaps power and toughness, the layer 7d operation (CR 613.4d).</summary>
     public void Switch() => (Power, Toughness) = (Toughness, Power);
 

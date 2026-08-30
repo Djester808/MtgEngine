@@ -4222,19 +4222,21 @@ public sealed record ShuffleLibrary(
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        IEnumerable<Guid> whose = TargetIndex is { } index
-            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed ? [aimed.Player] : []
-            : PlayerScopes.Resolve(Whose, context);
+        // A named target wins outright over a scope, the same way it does for drawing and
+        // discarding: the sentence named one player and the scope named none. "Target player
+        // shuffles their graveyard into their library" is five corpus cards whose only unread
+        // line was the subject - the shuffle itself had worked since the tutors were built.
+        if (TargetIndex is { } index)
+        {
+            var aimed = context.TargetAt(index)?.Player ?? context.ControllerId;
+            return [Requested(context, aimed)];
+        }
 
-        return
-        [
-            .. whose.Select(who => new ShuffleRequested(
-                who,
-                GraveyardFirst
-                    ? context.State.GetPlayer(who).Graveyard
-                    : [])),
-        ];
+        return [.. PlayerScopes.Resolve(Whose, context).Select(who => Requested(context, who))];
     }
+
+    private ShuffleRequested Requested(ResolutionContext context, Guid who) =>
+        new(who, GraveyardFirst ? context.State.GetPlayer(who).Graveyard : []);
 }
 
 /// <summary>

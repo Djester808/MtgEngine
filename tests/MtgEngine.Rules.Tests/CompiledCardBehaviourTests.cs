@@ -50266,6 +50266,419 @@ public sealed class CompiledCardBehaviourTests
             second.State.GetObject(second.State.GetPlayer(foe).Library[^1]).Card.Name);
     }
 
+    // ---- Somebody else does it, and three readers that refused their own words ----
+
+    /// <summary>
+    /// "When ~ enters, you may have target opponent discard a card." — Ebon Dragon.
+    /// </summary>
+    /// <remarks>
+    /// The causative. "Have somebody do something" is the same instruction as "somebody does
+    /// something" with the subject demoted to an object of "have", and every one of those
+    /// indicative sentences already had a reader — so the whole family was unread for one word.
+    /// It is rewritten before the sentence grammar sees it rather than given matchers of its own,
+    /// because a matcher per verb would have to restate the target vocabulary each time.
+    /// <para>
+    /// Both answers are asserted. An offer whose decline still does the thing is a strictly
+    /// harsher card than the one printed, and it is the arm a test that only accepts never runs.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public void A_causative_offer_is_the_indicative_sentence_it_means(bool accept, int discarded)
+    {
+        var dragon = Card(
+            "Causative Dragon Test",
+            "When ~ enters, you may have target opponent discard a card.",
+            CardType.Creature,
+            power: 5,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(dragon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var held = game.State.GetPlayer(bob).Hand.Count;
+
+        game.Create(alice, dragon, Zone.Battlefield);
+
+        // The trigger's target first (CR 603.3d): Bob is the only opponent, so that question has
+        // one answer and taking it is not what this test is about.
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        var aiming = game.State.Choice!;
+        Assert.Equal(ChoiceKind.ChooseTriggerTargets, aiming.Kind);
+        game.Choose(alice, [aiming.Options!.First().Id]);
+
+        // The offer, answered by hand rather than through Settle - which of the two answers is
+        // taken is the whole of what this test is about.
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        var offer = game.State.Choice!;
+        var no = offer.Options!.Single(
+            o => o.Label.Contains("decline", StringComparison.OrdinalIgnoreCase));
+
+        game.Choose(alice, [accept ? offer.Options!.First(o => o.Id != no.Id).Id : no.Id]);
+        Settle(game);
+
+        Assert.Equal(held - discarded, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// The causative reaches whatever the indicative already reached.
+    /// </summary>
+    /// <remarks>
+    /// The point of rewriting rather than matching: these lines share nothing but the word
+    /// "have", and their indicative forms are read by unrelated parts of the phrase grammar. Each
+    /// was its own row in the work queue, worth about two cards, and none was about the verb.
+    /// </remarks>
+    [Theory]
+    [InlineData("When ~ enters, you may have target opponent discard a card.")]
+    [InlineData("When ~ enters, you may have target player mill two cards.")]
+    [InlineData("When ~ enters, you may have target player draw a card.")]
+    [InlineData("Whenever ~ attacks, you may have target creature get +2/+0 until end of turn.")]
+    [InlineData("Whenever ~ attacks, you may have target creature gain flying until end of turn.")]
+    public void The_causative_reaches_every_verb_its_indicative_already_read(string text)
+    {
+        var card = Card("Causative Verbs Test", text, CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// The causative may not have a pronoun for a subject.
+    /// </summary>
+    /// <remarks>
+    /// The boundary the first cut of the rewrite walked past. "It" and "that creature" are
+    /// resolved elsewhere in this compiler under a guard about which trigger events carry an
+    /// object, and a rewrite that hands them to the ordinary sentence grammar aims the verb at
+    /// the source instead — 54 corpus lines say "you may have it ..." and 16 say "you may have
+    /// that creature ...", and reading them that way makes each of those cards a different one.
+    /// <para>
+    /// The subject is therefore a target phrase or the source, and the eight cards that costs are
+    /// eight cards that would have been read wrongly.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Whenever a Beast you control enters, you may have it deal 4 damage to target player.")]
+    [InlineData("Whenever a Beast you control enters, you may have that creature draw a card.")]
+    public void The_causative_refuses_a_pronoun_for_its_subject(string text)
+    {
+        var card = Card("Causative Pronoun Test", text, CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled, line => line.Contains("you may have", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "Target player shuffles their graveyard into their library." — Clear the Mind (CR 701.24a).
+    /// </summary>
+    /// <remarks>
+    /// "Shuffle your graveyard into your library" had read since the tutors were built; the same
+    /// instruction with a subject in front of it had not, and the subject was the whole blocker on
+    /// six cards. The effect grew a target index the way drawing and draining already had one,
+    /// rather than a second effect that shuffles.
+    /// </remarks>
+    [Fact]
+    public void A_named_player_shuffles_their_own_graveyard_back()
+    {
+        var clear = Card(
+            "Clear Mind Test",
+            "Target player shuffles their graveyard into their library.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(clear);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, TestCards.Creature("Cleared Bear One Test", 2, 2), Zone.Graveyard);
+        game.Create(bob, TestCards.Creature("Cleared Bear Two Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Kept Bear Test", 2, 2), Zone.Graveyard);
+
+        var library = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, clear), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        // Bob's, and only Bob's. A shuffle that read the caster would have emptied the wrong
+        // graveyard and left this one exactly as it was.
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(library + 2, game.State.GetPlayer(bob).Library.Count);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Kept Bear Test");
+    }
+
+    /// <summary>"Each player shuffles their graveyard into their library." — Mnemonic Nexus.</summary>
+    /// <remarks>
+    /// The first card in the corpus to owe two shuffles at once, and it found a settle that
+    /// performed one of them and handed priority back. A shuffle asks nobody anything, so it now
+    /// goes round the sweep the way a seek and a roll do; before that, the second player's
+    /// graveyard sat unshuffled while the spell was supposedly finished resolving.
+    /// </remarks>
+    [Fact]
+    public void Every_player_shuffles_their_own_graveyard_back()
+    {
+        var nexus = Card(
+            "Mnemonic Nexus Test",
+            "Each player shuffles their graveyard into their library.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(nexus);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(bob, TestCards.Creature("Nexus Bear Test", 2, 2), Zone.Graveyard);
+
+        var library = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, nexus));
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(library + 1, game.State.GetPlayer(bob).Library.Count);
+    }
+
+    /// <summary>
+    /// "Target creature with flying has base power 0 until end of turn." — Island of Wak-Wak.
+    /// </summary>
+    /// <remarks>
+    /// Layer 7b with one half of it missing (CR 613.4b). "Base power and toughness N/N" had read
+    /// for months and the four cards that print a power alone had not, and the fix is not to fill
+    /// the toughness in: a 3/3 whose power is set to 0 still has a 3/3's toughness, and a reading
+    /// that set both would have made every one of these cards kill what it shrinks.
+    /// </remarks>
+    [Fact]
+    public void A_base_power_alone_leaves_the_printed_toughness_alone()
+    {
+        var island = Card(
+            "Wak-Wak Test",
+            "{T}: Target creature with flying has base power 0 until end of turn.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(island);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var land = game.Create(alice, island, Zone.Battlefield);
+
+        var flier = game.Create(
+            bob,
+            Card(
+                "Wak-Wak Flier Test",
+                string.Empty,
+                CardType.Creature,
+                power: 3,
+                toughness: 3,
+                keywords: KeywordAbility.Flying),
+            Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, land, compiled.Activated[0].Id, [Target.ToPermanent(flier)]);
+
+        Settle(game);
+
+        var shrunk = game.State.GetObject(flier);
+        Assert.Equal(0, Characteristics.PowerOf(game.State, Pool, shrunk));
+        Assert.Equal(3, Characteristics.ToughnessOf(game.State, Pool, shrunk));
+    }
+
+    /// <summary>
+    /// "Whenever ~ is dealt combat damage, you gain that much life." — Wall of Essence.
+    /// </summary>
+    /// <remarks>
+    /// A neighbouring reader that stopped one word early: "is dealt damage" had read since the
+    /// damage triggers were built, and the combat form beside it went to the unread pile.
+    /// <c>DamageMarked</c> had carried <c>IsCombat</c> the whole time.
+    /// <para>
+    /// The burn is the half that matters. A combat-damage trigger that fires on a Shock is a
+    /// different and better card, and it is exactly what widening the pattern without adding the
+    /// term would have produced.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Combat_damage_taken_is_told_apart_from_damage_taken()
+    {
+        var wall = Card(
+            "Essence Wall Test",
+            "Whenever ~ is dealt combat damage, you gain that much life.",
+            CardType.Creature,
+            power: 0,
+            toughness: 4,
+            keywords: KeywordAbility.Defender);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var blocker = game.Create(alice, wall, Zone.Battlefield);
+        var attacker = game.Create(
+            bob, TestCards.Creature("Essence Attacker Test", 2, 2), Zone.Battlefield);
+
+        // Damage that is not combat damage: the trigger must not fire.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Essence Ping Test", "~ deals 1 damage to any target.")),
+            [Target.ToPermanent(blocker)]);
+
+        Settle(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Two, which is the damage that was dealt and not the wall's own size.
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "As an additional cost to cast this spell, return a permanent you control to its owner's
+    /// hand." — Fear of Isolation (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// A decline that had outlived its reason. The compiler refused this cost because the cast
+    /// path's chosen-cost loop fell through to a graveyard move and would have destroyed what the
+    /// card meant to pick up — true when it was written, and untrue from the moment sneak and the
+    /// alternative costs gave that loop the return arm the activation path already had. Five cards
+    /// sat unread beside working machinery.
+    /// <para>
+    /// So the assertion is about the zone, not the count: the permanent has to reach its owner's
+    /// <em>hand</em>, and a graveyard here would be the old bug wearing a green test.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_additional_cost_can_return_a_permanent_to_its_owners_hand()
+    {
+        var fear = Card(
+            "Isolation Fear Test",
+            "As an additional cost to cast ~, return a permanent you control to its owner's hand."
+                + "\nFlying",
+            CardType.Creature,
+            power: 2,
+            toughness: 3,
+            keywords: KeywordAbility.Flying);
+
+        var compiled = CardCompiler.Compile(fear);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var island = game.Create(
+            alice, TestCards.BasicLand("Isolation Island Test"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, fear);
+
+        // The cost is checked before any of it is spent (CR 601.2h), so a cast that names nothing
+        // to return is refused rather than made free.
+        Assert.ThrowsAny<InvalidOperationException>(() => game.CastSpell(alice, card, []));
+
+        game.CastSpell(alice, card, [], costPayment: [island]);
+        Settle(game);
+
+        Assert.DoesNotContain(island, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Isolation Island Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Isolation Island Test");
+    }
+
+    /// <summary>
+    /// "When ~ enters, exile up to one target creature until ~ leaves the battlefield." — Touch
+    /// the Spirit Realm's shape.
+    /// </summary>
+    /// <remarks>
+    /// The target grammar has read "up to one target" for six hundred cards; this pattern reached
+    /// its phrase through a literal "target" and so never handed the words over. The spec comes
+    /// back optional (CR 115.1) and everything below it is the reader that was already there.
+    /// </remarks>
+    [Fact]
+    public void An_exile_until_it_leaves_may_name_up_to_one_target()
+    {
+        var touch = Card(
+            "Spirit Touch Test",
+            "When ~ enters, exile up to one target creature until ~ leaves the battlefield.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(touch);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Touched Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, touch));
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Contains(
+            game.State.Exile, id => game.State.GetObject(id).Card.Name == "Touched Bear Test");
+    }
+
+    /// <summary>
+    /// "Exile up to two target creatures you control, then return those cards to the battlefield
+    /// under their owner's control." — Displace.
+    /// </summary>
+    /// <remarks>
+    /// The plural this reader has to count for itself. A flicker is read <em>before</em> the text
+    /// is split into sentences — the phrase is written across the ", then" the splitter cuts on —
+    /// so the shared multi-target rewrite, which is a sentence matcher, never sees one.
+    /// </remarks>
+    [Fact]
+    public void A_flicker_can_name_two_creatures()
+    {
+        var watcher = Card(
+            "Displace Watcher Test",
+            "When ~ enters, you gain 1 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var displace = Card(
+            "Displace Test",
+            "Exile up to two target creatures you control, then return those cards to the "
+                + "battlefield under their owner's control.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(displace);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, watcher, Zone.Battlefield);
+        var second = game.Create(alice, watcher, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, displace),
+            [Target.ToPermanent(first), Target.ToPermanent(second)]);
+
+        Settle(game);
+
+        // Both entered again, so both triggers fired again: a reader that took only the first
+        // target would leave this at 23.
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+        Assert.Equal(2, game.State.Battlefield.Count);
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

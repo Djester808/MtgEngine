@@ -1466,6 +1466,40 @@ public static partial class EffectPhrase
         return true;
     }
 
+    /// <summary>
+    /// Rewrites "have [someone] [verb] ..." into the indicative sentence it means.
+    /// </summary>
+    /// <remarks>
+    /// The subject is whatever stands between "have" and the first verb the list knows, so the
+    /// whole target vocabulary is reachable without being restated here. Only that verb is
+    /// conjugated: "have target creature defending player controls untap and block it" becomes
+    /// "... untaps and block it", which the readers below either understand or refuse - and
+    /// refusing is the right answer for a sentence whose second verb is still an infinitive.
+    /// <para>
+    /// The verb list is closed on purpose. "Have" takes a bare infinitive, so the rewrite has to
+    /// conjugate, and a verb nobody has checked would be conjugated by guess. A sentence whose
+    /// verb is not here stays unread, which is the failure this file prefers.
+    /// </para>
+    /// </remarks>
+    private static string Causative(string sentence)
+    {
+        var m = CausativeLine().Match(sentence);
+        if (!m.Success)
+            return sentence;
+
+        var verb = m.Groups["verb"].Value;
+
+        // "Search" is the one verb here whose third person is not the bare "+s", and it is in the
+        // list rather than left out so that the sibilant rule is written down once.
+        var sibilant = verb.EndsWith("ch", StringComparison.OrdinalIgnoreCase)
+            || verb.EndsWith("sh", StringComparison.OrdinalIgnoreCase)
+            || verb.EndsWith('s')
+            || verb.EndsWith('x')
+            || verb.EndsWith('z');
+
+        return m.Groups["who"].Value + " " + verb + (sibilant ? "es" : "s") + m.Groups["rest"].Value;
+    }
+
     private static bool TryOne(
         string sentence,
         ImmutableList<TargetSpec>.Builder targets,
@@ -1489,6 +1523,27 @@ public static partial class EffectPhrase
         // them because it never happens on the sentences they take.
         if (targets.Count == 0 && objectNamedByTrigger)
             sentence = SubjectControllerPhrase().Replace(sentence, SubjectControllerWord, 1);
+
+        // "Have target opponent discard a card" - the causative, which reaches here with the
+        // "you may" already taken off by the offer reader below. It is the same instruction as
+        // "target opponent discards a card" with the subject demoted to an object of "have", and
+        // the corpus prints it that way against a dozen different verbs: get, gain, lose,
+        // discard, mill, draw, reveal, sacrifice, become, block, untap, create and fight. Every
+        // one of those sentences already had a reader for its indicative form, so the grammar was
+        // there and only the word "have" stood in front of it - 39 cards, on rows of the work
+        // queue that look nothing alike.
+        //
+        // Rewritten rather than given its own matcher for the reason the pronoun above is: a
+        // matcher would have to restate the whole target vocabulary to say who is doing it, and
+        // a dozen verbs times that vocabulary is the product this file exists to avoid.
+        //
+        // The subject may be a target phrase or the source and nothing else. The first cut let it
+        // be anything, which quietly undid a refusal made on purpose: "you may have **it** deal 4
+        // damage to target opponent" is Aether Charge, where "it" is the Beast that entered and
+        // the only reading available deals the damage from the enchantment. The complete count
+        // went up and the card became a different one - and a test written when that refusal was
+        // made is what caught it, which is the whole argument for writing the refusals down.
+        sentence = Causative(sentence);
 
         // "Choose target creature an opponent controls" — a sentence that is all choosing and no
         // doing. The choice is made as the spell or ability is put on the stack (CR 601.2c), so
@@ -1967,28 +2022,39 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Target player shuffles their graveyard into their library" — the same instruction as
-        // the one below, aimed. Read before it because the untargeted pattern is anchored on
-        // "shuffle" as the first word and would never see this one; kept as its own matcher for
-        // the same reason every targeted twin here is, so a target that cannot be read loses the
-        // line rather than quietly shuffling the caster's own graveyard.
-        var yardShuffle = TargetShuffleGraveyardLine().Match(sentence);
-        if (yardShuffle.Success
-            && Specs.Parse(yardShuffle.Groups["t"].Value.Trim()) is
-            { Kind: TargetKind.Player } shuffler)
-        {
-            targets.Add(shuffler);
-            effects.Add(new ShuffleLibrary(
-                GraveyardFirst: true, TargetIndex: targets.Count - 1));
-
-            return true;
-        }
 
         m = ShuffleLine().Match(sentence);
         if (m.Success)
         {
             effects.Add(new ShuffleLibrary(
                 PlayerScope.You, GraveyardFirst: m.Groups["yard"].Success));
+            return true;
+        }
+
+        // "Target player shuffles their graveyard into their library", and the same instruction
+        // said of everybody. The shuffle itself is the one the tutors have used for months; only
+        // its subject was missing, and the subject was the whole blocker on six cards - five of
+        // them naming a target, so the effect grew a target index the way drawing and draining
+        // already had one rather than a second effect that shuffles.
+        var shuffleWho = ShuffleWhoLine().Match(sentence);
+        if (shuffleWho.Success)
+        {
+            var whose = shuffleWho.Groups["who"].Value;
+            var yard = shuffleWho.Groups["yard"].Success;
+
+            if (!whose.StartsWith("target", StringComparison.OrdinalIgnoreCase))
+            {
+                effects.Add(new ShuffleLibrary(ScopeOf(whose.ToLowerInvariant()), yard));
+                return true;
+            }
+
+            if (Specs.Parse(whose) is not { Kind: TargetKind.Player } shuffler)
+                return false;
+
+            targets.Add(shuffler);
+            effects.Add(new ShuffleLibrary(
+                PlayerScope.You, yard, TargetIndex: targets.Count - 1));
+
             return true;
         }
 
@@ -4180,10 +4246,7 @@ public static partial class EffectPhrase
             if (m.Groups["kw"].Success && setSelfKeywords is null)
                 return false;
 
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.SetPowerToughnessId(
-                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
-                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture))));
+            effects.Add(new PumpSourceUntilEndOfTurn(BaseSizeId(m)));
 
             if (setSelfKeywords is { } selfSet)
                 effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfSet)));
@@ -4201,11 +4264,7 @@ public static partial class EffectPhrase
             targets.Add(resized);
             var resizedIndex = targets.Count - 1;
 
-            effects.Add(new PumpUntilEndOfTurn(
-                GenerativeEffects.SetPowerToughnessId(
-                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
-                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)),
-                resizedIndex));
+            effects.Add(new PumpUntilEndOfTurn(BaseSizeId(m), resizedIndex));
 
             if (setKeywords is { } setGranted)
             {
@@ -6499,6 +6558,25 @@ public static partial class EffectPhrase
     }
 
     /// <summary>Which players a printed group word names (CR 109.5).</summary>
+    /// <summary>
+    /// Which layer 7b setting a "has base ..." clause asks for (CR 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// Four corpus cards print a power with no toughness beside it - Singing Tree, Crater
+    /// Elemental, Island of Wak-Wak and Symmetry Sage - and the pair form had read for months
+    /// while they sat in the unread pile one word apart from it. Filling the toughness in would
+    /// have set a number the card never printed, so the missing half stays missing.
+    /// </remarks>
+    private static string BaseSizeId(Match m)
+    {
+        var power = int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture);
+
+        return m.Groups["tough"].Success
+            ? GenerativeEffects.SetPowerToughnessId(
+                power, int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture))
+            : GenerativeEffects.SetPowerId(power);
+    }
+
     private static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch
     {
         "each opponent" => PlayerScope.EachOpponent,
@@ -6668,15 +6746,34 @@ public static partial class EffectPhrase
         ImmutableList<TargetSpec>.Builder targets)
     {
         var m = FlickerLine().Match(text.Trim());
-        if (!m.Success
-            || Specs.Parse(m.Groups["t"].Value.Trim()) is not
-            { Kind: TargetKind.Permanent } blinked)
-        {
+        if (!m.Success)
             return false;
+
+        // "Exile up to two target creatures you control, then return those cards ..." - a plural
+        // this reader has to count for itself. The shared multi-target rewrite is a sentence
+        // matcher, and a flicker is read *before* the text is split into sentences, so the
+        // rewrite never sees one: Illusionist's Stratagem and Displace were unread beside a
+        // reader that already did what they ask, for want of the word "two".
+        var phrase = m.Groups["t"].Value.Trim();
+        var howMany = 1;
+
+        if (FlickerManyLine().Match(phrase) is { Success: true } several)
+        {
+            howMany = Number(several.Groups["n"].Value).Fixed;
+            phrase = Singular(several.Groups["t"].Value.Trim());
         }
 
-        targets.Add(blinked);
-        effects.Add(new FlickerTarget(targets.Count - 1, m.Groups["tapped"].Success));
+        if (Specs.Parse(phrase) is not { Kind: TargetKind.Permanent } blinked)
+            return false;
+
+        // Every one of them optional, because "up to two" is what the card says: a caster who
+        // chooses one creature blinks one, and a spec left unchosen is not a fizzle (CR 115.1).
+        for (var copy = 0; copy < howMany; copy++)
+        {
+            targets.Add(howMany > 1 ? blinked with { Optional = true } : blinked);
+            effects.Add(new FlickerTarget(targets.Count - 1, m.Groups["tapped"].Success));
+        }
+
         return true;
     }
 
@@ -9464,11 +9561,17 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleLine();
 
-    /// <summary>"Target player shuffles their graveyard into their library" (CR 701.23).</summary>
+    /// <summary>The same shuffle said of somebody the sentence names (CR 701.24a).</summary>
+    /// <remarks>
+    /// Separate from <see cref="ShuffleLine"/> rather than an optional subject on it, because the
+    /// two differ in more than the subject: this one has to reach a target and the bare form is
+    /// the tail of a tutor, where a stray subject would be a different instruction.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<t>target (player|opponent)) shuffles their graveyard into their library$",
+        @"^(?<who>each player|target player) shuffles "
+            + @"(their library|(?<yard>their graveyard) into their library)$",
         RegexOptions.IgnoreCase)]
-    private static partial Regex TargetShuffleGraveyardLine();
+    private static partial Regex ShuffleWhoLine();
 
     [GeneratedRegex(
         @"^(then )?shuffle and put (it|that card) on top( of your library)?$",
@@ -9858,12 +9961,25 @@ public static partial class EffectPhrase
     /// Only "under its owner's control". "Under your control" is a theft wearing the same
     /// sentence, and reading it as a flicker would quietly hand the permanent back to the player
     /// it was taken from.
+    /// <para>
+    /// The plural pronouns are here for the multi-target rewrite above, not for a plural target.
+    /// "Exile up to two target creatures you control, then return those cards ..." is rewritten
+    /// to the singular and copied, and that rewrite agrees the *verb* while leaving the pronouns
+    /// alone - so the singular sentence it hands down still says "those cards" and "their
+    /// owner's". Refusing them left Illusionist's Stratagem and Displace unread beside a reader
+    /// that already did exactly what they ask.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^exile (?<t>.+?), then return (it|that card) to the battlefield"
-            + @"(?<tapped> tapped)? under its owner's control\.?$",
+        @"^exile (?<t>.+?), then return (it|that card|those cards) to the battlefield"
+            + @"(?<tapped> tapped)? under (its|their) owner's control\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FlickerLine();
+
+    /// <summary>"Up to two target creatures you control" — the flicker's own plural.</summary>
+    [GeneratedRegex(
+        @"^up to (?<n>two|three|four) (?<t>target [A-Za-z' ]+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex FlickerManyLine();
 
     /// <summary>"Exile ~, then return it to the battlefield transformed under your control."</summary>
     [GeneratedRegex(
@@ -10313,6 +10429,23 @@ public static partial class EffectPhrase
     /// <summary>"You may [do something]" with nothing to pay for it (CR 603.2c).</summary>
     [GeneratedRegex(@"^you may (?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex MayDoLine();
+
+    /// <summary>"Have [someone] [verb] ..." — the causative, conjugated back by Causative.</summary>
+    /// <remarks>
+    /// The subject is a target phrase or the source, and nothing else. **A pronoun may not be
+    /// one**: "you may have <em>it</em> deal 4 damage to target opponent" is Aether Charge, where
+    /// "it" is the Beast that just entered and the only reading available would deal the damage
+    /// from the enchantment instead — a refusal this file already made deliberately, and one the
+    /// first cut of this rewrite walked straight past. The corpus prints 54 lines with "it" as the
+    /// subject and 16 with "that creature"; both are left where they were.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^have (?<who>~|(another |up to one )?target [^,]*?) "
+            + @"(?<verb>get|gain|lose|discard|mill|draw|reveal|sacrifice"
+            + @"|become|block|untap|create|fight|put|deal|shuffle|exile|destroy|return"
+            + @"|tap|search|attack|scry|surveil)\b(?<rest>.*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CausativeLine();
 
     [GeneratedRegex(@"^you become the monarch$", RegexOptions.IgnoreCase)]
     private static partial Regex BecomeMonarchLine();
@@ -11014,7 +11147,8 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?" + T
-            + @" has base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @" has base (power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"|power (?<p>\d+))"
             + @"(?<u1> until end of turn)?( and gains (?<kw>[a-z ,]+?))?"
             + @"(?<u2> until end of turn)?$",
         RegexOptions.None)]
@@ -11023,7 +11157,8 @@ public static partial class EffectPhrase
     /// <summary>The same setting, said of the permanent whose ability it is.</summary>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?~"
-            + @" has base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @" has base (power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"|power (?<p>\d+))"
             + @"(?<u1> until end of turn)?( and gains (?<kw>[a-z ,]+?))?"
             + @"(?<u2> until end of turn)?$",
         RegexOptions.None)]
@@ -12098,8 +12233,19 @@ public static partial class TriggerConditions
                 && drawn.ControllerId == source.ControllerId;
         }
 
-        if (IsDealtDamage().IsMatch(condition))
-            return (e, _, source) => e is DamageMarked hit && hit.Id == source.Id;
+        var wounded = IsDealtDamage().Match(condition);
+        if (wounded.Success)
+        {
+            // "Whenever ~ is dealt combat damage" is the same trigger with one more term, and
+            // the term was the only thing between the compiler and Wall of Essence, Pious Warrior
+            // and Wall of Souls: the plain form had read for months and the combat form went to
+            // the unread pile beside it. DamageMarked has carried IsCombat all along.
+            var combatOnly = wounded.Groups["combat"].Success;
+
+            return (e, _, source) => e is DamageMarked hit
+                && hit.Id == source.Id
+                && (!combatOnly || hit.IsCombat);
+        }
 
         var castTargeting = CastSpellTargeting().Match(condition);
         if (castTargeting.Success)
@@ -13952,7 +14098,7 @@ public static partial class TriggerConditions
     [GeneratedRegex(@"^you draw a card$", RegexOptions.IgnoreCase)]
     private static partial Regex YouDrawACard();
 
-    [GeneratedRegex(@"^~ is dealt damage$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^~ is dealt (?<combat>combat )?damage$", RegexOptions.IgnoreCase)]
     private static partial Regex IsDealtDamage();
 
     [GeneratedRegex(

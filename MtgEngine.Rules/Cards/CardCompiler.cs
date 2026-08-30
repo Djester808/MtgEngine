@@ -4194,6 +4194,12 @@ public static partial class CardCompiler
     /// "When ~ enters, exile target [thing] until ~ leaves the battlefield" (CR 400.7).
     /// </summary>
     /// <remarks>
+    /// "Up to one target" is admitted by this pattern rather than left to the target grammar's
+    /// own prefix, because the pattern reaches its phrase through a literal "target": the grammar
+    /// knows the words perfectly well and never saw them. Nothing else changes - the spec comes
+    /// back optional (CR 115.1), and an exile whose target was not chosen does nothing.
+    /// </remarks>
+    /// <remarks>
     /// One printed line, two triggered abilities — and they have to be built together because
     /// neither half means anything alone. An exile with no way back is a strictly better card;
     /// a return with nothing exiled does nothing. Reading them as separate lines would risk
@@ -9898,6 +9904,15 @@ public static partial class CardCompiler
     /// expressible here — the engine charges one mana cost per spell — so it is left unread
     /// rather than silently charged as nothing, which would make the spell cheaper than printed.
     /// </para>
+    /// <para>
+    /// "Return a permanent you control to its owner's hand" used to be refused here, on the
+    /// grounds that the cast path's chosen-cost loop fell through to a graveyard move and would
+    /// have destroyed what the card meant to pick up. **That stopped being true** when sneak and
+    /// the alternative costs gave the cast path the same return arm the activation path had, and
+    /// the refusal outlived the reason for it — five cards, Deprive and Familiar's Ruse among
+    /// them, sat unread beside working machinery. A decline is only as good as the last time
+    /// somebody measured it.
+    /// </para>
     /// </remarks>
     private static bool TryAdditionalCost(
         string line,
@@ -9914,15 +9929,7 @@ public static partial class CardCompiler
             || paid.RequiresTap
             || paid.Life > 0
             || paid.SelfCost is not SelfCost.None
-            || paid.Counters is not null
-
-            // "Return a land you control to its owner's hand" reads, and on a *spell* the engine
-            // sends it to the graveyard instead: the cast path's chosen-cost loop has arms for
-            // tapping and for exiling from a graveyard and falls through to a graveyard move for
-            // everything else, while the activation path beside it has the arm this needs. Cards
-            // of this shape are therefore left unread rather than compiled into a spell that
-            // destroys what it was supposed to pick up (CR 701.20a).
-            || paid.Chosen.Any(cost => cost.Kind is ChosenCostKind.ReturnToHand))
+            || paid.Counters is not null)
         {
             unhandled.Add(line);
             return true;
@@ -15836,7 +15843,7 @@ public static partial class CardCompiler
     /// the exiled card back on a card that never promised to.
     /// </remarks>
     [GeneratedRegex(
-        @"^When ~ enters, exile (?<t>target [^,]+?) until ~ leaves the battlefield\.?$",
+        @"^When ~ enters, exile (?<t>(up to one )?target [^,]+?) until ~ leaves the battlefield\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExileUntilLeavesLine();
 

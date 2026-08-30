@@ -579,6 +579,14 @@ public static partial class GenerativeEffects
     public static string SetPowerToughnessId(int power, int toughness) =>
         string.Create(CultureInfo.InvariantCulture, $"becomes-pt:{power}/{toughness}");
 
+    /// <summary>The id for "has base power N" — the same layer, one half of the size.</summary>
+    /// <remarks>
+    /// Its own name rather than a toughness of null inside the pair, because the id is what lands
+    /// in the log and "becomes-pt:0/" would read as a half-written one.
+    /// </remarks>
+    public static string SetPowerId(int power) =>
+        string.Create(CultureInfo.InvariantCulture, $"becomes-power:{power}");
+
     /// <summary>The id for "gains [keywords] until end of turn" (CR 613.1f, layer 6).</summary>
     /// <remarks>
     /// Sixty-four bits, not thirty-two. The keyword flags run past bit 31 - the five protection
@@ -1053,6 +1061,21 @@ public static partial class GenerativeEffects
             }
         }
 
+        var setPower = SetPowerName().Match(definitionId);
+        if (setPower.Success)
+        {
+            var only = int.Parse(
+                setPower.Groups["p"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.PowerToughnessSet,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.SetPower(only),
+            };
+        }
+
         var setPt = SetPowerToughnessName().Match(definitionId);
         if (setPt.Success)
         {
@@ -1160,6 +1183,9 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^becomes-pt:(?<p>\d+)/(?<t>\d+)$")]
     private static partial Regex SetPowerToughnessName();
+
+    [GeneratedRegex(@"^becomes-power:(?<p>\d+)$")]
+    private static partial Regex SetPowerName();
 
     [GeneratedRegex(@"^becomes-color:(?<c>[a-z]+(,[a-z]+)*)$")]
     private static partial Regex BecomesColorName();
