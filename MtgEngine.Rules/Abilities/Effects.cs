@@ -435,6 +435,25 @@ public sealed record TargetSpec
             {
                 return false;
             }
+
+            // CR 702.11d and every "can't be the target of …" the corpus prints: a prohibition
+            // whose parameter describes the *source*, which no keyword flag can carry. Asked
+            // here beside the other three refusals so that a card printing one is enforced by
+            // the same code path a printed hexproof is, rather than at each spell.
+            //
+            // Skipped when the caller cannot say what the source is, exactly as protection is
+            // skipped. Every restriction here asks a question about the source, so with none to
+            // ask about the honest answer is no restriction rather than a guessed one — and the
+            // generous direction is the right one for a *board* that does not know: the engine
+            // refuses when the real cast arrives with its source.
+            if (source is not null)
+            {
+                foreach (var restriction in computed.TargetRestrictions)
+                {
+                    if (!restriction(state, abilities, obj, source, controllerId))
+                        return false;
+                }
+            }
         }
 
         return Accepts(state, abilities, obj, controllerId, source, sibling, announced);
@@ -2102,8 +2121,10 @@ public sealed record CounterSubjectSpell : IEffect
             return [];
         }
 
-        // CR 701.6a: a spell that can't be countered simply isn't.
-        if (context.Abilities.GrantedKeywords(spell.Card).HasFlag(KeywordAbility.CantBeCountered))
+        // CR 701.6a: a spell that can't be countered simply isn't. Through the one reader that
+        // knows both spellings, because the keyword is only how a spell says it about itself and
+        // a permanent can say it about a group.
+        if (Bans.CannotBeCountered(context.State, context.Abilities, spell))
             return [];
 
         return
@@ -4186,10 +4207,10 @@ public sealed record CounterTargetSpell(int TargetIndex = 0, bool ToExile = fals
         if (spell.Zone != Zone.Stack)
             return [];
 
-        // CR 701.6a: a spell that can't be countered simply isn't. Asked of the card rather than
-        // of computed characteristics, because the layers describe permanents and this matters
-        // while the thing is still a spell on the stack — there is no permanent to compute.
-        if (context.Abilities.GrantedKeywords(spell.Card).HasFlag(KeywordAbility.CantBeCountered))
+        // CR 701.6a: a spell that can't be countered simply isn't. Through the one reader that
+        // knows both spellings — the keyword a spell says about itself, and the group ban a
+        // permanent on the battlefield says about somebody's spells.
+        if (Bans.CannotBeCountered(context.State, context.Abilities, spell))
             return [];
 
         return
