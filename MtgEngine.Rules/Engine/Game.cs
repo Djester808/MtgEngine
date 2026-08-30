@@ -1186,12 +1186,17 @@ public sealed class Game
         // effects keep the indices the compiler gave them and each mode gets a slice at a known
         // offset. A modal card can carry text outside its modes — a kicker rider, most often —
         // and that text was compiled without any knowledge of which modes would be taken.
-        var specs = chosenModes.IsEmpty
-            ? definition?.Targets ?? []
-            : [
-                .. definition!.Targets,
-                .. chosenModes.SelectMany(i => definition.Modes[i].Targets),
-            ];
+        var specs = definition?.Targets ?? [];
+
+        // Each mode's specs were compiled against that mode's own list, so a peer index in one
+        // is numbered from zero however many targets sit in front of it once the modes are
+        // concatenated. The effects have always been shifted for this; the specs never carried
+        // an index to shift until now.
+        foreach (var i in chosenModes)
+        {
+            specs = specs.AddRange(
+                TargetSpec.ShiftPeers(definition!.Modes[i].Targets, specs.Count));
+        }
 
         // CR 702.47a: a spliced card's text is added to the spell, so its targets are chosen as
         // part of casting it and sit after the modes' - each addition keeping the indices its own
@@ -1199,7 +1204,8 @@ public sealed class Game
         var splicedCards = RequireSpliceable(playerId, card, spliced);
         foreach (var onto in splicedCards)
         {
-            specs = specs.AddRange(_abilities.SpellOf(onto)?.Targets ?? []);
+            specs = specs.AddRange(
+                TargetSpec.ShiftPeers(_abilities.SpellOf(onto)?.Targets ?? [], specs.Count));
         }
 
         // CR 702.103a: a bestowed spell is an Aura spell with enchant creature, so it targets
@@ -2700,9 +2706,57 @@ public sealed class Game
 
         for (var i = 0; i < chosen.Count; i++)
         {
-            if (!specs[i].IsLegal(State, _abilities, chosen[i], playerId, source, announced: announced))
+            // CR 601.2c: the whole announcement is made at once, so a spec restricted by another
+            // of its own targets - "any other target", "from a single graveyard" - has its peer
+            // in hand here and nowhere earlier. An announcement that breaks such a restriction is
+            // illegal, not legal and quietly inert, so it is refused with the rest of them.
+            if (!specs[i].IsLegal(
+                    State, _abilities, chosen[i], playerId, source,
+                    PeersOf(specs, chosen, i), announced))
+            {
                 throw new InvalidOperationException($"Illegal target: {specs[i].Description}.");
+            }
         }
+    }
+
+    /// <summary>
+    /// The already-chosen targets a spec is measured against, or none when it has no peer.
+    /// </summary>
+    /// <remarks>
+    /// One helper rather than the same lines at each of the four places that ask, because the
+    /// places disagree about what they are holding — a cast holds the announcement, a resolution
+    /// holds the object's targets, and a trigger holds the answers given so far — and only the
+    /// indexing is common. Out of range is empty and not an exception: a trigger asks this while
+    /// its list is still being filled, and "up to two" may be announced for one.
+    /// <para>
+    /// The group is the anchor plus everything else measured against the same anchor, which is
+    /// this engine's spelling of "one instance of the word <em>target</em>" (CR 115.3). "Exile up
+    /// to four target cards from a single graveyard" is one instance and four specs, so the
+    /// fourth pick has to differ from all three before it — pointing each of them at the first
+    /// and checking only that pair would let the third and fourth be the same card.
+    /// </para>
+    /// </remarks>
+    private static List<Target> PeersOf(
+        ImmutableList<TargetSpec> specs, IReadOnlyList<Target> chosen, int index)
+    {
+        if (index >= specs.Count
+            || specs[index].PeerIndex is not { } anchor
+            || anchor < 0
+            || anchor >= chosen.Count
+            || anchor >= index)
+        {
+            return [];
+        }
+
+        var peers = new List<Target> { chosen[anchor] };
+
+        for (var j = 0; j < index && j < chosen.Count; j++)
+        {
+            if (j != anchor && specs[j].PeerIndex == anchor)
+                peers.Add(chosen[j]);
+        }
+
+        return peers;
     }
 
     /// <summary>
@@ -8102,8 +8156,18 @@ public sealed class Game
     /// where nothing announced one, and a spec that reads X then offers nothing rather than
     /// measuring against a zero nobody chose.
     /// </param>
+    /// <param name="peers">
+    /// The earlier targets this spec is measured against (CR 601.2c, 115.3), when it names any.
+    /// A trigger chooses its targets one question at a time, so by the time the second question
+    /// is asked the answers to the first are what "other" and "single" are about — and the
+    /// offered list has to honour that, or the board shows a pick the engine will refuse.
+    /// </param>
     private List<(string Id, string Label, Target Target)> LegalTargetsFor(
-        TargetSpec spec, Guid controllerId, GameObject? source = null, int? announced = null)
+        TargetSpec spec,
+        Guid controllerId,
+        GameObject? source = null,
+        int? announced = null,
+        IReadOnlyList<Target>? peers = null)
     {
         var options = new List<(string, string, Target)>();
 
@@ -8113,7 +8177,7 @@ public sealed class Game
             {
                 var target = Target.ToPlayer(playerId);
                 if (spec.IsLegal(
-                        State, _abilities, target, controllerId, source, announced: announced))
+                        State, _abilities, target, controllerId, source, peers, announced))
                 {
                     options.Add((
                         "player:" + playerId.ToString("N"),
@@ -8142,7 +8206,7 @@ public sealed class Game
                 };
 
                 if (spec.IsLegal(
-                        State, _abilities, target, controllerId, source, announced: announced))
+                        State, _abilities, target, controllerId, source, peers, announced))
                 {
                     // The prefix carries which kind of target this is, because the option id is
                     // all that survives the question — the Target built here is thrown away when
@@ -8955,9 +9019,24 @@ public sealed class Game
                 // and did nothing. Its *effects* were found correctly, by the same lookup with the
                 // source passed - so the ability looked implemented, and only the half that
                 // chooses a target was blind.
-                var specs = modal is { ModesToChoose: > 0 }
-                    ? [.. pickedModes.SelectMany(index => modal.Modes[index].Targets)]
-                    : TargetsOfAbility(sourceCard, trigger.AbilityId, trigger.SourceId) ?? [];
+                var specs = ImmutableList<TargetSpec>.Empty;
+
+                if (modal is { ModesToChoose: > 0 })
+                {
+                    // The same shift the spell path makes, for the same reason: a mode's peer
+                    // index is numbered from that mode's own list (CR 601.2c).
+                    foreach (var index in pickedModes)
+                    {
+                        specs = specs.AddRange(
+                            TargetSpec.ShiftPeers(modal.Modes[index].Targets, specs.Count));
+                    }
+                }
+                else
+                {
+                    specs = TargetsOfAbility(sourceCard, trigger.AbilityId, trigger.SourceId)
+                        ?? [];
+                }
+
                 if (!specs.IsEmpty)
                 {
                     var key = TriggerKey(trigger);
@@ -8977,11 +9056,45 @@ public sealed class Game
                         // The X the source was cast for, so "target ... with mana value X or
                         // less" on a permanent's own trigger measures against the value
                         // announced for the spell that became it (CR 607.2).
+                        // The answers already given are what "any other target" and "from a
+                        // single graveyard" measure against (CR 601.2c). A trigger fills its
+                        // list one question at a time, so the peer is simply one of the answers
+                        // already in hand - and offering a pick the engine would then refuse is
+                        // the one thing the board must never be shown.
                         var options = LegalTargetsFor(
                             spec,
                             trigger.ControllerId,
                             AsPendingAbility(trigger),
-                            SourceNow(trigger.SourceId)?.VariableValue);
+                            SourceNow(trigger.SourceId)?.VariableValue,
+                            PeersOf(specs, chosen, chosen.Count));
+
+                        // CR 601.2c: "up to" targets may be left unchosen, so a trailing
+                        // optional spec with nothing legal left is not an ability with no
+                        // targets - it is an ability with the targets it has, and it goes on the
+                        // stack with them. Removing it instead is how "exile up to two target
+                        // cards from a single graveyard" would do nothing at all whenever one
+                        // card was there to exile, which is most of the time this trigger fires.
+                        if (options.Count == 0 && spec.Optional)
+                        {
+                            Emit(new TriggerPutOnStack(
+                                ObjectId.New(),
+                                trigger.SourceId,
+                                sourceCard,
+                                trigger.AbilityId,
+                                trigger.Text,
+                                trigger.ControllerId)
+                            {
+                                Targets = [.. chosen],
+                                Modes = [.. pickedModes],
+                                SubjectPlayer = trigger.SubjectPlayer,
+                                SubjectObject = trigger.SubjectObject,
+                                SubjectAmount = trigger.SubjectAmount,
+                                VariableValue = SourceNow(trigger.SourceId)?.VariableValue ?? 0,
+                            });
+                            _triggerTargets.Remove(key);
+                            _triggerModes.Remove(modeKey);
+                            continue;
+                        }
 
                         // CR 603.3d: an ability that needs a target and has none legal is
                         // removed from the stack — it never goes on it at all.
@@ -11216,7 +11329,8 @@ public sealed class Game
                     spell.Targets[i],
                     spell.ControllerId,
                     spell,
-                    announced: spell.VariableValue))
+                    PeersOf(specs, spell.Targets, i),
+                    spell.VariableValue))
             {
                 return true;
             }

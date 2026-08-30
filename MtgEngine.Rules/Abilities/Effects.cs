@@ -139,6 +139,65 @@ public sealed record TargetSpec
     /// <summary>Which players qualify. Null accepts any player still in the game.</summary>
     public Func<GameState, Guid, Guid, bool>? PlayerFilter { get; init; }
 
+    /// <summary>
+    /// Which <em>earlier</em> target of the same announcement this one is measured against, or
+    /// null when it stands alone (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PeerFilter"/> could always say what the comparison was and never say which
+    /// sibling to make it against, so it ran only where an effect named the index itself — the
+    /// sweep of "each other creature that shares a color with it", which happens on resolution
+    /// with the target long since chosen. Nothing ran it while targets were <em>being</em>
+    /// chosen, which is where two whole families of card live: "exile up to four target cards
+    /// from a single graveyard" and "…and 1 damage to any other target". This is the missing
+    /// half — the index — and it is on the spec rather than on an effect because the restriction
+    /// is about the announcement and not about what the spell then does.
+    /// <para>
+    /// CR 601.2c announces every target at once, so "single" and "other" are restrictions on
+    /// that announcement: an announcement violating one is <em>illegal</em>, not legal-and-inert.
+    /// That is why this is checked in <see cref="IsLegal"/> beside hexproof and protection, and
+    /// why the whole cast is refused rather than the offending part quietly skipped.
+    /// </para>
+    /// <para>
+    /// Carrying an index means two things at once, because both families want both. The target
+    /// may not <em>be</em> the peer — CR 115.3 says the same target cannot be chosen twice for
+    /// one instance of the word "target", which is the whole of what "other" adds — and it must
+    /// additionally pass <see cref="PeerFilter"/> where the spec has one. A spec with an index
+    /// whose peer cannot be found accepts nothing, which is the same decision
+    /// <see cref="PeerFilter"/> and <see cref="VariableFilter"/> already make: a restriction that
+    /// cannot be evaluated is not a restriction that passes.
+    /// </para>
+    /// <para>
+    /// The index always points <em>backwards</em>. Targets are chosen in order, and a trigger
+    /// chooses them one question at a time (CR 603.3d), so a spec pointing forwards would be
+    /// asked about a target that does not exist yet and would refuse every option — a card that
+    /// cannot be put on the stack at all.
+    /// </para>
+    /// </remarks>
+    public int? PeerIndex { get; init; }
+
+    /// <summary>
+    /// The same specs with every <see cref="PeerIndex"/> moved along by an offset.
+    /// </summary>
+    /// <remarks>
+    /// The twin of <c>EffectTargets.Shift</c>, and needed for the same reason. A mode's specs and
+    /// a spliced card's specs are compiled against their own list and then concatenated onto the
+    /// spell's, so a peer index numbered from that list points at the wrong target the moment
+    /// anything sits in front of it. The effects have always been shifted; nothing on a spec ever
+    /// carried an index before, so nothing was.
+    /// </remarks>
+    public static ImmutableList<TargetSpec> ShiftPeers(
+        IEnumerable<TargetSpec> specs, int offset)
+    {
+        ArgumentNullException.ThrowIfNull(specs);
+
+        return offset == 0
+            ? [.. specs]
+            : [.. specs.Select(spec => spec.PeerIndex is { } sibling
+                ? spec with { PeerIndex = sibling + offset }
+                : spec)];
+    }
+
     /// <summary>Whether the given target is currently legal for the given controller.</summary>
     /// <summary>
     /// Whether this target may be left unchosen — "up to one target creature" (CR 601.2c).
@@ -239,12 +298,20 @@ public sealed record TargetSpec
     /// (CR 702.16b), so a caller that cannot say what the source is gets no protection check
     /// rather than a wrong one.
     /// </param>
-    /// <param name="peer">
-    /// Another target of the same spell or ability, when the caller has already chosen one
-    /// (CR 601.2c). The one printed shape that needs it while <em>choosing</em> is "target
-    /// permanent an opponent controls that shares a card type with it", and no caller passes it
-    /// yet — so such a spec refuses every target rather than accepting every target, which is a
+    /// <param name="peers">
+    /// The already-chosen targets this one is measured against, the one <see cref="PeerIndex"/>
+    /// names first (CR 601.2c). <em>Targets</em> and not objects, because "any other target" has
+    /// to be able to say that a player already chosen may not be chosen again, and a player is
+    /// not an object. Empty where the spec names no peer — and empty where it names one the
+    /// caller cannot supply, which refuses every target rather than accepting every target: a
     /// card that cannot be cast instead of a card that does the wrong thing.
+    /// <para>
+    /// A list rather than one, because CR 115.3 forbids a repeat anywhere within one instance of
+    /// the word "target": "exile up to four target cards from a single graveyard" is one
+    /// instance, and the fourth pick has to differ from all three before it and not merely from
+    /// the first. The comparison a <see cref="PeerFilter"/> makes is against the first alone,
+    /// which is enough — everything in the group agrees with it, so everything agrees.
+    /// </para>
     /// </param>
     /// <param name="announced">
     /// The value chosen for X, when this is a spell or ability that announced one (CR 601.2b).
@@ -256,10 +323,41 @@ public sealed record TargetSpec
         Target target,
         Guid controllerId,
         GameObject? source = null,
-        GameObject? peer = null,
+        IReadOnlyList<Target>? peers = null,
         int? announced = null)
     {
         ArgumentNullException.ThrowIfNull(state);
+
+        GameObject? sibling = null;
+
+        if (PeerIndex is not null)
+        {
+            // Fail closed. A restriction the caller cannot evaluate is not a restriction that
+            // passes: with no peer to compare against, "any other target" would be "any target"
+            // and "from a single graveyard" would be "from any graveyard", and both of those are
+            // strictly better than the printed card.
+            if (peers is not { Count: > 0 })
+                return false;
+
+            // CR 115.3: the same target cannot be chosen twice for one instance of the word
+            // "target", and CR 601.2c says the same. That is the whole of what "other" adds, and
+            // it is asked of the Target rather than of an object so that the two shapes "any
+            // target" comes in - a permanent and a player - are both covered.
+            for (var i = 0; i < peers.Count; i++)
+            {
+                if (peers[i] == target)
+                    return false;
+            }
+
+            // A player is not an object, so a spec that also carries a PeerFilter finds nothing
+            // to compare and refuses below. That is right: every printed peer comparison is
+            // about a card, and one aimed at a player is a phrase this does not read.
+            if (peers[0].Kind != TargetKind.Player
+                && state.TryGetObject(peers[0].Subject, out var live))
+            {
+                sibling = live;
+            }
+        }
 
         // A spec that takes any target accepts both shapes; anything else has to match exactly.
         if (Kind == TargetKind.Any)
@@ -339,7 +437,7 @@ public sealed record TargetSpec
             }
         }
 
-        return Accepts(state, abilities, obj, controllerId, source, peer, announced);
+        return Accepts(state, abilities, obj, controllerId, source, sibling, announced);
     }
 }
 
@@ -415,6 +513,34 @@ public static class PeerFilters
         // and string equality alone would have said they were.
         return !string.IsNullOrEmpty(candidate.Card.Name)
             && string.Equals(candidate.Card.Name, peer.Card.Name, StringComparison.Ordinal);
+    }
+
+    /// <summary>"…from a single graveyard" (CR 404.1, 404.3).</summary>
+    /// <remarks>
+    /// The one comparison here that is asked while targets are being <em>chosen</em> rather than
+    /// as an effect resolves, and the one that is about where a card is rather than what it is.
+    /// "Exile up to four target cards from a single graveyard" does not say which graveyard, so
+    /// there is nothing for an <see cref="TargetSpec.ObjectFilter"/> to test: the restriction is
+    /// that the picks agree with each other, and the first pick is what they agree with.
+    /// <para>
+    /// A graveyard is identified by its owner. CR 404.1 gives each player one, and CR 404.3 puts
+    /// a card into its <em>owner's</em> graveyard however it got there — so two cards are in a
+    /// single graveyard exactly when they have the same owner, and no lookup through the zone
+    /// lists can disagree with that. Owner and not controller: a card in a graveyard has no
+    /// controller (CR 108.4), and the player who cast it has nothing to do with where it went.
+    /// </para>
+    /// </remarks>
+    public static bool InTheSameGraveyard(
+        GameState state,
+        IAbilitySource abilities,
+        GameObject candidate,
+        GameObject peer,
+        Guid controllerId)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(peer);
+
+        return candidate.OwnerId == peer.OwnerId;
     }
 
     /// <summary>The same comparison with the sibling itself left out — "each other …".</summary>
