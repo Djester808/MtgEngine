@@ -6667,6 +6667,12 @@ public static partial class EffectPhrase
         if (what.Length == 0)
             return SearchFilters.AnyCard;
 
+        // "Artifact and/or creature cards" - the same alternation the branch below reads, spelled
+        // with a slash that swallows the space it looks for. Normalised here rather than at the
+        // one reader that met it, so every phrase this vocabulary answers gains the spelling at
+        // once and no second reader has to learn it separately.
+        what = what.Replace(" and/or ", " or ", StringComparison.OrdinalIgnoreCase);
+
         if (string.Equals(what, "basic land", StringComparison.OrdinalIgnoreCase))
             return SearchFilters.BasicLand;
 
@@ -12683,6 +12689,57 @@ public static partial class TriggerConditions
                 e is CreatureExploited exploited && exploited.ExploiterId == source.Id;
         }
 
+        // "Whenever one or more cards leave your graveyard" - a sentence about a batch, and the
+        // engine now summarises one (CR 603.2c) exactly as it does a combat damage step. Its own
+        // reader rather than an entry in the zone-change family, because that family describes
+        // permanents on a battlefield and every word of this one - whose graveyard, what kind of
+        // card, and whose turn - is a question it has no slot for.
+        //
+        // Fired once for the batch and not once per card: the trigger is written in the plural,
+        // so the whole batch is one occurrence of its event, and a trigger paid per card would
+        // print a strictly better card than the one on the table.
+        var departed = LeaveGraveyardLine().Match(condition);
+        if (departed.Success)
+        {
+            if (CardKindFilter(departed.Groups["what"].Value) is not { } leaving)
+                return null;
+
+            var onYourTurn = departed.Groups["mine"].Success;
+
+            return (e, state, source) =>
+                e is CardsLeftGraveyard batch
+                && batch.PlayerId == source.ControllerId
+                && (!onYourTurn || state.ActivePlayerId == source.ControllerId)
+                && batch.Ids.Any(id =>
+                    state.TryGetObject(id, out var card)
+                    && Abilities.SearchFilters.Matches(leaving, card.Card));
+        }
+
+        // "Whenever you discard one or more cards" - the same batch one zone along, and the same
+        // rule about how often it fires. A discard is a move from a hand to a graveyard the
+        // engine has always recorded as one; what a single move cannot say is how many went
+        // together, which is this sentence's whole subject and the number the "that many" printed
+        // after it asks for.
+        var discarding = DiscardTriggerLine().Match(condition);
+        if (discarding.Success)
+        {
+            if (CardKindFilter(discarding.Groups["what"].Value) is not { } thrown)
+                return null;
+
+            // "Whenever one or more players discard one or more cards" watches the table; "you
+            // discard" watches one player. Read apart rather than together, because a trigger
+            // that fired on an opponent's discard as well is a wider card than the one printed.
+            var anybody = !discarding.Groups["who"].Value.Equals(
+                "you", StringComparison.OrdinalIgnoreCase);
+
+            return (e, state, source) =>
+                e is CardsDiscarded batch
+                && (anybody || batch.PlayerId == source.ControllerId)
+                && batch.Ids.Any(id =>
+                    state.TryGetObject(id, out var card)
+                    && Abilities.SearchFilters.Matches(thrown, card.Card));
+        }
+
         // "~ and at least two other creatures attack" - the same declaration, counted. The
         // batch is one event carrying every attacker (CR 508.1), so the count is there to be
         // read; what was missing was the sentence asking for it.
@@ -14745,6 +14802,45 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^~ attacks$", RegexOptions.IgnoreCase)]
     private static partial Regex AttacksLine();
+
+    /// <summary>
+    /// The filter a batch of cards is described by - "creature", "artifact and/or creature".
+    /// </summary>
+    /// <remarks>
+    /// The shared vocabulary, with the noun phrase singularised on its last word the way every
+    /// other plural noun phrase in the compiler is. Nothing is invented: a word that vocabulary
+    /// learns arrives in these triggers the same day, and a description it cannot read leaves the
+    /// line unread rather than matching every card - a trigger answering to a wider group than
+    /// the one printed is the failure this file exists to prevent. An empty description is "one
+    /// or more cards" with nothing narrowing it, which is every card and not none.
+    /// </remarks>
+    private static string? CardKindFilter(string printed)
+    {
+        var phrase = printed.Trim();
+        if (phrase.Length == 0)
+            return SearchFilters.AnyCard;
+
+        var words = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return EffectPhrase.SearchFilterFor(
+            string.Join(' ', words[..^1].Append(EffectPhrase.SingularWord(words[^1]))));
+    }
+
+    /// <summary>"Whenever one or more creature cards leave your graveyard" (CR 603.2c).</summary>
+    /// <remarks>
+    /// "During your turn" is captured rather than allowed to fall off the end: three cards print
+    /// it, and a trigger that fired on an opponent's turn as well is a different card.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^one or more (?<what>.*?)cards? leave your graveyard(?<mine> during your turn)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LeaveGraveyardLine();
+
+    /// <summary>"Whenever you discard one or more cards" (CR 701.9a, 603.2c).</summary>
+    [GeneratedRegex(
+        @"^(?<who>you|one or more players) discards? one or more (?<what>.*?)cards?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DiscardTriggerLine();
 
     [GeneratedRegex(@"^~ attacks alone$", RegexOptions.IgnoreCase)]
     private static partial Regex AttacksAlone();

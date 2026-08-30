@@ -212,6 +212,8 @@ public static class EventLogSerializer
             ["BlockersDeclared"] = typeof(BlockersDeclared),
             ["PlayerDamaged"] = typeof(PlayerDamaged),
             ["CombatDamageDealt"] = typeof(CombatDamageDealt),
+            ["CardsLeftGraveyard"] = typeof(CardsLeftGraveyard),
+            ["CardsDiscarded"] = typeof(CardsDiscarded),
             ["BecameMonstrous"] = typeof(BecameMonstrous),
             ["ManaColorsSpent"] = typeof(ManaColorsSpent),
             ["CombatDamageStepDone"] = typeof(CombatDamageStepDone),

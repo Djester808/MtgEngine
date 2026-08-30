@@ -607,12 +607,17 @@ public sealed class Game
 
     private void DiscardChosen(Guid playerId, IReadOnlyList<string> picks)
     {
-        foreach (var pick in picks)
+        // Discarding down to hand size is one discard of however many cards, so a trigger
+        // watching for "one or more" fires once (CR 603.2c).
+        AsOneBatch(() =>
         {
-            var id = State.GetPlayer(playerId).Hand.First(
-                h => string.Equals(h.Value.ToString("N"), pick, StringComparison.Ordinal));
-            Move(id, Zone.Graveyard, MoveCause.Discard);
-        }
+            foreach (var pick in picks)
+            {
+                var id = State.GetPlayer(playerId).Hand.First(
+                    h => string.Equals(h.Value.ToString("N"), pick, StringComparison.Ordinal));
+                Move(id, Zone.Graveyard, MoveCause.Discard);
+            }
+        });
 
         // Another player may still be over; cleanup only ends when nobody is (CR 514.1).
         if (!AskDiscardIfNeeded())
@@ -7331,6 +7336,14 @@ public sealed class Game
     /// </remarks>
     private void TakeChosenPayment(Guid payerId, ChosenCostKind kind, IReadOnlyList<string> picks)
     {
+        // Paying a cost is one action however many cards it takes (CR 118.1), so a discard of
+        // three to pay for something is one discard as far as a batched trigger is concerned.
+        AsOneBatch(() => TakeEachChosenPayment(payerId, kind, picks));
+    }
+
+    private void TakeEachChosenPayment(
+        Guid payerId, ChosenCostKind kind, IReadOnlyList<string> picks)
+    {
         foreach (var pick in picks)
         {
             var id = new ObjectId(Guid.ParseExact(pick, "N"));
@@ -7714,8 +7727,11 @@ public sealed class Game
         {
             // CR 701.9b: the card is chosen at random, which is the game's decision and not the
             // player's — and the roll is recorded through the shared source so a replay agrees.
-            foreach (var id in _random.Shuffle(hand).Take(count))
-                Move(id, Zone.Graveyard, MoveCause.Discard, owed.PlayerId);
+            AsOneBatch(() =>
+            {
+                foreach (var id in _random.Shuffle(hand).Take(count))
+                    Move(id, Zone.Graveyard, MoveCause.Discard, owed.PlayerId);
+            });
 
             return false;
         }
@@ -7738,12 +7754,16 @@ public sealed class Game
     /// <summary>Discards the cards the player picked (CR 701.9a).</summary>
     private void ResolveDiscard(PendingChoice choice, IReadOnlyList<string> picks)
     {
-        foreach (var pick in picks)
+        // The cards the player picked go at once, however many the effect asked for.
+        AsOneBatch(() =>
         {
-            var id = new ObjectId(Guid.ParseExact(pick, "N"));
-            if (State.TryGetObject(id, out var card) && card.Zone == Zone.Hand)
-                Move(id, Zone.Graveyard, MoveCause.Discard, choice.PlayerId);
-        }
+            foreach (var pick in picks)
+            {
+                var id = new ObjectId(Guid.ParseExact(pick, "N"));
+                if (State.TryGetObject(id, out var card) && card.Zone == Zone.Hand)
+                    Move(id, Zone.Graveyard, MoveCause.Discard, choice.PlayerId);
+            }
+        });
     }
 
     /// <summary>Moves the cards the player picked out of the top of their library.</summary>
@@ -9494,16 +9514,42 @@ public sealed class Game
     private static int? AmountFor(
         GameEvent e, GameState state, TriggeredAbilityDefinition ability, TriggerSource source)
     {
-        if (e is not AttackersDeclared { Attackers.Count: > 1 } batch)
-            return AmountOf(e);
+        if (e is AttackersDeclared { Attackers.Count: > 1 } batch)
+        {
+            var mine = batch.Attackers.Count(one => ability.Triggers(
+                new AttackersDeclared(
+                    ImmutableDictionary<ObjectId, AttackTarget>.Empty.Add(one.Key, one.Value)),
+                state,
+                source));
 
-        var mine = batch.Attackers.Count(one => ability.Triggers(
-            new AttackersDeclared(
-                ImmutableDictionary<ObjectId, AttackTarget>.Empty.Add(one.Key, one.Value)),
-            state,
-            source));
+            return mine > 0 ? mine : AmountOf(e);
+        }
 
-        return mine > 0 ? mine : AmountOf(e);
+        // The same narrowing for a batch of cards. "Whenever you discard one or more cards,
+        // create that many tokens" wants however many went; "whenever you discard one or more
+        // land cards" names a narrower group, and paying that trigger for every card discarded
+        // would print a strictly better card than the one on the table. Asked the same way,
+        // because the description lives in the ability's own predicate and nowhere else: a batch
+        // of one is exactly the question "does this card answer the description".
+        if (e is CardsDiscarded { Ids.Count: > 1 } discarded)
+        {
+            return Narrowed(
+                discarded.Ids, one => new CardsDiscarded(discarded.PlayerId, [one]));
+        }
+
+        if (e is CardsLeftGraveyard { Ids.Count: > 1 } departed)
+        {
+            return Narrowed(
+                departed.Ids, one => new CardsLeftGraveyard(departed.PlayerId, [one]));
+        }
+
+        return AmountOf(e);
+
+        int Narrowed(ImmutableList<ObjectId> ids, Func<ObjectId, GameEvent> alone)
+        {
+            var mine = ids.Count(id => ability.Triggers(alone(id), state, source));
+            return mine > 0 ? mine : ids.Count;
+        }
     }
 
     private readonly List<AbilityTriggered> _triggersFound = [];
@@ -9546,6 +9592,13 @@ public sealed class Game
         // each opponent loses 2 life and you gain that much life" - and no corpus card is shaped
         // that way, checked rather than assumed.
         AttackersDeclared declared => declared.Attackers.Count,
+
+        // How many cards went at once. The batch is already the event, the same way the
+        // declaration above is, so "create that many tokens" and "deals that much damage" have a
+        // number to read rather than firing and doing nothing - which is the defect this file
+        // records against the attack batch, and the reason that family was refused before it.
+        CardsDiscarded discarded => discarded.Ids.Count,
+        CardsLeftGraveyard departed => departed.Ids.Count,
 
         // The number that came up. "Whenever you roll a 1 or 2, put that many +1/+1 counters on
         // this creature" and "put a number of charge counters on this artifact equal to the
@@ -9593,6 +9646,12 @@ public sealed class Game
         // object that was created rather than moved carries its controller on the event, so
         // there is nothing to look up and nothing to be ambiguous about.
         ObjectCreated made => made.ControllerId,
+
+        // A batch of cards is one player's: their graveyard, their hand. "Whenever one or more
+        // players discard one or more cards, that player..." has a subject for the same reason a
+        // single move does, and the batch already carries it rather than needing a lookup.
+        CardsDiscarded discarded => discarded.PlayerId,
+        CardsLeftGraveyard departed => departed.PlayerId,
 
 
 
@@ -11775,8 +11834,14 @@ public sealed class Game
             // context is rebuilt rather than captured once.
             var emitted = effect.Resolve(context with { State = State, SubjectAmount = produced });
 
-            foreach (var e in emitted)
-                Emit(e);
+            // One effect's events happen together (CR 608.2c), which is the batch a "one or
+            // more" trigger is written about: "exile three cards from your graveyard" is one
+            // occurrence of cards leaving it, not three.
+            AsOneBatch(() =>
+            {
+                foreach (var e in emitted)
+                    Emit(e);
+            });
 
             // Only when the ability had no amount of its own: a trigger that says how much it
             // was about keeps saying so for every clause, and a running total would quietly
@@ -12200,6 +12265,20 @@ public sealed class Game
         if (e is ObjectMoved forwarded)
             _resolvedSources[forwarded.OldId] = forwarded.NewId;
 
+        // A move a "one or more" trigger watches, held back until the batch it belongs to has
+        // finished (CR 603.2c). Outside a batch it is a batch of one and is summarised as soon as
+        // its own triggers have been collected: a lone discard has to fire the trigger too, and a
+        // summary that only appeared inside an explicit scope would leave every route nobody
+        // remembered to wrap silently doing nothing.
+        ObjectMoved? loneMove = null;
+        if (e is ObjectMoved batched && Summarised(batched))
+        {
+            if (_batchOpen)
+                (_movesInBatch ??= []).Add(batched);
+            else
+                loneMove = batched;
+        }
+
         // CR 903.10a: commander damage accumulates over the whole game, so it is noted as the
         // damage lands rather than reconstructed later from the log.
         if (e is PlayerDamaged damaged)
@@ -12220,15 +12299,140 @@ public sealed class Game
         // CR 603.2: an ability triggers the moment its event happens, even mid-resolution.
         // Nothing happens yet — the trigger waits (CR 117.2a) — so this only records them.
         CollectTriggers(e, before);
-        if (_triggersFound.Count == 0)
+
+        if (_triggersFound.Count > 0)
+        {
+            var found = _triggersFound.ToList();
+            _triggersFound.Clear();
+            foreach (var trigger in found)
+            {
+                State = GameReducer.Apply(State, trigger);
+                _log.Add(trigger);
+            }
+        }
+
+        // After this event's own triggers, so the summary reaches the game in the order the
+        // rules put it: the move happened, then the batch it was part of is over.
+        if (loneMove is { } single)
+            EmitBatchSummaries([single]);
+    }
+
+    // ---- Batched moves (CR 603.2c) ---------------------------------------------------------
+
+    /// <summary>Whether a batch is open, whether or not anything has landed in it yet.</summary>
+    /// <remarks>
+    /// A flag beside the list rather than the list alone, because the list is allocated lazily:
+    /// every effect in the game opens one of these and almost none of them move a card out of a
+    /// graveyard or into one, and the corpus soak resolves millions of them.
+    /// </remarks>
+    private bool _batchOpen;
+
+    /// <summary>Moves collected into the open batch, allocated on the first one that lands.</summary>
+    private List<ObjectMoved>? _movesInBatch;
+
+    /// <summary>
+    /// Runs work whose moves all happen at once, and says so once when it is done (CR 603.2c).
+    /// </summary>
+    /// <remarks>
+    /// The one place a batch is derived, so the summary and the moves it summarises cannot
+    /// disagree - the same discipline <see cref="CombatDamageDealt"/> is built with, one zone
+    /// change along. Nested scopes join the outer one rather than opening a second: an effect
+    /// that moves cards while another is resolving is part of the same simultaneous event, and
+    /// two scopes would fire the trigger twice for one batch, which prints a strictly better card
+    /// than the one on the table.
+    /// </remarks>
+    private void AsOneBatch(Action work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        if (_batchOpen)
+        {
+            work();
+            return;
+        }
+
+        _batchOpen = true;
+        List<ObjectMoved>? batch;
+
+        try
+        {
+            work();
+        }
+        finally
+        {
+            batch = _movesInBatch;
+            _batchOpen = false;
+            _movesInBatch = null;
+        }
+
+        if (batch is not null)
+            EmitBatchSummaries(batch);
+    }
+
+    /// <summary>Whether a move is one a batched trigger watches.</summary>
+    /// <remarks>
+    /// Asked here rather than at each scope, so a batch collects only what something is watching
+    /// and an ordinary draw never allocates a summary nobody reads.
+    /// </remarks>
+    private static bool Summarised(ObjectMoved moved) =>
+        moved.From == Zone.Graveyard
+        || (moved.To == Zone.Graveyard && moved.Cause == MoveCause.Discard);
+
+    /// <summary>
+    /// One summary per player per kind for a batch of moves that happened together.
+    /// </summary>
+    /// <remarks>
+    /// Grouped by the card's owner, because both sentences are possessive - "leave <em>your</em>
+    /// graveyard", "<em>you</em> discard" - and a hand is its owner's wherever the effect came
+    /// from (CR 400.3). Not grouped by destination: "one or more cards leave your graveyard" is
+    /// one trigger whether they went to a hand, to exile or to the battlefield, and splitting the
+    /// batch by where each went would fire it once per destination.
+    /// </remarks>
+    private void EmitBatchSummaries(List<ObjectMoved> batch)
+    {
+        if (batch.Count == 0)
             return;
 
-        var found = _triggersFound.ToList();
-        _triggersFound.Clear();
-        foreach (var trigger in found)
+        foreach (var (owner, ids) in ByOwner(batch, m => m.From == Zone.Graveyard))
+            Emit(new CardsLeftGraveyard(owner, ids));
+
+        foreach (var (owner, ids) in ByOwner(
+            batch, m => m.To == Zone.Graveyard && m.Cause == MoveCause.Discard))
         {
-            State = GameReducer.Apply(State, trigger);
-            _log.Add(trigger);
+            Emit(new CardsDiscarded(owner, ids));
         }
+    }
+
+    /// <summary>The batch's matching moves, as one list of new ids per owner.</summary>
+    /// <remarks>
+    /// The new id, not the old one: a zone change makes a new object (CR 400.7), and the new one
+    /// is what still exists when a trigger asks what kind of card it was. A move whose ends have
+    /// both gone is dropped rather than filed under nobody.
+    /// </remarks>
+    private List<(Guid Owner, ImmutableList<ObjectId> Ids)> ByOwner(
+        List<ObjectMoved> batch, Func<ObjectMoved, bool> wanted)
+    {
+        var byOwner = new Dictionary<Guid, List<ObjectId>>();
+
+        foreach (var moved in batch)
+        {
+            if (!wanted(moved))
+                continue;
+
+            var owner =
+                State.TryGetObject(moved.NewId, out var arrived) ? arrived.OwnerId
+                : State.TryGetObject(moved.OldId, out var departed) ? departed.OwnerId
+                : (Guid?)null;
+
+            if (owner is not { } whose)
+                continue;
+
+            if (!byOwner.TryGetValue(whose, out var ids))
+                byOwner[whose] = ids = [];
+
+            ids.Add(moved.NewId);
+        }
+
+        return [.. byOwner.Select(pair => (pair.Key, ImmutableList.CreateRange(pair.Value)))];
     }
 }

@@ -56813,6 +56813,191 @@ public sealed class CompiledCardBehaviourTests
         return Path.Combine(directory.FullName, "MtgEngine.Rules", "Engine");
     }
 
+    // ---- A trigger that watches a batch (CR 603.2c) --------------------------
+
+    /// <summary>The +1/+1 counters a permanent is carrying, or none.</summary>
+    private static int GrowthOn(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent?.Counters
+            .GetValueOrDefault(CounterKinds.PlusOnePlusOne) ?? 0;
+
+    /// <summary>How many times one permanent's abilities have triggered so far.</summary>
+    private static int TimesTriggered(Game game, ObjectId id) =>
+        game.Log.OfType<AbilityTriggered>().Count(fired => fired.SourceId == id);
+
+    /// <summary>
+    /// Three cards leaving a graveyard together fire the trigger once, not three times.
+    /// </summary>
+    /// <remarks>
+    /// The whole content of "one or more", and the only difference that survives normalising the
+    /// sentence back to the singular. CR 603.2c: an ability triggers once each time its trigger
+    /// event occurs, and a plural sentence makes a whole batch one occurrence - so reusing the
+    /// singular reader unchanged would have fired this once per card and printed a strictly
+    /// better card than the one on the table.
+    /// <para>
+    /// Played rather than asserted against the parse tree, and the count is read off the
+    /// permanent: one counter is what a player would see, and three is the bug.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Cards_leaving_a_graveyard_together_trigger_the_ability_once()
+    {
+        var mascot = Card(
+            "Batch Mascot Test",
+            "Whenever one or more cards leave your graveyard, put a +1/+1 counter on "
+                + "Batch Mascot Test.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(mascot);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var watcher = game.Create(alice, mascot, Zone.Battlefield);
+
+        game.Create(alice, TestCards.Creature("Batch Ally Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Batch Scout Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Batch Waste Test"), Zone.Graveyard);
+
+        // One effect empties the graveyard, so all three leave at the same moment.
+        var rake = Card("Batch Rake Test", "Exile target player's graveyard.", CardType.Sorcery);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rake), [Target.ToPlayer(alice)]);
+
+        Settle(game);
+
+        Assert.Equal(1, TimesTriggered(game, watcher));
+        Assert.Equal(1, GrowthOn(game, watcher));
+    }
+
+    /// <summary>
+    /// A batch the sentence describes narrowly fires once, and one it does not describe at all
+    /// does not fire.
+    /// </summary>
+    /// <remarks>
+    /// "One or more <em>creature</em> cards" is the same trigger with the batch filtered, and the
+    /// two halves fail in opposite directions: a filter nobody applied fires on a graveyard of
+    /// lands, and a filter applied per card fires once for each creature. Both are asserted here,
+    /// in one game, because a test that only proved the first would pass on an engine that fired
+    /// twice for two creatures.
+    /// </remarks>
+    [Fact]
+    public void Only_the_cards_the_sentence_describes_fire_the_batch_trigger()
+    {
+        var watchtower = Card(
+            "Bone Watcher Test",
+            "Whenever one or more creature cards leave your graveyard, put a +1/+1 counter on "
+                + "Bone Watcher Test.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(watchtower);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var watcher = game.Create(alice, watchtower, Zone.Battlefield);
+
+        game.Create(alice, TestCards.BasicLand("Bone Waste One Test"), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Bone Waste Two Test"), Zone.Graveyard);
+
+        var rake = Card("Bone Rake Test", "Exile target player's graveyard.", CardType.Sorcery);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rake), [Target.ToPlayer(alice)]);
+
+        Settle(game);
+
+        // Two lands left the graveyard and no creature card did, so nothing triggered.
+        Assert.Equal(0, TimesTriggered(game, watcher));
+        Assert.Equal(0, GrowthOn(game, watcher));
+
+        game.Create(alice, TestCards.Creature("Bone Ally Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Bone Scout Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Bone Waste Three Test"), Zone.Graveyard);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, rake), [Target.ToPlayer(alice)]);
+
+        Settle(game);
+
+        // Two creature cards among them, and the ability still fired exactly once.
+        Assert.Equal(1, TimesTriggered(game, watcher));
+        Assert.Equal(1, GrowthOn(game, watcher));
+    }
+
+    /// <summary>
+    /// Discarding a whole hand is one discard, and "that many" is how many went.
+    /// </summary>
+    /// <remarks>
+    /// The counter total alone cannot tell the two failures apart - seven triggers of one counter
+    /// each and one trigger of seven counters both leave seven counters on the permanent - so the
+    /// trigger is counted as well. The second failure is the one this file records against the
+    /// attack batch, where the trigger fired and added nothing because the declaration carried no
+    /// amount, and it is why a batch has to say how big it was.
+    /// </remarks>
+    [Fact]
+    public void Discarding_a_whole_hand_triggers_once_and_says_how_many_went()
+    {
+        var mako = Card(
+            "Batch Mako Test",
+            "Whenever you discard one or more cards, put that many +1/+1 counters on "
+                + "Batch Mako Test.",
+            CardType.Creature,
+            3,
+            3);
+
+        var compiled = CardCompiler.Compile(mako);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var watcher = game.Create(alice, mako, Zone.Battlefield);
+
+        var dump = Card("Batch Dump Test", "Discard your hand.", CardType.Sorcery);
+        var card = TestCards.PutInHand(game, alice, dump);
+        var held = game.State.GetPlayer(alice).Hand.Count - 1;
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(alice).Hand);
+
+        // One trigger for the whole hand, carrying the size of the batch it was about.
+        Assert.Equal(1, TimesTriggered(game, watcher));
+        Assert.Equal(held, GrowthOn(game, watcher));
+    }
+
+    /// <summary>An opponent's discard does not fire a trigger that says "you discard".</summary>
+    /// <remarks>
+    /// The batch event names one player and the sentence is possessive. Without the comparison
+    /// the trigger would watch the table, which is a wider card than the one printed - and the
+    /// wording that really does watch the table ("whenever one or more players discard one or
+    /// more cards") is read separately for exactly that reason.
+    /// </remarks>
+    [Fact]
+    public void A_discard_trigger_that_says_you_ignores_an_opponents_discard()
+    {
+        var mako = Card(
+            "Watchful Mako Test",
+            "Whenever you discard one or more cards, put a +1/+1 counter on Watchful Mako Test.",
+            CardType.Creature,
+            3,
+            3);
+
+        var (game, alice, bob) = InMainPhase();
+        var watcher = game.Create(alice, mako, Zone.Battlefield);
+
+        var dump = Card(
+            "Enemy Dump Test", "Target player discards two cards.", CardType.Sorcery);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, dump), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(0, TimesTriggered(game, watcher));
+        Assert.Equal(0, GrowthOn(game, watcher));
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>
