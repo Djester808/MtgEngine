@@ -2574,67 +2574,21 @@ public sealed class Game
     /// Whether a prevention effect watches this damage at all — its kind and its source.
     /// </summary>
     /// <remarks>
-    /// CR 609.7: "damage from a source" is a question about the object dealing it, so a source
-    /// that has left the game answers nothing rather than everything. Preventing damage from a
-    /// source that cannot be examined would make "prevent all damage that would be dealt by
-    /// creatures" prevent a burn spell too.
+    /// The predicate itself lives in <see cref="Preventions"/>, because the same question is
+    /// asked of the shields a permanent's static ability puts up, which are replacement effects
+    /// and never reach <see cref="GameState.Preventions"/> at all. Two copies of "does this
+    /// shield cover this damage" is two chances to disagree.
     /// </remarks>
-    private bool PreventionWatches(PreventionEffect effect, bool isCombat, ObjectId sourceId)
-    {
-        var kindMatches = effect.Kind switch
-        {
-            DamageKind.Combat => isCombat,
-            DamageKind.Noncombat => !isCombat,
-            _ => true,
-        };
-
-        if (!kindMatches)
-            return false;
-
-        if (effect.SourceFilter is null && effect.SourceController is null)
-            return true;
-
-        if (!State.TryGetObject(sourceId, out var source))
-            return false;
-
-        if (effect.SourceFilter is { } filter && !SearchFilters.Matches(filter, source.Card))
-            return false;
-
-        return effect.SourceController is not { } scope
-            || PlayerScopes.Around(scope, State, effect.ControllerId)
-                .Contains(ControllerOf(source));
-    }
+    private bool PreventionWatches(PreventionEffect effect, bool isCombat, ObjectId sourceId) =>
+        Preventions.Watches(effect, State, _abilities, isCombat, sourceId);
 
     /// <summary>Whether a prevention effect shields this permanent (CR 615.1).</summary>
-    /// <remarks>
-    /// The filter is asked of the printed card, as every other card-filter question at this level
-    /// is. That is a deviation worth naming: a land animated into a creature is not shielded by
-    /// "damage that would be dealt to creatures you control", where CR 613 layer 4 says it should
-    /// be. The alternative is a second filter vocabulary over computed characteristics, and the
-    /// cards that print this shield name a type the animation cases do not reach.
-    /// </remarks>
-    private bool PreventionCovers(PreventionEffect effect, GameObject damaged)
-    {
-        if (effect.ShieldsEverything || effect.Permanent == damaged.Id)
-            return true;
-
-        if (effect.PermanentFilter is not { } filter
-            || !SearchFilters.Matches(filter, damaged.Card))
-        {
-            return false;
-        }
-
-        return effect.PermanentController is not { } scope
-            || PlayerScopes.Around(scope, State, effect.ControllerId)
-                .Contains(ControllerOf(damaged));
-    }
+    private bool PreventionCovers(PreventionEffect effect, GameObject damaged) =>
+        Preventions.Covers(effect, State, _abilities, damaged);
 
     /// <summary>Whether a prevention effect shields this player (CR 615.1).</summary>
     private bool PreventionCoversPlayer(PreventionEffect effect, Guid playerId) =>
-        effect.ShieldsEverything
-        || effect.Player == playerId
-        || (effect.Players is { } scope
-            && PlayerScopes.Around(scope, State, effect.ControllerId).Contains(playerId));
+        Preventions.CoversPlayer(effect, State, playerId);
 
     /// <summary>
     /// Every cost modifier on the battlefield that applies to this payment (CR 601.2f).

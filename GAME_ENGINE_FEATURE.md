@@ -6937,7 +6937,7 @@ taken, and the numbers on four of the five were the ones the notes had.
 | `You have hexproof.` | **stands — not a duration** | 4 sole blockers, 11 touching |
 | `Creatures your opponents control enter tapped.` | **stands — not a duration** | 4 on that exact wording, 13 across the family |
 | `destroy it at end of combat` (recorded at 4 cards) | **stands** | 18 sole blockers, and the reason is unchanged |
-| A static prevention with no duration | **stands, and is duration-shaped** | 33 sole blockers, 59 touching — but none of the three new durations reaches it |
+| A static prevention with no duration | **taken the round after** — see "A prevention with no duration is not a shorter one" | 33 sole blockers, 59 touching when recorded; +23 when built |
 | `you may play them`, a play permission with no duration (Runestone Caverns) | **stands, and is duration-shaped** | 14 sole blockers — the missing thing is a permission that does *not* expire |
 | `gain control … for as long as you control this` (~170 lines) | **already built**; the note was stale | `ControlWhileId`/`HeldWhileId` |
 | `all creatures able to block ~ this turn do so` | **already built** | `LureId` |
@@ -7028,8 +7028,114 @@ so the next sweep does not re-hope for them:
   *continuous* effect, so it cannot be hung on one. The shape that works is already in the file
   once — `PreventAllCombatDamage` is a `ReplacementEffectDefinition` with
   `FunctionsFrom = Zone.Battlefield`, which stops the moment its permanent does. That is the route,
-  and it is a rewrite of the described-prevention reader rather than a duration.
+  and it is a rewrite of the described-prevention reader rather than a duration. **Taken the
+  following round, by exactly that route** — see below.
 - **A play permission that does not expire** — 14 sole blockers. Both permissions the engine
   stores run out (`MayPlayUntilTurn`, `MayPlayThroughOwnersNextTurn`), and "you may play them for
   as long as they remain exiled" needs one that does not. A third field, not a fourth duration.
+
+### A prevention with no duration is not a shorter one
+
+The route above, built. **16,138 → 16,161 complete cards, +23, none lost, measured by set
+difference.** Coverage 49.3% → 49.4%.
+
+The whole of the difference between the two readers is the phrase "this turn", and it decides
+which of two mechanisms the same sentence compiles to:
+
+- **With it**, the words are a one-shot effect a resolving spell creates. It becomes a
+  `PreventDescribedDamage`, which resolves into a `PreventionEffect` held in `GameState.Preventions`
+  and swept away at cleanup with the rest of the turn (CR 514.2).
+- **Without it**, the words are a permanent's static ability, and the shield has to last exactly as
+  long as the permanent (CR 611.2c). It becomes a `ReplacementEffectDefinition` with
+  `FunctionsFrom = Zone.Battlefield`, so it stops the moment the permanent does — with nothing to
+  remember it by, which is the point: there is no cleanup that could forget to run.
+
+`The_no_duration_wording_is_a_static_and_the_this_turn_wording_is_not` is the control that keeps
+the two apart, and it asserts both directions of the mistake. A "this turn" line on a permanent
+compiled as a static is a fog that never lifts; a no-duration line on an instant compiled as
+described-prevention is a shield put up by a card that is already in a graveyard. Both are left
+unread instead.
+
+**The sentence is parsed once and read twice.** The old static reader had its own regex and its own
+three-word vocabulary — `~`, `enchanted creature`, `equipped creature` — while the sentence reader
+next door had a full one, and every noun the first could not say was a card nobody could play.
+`EffectPhrase.ReadPreventionSentence` is now the one front end: it takes the sentence apart into
+kind, victims, sources and *whether* it said "this turn", and reports the duration rather than
+requiring it. `PreventVictim` and `PreventSource` are shared with it. What stayed in the compiler
+is only the part that is true of a static ability and meaningless to a spell — the nouns that name
+one object, which is a permanent's "this" and its host.
+
+**Two shields, not one with both slots filled.** "Prevent all combat damage that would be dealt to
+and dealt by enchanted creature" is an *alternative*: damage reaching it, or damage it deals. One
+shield with the victim and the source both set is the conjunction of those — only the damage it
+dealt to itself — which is a card that does nothing while reporting itself complete. It is also
+the clause that defeated the shared splitter first: searching for " by " inside "to and dealt by
+enchanted creature" cuts the sentence in the middle and reports the shield as covering something
+called "and dealt".
+
+**"Other" is an object, not a kind of card.** No filter over card types can say what Tajic's
+"other creatures you control" leaves out, because what it leaves out is the permanent that printed
+the sentence. `PreventionEffect.Excludes` holds that id; `PreventVictim` reports the word rather
+than answering it, and the spell reader *refuses* a sentence carrying it, because a resolving spell
+is not on the battlefield to be left out. Read as the bare filter, Tajic shields himself — a
+strictly better card than the printed one, and precisely what the fail-closed rule is for.
+
+**"Dealt by target creature" needed a field and got two payoffs.** `PreventionEffect` could describe
+a source (`SourceFilter`) but could not *name* one, so the eleven cards aiming a shield at one
+attacker were unread. `PreventionEffect.Source` is an id compared rather than a description
+rechecked, which is what CR 609.7a says: the source is chosen when the effect is created. It is
+filled from a target by `PreventDescribedDamage.TargetIsSource` — a flag rather than a second index,
+because `EffectTargets` keys on the one index an effect carries and a sentence never names both —
+and from the board by the static reader's host nouns. Nine of the twenty-three cards came from this
+half: Kor Haven, Lady Evangela, Safeguard, Songstitcher, Benalish Missionary, Gossamer Chains, Fend
+Off, Restrain and Warning, plus Soul Parry, whose "one or two target creatures" the existing
+multi-target grammar already read into two shields.
+
+**The predicate is one copy.** `Preventions.Watches`/`Covers`/`CoversPlayer` moved out of `Game`
+into `MtgEngine.Rules/State/Prevention.cs`, and both mechanisms ask them. Only the lifetime differs
+between a turn-long shield and a permanent's; "does this shield cover this damage" is the same
+question, and two copies of it are two chances to disagree about what "creatures you control"
+means. The one thing the replacement path cannot do as well is read a *granted* control effect:
+`ReplacementEffectDefinition.Applies` is handed a state and an object and no `IAbilitySource`, so
+the controller comes from the control-only layer reader asked with `EmptyAbilities` — the
+compiler's standing compromise in eighteen other places. Threading abilities through that signature
+is the fix and it is forty-two call sites wide.
+
+**A condition on a static costs a replacement nothing.** "During your turn, prevent all damage that
+would be dealt to you" is CR 604.3, and a replacement effect asks its question at the moment the
+event would happen — which is exactly when the condition has to hold. It is one more clause in
+`Applies`, read through `BoardConditions` so "your turn" means the same thing here as in living
+metal, and a condition that vocabulary cannot read leaves the whole line unread rather than
+producing the unconditional shield.
+
+**What is still refused, re-measured: 17 sole blockers on this exact family**, and every one needs
+a capability rather than a wider pattern.
+
+- **5 need a filter over what a permanent is *doing*** rather than over what its card says:
+  "attacking creatures you control" (Dolmen Gate), "other attacking Soldiers you control" (Rescue
+  Retriever), "creatures it's blocking" (Wall of Vapor), "creatures blocking it" (Armored
+  Transport), "creatures with first strike" (Tresserhorn Skyknight). `PermanentFilter` is a
+  `SearchFilters` id asked of the printed card — the same documented deviation `Preventions.Covers`
+  already carries — and these want computed characteristics and combat state.
+- **6 lead with a condition `BoardConditions` cannot read**: "you control a permanent of each color"
+  (Spirit of Resistance), "~ has an ice counter on it" (Woolly Razorback), "~ is untapped"
+  (Thunderstaff), "~ is attacking" with banding behind it (Camel), "you control another creature"
+  with "spells that target it" behind it (Bronze Horse), and Caduceus, whose shield is a quoted
+  ability granted by an equipment. The conditional prefix reader is there; the vocabulary is what
+  stops these.
+- **2 want "enchanted creatures"** as a description — a permanent's state, not its type (Enchanted
+  Being, Wall of Putrid Flesh).
+- **1 each** for a colour chosen and remembered on the permanent (Prismatic Ward), `token` in the
+  card-filter vocabulary (Emmara Tandris — the cheapest thing here, and a change to `SearchFilters`
+  rather than to prevention), a comparison between the two objects in one sentence (Well-Laid
+  Plans), and one that is not a prevention problem at all: Guardian Naga // Banishing Coils reads
+  its line correctly and is refused because the whole card counts as a spell, so the static reader
+  is never offered the line.
+
+CR 615.10's numbered static — "if a source would deal damage to you, prevent 1 of that damage" — is
+a differently-shaped sentence and the next family along at **23 sole blockers, 24 cards**: the five
+Spheres, Urza's Armor, Daunting Defender, Djeru, Temple Altisaur, Gisela and the rest.
+`PreventionEffect.Amount` is already CR 615.10's cap and is already applied afresh to each damage
+event, and `Preventions.Watches` already asks about the source's colour and type — so what that
+family needs is a reader for the "if … would … prevent N" sentence, not a mechanism.
 

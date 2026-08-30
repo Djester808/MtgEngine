@@ -3126,6 +3126,24 @@ public sealed record PreventDescribedDamage : IEffect
     /// <summary>A chosen permanent or player it shields, for the targeted wordings.</summary>
     public int? TargetIndex { get; init; }
 
+    /// <summary>
+    /// Whether <see cref="TargetIndex"/> names the damage's <em>source</em> rather than its
+    /// victim — "prevent all combat damage that would be dealt by target creature this turn".
+    /// </summary>
+    /// <remarks>
+    /// One flag rather than a second index, and deliberately: <see cref="EffectTargets"/> keys
+    /// on the one property an effect carries, and a second slot would be a second thing for the
+    /// shifter and the invariant test to remember. A sentence never names both — it shields what
+    /// a creature deals or what reaches it, and the eleven cards printing the first say nothing
+    /// about the second.
+    /// <para>
+    /// A player is refused in this slot. CR 609.7a lets a source be a permanent or a spell and
+    /// never a player, so a target that turns out to be one leaves the shield unmade rather than
+    /// unbounded.
+    /// </para>
+    /// </remarks>
+    public bool TargetIsSource { get; init; }
+
     /// <summary>Permanents answering this filter, in the shared vocabulary.</summary>
     public string? PermanentFilter { get; init; }
 
@@ -3155,6 +3173,7 @@ public sealed record PreventDescribedDamage : IEffect
         ArgumentNullException.ThrowIfNull(context);
 
         ObjectId? permanent = null;
+        ObjectId? dealer = null;
         Guid? player = null;
 
         if (TargetIndex is { } index)
@@ -3163,9 +3182,18 @@ public sealed record PreventDescribedDamage : IEffect
             // would be a strictly better card than the printed one.
             switch (context.TargetAt(index))
             {
+                case { Kind: TargetKind.Permanent } aimedAtPermanent when TargetIsSource:
+                    dealer = aimedAtPermanent.Subject;
+                    break;
                 case { Kind: TargetKind.Permanent } aimedAtPermanent:
                     permanent = aimedAtPermanent.Subject;
                     break;
+
+                // CR 609.7a: a player is never a source of damage, so a shield told to watch one
+                // watches nothing. Making it anyway would leave the source slot empty, which
+                // means "any source" — the whole board fogged by a card that named one creature.
+                case { Kind: TargetKind.Player } when TargetIsSource:
+                    return [];
                 case { Kind: TargetKind.Player } aimedAtPlayer:
                     player = aimedAtPlayer.Player;
                     break;
@@ -3187,6 +3215,7 @@ public sealed record PreventDescribedDamage : IEffect
                 PermanentController = PermanentController,
                 Player = player,
                 Players = Players,
+                Source = dealer,
                 SourceFilter = SourceFilter,
                 SourceController = SourceController,
                 UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
