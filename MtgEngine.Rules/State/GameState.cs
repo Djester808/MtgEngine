@@ -615,6 +615,14 @@ public sealed record GameState
         // compared equal, so Replay(log) == State - the invariant every behaviour test
         // leans on - would have passed straight through a divergence in them (CR 603.7).
         Structural.Same(Delayed, other.Delayed) &&
+
+        // And the armed state triggers, which were missing for the same reason and hid the same
+        // way: two states differing only in which state-triggered abilities had already fired
+        // for a condition that is still true compared equal (CR 603.8), so a replay that lost
+        // the set would fire every one of them a second time and the invariant would not notice.
+        // The omission was not a decision - <see cref="Structural"/> simply had no overload for
+        // a set until this one, so the field had nowhere to go.
+        Structural.Same(ArmedStateTriggers, other.ArmedStateTriggers) &&
         Structural.Same(ArrivalsThisTurn, other.ArrivalsThisTurn) &&
         Structural.Same(DeparturesThisTurn, other.DeparturesThisTurn) &&
         MonarchId == other.MonarchId &&

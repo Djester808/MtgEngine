@@ -117,6 +117,43 @@ public sealed class StateEqualityTests
 
         Assert.Equal(game.State.GetHashCode(), replayed.GetHashCode());
     }
+
+    /// <summary>
+    /// Which state triggers have already fired is part of the position (CR 603.8).
+    /// </summary>
+    /// <remarks>
+    /// <c>GameState.Equals</c> is a hand-written list beside a growing record, and this field was
+    /// missing from it — the same omission the comment beside <c>Delayed</c> describes, live
+    /// again and hiding the same way. Two states differing only in which state-triggered
+    /// abilities have already fired for a condition that is still true compared <em>equal</em>,
+    /// so <c>Replay(log) == State</c> — the invariant every behaviour test leans on — passed
+    /// straight through a divergence in them, and the replayed game would fire every one of
+    /// those triggers a second time.
+    /// <para>
+    /// The omission was not a decision. <see cref="Structural"/> had overloads for a list and a
+    /// dictionary and none for a set, so the one field that is a set had nowhere to go.
+    /// </para>
+    /// <para>
+    /// Asserted here rather than by pointing the reflective check below at <c>GameState</c>,
+    /// which is where it belongs and where it is not: that check needs a way to vary every one
+    /// of thirty-two property types and today knows about a dozen. Until it does, the whole of
+    /// the guard on this type is tests like this one, written a field at a time.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Two_states_differing_only_in_their_armed_state_triggers_are_not_equal()
+    {
+        var (game, _, _) = TestCards.TwoPlayer();
+
+        var armed = game.State with
+        {
+            ArmedStateTriggers = game.State.ArmedStateTriggers.Add("some-source:some-ability"),
+        };
+
+        Assert.NotEqual(game.State, armed);
+        Assert.Equal(game.State, game.State with { });
+    }
+
     /// <summary>
     /// Every field of a permanent's state is part of whether two of them are the same.
     /// </summary>

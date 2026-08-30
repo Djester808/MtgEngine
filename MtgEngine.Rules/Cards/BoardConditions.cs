@@ -901,8 +901,17 @@ public static partial class BoardConditions
             var exactly = assault.Groups["exactly"].Success;
 
             // The noun goes through the shared target grammar, so every filter it knows arrives
-            // here already working and a word it cannot name leaves the clause unread.
-            var noun = PluralNoun().Replace(assault.Groups["what"].Value.Trim(), "$1");
+            // here already working and a word it cannot name leaves the clause unread - and it
+            // is folded by that grammar's own plural, which knows a tribe and a land type as
+            // well as the six card types.
+            //
+            // This arm used to fold with the six-word fork this file kept, and alone among the
+            // three readers that used it never gained the SingularWord fallback the other two
+            // did. So "if three or more Goblins are attacking" reached the target grammar still
+            // plural, was read as the creature type "Goblins", which no card has, and compiled
+            // into a condition that counts zero for ever. Not an unread line: a card that plays
+            // wrong in silence.
+            var noun = EffectPhrase.Specs.FoldPlural(assault.Groups["what"].Value.Trim());
 
             if (EffectPhrase.Specs.Parse("target " + noun) is not
                 { Kind: Abilities.TargetKind.Permanent } attacking)
@@ -1713,22 +1722,24 @@ public static partial class BoardConditions
             var excludesSelf = controls.Groups["another"].Success;
 
             // "Defending player controls no Glimmer creatures" is the one arm of this pattern
-            // whose noun arrives plural, and the six-word list below it strips the plural from
-            // was all it had: anything with an adjective in front - "no Glimmer creatures", "no
-            // untapped lands" - went to the target grammar still plural, was refused, and this
-            // reader then *claimed the clause and returned null*, taking it from every reader
-            // beneath as well. The counting reader has singularised its last word all along;
-            // this one now does the same, so the two cannot disagree about a noun.
+            // whose noun arrives plural, and a six-word regex was all it had: anything with an
+            // adjective in front - "no Glimmer creatures", "no untapped lands" - went to the
+            // target grammar still plural, was refused, and this reader then *claimed the clause
+            // and returned null*, taking it from every reader beneath as well.
+            //
+            // It now folds through the group grammar's own plural, which is where that
+            // vocabulary lives. This file used to keep a fork of it - six words, anchored whole,
+            // so it could not even reach a noun with an adjective in front - and the three
+            // readers here patched around the fork in three different ways. One of the three
+            // never got patched at all: the attacking count, eight hundred lines above.
             //
             // Only on the "no" arm. "A", "an" and "another" are always followed by a singular
             // noun, and singularising a word that is already singular is where a Locus loses a
             // letter - so the arm that cannot need it does not get it.
-            var printed = PluralNoun().Replace(controls.Groups["what"].Value.Trim(), "$1");
-            var words = printed.Split(' ');
-            if (none)
-                words[^1] = EffectPhrase.SingularWord(words[^1]);
+            var noun = none
+                ? EffectPhrase.Specs.FoldPlural(controls.Groups["what"].Value.Trim())
+                : controls.Groups["what"].Value.Trim();
 
-            var noun = string.Join(' ', words);
             // Matched against the whole subject and not its first word: "your opponents
             // control" also begins with "you", so a prefix test on three letters read it as your
             // own board and inverted every card that says it.
@@ -1959,9 +1970,7 @@ public static partial class BoardConditions
         // "Tapped creatures" is an adjective and a noun, and only the noun is plural. The
         // adjective goes through untouched to the target grammar, which is where the vocabulary
         // for it already lives - so this does not need to know what "tapped" means.
-        var words = PluralNoun().Replace(m.Groups["what"].Value.Trim(), "$1").Split(' ');
-        words[^1] = EffectPhrase.SingularWord(words[^1]);
-        var noun = string.Join(' ', words);
+        var noun = EffectPhrase.Specs.FoldPlural(m.Groups["what"].Value.Trim());
         var spec = EffectPhrase.Specs.Parse("target " + noun);
         if (spec is null || spec.Kind != Abilities.TargetKind.Permanent)
             return null;
@@ -2135,12 +2144,6 @@ public static partial class BoardConditions
                 "five" => 5,
                 _ => 1,
             };
-
-    /// <summary>An ability source that knows nothing, for filters asked outside a resolution.</summary>
-    [GeneratedRegex(
-        @"^(creature|permanent|artifact|enchantment|land|planeswalker)s$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex PluralNoun();
 
     /// <remarks>
     /// The noun may be several words - "no untapped lands", "no other creatures" - and a single

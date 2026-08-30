@@ -3219,6 +3219,21 @@ public static partial class CardCompiler
                 .Replace('\u201C', '"')
                 .Replace('\u201D', '"');
 
+            // "Artifact, creature, and/or enchantment cards" is "artifact, creature, or
+            // enchantment cards": for a filter the slash is the whole of the difference, because
+            // a card either answers to one of the named kinds or it does not. Normalised here,
+            // with the quotes and the dashes, rather than in the readers.
+            //
+            // It *was* in a reader - one of them. The counting vocabulary has spelled it back
+            // into "or" for as long as it has had a group grammar, and no other reader was told:
+            // "the number of artifacts and/or enchantments you control" read perfectly while
+            // "search your library for artifact, creature, and/or enchantment cards", "each
+            // white and/or blue creature", "each other Merfolk and/or Knight you control" and
+            // ten more went unread, each defeated by the same three characters in a different
+            // reader. That is the shape this round is about: not a missing sentence, but which
+            // of the compiler's vocabularies a sentence happened to reach.
+            cleaned = AndOrSlash().Replace(cleaned, " or ");
+
             cleaned = Whitespace().Replace(cleaned, " ").Trim();
 
             // "It deals 4 damage to any target" is "~ deals 4 damage to any target" - the same
@@ -9139,11 +9154,16 @@ public static partial class CardCompiler
 
         var what = counting.Groups["what"].Value.Trim();
 
-        if (counting.Groups["hand"].Success)
+        // The two pile arms below answer what they know and *fall through* when they do not.
+        // They used to return null, which meant this reader's own two-pile vocabulary got the
+        // last word over the shared one underneath it: "the number of cards in your graveyard"
+        // was refused while "the number of cards in all graveyards" - the same sentence, one
+        // word apart - fell past both arms and was read perfectly by the shared reader. Three
+        // trap doors of exactly the kind the fall-through at the bottom was added to remove.
+        if (counting.Groups["hand"].Success
+            && string.Equals(what, "cards", StringComparison.OrdinalIgnoreCase))
         {
-            return string.Equals(what, "cards", StringComparison.OrdinalIgnoreCase)
-                ? (state, you) => state.GetPlayer(you).Hand.Count
-                : null;
+            return (state, you) => state.GetPlayer(you).Hand.Count;
         }
 
         if (counting.Groups["yard"].Success)
@@ -9163,27 +9183,30 @@ public static partial class CardCompiler
                 }
             }
 
-            var filter = EffectPhrase.SearchFilterFor(noun);
-
-            return filter is null
-                ? null
-                : (state, you) => state.GetPlayer(you).Graveyard
+            if (EffectPhrase.SearchFilterFor(noun) is { } filter)
+            {
+                return (state, you) => state.GetPlayer(you).Graveyard
                     .Count(id => Abilities.SearchFilters.Matches(
                         filter, state.GetObject(id).Card));
+            }
         }
 
         // "The number of creatures on the battlefield" - the same count with nobody's name on
         // it. Taken off before the grammar is asked, because that grammar reads ownership and
         // has no way to spell "everyone's"; what is left is a filter with no owner, which is
         // exactly what counts every one of them.
-        if (what.EndsWith(" on the battlefield", StringComparison.OrdinalIgnoreCase))
-            what = what[..^" on the battlefield".Length].Trim();
-
-        if (EffectPhrase.Specs.ParseGroup(what) is { Kind: Abilities.TargetKind.Permanent } group)
+        if (!counting.Groups["hand"].Success && !counting.Groups["yard"].Success)
         {
-            return (state, you) => state.Battlefield.Count(
-                id => group.ObjectFilter?.Invoke(
-                    state, EmptyAbilities.Instance, state.GetObject(id), you) != false);
+            if (what.EndsWith(" on the battlefield", StringComparison.OrdinalIgnoreCase))
+                what = what[..^" on the battlefield".Length].Trim();
+
+            if (EffectPhrase.Specs.ParseGroup(what)
+                is { Kind: Abilities.TargetKind.Permanent } group)
+            {
+                return (state, you) => state.Battlefield.Count(
+                    id => group.ObjectFilter?.Invoke(
+                        state, EmptyAbilities.Instance, state.GetObject(id), you) != false);
+            }
         }
 
         // And everything else the compiler counts, asked last. The arms above are this reader's
@@ -9201,7 +9224,13 @@ public static partial class CardCompiler
         // this is a characteristic-defining ability and it applies in every zone (CR 604.3), so a
         // phrase that needs to point at a permanent on the battlefield is refused rather than
         // answered about one that may not be there - or quietly counted as nought.
-        return EffectPhrase.Counting(what, hasSource: false) is { } shared
+        // Handed the whole counted phrase, zone words included - not the noun the pile arms cut
+        // it down to. The shared reader has its own zone grammar and needs the words those arms
+        // took off, and passing the remnant is what made the fall-through unreachable for every
+        // phrase that named a pile at all.
+        var counted = phrase["the number of ".Length..].Trim();
+
+        return EffectPhrase.Counting(counted, hasSource: false) is { } shared
             ? (state, you) => shared(state, EmptyAbilities.Instance, you, default)
             : null;
     }
@@ -15882,6 +15911,23 @@ public static partial class CardCompiler
                 + @"(as long as|if|(?<unless>unless)) (?<cond>[^.]+))\.?$",
         RegexOptions.None)]
     private static partial Regex ConditionalStaticLine();
+
+    /// <summary>"A and/or B" — a list of kinds a card may answer to any of.</summary>
+    /// <remarks>
+    /// The spaces are matched and put back so "and/or" cannot be found inside a longer word, and
+    /// so the collapse below tidies whatever spacing the printing used.
+    /// <para>
+    /// <strong>Never between mana symbols.</strong> "Kicker {B} and/or {R}" is a cost with two
+    /// halves that may <em>both</em> be paid, and "add that much mana in any combination of {R}
+    /// and/or {G}" is the same word again — so there the slash is not a spelling of "or" at all,
+    /// and rewriting it took fourteen cards that had been reading for months: every Volver, every
+    /// Battlemage, Archangel of Wrath, Illuminate, Grand Warlord Radha. Thirteen cards gained and
+    /// fourteen lost is the exact failure a diff of the complete set exists to catch, and a count
+    /// would have shown it as a quiet net minus one.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"(?<!\})\s+and/or\s+(?!\{)", RegexOptions.IgnoreCase)]
+    private static partial Regex AndOrSlash();
 
     [GeneratedRegex(
         @"^(~'s|~’s) (?<stat>power and toughness are each|power is|toughness is) "
