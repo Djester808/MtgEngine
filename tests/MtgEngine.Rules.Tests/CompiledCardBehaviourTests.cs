@@ -46427,6 +46427,429 @@ public sealed class CompiledCardBehaviourTests
         return game.State.GetPlayer(alice).Hand.Count - before;
     }
 
+    // ---- Round fifteen: readers that grew a private copy of a shared vocabulary ----
+
+    /// <summary>A spell of one colour, which <see cref="Card"/> has no parameter for.</summary>
+    private static CardDefinition ColouredSpell(string name, string text, ManaColor colour) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = text,
+        CardTypes = CardType.Instant,
+        ColorIdentity = [colour],
+        Colors = [colour],
+    };
+
+    /// <summary>
+    /// "Counter target red spell" reads the colour the permanent grammar already knew.
+    /// </summary>
+    /// <remarks>
+    /// The spell grammar and the permanent grammar are two readers of one adjective, and only
+    /// one of them had the word. The spell one knew card types and nothing else, so "counter
+    /// target red spell" was refused while "destroy target red permanent" — the same adjective,
+    /// one line away — read perfectly. The typed-spell pattern claims the sentence before the
+    /// noun grammar sees it, so there was no second chance, and fourteen corpus cards sat one
+    /// adjective short: both Elemental Blasts, Gainsay, Douse, Deathgrip, Lifeforce.
+    /// <para>
+    /// Answered by the <em>search</em> vocabulary rather than the permanent one, deliberately. A
+    /// spell on the stack is a card, so "tapped" and "attacking" have no answer about it and are
+    /// refused rather than answered "no" — which is what routing this through the permanent
+    /// adjectives would have done.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counter_aimed_at_a_colour_takes_that_colour_and_refuses_another()
+    {
+        var blast = Card("Colour Blast Test", "Counter target red spell.");
+
+        var compiled = CardCompiler.Compile(blast);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var burn = TestCards.PutInHand(
+            game, alice, ColouredSpell("Red Burn Test", "You gain 2 life.", ManaColor.Red));
+
+        var answer = TestCards.PutInHand(game, alice, blast);
+
+        game.CastSpell(alice, burn, []);
+        game.CastSpell(alice, answer, [Target.ToSpell(game.State.Stack[0])]);
+        Settle(game);
+
+        // Countered, so the life was never gained and the card is in the graveyard.
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Red Burn Test");
+
+        // And a blue spell is not a red one, so aiming at it is refused outright (CR 601.2c).
+        var chill = TestCards.PutInHand(
+            game, alice, ColouredSpell("Blue Chill Test", "You gain 2 life.", ManaColor.Blue));
+        var second = TestCards.PutInHand(
+            game, alice, Card("Colour Blast Encore Test", "Counter target red spell."));
+
+        game.CastSpell(alice, chill, []);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, second, [Target.ToSpell(game.State.Stack[0])]));
+    }
+
+    /// <summary>
+    /// A search filter accepts the colour counts its own matcher has always answered.
+    /// </summary>
+    /// <remarks>
+    /// One vocabulary in two halves that had drifted apart: the half answering a filter at
+    /// runtime has read "multicolored" and "monocolored" for as long as the cost modifiers have
+    /// printed the words, and the half deciding whether the compiler will accept them at all had
+    /// never been told. The second assertion is the point — the runtime half needs no change,
+    /// because it knew the word the whole time.
+    /// </remarks>
+    [Fact]
+    public void A_search_filter_accepts_the_colour_counts_its_matcher_answers()
+    {
+        var tutor = Card(
+            "Prismatic Tutor Test",
+            "Search your library for a multicolored creature card, reveal it, put it into "
+                + "your hand, then shuffle.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(tutor);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var gold = new CardDefinition
+        {
+            OracleId = "oracle-gold-hybrid-test",
+            Name = "Gold Hybrid Test",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [ManaColor.Red, ManaColor.Green],
+        };
+
+        var mono = new CardDefinition
+        {
+            OracleId = "oracle-mono-hybrid-test",
+            Name = "Mono Hybrid Test",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [ManaColor.Green],
+        };
+
+        Assert.True(SearchFilters.Matches("multicolored", gold));
+        Assert.False(SearchFilters.Matches("multicolored", mono));
+        Assert.True(SearchFilters.Matches("monocolored", mono));
+    }
+
+    /// <summary>
+    /// "And/or" is a spelling of "or" everywhere except between mana symbols.
+    /// </summary>
+    /// <remarks>
+    /// The counting vocabulary has spelled the slash back into "or" for as long as it has had a
+    /// group grammar, and no other reader was told. So "the number of artifacts and/or
+    /// enchantments you control" read, while "each white and/or blue creature", "each other
+    /// Merfolk and/or Knight you control" and eleven more went unread — each defeated by the
+    /// same three characters in a different reader. It is normalised once now, beside the quotes
+    /// and the dashes.
+    /// </remarks>
+    [Fact]
+    public void An_and_or_list_reads_as_the_or_list_it_spells()
+    {
+        var cinder = Card(
+            "Prismatic Cinder Test",
+            "Prismatic Cinder Test deals 1 damage to each white and/or blue creature.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(cinder);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var white = game.Create(
+            alice, Coloured("And Or White Test", ManaColor.White), Zone.Battlefield);
+        var blue = game.Create(
+            alice, Coloured("And Or Blue Test", ManaColor.Blue), Zone.Battlefield);
+        var green = game.Create(
+            alice, Coloured("And Or Green Test", ManaColor.Green), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, cinder);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(white).Permanent!.DamageMarked);
+        Assert.Equal(1, game.State.GetObject(blue).Permanent!.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(green).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// A kicker written with the same three characters is still two payable halves.
+    /// </summary>
+    /// <remarks>
+    /// Between mana symbols the slash is not a spelling of "or" at all: "Kicker {B} and/or {R}"
+    /// is a cost with two halves that may <em>both</em> be paid, and "add mana in any
+    /// combination of {R} and/or {G}" is the same word again. The first cut of the rewrite above
+    /// took those too and cost fourteen cards that had been reading for months — every Volver,
+    /// every Battlemage, Archangel of Wrath, Illuminate, Grand Warlord Radha. Thirteen gained
+    /// and fourteen lost is what a count reports as a quiet net minus one, and only a diff of
+    /// the whole complete set can show.
+    /// </remarks>
+    [Fact]
+    public void An_and_or_between_mana_symbols_is_left_exactly_as_printed()
+    {
+        var volver = Card(
+            "Kicked Volver Test",
+            "Kicker {1}{U} and/or {B}\n"
+                + "If Kicked Volver Test was kicked with its {1}{U} kicker, it enters with two "
+                + "+1/+1 counters on it.\n"
+                + "If Kicked Volver Test was kicked with its {B} kicker, it enters with a "
+                + "+1/+1 counter on it.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(volver);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
+    /// <summary>
+    /// Drawing for each of a group reads when the sentence says who draws.
+    /// </summary>
+    /// <remarks>
+    /// Two readers of one verb, and neither held both vocabularies. The bare imperative "draw a
+    /// card for each creature you control" reached the counted-group grammar; the form with a
+    /// subject reached the player grammar and had no counted tail at all — though its reader had
+    /// been asking for one all along and getting an unmatched group back. The discard and the
+    /// mill beside it have carried the tail for ages.
+    /// <para>
+    /// The tail is <em>read</em>, not merely matched, and that is worth more than the six cards
+    /// it looked like it was worth. Giving the pattern the group and leaving the reader on the
+    /// bare number completed six corpus cards that would each have drawn exactly one card for
+    /// ever — a gain on the count and a loss in the game. Fail-closed, they go back to unread,
+    /// and the shape reads for every group the shared vocabulary can actually count.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Drawing_for_each_of_a_group_counts_the_group()
+    {
+        var muse = Card(
+            "Counted Muse Test",
+            "You draw a card for each creature you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(muse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Counted Muse Bear One Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Counted Muse Bear Two Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Counted Muse Bear Three Test"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, muse);
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // Three creatures, three cards — and the spell itself has left the hand.
+        Assert.Equal(before - 1 + 3, game.State.GetPlayer(alice).Hand.Count);
+
+        // A group the shared vocabulary cannot count leaves the line unread rather than
+        // drawing one card and calling the card complete.
+        var vague = Card(
+            "Vague Muse Test",
+            "Each other player discards a card. You draw a card for each card discarded this way.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(vague).IsComplete);
+    }
+
+    /// <summary>
+    /// A defining ability counts a pile its own reader's two arms refused.
+    /// </summary>
+    /// <remarks>
+    /// The defining reader gained a fall-through to the shared counting vocabulary a round ago,
+    /// and three <c>return null</c>s above it meant most phrases could never reach it: its own
+    /// two-pile arm got the last word over the shared reader underneath. So "the number of cards
+    /// in your graveyard" was refused while "the number of cards in all graveyards" — the same
+    /// sentence, one word apart — fell past both arms and read perfectly. The arms now answer
+    /// what they know and fall through when they do not.
+    /// </remarks>
+    [Fact]
+    public void A_defining_ability_counts_an_untyped_pile_through_the_shared_reader()
+    {
+        var wight = Card(
+            "Untyped Wight Test",
+            "Untyped Wight Test's power and toughness are each equal to the number of cards "
+                + "in your graveyard.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var hoarder = Card(
+            "Typed Hoarder Test",
+            "Typed Hoarder Test's power and toughness are each equal to the number of "
+                + "creature cards in your hand.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var wightCompiled = CardCompiler.Compile(wight);
+        Assert.True(wightCompiled.IsComplete, string.Join(" | ", wightCompiled.Unhandled));
+
+        var hoarderCompiled = CardCompiler.Compile(hoarder);
+        Assert.True(hoarderCompiled.IsComplete, string.Join(" | ", hoarderCompiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var it = game.Create(alice, wight, Zone.Battlefield);
+
+        Assert.Equal(0, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+
+        // Untyped, so a land in the graveyard counts exactly as a creature card does — which is
+        // the whole of what the private pile arm could not say.
+        game.Create(alice, TestCards.BasicLand("Untyped Wight Forest Test"), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Untyped Wight Bear Test"), Zone.Graveyard);
+
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// A union of groups folds a tribe's plural the way a single group does.
+    /// </summary>
+    /// <remarks>
+    /// The group grammar was taught to fold a capitalised run's plural — the fix that stopped
+    /// Boil asking for the type "Islands", which no card has. The union reader sits sixty lines
+    /// below it and kept the seven-word regex that fix exists to patch around, so "destroy all
+    /// Zombies and Skeletons" was refused while "destroy all Zombies" read. One vocabulary, two
+    /// readers, and only one of them ever got the fix.
+    /// </remarks>
+    [Fact]
+    public void A_union_of_tribes_destroys_both_and_leaves_the_rest()
+    {
+        var plague = Card(
+            "Tribal Plague Test", "Destroy all Zombies and Skeletons.", CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(plague);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var zombie = game.Create(
+            alice,
+            Card("Union Zombie Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Zombie"),
+            Zone.Battlefield);
+
+        var skeleton = game.Create(
+            alice,
+            Card("Union Skeleton Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Skeleton"),
+            Zone.Battlefield);
+
+        var goblin = game.Create(
+            alice,
+            Card("Union Goblin Test", string.Empty, CardType.Creature, 1, 1,
+                KeywordAbility.None, "Goblin"),
+            Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, plague);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.DoesNotContain(zombie, game.State.Battlefield);
+        Assert.DoesNotContain(skeleton, game.State.Battlefield);
+        Assert.Contains(goblin, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A plural subtype in a target phrase is the type it is the plural of.
+    /// </summary>
+    /// <remarks>
+    /// The target grammar read a capitalised word as a subtype and never folded its plural, so
+    /// "target Mounts" asked for the creature type "Mounts", which no card has — it compiled,
+    /// passed the deck gate and found nothing. The group grammar next door has folded one since
+    /// the Boil fix. Both readers of one noun, and only one of them had it.
+    /// <para>
+    /// It surfaced through the "and/or" normalisation above, which turned a phrase the noun
+    /// harvester could not cut into one it could, and the satisfiability invariant reported the
+    /// filter as unsatisfiable the same afternoon. That is the guard doing exactly its job:
+    /// nobody was looking at this reader.
+    /// </para>
+    /// <para>
+    /// "Cyclops" and "Bolas" join "Plains" and "Aurochs" as spelled the same either way. They
+    /// had escaped the singulariser only because nothing had ever handed it a subtype from this
+    /// reader, and folding them would ask for "Cyclop" and "Bola" — the Locus and Pegasus
+    /// mistake, one reader further out.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_plural_subtype_is_folded_and_a_word_that_only_looks_plural_is_not()
+    {
+        var herd = Card("Mount Herd Test", "Destroy all Mounts.", CardType.Sorcery);
+        var aimed = Card("Mount Aim Test", "Destroy target Mounts.", CardType.Sorcery);
+        var eye = Card("Cyclops Aim Test", "Destroy target Cyclops.", CardType.Sorcery);
+
+        foreach (var one in new[] { herd, aimed, eye })
+        {
+            var check = CardCompiler.Compile(one);
+            Assert.True(check.IsComplete, one.Name + ": " + string.Join(" | ", check.Unhandled));
+        }
+
+        var (game, alice, _) = InMainPhase();
+
+        var mount = game.Create(
+            alice,
+            Card("Aimed Mount Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Mount"),
+            Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, aimed);
+        game.CastSpell(alice, card, [Target.ToPermanent(mount)]);
+        Settle(game);
+
+        // Aimed at the plural and it found the singular type, rather than compiling into a
+        // filter that matches nothing and refusing every target the card allows.
+        Assert.DoesNotContain(mount, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A subtype named in a graveyard is the card type that subtype belongs to.
+    /// </summary>
+    /// <remarks>
+    /// The graveyard reader assumed every capitalised noun was a creature type. That is not a
+    /// gap, it is a card that plays wrong in silence: "return target Equipment card from your
+    /// graveyard" asked for a card that is both a creature and an Equipment, of which there are
+    /// none — and reported itself completely understood. The shared table that settles which
+    /// card type a subtype implies was written to end exactly this, and the fix landed in the
+    /// permanent grammar and never here, so one word read two ways depending on the zone.
+    /// </remarks>
+    [Fact]
+    public void An_equipment_card_in_a_graveyard_is_an_artifact_and_not_a_creature()
+    {
+        var recall = Card(
+            "Armoury Recall Test",
+            "Return target Equipment card from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(recall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var blade = game.Create(
+            alice,
+            Card("Buried Blade Test", string.Empty, CardType.Artifact, null, null,
+                KeywordAbility.None, "Equipment"),
+            Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, recall);
+        game.CastSpell(alice, card, [Target.ToCard(blade)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Buried Blade Test");
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

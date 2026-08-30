@@ -164,6 +164,14 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                     "Intimidate" => KeywordAbility.Intimidate,
                     "Skulk" => KeywordAbility.Skulk,
                     "Flanking" => KeywordAbility.Flanking,
+
+                    // Production's parser (CardParser.ParseKeywords) has mapped this since the
+                    // keyword was added; this harness had drifted from it, exactly as it had for
+                    // Battle and the type words. Every banding card in the corpus therefore
+                    // arrived at the compiler without the keyword production would have given it,
+                    // so the soaks, the invariants and the characteristics all saw a different
+                    // card from the one the app builds.
+                    "Banding" => KeywordAbility.Banding,
                     "Infect" => KeywordAbility.Infect,
                     "Wither" => KeywordAbility.Wither,
                     "Changeling" => KeywordAbility.Changeling,

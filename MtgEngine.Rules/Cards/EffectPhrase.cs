@@ -5103,7 +5103,15 @@ public static partial class EffectPhrase
         m = DrawCardsLine().Match(sentence);
         if (m.Success && ScopeOf(m.Groups["who"].Value) == PlayerScope.You)
         {
-            effects.Add(new DrawCards(Number(m.Groups["n"].Value)));
+            // The counted tail is read, not dropped. Giving the pattern a FOREACH group and
+            // leaving the reader taking the bare number would have been the worse half of both:
+            // "you draw a card for each card discarded this way" would compile, look complete,
+            // and draw exactly one card for ever. CountedBy refuses a group the shared counting
+            // vocabulary cannot read, which is what keeps the widening fail-closed.
+            if (CountedBy(Number(m.Groups["n"].Value), m.Groups["foreach"]) is not { } drawn)
+                return false;
+
+            effects.Add(new DrawCards(drawn));
             return true;
         }
 
@@ -6789,27 +6797,48 @@ public static partial class EffectPhrase
         // containing a space, which is what used to happen: the phrase went to a caller that
         // joined it up unvalidated and the search looked for a subtype spelled "Mount creature
         // card", which nothing is.
-        var words = what.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length is > 1 and <= 3)
-        {
-            var parts = new List<string>();
-
-            foreach (var word in words)
-            {
-                var atom = FilterAtom(word);
-                if (atom is null)
-                    return null;
-
-                parts.Add(atom);
-            }
-
-            return string.Join('&', parts);
-        }
+        if (AtomsOf(what, atLeast: 2) is { } atoms)
+            return atoms;
 
         // Otherwise a subtype, told apart by its capital — the same rule the target grammar and
         // the token grammar use. Anything else is left unread rather than guessed at: a tutor
         // that fetched more than the card allows is a strictly better card.
         return what.Length > 1 && char.IsUpper(what[0]) && what.All(char.IsLetter) ? what : null;
+    }
+
+    /// <summary>
+    /// A phrase whose every word is a filter atom, joined — or null if any word is unread.
+    /// </summary>
+    /// <remarks>
+    /// Lifted out of <see cref="SearchFilterNamed"/> so that a second reader can ask the same
+    /// question without a second copy of the loop. <see cref="Specs.SpellOfKind"/> is that
+    /// reader: it describes a spell on the stack, which is a card and not a permanent, and this
+    /// is the vocabulary that describes cards.
+    /// <para>
+    /// <paramref name="atLeast"/> is the only thing the two callers disagree about. A search
+    /// phrase of one word is a card type or a subtype and is answered above this; an adjective
+    /// on a spell is one word far more often than not — "target red spell" — so that caller
+    /// passes one. Three words is the cap for both, because beyond it the phrase stops being a
+    /// pile of adjectives and starts being a sentence.
+    /// </para>
+    /// </remarks>
+    private static string? AtomsOf(string phrase, int atLeast)
+    {
+        var words = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < atLeast || words.Length > 3)
+            return null;
+
+        var parts = new List<string>(words.Length);
+
+        foreach (var word in words)
+        {
+            if (FilterAtom(word) is not { } atom)
+                return null;
+
+            parts.Add(atom);
+        }
+
+        return string.Join('&', parts);
     }
 
     /// <summary>
@@ -6845,9 +6874,16 @@ public static partial class EffectPhrase
         if (lower.StartsWith("non", StringComparison.Ordinal) && FilterAtom(lower[3..]) is not null)
             return lower;
 
+        // "Multicolored" and "monocolored" count colours rather than naming one (CR 105.4), and
+        // the half of this vocabulary that answers them at runtime - SearchFilters.Matches - has
+        // read both filter ids for as long as the cost modifiers have printed the words. This
+        // half, which decides whether the compiler accepts them at all, had never been told; so
+        // "a multicolored creature card" was refused here while the identical filter id was
+        // answered perfectly next door. The same drift the "non" prefix above had, one comment up.
         return SearchableTypes.Contains(lower)
             || lower is "basic" or "legendary" or "snow" or "world"
             || lower is "white" or "blue" or "black" or "red" or "green" or "colorless"
+            || lower is "multicolored" or "monocolored"
                 ? lower
                 : null;
     }
@@ -8559,8 +8595,14 @@ public static partial class EffectPhrase
         // reached this list by being caught: it had only ever escaped folding by accident, because
         // the adjective in front of it stopped the search before the noun was reached, and fixing
         // that search turned "attacking Aurochs" into the type "Auroch" that no card has.
+        // "Cyclops" and "Bolas" are the same shape as Aurochs one reader further out: both end
+        // in a single s that is part of the word, and folding them asks for the creature type
+        // "Cyclop" and the planeswalker type "Bola", neither of which exists. They had escaped
+        // only because nothing singularised a subtype in the target grammar until now.
         if (string.Equals(word, "Plains", StringComparison.Ordinal)
-            || string.Equals(word, "Aurochs", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(word, "Aurochs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(word, "Cyclops", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(word, "Bolas", StringComparison.OrdinalIgnoreCase))
         {
             return word;
         }
@@ -8809,7 +8851,29 @@ public static partial class EffectPhrase
                 .ToList();
 
             if (alternatives.Count == 0 || alternatives.Exists(one => one is null or { Count: 0 }))
-                return null;
+            {
+                // Not a card type, so ask the vocabulary that describes cards rather than
+                // refusing the sentence. "Counter target red spell" was unread while "destroy
+                // target red permanent" - the same adjective, on the same card, one line apart -
+                // read fine, because this reader knew card types and nothing else while the noun
+                // grammar beside it has known the colours, the supertypes and the negations all
+                // along. TypedSpellPhrase claims the sentence before that grammar sees it, so
+                // there was no second chance and fourteen corpus cards sat one adjective short.
+                //
+                // The search vocabulary and not the permanent one, deliberately: a spell on the
+                // stack is a card, so "tapped", "attacking" and "face-down" have no answer about
+                // it and are refused here rather than answered "no" - which is what routing this
+                // through the permanent adjectives would have done.
+                return AtomsOf(bare, atLeast: 1) is not { } described
+                    ? null
+                    : new TargetSpec
+                    {
+                        Kind = TargetKind.SpellOnStack,
+                        Description = $"target {adjective} spell",
+                        ObjectFilter = (_, _, obj, _) =>
+                            SearchFilters.Matches(described, obj.Card) != negated,
+                    };
+            }
 
             return new TargetSpec
             {
@@ -9204,10 +9268,16 @@ public static partial class EffectPhrase
 
             if (required is null)
             {
-                var printed = m.Groups["noun"].Value.Trim();
+                var printed = SingularWord(m.Groups["noun"].Value.Trim());
                 if (printed.Length < 2 || !char.IsUpper(printed[0]))
                     return null;
 
+                // Folded, because a capitalised plural is never a subtype: no card has the type
+                // "Mounts". The group grammar has folded one since the Boil/"Islands" fix and
+                // this reader never did, so the same word read as a real type in "all Mounts"
+                // and as a type nothing has in "target Mounts" - which compiles, passes the deck
+                // gate and finds nothing, the failure that is worse than an unread line. Both
+                // readers of one noun, and only one of them had the fold.
                 subtype = printed;
 
                 // Which card type a subtype implies is a fact about that subtype, and reading it
@@ -9437,41 +9507,7 @@ public static partial class EffectPhrase
                 text = OtherOpener().Replace(text, string.Empty).Trim();
 
             // The grammar is written around a singular noun, so the plural is folded back.
-            text = PluralNoun().Replace(text, "$1");
-
-            // That regex knows the six card types and nothing else, so a tribe or a land type
-            // stayed plural and the grammar went looking for a subtype called "Islands" - which
-            // no card has. Every mass effect naming one silently touched nothing: Boil destroyed
-            // no Islands, and it compiled, cast and resolved without complaint.
-            //
-            // The run of capitalised words is the noun, and only its last word carries the
-            // plural: "Elf Warriors" is one noun with the s on the end of it.
-            //
-            // The run is found wherever it starts, not only at the front. Scanning from index 0
-            // meant a single lowercase adjective stopped the search before it reached the noun, so
-            // "untapped Mountains you control" and "tapped Assassins you control" stayed plural
-            // and asked for the types "Mountains" and "Assassins", which no card has. Ben-Ben
-            // dealt damage equal to the number of "Mountains" and Lydia Frye surveilled per
-            // "Assassins" - both counting zero, both compiling as complete cards.
-            var words = text.Split(' ');
-            var start = 0;
-
-            while (start < words.Length
-                && !(words[start].Length > 1 && char.IsUpper(words[start][0])))
-            {
-                start++;
-            }
-
-            var head = start;
-
-            while (head < words.Length && words[head].Length > 1 && char.IsUpper(words[head][0]))
-                head++;
-
-            if (head > start)
-            {
-                words[head - 1] = SingularWord(words[head - 1]);
-                text = string.Join(' ', words);
-            }
+            text = FoldPlural(text);
 
             var group = Parse("target " + text) ?? Union(phrase);
 
@@ -9489,6 +9525,64 @@ public static partial class EffectPhrase
                     (already?.Invoke(state, abilities, obj, source, controller) != false)
                     && (source is null || obj.Id != source.Id),
             };
+        }
+
+        /// <summary>Folds a group phrase's plural noun back to the singular the grammar reads.</summary>
+        /// <remarks>
+        /// <see cref="PluralNoun"/> knows the six card types and nothing else, so a tribe or a
+        /// land type stayed plural and the grammar went looking for a subtype called "Islands" -
+        /// which no card has. Every mass effect naming one silently touched nothing: Boil
+        /// destroyed no Islands, and it compiled, cast and resolved without complaint.
+        /// <para>
+        /// The run of capitalised words is the noun, and only its last word carries the plural:
+        /// "Elf Warriors" is one noun with the s on the end of it.
+        /// </para>
+        /// <para>
+        /// The run is found wherever it starts, not only at the front. Scanning from index 0
+        /// meant a single lowercase adjective stopped the search before it reached the noun, so
+        /// "untapped Mountains you control" and "tapped Assassins you control" stayed plural and
+        /// asked for the types "Mountains" and "Assassins", which no card has. Ben-Ben dealt
+        /// damage equal to the number of "Mountains" and Lydia Frye surveilled per "Assassins" -
+        /// both counting zero, both compiling as complete cards.
+        /// </para>
+        /// <para>
+        /// Lifted out of <see cref="ParseGroup"/> so <see cref="Union"/> can fold an element the
+        /// same way. It could not: its element test was <see cref="PluralNoun"/> alone, the
+        /// seven-word regex this method exists to patch around, so "destroy all Zombies and
+        /// Skeletons" was refused while "destroy all Zombies" — folded here — read fine. One
+        /// vocabulary, two readers, and only one of them ever got the fix.
+        /// <para>
+        /// The element test above this still requires a printed "s", so a tribe whose plural is
+        /// spelled the same — "all Auras and Equipment" — stays unread. That is the guard that
+        /// tells a union of groups from one group with a compound adjective, and it is doing its
+        /// job: reading the second as the first would destroy every artifact on the board.
+        /// </para>
+        /// </para>
+        /// </remarks>
+        internal static string FoldPlural(string text)
+        {
+            var folded = PluralNoun().Replace(text, "$1");
+
+            var words = folded.Split(' ');
+            var start = 0;
+
+            while (start < words.Length
+                && !(words[start].Length > 1 && char.IsUpper(words[start][0])))
+            {
+                start++;
+            }
+
+            var head = start;
+
+            while (head < words.Length && words[head].Length > 1 && char.IsUpper(words[head][0]))
+                head++;
+
+            if (head <= start)
+                return folded;
+
+            words[head - 1] = SingularWord(words[head - 1]);
+
+            return string.Join(' ', words);
         }
 
         /// <summary>
@@ -9532,10 +9626,18 @@ public static partial class EffectPhrase
                 // Every element has to be a plural noun the grammar knows, and it has to be the
                 // last word: "all creatures you control and artifacts" is not a shape any card
                 // prints, and admitting it here would quietly drop the "you control".
-                if (!PluralNoun().IsMatch(one) || !one.EndsWith('s'))
+                if (!one.EndsWith('s'))
                     return null;
 
-                singular.Add(PluralNoun().Replace(one, "$1"));
+                // Asked of the shared fold rather than of PluralNoun alone, so a tribe or a land
+                // type is an element here exactly as it is a whole group next door. A fold that
+                // changes nothing means the word was not a plural this grammar knows, which is
+                // the refusal the test above was making with a smaller vocabulary.
+                var folded = FoldPlural(one);
+                if (string.Equals(folded, one, StringComparison.Ordinal))
+                    return null;
+
+                singular.Add(folded);
             }
 
             return Parse("target " + string.Join(" or ", singular));
@@ -9653,8 +9755,15 @@ public static partial class EffectPhrase
                 if (word.Length < 2 || !char.IsUpper(word[0]))
                     return null;
 
+                // Which card type the subtype belongs to, asked of the shared table rather than
+                // assumed. This arm said "creature" outright, which is the silent failure that
+                // table was written to end: "return target Equipment card from your graveyard"
+                // asked for a card that is both a creature and an Equipment, of which there are
+                // none, and reported itself completely understood. The fix landed in Parse and
+                // never here, so the same word read one way as a permanent and another way in a
+                // graveyard.
                 subtype = word;
-                required = [CardType.Creature];
+                required = [SubtypeCardType(word)];
             }
 
             var mine = whose.Trim().StartsWith("your", StringComparison.OrdinalIgnoreCase);
@@ -10793,8 +10902,17 @@ public static partial class EffectPhrase
     /// word carries no count of its own — the "additional" is relative to the draw step the
     /// trigger already fires in — so reading it as the number beside it is the whole of it.
     /// </remarks>
+    /// <remarks>
+    /// It carries <see cref="FOREACH"/>, like the discard and the mill beside it. Its reader has
+    /// asked <c>CountedBy</c> for the tail all along; the pattern simply had no group to give it,
+    /// so "you draw a card for each creature you control" and "each player draws a card for each
+    /// Swamp you control" were unread while the bare imperative "draw a card for each creature
+    /// you control" read next door — the counted-group vocabulary and the player vocabulary in
+    /// two readers of the same verb, and neither reader holding both.
+    /// </remarks>
     [GeneratedRegex(
-        @"^" + WOPT + @"draws? " + N + @" (additional )?cards?$", RegexOptions.IgnoreCase)]
+        @"^" + WOPT + @"draws? " + N + @" (additional )?cards?" + FOREACH + @"$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex DrawCardsLine();
 
     /// <remarks>

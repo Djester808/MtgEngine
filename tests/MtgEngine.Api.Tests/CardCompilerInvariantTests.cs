@@ -3022,33 +3022,44 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
             // exactly when a plural was folded, and the board should hold whichever either meant.
             var (state, objects) = BoardFor(phrase + " " + spec.Description);
 
+            // Every peer the board can offer, when the spec compares a candidate to one - and
+            // the single null when it does not, so the ordinary phrase costs what it always did.
+            //
+            // "With mana value X or less" is satisfiable exactly when some X makes it so, and the
+            // witness has to supply one: asked with none the spec refuses every candidate by
+            // design, and asked with none *here* it would have been skipped entirely and the
+            // phrase called satisfiable for free. A peer is the same question one filter along.
+            IReadOnlyList<GameObject?> peers = spec.PeerFilter is null
+                ? [null]
+                : [null, .. objects];
+
             foreach (var obj in objects)
             {
                 foreach (var controller in Controllers)
                 {
-                    try
+                    foreach (var peer in peers)
                     {
-                        if (spec.ObjectFilter?.Invoke(state, pool, obj, controller) == false)
-                            continue;
-
-                        if (spec.SourceFilter?.Invoke(state, pool, obj, null, controller) == false)
-                            continue;
-
-                        // "With mana value X or less" is satisfiable exactly when some X makes it
-                        // so, and the witness has to supply one: asked with none the spec refuses
-                        // every candidate by design, and asked with none *here* it would have
-                        // been skipped entirely and the phrase called satisfiable for free.
-                        if (spec.VariableFilter?.Invoke(state, pool, obj, controller, Witness)
-                            == false)
+                        try
                         {
-                            continue;
+                            // Asked of the spec rather than of its filters one at a time. This
+                            // was a hand-rolled conjunction of three, and TargetSpec grew a
+                            // fourth: every radiance and "shares a name with that creature"
+                            // phrase was called satisfiable for free, because the filter that
+                            // decides it was never invoked. That is the same defect this
+                            // comparison had once before at two filters of three, and Accepts
+                            // exists precisely so there is one place that asks all of them.
+                            if (spec.Accepts(
+                                state, pool, obj, controller, source: null, peer: peer,
+                                announced: Witness))
+                            {
+                                return true;
+                            }
                         }
-
-                        return true;
-                    }
-                    catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)
-                    {
-                        // A filter that throws when handed a witness has answered "not this one".
+                        catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)
+                        {
+                            // A filter that throws when handed a witness has answered
+                            // "not this one".
+                        }
                     }
                 }
             }
