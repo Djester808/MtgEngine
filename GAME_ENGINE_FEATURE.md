@@ -513,7 +513,7 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **53.4% of playable cards fully read** (17,476 of 32,717), 69.4% of lines.
+Coverage is **54.0% of playable cards fully read** (17,658 of 32,717), 69.8% of lines.
 
 ### Round eighteen: the prohibition family is half the size it was ranked at
 
@@ -9686,3 +9686,107 @@ now reads or by a `{X}` it was cast for; none has a pump whose size nothing supp
 a target. "Target player draws X cards, where X is the number of cards in that player's hand" reads
 because the head named the player; "draw X cards, where X is the number of cards in target player's
 hand" does not, because the clause would have to add the target itself. Unchanged by this round.
+
+### Round nineteen: the pronoun family's last two halves, and a delay that can name a token
+
+Round seventeen classified every reader whose pattern admits a subject pronoun, fixed six that
+aimed at the source when the sentence named somebody else, and left two groups for a pass of their
+own. This is that pass. **17,641 -> 17,658 complete cards, +17, none lost by set diff**, and a
+compiled-effect diff of 37 cards — of which **11 were already complete and were playing the wrong
+card**, which no coverage number can see in either direction.
+
+**The longhand exalted disagreement was taken two rounds ago and this round only confirmed it.**
+`TriggerConditions.NamesAnObject` has admitted the attacks-alone family since `075b59f`, the same
+commit as the six readers, so Agents of S.H.I.E.L.D. and A-Eiganjo Exemplar already compile to
+`PumpUntilEndOfTurn(Subject=TriggeringObject)` — the creature that attacked alone, not the
+permanent with the ability. A re-measurement rather than a change, and worth writing down because
+the work was queued twice.
+
+#### The readers that refuse a pronoun rather than aiming at the source
+
+Under-read rather than mis-aimed, so the direction of error was already safe and the only question
+was what each is worth. Measured against the corpus by the shape of the sentence *and* by whether
+its trigger is one `NamesAnObject` admits, then confirmed by a compiled-effect diff:
+
+| reader | corpus cards it reaches | newly complete | taken |
+|---|---|---|---|
+| `ItLine`, the return verb | **8** — Squee's Embrace, Demonic Vigor, six Zendikons | 2; the Zendikons are blocked elsewhere as well | yes |
+| `SkipUntapLine` | **6** — Wall of Frost, Labyrinth Minotaur, Cleric of Chill Depths, Vertigo Spawn, Mercurial Kite, Queen of Ice | 7, the seventh being Mesmerizing Benthid, whose Illusion token quotes the same sentence | yes |
+| `ItLine`, the untap verb | **0** | 0 | subject added anyway — one sentence, one ladder |
+| `SuspectLine` | **3**, and all three need the decline below | 0 | no |
+| `GoadLine` | **0** — every corpus printing of "goad it" has a target in front of it | 0 | no |
+| `AimedThisTurn` | **0** — its own comment predicted this and was right | 0 | no |
+
+`ItLine`'s five verbs now ask `ObjectOf` once and hand the answer to whichever effect the verb
+names, rather than reaching straight for the last target. Three of the five — destroy, exile, tap —
+only ever reach it for wordings their own readers further up refused, so the two that changed are
+untap and return, and `UntapTarget` and `ReturnToHand` are the two effects that gained a subject.
+`SkipNextUntap` gained one for the same reason.
+
+**The zone is the load-bearing half of the return, and it was nearly a silent no-op.**
+`ReturnToHand` read only from the battlefield, because a target that has stopped being legal is
+skipped (CR 608.2b). But a pronoun the *trigger* answered names a card that is expected to have
+left: "when enchanted creature dies, return that card to its owner's hand" is about the card now in
+a graveyard under a new id (CR 400.7). All eight cards would have compiled clean and returned
+nothing at all — a complete card that does nothing is worse than the unread line it replaced. The
+battlefield rule now applies to a target and not to a trigger's subject, and the played game moves
+the card rather than reading the compiled effect.
+
+**Declined, with the measurement behind each:**
+
+- **The self-enters trigger as a subject** (`when ~ enters`). It looks free — the event is the
+  source arriving, `Game.SubjectObjectOf` answers with it, and the answer is the same one the old
+  source fallback gave. Admitting it read **6 more cards and lost 2**, and three of the six are
+  Auras: "when this Aura enters, if enchanted creature is red, tap it" (Ray of Frost, Volition
+  Reins, Howl of the Hunt) means the *enchanted permanent*, and the triggering object is the Aura.
+  It also moved Scion of Stygia's two d20 branches off the creature the ability had targeted and
+  onto the Scion, because a roll branch is read against a builder the ability's own target is not
+  in yet. Coverage up, cards worse — the exact trade the allow-list exists to refuse. It is the
+  only thing blocking `SuspectLine`'s three cards, which is why those stay unread.
+- **"That land" as a pronoun** (2 — Vorinclex, Voice of Hunger and Winter's Night). The shared
+  `Pronouns` list is read by five readers, and widening it for one sentence changes all five. The
+  new arm of `SkipUntapLine` is gated on that list; the old arm, which reads whatever the sentence
+  had already targeted, is not — gating both cost Chandra's Revolution, Mana Skimmer and Stensia
+  Innkeeper, which had been reading "tap target land. That land doesn't untap" for months.
+
+#### The delayed pronoun's fallback, and eleven cards that sacrificed themselves
+
+"Create a 2/1 red Elemental creature token with trample and haste. **Sacrifice it** at the
+beginning of the next end step" is Lagomos, Hand of Hatred. It was fully compiled, it played, and
+every turn it sacrificed **itself** — the delayed vocabulary could only aim at the source or at a
+target, and neither is the token. Rakdos Guildmage exiled itself instead of the Goblin; Angelic
+Favor, Balduvian Dead, Daring Piracy, Elemental Appeal, Giantbaiting, Hungry for More, Thunderheads,
+Tidal Wave and Zektar Shrine Expedition are the rest of the eleven.
+
+**The delay is folded into the effect that mints the token, not added beside it.** A delayed
+ability is set up against an object id (CR 603.7b) and the only place that knows the token's id is
+the creating effect — which is how mobilize's own sacrifice has always been built. So `CreateToken`
+and `CreateTokenCopy` carry an optional `DelayedTokenAction` and emit one delayed ability per token
+as they mint them. Nothing flows between effects at resolution time, which is what makes it work
+inside a branch as well as beside one.
+
+The alternative was measured and rejected. A subject resolved from a record of what the resolution
+had created would answer *nothing* wherever the creation runs inside another effect's branch,
+because `ResolutionRecord` is threaded by `Game.RunEffects` and not by the ten effects that run
+children — and a silent no-op on a card that reads as complete is the failure this whole family is
+written to avoid. The fold needs no such flow at all: the minting effect emits the delayed ability
+itself, so it works wherever the creation is. What the reader will not do is fold onto a creation
+it cannot see as a sibling of the sentence, and that leaves the line unread.
+
+**+8 cards on top of the correction**, all of them the Kiki-Jiki shape whose pronoun the reader had
+been refusing outright rather than aiming at the creature that was copied: Kiki-Jiki, Mirror
+Breaker itself, Feldon of the Third Path, Molten Duplication, Nemesis Trap, Saheeli, the Sun's
+Brilliance, Tempestra, Dame of Games, The Fire Crystal and The Jolly Balloon Man.
+
+The destroy verb's narrowing is untouched — it takes the source only when nothing at all preceded
+it — because the token case that was its whole reason is now answered above it, on all four verbs
+rather than on the one.
+
+**Two tests that asserted a refusal were made to play the card rather than flipped.** Both refusals
+existed only because a token could not be named, so both are now games: Kiki-Jiki's full printed
+ability sacrifices the copy and leaves the creature it copied on the battlefield, and the Hornet
+Cannon shape is a `[Theory]` over both verbs asserting that the token goes and the permanent that
+made it stays. That second claim is the one the old reading failed — something did go away at end
+of turn, and it was the card that made the token.
+
+Coverage is **54.0% of playable cards fully read** (17,658 of 32,717), 69.8% of lines.

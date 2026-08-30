@@ -2595,13 +2595,13 @@ public static partial class EffectPhrase
         // "That creature doesn't untap during its controller's next untap step" - the tail of
         // a tap effect, reading the target the sentence before it named.
         var skipping = SkipUntapLine().Match(sentence);
-        if (targets.Count > 0 && skipping.Success)
+        if (skipping.Success)
         {
             // "Those creatures" is the plural of the same sentence and means every one the
             // sentence before it named - "tap up to two target creatures" left two behind, and
             // freezing only the last of them is a strictly weaker card. Singular still means the
             // most recent target, which is what "that creature" refers to.
-            if (skipping.Groups["many"].Success)
+            if (targets.Count > 0 && skipping.Groups["many"].Success)
             {
                 for (var index = 0; index < targets.Count; index++)
                 {
@@ -2612,8 +2612,37 @@ public static partial class EffectPhrase
                 return effects.Count > 0;
             }
 
-            effects.Add(new SkipNextUntap(targets.Count - 1));
-            return true;
+            // The target an earlier sentence chose, exactly as before. Every subject this
+            // pattern admits is a back-reference to it once one exists - "that land" and "the
+            // chosen creature" included - so the reading here is not gated on the wording.
+            if (targets.Count > 0)
+            {
+                effects.Add(new SkipNextUntap(targets.Count - 1));
+                return true;
+            }
+
+            // With nothing targeted the sentence is about the object the trigger named, which
+            // is six corpus cards the reader refused outright for as long as the effect had
+            // nowhere but a target index to put an answer - Wall of Frost, Labyrinth Minotaur,
+            // Cleric of Chill Depths, Vertigo Spawn, Mercurial Kite and Queen of Ice, plus
+            // Mesmerizing Benthid, whose Illusion token quotes the same sentence. "Whenever ~
+            // blocks a creature, that creature doesn't untap during its controller's next untap
+            // step" is the Wall, and the creature is the one it blocked.
+            //
+            // This arm alone is gated on the shared pronoun list, which is narrower than the
+            // pattern on purpose. "The chosen creature" points at a choice this reader cannot
+            // see, and "that land" is a back-reference the shared vocabulary does not read -
+            // Vorinclex, Voice of Hunger and Winter's Night are the two cards that spell it,
+            // measured and left. Answering either with the trigger's object would be guessing
+            // rather than reading, and gating the arm above as well cost three cards that had
+            // been reading "tap target land. That land doesn't untap" for months.
+            if (Pronouns.Contains(
+                    skipping.Groups["who"].Value.Trim(), StringComparer.OrdinalIgnoreCase)
+                && ObjectOf("it", targets, objectNamedByTrigger) is { } held)
+            {
+                effects.Add(new SkipNextUntap(held.Index, held.Subject));
+                return true;
+            }
         }
 
         // "Target creature doesn't untap during its controller's next untap step" - the same
@@ -3131,11 +3160,12 @@ public static partial class EffectPhrase
         {
             var untapping = m.Groups["verb"].Value.StartsWith("un", StringComparison.OrdinalIgnoreCase);
 
-            // Untapping has no subject of its own yet, so a pronoun there is still refused -
-            // reading it as a target would untap whatever the player last chose. A phrase this
-            // cannot read falls through to the matchers after it rather than failing the
-            // sentence: "untap it" is read further down, and returning here took the whole card
-            // with it.
+            // Untapping takes only a noun here, and a pronoun falls through to the matchers
+            // after it rather than failing the sentence - "untap it" is read further down by
+            // ItLine, which asks the shared ladder once for all five of its verbs. Returning
+            // here instead took the whole card with it. The effect has a subject of its own now,
+            // so this is a question of which reader owns the sentence rather than of what can be
+            // expressed; one sentence, one reader, and that reader is the one below.
             if (untapping)
             {
                 if (Specs.Parse(m.Groups["t"].Value) is { } handled)
@@ -4416,7 +4446,12 @@ public static partial class EffectPhrase
             }
 
             // "Suspect it" - the target the sentence before chose, which is the only thing the
-            // pronoun can mean here.
+            // pronoun can mean here. Measured and left: all three corpus printings of the
+            // pronoun say "When this creature enters, suspect it" (Frantic Scapegoat, Barbed
+            // Servitor, Person of Interest), and a self-enters trigger is deliberately not one
+            // of the shapes TriggerConditions.NamesAnObject admits - see the note there, where
+            // admitting it read three Auras as being about themselves. Giving this effect a
+            // subject with no trigger able to supply one would be an arm no card exercises.
             if (targets.Count == 0)
                 return false;
 
@@ -4812,17 +4847,29 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (m.Success && targets.Count > 0)
+        // The pronoun goes to the shared reader rather than straight to the target list: it
+        // answers with the target an earlier sentence chose, or - with nothing targeted - the
+        // object the trigger named, and with nothing at all where it can see neither. Two of the
+        // five verbs could not take the second answer at all until now, because UntapTarget and
+        // ReturnToHand had nowhere but a target index to put one; the other three reach this
+        // matcher only for the wordings their own readers further up refused.
+        //
+        // Asked as one word rather than five. Every alternative this pattern admits is the same
+        // back-reference, and "that card" is deliberately not added to the shared pronoun list -
+        // widening that list changes half a dozen readers at once, and this sentence needs only
+        // its own answer.
+        if (m.Success && ObjectOf("it", targets, objectNamedByTrigger) is { } meant)
         {
-            var index = targets.Count - 1;
+            var index = meant.Index;
+            var who = meant.Subject;
 
             effects.Add(m.Groups["verb"].Value.ToLowerInvariant() switch
             {
-                "untap" => new UntapTarget(index),
-                "tap" => new TapTarget(index),
-                "destroy" => new DestroyTarget(index),
-                "exile" => new ExileTarget(index),
-                _ => new ReturnToHand(index),
+                "untap" => new UntapTarget(index, who),
+                "tap" => new TapTarget(index, who),
+                "destroy" => new DestroyTarget(index, Subject: who),
+                "exile" => new ExileTarget(index, who),
+                _ => new ReturnToHand(index, who),
             });
 
             return true;
@@ -4924,34 +4971,31 @@ public static partial class EffectPhrase
                     return true;
                 }
 
+                var pronoun = string.Equals(who, "it", StringComparison.OrdinalIgnoreCase);
+
+                // A token this ability has just made is what "it" means, and it outranks every
+                // other answer: "create a token that's a copy of target nonlegendary creature
+                // you control, except it has haste. Sacrifice it at the beginning of the next
+                // end step" is Kiki-Jiki, and the sacrifice is the copy rather than the creature
+                // the sentence targeted or the permanent whose ability it is.
+                //
+                // The delay is folded into the creating effect rather than added beside it,
+                // because a delayed ability is set up against an object id and the only place
+                // that knows the token's id is the effect that minted it (CR 603.7b) - which is
+                // how mobilize's own sacrifice has always been built. Only onto a creation that
+                // is a sibling in this same list: one buried in a branch this reader can see
+                // and cannot rewrite leaves the line unread, which is the safe direction.
+                if (pronoun && EffectTree.Flatten(effects).Any(MakesAToken))
+                    return FoldDelayIntoTokenMaker(effects, doing, moment);
+
                 // A pronoun goes to the shared reader, which answers with the target an earlier
                 // sentence chose or with the object the trigger was about, and with nothing at
                 // all where it can see neither. "Destroy that creature at end of combat" on a
                 // basilisk is the second of those; "target creature you control gets +X/+X until
                 // end of turn. Destroy it at the beginning of the next end step" is the first.
-                //
-                // Unless this ability made a token on the way here, in which case "it" is the
-                // token and none of those answers is it. Kiki-Jiki's "create a token that's a
-                // copy of target nonlegendary creature you control, except it has haste.
-                // Sacrifice it at the beginning of the next end step" would sacrifice the
-                // creature it copied - a strictly different card, and one that reads perfectly.
-                // Narrowed to the arm that names a target on purpose: the source fallback below
-                // is wrong on the same cards for the same reason, and correcting that one is the
-                // measured pass its own comment asks for rather than a side effect of this
-                // sentence becoming reachable.
                 if (ObjectOf(who, targets, objectNamedByTrigger) is { } named
                     && named.Subject != EffectSubject.Source)
                 {
-                    // Only "it" is ambiguous this way. "That creature" and "that permanent" name
-                    // something the sentence has already been told about, which is the target
-                    // and not the token beside it.
-                    if (named.Subject == EffectSubject.Target
-                        && string.Equals(who, "it", StringComparison.OrdinalIgnoreCase)
-                        && EffectTree.Flatten(effects).Any(MakesAToken))
-                    {
-                        return false;
-                    }
-
                     effects.Add(
                         new DelayObjectAction(doing, moment, named.Subject, named.Index));
 
@@ -4964,18 +5008,16 @@ public static partial class EffectPhrase
                 // blocks a creature, destroy that creature at end of combat" into a basilisk
                 // that destroys itself, which is the exact card this codebase has reverted
                 // before. Three of them compiled that way for the length of one measurement.
-                if (!string.Equals(who, "it", StringComparison.OrdinalIgnoreCase))
+                if (!pronoun)
                     return false;
 
-                // "It" with nothing else named can only be the permanent with the ability. The
-                // three older verbs have always taken that step; a destroy takes it only when
-                // nothing before it in the ability produced another permanent to mean. "Create a
-                // 1/1 Insect token. Destroy it at the beginning of the next end step" is about
-                // the token, and a destroy falling back to the source there would blow up the
-                // card that made it. That fallback is wrong for the sacrifice on those same
-                // cards and is left alone deliberately: it is the reading 52 complete cards
-                // already have, and correcting it is a measured pass of its own rather than a
-                // side effect of adding a word.
+                // "It" with nothing else named can only be the permanent with the ability, and
+                // the token case is gone from underneath this now - answered above, on all four
+                // verbs rather than on the destroy alone. What is left really is a card talking
+                // about itself: "~ gains haste until end of turn. Sacrifice it at the beginning
+                // of the next end step" is the reanimation drawback this arm exists for. The
+                // destroy narrowing stays exactly as it was measured, because destroying the
+                // wrong permanent is the harshest thing this vocabulary can do by accident.
                 if (!string.Equals(doing, DelayedActions.Destroy, StringComparison.Ordinal)
                     || (effects.Count == 0 && targets.Count == 0))
                 {
@@ -12089,7 +12131,7 @@ public static partial class EffectPhrase
     /// the one part that changes what happens, so that is the only group.
     /// </remarks>
     [GeneratedRegex(
-        @"^((that|the|this) (creature|permanent|land|artifact)|the chosen creature|it"
+        @"^(?<who>(that|the|this) (creature|permanent|land|artifact)|the chosen creature|it"
             + @"|(?<many>(those|these) (creatures|permanents|lands|artifacts)|they))"
             + @" (doesn't|don't) untap during "
             + @"(its controller's|their controller's|your) next untap step$",
@@ -13657,6 +13699,47 @@ public static partial class EffectPhrase
     private static bool MakesAToken(IEffect effect) =>
         effect is CreateToken or CreateTokenCopy or CreateTokenAndAttach;
 
+    /// <summary>
+    /// Hands a delayed action to the effect that made the token the sentence means (CR 603.7b).
+    /// </summary>
+    /// <remarks>
+    /// The last creation in this list, because a card that mints two lots of tokens and then
+    /// says "it" means the nearer one - and because the sentence sits after the creation it is
+    /// about, every card that prints this shape.
+    /// <para>
+    /// Two things make it refuse rather than approximate. A creation only reachable through
+    /// <see cref="EffectTree"/> - inside an optional payment's branch, say - is not something
+    /// this list can rewrite, and adding the delay beside it instead would aim it at the wrong
+    /// permanent. And <c>CreateTokenAndAttach</c> has no slot for one: it is an Aura or
+    /// Equipment token that arrives attached, no corpus card delays anything about one, and a
+    /// slot nothing fills is a slot nothing tests. Both leave the line unread.
+    /// </para>
+    /// </remarks>
+    private static bool FoldDelayIntoTokenMaker(
+        ImmutableList<IEffect>.Builder effects, string doing, State.TurnStep moment)
+    {
+        var delayed = new DelayedTokenAction(doing, moment);
+
+        for (var index = effects.Count - 1; index >= 0; index--)
+        {
+            switch (effects[index])
+            {
+                case CreateToken { Delayed: null } made:
+                    effects[index] = made with { Delayed = delayed };
+                    return true;
+
+                case CreateTokenCopy { Delayed: null } copied:
+                    effects[index] = copied with { Delayed = delayed };
+                    return true;
+
+                default:
+                    break;
+            }
+        }
+
+        return false;
+    }
+
     private static int? PronounObject(
         Match m,
         ImmutableList<TargetSpec>.Builder targets,
@@ -15135,6 +15218,17 @@ public static partial class TriggerConditions
                 _ => false,
             };
         }
+
+        // "When ~ enters" is deliberately absent, and it was measured rather than assumed. The
+        // event is the source arriving and Game.SubjectObjectOf does answer with it, so the flag
+        // would be honest about having a subject - it would just be the wrong subject on the
+        // cards that matter. Admitting it read 6 more cards and lost 2, and three of the six are
+        // Auras: "when this Aura enters, if enchanted creature is red, tap it" (Ray of Frost,
+        // Volition Reins, Howl of the Hunt) means the enchanted permanent, and the triggering
+        // object is the Aura. It also moved Scion of Stygia's two d20 branches off the creature
+        // the ability had targeted and onto the Scion, because a branch is read against a
+        // builder the ability's own target is not in yet. Coverage up, cards worse - which is
+        // exactly the trade this allow-list exists to refuse.
 
         // "Whenever a player taps a land for mana" - the event names the permanent that made
         // the mana, and Game.SubjectObjectOf answers with it, so "its controller" and "that
