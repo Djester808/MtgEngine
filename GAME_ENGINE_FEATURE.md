@@ -486,7 +486,128 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **49.3% of playable cards fully read** (16,140 of 32,717), 66.6% of lines.
+Coverage is **49.4% of playable cards fully read** (16,156 of 32,717), 66.6% of lines.
+
+### Somebody else's arrival, and a family measured before it was built
+
+`CardCompiler.Arriving` answers one question — `moved.OldId == source.Id`, "is this my own source
+entering" — and every enters-tapped reader in the compiler was built on it. So a card that
+changes how *other* permanents arrive had nowhere to compile to, however ordinary its sentence.
+That is CR 614.1d, and round eleven's decline, recorded further down this file, was right that
+it is not a duration problem.
+
+**16,138 → 16,156 complete cards, +18, none lost, measured by set difference.**
+
+**The family, measured before anything was built.** The class is "a static ability that changes
+how other permanents enter", and the honest unit is *cards a fix completes* — cards where the
+line is the only thing the compiler cannot read. Two of the five groupings turn out to be worth
+almost nothing, and one was already finished:
+
+| grouping | cards it would complete | cards touching | verdict |
+|---|---|---|---|
+| **enter tapped** — the group static | **15** | 24 | built; 14 taken, 1 declined |
+| enter with counters — the group static | 13 | 19 | **already built** (`TryGroupEntersWithAdditionalCounter`); the 13 left are harder variants, not this gap |
+| enter untapped — the group static | 1 | 6 | declined, and it is a different mechanism |
+| enter under another player's control | 1 | 1 | declined — one card, and a one-shot with a duration |
+| enter face down — the group static | **0** | 0 | **no corpus card says it** |
+
+The earlier note read "4 on that exact wording, 13 across the family", and named three other
+groupings the class was supposed to include. Measured against the compiler rather than against the
+corpus text: the enters-tapped grouping is **15 sole blockers**, not 13; **entering face down is
+not a grouping at all** — no corpus card prints it about a group; entering under another player's
+control is **one card**; and **entering with counters was already built** two rounds ago and is
+not this gap. Two of the three neighbours the note gestured at are worth one card between them.
+Counting the class as one number would have promised about thirty and delivered eighteen. That is
+the dice round's overstatement arrived at from the other direction, and the fix is the same one:
+count the cards a change *completes*, not the lines that mention its subject.
+
+**`TryGroupEntersTapped` is the reader, and three details are the rule rather than the code.**
+
+- **Only the first word of the noun phrase is lowered.** The phrase always begins its sentence,
+  so its capital says nothing; reading it as printed looks for a creature type called "Creature",
+  which no card has, and builds a static that matches nothing while compiling clean. That is
+  exactly the silent no-op the mass-static reader records on 27 lines. Every *later* word keeps
+  its case, which is what lets "Snow lands your opponents control" and "Non-Phyrexian creatures"
+  read correctly rather than being flattened.
+- **A missing ownership clause means everyone.** Orb of Dreams says "Permanents enter tapped" and
+  taps the whole table. Defaulting a missing clause to "you control" is the 83-card defect this
+  file already records one layer over, and the behaviour test asserts the controller's *own*
+  creature arrives tapped so that reading cannot come back.
+- **The source is never the permanent arriving, and two separate guards say so.** CR 614.12's own
+  example is Orb of Dreams not affecting itself. A permanent spell resolving is still on the
+  stack while its own arrival is replaced, so `FunctionsFrom` — the battlefield, which is where a
+  static functions from — excludes it; a token is built by the pipeline out of its own event and
+  arrives already on the battlefield, so only the identity check excludes it. Both were mutated
+  away and a test failed for each.
+
+**One seam is left open on purpose and is written down in the reader.** Whose permanent is
+arriving is read from the stored `ControllerId`, which is only where control *started* — control
+is layer 2 — so a stolen Kismet asks about its original controller's opponents. `Applies` is
+handed a state and no `IAbilitySource`, so the computed characteristics are out of reach without
+widening every replacement in the engine; the group-counter reader has the same seam. That is one
+change to the replacement signature, not a special case for this family.
+
+The wrinkle the earlier note warned about is real and is handled by a helper that already
+existed: for an `ObjectMoved` the arriving object is not in the state yet (CR 400.7), so
+`Entering` reads its card out of the object it still is in the zone it is leaving, and its
+controller off the event. `Arriving`'s sibling, and it had been sitting beside the group-counter
+reader the whole time.
+
+**The 14 taken**, by set difference: Authority of the Consuls, Blind Obedience, Frozen Aether,
+Imposing Sovereign, Kinjalli's Sunwing, Kismet, Loxodon Gatekeeper, Manglehorn, Orb of Dreams,
+Root Maze, Spider-Woman Stunning Savior, Thalia and The Gitrog Monster, Thalia Heretic Cathar,
+Urabrask the Hidden. Six more cards had the line read without being completed, because they are
+short something else: Archon of Emeria, Dauntless Dismantler, False Floor, Phyrexian Censor,
+Zhao the Moon Slayer, and Reidane.
+
+**And the sibling was four more.** "If ~ would be put into a graveyard from anywhere, reveal ~ and
+shuffle it into its owner's library instead" is the same rule aimed at the source's own zone
+change, and two of its three destinations were already read. The third needed more than a
+different zone: **shuffling into a library is a move and then a request, not a position.** The
+other two arms finish by naming where in the destination the card lands, and a shuffle names no
+position at all — the order is the game's to decide and comes from the seeded source, which no
+effect can reach. So the card moves to the library and leaves a `ShuffleRequested` for the settle
+loop. Putting it on top and calling that close enough would leave Blightsteel Colossus on top of
+its owner's library, which is a tutor rather than a removal, and the behaviour test counts the
+library rather than only checking the graveyard for exactly that reason. +4: Blightsteel Colossus,
+Darksteel Colossus, Legacy Weapon, Nexus of Fate.
+
+**Declined here, with the measurement behind each.**
+
+- **`Creatures played by your opponents enter tapped.`** — 1 card (Uphill Battle). "Played" is
+  narrower than "enters under their control": a token an opponent creates was never played.
+  Reading it as the ownership clause taps permanents the card does not name, and one card is the
+  right price for not doing that.
+- **`Permanents enter tapped this turn.`** — 1 card (Due Respect). The same sentence with a
+  duration, on a sorcery. A pattern loose enough to claim it hands that spell a permanent lock on
+  the table, which is the harshest available misreading of the gentlest available line. It is a
+  test case rather than a target.
+- **`As long as ~ is tapped, other permanents enter tapped.`** — 1 card (Archelos), 2 lines
+  short anyway. A replacement gated on a condition, which is a different shape from a static one.
+- **`Creatures enchanted player controls enter tapped.`** — 1 card, 2 lines short. The
+  mass-static reader has a branch for a group defined by a relation to the source and this one
+  does not; the scope word is matched rather than skipped so an unrecognised clause leaves the
+  line unread instead of quietly meaning everybody.
+- **`Lands you control enter untapped.`** — 1 sole blocker (Gond Gate), 6 touching. Not the same
+  mechanism turned round: the engine's arrivals are untapped already, so this has to *suppress*
+  another replacement rather than add an event. That is a change to how the arrival carries its
+  tapped state, not another group reader.
+- **`If a creature would enter the battlefield under an opponent's control this turn, it enters
+  under your control instead.`** — 1 card (Gather Specimens), and the whole of the
+  "enters under another player's control" grouping.
+
+**The mana neighbour is the trigger's effect, not the trigger.** The recorded note said
+"`ManaAdded` carries what it needs", and it does — `TriggerConditions` has read "whenever a
+player taps a land for mana" since Manabarbs, and `SubjectOf` already answers which player. The
+blocker is the other half of the sentence. `Whenever a player taps a land for mana, that player
+adds one mana of any type that land produced` is **4 sole blockers** (Dictate of Karametra,
+Heartbeat of Spring, Mana Flare, Zhur-Taa Ancient) of the **7** the trigger touches, and it needs
+three separate pieces of engine: a mana colour chosen *mid-resolution*, which `EffectPhrase`
+refuses by name today — "there is nowhere to ask it"; the set of types a particular land can
+produce, read at resolution; and an `AddMana` with a player scope, since it puts mana in somebody
+else's pool and the effect always uses `context.ControllerId`. The other 3 of the 7 want a
+different effect again (Price of Glory destroys the land; Overabundance and Barbflare Gremlin add
+damage). Worth doing as a mana-choice change, not as a card-reader one.
 
 ### Round eleven: finishing interrupted work, and four instrument defects
 

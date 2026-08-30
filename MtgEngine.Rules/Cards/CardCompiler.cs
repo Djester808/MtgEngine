@@ -1416,6 +1416,9 @@ public static partial class CardCompiler
             if (TryEntersTapped(line, replacements))
                 continue;
 
+            if (TryGroupEntersTapped(line, card, replacements))
+                continue;
+
             if (TryLoyaltyAbility(line, activated))
                 continue;
 
@@ -10970,7 +10973,8 @@ public static partial class CardCompiler
     /// </para>
     /// </remarks>
     /// <summary>
-    /// "If ~ would be put into a graveyard from anywhere, exile it instead" (CR 614.1c).
+    /// "If ~ would be put into a graveyard from anywhere, [go somewhere else] instead"
+    /// (CR 614.1a) — <see cref="Arriving"/>'s sibling, about the zone the source is leaving for.
     /// </summary>
     /// <remarks>
     /// A self-replacement, and the commonest line on the back face of a card that must not come
@@ -10980,9 +10984,27 @@ public static partial class CardCompiler
     /// sentence catches the card being milled, discarded or countered, and a replacement that only
     /// functioned from the battlefield would let all three through.
     /// <para>
-    /// The destination is the only thing that changes. Keeping the same new id means whatever was
-    /// going to observe the move still observes one — the card is a new object either way
-    /// (CR 400.7), and it is a new object in exile rather than in the graveyard.
+    /// For the two older destinations the destination is the only thing that changes. Keeping the
+    /// same new id means whatever was going to observe the move still observes one — the card is
+    /// a new object either way (CR 400.7), and it is a new object in exile rather than in the
+    /// graveyard.
+    /// </para>
+    /// <para>
+    /// <b>The third needs more than a different zone: shuffling into a library is a move and then
+    /// a request, not a position.</b> The other two arms finish by naming where in the
+    /// destination the card lands, and "shuffle it in" names no position at all — the order is
+    /// the game's to decide and has to come from the seeded source, which no effect can reach. So
+    /// the card is moved to the library and a <c>ShuffleRequested</c> is left behind for the
+    /// settle loop, the same shape every other shuffle in the engine uses. Putting it on top and
+    /// calling that close enough would leave Blightsteel Colossus on top of its owner's library,
+    /// which is a tutor rather than a removal.
+    /// </para>
+    /// <para>
+    /// That arm's reveal is emitted, and it is emitted <em>first</em>. It names the id the card
+    /// still has, because the move that follows gives it a new one (CR 400.7) and the reveal
+    /// happens while it is still the object being put into a graveyard. Skipping it would lose
+    /// the one thing the sentence tells the other players: a card that vanishes into a library
+    /// unannounced is indistinguishable from one that was never there.
     /// </para>
     /// </remarks>
     private static bool TryGraveyardReplacement(
@@ -10992,28 +11014,48 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        var bottom = m.Groups["where"].Value.StartsWith(
-            "put it on the bottom", StringComparison.OrdinalIgnoreCase);
+        var where = m.Groups["where"].Value;
 
-        var destination = bottom ? Zone.Library : Zone.Exile;
+        var bottom = where.StartsWith("put it on the bottom", StringComparison.OrdinalIgnoreCase);
+        var shuffled = where.Contains("shuffle", StringComparison.OrdinalIgnoreCase);
+
+        var destination = bottom || shuffled ? Zone.Library : Zone.Exile;
 
         into.Add(new ReplacementEffectDefinition
         {
-            Id = bottom ? "graveyard-to-library" : "graveyard-to-exile",
+            // The two older ids are left spelled as they were. A replacement's id is half the key
+            // CR 614.5 applies it by and it travels in the log, so renaming one to tidy up the
+            // arms would change what a saved game replays as.
+            Id = shuffled ? "graveyard-to-shuffle"
+                : bottom ? "graveyard-to-library"
+                : "graveyard-to-exile",
             FunctionsFrom = null,
             Applies = (e, _, source) =>
                 e is Events.ObjectMoved { To: Zone.Graveyard } bound && bound.OldId == source.Id,
-            Replace = (e, _, _) =>
+            Replace = (e, _, source) =>
             {
                 var move = (Events.ObjectMoved)e;
 
+                if (!shuffled)
+                {
+                    return
+                    [
+                        move with
+                        {
+                            To = destination,
+                            Position = bottom ? ZonePosition.Bottom : ZonePosition.Top,
+                        },
+                    ];
+                }
+
                 return
                 [
-                    move with
-                    {
-                        To = destination,
-                        Position = bottom ? ZonePosition.Bottom : ZonePosition.Top,
-                    },
+                    new Events.CardsRevealed(source.OwnerId, [move.OldId]),
+                    move with { To = Zone.Library, Position = ZonePosition.Top },
+
+                    // Named nothing to shuffle in, because the card is already there by the time
+                    // this settles: AlsoShuffleIn is for cards still sitting in a graveyard.
+                    new Events.ShuffleRequested(source.OwnerId, []),
                 ];
             },
         });
@@ -11505,6 +11547,156 @@ public static partial class CardCompiler
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// "Creatures your opponents control enter tapped" — somebody else's arrival, replaced
+    /// (CR 614.1d).
+    /// </summary>
+    /// <remarks>
+    /// The same rule <see cref="TryEntersTapped"/> reads, said about a different permanent.
+    /// Every enters-tapped reader in this file is built on <see cref="Arriving"/>, which answers
+    /// only "is this my own source entering" — so a card that changes how <em>other</em>
+    /// permanents arrive had nowhere to compile to, however ordinary its sentence. The gathering
+    /// loop has offered every battlefield object's replacements against every event since
+    /// replacements existed; nothing was missing but a reader that describes a group.
+    /// <para>
+    /// The arriving permanent is not in the state yet (CR 400.7), so the description is asked of
+    /// <see cref="Entering"/> — the card and the controller taken off the event, and for a moved
+    /// card read out of the object it still is in the zone it is leaving. Looking the new id up
+    /// finds nothing, which is the same defect that once stopped landfall firing at all.
+    /// </para>
+    /// <para>
+    /// <b>Only the first word is lowered, and that is the whole of how the capitals stay
+    /// meaningful.</b> This noun phrase always begins its sentence, so its leading capital says
+    /// nothing — reading it as printed would look for a creature type called "Creature", which
+    /// no card has, and produce a static that matches nothing while compiling clean. That is the
+    /// exact silent no-op the mass-static reader beside it records on 27 corpus lines. Every
+    /// later word keeps its case, so "Snow lands" is still a supertype and "Non-Phyrexian
+    /// creatures" is still a negated creature type.
+    /// </para>
+    /// <para>
+    /// <b>A line with no ownership clause means everyone's permanents</b>, an opponent's and your
+    /// own alike: Orb of Dreams reads "Permanents enter tapped" and taps the whole table. That is
+    /// the reading the mass-static group reader had to be corrected to, where defaulting a
+    /// missing clause to "you control" left 83 cards quietly doing half of what they print.
+    /// </para>
+    /// <para>
+    /// <b>The source never counts as the permanent arriving</b>, and CR 614.12's own example is
+    /// Orb of Dreams: it will not affect itself. Two separate guards enforce that, because the
+    /// permanent reaches this two ways. A permanent spell resolving is still on the stack while
+    /// its own arrival is being replaced, so <c>FunctionsFrom</c> — the battlefield, by default,
+    /// which is where a static ability functions from — excludes it. A token is built by the
+    /// pipeline out of its own event and offered its own replacements, so it arrives already on
+    /// the battlefield and only the identity check excludes it. Drop either and a token copy of
+    /// Kismet taps itself on the way in.
+    /// </para>
+    /// <para>
+    /// <b>Whose it is, is read from <c>ControllerId</c> rather than from the layers</b>, which is
+    /// the one thing here that is a limitation rather than a decision. Control is layer 2
+    /// (CR 613.1b) and the stored id is only where control started, so a stolen Kismet asks about
+    /// its original controller's opponents. <c>Applies</c> is handed a state and no
+    /// <c>IAbilitySource</c>, so <c>Characteristics.Of</c> is out of reach without widening every
+    /// replacement in the engine; the group-counter reader beside this one has the same seam.
+    /// Worth fixing as one change to the replacement signature, not as a special case here.
+    /// </para>
+    /// </remarks>
+    private static bool TryGroupEntersTapped(
+        string line, CardDefinition card, ImmutableList<ReplacementEffectDefinition>.Builder into)
+    {
+        var m = GroupEntersTappedLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (ArrivingGroupFilter(m.Groups["what"].Value) is not { } filter)
+            return false;
+
+        var side = m.Groups["side"].Value.Trim().ToLowerInvariant();
+
+        // "Your opponents control" is the clause this family prints, and one the reader does not
+        // know has to leave the line unread rather than widen the card: a lock that taps your own
+        // board as well is a different card from the one printed.
+        var theirs = side is "your opponents control" or "an opponent controls";
+        var yours = side is "you control";
+
+        if (side.Length > 0 && !theirs && !yours)
+            return false;
+
+        into.Add(new ReplacementEffectDefinition
+        {
+            // The group's own words and whose they are, because a card printing two of these
+            // lines is told apart by nothing else, and two abilities sharing an id is what the
+            // invariant suite reads as one ability written twice.
+            Id = $"group-enters-tapped:{card.Name}:{filter}:{side}",
+
+            // FunctionsFrom is left at its default, which is the battlefield, and that is
+            // load-bearing rather than incidental: the gathering loop walks objects in every
+            // zone, so a Kismet in hand would otherwise tap the board it is not on.
+            Applies = (e, state, source) =>
+                Entering(e, state) is { } arriving
+                && arriving.Id != source.Id
+                && (!theirs || arriving.ControllerId != source.ControllerId)
+                && (!yours || arriving.ControllerId == source.ControllerId)
+                && Abilities.SearchFilters.Matches(filter, arriving.Card),
+            Replace = (e, state, _) => [e, new PermanentTapped(Entering(e, state)!.Value.Id)],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// The filter a group of arriving permanents is described by — "artifacts, creatures, and
+    /// lands".
+    /// </summary>
+    /// <remarks>
+    /// The list is cut up here rather than handed over whole, because the shared vocabulary joins
+    /// card types with "or" and this family writes the same meaning with commas and an "and":
+    /// <c>SearchFilterFor("artifact, creature, and land")</c> is refused, and the three parts
+    /// asked one at a time are not. Nothing is invented — each part goes through the same reader
+    /// a tutor's phrase does, so a word that vocabulary learns arrives here the same day.
+    /// <para>
+    /// One unreadable part refuses the whole list. A group read from the parts that happened to
+    /// be understood would tap a strict subset of what the card names, which compiles as complete
+    /// and plays as a weaker card — the failure this file has recorded often enough to make it
+    /// the rule.
+    /// </para>
+    /// </remarks>
+    private static string? ArrivingGroupFilter(string printed)
+    {
+        var phrase = printed.Trim();
+        if (phrase.Length == 0)
+            return null;
+
+        // The sentence's own capital, and nobody else's. See the remarks on the caller.
+        phrase = char.ToLowerInvariant(phrase[0]) + phrase[1..];
+
+        var parts = phrase
+            .Replace(", and ", ",", StringComparison.OrdinalIgnoreCase)
+            .Replace(" and ", ",", StringComparison.OrdinalIgnoreCase)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length == 0)
+            return null;
+
+        var filters = new List<string>(parts.Length);
+
+        foreach (var part in parts)
+        {
+            // "Nonbasic lands" is one noun phrase whose last word carries the plural, the same
+            // way the group-counter reader and the mass-static reader singularise theirs.
+            var words = part.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var one = string.Join(
+                ' ', words[..^1].Append(EffectPhrase.SingularWord(words[^1])));
+
+            if (EffectPhrase.SearchFilterFor(one) is not { } named)
+                return null;
+
+            filters.Add(named);
+        }
+
+        // A permanent answering to any one of them (CR 109.4), which is what the printed list
+        // means: nothing is an artifact and a creature and a land at once.
+        return string.Join('|', filters);
     }
 
     /// <summary>
@@ -14296,6 +14488,30 @@ public static partial class CardCompiler
         @"^~ enters tapped( unless (?<unless>.+?))?\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex EntersTapped();
 
+    /// <summary>
+    /// "[Objects] [whose] enter tapped" — the plural verb, which is what makes it a group.
+    /// </summary>
+    /// <remarks>
+    /// The verb is the whole test. "~ enters tapped" is the permanent's own arrival and belongs
+    /// to the reader above; "Creatures … enter tapped" is somebody else's, and no card writes one
+    /// with the other's verb. Nothing but a full stop may follow, which is what keeps "Permanents
+    /// enter tapped <em>this turn</em>" out — a one-shot effect with a duration rather than a
+    /// static ability, and a reader loose enough to claim it would hand that sorcery a permanent
+    /// lock on the table.
+    /// <para>
+    /// The noun phrase is lazy so the optional ownership clause is preferred over being swallowed
+    /// by it, and what it captures is validated in <see cref="ArrivingGroupFilter"/> rather than
+    /// alternated here: a pattern spelling the nouns out would have to be extended for every list
+    /// the corpus prints, while the shared filter vocabulary already knows them.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<what>[^.]+?)"
+            + @"(?:\s+(?<side>your opponents control|an opponent controls|you control))?"
+            + @"\s+enter tapped\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GroupEntersTappedLine();
+
     /// <remarks>
     /// The reminder text is stripped before the line reaches here, so this matches the sentence
     /// alone. It doubles as the layout test in <c>Compile</c>: a card that says this is a prepare
@@ -14434,9 +14650,18 @@ public static partial class CardCompiler
     private static partial Regex DisturbLine();
 
     /// <summary>A card that goes somewhere other than the graveyard it was headed for.</summary>
+    /// <remarks>
+    /// The three destinations are alternated in one pattern rather than given a reader each,
+    /// because the sentence in front of them is identical on all of them and a second reader
+    /// would be a second place for that half to drift. "Reveal ~ and" is part of the alternative
+    /// rather than an optional prefix: only the shuffling arm prints it, and letting it float
+    /// would accept a reveal in front of an exile that no card writes.
+    /// </remarks>
     [GeneratedRegex(
         @"^If (~|it) would be put into (a|its owner's|your) graveyard from anywhere, "
-            + @"(?<where>exile it|put it on the bottom of its owner's library) instead\.?$",
+            + @"(?<where>exile it"
+            + @"|put it on the bottom of its owner's library"
+            + @"|reveal (~|it) and shuffle it into its owner's library) instead\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GraveyardReplacementLine();
 
