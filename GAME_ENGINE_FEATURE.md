@@ -639,7 +639,9 @@ it** - this box drifts by more than the effect being looked for.
   so Caltrops and Raking Canopy read now and do nothing when two creatures attack. That is the
   pre-existing policy for the attack arm, written down in `NamesAnObject` and deliberate; extending
   the pair machinery to it would change every "whenever a creature attacks" card in the corpus and
-  wants its own commit and its own soak, exactly as this one did.
+  wants its own commit and its own soak, exactly as this one did. **Built in round seventeen,
+  below, and the measurement was right about the shape and low about the reach: it changes 42
+  complete cards and no card's coverage at all.**
 - **`ThatCreaturePumps` aims at the source unconditionally: 7 cards.** Primal Forcemage, Gahiji,
   Wild Defiance, Ambuscade Shaman, Ardoz, Werewolf Lightning Mage and Flailing Drake all print
   "that creature gets +N/+N until end of turn" on a trigger that names an object, and the reader
@@ -647,10 +649,121 @@ it** - this box drifts by more than the effect being looked for.
   Flailing Drake is fixed here only because the block condition is now in the allow-list and the
   earlier reader no longer wins; the other six still pump the wrong creature. It is a one-line gate
   on a reader shared with exalted and 73 corpus lines, which is a measured pass rather than a
-  ride-along.
+  ride-along. **Built in round seventeen, below, and two halves of this were wrong: the fix was a
+  deletion rather than a gate, and Flailing Drake was not fixed here at all - the unconditional
+  reader still won, and a probe on either side of the change is what showed it.**
 - **The coverage ratchet was left at 0.517** against a measured 52.0%. Raising it is a one-character
   change to a constant five branches are editing this round, and the slack it currently carries is
   the same slack it was set with.
+
+### Round seventeen: one trigger per attacking creature
+
++0 cards, none lost, and the set diff is byte-identical — which is the whole of the result. This is
+the attack arm of the decomposition round sixteen built for blocks and measured for attacks, and it
+changes how **42 complete cards play** without changing whether a single card compiles. Caltrops,
+Raking Canopy, Hissing Miasma, Marchesa's Decree, Righteous Cause, Utvara Hellkite and thirty-six
+others read, counted as complete, fired once for a declaration of any size, and aimed their
+pronoun at nothing whenever two or more creatures attacked. The count is blind
+to this class in both directions, exactly as the block round recorded, and this round is that
+sentence's second proof.
+
+**One mechanism, not a sibling.** The dangerous way to build this was a `PerAttacker` beside
+`PerBlockPair`, and the two would have been two spellings of one rule — this file's most-repeated
+shape of defect. All three pieces were generalised in place instead:
+
+| round sixteen | round seventeen |
+|---|---|
+| `TriggerConditions.BlockPairSubject` | `TriggerConditions.DeclarationSubject`, with `AttacksPerCreature` as its attack half |
+| `TriggeredAbilityDefinition.PerBlockPair` | `TriggeredAbilityDefinition.PerDeclaredCreature` |
+| `Game.RecordOnePerBlockPair` | `Game.RecordOnePerDeclaredCreature` over `OccurrencesIn` |
+
+`OccurrencesIn` is the only place the two declarations differ, and they differ in what the sentence's
+subject is rather than in how the batch comes apart: a block yields the *other* creature in the pair,
+an attack yields the attacker. Everything downstream — the singleton probe of the ability's own
+predicate, the once-each-turn budget, the strict subject that resolves to a creature or to nobody —
+is one copy serving both.
+
+**The object in the sentence decides how often it fires, and the generous direction is the dangerous
+one.** CR 508.3a: "whenever *a creature* attacks" triggers if that creature is declared as an
+attacker, which with CR 603.2c is one occurrence for each of them. CR 508.3b and CR 508.3d are the
+batch wordings beside it — "whenever a player is attacked", "whenever you attack" — and they trigger
+once however many were declared. So the word this turns on is the scope: "a", "an", "another" and
+"~ or another" are one creature said once; "one or more creatures" is the declaration said as a
+batch, and it is why the six corpus lines that go on to say "that many" mean the batch. Firing those
+per attacker would print a strictly better card than the one on the table and the coverage number
+would score it as a win, so the refusal is checked rather than left to the pattern — and it is
+asserted, beside the test that proves the other half.
+
+The verb is checked as narrowly. Only the bare `attacks` is decomposed: "~ attacks" is its own
+reader and is about one creature already, and "attacks alone", "attacks and isn't blocked", "you
+attack with one or more creatures" and "enchanted player is attacked" are each a sentence about the
+whole declaration with no one creature to name.
+
+**Asking the predicate again is what keeps the card's own qualifiers.** The engine cuts the
+declaration up and knows nothing at all about what the cards say: the tribe, the colour, the side,
+the power and the defending player are applied per attacker because the ability's own predicate is
+asked about each attacker alone. The `AttackTarget` rides along on the occurrence for the same
+reason — without it both halves of a split declaration would look alike, and Hissing Miasma would
+charge for a creature that attacked a planeswalker (CR 508.1b).
+
+**Cost on the hot path: none a run can see, and the reason is where the branch sits** — after the
+`continue` a non-firing predicate takes, so the millions of false answers the corpus checks produce
+reach nothing new. Measured on the rules suite, which is the thing that runs `Consider` in
+anger: interleaved with the baseline on a machine several branches were sharing, **33/30/32/38s
+after against 42/42/36s before**, with six more tests in the first figure. The after side is
+nominally the *faster* of the two, and the spread inside each side is as wide as the gap
+between them - which is what no effect looks like on this box.
+**Interleave the measurement or do not report it**: the block round's first non-interleaved pair
+looked like a 30% regression that re-measurement put inside the noise, and nothing about this box
+has got quieter.
+
+#### The pump that had two readers, and only one of them right
+
+`ThatCreaturePumps` is gone. It matched "that creature gets +N/+N until end of turn" and aimed the
+pump at the permanent with the ability **unconditionally**, sitting in front of `ItPumps`, which is a
+strict superset of it and carries the pronoun ladder every other reader uses: the target, then the
+object the trigger was about, then the permanent with the ability. Written for exalted — where the
+sentence is about a lone attacker and the source usually *is* that attacker — every game where it
+mattered looked like a game where it did not.
+
+Four cards were compiling, counting as complete, and pumping the wrong creature: **Primal Forcemage,
+Ambuscade Shaman, Ardoz and Flailing Drake**. Flailing Drake is the one worth naming twice: round
+sixteen recorded it as fixed on the grounds that the block condition had entered the allow-list and
+"the earlier reader no longer wins". The earlier reader was unconditional and did still win, and a
+probe comparing the compiled effect on either side of this change is what showed it. A fix recorded
+and not landed is worse than one not attempted, because the next round reads the record.
+
+The fix was to delete the second reader rather than gate it. A gate would have left two copies of one
+list, and a second copy of a list is how they come to disagree — which is what this whole section is
+about.
+
+Three of the seven cards the round-sixteen measurement named are untouched, and for a reason that is
+not this reader: **Gahiji, Wild Defiance and Werewolf Lightning Mage** print conditions the
+vocabulary cannot read at all ("attacks one of your opponents or a planeswalker an opponent
+controls", "becomes the target of an instant or sorcery spell", "a creature blocks this creature"),
+so no trigger of theirs compiles and there is no pump to aim. The seven were counted by their
+sentence and not by whether the sentence was reachable.
+
+#### Declined here, with the measurement behind each
+
+- **The "attacks alone" family's pronoun: 44 corpus lines.** "Whenever a creature you control attacks
+  alone, it gains double strike until end of turn" means the lone attacker, and the text path still
+  reads "it" as the permanent with the ability — Rafiq of the Many, Battlegrace Angel, Black Panther,
+  Peggy Carter, Agents of S.H.I.E.L.D. and the rest. The *keyword* path already has it right:
+  `TryExalted` builds `EffectSubject.TriggeringObject` by hand, so the two spellings of exalted
+  disagree today. Admitting `AnyCreatureAttacksAlone` and its typed siblings to `NamesAnObject` would
+  close it and is safe on both ends — the predicate refuses any declaration that does not hold
+  exactly one attacker, so `SubjectObjectOf` always answers — but it changes what a pronoun means on
+  44 lines and wants its own commit and its own soak, exactly as this one did.
+- **The batch attack wording keeps the old subject policy.** "One or more creatures attack" still
+  takes its subject from `SubjectObjectOf`, which answers only when the declaration held exactly one
+  attacker. It is the pre-existing policy and it is not made worse here. Checked rather than
+  assumed: five corpus lines of that shape carry a pronoun and not one of them means the
+  attacking creature - Winota's "it" is the Human she put onto the battlefield, Glass-Cast
+  Heart's is a Blood token's reminder text, and Raging River's "that creature" is bound by the
+  loop in its own sentence.
+- **The coverage ratchet was left where round sixteen ratcheted it.** This round moved coverage by
+  zero in both directions, so there is no new slack to take up.
 
 ### Two cards that compiled perfectly and could not be played
 

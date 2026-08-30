@@ -32640,9 +32640,13 @@ public sealed class CompiledCardBehaviourTests
 
         Settle(game);
 
-        // The clause is "a creature you control attacks", not "creatures attack" — it fires once
-        // per declaration, not once per attacker.
-        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+        // CR 508.3a: "whenever a creature you control attacks" triggers if that creature is
+        // declared as an attacker, and CR 603.2c lets one event hold an occurrence for each of
+        // them - so two attackers are two triggers and two life. This asserted one for the whole
+        // declaration while the engine could not tell the batch apart; it is the batch wording
+        // beside it ("whenever one or more creatures you control attack") that fires once, and
+        // the section on the per-attacker decomposition asserts that half.
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
     [Fact]
@@ -49492,7 +49496,7 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(hound);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-        Assert.True(compiled.Triggers[0].PerBlockPair);
+        Assert.True(compiled.Triggers[0].PerDeclaredCreature);
 
         var (game, alice, bob) = InMainPhase();
 
@@ -49613,7 +49617,7 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(afflict);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-        Assert.False(compiled.Triggers[0].PerBlockPair);
+        Assert.False(compiled.Triggers[0].PerDeclaredCreature);
 
         var (game, alice, bob) = InMainPhase();
         var attacker = game.Create(alice, afflict, Zone.Battlefield);
@@ -49721,7 +49725,7 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(read);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
-        Assert.True(compiled.Triggers[0].PerBlockPair);
+        Assert.True(compiled.Triggers[0].PerDeclaredCreature);
     }
 
     /// <summary>
@@ -49757,6 +49761,326 @@ public sealed class CompiledCardBehaviourTests
         // Two damage on a 2/2 is lethal, and the enchantment is not a creature to damage instead.
         Assert.DoesNotContain(arriving, game.State.Battlefield);
         Assert.Contains(enchantment, game.State.Battlefield);
+    }
+
+    // ---- One trigger per attacking creature (CR 508.3a, 603.2c) --------------
+
+    /// <summary>
+    /// CR 508.3a: a declaration of attackers is one occurrence for each creature in it.
+    /// </summary>
+    /// <remarks>
+    /// The attack half of the decomposition the block family already had, and the same rule read
+    /// one batch along. CR 508.3a says "whenever <em>a creature</em> attacks" triggers if that
+    /// creature is declared as an attacker; CR 603.2c says one event can hold an occurrence for
+    /// each of them. So two attackers are two triggers, and the subject of each is its own
+    /// attacker - which is the half a count cannot see. Before this, Caltrops read, compiled,
+    /// counted as a complete card, fired once, and dealt its damage to nothing at all whenever two
+    /// creatures attacked: <see cref="Game.SubjectObjectOf"/> answers a declaration only when it
+    /// holds exactly one attacker.
+    /// <para>
+    /// Both subjects are asserted, not just the count. A trigger that fired twice with the same
+    /// subject would kill one attacker twice and leave the other alone, and a board with both
+    /// attackers dead is the only thing that tells the two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_fires_once_for_each_attacking_creature()
+    {
+        var caltrops = Card(
+            "Caltrops Occurrence Test",
+            "Whenever a creature attacks, ~ deals 1 damage to it.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(caltrops);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Triggers[0].PerDeclaredCreature);
+
+        var (game, alice, bob) = InMainPhase();
+
+        // The defending player's artifact, so nothing about the source is in the declaration it is
+        // asking about - which is the case the pair machinery had to grow a second shape for.
+        var artifact = game.Create(bob, caltrops, Zone.Battlefield);
+
+        var first = game.Create(
+            alice, TestCards.Creature("Caltrops Attacker One Test", 2, 1), Zone.Battlefield);
+
+        var second = game.Create(
+            alice, TestCards.Creature("Caltrops Attacker Two Test", 2, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, artifact);
+        Assert.Equal(2, filed.Count);
+        Assert.Equal(
+            new HashSet<ObjectId> { first, second },
+            [.. filed.Select(t => t.SubjectObject!.Value)]);
+
+        // One damage each is lethal to a 2/1, so both are gone before they could connect and the
+        // artifact - which is not a creature to damage instead - is still there.
+        Assert.DoesNotContain(first, game.State.Battlefield);
+        Assert.DoesNotContain(second, game.State.Battlefield);
+        Assert.Contains(artifact, game.State.Battlefield);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// CR 508.3d: the same event said as a batch is one occurrence, however many attacked.
+    /// </summary>
+    /// <remarks>
+    /// The half that keeps the family honest, and the only thing separating it from the test above
+    /// is the two words the sentence opens with. "One or more creatures you control attack" is the
+    /// declaration described as a whole - it is why the six corpus lines that go on to say "that
+    /// many" mean the batch - and paying it once per attacker would print a strictly better card
+    /// than the one on the table while the coverage number scored it as a win.
+    /// </remarks>
+    [Fact]
+    public void An_attack_trigger_written_as_a_batch_fires_once_for_the_declaration()
+    {
+        var muster = Card(
+            "Attack Batch Occurrence Test",
+            "Whenever one or more creatures you control attack, you gain 2 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(muster);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.False(compiled.Triggers[0].PerDeclaredCreature);
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, muster, Zone.Battlefield);
+        var first = game.Create(
+            alice, TestCards.Creature("Batch Attacker One Test", 2, 2), Zone.Battlefield);
+
+        var second = game.Create(
+            alice, TestCards.Creature("Batch Attacker Two Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        Assert.Single(TriggersFiledBy(game, enchantment));
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A per-attacker trigger answers for the attackers its own sentence describes, and no others.
+    /// </summary>
+    /// <remarks>
+    /// The decomposition asks the ability's own predicate about each attacker alone rather than
+    /// re-reading the condition, which is what keeps every qualifier the sentence prints - the
+    /// tribe here, the defending player below, and the colour, side and power beside them -
+    /// applied per creature without being restated in the engine. A decomposition that counted
+    /// attackers instead would fire twice here, and the card says once.
+    /// </remarks>
+    [Fact]
+    public void A_per_attacker_trigger_answers_only_for_the_creatures_it_describes()
+    {
+        var warcaller = Card(
+            "Tribal Occurrence Test",
+            "Whenever a Goblin you control attacks, you gain 1 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(warcaller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Triggers[0].PerDeclaredCreature);
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, warcaller, Zone.Battlefield);
+        var goblin = game.Create(
+            alice,
+            Card("Tribal Goblin Test", string.Empty, CardType.Creature, 2, 2, subtypes: "Goblin"),
+            Zone.Battlefield);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Tribal Bear Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [goblin] = AttackTarget.Player(bob),
+                [bear] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, enchantment);
+        Assert.Single(filed);
+        Assert.Equal(goblin, filed[0].SubjectObject);
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// CR 508.1b: who each attacker was declared against is asked of each attacker, not the batch.
+    /// </summary>
+    /// <remarks>
+    /// "Attacks you" is the player and not a planeswalker they control, and the declaration says
+    /// which of the two each creature was aimed at. The occurrence carries its own
+    /// <see cref="AttackTarget"/> for exactly this: cut into attackers without it, both halves of
+    /// a split declaration would look alike and Hissing Miasma would charge for a creature that
+    /// attacked a planeswalker.
+    /// </remarks>
+    [Fact]
+    public void A_per_attacker_trigger_reads_the_defender_each_attacker_was_declared_against()
+    {
+        var miasma = Card(
+            "Defender Occurrence Test",
+            "Whenever a creature attacks you, ~ deals 1 damage to it.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(miasma);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.Triggers[0].PerDeclaredCreature);
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, miasma, Zone.Battlefield);
+        var walker = game.Create(
+            alice, Walker("Defender Occurrence Walker Test", 5, string.Empty), Zone.Battlefield);
+
+        var atPlayer = game.Create(
+            bob, TestCards.Creature("Defender At Player Test", 2, 1), Zone.Battlefield);
+
+        var atWalker = game.Create(
+            bob, TestCards.Creature("Defender At Walker Test", 2, 1), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [atPlayer] = AttackTarget.Player(alice),
+                [atWalker] = AttackTarget.At(alice, walker),
+            });
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, enchantment);
+        Assert.Single(filed);
+        Assert.Equal(atPlayer, filed[0].SubjectObject);
+
+        // One damage is lethal to a 2/1, and only the one that attacked the player took it.
+        Assert.DoesNotContain(atPlayer, game.State.Battlefield);
+        Assert.Contains(atWalker, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Whenever ~ attacks" is a sentence about one creature already, and is not decomposed.
+    /// </summary>
+    /// <remarks>
+    /// The source family sits outside this mechanism on purpose: its own reader answers whether
+    /// the source is in the declaration, there is no second creature for a pronoun to mean, and
+    /// flagging it would put a batch through a decomposition that has nothing to decompose. The
+    /// flag is asserted as well as the count, because the two say different things - a flag set
+    /// here would still fire once, and would start supplying a subject the sentence never named.
+    /// </remarks>
+    [Fact]
+    public void A_trigger_about_the_source_attacking_fires_once_and_is_not_decomposed()
+    {
+        var raider = Card(
+            "Source Attack Once Test",
+            "Whenever ~ attacks, you gain 2 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(raider);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.False(compiled.Triggers[0].PerDeclaredCreature);
+
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, raider, Zone.Battlefield);
+        var friend = game.Create(
+            alice, TestCards.Creature("Source Attack Friend Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var before = game.State.GetPlayer(alice).Life;
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [source] = AttackTarget.Player(bob),
+                [friend] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        Assert.Single(TriggersFiledBy(game, source));
+        Assert.Equal(before + 2, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "That creature gets +N/+N" means the creature the trigger was about, not the source.
+    /// </summary>
+    /// <remarks>
+    /// A second reader for this sentence sat in front of the pronoun ladder and aimed the pump at
+    /// the permanent with the ability <em>unconditionally</em>. It had been written for exalted,
+    /// where the sentence is about a lone attacker and the source is usually that attacker, so
+    /// every game where it mattered looked like a game where it did not - and every card whose
+    /// trigger names an object reached it first and buffed the wrong creature. Primal Forcemage,
+    /// Ambuscade Shaman and Ardoz all pumped themselves; Flailing Drake pumped itself while a
+    /// previous round recorded it as fixed.
+    /// <para>
+    /// The fix was to delete the second reader rather than teach it the ladder. The three answers
+    /// a pronoun has - the target, then the object the trigger was about, then the permanent with
+    /// the ability - are one list in one place, and a second copy of a list is how they come to
+    /// disagree.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pump_on_a_trigger_that_names_an_object_reaches_that_object()
+    {
+        var forcemage = Card(
+            "Forcemage Subject Test",
+            "Whenever another creature you control enters, that creature gets +3/+3 until end of turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(forcemage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, forcemage, Zone.Battlefield);
+        var arriving = game.Create(
+            alice, TestCards.Creature("Forcemage Arrival Test", 1, 1), Zone.Battlefield);
+
+        Settle(game);
+
+        var filed = TriggersFiledBy(game, source);
+        Assert.Single(filed);
+        Assert.Equal(arriving, filed[0].SubjectObject);
+
+        // The creature that arrived is 4/4; the one that said so is still 2/2. Both are asserted,
+        // because a pump that reached neither would leave the first number right by accident.
+        Assert.Equal(
+            4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(arriving)));
+
+        Assert.Equal(
+            2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(source)));
     }
 
     // ---- Cases (CR 719) ------------------------------------------------------

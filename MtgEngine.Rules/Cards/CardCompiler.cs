@@ -15723,11 +15723,12 @@ public static partial class CardCompiler
         var namesAnObject = TriggerConditions.NamesAnObject(m.Groups["when"].Value.Trim());
 
         // How often it fires, for the one family where a batch is not one occurrence. The same
-        // query as the flag above, and deliberately the same query: the subject a block pronoun
-        // resolves to is supplied by the per-pair decomposition and by nothing else, so a card
+        // query as the flag above, and deliberately the same query: the subject a combat pronoun
+        // resolves to is supplied by the per-creature decomposition and by nothing else, so a card
         // that got one flag without the other would either read a sentence with no referent or
-        // fire once for a batch it was meant to see one pair at a time.
-        var perBlockPair = TriggerConditions.BlockPairSubject(m.Groups["when"].Value.Trim());
+        // fire once for a batch it was meant to see one creature at a time.
+        var perDeclaredCreature =
+            TriggerConditions.DeclarationSubject(m.Groups["when"].Value.Trim());
 
         // Where the card has to be for its own trigger to be watching. Asked here rather than at
         // the end because a condition needing two zones at once has to refuse the line, and there
@@ -15807,7 +15808,7 @@ public static partial class CardCompiler
             Targets = parsed.Targets,
             Effects = effects,
             OncePerTurn = oncePerTurn,
-            PerBlockPair = perBlockPair,
+            PerDeclaredCreature = perDeclaredCreature,
 
             // A trigger functions from the battlefield unless its own words say otherwise, and
             // "when you cycle this card" says otherwise: the card is in hand as the ability is

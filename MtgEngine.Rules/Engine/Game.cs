@@ -10236,13 +10236,13 @@ public sealed class Game
             if (ability.OncePerTurn && !_triggeredThisTurn.Add((id, ability.Id)))
                 continue;
 
-            // CR 603.2b: one declaration can be several occurrences. Asked after the predicate has
+            // CR 603.2c: one declaration can be several occurrences. Asked after the predicate has
             // already said yes and gated on a type test, so nothing here runs on the hot path -
-            // this is reached once per trigger that actually fired, on the one event that carries
-            // a batch of pairs.
-            if (ability.PerBlockPair && e is BlockersDeclared declaration)
+            // this is reached once per trigger that actually fired, on the two events that carry
+            // a batch of creatures.
+            if (ability.PerDeclaredCreature && e is BlockersDeclared or AttackersDeclared)
             {
-                RecordOnePerBlockPair(declaration, state, id, obj, ability, source);
+                RecordOnePerDeclaredCreature(e, state, id, obj, ability, source);
                 continue;
             }
 
@@ -10257,37 +10257,87 @@ public sealed class Game
     }
 
     /// <summary>
-    /// Records one trigger for each blocking pair this ability answers to (CR 509.3d, 603.2b).
+    /// Records one trigger for each creature in a declaration this ability answers to (CR 603.2c).
     /// </summary>
     /// <remarks>
-    /// A block declaration is a batch of pairs, which is why <see cref="SubjectObjectOf"/> answers
-    /// nothing for it: with several creatures in it there is no one object the event was about.
-    /// This is where that stops being a limitation. "Whenever this creature becomes blocked by a
-    /// creature" is not asking about the declaration - it is asking about each pair the source is
-    /// in - so the declaration is cut into pairs and the ability's own predicate is asked about
+    /// A declaration is a batch, which is why <see cref="SubjectObjectOf"/> answers nothing for a
+    /// block and answers an attack only when exactly one creature was declared: with several in it
+    /// there is no one object the event was about. This is where that stops being a limitation.
+    /// "Whenever this creature becomes blocked by a creature" and "whenever a creature attacks" are
+    /// not asking about the declaration - they are asking about one creature in it - so the
+    /// declaration is cut into single occurrences and the ability's own predicate is asked about
     /// each one alone. That is the same singleton probe <see cref="AmountFor"/> uses on an attack
     /// batch, and for the same reason: the description lives in the predicate and nowhere else, a
     /// predicate cannot be asked how many, and it can be asked once per candidate.
     /// <para>
-    /// The subject is the <em>other</em> creature in the pair, which is the whole point of doing
-    /// it this way. It is resolved from the pair rather than from the event, so it is right for a
-    /// source on either side of the declaration - the attacker's pronoun means its blocker, the
-    /// blocker's means its attacker - and it is never the permanent with the ability.
-    /// </para>
-    /// <para>
-    /// A declaration naming an attacker with no blockers yields no pairs and therefore no trigger,
-    /// which is CR 509.1h: an attacker nobody blocked did not become blocked. That is a stricter
-    /// answer than the batch predicate gives and it is the correct one, so there is deliberately
-    /// no fall-back to a single subject-less trigger when no pair matches.
+    /// Asking the predicate again is what keeps every qualifier the condition prints - the tribe,
+    /// the side, the defending player, the power - applied per creature without being restated
+    /// here. This method knows how to cut a declaration up and nothing at all about what the cards
+    /// say.
     /// </para>
     /// </remarks>
-    private void RecordOnePerBlockPair(
-        BlockersDeclared declaration,
+    private void RecordOnePerDeclaredCreature(
+        GameEvent e,
         GameState state,
         ObjectId id,
         GameObject obj,
         TriggeredAbilityDefinition ability,
         TriggerSource source)
+    {
+        foreach (var (occurrence, subject) in OccurrencesIn(e, id))
+        {
+            if (!ability.Triggers(occurrence, state, source))
+                continue;
+
+            _triggersFound.Add(new AbilityTriggered(
+                id, ability.Id, ability.Text, obj.ControllerId)
+            {
+                SubjectPlayer = SubjectOf(occurrence, state),
+                SubjectObject = subject,
+                SubjectAmount = AmountFor(occurrence, state, ability, source),
+            });
+
+            // CR 603.1: an ability that may fire once each turn fires once, however many creatures
+            // it was about. The budget was taken before this was called, so stopping here is what
+            // spends it on one occurrence rather than on all of them.
+            if (ability.OncePerTurn)
+                return;
+        }
+    }
+
+    /// <summary>
+    /// One combat declaration cut into single occurrences, each with the creature it names.
+    /// </summary>
+    /// <remarks>
+    /// The only place the two declarations differ, and they differ in what the sentence's subject
+    /// is rather than in how the batch comes apart.
+    /// <list type="bullet">
+    /// <item>A block is a pair, and the subject is the <em>other</em> creature in it. Resolved
+    /// against the source rather than taken from the event, so it is right on either side of the
+    /// declaration - the attacker's pronoun means its blocker, the blocker's means its attacker -
+    /// and it is never the permanent with the ability. A source in neither half answers nothing
+    /// rather than guessing: the strict subject then resolves to no object and the effect does
+    /// nothing, which is the honest outcome for a pair the ability turned out not to be about.
+    /// A declaration naming an attacker with no blockers yields no pairs and therefore no trigger,
+    /// which is CR 509.1h - an attacker nobody blocked did not become blocked. That is stricter
+    /// than the batch predicate and it is the correct answer, so there is deliberately no
+    /// fall-back to a single subject-less trigger when no occurrence matches.</item>
+    /// <item>An attack names one creature outright (CR 508.3a), and the subject is that attacker -
+    /// which is usually not the permanent with the ability at all: Caltrops and Raking Canopy are
+    /// not in the declaration they are asking about. The <see cref="AttackTarget"/> rides along so
+    /// that "attacks you" and "attacks a planeswalker" are still answered per attacker.</item>
+    /// </list>
+    /// </remarks>
+    private static IEnumerable<(GameEvent Occurrence, ObjectId? Subject)> OccurrencesIn(
+        GameEvent e, ObjectId id) => e switch
+        {
+            BlockersDeclared declaration => BlockingPairsIn(declaration, id),
+            AttackersDeclared declared => LoneAttackersIn(declared),
+            _ => [],
+        };
+
+    private static IEnumerable<(GameEvent Occurrence, ObjectId? Subject)> BlockingPairsIn(
+        BlockersDeclared declaration, ObjectId id)
     {
         foreach (var (attacker, blockers) in declaration.Blockers)
         {
@@ -10297,32 +10347,24 @@ public sealed class Game
                     ImmutableDictionary<ObjectId, ImmutableList<ObjectId>>.Empty
                         .Add(attacker, [blocker]));
 
-                if (!ability.Triggers(pair, state, source))
-                    continue;
-
-                // Which of the two the sentence means is decided by which of them this is. A
-                // source in neither half answers nothing rather than guessing - the strict subject
-                // then resolves to no object and the effect does nothing, which is the honest
-                // outcome for a pair the ability turned out not to be about.
-                var other =
+                yield return (
+                    pair,
                     attacker == id ? blocker
                     : blocker == id ? attacker
-                    : (ObjectId?)null;
-
-                _triggersFound.Add(new AbilityTriggered(
-                    id, ability.Id, ability.Text, obj.ControllerId)
-                {
-                    SubjectPlayer = SubjectOf(pair, state),
-                    SubjectObject = other,
-                    SubjectAmount = AmountFor(pair, state, ability, source),
-                });
-
-                // CR 603.1 again: an ability that may fire once each turn fires once, however
-                // many pairs it was in. The budget was taken before this was called, so stopping
-                // here is what spends it on one pair rather than on all of them.
-                if (ability.OncePerTurn)
-                    return;
+                    : (ObjectId?)null);
             }
+        }
+    }
+
+    private static IEnumerable<(GameEvent Occurrence, ObjectId? Subject)> LoneAttackersIn(
+        AttackersDeclared declared)
+    {
+        foreach (var (attacker, aimedAt) in declared.Attackers)
+        {
+            yield return (
+                new AttackersDeclared(
+                    ImmutableDictionary<ObjectId, AttackTarget>.Empty.Add(attacker, aimedAt)),
+                attacker);
         }
     }
 

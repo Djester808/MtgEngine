@@ -5299,16 +5299,6 @@ public static partial class EffectPhrase
             return effects.Count > 0;
         }
 
-        // "that creature gets +N/+N until end of turn" — exalted's tail, where "that creature"
-        // is the one that attacked alone. With a lone attacker there is only one it can mean.
-        m = ThatCreaturePumps().Match(sentence);
-        if (m.Success)
-        {
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.PumpId(Signed(m.Groups["p"].Value), Signed(m.Groups["tough"].Value))));
-            return true;
-        }
-
         // "it gets +1/+1 until end of turn for each other Goblin you control" — the same tail
         // with its size counted rather than printed. The group rides in the effect's id and is
         // counted when the layer applies, so a Goblin that dies in response makes it smaller.
@@ -13617,17 +13607,21 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex RegenerateLine();
 
-    [GeneratedRegex(
-        @"^that creature gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) until end of turn$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex ThatCreaturePumps();
-
     /// <remarks>
     /// Carries the same optional keyword tail as <see cref="PumpSelf"/>, and for the same
     /// measurement: the pronoun form of the pump-and-grant is the commoner of the two at 37
-    /// corpus occurrences against 34. <see cref="ThatCreaturePumps"/> is tried first and has no
-    /// tail, so "that creature gets +1/+1 and gains trample" reaches this reader rather than
-    /// being cut in half by the shorter one.
+    /// corpus occurrences against 34.
+    /// <para>
+    /// It reads "that creature" as well as "it", and it is now the only reader that does. A
+    /// second one - <c>ThatCreaturePumps</c> - sat in front of this one and matched the shorter
+    /// half of the same sentence, and because it was written for exalted's lone attacker it aimed
+    /// the pump at the permanent with the ability <em>unconditionally</em>. Every card whose
+    /// trigger names an object reached it first and pumped the wrong creature: Primal Forcemage,
+    /// Ambuscade Shaman and Ardoz all buffed themselves instead of the creature that entered. The
+    /// three answers a pronoun has - the target, then the object the trigger was about, then the
+    /// permanent with the ability - live in this reader, so the fix was to delete the other one
+    /// rather than to teach it the same ladder and hope the two never disagreed again.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^(it|that creature) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
@@ -13717,31 +13711,47 @@ public static partial class TriggerConditions
     };
 
     /// <summary>
-    /// Whether this trigger fires once per blocking pair, naming the other creature in it.
+    /// Whether this trigger fires once per creature in a combat declaration, naming that creature.
     /// </summary>
     /// <remarks>
-    /// A block declaration is a batch of pairs, which is why <c>Game.SubjectObjectOf</c> answers
-    /// nothing for it: with several creatures in the declaration there is no one object the whole
-    /// event was about. But a card of this family is not asking about the declaration - it is
-    /// asking about <em>its own</em> pair, and there the other creature is unambiguous. So the
-    /// subject is supplied per pair by <c>Game.Consider</c>, which decomposes the declaration and
-    /// records one trigger for each pair this ability answers to.
+    /// A declaration is a batch, which is why <c>Game.SubjectObjectOf</c> answers nothing for a
+    /// block and answers an attack only when exactly one creature was declared: with several in it
+    /// there is no one object the whole event was about. But a card of this family is not asking
+    /// about the declaration - it is asking about <em>one creature</em> in it - and there the
+    /// answer is unambiguous. So the subject is supplied per creature by <c>Game.Consider</c>,
+    /// which decomposes the declaration and records one trigger for each creature this ability
+    /// answers to. For a block that creature is the other half of the pair; for an attack it is
+    /// the attacker.
     /// <para>
     /// <strong>The object in the sentence is what decides it, and that is the whole rule.</strong>
-    /// CR 509.3c: "whenever this creature becomes blocked" triggers <em>once</em> each combat
+    /// CR 603.2c: one event can hold several occurrences, and combat prints the same pair of
+    /// wordings on both of its declarations.
+    /// </para>
+    /// <list type="bullet">
+    /// <item>CR 509.3c: "whenever this creature becomes blocked" triggers <em>once</em> each combat
     /// however many creatures block it. CR 509.3d: "whenever this creature becomes blocked by a
-    /// creature" triggers once for <em>each</em> of them. CR 603.2b's own example is these two
-    /// sentences side by side - one event against two. So a condition naming no creature is
-    /// refused here, both because it fires once and because a sentence that names nothing has no
-    /// pronoun to resolve.
+    /// creature" triggers once for <em>each</em> of them - CR 603.2b's own example is these two
+    /// sentences side by side, one event against two.</item>
+    /// <item>CR 508.3a: "whenever <em>a creature</em> attacks" triggers if that creature is
+    /// declared as an attacker, which with CR 603.2c is once for each of them. CR 508.3b and
+    /// CR 508.3d are the batch wordings beside it - "whenever a player is attacked", "whenever you
+    /// attack" - and they trigger once however many creatures were declared.</item>
+    /// </list>
+    /// <para>
+    /// So a condition naming no one creature is refused here, both because it fires once and
+    /// because a sentence that names nothing has no pronoun to resolve. On the attack side the
+    /// word carrying that distinction is the scope: "a creature", "another creature you control"
+    /// and "~ or another creature you control" are each one creature said once, and "one or more
+    /// creatures" is the declaration said as a batch.
     /// </para>
     /// <para>
-    /// Only the self family - the conditions written about <c>~</c> - is admitted. An Aura's
-    /// "whenever enchanted creature blocks" is a different question with a different answer (the
-    /// host), and it is answered by <see cref="NamesAnObject"/>'s attached arm or not at all.
+    /// On the block side only the self family - the conditions written about <c>~</c> - is
+    /// admitted. An Aura's "whenever enchanted creature blocks" is a different question with a
+    /// different answer (the host), and it is answered by <see cref="NamesAnObject"/>'s attached
+    /// arm or not at all.
     /// </para>
     /// </remarks>
-    public static bool BlockPairSubject(string condition)
+    public static bool DeclarationSubject(string condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
 
@@ -13762,7 +13772,45 @@ public static partial class TriggerConditions
         // and the object distributes over both arms. Bushido's bare "blocks or becomes blocked"
         // (CR 702.45a) is the same pattern without the object and is refused with it.
         var either = BlocksOrIsBlocked().Match(condition);
-        return either.Success && either.Groups["what"].Success;
+        if (either.Success)
+            return either.Groups["what"].Success;
+
+        // "A creature attacks", "another creature you control attacks", "a Dragon you control
+        // attacks you" - CR 508.3a's wording, one batch along from the block family and read by
+        // the same subject grammar the zone-change verbs share. The declaration is cut into one
+        // attacker at a time and the ability's own predicate is asked about each, so every
+        // qualifier this pattern carries - the tribe, the side, the defender, the power - is
+        // applied per attacker without being restated here.
+        return AttacksPerCreature(condition);
+    }
+
+    /// <summary>
+    /// Whether an attack condition is one occurrence per attacking creature (CR 508.3a).
+    /// </summary>
+    /// <remarks>
+    /// The whole of the attack half of <see cref="DeclarationSubject"/>, kept apart because the
+    /// dangerous direction here is the generous one and the two words it turns on are worth
+    /// naming. The verb has to be the bare <c>attacks</c>: "~ attacks" is its own reader and is
+    /// about one creature already, and every other attack wording in the vocabulary - "attacks
+    /// alone", "attacks and isn't blocked", "you attack with one or more creatures", "enchanted
+    /// player is attacked" - is a sentence about the whole declaration (CR 508.3b, 508.3d) that
+    /// fires once and has no one creature to name.
+    /// <para>
+    /// And the scope has to be singular. "One or more creatures you control attack" is the same
+    /// event described as a batch and triggers once, which is what makes the six corpus lines that
+    /// go on to say "that many" mean the batch. Firing those once per attacker would print a
+    /// strictly better card than the one on the table, and the coverage number would score it as a
+    /// win - so the refusal is checked rather than left to the pattern.
+    /// </para>
+    /// </remarks>
+    private static bool AttacksPerCreature(string condition)
+    {
+        var m = ZoneChangeLine().Match(condition);
+
+        return m.Success
+            && m.Groups["verb"].Value.Equals("attacks", StringComparison.OrdinalIgnoreCase)
+            && !m.Groups["scope"].Value.StartsWith(
+                "one or more", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The predicate for a trigger condition, or null if it is not one we read.</summary>
@@ -13784,12 +13832,13 @@ public static partial class TriggerConditions
     {
         ArgumentNullException.ThrowIfNull(condition);
 
-        // The block family is the one shape whose subject does not come from the event at all -
-        // it comes from the pair, and Game.Consider supplies it one pair at a time. The same
-        // discipline the rest of this method follows still holds, only the other end of the check
-        // is TriggeredAbilityDefinition.PerBlockPair rather than Game.SubjectObjectOf: both flags
-        // are set from this one query, so a sentence admitted here always has a subject waiting.
-        if (BlockPairSubject(condition))
+        // The combat declarations are the one shape whose subject does not come from the event at
+        // all - it comes from one creature in the batch, and Game.Consider supplies them one at a
+        // time. The same discipline the rest of this method follows still holds, only the other
+        // end of the check is TriggeredAbilityDefinition.PerDeclaredCreature rather than
+        // Game.SubjectObjectOf: both flags are set from this one query, so a sentence admitted
+        // here always has a subject waiting.
+        if (DeclarationSubject(condition))
             return true;
 
         var damage = DealsDamageTo().Match(condition);
@@ -13897,14 +13946,17 @@ public static partial class TriggerConditions
                 "blocks" => false,
                 "becomes blocked" => false,
 
-                // Attackers are declared as a batch (CR 508.1), and one attacker is the case the
-                // event can answer: Game.SubjectObjectOf names the creature when the declaration
-                // holds exactly one and nothing when it holds several. That is enough here and
-                // was not before, because the subject this flag admits is the strict one - it
-                // resolves to the attacker or to nobody, and can never fall back to the permanent
-                // with the ability. Refusing it was the worse of the two: "whenever a creature
-                // attacks you, it gets -1/-0" then read "it" as the enchantment and shrank a card
-                // that is not a creature.
+                // Only "one or more creatures attack" still reaches this arm: DeclarationSubject
+                // above already answered every singular attack wording, and answers it with a
+                // subject that exists whatever the size of the declaration. What is left is the
+                // batch wording (CR 508.3b/d), where attackers are declared as a batch (CR 508.1)
+                // and one attacker is the only case the event itself can answer -
+                // Game.SubjectObjectOf names the creature when the declaration holds exactly one
+                // and nothing when it holds several. That is enough here, because the subject this
+                // flag admits is the strict one: it resolves to the attacker or to nobody, and can
+                // never fall back to the permanent with the ability. Refusing it was the worse of
+                // the two: "whenever a creature attacks you, it gets -1/-0" then read "it" as the
+                // enchantment and shrank a card that is not a creature.
                 "attacks" => true,
                 _ => false,
             };
