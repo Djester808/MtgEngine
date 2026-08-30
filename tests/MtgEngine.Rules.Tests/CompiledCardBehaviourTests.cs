@@ -53205,6 +53205,415 @@ public sealed class CompiledCardBehaviourTests
                 "Exile the top card of your library", StringComparison.Ordinal));
     }
 
+    // ---- Mana whose colour is chosen on resolution (CR 106.1a) ----------------
+
+    /// <summary>A ritual with a real cost, so the mana it makes has to be paid for first.</summary>
+    private static CardDefinition Ritual(string name, string text) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        ManaCostRaw = "{G}",
+        Cmc = 1,
+        CardTypes = CardType.Sorcery,
+        OracleText = text,
+    };
+
+    /// <summary>A sorcery that draws, priced in whatever colours the test needs to prove.</summary>
+    private static CardDefinition Draws(string name, string cost, int cmc) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        ManaCostRaw = cost,
+        Cmc = cmc,
+        CardTypes = CardType.Sorcery,
+        OracleText = "Draw a card.",
+    };
+
+    /// <summary>A land with two basic land types, so it could produce two things (CR 305.6).</summary>
+    private static CardDefinition DualLand(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Land,
+        Subtypes = ["Forest", "Island"],
+    };
+
+    /// <summary>
+    /// "Add two mana of any one color" makes mana that pays for a spell nothing else could
+    /// (CR 106.1a, 106.4).
+    /// </summary>
+    /// <remarks>
+    /// The point of the whole mechanism, and the reason the assertion is a cast rather than a
+    /// pool reading. A pool entry proves an event was emitted; it does not prove the mana is the
+    /// colour it claims or that anything can spend it. The blue spell here is refused before the
+    /// ritual and cast after it, off one Forest, so only real blue mana makes both halves true.
+    /// <para>
+    /// "Any one color" is one colour for all of it, which is why one answer buys two blue.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_colour_named_on_resolution_pays_for_a_spell_nothing_else_could()
+    {
+        var ritual = Ritual("Chosen Mana Ritual Test", "Add two mana of any one color.");
+
+        var compiled = CardCompiler.Compile(ritual);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        // Green in the pool and nothing else, so the blue spell is unpayable - which is what
+        // makes casting it later evidence rather than coincidence.
+        var refused = TestCards.PutInHand(
+            game, alice, Draws("Chosen Mana Blue Test", "{U}{U}", 2));
+
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, refused));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ritual));
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.ChooseManaColor, choice.Kind);
+
+        // The five colours and no more: colourless is a type of mana but not a colour
+        // (CR 106.1b), and a card that meant to offer it says "any type".
+        Assert.Equal(5, choice.Options.Count);
+        Assert.DoesNotContain(choice.Options, o => o.Id == nameof(ManaColor.Colorless));
+
+        game.Choose(alice, [nameof(ManaColor.Blue)]);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, refused);
+        Settle(game);
+
+        // The card left the hand and one was drawn, and the blue is spent: it was real mana.
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+    }
+
+    /// <summary>
+    /// "In any combination of colors" gives each mana its own colour, and so its own question.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the pair above, and the half that one flag decides. Two mana "of any one
+    /// color" is one answer for both; two "in any combination" is two answers, because each mana
+    /// is a colour of its own (CR 106.1a). A reader that collapsed them would pass the test above
+    /// and hand this one two blue.
+    /// <para>
+    /// Asserted by casting a spell that needs one of each, which no single answer could pay for.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_combination_of_colours_is_a_colour_for_each_mana()
+    {
+        var ritual = Ritual(
+            "Combination Mana Ritual Test", "Add two mana in any combination of colors.");
+
+        var compiled = CardCompiler.Compile(ritual);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ritual));
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        Assert.Equal(ChoiceKind.ChooseManaColor, game.State.Choice!.Kind);
+        game.Choose(alice, [nameof(ManaColor.Blue)]);
+
+        // A second question, because the second mana is a second colour.
+        Assert.NotNull(game.State.Choice);
+        Assert.Equal(ChoiceKind.ChooseManaColor, game.State.Choice!.Kind);
+        game.Choose(alice, [nameof(ManaColor.Red)]);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+
+        var twoColours = TestCards.PutInHand(
+            game, alice, Draws("Combination Mana Spell Test", "{U}{R}", 2));
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, twoColours);
+        Settle(game);
+
+        // Cast and drawn from: one out, one in. Neither colour alone could have paid for it.
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A Forest can only make green, so the game does not stop to ask which (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The trap this mechanism is most likely to fall into, and the one <c>Game.AskOwedPayment</c>
+    /// already states in as many words: a question with one possible answer is not a question,
+    /// and putting it is how a game stalls. Dictate of Karametra's wording sees every land
+    /// anybody taps, so a question per tap would make the card unplayable rather than annoying.
+    /// <para>
+    /// Asserted against the log rather than the current state: a question asked and answered
+    /// leaves no trace in the state, so "nothing outstanding now" would pass either way.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_with_one_type_is_not_asked_which_colour_it_made()
+    {
+        var dictate = Card(
+            "Karametra Dictate Test",
+            "Whenever a player taps a land for mana, that player adds one mana of any type "
+                + "that land produced.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(dictate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, dictate, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, forest, "mana");
+
+        // Not "the stack is empty": a trigger waits in PendingTriggers before it is put there
+        // (CR 603.3), so that is true the instant the land taps and nothing would have resolved.
+        // PassUntil throws if a question appears, which is the assertion below asked twice.
+        TestCards.PassUntil(
+            game, () => game.State.GetPlayer(alice).ManaPool[ManaColor.Green] == 2);
+
+        Assert.DoesNotContain(
+            game.Log,
+            e => e is ChoiceRequested { Choice.Kind: ChoiceKind.ChooseManaColor });
+
+        // One Forest, two green - and the second is spendable, which a bare count of two would
+        // read the same way even if the doubling had produced colourless.
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+
+        var doubled = TestCards.PutInHand(
+            game, alice, Draws("Karametra Doubled Test", "{G}{G}", 2));
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, doubled);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A land that could make two types is asked which one this was (CR 106.7).
+    /// </summary>
+    /// <remarks>
+    /// The other side of the test above: the same card, the same trigger, and a land with two
+    /// basic land types. The menu is read as the trigger resolves rather than when the card was
+    /// compiled, which is the only reason one effect serves both boards.
+    /// <para>
+    /// The answer taken is the colour the land did <em>not</em> tap for, so an implementation
+    /// that quietly repeated the produced mana would fail here and pass everything else.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_that_could_make_two_types_is_asked_which()
+    {
+        var dictate = Card(
+            "Karametra Dual Dictate Test",
+            "Whenever a player taps a land for mana, that player adds one mana of any type "
+                + "that land produced.",
+            CardType.Enchantment);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, dictate, Zone.Battlefield);
+        var dual = game.Create(alice, DualLand("Karametra Dual Test"), Zone.Battlefield);
+
+        // "mana1" is the Forest half: the intrinsic abilities are built in the rules' own order
+        // of the basic land types, and Island comes before Forest (CR 305.6).
+        game.ActivateAbility(alice, dual, "mana1");
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.ChooseManaColor, choice.Kind);
+        Assert.Equal(
+            [nameof(ManaColor.Blue), nameof(ManaColor.Green)],
+            choice.Options.Select(o => o.Id).Order(StringComparer.Ordinal));
+
+        game.Choose(alice, [nameof(ManaColor.Blue)]);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+
+        var simic = TestCards.PutInHand(
+            game, alice, Draws("Karametra Simic Test", "{G}{U}", 2));
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, simic);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "That player adds" fills the pool of whoever tapped the land, not the enchantment's
+    /// controller (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// The half of this family that has nothing to do with colours, and the one an effect with
+    /// no player scope could not say at all. Dictate of Karametra is symmetrical - it doubles
+    /// everybody's lands, opponents included - and an effect that could only fill its
+    /// controller's pool would turn it into a one-sided ritual, a far better card than the one
+    /// printed.
+    /// <para>
+    /// The controller's pool is asserted too: mana appearing in the right place is half a claim
+    /// while it might also be appearing in the wrong one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_mana_goes_to_the_player_who_tapped_the_land()
+    {
+        var dictate = Card(
+            "Karametra Symmetry Test",
+            "Whenever a player taps a land for mana, that player adds one mana of any type "
+                + "that land produced.",
+            CardType.Enchantment);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, dictate, Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        // CR 605.3a: a mana ability may be activated whenever its controller could pay for
+        // something, which is why Bob does not have to wait for his own turn.
+        game.ActivateAbility(bob, theirs, "mana");
+        TestCards.PassUntil(
+            game, () => game.State.GetPlayer(bob).ManaPool[ManaColor.Green] == 2);
+
+        Assert.Equal(2, game.State.GetPlayer(bob).ManaPool[ManaColor.Green]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+    }
+
+    /// <summary>
+    /// "Its controller adds an additional one mana of any color" reads the land's controller off
+    /// the trigger (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// Verdant Haven's wording, and the commonest shape in this family - eight Auras print some
+    /// version of it. What is checkable is asserted: the extra mana arrives, it is the colour
+    /// that was named, and it pays for a spell the Forest under it could never have paid for.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_add_an_extra_mana_of_a_colour_named_on_resolution()
+    {
+        var haven = new CardDefinition
+        {
+            OracleId = "oracle-verdant-haven-test",
+            Name = "Verdant Haven Test",
+            ManaCostRaw = "{1}{G}",
+            Cmc = 2,
+            CardTypes = CardType.Enchantment,
+            Subtypes = ["Aura"],
+            OracleText =
+                "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds "
+                + "an additional one mana of any color.",
+        };
+
+        var compiled = CardCompiler.Compile(haven);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var aura = game.Create(alice, haven, Zone.Battlefield);
+        game.Attach(aura, forest);
+
+        game.ActivateAbility(alice, forest, "mana");
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        Assert.Equal(ChoiceKind.ChooseManaColor, game.State.Choice!.Kind);
+        game.Choose(alice, [nameof(ManaColor.Black)]);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Black]);
+
+        var golgari = TestCards.PutInHand(
+            game, alice, Draws("Verdant Haven Spell Test", "{B}{G}", 2));
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, golgari);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The answered question replays: a game rebuilt from its written log makes the same mana.
+    /// </summary>
+    /// <remarks>
+    /// The founding invariant, checked on the one thing this feature adds that could break it. A
+    /// colour named mid-resolution is the shape most likely to be built as a captured
+    /// continuation by accident, and a continuation cannot be folded from a log - so the log is
+    /// written out and read back here rather than only being folded in memory.
+    /// </remarks>
+    [Fact]
+    public void A_chosen_mana_colour_survives_being_written_out_and_replayed()
+    {
+        var ritual = Ritual("Replayed Mana Ritual Test", "Add two mana of any one color.");
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ritual));
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+        game.Choose(alice, [nameof(ManaColor.Red)]);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+
+        var written = EventLogSerializer.Write(game.Log);
+        var replayed = GameReducer.Replay(EventLogSerializer.Read(written));
+
+        Assert.Equal(game.State, replayed);
+        Assert.Equal(2, replayed.GetPlayer(alice).ManaPool[ManaColor.Red]);
+    }
+
+    /// <summary>
+    /// An activated ability whose whole effect is mana never becomes one that uses the stack
+    /// (CR 605.1a, 605.3b).
+    /// </summary>
+    /// <remarks>
+    /// The control that makes the rest of this section safe. "Add three mana in any combination
+    /// of colors" is more payouts than the mana path will enumerate, so that path refuses the
+    /// line - and the general activated-ability path can now read the sentence, which would have
+    /// built it as an ability that goes on the stack. A mana ability never does: an opponent
+    /// could respond to it, and it could not be activated while paying for a spell, which is the
+    /// only thing it is for.
+    /// <para>
+    /// That is the shape of bug this engine has been bitten by before - the card compiles, counts
+    /// as covered, offers its button and plays differently from what it prints - so the line is
+    /// left unread instead. If the mana path ever learns to enumerate three colours this test
+    /// fails, and that is the right prompt: it is an assertion about a line nothing can read.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_that_only_makes_mana_never_becomes_a_stack_ability()
+    {
+        var land = new CardDefinition
+        {
+            OracleId = "oracle-three-colour-storage-test",
+            Name = "Three Colour Storage Test",
+            CardTypes = CardType.Land,
+            OracleText = "{T}: Add three mana in any combination of colors.",
+        };
+
+        var compiled = CardCompiler.Compile(land);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("in any combination of colors", StringComparison.Ordinal));
+
+        // Nothing was built from it at all - neither a mana ability nor, worse, one that would
+        // have gone on the stack.
+        Assert.Empty(compiled.Activated);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

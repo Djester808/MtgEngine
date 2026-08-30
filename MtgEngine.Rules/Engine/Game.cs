@@ -3171,6 +3171,16 @@ public sealed class Game
                 ResolveColorChoice(picks);
                 break;
 
+            // Unlike the colour above, this one is asked mid-resolution and has to hand
+            // priority back to whoever was about to receive it (CR 117.5) - the mana is for
+            // a spell that player was in the middle of paying for.
+            case ChoiceKind.ChooseManaColor:
+                ResolveManaColorChoice(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.Exploit:
                 ResolveExploit(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3899,6 +3909,9 @@ public sealed class Game
     private readonly List<HandChoiceRequested> _handChoicesOwed = [];
 
     private readonly List<ColorChoiceRequested> _colorChoicesOwed = [];
+
+    /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
+    private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
     private readonly List<CreatureTypeChoiceRequested> _creatureTypeChoicesOwed = [];
     private readonly List<ConniveRequested> _connivesOwed = [];
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
@@ -6085,6 +6098,119 @@ public sealed class Game
         return true;
     }
 
+    /// <summary>
+    /// Pays out any owed mana colour that has only one answer (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// A question with one possible answer is not a question, and the effect that raised it
+    /// already says so - this is the second lock, for a menu that narrowed between the ask and
+    /// now. Settled rather than asked, so the sweep goes round again: the mana can have triggered
+    /// something, and returning as though a question were pending would leave that on the floor.
+    /// </remarks>
+    private bool SettleForcedManaColors()
+    {
+        if (_manaColorChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _manaColorChoicesOwed[0];
+        if (owed.Options.Count > 1)
+            return false;
+
+        _manaColorChoicesOwed.RemoveAt(0);
+
+        if (owed.Options.Count == 0 || !State.Players.ContainsKey(owed.PlayerId))
+            return false;
+
+        Emit(new ManaAdded(
+            owed.PlayerId,
+            Abilities.AddChosenMana.Colour(owed.Options[0]),
+            owed.Amount,
+            null,
+            owed.SourceId));
+
+        return true;
+    }
+
+    /// <summary>
+    /// Asks the oldest owed mana colour, if any (CR 106.1a).
+    /// </summary>
+    /// <remarks>
+    /// Asked from the sweep rather than where the effect ran, for the reason every deferred
+    /// question here is: a resolution is never stopped half way through. The mana lands a beat
+    /// after the ability that promised it and still before anybody receives priority, which is
+    /// what CR 106.4 asks for - it is in the pool for the spell the player was about to cast.
+    /// </remarks>
+    private bool AskOwedManaColorChoice()
+    {
+        if (_manaColorChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _manaColorChoicesOwed[0];
+        _manaColorChoicesOwed.RemoveAt(0);
+
+        if (owed.Options.Count <= 1 || !State.Players.ContainsKey(owed.PlayerId))
+            return false;
+
+        _manaColorChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"mana-colour:{owed.PlayerId:N}",
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.ChooseManaColor,
+            Prompt = owed.Amount == 1
+                ? "Choose a color of mana to add."
+                : $"Choose a color; {owed.Amount} mana of it are added.",
+
+            // The menu the effect worked out, not one built again here. "Any type that land
+            // produced" was read off a permanent that may have left the battlefield by now, and
+            // a question whose options moved underneath it is not the one that was asked.
+            Options = [.. owed.Options.Select(c => new ChoiceOption(c.ToString(), ColorLabel(c)))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    private ManaColorChoiceRequested? _manaColorChoiceBeingAsked;
+
+    /// <summary>Adds the mana in the colour that was named (CR 106.4).</summary>
+    private void ResolveManaColorChoice(IReadOnlyList<string> picks)
+    {
+        if (_manaColorChoiceBeingAsked is not { } owed)
+            return;
+
+        _manaColorChoiceBeingAsked = null;
+
+        if (picks.Count == 0 || !Enum.TryParse<ManaColor>(picks[0], out var chosen))
+            return;
+
+        // Only from the menu that was offered. Every other choice in this engine answers with
+        // an object's id and is unambiguous by construction; a colour is a word, and a word can
+        // arrive from outside naming something that was never on the list.
+        if (!owed.Options.Contains(chosen))
+            return;
+
+        Emit(new ManaAdded(
+            owed.PlayerId,
+            Abilities.AddChosenMana.Colour(chosen),
+            owed.Amount,
+            null,
+            owed.SourceId));
+    }
+
+    /// <summary>What a mana type is called on a button (CR 106.1b).</summary>
+    private static string ColorLabel(ManaColor colour) => colour switch
+    {
+        ManaColor.White => "White",
+        ManaColor.Blue => "Blue",
+        ManaColor.Black => "Black",
+        ManaColor.Red => "Red",
+        ManaColor.Green => "Green",
+        _ => "Colorless",
+    };
+
     private ColorChoiceRequested? _colorChoiceBeingAsked;
 
     /// <summary>Applies a named colour to whatever asked for it.</summary>
@@ -8089,6 +8215,17 @@ public sealed class Game
             if (AskOwedColorChoice())
                 return true;
 
+            // The forced arm first, so a menu with one item pays out and the sweep goes
+            // round again rather than stopping the game over a decision with one outcome.
+            if (SettleForcedManaColors())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            if (AskOwedManaColorChoice())
+                return true;
+
             if (AskOwedUntapChoice())
                 return true;
 
@@ -8948,6 +9085,12 @@ public sealed class Game
         PermanentMutated mutated => mutated.Id,
         PermanentTapped tapped => tapped.Id,
         CountersChanged counted => counted.Id,
+
+        // "Whenever a player taps a land for mana, that player adds one mana of any type
+        // that land produced." The land is what the sentence is about, and the event already
+        // says which permanent made the mana - so "that land" has an answer rather than
+        // falling back to the permanent with the ability, which is a different card.
+        ManaAdded mana => mana.SourceId,
         SpellCastEvent cast => cast.StackId,
 
         PlayerDamaged hit => hit.SourceId,
@@ -11103,6 +11246,9 @@ public sealed class Game
 
         if (e is HandChoiceRequested rummaging)
             _handChoicesOwed.Add(rummaging);
+
+        if (e is ManaColorChoiceRequested manaColour)
+            _manaColorChoicesOwed.Add(manaColour);
 
         if (e is ColorChoiceRequested naming)
             _colorChoicesOwed.Add(naming);

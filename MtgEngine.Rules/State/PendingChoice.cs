@@ -177,6 +177,18 @@ public enum ChoiceKind
     /// <summary>Naming one of the five colours, for an effect that asks (CR 202.2).</summary>
     ChooseColor,
 
+    /// <summary>
+    /// Naming the colour of mana an effect is adding, as it resolves (CR 106.1a).
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="ChooseColor"/> even though both name a colour, because they
+    /// resume differently and offer different menus. This one hands priority back to whoever
+    /// was about to receive it - it is asked mid-resolution, from the settle sweep - and its
+    /// options are mana <em>types</em> rather than colours, so colourless is on the menu when
+    /// the thing being asked about could make it (CR 106.1b).
+    /// </remarks>
+    ChooseManaColor,
+
     /// <summary>Which creature type a permanent becomes (CR 205.1b).</summary>
     ChooseCreatureType,
 

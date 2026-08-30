@@ -7562,3 +7562,93 @@ And "damage can't be prevented" (CR 615.12) is **24 sole blockers** and is the o
 is genuinely a mechanism — an unpreventable flag the replacement pass has to carry, which is why
 Banefire and Questing Beast are unread.
 
+### A mana colour named while an effect resolves
+
+The mana vocabulary had a hole with a comment in it: **"there is nowhere to ask it."** `AddMana`
+needs its colours decided when the card is compiled, and the mana-ability path answers the same
+question by splitting itself into one ability per colour — which an effect cannot do. So every
+sentence that adds mana whose colour is chosen on resolution was left unread.
+
+It is the same shape as every other question this engine asks. `AddChosenMana` emits a
+`ManaColorChoiceRequested`, the settle sweep raises a `ChoiceKind.ChooseManaColor`, and the answer
+is a `ChoiceMade` in the log like any other — so a replay reaches the same offer rather than needing
+a continuation the log cannot rebuild. `SettleOwedSeek` and `SettleOwedRoll` are the models.
+
+**The menu rides on the event.** "One mana of any type that land produced" is read off a permanent
+that may have left the battlefield by the time the answer arrives, and a question whose options
+moved underneath it is not the question that was asked.
+
+**A question with one possible answer is not a question (CR 118.3).** A Forest can only make green,
+and Dictate of Karametra sees every land anybody taps — a question per tap would make the card
+unplayable rather than merely annoying. The effect collapses a one-item menu into the mana itself,
+and `SettleForcedManaColors` is a second lock in the sweep for a palette that narrowed in between.
+
+Three pieces, and only one of them is the choice:
+
+- **A colour decided at resolution**, which is the mechanism above.
+- **The types a land could produce, read at resolution** (CR 106.7), from the land's *computed*
+  abilities rather than its printed ones — a granted mana ability counts and a face-down permanent
+  has none. `Game.SubjectObjectOf` now answers `ManaAdded` with the permanent that made the mana, so
+  "that land" and "its controller" have something to mean; the compiler's `NamesAnObject` allow-list
+  was widened to match, one list mirroring the other the way that pairing already works elsewhere.
+- **A player scope on `AddMana`.** "Whenever a player taps a land for mana, **that player** adds
+  {G}" puts mana in somebody else's pool, and the effect could only ever fill its controller's.
+  That half alone was worth as many cards as the choice was: Mana Flare, Heartbeat of Spring,
+  Eladamri's Vineyard, Magus of the Vineyard and Zhur-Taa Ancient are all symmetrical and none of
+  them needed a colour named.
+
+**A stated divergence.** "Any type that land produced" is read as the types the land *could*
+produce, because a resolution context carries the object an event was about and not the mana it
+made. On the lands this is printed against — a Forest, a Swamp, anything with one mana ability —
+the two answers are identical and there is no question at all. They come apart only on a land that
+could have made something else, where the engine offers the wider menu.
+
+**Reading the sentence opened a hole and it had to be closed in the same commit.** The general
+activated-ability path reads `cost: effect`, and the moment `EffectPhrase` could read "Add three
+mana in any combination of colors" that path would have built it — as an ability that **goes on the
+stack**, which a mana ability never does (CR 605.3b). That is the worst shape of bug this compiler
+has and this file has already recorded one of them: the card compiles, counts as covered, offers
+its button, and plays differently from what it prints. `TryActivatedAbility` now refuses any
+untargeted line whose whole effect is mana (CR 605.1a), so a payout `TryManaAbility` declined stays
+unread instead of arriving through the back door. A test asserts the refusal.
+
+**The measured class, because the brief's numbers were not the class.** 228 incomplete cards carry
+an unread line that wants a mana colour or type decided during resolution; 161 of them are one line
+short. Mutating the corpus so the colour was already fixed showed that **only 19** of those 161 were
+blocked by the colour at all. The other 142 are blocked by something else *in the same line*, and
+they sort into families this work does not touch:
+
+- **~35 want "Spend this mana only to cast \<thing>"** — Base Camp, Pillar of the Paruns, Cavern of
+  Souls, Jeweled Lotus. The restriction vocabulary, not the colour. Every one of these is a mana
+  ability whose colour the enumeration path already reads.
+- **~16 want a variable amount** — "add X mana of any one color, where X is…" (Food Chain, Axebane
+  Guardian, Nykthos, Empowered Autogenerator).
+- **~10 carry the ability inside quotation marks** — "lands you control have '{T}: Add one mana of
+  any color'" (The World Tree, Jiang Yanggu, Kitesail Larcenist). A granting problem.
+- **5 are the storage lands** — "{1}, Remove X storage counters from ~: Add X mana in any
+  combination of {G} and/or {W}" (Calciform Pools and its four siblings).
+
+A further 95 incomplete cards match on the words "mana of any color" and are **not this class at
+all**: "you may spend mana as though it were mana of any color" is a spending permission, not a
+question about what colour mana is. 61 of those are one line short. Counting them in would have
+tripled the apparent size of the work.
+
+**Declined, and why.** The storage lands are the only named row left undone, and they are undone
+for a reason rather than for time: the choice is inside a *mana ability*, which never uses the stack
+and is activated in the middle of paying for a spell. Suspending one to put a question would stop
+the game mid-cast, and the engine's own answer to that problem — take the choice *with* the
+activation, the way `ActivateAbility(..., costPayment:)` takes a cost — is a change to the hub's
+wire contract and belongs with that decision, not smuggled in beside a resolution-time question.
+The three-colour combination cap is unchanged and is now defended by the guard above.
+
+**36 cards, and the set matters more than the count.** 16,279 → 16,315 with nothing lost.
+The set is the evidence: **Manamorphose, Lotus Cobra, Deathrite Shaman, Mirari's Wake, Zendikar
+Resurgent, Dictate of Karametra, Zhur-Taa Ancient, Verdant Haven, Wild Growth, Fertile Ground,
+Overgrowth, Utopia Sprawl, Trace of Abundance, Wolfwillow Haven, Dawn's Reflection, Market Festival,
+Blighted Burgeoning, Mana Flare, Heartbeat of Spring, Eladamri's Vineyard, Magus of the Vineyard,
+Blinkmoth Urn, Elvish Guidance, Tangleroot, Regal Behemoth, Sarkhan Unbroken, Realm-Scorcher
+Hellkite, Traitorous Greed, Branch of Vitu-Ghazi, Crumbling Vestige, Outcaster Trailblazer, Quirion
+Sentinel, Red Death Shipwrecker, Lavaleaper, Buried in the Garden, Rosethorn Acolyte // Seasonal
+Ritual.** Half of them are the player scope rather than the colour, which is the finding the
+mutation probe would have missed if it had only been run one way.
+

@@ -174,6 +174,7 @@ public static class EventLogSerializer
             ["ExiledUntilLeaves"] = typeof(ExiledUntilLeaves),
             ["HandChoiceRequested"] = typeof(HandChoiceRequested),
             ["ColorChoiceRequested"] = typeof(ColorChoiceRequested),
+            ["ManaColorChoiceRequested"] = typeof(ManaColorChoiceRequested),
             ["CreatureTypeChoiceRequested"] = typeof(CreatureTypeChoiceRequested),
             ["UntapChoiceRequested"] = typeof(UntapChoiceRequested),
             ["CounterChoiceRequested"] = typeof(CounterChoiceRequested),
