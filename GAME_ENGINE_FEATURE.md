@@ -624,6 +624,88 @@ substrings and are listed to be decomposed, not built:
   lookup comes back empty the guard silently does nothing and sixteen cards compile and play as
   blanks, which is the worse half of the trade. Check that first; the reader is ten lines after it.
 
+Coverage is **52.7% of playable cards fully read** (17,232 of 32,717), 68.9% of lines.
+
+### Round seventeen: the frame around an ability the compiler already understood
+
+**655 cards sat one line short of complete with a quotation in that line, and on 213 of them the
+quoted ability compiles through the path that grants one.** The compiler understood the ability
+perfectly and could not read the sentence around it. That is a composition gap, not a vocabulary
+one, and it is worth measuring separately because the two want opposite work. (An earlier pass put
+that figure at 314 by compiling the quotation as a card's own text, which is a different question:
+a sentence that reads as a printed line does not necessarily read as a granted ability, and it is
+the granted reading the frame needs.)
+
+Measured as a quadrant rather than a ranking, which is what made it actionable. Each of the 655
+was asked two questions: does the **inner** quotation read on its own (compiled through
+`Enchanted creature has "…"`, the path that grants one), and does the **frame** read once the
+quotation is swapped for a keyword the compiler already knows?
+
+| | inner reads | inner does not |
+|---|---|---|
+| **frame reads** | **56** — pure composition | 128 — needs vocabulary inside the quotes |
+| **frame does not** | 157 — needs a new frame reader | 283 |
+
+(plus 31 lines carrying more than one quotation.) The frames, grouped into families:
+
+| cards | family | worth |
+|---|---|---|
+| 25 | `As long as <cond>, ~ [gets +N/+N] [and] has "Q"` | built |
+| 17 | `Enchanted/Equipped X … has <kw> and "Q"` | built |
+| 6 | group grant whose noun the grant pattern cannot read (`Creature tokens you control have "Q"`) | declined |
+| 3 | `… gains "Q" until end of turn` — a one-shot grant | declined |
+| 3 | `create a N/N token with "Q"` | declined |
+| 24 | tokens again, with the frame unread as well | declined |
+| 16 | one-shot grants, frame unread | declined |
+| 10 | Alchemy's `perpetually gains "Q"` | declined |
+| 6 | `You get an emblem with "Q"` | declined |
+
+**No frame is worth more than about thirty cards**, which is the same flatness the line ranking
+has. The answer to a flat head is not a bigger reader, it is a rule that applies to a family.
+
+Three of them, and none is a new vocabulary entry:
+
+- **A condition distributes over the sentence it governs.** `TryConditionalConjunction` lifts
+  `As long as <cond>,` off, splits the remainder into clauses, and offers each one twice — with
+  the condition written back in front of it, which is what `TryConditionalStatic` and every other
+  conditional reader expects to see; and bare, with the condition applied to whatever came back.
+  The second arm is the one a quoted ability needs, because nothing reads a grant with a
+  condition in front of it and everything reads one without. It runs **after**
+  `TryAttachedConjunction`, so it can only ever see a line every other matcher refused.
+- **A bare quotation inherits the verb of its conjunction.** `has flying and "{T}: Draw a card"`
+  is two things the subject *has*, and the second says so only by standing beside the first.
+  Without the verb the clause is a subject with a sentence after it, which nothing understands,
+  and every Aura and Equipment listing a keyword before a quoted ability went unread over one
+  missing word.
+- **A join inside a quotation is not a join.** The clause splitter tracked quotation marks; it
+  had been cutting granted abilities in half at their own commas. This codebase had already paid
+  for that exact mistake once, in the work queue's naive split, which reported the orphaned
+  quotation mark as the largest blocker in the corpus.
+
+`~` became a subject of the grant pattern to make the first of those pay. **The corpus has no bare
+`~ has "…"` line at all** - it was counted, not assumed - so the only way into that arm is through
+a frame that lifted a condition off, which is what makes it safe. It is deliberately
+still not a subject of `ConjoinedAttachedLine`: a card's own text folded into a static conjunction is
+how a spell's one-shot effect would become a permanent one, while a card granting itself a whole
+quoted ability is a static ability whatever else is true of it. It needed its own arm in the
+recipient test — with no noun and no scope it fell through to the group filter, which reads the
+line as "every permanent you control".
+
+**+51 cards, and the set diff is one-sided: 51 gained, 0 lost.** A fingerprint of every card's
+compiled abilities — not just the complete/incomplete flag — moved on 71 cards, and the twenty
+that were not the 51 divide cleanly: **nine gained a static they had never had** and are still
+incomplete, now reading one line more each (Ray of Frost's conditional "loses all abilities", The
+Masamune's conditional lure, Diviner's Wand's second quoted ability); the other eleven were id
+noise from `attached-count`, whose id embeds a string hash and is therefore not stable between
+processes. Nothing lost a static.
+
+Declined, with the measurement: the token frames (27 across both halves) want `CreateToken` to
+carry granted abilities, which is an effect change rather than a reader; the one-shot grants (19)
+want a floating layer-6 effect with a duration; the group nouns (11) want `TryGrantedAbility` to
+take its filter from `ReadStaticGroup` instead of its own hand-written pattern, which is the
+"vocabulary restated in a second pattern" bug one more time and the right next thing here;
+`perpetually` (10) and emblems (6) are mechanics the engine does not model at all.
+
 ### Round sixteen: 424 cards were already complete and already wrong
 
 The round's largest result moved coverage by **zero**. CR 605.3a lets a player activate mana

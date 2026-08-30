@@ -47188,6 +47188,349 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Buried Siege Test");
     }
 
+    // ---- The frame around a quoted ability (CR 613.1f) ------------------------
+
+    [Fact]
+    public void A_condition_switches_a_granted_ability_on_and_off()
+    {
+        // The composition, not the ability. The quoted half has read for rounds; what the
+        // compiler could not read was the sentence around it — the reader that owns a condition
+        // has a keyword slot with no quotation mark in it, and the reader that owns a quoted
+        // ability has no condition. Neither needed new vocabulary.
+        var vial = Card(
+            "Conditional Grant Vial Test",
+            "As long as you control a Cleric, ~ has \"Whenever a creature you control dies, "
+                + "each opponent loses 1 life and you gain 1 life.\"",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(vial);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var relic = game.Create(alice, vial, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Vial Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Empty(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).GrantedTriggers);
+
+        // No Cleric, so the creature dies and nothing happens. Asserted before the Cleric
+        // arrives, because a grant that was never conditional would pass every check below.
+        game.MarkDamage(bear, 2);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        game.Create(
+            alice,
+            Card("Vial Cleric Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Cleric"),
+            Zone.Battlefield);
+
+        var second =
+            game.Create(alice, TestCards.Creature("Vial Bear Two Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Single(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).GrantedTriggers);
+
+        // And it is a trigger the game can find twice — once when the event happens, to know it
+        // is watching, and again when the ability resolves, to know what it does.
+        game.MarkDamage(second, 2);
+        Settle(game);
+
+        Assert.Equal(21, game.State.GetPlayer(alice).Life);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_conditional_frame_grants_a_bonus_and_an_ability_from_one_sentence()
+    {
+        // Threshold, the commonest printing of the frame. The bonus is layer 7c and the ability
+        // is layer 6, so one sentence is two effects behind one condition (CR 613.1f, 613.4c).
+        var werewolf = Card(
+            "Threshold Frame Test",
+            "As long as there are seven or more cards in your graveyard, ~ gets +2/+2 and has "
+                + "\"When ~ dies, you lose 4 life.\"",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(werewolf);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var wolf = game.Create(alice, werewolf, Zone.Battlefield);
+        Settle(game);
+
+        var below = Characteristics.Of(game.State, Pool, game.State.GetObject(wolf));
+        Assert.Equal(2, below.Power);
+        Assert.Empty(below.GrantedTriggers);
+
+        foreach (var i in Enumerable.Range(0, 7))
+        {
+            game.Create(
+                alice,
+                TestCards.Creature(
+                    string.Create(CultureInfo.InvariantCulture, $"Buried Threshold {i} Test"), 1, 1),
+                Zone.Graveyard);
+        }
+
+        Settle(game);
+
+        var above = Characteristics.Of(game.State, Pool, game.State.GetObject(wolf));
+        Assert.Equal(4, above.Power);
+        Assert.Equal(4, above.Toughness);
+        Assert.Single(above.GrantedTriggers);
+
+        // Four damage kills the 4/4 it now is, and the granted trigger is what takes the life.
+        game.MarkDamage(wolf, 4);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_keyword_and_a_quoted_ability_in_one_sentence_both_land()
+    {
+        // "Enchanted creature has haste and "<ability>"" — the quotation is a conjunct of the
+        // "has", and the clause fold could not see it: a clause beginning with a quotation mark
+        // is a subject with a sentence after it until the verb is put back in front of it.
+        var aura = Card(
+            "Haste And Grant Aura Test",
+            "Enchant creature\nEnchanted creature has haste and "
+                + "\"{T}: ~ deals 1 damage to any target.\"",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(aura);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear =
+            game.Create(alice, TestCards.Creature("Prowess Bear Test", 2, 2), Zone.Battlefield);
+        var plain =
+            game.Create(alice, TestCards.Creature("Plain Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, aura), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bear))
+                .Keywords.HasFlag(KeywordAbility.Haste));
+
+        var granted = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(bear))
+            .Single(a => a.Id.StartsWith("granted:", StringComparison.Ordinal));
+
+        game.ActivateAbility(alice, bear, granted.Id, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        // The creature the Aura is not on gets neither half. A grant is invisible from the card
+        // that gives it, so a filter that is too generous looks exactly like one that works.
+        var other = Characteristics.Of(game.State, Pool, game.State.GetObject(plain));
+        Assert.False(other.Keywords.HasFlag(KeywordAbility.Haste));
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(plain)));
+    }
+
+    [Fact]
+    public void A_keyword_list_ending_in_a_quoted_ability_reads_whole()
+    {
+        // The longest join in the corpus, with a quotation on the end of it. The fold tries the
+        // longest span first and backtracks, which is what keeps "first strike, trample" one
+        // clause and the quotation another.
+        var blade = Card(
+            "Long List Equipment Test",
+            "Equipped creature gets +5/+5 and has first strike, trample, indestructible, haste, "
+                + "and \"Whenever ~ deals combat damage to a creature, exile that creature.\""
+                + "\nEquip {2}",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(blade);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var equipment = game.Create(alice, blade, Zone.Battlefield);
+        var bearer =
+            game.Create(alice, TestCards.Creature("Kaldra Bearer Test", 2, 2), Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        game.ActivateAbility(alice, equipment, "equip", [Target.ToPermanent(bearer)]);
+        Settle(game);
+
+        var worn = Characteristics.Of(game.State, Pool, game.State.GetObject(bearer));
+
+        Assert.Equal(7, worn.Power);
+        Assert.Equal(7, worn.Toughness);
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.FirstStrike));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Trample));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Indestructible));
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Haste));
+        Assert.Single(worn.GrantedTriggers);
+    }
+
+    [Fact]
+    public void A_comma_inside_a_quotation_is_not_a_clause_join()
+    {
+        // The join inside a granted ability is not a join. A splitter that cannot tell the two
+        // apart cuts the ability in half — the mistake that once put an orphaned quotation mark
+        // at the top of the work queue as the largest blocker in the corpus.
+        var aura = Card(
+            "Quoted Comma Aura Test",
+            "Enchant creature\nEnchanted creature has vigilance and "
+                + "\"At the beginning of your end step, create a 1/1 white Human creature "
+                + "token.\"",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(aura);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear =
+            game.Create(alice, TestCards.Creature("Called Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, aura), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var wearer = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.True(wearer.Keywords.HasFlag(KeywordAbility.Vigilance));
+        Assert.Single(wearer.GrantedTriggers);
+
+        var before = game.State.Battlefield.Count;
+
+        TestCards.PassToStep(game, TurnStep.End);
+        Settle(game);
+
+        // And the sentence that survived the split is one the game can run.
+        Assert.Equal(before + 1, game.State.Battlefield.Count);
+    }
+
+    [Fact]
+    public void A_frame_it_reads_around_an_ability_it_cannot_leaves_the_whole_line_unread()
+    {
+        // The rule the whole composition turns on. A permanent given the half of a sentence the
+        // compiler happened to understand is neither the printed card nor a refusable one, and
+        // no instrument here can see the difference: coverage counts lines, and this would score
+        // as progress.
+        var half = Card(
+            "Half Read Frame Test",
+            "As long as you control a Cleric, ~ gets +2/+2 and has "
+                + "\"Whenever ~ yodels, you win the game.\"",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(half);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Empty(compiled.Statics);
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, half, Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Yodel Cleric Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Cleric"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        // Not even the bonus, which is the half a fold that wrote as it went would have kept.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(creature)).Power);
+    }
+
+    [Fact]
+    public void The_wordings_beside_the_new_frames_still_read_as_they_did()
+    {
+        // A widened reader can eat a neighbour's clause with every instrument green — the corpus
+        // diff, coverage, the ratchet and the mechanic sweep all counted it as a gain the one
+        // time it happened. So the neighbours are played rather than counted.
+        var plainAura = Card(
+            "Plain Conjunction Aura Test",
+            "Enchant creature\nEnchanted creature gets +2/+2 and has flying.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(plainAura).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bear =
+            game.Create(alice, TestCards.Creature("Neighbour Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, plainAura), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var worn = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(4, worn.Power);
+        Assert.True(worn.Keywords.HasFlag(KeywordAbility.Flying));
+        Assert.Empty(worn.GrantedActivated);
+        Assert.Empty(worn.GrantedTriggers);
+
+        // The conditional static that has owned this frame all along still owns it, and is still
+        // conditional: read by the arm that puts the condition back rather than by the wrapper.
+        var conditional = Card(
+            "Plain Conditional Test",
+            "As long as you control a Demon, ~ gets +2/+2.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.True(CardCompiler.Compile(conditional).IsComplete);
+
+        var ogre = game.Create(alice, conditional, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(ogre)).Power);
+
+        game.Create(
+            alice,
+            Card("Neighbour Demon Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Demon"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(ogre)).Power);
+    }
+
+    [Fact]
+    public void A_group_grant_did_not_become_a_self_grant_or_a_grant_to_everybody()
+    {
+        // "~" is a subject of the grant pattern now, and it names no noun and no scope. Read one
+        // test too late it would fall through to the group filter and hand the ability to every
+        // permanent its controller owns; read one test too early it would take the group forms
+        // with it. The permanent that must *not* get the ability is what this asserts.
+        var lord = Card(
+            "Neighbour Group Grant Test",
+            "Creatures you control have \"{T}: You gain 1 life.\"",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(lord).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var enchantment = game.Create(alice, lord, Zone.Battlefield);
+        var mine =
+            game.Create(alice, TestCards.Creature("Group Grant Mine Test", 2, 2), Zone.Battlefield);
+        var theirs =
+            game.Create(bob, TestCards.Creature("Group Grant Theirs Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.Single(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(mine)));
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(theirs)));
+
+        // The enchantment is not a creature, so the noun keeps it out of its own ability.
+        Assert.Empty(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(enchantment)));
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>
