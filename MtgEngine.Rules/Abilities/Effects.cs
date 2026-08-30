@@ -6022,6 +6022,41 @@ public sealed record LookAndTake(
     /// <summary>"Then shuffle" — the rest go back and the library is shuffled (CR 701.20a).</summary>
     public bool ShuffleAfter { get; init; }
 
+    /// <summary>How many of what was seen may be taken, or null for as many as match.</summary>
+    /// <remarks>
+    /// "Put two of them into your hand", "you may reveal up to two creature cards", "put any
+    /// number of permanent cards from among them onto the battlefield" — one look with a
+    /// different ceiling on the answer. It is a ceiling rather than a quantity: taking fewer is
+    /// allowed, as it has been for the one-card form since that form existed, and the engine
+    /// clamps it to how many of the cards seen the filter actually admits.
+    /// </remarks>
+    public int? TakeLimit { get; init; } = 1;
+
+    /// <summary>
+    /// "Put all Goblin cards revealed this way into your hand" — every match, with no question.
+    /// </summary>
+    /// <remarks>
+    /// A flag rather than an unlimited ceiling, because the two differ in whether the game stops:
+    /// a ceiling is a question with a bound on the answer, and this sentence offers the player
+    /// nothing to decide (CR 118.3). Asking anyway would raise a prompt whose only legal answer
+    /// is every option printed on it.
+    /// </remarks>
+    public bool TakeAll { get; init; }
+
+    /// <summary>
+    /// "With mana value 3 or less" — a bound on what may be taken, beside the filter.
+    /// </summary>
+    /// <remarks>
+    /// An <see cref="Amount"/> rather than a number for the reason a search's bounds are one:
+    /// "with mana value X or less" is settled when the spell resolves and the compiled definition
+    /// is shared by every casting of the card. It is settled here, before the request is made, so
+    /// what reaches the log is the number the choice was actually offered against.
+    /// </remarks>
+    public Amount? MaxManaValue { get; init; }
+
+    /// <summary>"Onto the battlefield tapped" — how the taken card arrives (CR 701.26a).</summary>
+    public bool TappedOnTaken { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -6036,6 +6071,10 @@ public sealed record LookAndTake(
                 TakenGrantId = TakenGrantId,
                 GrantUntilTakersNextTurn = GrantUntilTakersNextTurn,
                 ShuffleAfter = ShuffleAfter,
+                TakeLimit = TakeLimit,
+                TakeAll = TakeAll,
+                MaxManaValue = MaxManaValue?.In(context),
+                TappedOnTaken = TappedOnTaken,
             },
         ];
     }

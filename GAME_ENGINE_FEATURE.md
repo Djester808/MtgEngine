@@ -706,6 +706,85 @@ take its filter from `ReadStaticGroup` instead of its own hand-written pattern, 
 "vocabulary restated in a second pattern" bug one more time and the right next thing here;
 `perpetually` (10) and emblems (6) are mechanics the engine does not model at all.
 
+Coverage is **52.8% of playable cards fully read** (17,264 of 32,717), 69.0% of lines.
+
+### Round seventeen: "look at the top N" decomposed, and the half of it that is one reader
+
+The last large coherent family anybody had identified, and it had been declined once — eight
+meaning-preserving rewrites onto the existing `LookAndTake` reader completed 24 cards, and the
+verdict was that it "needs several readers plus a mid-resolution chooser, not one". The verdict
+was right about the family and wrong about the size, and the way to tell was to stop counting
+lines and start asking what each line *needs*.
+
+**The measurement that decided it.** Ranking by sole blockers said 434 cards. That number is an
+upper bound on a reader's worth and not a forecast, because a card is only completed if the look
+is the *only* thing wrong with its line. So each family line was cut at the look, the whole
+instruction was replaced with `Draw a card.`, and the card was recompiled: **560** cards were one
+line short with a line mentioning the top of a library, and on **294** of them the look was the
+only defect. The other 266 carry a second one on the same line and no look reader can reach them.
+
+That is the number worth decomposing, and decomposed it stops being one family:
+
+| sub-shape | reachable | what it actually needs |
+|---|---|---|
+| take → battlefield, and the rest go somewhere | 49 | a chooser, a destination, sometimes tapped |
+| take (filtered) → hand, and the rest go somewhere | 41 | a chooser and the search's filter vocabulary |
+| take (plain) → hand, and the rest go somewhere | 43 | a chooser |
+| take **all** of a kind, and the rest go somewhere | 21 | **no chooser at all** (CR 118.3) |
+| take → exile | 2 | a chooser |
+| **the take family** | **156** | **one reader**, and a ceiling on the answer |
+| the top card, conditional on what it is | 40 | a reveal and a condition — not a chooser |
+| the top card, other | 28 | as above |
+| the top card straight to hand | 6 | as above |
+| **the single-card family** | **74** | a reveal that a condition can then read |
+| reveal until you reveal a *X* | 27 | a loop with a stopping rule, and no fixed N |
+| look, then put them back in any order | 8 | an ordering question, not a taking one |
+| cast one of them for free | 4 | casting from a zone that is not the hand |
+| piles, "an opponent chooses", planar decks | 25 | one card each |
+
+**So the take family — 156 of the 294 — is one reader and three fields, and that is what was
+built.** The two existing patterns became one grammar: the verb may be "reveal" as well as "look
+at" (143 of the family open with the other word); the take clause has nine printed spellings that
+differ only in the ceiling, the filter and the destination; the rest may go to the bottom, the
+graveyard, your hand or exile, or be shuffled back. `LookAndTake` gained `TakeLimit` (the ceiling
+on the answer, null for "any number of"), `TakeAll` (every match, asked of nobody), `MaxManaValue`
+(the search's own bound, asked of a smaller pile) and `TappedOnTaken`.
+
+**The mid-resolution chooser the family was thought to need already existed.** `ChoiceKind.LookAndTake`
+has been a deferred question since the impulse-draw shape was built; what it could not do was
+return more than one card. Taking two, or any number, or every match, is the same question with a
+different ceiling — so the resolution reads a list of picks instead of one, clamps it to what the
+sentence allows, and re-checks every pick against the filter and the bound rather than trusting
+the answer. `TakeAll` is the case where the game must *not* stop: the sentence names every match,
+so a prompt built from it would have exactly one legal answer, which is the rule the empty filter
+already obeyed one branch along.
+
+**Two things the reader had to learn that are not about looking at all.** The idiom is read before
+the sentence splitter, because "put one of them into your hand" does not say which them — and it
+had therefore been anchored to the *start* of the line, which refused every card printing a
+sentence in front of it (Prophetic Bolt, Ral's Outburst, Creative Outburst). It now cuts the line
+in front of the look, reads the head the ordinary way, and hands the rest over whole. And
+"…, where X is the number of lands you control" is read here rather than by the sentence-level
+wrapper that reads it everywhere else, because that wrapper anchors the clause to the end of a
+sentence and here it ends the *first* of the two sentences that must be read together.
+
+**Result: +83 cards, 0 lost**, diffed as a set rather than a count. One regression was caught that
+way and by nothing else: widening the look's opening to admit "that many cards from the top of
+your library" dropped the word "of" from the other branch, which un-read 108 cards that had worked
+for months — Impulse, Anticipate, Sleight of Hand, every Commune. The card count still went *up*
+on that build.
+
+**Declined, with the numbers.** The single-card family (74) is a different mechanism — "look at
+the top card of your library. If it's a land card, you may put it onto the battlefield" wants a
+reveal that a condition can then read, and nothing about a chooser helps it. Reveal-until (27) has
+no fixed N and needs a loop with a stopping rule. Within the take family, four things are still
+unread on purpose: **"with power N or less"** (6 cards) and **"total mana value"** (2) would each
+need another bound beside the filter; **"of the chosen type"** (5) needs the type chosen as the
+card entered; and **"put the rest on top of your library in any order"** (7) is the one
+destination the resolution cannot honour, because the rest go to the *bottom* whenever they go
+back to a library. Reading that last one would quietly bury cards Diabolic Vision leaves on top —
+a card that compiles, plays, and is wrong in a way nothing downstream can see.
+
 ### Round sixteen: 424 cards were already complete and already wrong
 
 The round's largest result moved coverage by **zero**. CR 605.3a lets a player activate mana

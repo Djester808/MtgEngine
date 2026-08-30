@@ -315,6 +315,64 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // The same idiom printed after a sentence that has nothing to do with it: "~ deals 4
+        // damage to any target. Look at the top four cards of your library. Put one of those
+        // cards into your hand and the rest on the bottom of your library in any order."
+        //
+        // The look and its taking still have to reach the idiom together, so the line is cut in
+        // *front of* the look rather than at every full stop: what comes before is read the
+        // ordinary way, and everything from the look onwards is handed over whole. Anchoring the
+        // idiom to the start of the line refused every card with a sentence in front of it, and
+        // the sentence in front was usually one the vocabulary had read for years.
+        for (var at = text.IndexOf(". ", StringComparison.Ordinal);
+            at >= 0;
+            at = text.IndexOf(". ", at + 1, StringComparison.Ordinal))
+        {
+            var tail = text[(at + 2)..];
+            if (!LookOpensLine().IsMatch(tail))
+                continue;
+
+            var read = true;
+
+            foreach (var sentence in Sentences(text[..(at + 1)]))
+            {
+                if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                {
+                    read = false;
+                    break;
+                }
+            }
+
+            if (read && TryLookAndTake(tail, effects, out var afterTail))
+            {
+                foreach (var sentence in Sentences(afterTail))
+                {
+                    if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                    {
+                        read = false;
+                        break;
+                    }
+                }
+
+                if (read)
+                {
+                    parsed = new ParsedPhrase
+                    {
+                        Targets = targets.ToImmutable(),
+                        Effects = effects.ToImmutable(),
+                    };
+
+                    return true;
+                }
+            }
+
+            // Nothing half-read is left behind for the readers below: a helper that contributes
+            // effects and then fails leaves them working on a sentence that has already said
+            // something, and the line compiles into an instruction no card prints.
+            targets.Clear();
+            effects.Clear();
+        }
+
         // "If you control a Demon, you gain 2 life. Otherwise, you lose 1 life." An else branch
         // belongs to the "if" in front of it and to nothing else, so the two sentences are
         // offered as a pair before either is read on its own - the same reason the optional
@@ -728,16 +786,15 @@ public static partial class EffectPhrase
         return [.. branch.Effects.Select(e => EffectTargets.Shift(e, offset))];
     }
 
-    /// <summary>"Look at the top N. Put one into your hand and the rest on the bottom." (CR 701.20a)</summary>
     /// <summary>
     /// "Look at the top N cards of your library. You may reveal a [type] card from among them and
     /// put it into your hand..." - the same look, with a filter on what may be taken.
     /// </summary>
     /// <remarks>
-    /// The filter names one card type or subtype, read by the vocabulary searching already uses.
-    /// Compound filters - "a creature or land card", "a noncreature, nonland card" - name two
-    /// things and are left unread rather than collapsed to one of them, which would offer the
-    /// player cards the card never said they could take.
+    /// The filter goes through the vocabulary searching already uses, so a compound one - "a
+    /// creature or land card", "an Angel card, a Demon card, or a Dragon card" - is joined rather
+    /// than collapsed to its first part, which would offer the player cards the printing never
+    /// named. A part the vocabulary cannot read leaves the whole line unread.
     /// </remarks>
     private static bool TryLookAndReveal(
         string text, ImmutableList<IEffect>.Builder effects, out string rest)
@@ -745,28 +802,10 @@ public static partial class EffectPhrase
         rest = string.Empty;
 
         var m = LookAndRevealLine().Match(text.Trim());
-        if (!m.Success)
-            return false;
-
-        rest = m.Groups["after"].Value.Trim();
-
-        // "An Elf, Warrior, or Tyvar card" names three things the card may be any one of. Joined
-        // with a separator the filter vocabulary understands rather than collapsed to the first,
-        // which would offer cards the printing never named.
-        if (JoinedFilter(m.Groups["what"].Value) is not { } filter)
-            return false;
-
-        effects.Add(new LookAndTake(
-            Number(m.Groups["n"].Value),
-            Zone.Hand,
-            m.Groups["rest"].Value.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
-                ? Zone.Graveyard
-                : Zone.Library,
-            filter));
-
-        return true;
+        return m.Success && TryLookAndTakeFrom(m, Zone.Hand, effects, out rest);
     }
 
+    /// <summary>"Look at the top N. Put one into your hand and the rest on the bottom." (CR 701.20a)</summary>
     private static bool TryLookAndTake(
         string text, ImmutableList<IEffect>.Builder effects, out string rest)
     {
@@ -776,17 +815,101 @@ public static partial class EffectPhrase
         if (!m.Success)
             return TryLookAndReveal(text, effects, out rest);
 
+        var destination = m.Groups["where"].Value.ToLowerInvariant() switch
+        {
+            "graveyard" => Zone.Graveyard,
+            "battlefield" => Zone.Battlefield,
+            _ => Zone.Hand,
+        };
+
+        return TryLookAndTakeFrom(m, destination, effects, out rest);
+    }
+
+    /// <summary>
+    /// Builds the look from a match of either spelling, or refuses it whole.
+    /// </summary>
+    /// <remarks>
+    /// One builder for both patterns, because the two differ only in where the filter sits in the
+    /// sentence. Everything they decide - the ceiling on the answer, the bound on what may be
+    /// taken, where the rest go, whether the cards were shown to everybody - is the same decision,
+    /// and a second copy of it would be a second place for the rest clause to be got wrong.
+    /// </remarks>
+    private static bool TryLookAndTakeFrom(
+        Match m, Zone destination, ImmutableList<IEffect>.Builder effects, out string rest)
+    {
         rest = m.Groups["after"].Value.Trim();
 
-        effects.Add(new LookAndTake(
-            Number(m.Groups["n"].Value),
-            m.Groups["where"].Value.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
-                ? Zone.Graveyard
-                : Zone.Hand,
-            m.Groups["rest"].Value.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
-                ? Zone.Graveyard
-                : Zone.Library));
+        // "An Elf, Warrior, or Tyvar card" names three things the card may be any one of. Joined
+        // with a separator the filter vocabulary understands rather than collapsed to the first,
+        // which would offer cards the printing never named.
+        var filter = Abilities.SearchFilters.AnyCard;
+        if (m.Groups["what"].Success)
+        {
+            if (JoinedFilter(m.Groups["what"].Value) is not { } named)
+                return false;
 
+            filter = named;
+        }
+
+        // "With mana value 3 or greater" is a floor and this carries only a ceiling; "with mana
+        // value 3" with no direction is an exact match, which is a third thing again. Both are
+        // refused rather than read as the bound beside them, which would let the player take
+        // cards the card put out of reach - the same reading the search reader makes next door.
+        if (m.Groups["cap"].Success
+            && !m.Groups["dir"].Value.Equals("less", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var restTo = Zone.Library;
+        if (m.Groups["exilerest"].Success)
+            restTo = Zone.Exile;
+        else if (m.Groups["rest"].Value.Contains("graveyard", StringComparison.OrdinalIgnoreCase))
+            restTo = Zone.Graveyard;
+        else if (m.Groups["rest"].Value.Contains("your hand", StringComparison.OrdinalIgnoreCase))
+            restTo = Zone.Hand;
+
+        var look = new LookAndTake(Number(m.Groups["n"].Value), destination, restTo, filter)
+        {
+            // "Reveal the top five cards" is the same look with the cards face up, and the
+            // opening verb is what decides it: the inner "you may reveal a creature card from
+            // among them" reveals only what was taken, which its move to a public zone shows
+            // anyway.
+            Reveal = m.Groups["verb"].Value.StartsWith(
+                "reveal", StringComparison.OrdinalIgnoreCase),
+            TakeAll = m.Groups["allk"].Success,
+            TakeLimit = m.Groups["anyk"].Success || m.Groups["allk"].Success
+                ? null
+                : SearchCount(m.Groups["tk"].Value),
+            MaxManaValue = ManaValueBound(m),
+            TappedOnTaken = m.Groups["tapped"].Success,
+
+            // "Then shuffle the rest into your library" is the bottom of the library said a
+            // different way round: the cards go back and the order stops being known. It reuses
+            // the flag the hand-written dungeons already had rather than a fourth destination,
+            // because the two sentences describe the same finished library.
+            ShuffleAfter = m.Groups["shufflerest"].Success,
+        };
+
+        // "..., where X is the number of lands you control" - a definition rather than an
+        // instruction, so the look keeps X as the variable it always is and this says what X
+        // comes to. Read through the same group grammar the sentence-level wrapper uses, so a
+        // phrase either of them learns is learned by both. It is admitted here at all because
+        // that wrapper anchors the clause to the end of a sentence, and here it ends the first
+        // of the two sentences this idiom exists to read together.
+        if (!m.Groups["xis"].Success)
+        {
+            effects.Add(look);
+            return true;
+        }
+
+        if (CountingAmount(1, "each " + m.Groups["xis"].Value.Trim())
+            is not { Counter: { } counting })
+        {
+            return false;
+        }
+
+        effects.Add(new WithCountedVariable(counting, [look]));
         return true;
     }
 
@@ -13189,6 +13312,47 @@ public static partial class EffectPhrase
         RegexOptions.None)]
     private static partial Regex AnimateTypeOnlyLine();
 
+    /// <summary>How the look opens: the verb, the count, and an X the same sentence defines.</summary>
+    /// <remarks>
+    /// "Reveal" and "look at" are one instruction with different audiences (CR 701.20a, 701.20e),
+    /// so they are one pattern with the verb captured rather than two patterns that would drift.
+    /// Reading only "look at" cost the whole reveal half of the family — 143 of the cards one line
+    /// short from this shape open with the other word.
+    /// <para>
+    /// "…, where X is the number of lands you control" is admitted here rather than left to the
+    /// sentence-level wrapper that reads it everywhere else. That wrapper anchors the clause to
+    /// the end of a sentence, and on this family the clause ends the *first* of two sentences that
+    /// have to be read together — so the idiom would have to be split to reach it, which is the
+    /// one thing this reader exists not to do.
+    /// </para>
+    /// </remarks>
+    private const string LOOKHEAD =
+        @"^(?<verb>look at|reveal) (the top " + N + @" cards? of"
+            + @"|" + N + @" cards? from the top of) your library"
+            + @"(, where X is the number of (?<xis>" + COUNTED + @"+?))?"
+            + @"[.,]?\s*(then\s+)?";
+
+    /// <summary>How many of what was seen the sentence lets the player take.</summary>
+    /// <remarks>
+    /// "All" is kept apart from "any number of" because the two differ in whether anybody is
+    /// asked: one names every match and the other names a subset the player picks. Collapsing
+    /// them would put a prompt in front of a player whose only legal answer is all of it.
+    /// </remarks>
+    private const string TAKECOUNT =
+        @"(?<allk>all)|(?<anyk>any number of)|(up to )?"
+            + @"(?<tk>one|two|three|four|five|six|seven|a|an)";
+
+    /// <summary>Where a taken card goes, and whether it arrives tapped.</summary>
+    private const string TAKEWHERE =
+        @"(into your (?<where>hand|graveyard)"
+            + @"|onto the (?<where>battlefield)(?<tapped> tapped)?)";
+
+    /// <summary>The filter on what may be taken, with the search's own mana-value bound.</summary>
+    private const string TAKEWHAT =
+        @"(?: (?<what>[A-Za-z][A-Za-z, \-]*?) cards?"
+            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + @"( from among them| revealed this way))?";
+
     /// <remarks>
     /// Where the rest go is read rather than assumed, because the corpus does not agree: most say
     /// the bottom of the library and a good number say the graveyard, and one that quietly buried
@@ -13198,24 +13362,59 @@ public static partial class EffectPhrase
     /// face down on the bottom of a library either way, so the difference is one no player can
     /// observe — unlike the destination, which they certainly can.
     /// </para>
+    /// <para>
+    /// "On top of your library" is deliberately absent. It is the one destination the resolution
+    /// cannot honour — the rest go to the *bottom* whenever they go back to a library — so reading
+    /// it would quietly bury cards Diabolic Vision leaves on top, which is the failure this
+    /// alternation was written to avoid in the first place.
+    /// </para>
+    /// </remarks>
+    private const string RESTGOES =
+        @"[.,]?\s*(and\s+|then\s+)?(([Pp]ut\s+)?(the (rest|other)( of the revealed cards)?"
+            + @"|all cards revealed this way)"
+            + @"\s+(?<rest>on the bottom of your library|on the bottom|into your graveyard"
+            + @"|into your hand)"
+            + @"( in (a random|any) order)?"
+            + @"|(?<exilerest>exile the rest)"
+            + @"|(?<shufflerest>shuffle the rest into your library))";
+
+    /// <remarks>
+    /// One pattern for every way the corpus spells the taking, because they are one instruction:
+    /// "put one of them into your hand", "put two of those cards into your hand", "you may put a
+    /// land card from among them onto the battlefield tapped" and "put all Goblin cards revealed
+    /// this way into your hand" differ in the ceiling, the filter and the destination, and in
+    /// nothing else. Written as four readers they would have been four rounds of work and four
+    /// places for the rest clause to be got wrong.
     /// </remarks>
     [GeneratedRegex(
-        @"^look at the top " + N + @" cards? of your library"
-            + @"[.,]?\s*(then\s+)?(You may\s+)?[Pp]ut one of them into your "
-            + @"(?<where>hand|graveyard)"
-            + @"[.,]?\s*(and\s+|then\s+)?([Pp]ut\s+)?the (rest|other)"
-            + @"\s+(?<rest>on the bottom of your library|on the bottom|into your graveyard)"
-            + @"( in (a random|any) order)?\.?(?<after>.*)$",
+        LOOKHEAD + @"(You may\s+)?[Pp]ut (" + TAKECOUNT + @")( of them| of those cards)?"
+            + TAKEWHAT + @" " + TAKEWHERE
+            + RESTGOES + @"\.?(?<after>.*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LookAndTakeLine();
 
+    /// <summary>Whether a stretch of text opens with the look, before the idiom is tried on it.</summary>
+    /// <remarks>
+    /// A guard rather than a reader: the two patterns above are anchored, so offering them every
+    /// sentence boundary in every line would be a lot of backtracking to answer a question the
+    /// first four words settle.
+    /// </remarks>
+    [GeneratedRegex(@"^(look at|reveal) the top ", RegexOptions.IgnoreCase)]
+    private static partial Regex LookOpensLine();
+
+    /// <remarks>
+    /// The reveal-then-put spelling of the same take: "you may reveal a creature card from among
+    /// them and put it into your hand". It is a separate pattern only because the filter comes
+    /// before the verb that moves the card rather than after it, and the pronoun in between has
+    /// five printed spellings.
+    /// </remarks>
     [GeneratedRegex(
-        @"^look at the top " + N + @" cards? of your library"
-            + @"[.,]?\s*You may reveal an? (?<what>[A-Za-z][A-Za-z, ]*?) card from among them"
-            + @" and put (it|that card) into your hand"
-            + @"[.,]?\s*(and\s+|then\s+)?([Pp]ut\s+)?the (rest|other)"
-            + @"\s+(?<rest>on the bottom of your library|on the bottom|into your graveyard)"
-            + @"( in (a random|any) order)?\.?(?<after>.*)$",
+        LOOKHEAD + @"(You may\s+)?[Rr]eveal (" + TAKECOUNT + @")"
+            + @" (?<what>[A-Za-z][A-Za-z, \-]*?) cards?"
+            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + @" from among them,?\s*(and|then)\s+[Pp]ut "
+            + @"(it|them|that card|those cards|the revealed cards) into your (?<where>hand)"
+            + RESTGOES + @"\.?(?<after>.*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LookAndRevealLine();
 

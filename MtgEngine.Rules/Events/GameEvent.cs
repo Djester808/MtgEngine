@@ -461,10 +461,31 @@ public sealed record LookAndTakeRequested(
     /// </summary>
     public bool ShuffleAfter { get; init; }
 
+    /// <summary>How many of what was seen may be taken, or null for as many as match.</summary>
+    public int? TakeLimit { get; init; } = 1;
+
+    /// <summary>Whether every match is taken with no question asked (CR 118.3).</summary>
+    public bool TakeAll { get; init; }
+
+    /// <summary>
+    /// A ceiling on the mana value of what may be taken, or null for none.
+    /// </summary>
+    /// <remarks>
+    /// Already a number by the time it reaches here: "with mana value X or less" is settled
+    /// against the resolution that raised the question, so a replayed request offers the same
+    /// cards rather than re-reading an X that has gone.
+    /// </remarks>
+    public int? MaxManaValue { get; init; }
+
+    /// <summary>Whether a taken card arrives on the battlefield tapped (CR 701.26a).</summary>
+    public bool TappedOnTaken { get; init; }
+
     public override string Rule => "701.20a";
 
     public override string Describe() =>
-        $"{PlayerId:N} looks at the top {Count} and takes one to {Destination}.";
+        $"{PlayerId:N} looks at the top {Count} and takes "
+            + (TakeAll ? "every match" : TakeLimit is { } limit ? $"up to {limit}" : "any number")
+            + $" to {Destination}.";
 }
 
 /// <summary>
