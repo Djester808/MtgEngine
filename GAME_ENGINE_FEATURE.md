@@ -785,6 +785,136 @@ destination the resolution cannot honour, because the rest go to the *bottom* wh
 back to a library. Reading that last one would quietly bury cards Diabolic Vision leaves on top —
 a card that compiles, plays, and is wrong in a way nothing downstream can see.
 
+Coverage is **52.7% of playable cards fully read** (17,242 of 32,717), 68.9% of lines.
+
+### Round seventeen: "instead" is mostly not a replacement effect
+
+`instead` ranked fifth in the compile dump — **621 sole blockers, 817 cards, 829 rows** — and the
+mining note's own caveat was the thing to test first. Decomposed by *what is being replaced*:
+
+| sub-shape | sole blockers |
+|---|---|
+| **no "would" clause at all** | **345** |
+| damage would be dealt to something | 44 |
+| a card would be put into a graveyard | 43 |
+| a source would deal damage | 38 |
+| a permanent would die | 33 |
+| a player would draw or mill | 32 |
+| a permanent would leave the battlefield | 15 |
+| a permanent would enter the battlefield | 14 |
+| an effect would create tokens | 11 |
+| counters, life, the game, turn structure, mana, and one-offs | 46 |
+
+**Fifty-six per cent of the family is not a CR 614 replacement effect at all.** Nothing outside the
+card is being replaced, so there is no shield to hang on the battlefield and nothing to order
+against anybody else's (CR 616.1). It is CR 614.15 self-replacement written the way cards print
+it — `[A]. If [condition], [B] instead.` — one spell choosing between two of its own instructions
+as it resolves. The whole standing replacement mechanism, which is what this round was pointed at,
+is the wrong tool for the largest part of what the word does.
+
+The right tool was already here. `TryConditionalPair` reads "If [condition], [A]. Otherwise, [B]"
+through `BoardConditions` and two `OnlyIf`s; what was missing is the else branch taken from
+*behind*, which is where every printed "instead" keeps it. Inside the 345:
+
+| | sole blockers |
+|---|---|
+| `If ~ was kicked, [B] instead` | 51 |
+| `[B] instead if [condition]` — the trailing order | 46 |
+| `If [condition], [B] instead` — every other condition | 234 |
+| remainder | 14 |
+
+The 234 are not one shape and are one *mechanism*: the commonest single condition is worth 15 and
+the tail is a hundred distinct ones, all of them clauses the condition vocabulary already reads.
+One reader takes the lot, which is the difference between a family and a list.
+
+**17,181 → 17,242 complete cards, +61, none lost, measured by set difference.**
+
+#### The reader is five guards and one wrapper
+
+`EffectPhrase.TryInsteadRider` compiles the pair to `IfKicked(B, Else: A)` or to
+`TryConditionalPair`'s own `OnlyIf(⊤, [OnlyIf(cond, B), OnlyIf(¬cond, A)])`, for its CR 608.2c
+reason: two sibling guards ask their question at two different moments, and a then branch that
+falsifies its own condition would let the other one fire as well. `IfKicked` gained an `Else` to
+match `IfBargained`'s.
+
+Everything interesting is in what it refuses.
+
+- **Only the previous *sentence* is replaced.** Gift of Growth is "Untap target creature. It gets
+  +2/+2 until end of turn. If this spell was kicked, that creature gets +4/+4 instead" — the untap
+  happens either way. The sentence loop already tracked that boundary for the Curse family's
+  repeat, but at the ", then" clause rather than at the full stop, and Primal Growth is one printed
+  instruction cut into three clauses: taking the last of them left the search outside the swap, so
+  a kicked spell searched twice and fetched three lands.
+- **An "instead" with nothing in front of it is refused.** Read alone it is a card that does its
+  bigger half *as well as* its smaller — the worst available misreading, on the gentlest available
+  wording.
+- **The replacement may choose no target of its own** (CR 601.2c), the same refusal the
+  "Otherwise" pair already makes.
+- **The two arms have to be aimed at the same thing.** `AimedAt` compares where each branch's
+  effects land, asked through `EffectTargets.ReadsATarget` — the one place that knows whether an
+  effect's index is a target at all. It is what stops Blade of the Bloodchief putting its two
+  counters on the creature that *died* rather than the one wearing the Equipment.
+- **A condition whose subject is a pronoun is refused.** `BoardConditions` is handed a state and
+  the source, and the source of a resolving instant is the spell — never a Mount, never an artifact
+  creature. "Put a +1/+1 counter on it instead if it's a Mount" compiles clean, answers no every
+  time, and prints a card whose better half can never happen. Five of them, before the refusal
+  existed. It costs the cards where "it" is English's dummy subject ("if it's night"), and telling
+  those apart means knowing which reader inside the condition grammar took the clause — a list one
+  repository further out, which this file has been burned by four times.
+
+#### A reader that ate its neighbour, and had for as long as both existed
+
+`ThatCreaturePumps` read "that creature gets +N/+N until end of turn" as a pump on the **source**,
+and sat in front of `ItPumps`, which spells both pronouns and answers in the order the rest of the
+file does — the target the sentence before it chose, then the object the trigger was about, then
+the source. Everything the first matched the second matches, so it is deleted rather than fixed.
+
+It is the same bug this file records against the exalted keyword one section over, and the comment
+above it said so: "exalted's tail". **Nothing about exalted moves** — its keyword form is built in
+the compiler and never came through here, and the longhand trigger names no object, so the pronoun
+still resolves to the source exactly as it did. What changes is the case that *has* a target:
+"Target creature gets +3/+3 … that creature gets +5/+5 instead" pumped the **instant that cast
+it**, so the kicked half of Might of Murasa, Explosive Growth, Vicious Offering, Final Flourish,
+Stomped by the Foot and Vayne's Treachery did nothing whatsoever. Six cards, and the corpus diff
+before the fix counted every one of them as a win.
+
+#### The ability word breaks the line, and a line is the unit
+
+Forty-six sole blockers print the trailing word order, and what keeps most of them from reading is
+not the grammar. An ability word — "Metalcraft —", "Threshold —", "Morbid —" — is flavour
+with no rules meaning (CR 207.2c) that nonetheless forces a line break, so the corpus prints one
+instruction across two lines and the compiler reads lines. `CardCompiler.Lines` already folds one such half-sentence into
+the line above it (CR 706.3b's dice results rows), and this is a second arm on the same fold, with
+the join itself as the guard: the two lines are joined only when they read as one phrase together.
+**Of 278 candidates the parser accepts 18**, and the other 260 stay exactly as they were —
+Galvanic Blast among them, because "~ deals 4 damage" names nothing to aim at.
+
+#### Declined, with the measurement behind each
+
+- **The 276 genuine CR 614 sub-shapes.** Each is its own mechanism — a damage modifier, a
+  destination swap, a draw replacement, a token doubler — and the largest is 44 sole blockers
+  against the 345 taken. Sized, not started.
+- **The elliptical damage replacement** — "~ deals 4 damage instead", with the recipient left to
+  the sentence before it. **29 sole blockers**, and much the largest thing still inside this
+  family. It wants a rewrite that borrows the previous sentence's recipient phrase, which is a
+  different kind of change from a reader: the two sentences have to be joined *before* either is
+  parsed, the way the results row is.
+- **A replacement that names a fresh target** — "If ~ was kicked, instead destroy target creature
+  or planeswalker". **8 of the 54 kicker cards**: Bloodchief's Thirst, Tear Asunder, Blood
+  Beckoning, Divine Resilience, Expel the Unworthy, The Eagles Are Coming!, Waste Management,
+  Galadriel's Dismissal. Each would make the spell ask at cast time for a target it will not use —
+  CR 702.33g says that target is chosen only if the spell was kicked, and the engine has one
+  target list per spell. The refusal is CR 601.2c's, and it is the same one the "Otherwise" pair
+  makes for the same reason.
+- **"[B] instead as long as [condition]"** — 4 cards (So Tiny, Precipitous Drop and its Alchemy
+  twin, Mind Carver). A continuous effect whose size changes while the game does, not one
+  instruction choosing between two at resolution; reading it as this would fix the answer at the
+  moment the spell resolved.
+- **`TriggerConditions.NamesAnObject("a creature you control attacks alone")`.** Making it true
+  would give the longhand exalted the answer the keyword form has, and it is an allow-list whose
+  entries have to be matched by `Game.SubjectObjectOf` really answering with that creature. Out of
+  this round’s scope and worth naming: the pronoun reader is now ready for it.
+
 ### Round sixteen: 424 cards were already complete and already wrong
 
 The round's largest result moved coverage by **zero**. CR 605.3a lets a player activate mana

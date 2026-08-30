@@ -7010,18 +7010,27 @@ public static class CostModification
 /// only if it was kicked. That is not modelled — the targets are chosen either way — which shows
 /// up as a spell asking for a target it will not use. Recorded rather than hidden.
 /// </para>
+/// <para>
+/// <see cref="Else"/> carries the sentence the clause replaces, for the cards that say
+/// "instead": "~ deals 2 damage to any target. If ~ was kicked, ~ deals 4 damage instead" does
+/// exactly one of the two, decided by the flag as the spell resolves. Null on the additive
+/// cards — the ones the whole-line reader takes — where the clause's effects simply happen on
+/// top of whatever came before. The distinction is the card: an "instead" that added would deal
+/// six.
+/// </para>
 /// </remarks>
-public sealed record IfKicked(ImmutableList<IEffect> Effects) : IEffect
+public sealed record IfKicked(
+    ImmutableList<IEffect> Effects, ImmutableList<IEffect>? Else = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!context.State.TryGetObject(context.SourceId, out var spell) || !spell.WasKicked)
-            return [];
+        var kicked =
+            context.State.TryGetObject(context.SourceId, out var spell) && spell.WasKicked;
 
         var events = new List<GameEvent>();
-        foreach (var effect in Effects)
+        foreach (var effect in kicked ? Effects : Else ?? [])
             events.AddRange(effect.Resolve(context));
 
         return events;

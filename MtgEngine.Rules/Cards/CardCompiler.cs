@@ -3416,6 +3416,27 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // The other half-sentence the corpus prints on a line of its own, and the same
+            // one-way fold. An ability word is flavour with no rules meaning (CR 207.2c), but it
+            // forces a line break — so "Metalcraft — ~ deals 4 damage instead if you control
+            // three or more artifacts" arrives as a line whose "instead" has nothing to replace,
+            // and the sentence grammar refuses it rather than reading a card that deals its
+            // bigger damage as well as its smaller. 278 cards are one line short of complete for
+            // exactly that reason.
+            //
+            // The guard is the join itself: the pair is folded only when the two lines together
+            // read as one phrase. That is what keeps a line that already compiles from being
+            // swallowed into an unreadable pair, and it is why the fold can be this blunt — of
+            // the 278 candidates the parser accepts 18, and the other 260 stay exactly as they
+            // were.
+            if (held is not null
+                && EffectPhrase.IsOrphanedReplacement(cleaned)
+                && EffectPhrase.TryParse(held + " " + cleaned, out _))
+            {
+                held = held + " " + cleaned;
+                continue;
+            }
+
             if (held is not null)
                 yield return held;
 
