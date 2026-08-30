@@ -9040,70 +9040,26 @@ public static partial class CardCompiler
             break;
         }
 
-        if (ReadStaticGroup(printed) is not { } group)
+        // No scope slot: nothing prints "Activated abilities of other artifacts", and the shared
+        // reader refuses a scope word it does not know rather than dropping it.
+        if (ReadGroupFilter(printed, string.Empty, side) is not { } group)
             return false;
 
-        // "Permanents" would ask nothing of the card types, which is a restriction on every
-        // permanent in the game written as though it were a group. No card says it, and a group
-        // this reader cannot narrow is one it must not apply.
-        if (group.Types.Count == 0 && group.Subtype is null)
+        if (group.NamesEveryPermanent)
             return false;
-
-        var yours = side.Equals(" you control", StringComparison.OrdinalIgnoreCase);
-        var everyone = side.Length == 0;
-
-        // Read off the builder rather than by computing the candidate's characteristics, and that
-        // is not an optimisation: <see cref="Characteristics.Of"/> called from inside a layer
-        // computation is the CR 613.8 loop, and the first cut of this reader recursed until the
-        // stack ran out. The builder holds the types as computed so far, which is also the right
-        // answer - an animated artifact is an artifact for this.
-        bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
-        {
-            foreach (var required in group.Types)
-            {
-                if (!target.CardTypes.HasFlag(required))
-                    return false;
-            }
-
-            if (group.Adjective is { } describes && !describes(state, target))
-                return false;
-
-            if (group.Subtype is { } tribe
-                && !target.IsEveryCreatureType
-                && !target.HasSubtype(tribe))
-            {
-                return false;
-            }
-
-            if (everyone)
-                return true;
-
-            // The source's *computed* controller (CR 613.1b), through the control-only reader for
-            // the same reason the lord's filter uses it: a stolen Null Rod belongs to whoever has
-            // it now, and a full computation here would recurse.
-            var controller = source is null || source.Id == target.Subject.Id
-                ? target.ControllerId
-                : Characteristics.ControllerOf(state, target.Abilities, source);
-
-            return yours
-                ? target.ControllerId == controller
-                : target.ControllerId != controller;
-        }
 
         into.Add(new ContinuousEffectDefinition
         {
-            Id = $"abilities-off:{card.Name}:{group.Described}{side.Replace(' ', '-')}",
+            // The group leads, in the segment the lord's ids put it in, so one invariant reads
+            // all three group readers instead of only the one it was written against.
+            Id = $"abilities-off:{group.Described}{side.Replace(' ', '-')}:{card.Name}",
             Layer = EffectLayer.Ability,
-            Applies = Matches,
+            Applies = group.Matches,
             Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
         });
 
         return true;
     }
-
-    /// <summary>The ownership clauses a group sentence can end with, longest first.</summary>
-    private static readonly string[] OwnershipClauses =
-        [" your opponents control", " an opponent controls", " you control"];
 
     /// <summary>
     /// "~ gets +1/+1 for each artifact you control" — a static whose size is counted (CR 613.4c).
@@ -9947,6 +9903,16 @@ public static partial class CardCompiler
         Func<GameState, CharacteristicsBuilder, bool>? Adjective,
         string Described);
 
+    /// <summary>The ownership clauses a group sentence can end with, longest first.</summary>
+    /// <remarks>
+    /// Longest first because "your opponents control" begins with a word that is not a prefix of
+    /// the shorter clauses but "an opponent controls" and "you control" both end in the same
+    /// verb; a shortest-first scan takes the tail off the wrong clause and hands the rest to the
+    /// noun reader, which then refuses a group it could have read.
+    /// </remarks>
+    private static readonly string[] OwnershipClauses =
+        [" your opponents control", " an opponent controls", " you control"];
+
     /// <summary>
     /// "Creature tokens", "artifact creatures", "White creatures", "Slivers" — the noun phrase a
     /// mass static names, resolved against the shared vocabulary.
@@ -9995,6 +9961,16 @@ public static partial class CardCompiler
             }
         }
 
+        // Lower-cased, so that the one capital left in it means something: the tribe this
+        // resolved, appended below in its printed case. That is what
+        // <c>Every_subtype_a_mass_static_names_is_a_subtype_some_card_has</c> reads, and it is
+        // the only handle anything has on what a compiled predicate selects - a continuous
+        // effect carries its filter as a closure, so the id is the whole of its testimony.
+        //
+        // The invariant had gone quiet without anybody noticing. It looks for a capitalised word
+        // in the group segment and this line lower-cases every word in it, so the check ran over
+        // 3,000 mass statics on every build and could not fail; the two lords for creature types
+        // no card has that were found since were both found by hand.
         var described = printed.ToLowerInvariant().Replace(' ', '-');
 
         // No noun at all is the bare-tribe form: "Slivers you control get +1/+1" never says the
@@ -10009,19 +9985,40 @@ public static partial class CardCompiler
 
             var one = EffectPhrase.SingularWord(words[0]);
 
-            // Spelled the same in both numbers, and the singulariser leaves it alone, so it would
-            // otherwise fail the plural test that keeps adjectives out. A caller that says the
-            // noun arrives singular by grammar — "each other Human", where "each" takes the
-            // singular — vouches for it instead, because a singular tribe fails the plural test
-            // by construction and the test is guarding against something else.
+            // The adjective vocabulary first, exactly as the qualified form asks it first. This
+            // arm never asked at all, so every word the vocabulary explicitly refuses sailed
+            // past it as a creature type the moment a card printed it as a bare plural noun:
+            // "Commanders you control have hexproof" named the type "Commander", which no card
+            // has, on three cards that read as complete and gave hexproof to nobody. One
+            // vocabulary asked in one place is the whole point of routing both arms through it.
+            //
+            // An adjective with no noun in front of it describes permanents and asks nothing of
+            // their card types, which is what the empty type list means.
+            var (bareIsAdjective, bareFilter) = GroupAdjective(one);
+
+            if (bareIsAdjective)
+            {
+                return bareFilter is null
+                    ? null
+                    : new StaticGroup([], null, bareFilter, described);
+            }
+
+            // Spelled the same in both numbers, and the singulariser leaves it alone, so it
+            // would otherwise fail the plural test that keeps adjectives out. Through the shared
+            // vocabulary rather than the one name this used to carve out, because the set is
+            // small, closed and measurable and one name is five cards short of it. A caller that
+            // says the noun arrives singular by grammar — "each other Human", where "each" takes
+            // the singular — vouches for it instead, because a singular tribe fails the plural
+            // test by construction and the test is guarding against something else.
             if (!singularNoun
                 && string.Equals(one, words[0], StringComparison.Ordinal)
-                && !string.Equals(words[0], "Merfolk", StringComparison.Ordinal))
+                && !EffectPhrase.IsSpelledTheSameInBothNumbers(words[0]))
             {
                 return null;
             }
 
-            return new StaticGroup([CardType.Creature], one, null, described);
+            return new StaticGroup(
+                [CardType.Creature], one, null, described + "|" + one);
         }
 
         string? subtype = null;
@@ -10060,7 +10057,8 @@ public static partial class CardCompiler
             subtype = EffectPhrase.SingularWord(word);
         }
 
-        return new StaticGroup(types, subtype, adjective, described);
+        return new StaticGroup(
+            types, subtype, adjective, subtype is null ? described : described + "|" + subtype);
     }
 
     /// <summary>
@@ -10169,15 +10167,211 @@ public static partial class CardCompiler
             "monocolored" => (true, (_, target) => target.Colors.Count == 1),
             "multicolored" => (true, (_, target) => target.Colors.Count > 1),
 
+            // "Commanders you control have hexproof" — a designation its owner made before the
+            // game began (CR 903.3), so it is asked of the player rather than of the permanent,
+            // and of the *owner* rather than the controller: a commander stolen by an opponent
+            // is still its owner's commander. The granted-ability reader has answered exactly
+            // this question all along, three lines of it, while this vocabulary said it could
+            // not be asked — one designation and two answers, which is the shape of every defect
+            // this family has produced.
+            "commander" => (true, (state, target) => string.Equals(
+                state.GetPlayer(target.Subject.OwnerId).CommanderOracleId,
+                target.Subject.Card.OracleId,
+                StringComparison.Ordinal)),
+
             // Named so they are refused rather than left to the tribe reading, which is what each
             // of them used to get: a lord for a creature type no card has. Every one is a real
             // description this filter has no way to ask about — "modified" wants counters, Auras
-            // and Equipment (CR 700.9), "enchanted" and "equipped" want an attachment, and
-            // "commander" is a designation made before the game began (CR 903.3).
-            "modified" or "enchanted" or "equipped" or "unblocked" or "commander" or "historic"
+            // and Equipment (CR 700.9), and "enchanted" and "equipped" want an attachment.
+            "modified" or "enchanted" or "equipped" or "unblocked" or "historic"
                 or "outlaw" or "premium" or "hosted" or "alliterative" => (true, null),
             _ => (false, null),
         };
+    }
+
+    /// <summary>Whose permanents a group sentence is about (CR 109.5, 613.4c).</summary>
+    /// <remarks>
+    /// Four answers rather than a pair of booleans, because the fourth is not a seat at the
+    /// table at all: "creatures enchanted player controls" names a group by its relation to the
+    /// source. Written as one closed vocabulary so the three readers that ask the question
+    /// cannot answer it differently, which they did - see <see cref="ReadGroupFilter"/>.
+    /// </remarks>
+    private enum GroupSide
+    {
+        /// <summary>No ownership clause at all: every permanent that answers the description.</summary>
+        Anyone,
+
+        /// <summary>"you control" - whoever controls the source, asked of layer 2.</summary>
+        Yours,
+
+        /// <summary>"your opponents control", "an opponent controls" - anyone else.</summary>
+        Opponents,
+
+        /// <summary>"enchanted player controls" - whoever the source is attached to.</summary>
+        EnchantedPlayer,
+    }
+
+    /// <summary>
+    /// "Other Goblin creatures you control" - the whole subject of a group static (CR 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// The noun, the scope word and the ownership clause read once and tested once. Three
+    /// readers used to work this out independently - the lord, the granted-ability reader and
+    /// the abilities-off reader - and every one of the three defects this family has produced
+    /// came from the copies disagreeing rather than from the grammar being hard:
+    /// <list type="bullet">
+    /// <item>the tribe slot spelled as "a capitalised word", so every adjective became a
+    /// creature type no card has;</item>
+    /// <item>the ownership default: one copy read a missing clause as "you control" and the
+    /// other as "anybody", so the same printed sentence meant two different boards;</item>
+    /// <item>the scope word: one copy let "each" override an explicit "you control" and hand a
+    /// granted ability to the whole table.</item>
+    /// </list>
+    /// A group read one word wider makes a lord buff the wrong board, and coverage scores that
+    /// as a win - which is why the vocabulary belongs in one place where a change to it is a
+    /// change to every reader at once.
+    /// </remarks>
+    private sealed record GroupFilter(StaticGroup Group, GroupSide Side, bool OtherOnly)
+    {
+        /// <summary>The group's own words, for the effect id that has to tell two lords apart.</summary>
+        public string Described => Group.Described;
+
+        /// <summary>
+        /// Whether the noun narrows nothing at all - the bare word "permanents".
+        /// </summary>
+        /// <remarks>
+        /// A restriction written as though it were a group. No card says it, and a reader that
+        /// cannot narrow a group must not apply it: the wrong half of a prohibition is worse
+        /// than an unread line, because nothing refuses.
+        /// </remarks>
+        public bool NamesEveryPermanent => Group.Types.Count == 0 && Group.Subtype is null;
+
+        /// <summary>Whether this permanent is one of the group.</summary>
+        /// <remarks>
+        /// Every test is asked of the characteristics <em>as computed so far</em> rather than of
+        /// the printed card, because that is what the layer system is for: a land layer 4
+        /// animated is one of "creatures you control", and a creature layer 5 turned white is one
+        /// of "white creatures" (CR 613.1, and the worked example under 613.5).
+        /// </remarks>
+        public bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
+        {
+            // The card types the noun asks for. An empty list is the noun "permanent", which
+            // asks nothing at all.
+            foreach (var required in Group.Types)
+            {
+                if (!target.CardTypes.HasFlag(required))
+                    return false;
+            }
+
+            if (Group.Adjective is { } describes && !describes(state, target))
+                return false;
+
+            // A changeling is every creature type at once (CR 702.73a), so it is a member of
+            // every tribe named here.
+            if (Group.Subtype is { } tribe
+                && !target.IsEveryCreatureType
+                && !target.HasSubtype(tribe))
+            {
+                return false;
+            }
+
+            // "Other" is what keeps a lord out of its own ability, and a lord that pumps itself
+            // is a different card.
+            if (OtherOnly && source is not null && target.Subject.Id == source.Id)
+                return false;
+
+            // Nobody's in particular: the description is the whole question, and who controls
+            // the permanent does not come into it.
+            if (Side == GroupSide.Anyone)
+                return true;
+
+            // Whoever the source is enchanting, read off the attachment rather than computed -
+            // what an Aura is on is a fact of the state, not a characteristic (CR 303.4). An
+            // unattached Curse names nobody and the group is empty, which is the honest answer
+            // rather than everything.
+            if (Side == GroupSide.EnchantedPlayer)
+            {
+                return source?.Permanent?.AttachedToPlayer is { } enchanted
+                    && target.ControllerId == enchanted;
+            }
+
+            // The *computed* controller on both sides of the comparison. The target's is the
+            // builder's - layer 2 has already run over it by the time a layer 6 or 7 effect
+            // asks. The source's has to be asked of the layers too (CR 613.1b), and it is asked
+            // through the control-only reader rather than a full computation, because computing
+            // one lord's characteristics from inside another's is the CR 613.8 loop: with two
+            // lords on the battlefield each filter would compute the other without bottom.
+            // Reading the stored controller instead was the recorded defect - a stolen lord kept
+            // buffing its old controller's creatures.
+            var controller = source is null || source.Id == target.Subject.Id
+                ? target.ControllerId
+                : Characteristics.ControllerOf(state, target.Abilities, source);
+
+            return Side == GroupSide.Yours
+                ? target.ControllerId == controller
+                : target.ControllerId != controller;
+        }
+    }
+
+    /// <summary>
+    /// Reads a group sentence's subject: the scope word, the noun phrase and whose it is.
+    /// </summary>
+    /// <remarks>
+    /// Everything fails closed. A scope word this does not know, an ownership clause it cannot
+    /// name and a noun <see cref="ReadStaticGroup"/> cannot describe each leave the line unread,
+    /// which is strictly better than the silent half-answer they replace: a card a deck check
+    /// refuses is a card somebody notices, while a lord that reads as complete and pumps the
+    /// wrong half of the board is invisible to every test in the suite.
+    /// <para>
+    /// <strong>A missing ownership clause is "anybody", never "you control".</strong> Muscle
+    /// Sliver's "All Sliver creatures get +1/+1" pumps the Slivers across the table and Crusade
+    /// pumps every white creature in the game. Two of the three readers had defaulted the other
+    /// way at some point, and each time the card compiled as complete and applied to half the
+    /// board - which is worse than not reading the line, because nothing refuses.
+    /// </para>
+    /// <para>
+    /// <strong>The scope word says "other", and nothing else.</strong> "All" and "each" are how
+    /// a sentence is written, not who it is about: the granted-ability reader read them as
+    /// "everybody" and so let "Each Fungus and Saproling you control has …" hand its ability to
+    /// an opponent's Fungus, with the words "you control" printed on the card and matched by the
+    /// pattern. Ownership is the ownership clause's job alone.
+    /// </para>
+    /// </remarks>
+    private static GroupFilter? ReadGroupFilter(string printedNoun, string scope, string side)
+    {
+        var scopeWord = scope.Trim().ToLowerInvariant();
+        var otherOnly = scopeWord is "other" or "each other";
+
+        if (!otherOnly && scopeWord is not ("" or "all" or "each"))
+            return null;
+
+        GroupSide owner;
+
+        switch (side.Trim().ToLowerInvariant())
+        {
+            case "":
+                owner = GroupSide.Anyone;
+                break;
+            case "you control":
+                owner = GroupSide.Yours;
+                break;
+            case "your opponents control":
+            case "an opponent controls":
+                owner = GroupSide.Opponents;
+                break;
+            case "enchanted player controls":
+                owner = GroupSide.EnchantedPlayer;
+                break;
+            default:
+                return null;
+        }
+
+        // "Each" takes a singular noun - "Each other Human you control" - so a bare tribe under
+        // it arrives without the plural the tribe arm otherwise demands.
+        return ReadStaticGroup(printedNoun.Trim(), scopeWord.StartsWith("each", StringComparison.Ordinal))
+            is { } group
+            ? new GroupFilter(group, owner, otherOnly)
+            : null;
     }
 
     /// <summary>
@@ -10290,61 +10484,25 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        // The noun is captured whole and resolved here rather than alternated in the pattern,
-        // and a bug is the reason rather than tidiness. The alternation this replaced guessed a
-        // creature *subtype* from a capital letter, and every sentence begins with one: "Artifact
-        // creatures you control get +1/+1" compiled to a lord for the creature type "Artifact",
-        // which no card in the game has. 27 corpus lines buffed nothing while reading as
-        // complete, and a reader that never fires looks exactly like a reader that works.
-        // "Each" takes a singular noun — "Each other Human you control" — so a bare tribe under
-        // it arrives without the plural the tribe arm otherwise demands.
-        var scopeSaysEach = m.Groups["scope"].Value
-            .StartsWith("each", StringComparison.OrdinalIgnoreCase);
-
-        if (ReadStaticGroup(m.Groups["noun"].Value.Trim(), scopeSaysEach) is not { } group)
+        // The subject is captured whole and resolved here rather than alternated in the
+        // pattern, and a bug is the reason rather than tidiness. The alternation this replaced
+        // guessed a creature *subtype* from a capital letter, and every sentence begins with
+        // one: "Artifact creatures you control get +1/+1" compiled to a lord for the creature
+        // type "Artifact", which no card in the game has. 27 corpus lines buffed nothing while
+        // reading as complete, and a reader that never fires looks exactly like a reader that
+        // works.
+        //
+        // The scope word and the ownership clause go with it, because they are the same
+        // sentence and were the same three-way disagreement: see <see cref="ReadGroupFilter"/>.
+        if (ReadGroupFilter(
+                m.Groups["noun"].Value, m.Groups["scope"].Value, m.Groups["side"].Value)
+            is not { } group)
+        {
             return false;
+        }
 
-        var subtype = group.Subtype;
-
-        // "Creatures of the chosen type get +1/+1" - the tribe is not printed on the card, it is
-        // whatever this permanent named as it entered (CR 614.12). So it is read from the source
-        // when the effect applies rather than baked in when the card compiles, which is the same
-        // reason every other characteristic is computed.
         var chosenType = m.Groups["chosen"].Value.Equals("type", StringComparison.OrdinalIgnoreCase);
         var chosenColor = m.Groups["chosen"].Value.Equals("color", StringComparison.OrdinalIgnoreCase);
-        var side = m.Groups["side"].Value.Trim().ToLowerInvariant();
-
-        // "Each other Human you control" spells the exclusion with two words, and the scope
-        // slot read only one — so the line fell through with "other Human" for a noun and was
-        // refused. Both spellings mean the same thing: not the permanent whose ability this is.
-        var scopeWord = m.Groups["scope"].Value.ToLowerInvariant();
-        var otherOnly = scopeWord is "other" or "each other";
-
-        // "Other" is what makes a lord not pump itself, and a lord that pumps itself is a
-        // different card — so an unrecognised scope word has to leave the line unread.
-        //
-        // A line with no ownership clause at all means every permanent that answers the
-        // description, an opponent's included: Muscle Sliver's "All Sliver creatures get +1/+1"
-        // pumps the Slivers across the table, Crusade pumps every white creature in the game and
-        // Illness in the Ranks shrinks every token. This defaulted to "you control", which is the
-        // identical bug already found and fixed in the granted-ability reader beside it — "a hive
-        // lord that quietly stopped at the table edge" — and it was still here. **83 corpus cards
-        // print a mass static with no ownership clause**, and every one of them was compiling as
-        // complete and applying to half the board, which is worse than not reading the line:
-        // nothing refuses, it just quietly does the wrong half.
-        var everyone = side.Length == 0;
-        var yours = side is "you control";
-        var theirs = side is "your opponents control" or "an opponent controls";
-
-        // "Creatures enchanted player controls get -1/-1" - a group defined by a relation to
-        // the source rather than by anybody's seat at the table. The attachment is raw state,
-        // not a characteristic (CR 303.4), so the filter can read it straight off the source
-        // with no layer question asked; an unattached Curse names nobody and the group is
-        // empty, which is the honest answer rather than everything.
-        var enchantedPlayers = side is "enchanted player controls";
-
-        if (!everyone && !yours && !theirs && !enchantedPlayers)
-            return false;
 
         // "Other creatures you control with flying get +1/+1" - a keyword the creature has to
         // have before the lord sees it, which is the opposite direction from the keywords the
@@ -10429,23 +10587,13 @@ public static partial class CardCompiler
                 : forbidden;
         }
 
-        // A subtype filter is only meaningful when it names a creature type the card itself is
-        // about; anything else is read literally, which is what the rules do too.
+        // The group's own tests - noun, adjective, tribe, scope and ownership - are the shared
+        // ones. What is written out here is only what this reader adds on top of them: the type
+        // or colour this permanent named as it entered, and the keyword or counter a member of
+        // the group has to already have.
         bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
-            // The card types the group's noun asks for, read from the *computed* characteristics
-            // for the same reason the tribe is: a land layer 4 animated into a creature is one of
-            // "creatures you control". An empty list is the noun "permanent", which asks nothing.
-            foreach (var required in group.Types)
-            {
-                if (!target.CardTypes.HasFlag(required))
-                    return false;
-            }
-
-            if (group.Adjective is { } describes && !describes(state, target))
-                return false;
-
-            if (otherOnly && source is not null && target.Subject.Id == source.Id)
+            if (!group.Matches(state, source, target))
                 return false;
 
             // Nothing named yet - the permanent is arriving and the question has not been asked.
@@ -10460,9 +10608,17 @@ public static partial class CardCompiler
                 return false;
             }
 
-            var tribe = chosenType ? source?.Chosen : subtype;
-            if (tribe is not null && !target.IsEveryCreatureType && !target.HasSubtype(tribe))
+            // "Creatures of the chosen type get +1/+1" - the tribe is not printed on the card, it
+            // is whatever this permanent named as it entered (CR 614.12). So it is read from the
+            // source when the effect applies rather than baked in when the card compiles, which
+            // is the same reason every other characteristic is computed.
+            if (chosenType
+                && source?.Chosen is { } chosenTribe
+                && !target.IsEveryCreatureType
+                && !target.HasSubtype(chosenTribe))
+            {
                 return false;
+            }
 
             // Asked of the computed characteristics, like everything else here: a creature given
             // flying by another effect is one of these, and one that has lost it is not.
@@ -10481,36 +10637,7 @@ public static partial class CardCompiler
                 return false;
             }
 
-            // Nobody's in particular: the description is the whole question, and who controls
-            // the permanent does not come into it.
-            if (everyone)
-                return true;
-
-            // Whoever the source is enchanting, read off the attachment rather than computed —
-            // what an Aura is on is a fact of the state, not a characteristic.
-            if (enchantedPlayers)
-            {
-                return source?.Permanent?.AttachedToPlayer is { } enchanted
-                    && target.ControllerId == enchanted;
-            }
-
-            // The *computed* controller on both sides of the comparison. The target's is the
-            // builder's — layer 2 has already run over it by the time a layer 6 or 7 effect
-            // asks. The source's has to be asked of the layers too (CR 613.1b), and it is asked
-            // through the control-only reader rather than a full computation, because computing
-            // one lord's characteristics from inside another's is the CR 613.8 loop: with two
-            // lords on the battlefield each filter would compute the other without bottom.
-            // Reading the stored controller instead was the recorded defect — a stolen lord
-            // kept buffing its old controller's creatures.
-            var controller = source is null
-                ? target.ControllerId
-                : source.Id == target.Subject.Id
-                    ? target.ControllerId
-                    : Characteristics.ControllerOf(state, target.Abilities, source);
-
-            return yours
-                ? target.ControllerId == controller
-                : target.ControllerId != controller;
+            return true;
         }
 
         // The group's own words go into the id, because two lords on one card are told apart by
@@ -10520,7 +10647,7 @@ public static partial class CardCompiler
         var describedAs = (chosenType || chosenColor
             ? "chosen-" + m.Groups["chosen"].Value.ToLowerInvariant()
             : group.Described)
-            + (enchantedPlayers ? ":enchanted-player" : string.Empty)
+            + (group.Side == GroupSide.EnchantedPlayer ? ":enchanted-player" : string.Empty)
             + (needs is { } named ? ":with-" + named : string.Empty)
             + (needsCounter is { } counted ? ":counter-" + counted : string.Empty)
             + (anyCounter ? ":counter-any" : string.Empty);
@@ -10704,143 +10831,79 @@ public static partial class CardCompiler
         // "~ has "…"" — the card giving the ability to itself.
         var self = m.Groups["self"].Success;
 
-        // Through the shared singulariser, as the mass statics are and for the same reason:
-        // "All Elves have ..." names the creature type "Elve" if the s is simply dropped, and a
-        // static ability that names a type no card has grants its ability to nobody.
-        var subtype = m.Groups["subtype"].Success
-            ? EffectPhrase.SingularWord(m.Groups["subtype"].Value.Trim())
-            : null;
-
-        // The tribe slot is "a capitalised word", and so is every adjective that can stand in
-        // front of this noun - which is the bug <see cref="ReadStaticGroup"/> was written to end
-        // for the lord beside this reader, still standing here because this one keeps its own
-        // noun grammar in its own pattern. "Green creatures have "Cumulative upkeep {1}"" and
-        // "Nontoken creatures you control have "..."" each compiled to a lord for a creature type
-        // no card has, granted the ability to nobody, and read as complete.
-        //
-        // The word goes through the same three-answer vocabulary the lord uses: a filter is
-        // applied beside the tribe test below, an adjective this cannot answer leaves the line
-        // unread rather than guessing, and anything it does not recognise stays a tribe.
-        Func<GameState, CharacteristicsBuilder, bool>? adjective = null;
-
-        if (m.Groups["subtype"].Success)
-        {
-            var (isAdjective, filter) = GroupAdjective(m.Groups["subtype"].Value.Trim());
-
-            if (isAdjective)
-            {
-                if (filter is null)
-                    return false;
-
-                adjective = filter;
-                subtype = null;
-            }
-        }
-
-        // "Lands you control have ..." is not "permanents you control have ...", and until the
-        // noun was read this filter never asked: it checked the tribe and who controlled it and
-        // handed the ability to every permanent that passed. Reading the noun and then ignoring
-        // it would have been the worse half of both.
-        var type = m.Groups["type"].Value.ToLowerInvariant() switch
-        {
-            "creature" => CardType.Creature,
-            "land" => CardType.Land,
-            "artifact" => CardType.Artifact,
-            "enchantment" => CardType.Enchantment,
-            _ => CardType.None,
-        };
-
-        var side = m.Groups["side"].Value.Trim().ToLowerInvariant();
-        var yours = side is "" or "you control";
-        var scope = m.Groups["scope"].Value.ToLowerInvariant();
-
         // "Commander creatures you own have ..." - a Background's whole text, and the only group
         // in the corpus picked out by something that is not a characteristic. A commander is a
         // designation its owner gave a card before the game began (CR 903.3), so the question is
         // asked of the player rather than of the permanent.
         var commanders = m.Groups["commander"].Success;
 
-        // "All Slivers have ..." is every Sliver on the battlefield, including an opponent's.
-        // The word was matched here and then never used, so the filter fell through to its
-        // default and read the line as "Slivers you control" - a hive lord that quietly stopped
-        // at the table edge.
-        var everyone = scope is "all" or "each";
+        // The subject, through the reader every other group static uses. This kept its own noun
+        // grammar in its own pattern for as long as it existed, and each of the three defects
+        // that grammar produced was found by accident rather than by a test:
+        //
+        //   - the tribe slot was "a capitalised word", and so is every adjective, so "Green
+        //     creatures have "Cumulative upkeep {1}"" and "Nontoken creatures you control have
+        //     "..."" each became a lord for a creature type no card has and read as complete;
+        //   - a missing ownership clause meant "you control" here and "anybody" in the lord next
+        //     door, so one printed sentence named two different boards;
+        //   - "each" and "all" were read as "everybody" and *overrode* an ownership clause the
+        //     pattern had matched, so "Each Fungus and Saproling you control has "{T}: Add {G}""
+        //     handed its mana ability to the whole table.
+        //
+        // Reading the noun through <see cref="ReadStaticGroup"/> also brings the rest of that
+        // vocabulary with it - the colour adjectives, "face-down", the token nouns and the
+        // negated tribes - none of which this pattern could spell.
+        GroupFilter? group = null;
 
-        // "Other" is the word that keeps a lord out of its own ability, and it was being
-        // discarded in the same place for the same reason.
-        var otherOnly = scope is "other";
+        if (!attached && !self && !commanders)
+        {
+            group = ReadGroupFilter(
+                m.Groups["noun"].Value, m.Groups["scope"].Value, m.Groups["side"].Value);
+
+            if (group is null)
+                return false;
+        }
 
         // Hoisted out of the effect below so the bonus that may ride with the ability can be
         // asked the same question. One predicate and two effects, because a bonus is layer 7c
         // and an ability is layer 6, and one effect cannot be in two (CR 613.1f, 613.4c).
         bool Receives(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
+            // A granted ability with no source cannot say whose it is, so it is given to nobody.
+            // That is stricter than the lord beside it, which reads a sourceless effect as one
+            // whose controller is the target's own — and deliberately so: a lord with no source
+            // pumps a board that is already there, while this one would hand out an ability
+            // whose id claims a card that is not on the battlefield.
+            if (source is null)
+                return false;
+
+            // Asked before every group test, and it has to be: "~" names no noun and no scope,
+            // so falling through would reach the controller comparison and hand the ability to
+            // every permanent its controller owns.
+            if (self)
+                return target.Subject.Id == source.Id;
+
+            // "Enchanted"/"equipped" means the one permanent this is attached to (CR 701.3c);
+            // everything else is a group, read the same way a lord's is.
+            if (attached)
+                return source.Permanent?.AttachedTo == target.Subject.Id;
+
+            if (commanders)
             {
-                if (source is null)
-                    return false;
-
-                // Asked before every group test below, and it has to be: "~" names no noun and
-                // no scope, so falling through would reach the controller comparison at the
-                // bottom and hand the ability to every permanent its controller owns.
-                if (self)
-                    return target.Subject.Id == source.Id;
-
-                // "Enchanted"/"equipped" means the one permanent this is attached to (CR 701.3c);
-                // everything else is a group, read the same way a lord's is.
-                if (attached)
-                    return source.Permanent?.AttachedTo == target.Subject.Id;
-
-                if (subtype is not null && !target.IsEveryCreatureType && !target.HasSubtype(subtype))
-                    return false;
-
-                // The adjective in the same slot, asked the same way the lord asks it and from
-                // inside the layer loop for the same reason: a finished set of characteristics
-                // would re-enter the computation this test is part of.
-                if (adjective is { } describes && !describes(state, target))
-                    return false;
-
-                // A named tribe is a creature type, so a bare one carries the creature
-                // requirement with it even when the line never says the word.
-                if (type != CardType.None && !target.CardTypes.HasFlag(type))
-                    return false;
-
-                if (type == CardType.None && subtype is not null && !target.IsCreature)
-                    return false;
-
-                if (otherOnly && target.Subject.Id == source.Id)
-                    return false;
-
-                if (commanders)
-                {
-                    // "You own", not "you control": a commander stolen by an opponent is still
-                    // its owner's commander, and a Background follows the card rather than the
-                    // board. "You" is the Background's controller, asked of layer 2 the same
-                    // way the group side below is.
-                    return target.IsCreature
-                        && target.Subject.OwnerId
-                            == Characteristics.ControllerOf(state, target.Abilities, source)
-                        && string.Equals(
-                            state.GetPlayer(target.Subject.OwnerId).CommanderOracleId,
-                            target.Subject.Card.OracleId,
-                            StringComparison.Ordinal);
-                }
-
-                if (everyone)
-                    return true;
-
-                // Computed on both sides, for the same reason the mass statics compute both: a
-                // granted ability has to follow the creature to whoever controls it now, and
-                // "you" is whoever controls the *granting* permanent now (CR 613.1b) — through
-                // the control-only reader, because a full computation from inside the layers is
-                // the CR 613.8 loop.
-                var granter = source.Id == target.Subject.Id
-                    ? target.ControllerId
-                    : Characteristics.ControllerOf(state, target.Abilities, source);
-
-                return yours
-                    ? target.ControllerId == granter
-                    : target.ControllerId != granter;
+                // "You own", not "you control": a commander stolen by an opponent is still its
+                // owner's commander, and a Background follows the card rather than the board.
+                // "You" is the Background's controller, asked of layer 2 the same way the
+                // group's ownership clause is.
+                return target.IsCreature
+                    && target.Subject.OwnerId
+                        == Characteristics.ControllerOf(state, target.Abilities, source)
+                    && string.Equals(
+                        state.GetPlayer(target.Subject.OwnerId).CommanderOracleId,
+                        target.Subject.Card.OracleId,
+                        StringComparison.Ordinal);
             }
+
+            return group!.Matches(state, source, target);
         }
 
         // Named by what it grants as well as by the card, because a card can grant more than
@@ -10849,9 +10912,21 @@ public static partial class CardCompiler
         var describedGrant = string.Join(
             ",", granted.Select(a => a.Id).Concat(grantedTriggers.Select(t => t.Id)));
 
+        // The group's own words lead the id, in the segment the lord's ids already put them in.
+        // That is not cosmetic: <c>Every_subtype_a_mass_static_names_is_a_subtype_some_card_has</c>
+        // reads the group out of exactly that segment, and a granted ability whose id did not
+        // carry one was invisible to the only automatic check this family has.
+        var describedGroup = self
+            ? "self"
+            : attached
+                ? "attached"
+                : commanders
+                    ? "commanders"
+                    : group!.Described;
+
         into.Add(new ContinuousEffectDefinition
         {
-            Id = $"grants:{card.Name}:{describedGrant}",
+            Id = $"grants:{describedGroup}:{card.Name}:{describedGrant}",
             Layer = EffectLayer.Ability,
             Applies = Receives,
             Apply = (_, _, builder) =>
@@ -10875,7 +10950,7 @@ public static partial class CardCompiler
 
             into.Add(new ContinuousEffectDefinition
             {
-                Id = $"grants:{card.Name}:{GenerativeEffects.PumpId(power, toughness)}",
+                Id = $"grants:{describedGroup}:{card.Name}:{GenerativeEffects.PumpId(power, toughness)}",
                 Layer = EffectLayer.PowerToughnessModify,
                 Applies = Receives,
                 Apply = (_, _, builder) => builder.Modify(power, toughness),
@@ -17191,11 +17266,15 @@ public static partial class CardCompiler
         @"^((?<attached>[Ee]nchanted|[Ee]quipped) (creature|land|permanent|artifact)"
             + @"|(?<self>~)"
             + @"|(?i:(?<commander>commander) creatures? you own)"
-            + @"|(?<scope>(?i:all|each|other))?\s*"
-            + @"(?:(?<subtype>[A-Z][a-z]+)\s+(?i:(?<type>creature|permanent))s?"
-            + @"|(?i:(?<type>creature|permanent|land|artifact|enchantment))s?"
-            + @"|(?<subtype>[A-Z][a-z]+))"
-            + @"(?<side>\s+you control|\s+your opponents control)?)"
+            + @"|(?<scope>(?i:all|each other|other|each))?\s*"
+            // The same noun class the lord's pattern uses, bounded to the same four words and
+            // handed whole to the same reader. The hyphen is in the class because "Face-down
+            // creatures you control" and "Non-Spirit creatures" are printed groups the shared
+            // adjective vocabulary can already answer; without it the noun ran out at the hyphen
+            // and the line was never offered to the reader that could have read it.
+            + @"(?<noun>[A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*){0,3}?)"
+            + @"(?i:(?<side>\s+you control|\s+your opponents control"
+            + @"|\s+an opponent controls|\s+enchanted player controls))?)"
             + @"\s+((?i:gets?|have|has) (?<p>[+-]\d+)/(?<tough>[+-]\d+) and )?"
             + @"ha(s|ve) ""(?<ability>[^""]+)""\.?$",
         RegexOptions.None)]

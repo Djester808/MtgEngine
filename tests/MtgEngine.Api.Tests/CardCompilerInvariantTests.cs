@@ -24,7 +24,7 @@ namespace MtgEngine.Api.Tests;
 /// coverage test asks whether a line parsed, and no behaviour test happened to play a land.
 /// </para>
 /// </remarks>
-public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
+public sealed partial class CardCompilerInvariantTests(ITestOutputHelper output)
 {
     [Fact]
     public void Every_compiled_card_is_structurally_sound()
@@ -1584,9 +1584,14 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
             return;
         }
 
-        // Every subtype printed on any card, which is the only definition of the word there is.
+        // What subtypes exist is a question the rules answer and the corpus only samples — the
+        // same correction the witness board in this file already needed, for the same reason.
+        // Army is the case that forces it: no playable card is printed with the type, because
+        // the only way to have one is to amass it, so a corpus-only list calls "Armies you
+        // control have trample" a lord for a type no card has when it is nothing of the kind.
         var known = new HashSet<string>(
             corpus.SelectMany(c => c.Subtypes ?? []), StringComparer.OrdinalIgnoreCase);
+        known.UnionWith(RulesSubtypes().Select(s => s.Subtype));
 
         var faults = new List<string>();
         var inspected = 0;
@@ -1599,19 +1604,34 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
 
             foreach (var stat in compiled.Statics)
             {
-                // "mass:<group>:<card name>:<what it does>" — the group is the only segment that
-                // names what the effect selects.
+                // "<reader>:<group>:<card name>:<what it does>" — the group is the only segment
+                // that names what the effect selects, and every group reader now writes it in
+                // the same place. It used to be the lord's id shape alone, so the two readers
+                // beside it were outside this check entirely; the granted-ability reader's
+                // "Green creatures have …" lord for the creature type "Green" was found by
+                // reading the code, which is the expensive way.
                 var parts = stat.Id.Split(':');
-                if (parts.Length < 2 || !string.Equals(parts[0], "mass", StringComparison.Ordinal))
+
+                // A Class level and a Room door prefix the id of everything behind them with the
+                // gate they sit behind - "l2", "door1" - so the reader's own name is what is left
+                // once that is taken off. Six group statics on complete cards carry one, and
+                // matching the bare prefix alone would have left every one of them outside this
+                // check, which is the hole this test was just widened to close.
+                var head = GateMarker().Replace(parts[0], string.Empty);
+
+                if (parts.Length < 2 || !GroupReaders.Contains(head))
                     continue;
 
                 inspected++;
 
                 foreach (var word in parts[1].Split(
-                    [' ', '|', '&'], StringSplitOptions.RemoveEmptyEntries))
+                    [' ', '|', '&', '-'], StringSplitOptions.RemoveEmptyEntries))
                 {
                     // Lower-case words are card types, adjectives and keywords; only a capital
-                    // claims to be a creature type.
+                    // claims to be a creature type. The group reader lower-cases the phrase it
+                    // read and appends the tribe it resolved in its printed case, so the one
+                    // capital in the segment is exactly the claim being checked — before that,
+                    // the whole segment was lower-cased and this loop could not fail.
                     if (word.Length == 0 || !char.IsUpper(word[0]) || known.Contains(word))
                         continue;
 
@@ -1620,13 +1640,30 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
             }
         }
 
-        output.WriteLine($"mass statics inspected: {inspected}");
+        output.WriteLine($"group statics inspected: {inspected}");
 
         Assert.True(
             faults.Count == 0,
-            "these mass statics select a creature type no card has, so they read as complete "
+            "these group statics select a creature type no card has, so they read as complete "
                 + "and do nothing:\n  " + string.Join("\n  ", faults.Take(40)));
     }
+
+    /// <summary>
+    /// The effect-id prefixes whose second segment is a group description (CR 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// Three readers compile a group of permanents into a continuous effect — the lord, the
+    /// granted-ability reader and the one that switches a group's activated abilities off — and
+    /// they now share both the predicate and the shape of the id it is named by. Adding a fourth
+    /// means adding its prefix here; the alternative is a reader outside every check this suite
+    /// makes, which is what the other two were.
+    /// </remarks>
+    private static readonly HashSet<string> GroupReaders =
+        new(StringComparer.Ordinal) { "mass", "grants", "abilities-off" };
+
+    /// <summary>The Class level or Room door an effect sits behind, written into its id.</summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(l\d+|door\d+)")]
+    private static partial System.Text.RegularExpressions.Regex GateMarker();
 
     /// <summary>
     /// A card that reads as complete must declare some behaviour.
@@ -2566,12 +2603,20 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     /// found wherever it starts.
     /// </para>
     /// <para>
-    /// The two that remain need something this layer does not have. "Commanders you control" names
-    /// a designation rather than a creature type, and "Equipped creatures you control" is a
-    /// <em>sentence-initial</em> adjective that the capital-letter heuristic cannot tell from a
-    /// subtype. Both are residue of the founding bug — <c>SubtypeCardType</c> says which card type
-    /// a <em>known</em> subtype implies and still defaults everything else to Creature — and
-    /// closing them wants a subtype dictionary, which lives outside <c>MtgEngine.Rules</c>.
+    /// One of the two that remained is closed. "Commanders you control" and "Commander creatures
+    /// you control" name a designation their owner made before the game began (CR 903.3), which
+    /// the capital-letter heuristic cannot tell from a subtype — so the phrase asked for the
+    /// creature type "Commander", which no card has. Two other readers in the compiler were
+    /// already answering that exact question, so the word is now in the shared adjective
+    /// vocabulary and the witness board can state the designation; the phrase is satisfiable
+    /// because a commander is a thing a board can hold.
+    /// </para>
+    /// <para>
+    /// The one that remains needs something this layer does not have. "Equipped creatures you
+    /// control" is a <em>sentence-initial</em> adjective the capital-letter heuristic cannot tell
+    /// from a subtype, and it is residue of the founding bug — <c>SubtypeCardType</c> says which
+    /// card type a <em>known</em> subtype implies and still defaults everything else to Creature
+    /// — so closing it wants a subtype dictionary, which lives outside <c>MtgEngine.Rules</c>.
     /// </para>
     /// <para>
     /// Asserted from both sides on purpose. A ceiling alone leaves slack, and slack is exactly
@@ -2580,7 +2625,7 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
     /// same fault and it has to be looked at rather than absorbed.
     /// </para>
     /// </remarks>
-    private const int UnsatisfiablePhrases = 2;
+    private const int UnsatisfiablePhrases = 1;
 
     /// <summary>The words that end a printed noun phrase rather than belonging to it.</summary>
     /// <remarks>
@@ -3039,6 +3084,29 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
             bare = game.State;
 
             generic = BuildGeneric();
+
+            // A commander is a designation its owner made before the game began (CR 903.3), so
+            // it is a fact about the player rather than about the permanent — and this board had
+            // no way to state one. Every phrase naming a commander was therefore unsatisfiable by
+            // construction, which reads exactly like a compiler that cannot select one. Named
+            // after the board is built, because the designation points at a card the board
+            // invented.
+            //
+            // One creature per seat, so "commanders you control" and "commanders your opponents
+            // control" both have a witness.
+            bare = bare with
+            {
+                Players = Controllers.Aggregate(
+                    bare.Players,
+                    (players, who) => generic.FirstOrDefault(obj =>
+                            obj.OwnerId == who
+                            && obj.Card.CardTypes.HasFlag(MtgEngine.Domain.Enums.CardType.Creature)
+                            && !obj.Card.CardTypes.HasFlag(MtgEngine.Domain.Enums.CardType.Token))
+                        is { } theirs
+                        ? players.SetItem(
+                            who, players[who] with { CommanderOracleId = theirs.Card.OracleId })
+                        : players),
+            };
         }
 
         /// <summary>The largest board any one phrase was tried against, for the report.</summary>
