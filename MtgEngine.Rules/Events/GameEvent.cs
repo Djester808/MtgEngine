@@ -1127,6 +1127,65 @@ public sealed record PreventionEffectCreated(PreventionEffect Effect) : GameEven
 }
 
 /// <summary>
+/// A shield that only ever stopped one instance of damage has stopped it (CR 615.8).
+/// </summary>
+/// <remarks>
+/// The end of a prevention effect, and the only one the engine has: every other shield in
+/// <see cref="State.GameState.Preventions"/> is swept away by the turn ending, which the cleanup
+/// fold does without an event because it can see the turn number. This one ends on something
+/// that happened, so it has to be recorded — the state is a fold of the log, and "the Circle has
+/// been used" is not derivable from the damage event alone.
+/// <para>
+/// Emitted <em>by the replacement that prevented the damage</em>, in the same batch, because
+/// CR 615.8's "once an instance of damage from that source has been prevented" is a fact about
+/// that one application. Written any later, a second simultaneous damage event from the same
+/// source would meet a shield that had already done its job.
+/// </para>
+/// </remarks>
+public sealed record PreventionEffectSpent(Guid EffectId) : GameEvent
+{
+    public override string Rule => "615.8";
+
+    public override string Describe() => "The prevention shield is used up.";
+}
+
+/// <summary>
+/// A resolving effect is waiting to be told which source its shield names (CR 609.7b).
+/// </summary>
+/// <remarks>
+/// The question the Circles of Protection ask, in the shape every question this engine asks
+/// takes: an event plus a <see cref="State.ChoiceKind"/>, so a replay reaches the same offer and
+/// the answer is read back out of the log rather than out of a captured continuation.
+/// <see cref="ManaColorChoiceRequested"/> is the closest model, and this follows it in both
+/// respects.
+/// <para>
+/// <strong>The shield rides on the event, whole but for its source.</strong> Everything the
+/// sentence settled — what it shields, which damage it watches, whether it is spent by the first
+/// instance — was worked out while the spell resolved, and a shield rebuilt when the answer
+/// arrives would be rebuilt from a board that has moved. Only <see cref="PreventionEffect.Source"/>
+/// is left empty, and it is the one field the answer fills.
+/// </para>
+/// <para>
+/// <strong>The menu rides on it too</strong>, for the reason the mana menu does: "a red source of
+/// your choice" was read off a battlefield that an opponent may have changed by the time anybody
+/// answers, and a question whose options moved underneath it is not the question that was asked.
+/// The properties are kept on the shield as well as used to build the list, because CR 615.9 has
+/// them rechecked when the damage would happen — a source that has since stopped being red is
+/// not prevented, and does not spend the shield.
+/// </para>
+/// </remarks>
+public sealed record DamageSourceChoiceRequested(
+    Guid PlayerId,
+    PreventionEffect Shield,
+    ImmutableList<ObjectId> Options) : GameEvent
+{
+    public override string Rule => "609.7b";
+
+    public override string Describe() =>
+        $"{PlayerId:N} chooses a source of damage to prevent.";
+}
+
+/// <summary>
 /// A resolving spell or ability said some damage can't be prevented (CR 615.12).
 /// </summary>
 /// <remarks>

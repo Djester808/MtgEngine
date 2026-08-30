@@ -531,6 +531,20 @@ public static class GameReducer
             {
                 Preventions = state.Preventions.Add(shield.Effect),
             },
+
+            // CR 615.8: the shield stopped its one instance and is gone. Removed by id rather
+            // than by value — two Circles of Protection aimed at the same source in the same turn
+            // are two shields that compare equal in every field but this one, and removing the
+            // first match by value would take whichever the list happened to hold first.
+            PreventionEffectSpent spent => state with
+            {
+                Preventions = state.Preventions.RemoveAll(p => p.Id == spent.EffectId),
+            },
+
+            // The question itself changes nothing: the shield exists once its source is named,
+            // and this event is here so a replay reaches the same offer. The same answer
+            // LookAndTakeRequested gives, for the same reason.
+            DamageSourceChoiceRequested => state,
             UnpreventableDamageDeclared ban => state with
             {
                 Unpreventable = state.Unpreventable.Add(ban.Damage),

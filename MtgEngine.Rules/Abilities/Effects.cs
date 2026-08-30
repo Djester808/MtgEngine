@@ -4061,6 +4061,39 @@ public sealed record PreventDescribedDamage : IEffect
     public bool ForTheTurn { get; init; } = true;
 
     /// <summary>
+    /// Whether the source is named by the controller as this resolves — "a source of your
+    /// choice" (CR 609.7b).
+    /// </summary>
+    /// <remarks>
+    /// The fourth way a sentence names one source, and the only one whose answer is not in the
+    /// sentence: a target is chosen as the spell is cast, "~" is the permanent that printed it,
+    /// a filter describes a set, and this is a question. It is therefore the only one that cannot
+    /// be answered inside <see cref="Resolve"/> — the effect emits
+    /// <see cref="DamageSourceChoiceRequested"/> and the settle sweep asks, exactly as
+    /// <see cref="AddChosenMana"/> does with a colour.
+    /// <para>
+    /// <strong>No answer means no shield.</strong> A shield with an empty
+    /// <see cref="State.PreventionEffect.Source"/> prevents damage from <em>every</em> source,
+    /// so the failure mode of dropping the question is not a card that does nothing — it is a
+    /// card that fogs the table. That is why the request is the only thing this arm returns:
+    /// there is no path from here to a created shield that has not been through an answer.
+    /// </para>
+    /// </remarks>
+    public bool ChooseSource { get; init; }
+
+    /// <summary>
+    /// Whether the first damage this prevents spends it (CR 615.8).
+    /// </summary>
+    /// <remarks>
+    /// "The next time a source of your choice would deal damage to you this turn" against
+    /// "prevent all damage a source of your choice would deal this turn": the same shield around
+    /// the same chosen object, and the difference is whether it survives its first use. Both are
+    /// printed, on cards that are otherwise near-identical, so the flag is read from the sentence
+    /// rather than implied by anything else about it.
+    /// </remarks>
+    public bool OnlyOnce { get; init; }
+
+    /// <summary>
     /// Whether the object shielded is the permanent whose ability this is — "this creature".
     /// </summary>
     /// <remarks>
@@ -4122,25 +4155,79 @@ public sealed record PreventDescribedDamage : IEffect
             }
         }
 
-        return
-        [
-            new PreventionEffectCreated(new State.PreventionEffect
+        var shield = new State.PreventionEffect
+        {
+            Id = Guid.NewGuid(),
+            ControllerId = context.ControllerId,
+            Amount = Amount,
+            Kind = Kind,
+            Permanent = permanent,
+            PermanentFilter = PermanentFilter,
+            PermanentController = PermanentController,
+            Player = player,
+            Players = Players,
+            Source = dealer,
+            SourceFilter = SourceFilter,
+            SourceController = SourceController,
+            UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
+            OnlyOnce = OnlyOnce,
+        };
+
+        if (!ChooseSource)
+            return [new PreventionEffectCreated(shield)];
+
+        var choices = SourcesToChooseFrom(context);
+
+        // Nothing that answers the description is nothing to name, and CR 609.7b's shield is
+        // built around a source that was named. No shield at all is the only safe answer: one
+        // with an empty source slot means "any source", so the card that could not find a red
+        // permanent to point at would fog the whole table instead.
+        return choices.IsEmpty
+            ? []
+            : [new DamageSourceChoiceRequested(context.ControllerId, shield, choices)];
+    }
+
+    /// <summary>
+    /// Every object that could be named as the source of damage (CR 609.7a).
+    /// </summary>
+    /// <remarks>
+    /// "A source of damage is an object that dealt damage", and an object is on the battlefield
+    /// or on the stack — a Circle of Protection held open until the burn spell is cast is the
+    /// card, so the stack is not an optional half of this list. The resolving object itself is
+    /// left out: it is on its way off the stack and naming it is naming nothing.
+    /// <para>
+    /// The properties are read off the printed card, as every other card-filter question at this
+    /// level is, and the same deviation <see cref="State.Preventions.Covers"/> documents applies
+    /// — an animated land is not offered to "a creature of your choice". Widening it here would
+    /// need a second filter vocabulary over computed characteristics, and it would also have to
+    /// be widened in <see cref="State.Preventions.Watches"/>, which rechecks the same properties
+    /// when the damage arrives (CR 615.9). The two must agree, so neither moves alone.
+    /// </para>
+    /// </remarks>
+    private ImmutableList<ObjectId> SourcesToChooseFrom(ResolutionContext context)
+    {
+        var found = ImmutableList.CreateBuilder<ObjectId>();
+
+        foreach (var id in context.State.Battlefield.Concat(context.State.Stack))
+        {
+            if (id == context.SourceId || !context.State.TryGetObject(id, out var candidate))
+                continue;
+
+            if (SourceFilter is { } filter && !SearchFilters.Matches(filter, candidate.Card))
+                continue;
+
+            if (SourceController is { } scope
+                && !PlayerScopes.Around(scope, context.State, context.ControllerId)
+                    .Contains(Characteristics.ControllerOf(
+                        context.State, context.Abilities, candidate)))
             {
-                Id = Guid.NewGuid(),
-                ControllerId = context.ControllerId,
-                Amount = Amount,
-                Kind = Kind,
-                Permanent = permanent,
-                PermanentFilter = PermanentFilter,
-                PermanentController = PermanentController,
-                Player = player,
-                Players = Players,
-                Source = dealer,
-                SourceFilter = SourceFilter,
-                SourceController = SourceController,
-                UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
-            }),
-        ];
+                continue;
+            }
+
+            found.Add(id);
+        }
+
+        return found.ToImmutable();
     }
 }
 

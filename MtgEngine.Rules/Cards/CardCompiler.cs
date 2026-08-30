@@ -14469,9 +14469,12 @@ public static partial class CardCompiler
             {
                 dealtByHost = true;
             }
-            else if (EffectPhrase.PreventSource(dealt) is { } dealer)
+            // "Of your choice" is a question, and a ban is not resolving to ask one — the word
+            // is refused here rather than dropped, which would ban prevention of every red
+            // source's damage on the strength of a card that named one.
+            else if (EffectPhrase.PreventSource(dealt) is { Chosen: false } dealer)
             {
-                (filter, whose) = dealer;
+                (filter, whose, _) = dealer;
             }
             else
             {
@@ -14701,10 +14704,14 @@ public static partial class CardCompiler
 
             if (dealer is PreventionAnchor.None)
             {
-                if (EffectPhrase.PreventSource(by) is not { } described)
+                // A static ability never stops to ask anything, so "of your choice" has nowhere
+                // to be answered and the line is left unread. Read as the bare description it
+                // would be a permanent shielding against every source of that kind for as long
+                // as it is on the battlefield, which is a different and much better card.
+                if (EffectPhrase.PreventSource(by) is not { Chosen: false } described)
                     return false;
 
-                from = described;
+                from = (described.Filter, described.Who);
             }
         }
 

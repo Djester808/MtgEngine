@@ -294,6 +294,24 @@ public enum ChoiceKind
     /// over the board, which is why the request carries the cards themselves.
     /// </remarks>
     TakeFromTouched,
+
+    /// <summary>
+    /// Which object a prevention shield is put around (CR 609.7b, 615.9).
+    /// </summary>
+    /// <remarks>
+    /// "A source of your choice" — the Circles of Protection, and the one prevention wording
+    /// whose shield names an object nothing in the sentence points at. It is neither a target
+    /// (chosen as the spell is cast, checked for legality twice, defeated by hexproof) nor a
+    /// description (rechecked at every damage event): CR 609.7a fixes it once, as the effect is
+    /// created, which is mid-resolution.
+    /// <para>
+    /// Distinct from <see cref="ChoosePermanent"/>, whose menu is permanents <em>you control</em>
+    /// on the battlefield. A source of damage is any object that could deal some — an opponent's
+    /// creature is the usual answer, and a spell on the stack is a legal one (CR 609.7a), which
+    /// is the whole point of holding the circle open until the burn spell is cast.
+    /// </para>
+    /// </remarks>
+    ChooseDamageSource,
 }
 
 /// <summary>One thing a player may pick.</summary>
