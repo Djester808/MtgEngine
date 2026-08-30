@@ -10140,6 +10140,20 @@ public static partial class CardCompiler
             "tapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == true),
             "untapped" => (true, (_, target) => target.Subject.Permanent?.IsTapped == false),
 
+            // "Goaded creatures your opponents control" - a designation rather than a creature
+            // type (CR 701.15b), and the tribe fallback below would read it as one: a lord for
+            // the creature type "Goaded", which no card has, on a line that reads as complete
+            // and forbids nothing. That is the failure this whole family is prone to, and
+            // CardCompilerInvariantTests' satisfiability check is what caught it.
+            //
+            // Recognised and refused rather than answered, because answering it needs an
+            // ordering this engine does not have: goading is applied in layer 6 by a floating
+            // effect, and so is this lord, so a static whose permanent arrived first would be
+            // asked before the goad had been applied and would see nothing goaded (CR 613.8's
+            // dependency, which is not modelled). A prohibition that binds on some turns and not
+            // others is worse than an unread line.
+            "goaded" => (true, null),
+
             // "Face-down creatures you control get +0/+1" (CR 707.2). A fact about the object
             // rather than about its card, which is why it is asked of the permanent beside the
             // two above it \u2014 the card underneath is untouched and says nothing about being
@@ -10378,9 +10392,9 @@ public static partial class CardCompiler
                 : KeywordAbility.MustAttack;
         }
 
-        // "Creatures you control can't attack", "Goaded creatures your opponents control can't
-        // block" - the prohibitions the single-creature readers already know, said about a
-        // group. Every one of them is a keyword this engine models (CR 702.3b makes "can't
+        // "Creatures you control can't attack", "Black creatures can't block", "Boars you
+        // control can't be blocked by more than one creature" - the prohibitions the
+        // single-creature readers already know, said about a group. Every one of them is a keyword this engine models (CR 702.3b makes "can't
         // attack" exactly defender), so they join the grant above rather than becoming an effect
         // of their own: the attack and block declarations read those flags off the *computed*
         // characteristics of each creature, so one granted here is enforced by the code that
