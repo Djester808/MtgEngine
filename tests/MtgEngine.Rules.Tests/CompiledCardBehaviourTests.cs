@@ -63593,6 +63593,294 @@ public sealed class CompiledCardBehaviourTests
             line => line.Contains("two +1/+1 counters on it instead", StringComparison.Ordinal));
     }
 
+    // ---- The shorter twin, and an id that changed every run -------------------
+
+    /// <summary>
+    /// "Creatures you control get +N/+N until end of turn" reaches your creatures and no others.
+    /// </summary>
+    /// <remarks>
+    /// Two readers used to answer this sentence. <c>MassPumpLine</c> reads the noun phrase through
+    /// the group vocabulary and builds a <c>PumpGroup</c> over the parsed spec; a second matcher
+    /// further down spelled this one group out in its own pattern and built a different effect,
+    /// <c>PumpCreaturesYouControl</c>, which selected its creatures by reading
+    /// <c>obj.ControllerId</c> — where control <em>started</em> rather than where it is
+    /// (CR 613.1b). Nothing could reach it, because the first reader claims every sentence the
+    /// second could match, so the wrong half was never run and never noticed.
+    /// <para>
+    /// It is gone, and this is the test that the surviving reader does the whole job: the group
+    /// is "you control", so the creature across the table is not in it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_pump_reaches_your_creatures_and_stops_at_the_table_edge()
+    {
+        var rite = Card(
+            "Test Pump Rite",
+            "Creatures you control get +2/+2 until end of turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(alice, TestCards.Creature("Test Twin Rite Bear", 2, 2), Zone.Battlefield);
+        var alsoMine = game.Create(
+            alice, TestCards.Creature("Test Twin Rite Ox", 1, 1), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Test Twin Rite Wolf", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rite), []);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(mine)));
+        Assert.Equal(3, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(alsoMine)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// A counter the group action cannot name is refused rather than rounded down to +1/+1.
+    /// </summary>
+    /// <remarks>
+    /// The counter half of the same pair. <c>MassCountersLine</c> read "put a +1/+1 counter on
+    /// each …" beneath <c>CounterOnEachLine</c>, whose language strictly contains it, so control
+    /// never arrived there with a sentence it could take — and where the two would have differed
+    /// the twin was the weaker one twice over. It had no reading for "other", which
+    /// <see cref="A_counter_on_each_other_creature_leaves_the_source_out"/> covers, and no
+    /// refusal for the mis-sized counter, which is this. Compiled as a +1/+1 it would have read
+    /// complete and done a quarter of what it printed.
+    /// </remarks>
+    [Fact]
+    public void A_counter_the_group_action_cannot_name_is_refused()
+    {
+        var compiled = CardCompiler.Compile(Card(
+            "Test Oversized Counters",
+            "Put a +4/+4 counter on each creature you control.",
+            CardType.Sorcery));
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("+4/+4 counter on each", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// An adjective in front of a granted group is read as one, not as a creature type.
+    /// </summary>
+    /// <remarks>
+    /// The bug <c>ReadStaticGroup</c> was written to end for the lord, still standing one reader
+    /// over: the granted-ability matcher kept its own noun grammar, whose tribe slot is "a
+    /// capitalised word" — and so is every adjective that can stand there. "Green creatures you
+    /// control have …" compiled to a grant for the creature type "Green", which no card has, so
+    /// it read as complete and handed the ability to nobody. A reader that never fires looks
+    /// exactly like a reader that works.
+    /// <para>
+    /// The white bear is the half that carries the test: before the fix <em>neither</em> creature
+    /// had the ability, and an assertion that only asked about the green one would have passed on
+    /// a card that granted nothing at all.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_adjective_in_front_of_a_granted_group_is_read_as_one()
+    {
+        var chant = Card(
+            "Test Verdant Chant",
+            "Green creatures you control have \"{T}: Add {G}.\"",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(chant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var green = game.Create(alice, Coloured("Test Chant Elf", ManaColor.Green), Zone.Battlefield);
+        var white = game.Create(alice, Coloured("Test Chant Cleric", ManaColor.White), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, chant), []);
+        Settle(game);
+
+        Assert.Single(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(green)).GrantedActivated);
+
+        Assert.Empty(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(white)).GrantedActivated);
+    }
+
+    /// <summary>
+    /// A granted group whose adjective cannot be answered leaves the line unread.
+    /// </summary>
+    /// <remarks>
+    /// The third answer the shared adjective vocabulary gives, and the one that matters: a word
+    /// recognised as an adjective and not answerable refuses the line rather than falling through
+    /// to the tribe reading. "Modified" wants counters, Auras and Equipment (CR 700.9); read as a
+    /// creature type it compiled complete and granted to nobody, which is the silent no-op this
+    /// whole path exists to stop. Unread is the honest outcome — a card a deck check refuses is a
+    /// card somebody notices.
+    /// </remarks>
+    [Fact]
+    public void A_granted_group_whose_adjective_cannot_be_answered_is_left_unread()
+    {
+        var compiled = CardCompiler.Compile(Card(
+            "Test Modified Chant",
+            "Modified creatures you control have \"{T}: Add {G}.\"",
+            CardType.Enchantment));
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("Modified creatures", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A definition id is the same string in every process.
+    /// </summary>
+    /// <remarks>
+    /// The attached-count static folded <c>string.GetHashCode</c> into its id, and that is
+    /// randomised per process on .NET Core — a fact this codebase had already written down twice,
+    /// in <c>EffectPhrase.StableHash</c> and in <c>DeterministicSample</c>, and still had one
+    /// place that did not follow it. Eleven cards — Kor Spiritdancer, Uril, Rabid Wombat, Goblin
+    /// Gaveleer and the rest of the Aura and Equipment counters — compiled to a different id every
+    /// run.
+    /// <para>
+    /// Nothing in a running game noticed, because ids are only ever compared inside one process.
+    /// What noticed was a compiled-effect diff across two runs, which reported those eleven as
+    /// changed by a commit that could not have touched them: a comparison that cannot tell a real
+    /// change from a re-run is the cost of a per-process id long before a replayed log is.
+    /// </para>
+    /// <para>
+    /// The expected value is written out rather than recomputed, because a test that hashes the
+    /// line itself would agree with any hash at all, including the one this replaced.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_attached_count_static_keeps_its_id_between_processes()
+    {
+        var compiled = CardCompiler.Compile(Card(
+            "Test Aura Counter",
+            "~ gets +2/+2 for each Aura attached to it.",
+            CardType.Creature,
+            2,
+            2));
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        Assert.Equal(
+            "attached-count:Test Aura Counter:2/2:Aura:0ff8e996",
+            Assert.Single(compiled.Statics).Id);
+    }
+
+    /// <summary>
+    /// "…, then shuffle" after a search is read as the search having already done it
+    /// (CR 701.23e).
+    /// </summary>
+    /// <remarks>
+    /// The largest of the duplicate pairs and the only one where the shadowed reader was the
+    /// right one. A reader beside the search vocabulary said exactly this and cited this rule,
+    /// and it could never run: the general shuffle matches the same clause 2,200 lines earlier
+    /// and adds its effect unconditionally, so <strong>465 cards</strong> — every fetchland,
+    /// every basic-land ramp spell, Solemn Simulacrum, Prismatic Vista — compiled a second
+    /// shuffle after the search.
+    /// <para>
+    /// Two shuffles are not illegal, which is why nothing failed. They are not what the card
+    /// says: each one takes a draw from the seeded random and writes another
+    /// <c>LibraryShuffled</c> into the log a replay has to carry, so two games that should be
+    /// identical part company the moment one of them fetches.
+    /// </para>
+    /// <para>
+    /// Counted in the log rather than in the parse tree, because the parse tree is where the
+    /// reader that was already there put its claim, and that claim was not true of the game.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_shuffle_printed_after_a_search_is_not_a_second_shuffle()
+    {
+        var quest = Card(
+            "Test Fetch Quest",
+            "Search your library for a basic land card, put it onto the battlefield tapped,"
+                + " then shuffle.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(quest);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Empty(compiled.Spell!.Effects.OfType<ShuffleLibrary>());
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var forests = Enumerable.Range(1, 20).Select(_ => TestCards.BasicLand("Forest")).ToList();
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, forests),
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(1),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var card = TestCards.PutInHand(game, alice, quest);
+        var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        // Everything the opening shuffle and the draws already wrote, so the count below is the
+        // spell's own and not the game's.
+        var before = game.Log.Count(e => e is LibraryShuffled);
+
+        game.CastSpell(alice, card, targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        game.Choose(alice, [game.State.Choice!.Options[0].Id]);
+        Settle(game);
+
+        Assert.Equal(before + 1, game.Log.Count(e => e is LibraryShuffled));
+    }
+
+    /// <summary>
+    /// A shuffle that follows anything else, or nothing, is still a shuffle.
+    /// </summary>
+    /// <remarks>
+    /// The half that makes the guard above a reading rather than a deletion. The reader it
+    /// replaced was gated on "something has already been read", which would have swallowed the
+    /// shuffle after any instruction at all; this one asks whether the last thing compiled was a
+    /// <em>search</em>, walking the tree so that the conditional wording — where the search sits
+    /// inside an intervening if and the shuffle does not — is answered too. Primal Command is the
+    /// printed card that makes the distinction load-bearing: one of its modes really does shuffle.
+    /// </remarks>
+    [Fact]
+    public void A_shuffle_that_is_not_a_search_s_own_is_still_read()
+    {
+        var bare = CardCompiler.Compile(
+            Card("Test Bare Shuffle", "Shuffle your library.", CardType.Sorcery));
+
+        Assert.True(bare.IsComplete, string.Join(" | ", bare.Unhandled));
+        Assert.Single(bare.Spell!.Effects.OfType<ShuffleLibrary>());
+
+        var afterDraw = CardCompiler.Compile(
+            Card("Test Draw Then Shuffle", "Draw a card, then shuffle.", CardType.Sorcery));
+
+        Assert.True(afterDraw.IsComplete, string.Join(" | ", afterDraw.Unhandled));
+        Assert.Single(afterDraw.Spell!.Effects.OfType<ShuffleLibrary>());
+
+        // The graveyard arm is a different instruction and never was the search's.
+        var yard = CardCompiler.Compile(Card(
+            "Test Yard Shuffle", "Shuffle your graveyard into your library.", CardType.Sorcery));
+
+        Assert.True(yard.IsComplete, string.Join(" | ", yard.Unhandled));
+        Assert.True(yard.Spell!.Effects.OfType<ShuffleLibrary>().Single().GraveyardFirst);
+
+        // And the conditional wording, where the search is inside the if and the shuffle is not.
+        var conditional = CardCompiler.Compile(Card(
+            "Test Conditional Fetch",
+            "If you control four or fewer lands, search your library for a basic land card, put"
+                + " it onto the battlefield tapped, then shuffle.",
+            CardType.Sorcery));
+
+        Assert.True(conditional.IsComplete, string.Join(" | ", conditional.Unhandled));
+        Assert.Empty(conditional.Spell!.Effects.OfType<ShuffleLibrary>());
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

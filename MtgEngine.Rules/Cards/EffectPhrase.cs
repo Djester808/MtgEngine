@@ -1786,9 +1786,18 @@ public static partial class EffectPhrase
     /// card goes unread, which is the promise every other template makes: what cannot be run
     /// correctly is not claimed.
     /// </para>
+    /// <para>
+    /// Asked of the locator rather than of a list of types, because the list was a hand-written
+    /// mirror of another hand-written list and had already drifted. This named four effects;
+    /// <c>Game.Resume</c> looks six up through <c>EffectTree.Locate</c>, so <c>Clash</c> and
+    /// <c>RevealAndTake</c> could be compiled into a branch whose index names the wrapper — the
+    /// precise failure the rest of this remark describes, in the two kinds it did not cover.
+    /// <c>EffectTree.LocatorOf</c> is the accessor the lookup itself uses, so an effect that
+    /// carries a locator is one this reports, and a seventh kind needs nothing added here.
+    /// </para>
     /// </remarks>
     internal static bool FindsItselfByIndex(IEffect effect) =>
-        effect is MayPay or ChooseAndMove or FlipCoin or RollDice;
+        EffectTree.LocatorOf(effect) is not null;
 
     /// <summary>
     /// Whether every deferred question in a tree of effects would still find itself again.
@@ -2734,6 +2743,33 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "…, then shuffle" printed after a search: recognised, and read as nothing. Searching a
+        // library shuffles it (CR 701.23e) and this engine does that in Game.ResolveSearch, so
+        // the printed word is the older templating saying out loud what the search already did.
+        //
+        // There is a reader further down that says exactly this and cites the same rule, and it
+        // could never run: the general shuffle below matches the same clause 2,200 lines earlier
+        // and adds an effect unconditionally, so **465 cards** - every fetchland, every basic-land
+        // ramp spell, Solemn Simulacrum, Prismatic Vista - compiled a second ShuffleLibrary after
+        // the search. Two shuffles are not illegal, but they are not what the card says, and each
+        // one takes a draw from the seeded random and writes another LibraryShuffled into the log
+        // that a replay has to carry.
+        //
+        // The guard is "the last thing compiled was a search" rather than "anything has been
+        // read", which is what the reader below used: a shuffle after some other instruction is a
+        // real shuffle, and only a search has already done this one. Primal Command is the card
+        // that makes the distinction load-bearing - one of its modes really does shuffle.
+        //
+        // Asked through EffectTree, because "If you control four or fewer lands, search …, then
+        // shuffle" puts the search inside an OnlyIf and leaves the shuffle outside it. Walking
+        // the tree costs nothing here and catches those four; a test for the bare list would have
+        // fixed the plain wording and quietly left the conditional one doubling.
+        if (effects.Count > 0
+            && EffectTree.Flatten(effects).LastOrDefault() is SearchLibrary
+            && BareShuffleLine().IsMatch(sentence))
+        {
+            return true;
+        }
 
         m = ShuffleLine().Match(sentence);
         if (m.Success)
@@ -3899,22 +3935,13 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Put a +1/+1 counter on each creature you control" — the same group grammar the
-        // sweepers use, with counters instead of a verb.
-        var massCounters = MassCountersLine().Match(sentence);
-        if (massCounters.Success
-            && Specs.ParseGroup(massCounters.Groups["t"].Value) is
-            { Kind: TargetKind.Permanent } counterees)
-        {
-            effects.Add(new ToEachPermanent(
-                massCounters.Groups["kind"].Value == "+1/+1"
-                    ? GroupAction.PlusOneCounters
-                    : GroupAction.MinusOneCounters,
-                counterees,
-                Number(massCounters.Groups["n"].Value)));
-
-            return true;
-        }
+        // "Put a +1/+1 counter on each creature you control" was read here as well as by
+        // CounterOnEachLine above, which is the shape this file has already deleted once:
+        // MassCountersLine's language is a strict subset of that one's - same number vocabulary,
+        // a narrower counter and a narrower group word - so control never arrived here with a
+        // sentence it could take. It answered worse where it could have run, too: it had no
+        // reading for "other", and no refusal for the wrongly-sized counter that the reader above
+        // exists to catch. One sentence, one reader.
 
         // "Target player discards a card" — a discard aimed at one player rather than a group.
         var told = TargetDiscardLine().Match(sentence);
@@ -4984,16 +5011,10 @@ public static partial class EffectPhrase
             }
         }
 
-        // "Search your library for a basic land card, put it onto the battlefield tapped, then
-        // shuffle." — every ramp spell and every fetchland. The trailing shuffle is matched but
-        // not read, because the search does it either way (CR 701.23e); requiring the words is
-        // what keeps this from claiming a search that does something else with what it finds.
-        // "Then shuffle" arrives as a clause of its own, because the sentence splitter separates
-        // on ", then" — and the search has already shuffled (CR 701.23e). Accepted only when
-        // something has already been read, so a bare "Shuffle your library" on a card with no
-        // search does not quietly compile to nothing.
-        if (effects.Count > 0 && BareShuffleLine().IsMatch(sentence))
-            return true;
+        // The trailing "then shuffle" after a search is read where the shuffle vocabulary is,
+        // beside the general shuffle it has to be asked before. It stood here for a long time
+        // and never ran, which is the whole finding: a reader that cites the right rule is worth
+        // nothing behind one that answers the same clause first.
 
         m = SearchLibraryLine().Match(sentence);
         if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
@@ -6103,14 +6124,13 @@ public static partial class EffectPhrase
             }
         }
 
-        m = MassPump().Match(sentence);
-        if (m.Success)
-        {
-            var (yoursId, yoursSize) = PumpSizeOf(m);
-
-            effects.Add(new PumpCreaturesYouControl(yoursId) { Size = yoursSize });
-            return true;
-        }
+        // "Creatures you control get +N/+N until end of turn" was read here too, by a pattern
+        // that spelled one group out where MassPumpLine reads the noun phrase - so this could
+        // only ever be reached for a sentence that one had already claimed, and it never was.
+        // It is the more interesting half of the pair: the two answers were different effects,
+        // PumpCreaturesYouControl against PumpGroup over a parsed spec, and only the second is
+        // built from the vocabulary every other group reader shares. A dead reader with its own
+        // private effect is a second implementation waiting for a reordering to wake it up.
 
         // "Enchanted creature gets +0/+1 until end of turn" — an Aura pumping what it is on,
         // on demand rather than continuously. It names no target: "enchanted creature" is
@@ -7503,8 +7523,29 @@ public static partial class EffectPhrase
     {
         var parts = $"{(long)extraTypes}|{string.Join(',', subtypes)}|{(long)keywords}|{text}";
 
-        if (parts == "0||0|")
-            return string.Empty;
+        return parts == "0||0|" ? string.Empty : "-" + StableHash(parts);
+    }
+
+    /// <summary>
+    /// A hash of a definition's text that is the same in every process.
+    /// </summary>
+    /// <remarks>
+    /// The arithmetic the remark above insists on, given a name so that the second place needing
+    /// it did not have to be trusted to remember. It had not been: the attached-count static in
+    /// <c>CardCompiler</c> folded <c>string.GetHashCode</c> into its definition id, so eleven
+    /// cards - Kor Spiritdancer, Uril, Rabid Wombat and the rest of the Aura and Equipment
+    /// counters - compiled to a different id in every process. Nothing in a running game noticed,
+    /// because ids are compared inside one process; what noticed was a compiled-effect diff
+    /// across two runs, which reported those eleven as changed by a commit that could not have
+    /// touched them. A comparison tool that cannot tell a real change from a re-run is the cost
+    /// of a per-process id long before a replay is.
+    /// <para>
+    /// FNV-1a, and no salt: it has to be defined by its arithmetic rather than by a runtime.
+    /// </para>
+    /// </remarks>
+    internal static string StableHash(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
 
         unchecked
         {
@@ -7512,13 +7553,13 @@ public static partial class EffectPhrase
             const uint Prime = 16777619;
 
             var hash = Offset;
-            foreach (var c in parts)
+            foreach (var c in text)
             {
                 hash ^= c;
                 hash *= Prime;
             }
 
-            return "-" + hash.ToString("x8", CultureInfo.InvariantCulture);
+            return hash.ToString("x8", CultureInfo.InvariantCulture);
         }
     }
 
@@ -13724,16 +13765,6 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex PerEachDrawLine();
 
-    /// <remarks>
-    /// The group phrase keeps its "each"/"all", because that is what the target grammar reads it
-    /// by — "each creature you control" is a group and "creature you control" is not.
-    /// </remarks>
-    [GeneratedRegex(
-        @"^put " + N + @" (?<kind>\+1/\+1|-1/-1) counters? on "
-            + @"(?<t>(each|all) [A-Za-z0-9'’ ]+)$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex MassCountersLine();
-
     [GeneratedRegex(
         @"^(?<t>target (player|opponent)) discards " + N + @" "
             + @"cards?(?<random> at random)?$",
@@ -14845,11 +14876,6 @@ public static partial class EffectPhrase
             + @"( and gains (?<kw>[a-z ,]+?))? until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ItPumps();
-
-    [GeneratedRegex(
-        @"^creatures you control get " + PT + @" until end of turn$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex MassPump();
 }
 
 /// <summary>Reads the "when" half of a triggered ability into a predicate (CR 603.1).</summary>
