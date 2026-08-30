@@ -3086,6 +3086,41 @@ public static partial class CardCompiler
 
             cleaned = Whitespace().Replace(cleaned, " ").Trim();
 
+            // "It deals 4 damage to any target" is "~ deals 4 damage to any target" - the same
+            // instruction with the source spelled as a pronoun. Normalised rather than given a
+            // reader of its own, because every damage sentence this grammar knows is written
+            // against the named form: divided damage, "damage equal to the number of Mountains
+            // you control", "and 1 damage to you", the group forms. Two narrow readers for the
+            // pronoun already existed ("it deals N damage to <target>" and the "each"/"all"
+            // group form, both anchored whole), and the corpus shows what that costs - 310
+            // incomplete cards print the pronoun form of a damage sentence, and 55 of them read
+            // the moment the word agrees with the readers the named form already has. Nine of
+            // those 55 would be read wrongly and are refused below, leaving 46.
+            //
+            // **Only where the pronoun can mean nothing but the source.** "It" takes whatever
+            // the line named last (the corpus rule; it is not "the source" and it is not "the
+            // Aura's host"), so this rewrites only when the last thing named before the pronoun
+            // is "~" and nothing that could be an antecedent stands between them. The three
+            // shapes that would be mis-read are left unread instead:
+            //
+            //   "Whenever another Demon you control enters, it deals damage equal to its power"
+            //       - the Demon, not the enchantment. Be'lakor, Warstorm Surge, Stalking
+            //         Vengeance and Fiendlash: four cards that would each have dealt damage
+            //         from a permanent with no power at all.
+            //   "Tap target creature. It deals damage equal to its power to another target
+            //    creature" - the tapped creature. Deadshot, Assert Perfection, Venom Blast and
+            //         Bionic Blow: four spells, and a spell has no power either.
+            //   "Whenever ~ or another Hero you control enters, it deals ..." - whichever
+            //       entered, which the text cannot say. Hawkeye, Trick Shot.
+            //
+            // CR 120.2b: a spell or ability specifies which object deals the damage, so reading
+            // the wrong one is not a detail - lifelink, deathtouch and every "whenever this
+            // deals damage" trigger read it, and a spell has no power for "equal to its power"
+            // to find. Unread is the honest answer for all three.
+            var body = cleaned;
+            cleaned = SourcePronounDamage().Replace(
+                body, m => MeansTheSource(body, m.Index) ? "~ deals" : m.Value);
+
             // The rule between a card's two faces, which the card pool writes as a line of its
             // own. It is deliberately left unread, and that is the whole of the engine's answer
             // to two-faced cards: a CardDefinition holds one set of characteristics and one body
@@ -3121,6 +3156,30 @@ public static partial class CardCompiler
     }
 
     // ---- Matchers ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Whether the "it" at <paramref name="at"/> in <paramref name="line"/> can only be the
+    /// source of the ability.
+    /// </summary>
+    /// <remarks>
+    /// The nearest-antecedent rule, which is what a reader of English applies and what the
+    /// corpus bears out: the pronoun means whatever the sentence named last. So the answer is
+    /// yes exactly when the last thing named before it is "~" - the source - and nothing that
+    /// could be named instead stands in between.
+    /// <para>
+    /// The list of things that could be named is deliberately wide, and every word in it costs
+    /// only a line that stays unread. "Whenever ~ deals combat damage to a player, it deals ..."
+    /// is refused by the word "player" even though the pronoun does mean the source there; that
+    /// is the direction to be wrong in.
+    /// </para>
+    /// </remarks>
+    private static bool MeansTheSource(string line, int at)
+    {
+        var before = line[..at];
+        var named = before.LastIndexOf('~');
+
+        return named >= 0 && !OtherAntecedent().IsMatch(before[(named + 1)..]);
+    }
 
     /// <summary>
     /// A line that is nothing but keywords the engine already models (CR 702).
@@ -14132,6 +14191,33 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(@"enters the battlefield", RegexOptions.IgnoreCase)]
     private static partial Regex EntersTheBattlefield();
+
+    /// <summary>
+    /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.
+    /// </summary>
+    /// <remarks>
+    /// The lookbehind is doing real work. "A creature you control with a +1/+1 counter on it
+    /// deals combat damage to a player" and "any amount of damage it deals to a creature" both
+    /// contain the two words and in neither is the pronoun the sentence's subject; rewriting
+    /// there would break lines that read today.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<=^|[.,:;] |\bthen |\bwhen |\bwhenever )[Ii]t deals\b",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SourcePronounDamage();
+
+    /// <summary>Something a pronoun could be pointing at other than the source.</summary>
+    /// <remarks>
+    /// Not a grammar - a refusal. Anything in this list standing between the last "~" and the
+    /// pronoun means the sentence has named something since, and the pronoun is no longer
+    /// unambiguous. See <see cref="MeansTheSource"/>.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(target|another|other|each|every|all|creature|creatures|permanent|permanents|player"
+            + @"|players|opponent|opponents|planeswalker|card|cards|token|spell|source|land"
+            + @"|artifact|enchantment|equipment|vehicle|battle|equipped|enchanted|they|them)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OtherAntecedent();
 
     [GeneratedRegex(@"^exalted\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ExaltedLine();

@@ -8977,8 +8977,14 @@ public static partial class EffectPhrase
     // clauses still loses the card rather than compiling into the wrong target.
     private const string T = @"(?<t>[A-Za-z0-9'’ ,-]+)";
 
+    /// <remarks>
+    /// The hyphen in the target class is load-bearing: "target non-Dragon creature an opponent
+    /// controls" is a printed target phrase, and without it the named form of this sentence was
+    /// narrower than the pronoun form beside it - Glorybringer read only because the pronoun
+    /// reader used the wider class. Two spellings of one sentence should not read differently.
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ deals " + N + @" damage to (?<t>[A-Za-z0-9'’ ]+?)"
+        @"^~ deals " + N + @" damage to (?<t>[A-Za-z0-9'’ -]+?)"
             + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DealsDamageLine();
