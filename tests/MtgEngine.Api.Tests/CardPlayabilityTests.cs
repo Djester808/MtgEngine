@@ -244,7 +244,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The production gate asks PlayableCards.Refuses, which admits all of them and
     // is held by PlayableCardsTests; this row documents the naive question's gap, and the
     // ratchet stays because it forces exactly the investigation that wrote this comment.
-    private const int CompiledGateRefusesComplete = 458;
+    private const int CompiledGateRefusesComplete = 461;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
@@ -767,9 +767,14 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         if (covered <= 0 || dividing.Total.Fixed < covered)
             return null;
 
-        var shares = new int[covered];
-        Array.Fill(shares, 1);
-        shares[0] += dividing.Total.Fixed - covered;
+        // One entry per chosen target, because that is what the announcement is checked against
+        // - zero for the slots the division does not cover, one each for the ones it does, and
+        // the remainder on the first of them.
+        var shares = new int[aimed.Count];
+        for (var i = 0; i < covered; i++)
+            shares[dividing.FirstIndex + i] = 1;
+
+        shares[dividing.FirstIndex] += dividing.Total.Fixed - covered;
 
         return shares;
     }
@@ -779,10 +784,21 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     {
         foreach (var targets in Aims(game, player, card))
         {
+            var dividing = pool.SpellOf(game.State.GetObject(card).Card)
+                ?.Effects.OfType<IDividedEffect>().FirstOrDefault();
+
+            var shares = Shares(game, pool, card, targets);
+
+            // A divided spell with no legal division is not a cast this harness can make: X is
+            // announced as zero here, so "every target gets at least one" (CR 601.2d) cannot be
+            // satisfied at all. Skipping the shape is the honest answer - attempting it would
+            // make the engine throw for being right.
+            if (dividing is not null && shares is null)
+                continue;
+
             try
             {
-                game.CastSpell(
-                    player, card, targets, damageDivision: Shares(game, pool, card, targets));
+                game.CastSpell(player, card, targets, damageDivision: shares);
                 return true;
             }
             catch (InvalidOperationException refused)
@@ -1154,6 +1170,22 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
 
     private static IEnumerable<IReadOnlyList<string>> Answers(PendingChoice choice)
     {
+        // A division first, because it is the one question whose legal answers are not a subset
+        // of "some of the options": CR 601.2d makes every chosen target need at least one, so an
+        // answer that names only the first two options is illegal however it is split, and the
+        // enumeration below can never reach a legal one for three targets or more.
+        if (choice.IsDivision && choice.Options.Count > 0)
+        {
+            var each = new List<string>(Math.Max(choice.MinPicks, choice.Options.Count));
+            foreach (var option in choice.Options)
+                each.Add(option.Id);
+
+            while (each.Count < choice.MinPicks)
+                each.Add(choice.Options[0].Id);
+
+            yield return each;
+        }
+
         yield return Answer(choice);
 
         if (choice.Options.Count == 0)

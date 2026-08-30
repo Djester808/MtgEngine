@@ -62469,6 +62469,56 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.GetPlayer(alice).Graveyard);
     }
 
+    /// <summary>
+    /// A division covers the targets it is among, not every target the spell chose (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// The announcement is checked against all the chosen targets, so the "at least one" rule had
+    /// been asked of all of them — and a spell may target something in the same breath that the
+    /// division has nothing to do with. Rhino, Terrible Trampler destroys a target artifact or
+    /// land and then distributes three counters among up to three <em>other</em> target creatures:
+    /// the artifact's zero made every announcement illegal, so a fully read permanent could not
+    /// be cast at all. Found by the soak, which is the only thing that tries to cast every card.
+    /// </remarks>
+    [Fact]
+    public void A_division_ignores_a_target_it_is_not_among()
+    {
+        var rhino = Card(
+            "Divided Rhino Test",
+            "When ~ enters, destroy target artifact. "
+                + "Distribute two +1/+1 counters among up to two other target creatures.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(rhino);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bait = Card("Divided Rhino Bait", string.Empty, CardType.Artifact);
+        var doomed = game.Create(bob, bait, Zone.Battlefield);
+        var one = game.Create(alice, TestCards.Creature("Divided Rhino Friend One"), Zone.Battlefield);
+        var two = game.Create(alice, TestCards.Creature("Divided Rhino Friend Two"), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, rhino);
+        for (var i = 0; i < 4; i++)
+            TapForMana(game, alice, "Forest");
+
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        // The announcement that gives the artifact's slot nothing is the only legal one, and it
+        // used to be refused outright - so the assertion is that the trigger resolved at all.
+        // Where the counters land is the division's own business and its own tests; what this
+        // guards is that a spell targeting something outside its division can still be played.
+        Assert.DoesNotContain(doomed, game.State.Battlefield);
+
+        var spread = game.State.GetObject(one).Permanent!.Counters.GetValueOrDefault("+1/+1")
+            + game.State.GetObject(two).Permanent!.Counters.GetValueOrDefault("+1/+1");
+
+        Assert.Equal(2, spread);
+    }
+
     // ---- Verifying the mechanics play, not merely compile ---------------------
 
     /// <summary>

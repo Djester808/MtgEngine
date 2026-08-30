@@ -2905,7 +2905,13 @@ public sealed class Game
                 + "(CR 601.2d).");
         }
 
-        if (division.Any(amount => amount < 1))
+        // Only the targets the division covers, which is not always all of them. CR 601.2d says
+        // each target *the division is among* must get at least one; a spell may target other
+        // things in the same breath that the division has nothing to do with. Rhino, Terrible
+        // Trampler destroys a target artifact or land and then distributes three counters among
+        // up to three *other* target creatures - asked of every slot, the artifact's zero made
+        // the card unannounceable, so a fully read permanent could not be cast at all.
+        if (division.Skip(dividing.FirstIndex).Take(dividing.TargetCount).Any(amount => amount < 1))
         {
             throw new InvalidOperationException(
                 "Each target a divided spell or ability chooses must be assigned at least 1 "
