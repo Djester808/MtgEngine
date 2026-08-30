@@ -487,7 +487,70 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **50.6% of playable cards fully read** (16,554 of 32,717), 67.4% of lines.
+Coverage is **51.4% of playable cards fully read** (16,801 of 32,717), 68.0% of lines.
+
+### Round fourteen: the compiler was competing with itself
+
++294 cards, none lost, and the reason is one finding that three agents reached independently
+from three different slices of the queue: **readers had each grown a private copy of a
+vocabulary the compiler already had next door.**
+
+| the shared thing | the reader that had its own smaller version | cards |
+|---|---|---|
+| `EffectPhrase.Counting` - domain, colours, party, every zone | `TryCountingStatic` knew a battlefield filter; `DefinedCount` knew two piles | **57** |
+| the seven player subjects in `W` | `EdictLine` spelled two | 18 |
+| "its controller" effects | existed for life, draws and mills - not tokens | 33 |
+| group unions | read `A or B`, not `A, B, and C` | 17 |
+| the same counting vocabulary again | the characteristic-defining reader | 21 |
+
+Two of those rows are the same defect found twice in one round, twenty queue ranks apart, on
+cards that look nothing alike: a static pump on a Kavu and a defining ability on a Lhurgoyf.
+The floating pump had been counting domain correctly for months, because it reads the shared
+vocabulary back off its own generated name; the two static readers never did. **The gap was
+never the sentence - it was which of the compiler's several vocabularies the sentence reached.**
+
+### Three silent no-ops, each counted as complete
+
+- **A card's own `When you cast ~` had `FunctionsFrom = Battlefield`**, and a cast is announced
+  with the card already on the stack. Roughly **50 corpus cards read perfectly and did nothing.**
+- **`{X}` in an activation cost was never paid.** `ActivateAbility` took the announced number
+  and never handed it to `PayMana`, so `{X}, {T}: search for a card with mana value X or less`
+  was a free tutor for any number. Two siblings: an activated ability reaching the stack with
+  `VariableValue` 0, and a triggered ability whose targets were re-checked against zero and
+  fizzled every time.
+- **`NumberWordOrDigits` answers 1 to any word it does not know**, for the second round running.
+  Hundred-Handed One's "an additional ninety-nine creatures" compiled complete and granted one.
+
+### The settle sweep, audited rather than repaired one bug at a time
+
+Three bugs of one shape had been found in three separate rounds, each by accident and each after
+shipping. All 44 arms of `SettleBeforePriority` were then walked deliberately, and **six more**
+turned up: `SettleOwedFlip`, `SettleOwedDiscover`, `SettleOwedCascade`, `SettleOwedClash`,
+`OfferOwedMiracles` and `SettleOwedLookAndTake` all returned from the sweep as though a question
+were pending, and one stopped the game to pick from an empty list. **An existing test was
+asserting the bug** - `A_filtered_look_may_be_declined` asserted `Assert.Empty(choice.Options)`,
+which is how it survived.
+
+The audit's replacement for vigilance is a structural test:
+`Every_settling_step_of_the_sweep_goes_round_rather_than_returning` reads `Game.cs` and enforces
+the convention the sweep runs on - an arm named `Ask...` may return, every other arm must
+continue. It catches all six reverts at once, and it is the only thing covering cascade, which
+always settles with its own spell still on the stack so no card can show the harm.
+
+**The largest correctness gap it names is not fixed.** CR 605.3a lets a player activate mana
+abilities whenever a rule asks for a payment, mid-resolution; this engine cannot, and
+`AskOwedPayment` admits as much. So every "counter target spell unless its controller pays {3}"
+is auto-declined against anyone who did not pre-float the mana - CR 118.3 declining on their
+behalf. That is the Pact finding generalised, and it is the engine playing a different game
+rather than a card going unread.
+
+### What predicts value now, and it is no longer rank
+
+The deepest sweep (ranks 321-380) reported its own floor: 70% of its rows are each their own
+mechanic, and 10% are Alchemy rebalance pairs worth half what they claim. But its six wins were
+worth 12 cards inside the slice and **62 across the corpus**, because every shape recurred at
+ranks the slice never showed - semicolon keyword lists span ranks 143 to 12,418. **Rank stopped
+predicting value; whether a row's shape recurs is what predicts it.** Grep by cause, not by rank.
 
 ### Round fourteen: leads that had been measured and left, and what they were worth
 
