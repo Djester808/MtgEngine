@@ -1659,6 +1659,12 @@ public static partial class CardCompiler
             if (!isSpell && TryAttachedConjunction(line, card, statics))
                 continue;
 
+            // And the same fold with a condition in front of it, offered after that one so the
+            // two are ordered the way the readers under them are: the narrower frame sees the
+            // line first, and this one only ever sees what it refused.
+            if (!isSpell && TryConditionalConjunction(line, card, statics))
+                continue;
+
             unhandled.Add(line);
         }
 
@@ -7779,20 +7785,7 @@ public static partial class CardCompiler
             return false;
 
         var subject = m.Groups["subject"].Value;
-        var pieces = ClauseJoin().Split(m.Groups["rest"].Value);
-
-        // Split keeps the separators, so the odd entries are the joins and the even ones the
-        // clauses. Rejoining a span has to use the separators that were printed between them —
-        // rebuilding with " and " would turn a comma list into something no card says.
-        var clauses = new string[(pieces.Length + 1) / 2];
-        var joins = new string[clauses.Length - 1];
-        for (var i = 0; i < pieces.Length; i++)
-        {
-            if (i % 2 == 0)
-                clauses[i / 2] = pieces[i];
-            else
-                joins[i / 2] = pieces[i];
-        }
+        SplitClauses(m.Groups["rest"].Value, out var clauses, out var joins);
 
         if (clauses.Length < 2)
             return false;
@@ -7803,6 +7796,54 @@ public static partial class CardCompiler
 
         into.AddRange(folded);
         return true;
+    }
+
+    /// <summary>
+    /// The clauses of a conjunction and the joins that were printed between them.
+    /// </summary>
+    /// <remarks>
+    /// The separators are kept because rejoining a span has to use the words that were printed
+    /// between them — rebuilding with " and " would turn a comma list into something no card
+    /// says.
+    /// <para>
+    /// <strong>A join inside a quotation is not a join.</strong> "Enchanted creature has
+    /// vigilance and "At the beginning of your end step, create a token"" has one comma that
+    /// separates two clauses and one that belongs to a sentence the subject was given, and a
+    /// splitter that cannot tell them apart cuts a granted ability in half. That exact mistake
+    /// has been made in this codebase already — a naive split in the work queue that cut inside a
+    /// quoted ability and then reported the orphaned quotation mark as the largest blocker in the
+    /// corpus.
+    /// </para>
+    /// </remarks>
+    private static void SplitClauses(string rest, out string[] clauses, out string[] joins)
+    {
+        var quoted = new bool[rest.Length];
+        var inside = false;
+        for (var i = 0; i < rest.Length; i++)
+        {
+            if (rest[i] == '"')
+                inside = !inside;
+
+            quoted[i] = inside;
+        }
+
+        var pieces = new List<string>();
+        var separators = new List<string>();
+        var at = 0;
+
+        foreach (Match join in ClauseJoin().Matches(rest))
+        {
+            if (quoted[join.Index])
+                continue;
+
+            pieces.Add(rest[at..join.Index]);
+            separators.Add(join.Value);
+            at = join.Index + join.Length;
+        }
+
+        pieces.Add(rest[at..]);
+        clauses = [.. pieces];
+        joins = [.. separators];
     }
 
     /// <summary>Reads clauses <paramref name="from"/> onwards, longest join first.</summary>
@@ -7834,7 +7875,7 @@ public static partial class CardCompiler
                 joined += joins[k - 1] + clauses[k];
 
             var head = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
-            if (!TryStaticLine($"{subject} {joined}.", card, head))
+            if (!TryStaticLine(Rejoin(subject, joined), card, head))
                 continue;
 
             var tail = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
@@ -7848,6 +7889,202 @@ public static partial class CardCompiler
 
         return false;
     }
+
+    /// <summary>
+    /// "As long as you control your commander, ~ gets +2/+2 and has "…"" — a condition in front
+    /// of a sentence the static readers already understand.
+    /// </summary>
+    /// <remarks>
+    /// The same fold as <see cref="TryAttachedConjunction"/> one frame further out. The condition
+    /// is lifted off, the remainder is re-offered to <see cref="TryStaticLine"/>, and whatever
+    /// comes back is gated on the condition — so the vocabulary is whatever the compiler already
+    /// reads, and a clause added anywhere else joins this grammar without anyone coming back
+    /// here.
+    /// <para>
+    /// <see cref="TryConditionalStatic"/> has owned this frame for a bonus and a keyword list
+    /// since it was written. What it cannot say is a <em>quoted ability</em>: its keyword slot is
+    /// <c>[a-z ,]+</c>, which no quotation mark fits, and the reader that does understand a
+    /// quoted ability has no condition in it. Neither needed anything new — only the same
+    /// sentence read once instead of twice.
+    /// </para>
+    /// <para>
+    /// <strong>It runs last, after <see cref="TryAttachedConjunction"/></strong>, for the reason
+    /// that one runs last: a reader that only ever sees lines every other matcher has refused
+    /// cannot claim a clause from a neighbour and disable it silently while coverage rises.
+    /// </para>
+    /// <para>
+    /// It fails closed on the whole line. A frame that read while its quoted ability did not
+    /// would put half a granted ability on a permanent, and half a granted ability is not better
+    /// or worse than the printed card but <em>different</em> — which nothing downstream can see,
+    /// because coverage counts lines and the invariants check well-formedness.
+    /// </para>
+    /// </remarks>
+    private static bool TryConditionalConjunction(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = ConditionalFrameLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var condition = m.Groups["cond"].Value.Trim();
+        if (BoardConditions.Parse(condition) is not { } holds)
+            return false;
+
+        if (ConditionalSubject(m.Groups["subject"].Value.Trim(), condition) is not { } subject)
+            return false;
+
+        SplitClauses(m.Groups["rest"].Value, out var clauses, out var joins);
+
+        var folded = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        if (!ReadConditionalClauses(clauses, joins, 0, subject, condition, holds, card, folded))
+            return false;
+
+        into.AddRange(folded);
+        return true;
+    }
+
+    /// <summary>What "it" points at in "As long as &lt;condition&gt;, it …".</summary>
+    /// <remarks>
+    /// The rule <see cref="TryConditionalStatic"/> already reads it by, and the order is the
+    /// whole rule: what the condition <em>names</em> decides, so "~" is asked first and the
+    /// attachment words only afterwards. "As long as ~ is equipped, it has …" contains the word
+    /// "equipped" and still means the card. A condition that names neither leaves the line
+    /// unread — a pronoun with no antecedent is exactly the case where guessing would put an
+    /// ability on the wrong permanent without saying so.
+    /// </remarks>
+    private static string? ConditionalSubject(string printed, string condition)
+    {
+        if (!printed.Equals("it", StringComparison.OrdinalIgnoreCase))
+            return printed;
+
+        if (condition.Contains('~', StringComparison.Ordinal))
+            return "~";
+
+        var host = AttachedNoun().Match(condition);
+        return host.Success ? host.Value.ToLowerInvariant() : null;
+    }
+
+    /// <summary>
+    /// Reads clauses <paramref name="from"/> onwards under one condition, longest join first.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ReadClauses"/> with the condition carried alongside, and it backtracks for the
+    /// same reason: longest-first is a preference and not a rule. Nothing is written into
+    /// <paramref name="into"/> until the whole remainder has been read.
+    /// </remarks>
+    private static bool ReadConditionalClauses(
+        string[] clauses,
+        string[] joins,
+        int from,
+        string subject,
+        string condition,
+        Func<GameState, IAbilitySource, GameObject, bool> holds,
+        CardDefinition card,
+        ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        if (from == clauses.Length)
+            return true;
+
+        for (var take = clauses.Length - from; take >= 1; take--)
+        {
+            var joined = clauses[from];
+            for (var k = from + 1; k < from + take; k++)
+                joined += joins[k - 1] + clauses[k];
+
+            var head = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+            if (!ReadConditionalClause(joined, subject, condition, holds, card, head))
+                continue;
+
+            var tail = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+            if (!ReadConditionalClauses(
+                clauses, joins, from + take, subject, condition, holds, card, tail))
+            {
+                continue;
+            }
+
+            into.AddRange(head);
+            into.AddRange(tail);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>One clause of a conditional sentence, read either way round.</summary>
+    /// <remarks>
+    /// Two arms, tried in this order:
+    /// <list type="number">
+    /// <item>the condition put back in front of the clause, which is what
+    /// <see cref="TryConditionalStatic"/> and every other reader owning a conditional form
+    /// expects to see — a bonus or a keyword is then gated by the reader that already knows
+    /// how;</item>
+    /// <item>the clause alone, with the condition applied to whatever it produced. This is the
+    /// arm a quoted ability needs, because nothing reads a grant with a condition in front of it
+    /// and everything reads one without.</item>
+    /// </list>
+    /// The first arm is offered first so that a clause an existing reader understands *with* its
+    /// condition is gated where that reader decided, rather than by a wrapper that cannot see
+    /// what the clause meant.
+    /// </remarks>
+    private static bool ReadConditionalClause(
+        string clause,
+        string subject,
+        string condition,
+        Func<GameState, IAbilitySource, GameObject, bool> holds,
+        CardDefinition card,
+        ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        // Into its own builder rather than the caller's, so a reader that writes something and
+        // then declines cannot leave half a clause behind for the second arm to add to. Two
+        // matchers in this file answer "did I read it?" with the count of the builder they were
+        // handed, which is only true of a builder nothing else has written to.
+        var gated = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        if (TryStaticLine($"As long as {condition}, {subject} {clause}.", card, gated))
+        {
+            into.AddRange(gated);
+            return true;
+        }
+
+        var bare = ImmutableList.CreateBuilder<ContinuousEffectDefinition>();
+        if (!TryStaticLine(Rejoin(subject, clause), card, bare))
+            return false;
+
+        foreach (var effect in bare)
+        {
+            var inner = effect;
+
+            into.Add(inner with
+            {
+                Id = $"while:{card.Name}:{inner.Id}",
+
+                // The source is the permanent the condition is asked about, exactly as the
+                // conditional reader asks it, and through EmptyAbilities for the same reason:
+                // a board condition answered from inside the layers must not compute anything
+                // else's characteristics (CR 613.8).
+                Applies = (state, source, target) =>
+                    source is not null
+                        && holds(state, EmptyAbilities.Instance, source)
+                        && inner.Applies(state, source, target),
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>One clause of a conjunction, put back behind the subject it was said about.</summary>
+    /// <remarks>
+    /// A clause that is nothing but a quotation inherits the verb of the conjunction it came
+    /// from: "has flying and "{T}: Draw a card"" is two things the subject <em>has</em>, and the
+    /// second says so only by standing beside the first. Without the verb the clause reads as a
+    /// subject with a sentence after it, which nothing understands — so every Aura and Equipment
+    /// listing a keyword before a quoted ability went unread over a missing word.
+    /// <para>
+    /// It cannot claim anything from a neighbour, because a clause beginning with a quotation
+    /// mark is one no reader in the chain accepts as it stands.
+    /// </para>
+    /// </remarks>
+    private static string Rejoin(string subject, string clause)
+        => clause.StartsWith('"') ? $"{subject} has {clause}." : $"{subject} {clause}.";
 
     /// <summary>
     /// "Equipped creature is a Knight in addition to its other types" — layer 4 (CR 613.1d).
@@ -10392,6 +10629,9 @@ public static partial class CardCompiler
 
         var attached = m.Groups["attached"].Success;
 
+        // "~ has "…"" — the card giving the ability to itself.
+        var self = m.Groups["self"].Success;
+
         // Through the shared singulariser, as the mass statics are and for the same reason:
         // "All Elves have ..." names the creature type "Elve" if the s is simply dropped, and a
         // static ability that names a type no card has grants its ability to nobody.
@@ -10440,6 +10680,12 @@ public static partial class CardCompiler
             {
                 if (source is null)
                     return false;
+
+                // Asked before every group test below, and it has to be: "~" names no noun and
+                // no scope, so falling through would reach the controller comparison at the
+                // bottom and hand the ability to every permanent its controller owns.
+                if (self)
+                    return target.Subject.Id == source.Id;
 
                 // "Enchanted"/"equipped" means the one permanent this is attached to (CR 701.3c);
                 // everything else is a group, read the same way a lord's is.
@@ -10493,9 +10739,15 @@ public static partial class CardCompiler
             }
         }
 
+        // Named by what it grants as well as by the card, because a card can grant more than
+        // one: "Equipped creature has "A" and "B"" is two effects, and two sharing an id are
+        // indistinguishable in a log and in every list keyed on one.
+        var describedGrant = string.Join(
+            ",", granted.Select(a => a.Id).Concat(grantedTriggers.Select(t => t.Id)));
+
         into.Add(new ContinuousEffectDefinition
         {
-            Id = "grants:" + card.Name,
+            Id = $"grants:{card.Name}:{describedGrant}",
             Layer = EffectLayer.Ability,
             Applies = Receives,
             Apply = (_, _, builder) =>
@@ -16449,6 +16701,25 @@ public static partial class CardCompiler
     private static partial Regex ClauseJoin();
 
     /// <remarks>
+    /// The condition is bounded at the first comma, the same bound
+    /// <see cref="ConditionalStaticLine"/> draws, so the two readers agree about where a
+    /// condition ends. Everything after it is captured whole rather than described — a clause
+    /// vocabulary restated in a second pattern is a copy that drifts, and this one would drift
+    /// silently, since a sentence whose clauses stopped reading becomes an unread line rather
+    /// than a wrong card.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^[Aa]s long as (?<cond>[^,]+), "
+            + @"(?<subject>~|[Ii]t|[Ee]nchanted [a-z]+|[Ee]quipped [a-z]+) (?<rest>.+?)\.?$",
+        RegexOptions.None)]
+    private static partial Regex ConditionalFrameLine();
+
+    /// <summary>The permanent a condition names when the sentence after it says "it".</summary>
+    [GeneratedRegex(
+        @"(enchanted|equipped) (creature|land|permanent|artifact)", RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedNoun();
+
+    /// <remarks>
     /// One word only. "Is a black Zombie in addition to its other colors and types" names a colour
     /// as well and says "colors and types" rather than "types", so it does not match here and is
     /// left unread — a Zombie that is quietly not black is a different card from the printed one.
@@ -16681,6 +16952,18 @@ public static partial class CardCompiler
     /// what separates "All Slivers have" from "All creatures have".
     /// </remarks>
     /// <remarks>
+    /// "~" is a subject here and is deliberately <em>not</em> one in
+    /// <see cref="ConjoinedAttachedLine"/>. The difference is what the two patterns read: a
+    /// card's own text folded into a static conjunction is how a spell's one-shot effect would
+    /// become a permanent one, while a card granting itself a whole quoted ability is a static
+    /// ability whatever else is true of it. Every printing of it in the corpus stands behind a
+    /// condition — "As long as you control a Demon, ~ has "{B}: Regenerate ~."" — and reaches
+    /// this pattern only once <see cref="TryConditionalConjunction"/> has lifted the condition
+    /// off. That is why the recipient test has to answer "the permanent itself" before anything
+    /// else: with no noun and no scope, the group filter underneath it reads the line as "every
+    /// permanent you control".
+    /// </remarks>
+    /// <remarks>
     /// The type words are case-insensitive and the tribe is not, which is the same division
     /// every other noun in this compiler draws and for the same reason: a sentence-initial
     /// capital is position, not meaning. Written case-sensitively, "Creatures you control have
@@ -16695,6 +16978,7 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(
         @"^((?<attached>[Ee]nchanted|[Ee]quipped) (creature|land|permanent|artifact)"
+            + @"|(?<self>~)"
             + @"|(?i:(?<commander>commander) creatures? you own)"
             + @"|(?<scope>(?i:all|each|other))?\s*"
             + @"(?:(?<subtype>[A-Z][a-z]+)\s+(?i:(?<type>creature|permanent))s?"
