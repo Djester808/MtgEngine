@@ -91,6 +91,7 @@ public sealed partial class MechanicCoverageTests
         "SetSizeClause",
         "NotLegendaryClause",
         "HasKeywordClause",
+        "GrantedAbilityClause",
     ];
 
     [Fact]

@@ -650,6 +650,119 @@ blocker.
   (Sheoldred's Assimilator), a delayed trigger the record does not outlive (Song of Blood), and a
   trailing "if" the sentence grammar does not read (Sparring Dummy).
 
+### Round nineteen: a token that carries the abilities its card granted it
+
+Three rounds walked into the same wall from three directions and each wrote it down as somebody
+else's work. The frame round built `As long as <cond>, ~ has "Q"` and declined **27 token frames**
+because "`CreateToken` cannot carry granted abilities". The token-copy round declined **7 cards**
+whose exception grants a quoted ability, because a token copy keeps the copied card's oracle id
+and `CompiledPool` throws when two cards share an id with different text. The prohibition round
+measured **27 "can't block" cards** inside created tokens, found that swapping the prohibition for
+a keyword completed **0** of them, and correctly reattributed the blocker to the token line's
+`with <kw> and "<quote>"` shape.
+
+**The union of the three is 44 cards, not 61.** Measured before building anything, from the
+compile dump and five substitution probes over the 191 cards that are one line short with a token
+line carrying a quotation:
+
+| rewrite of the unread line | completes |
+|---|---|
+| a keyword list **and** a quotation → the quotation alone | 13 |
+| a keyword list **and** a quotation → the keywords alone | 10 |
+| `You create` → `Create` | 7 |
+| a copy exception granting a quotation → the exception alone | 2 |
+| two quotations → the first alone | 1 |
+| any quotation on a created token → deleted | 29 |
+| **union** | **44** |
+
+**And the capability all three wanted already half existed.** A token *is* a `CardDefinition`, the
+pool compiles its text, and a quoted ability has therefore always become the token's rules text —
+which is also how a printed token card says it. Two things were missing, and neither is a new kind
+of thing:
+
+- **A slot that holds a keyword list *and* a quotation.** `CreatureTokenLine`'s ability slot was an
+  alternation, so `with flying and "this creature can block only creatures with flying"` — the
+  commonest shape in the family — matched neither arm. It is now an optional keyword list followed
+  by *any number* of quotations, which is what the cards print; Pursued Whale's Pirate has two.
+- **An id that can tell a granted card from the card it copied.** `TokenCards.Granting` appends the
+  granted text and re-keys the definition with a stable hash of it, so the pool sees a card of its
+  own. The ungranted copy's id is left exactly where it was, deliberately: the reason it keeps the
+  copied card's id is that an ability source keyed by it should serve abilities already compiled,
+  and only a grant has any reason to break that.
+
+**Everything the sentence grants goes to the same place, and the keyword flags are only the cheaper
+route.** A word the flags cannot carry becomes a line of the token's text rather than refusing the
+sentence — `Toxic 1.` is a real printed grant with no flag behind it, and the compiler has read
+that line on a card's own text for as long as toxic has existed. The promise is kept by the probe
+that was already there: the minted token has to compile completely or the line stays unread, so
+`frobnication` still costs the card. Only two words in the whole corpus take that route beside a
+quotation — `toxic 1` (15 cards) and `vanishing 3` (1) — and the fold is worth another eight on its
+own through `prowess`, `training`, `banding` and `firebending N`.
+
+**A join inside a quotation is not a join — for the third time.** `TryCopyExceptions` splits its
+clause list on "and" and on commas, and a granted ability contains both: Electroduplicate's
+exception was being cut into "it has haste" and two sentence fragments. The work queue's naive
+split and the static conjunction's clause splitter had each paid for this before it, which is why
+it is now written as a rule rather than as a fix. The quote tally needs a cursor of its own,
+too: counted from the start of the pending clause it re-counts the same opening quote once per
+skipped join, so the tally flips back to even on the *second* join inside one quotation and
+cuts there. Mythos of Illuna is the card that cost — its granted ability has two commas in
+it — and it is the forty-sixth gain.
+
+**The pronoun stops being ambiguous once the ability is on the token.** Round eighteen refused
+"Create a token that's a copy of target creature, except it has haste. **Sacrifice it** at the
+beginning of the next end step" because the pronoun ladder answers "it" with the creature that was
+copied — three cards were complete and sacrificing the wrong permanent. The *same sentence inside
+the quotation* is unambiguous and now reads: it is the token's own ability, so its "this token" is
+the token. Both are asserted, one either side of the line.
+
+**+46 cards, −4** (17,641 → 17,683, by set difference), and the per-card effect diff moved 84 rows:
+the 46, the 4, **16 that are only the new `CopyException` field printing in a record's
+`ToString`**, and **21 cards that gained or lost an ability while staying incomplete** — Sword of
+Body and Mind's Wolf, Mite Overseer, Chandra Flameshaper and fifteen more gained one; Mana Cache
+and Cavern-Hoard Dragon lost one, for the reason the four losses have.
+
+**The four losses are the round's other finding, and the invariant suite is what found it.** One
+card this round completed — Curious Herd, "Choose target opponent. You create X 3/3 green Beast
+creature tokens, where X is the number of artifacts *that player* controls" — failed
+`Every_compiled_card_is_structurally_sound` with "target 0 is chosen and never used". It was right,
+and the cause was older and wider than the line that exposed it: **a counted group's filter is
+handed one player, the controller of what is counting**, so a clause naming a seat only the
+resolution knows had nothing to compare against and the filter answered true for *every* permanent.
+Played, Curious Herd counted its own artifacts along with the target's.
+
+Four cards were complete and playing a strictly better version of themselves: **Anathemancer** dealt
+damage equal to every nonbasic land on the battlefield rather than its target's, **Emissary of Hope**
+gained life for every artifact in play, and **Terra Ravager** and **Coastline Marauders** each got
++X/+0 for every land anybody controlled. The phrase is now refused (`SeatRelativeOwnership`), which
+is the standing trade: a card that compiles and plays wrongly is worse than one a deck check can
+turn away. Reading it properly is a filter that can be handed a player rather than only the
+controller — the same measured pass the counting vocabulary has wanted for three rounds.
+
+Only **23 of the measured 44** landed; 23 of the 46 gains came from outside that pool, which is the
+keyword fold and the `You create` scope word reaching token lines with no quotation at all. That
+divergence is the useful part of the measurement: the union was a ceiling on *one* family and the
+build crossed into two others.
+
+**Declined, with the counts.** The 21 of the 44 that did not land are almost all one thing — **the
+quotation's own words**, not the frame around it, so no amount of composition reaches them:
+
+| cards | what is unread | |
+|---|---|---|
+| 6 | `~ crews Vehicles / saddles Mounts as though its power were 2 greater` | Prodigy's Prototype, Defend the Rider, Roadside Assistance, Back on Track, Valor's Flagship, Shorikai |
+| 4 | `~ can't block or be blocked by non-Spirit creatures` | a prohibition with a tribe filter |
+| 3 | the `. ` inside a quotation ends the branch of an offer | Minion Reflector, Hofri Ghostforge, Giant Inheritance — `MayPayLine` and `IfYouDidLine` cut their branch at `[^.]+`, so a granted ability containing a full stop ends it early. The sibling of the join rule above, in the reader one level out; left for its own measurement rather than widened blind |
+| 2 | a quotation nested inside a quotation | Reef Worm, Nesting Dragon — declined on purpose; no printed card nests more than two deep and a depth counter would only hide the day one does |
+| 6 | one each: a counting static on the token, a blocking trigger, an upkeep sacrifice with an "if you can't", an attack requirement | |
+
+Two further families were left alone. **`They have "Q"` / `Those tokens have "Q"` as a separate
+sentence** — `FoldGrantedTokenAbility` knows two spellings and the corpus prints five — completes
+**0** on the probe: every card printing the wider spellings is short something else as well. And
+Alchemy's **`perpetually gains "Q"`** (10 cards) and **emblems** (6) are mechanics the engine does
+not model at all.
+
+Coverage is **54.0% of playable cards fully read** (17,683 of 32,717), 69.8% of lines.
+
 ### Round eighteen: the prohibition family is half the size it was ranked at
 
 The shape table put `can't` third at **672 sole blockers / 920 cards**. That number is a

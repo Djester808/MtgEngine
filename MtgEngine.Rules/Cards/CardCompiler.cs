@@ -13770,11 +13770,12 @@ public static partial class CardCompiler
         var addColors = new List<ManaColor>();
         var setColors = new List<ManaColor>();
         var addKeywords = KeywordAbility.None;
+        var grantedText = new List<string>();
         var dropLegendary = false;
         int? power = null;
         int? toughness = null;
 
-        foreach (var raw in ExceptionClauses().Split(clauses))
+        foreach (var raw in ExceptionClauseList(clauses))
         {
             var clause = raw.Trim().TrimEnd('.');
             if (clause.Length == 0)
@@ -13828,6 +13829,26 @@ public static partial class CardCompiler
                 continue;
             }
 
+            // A whole ability the exception grants — "except it has haste and 'At the beginning
+            // of the end step, sacrifice this token'". It is not a keyword and no flag can hold
+            // it, so it travels as the words the card printed and is compiled from the amended
+            // card's own text, which is the one place a token's abilities are ever read from.
+            if (GrantedAbilityClause().Match(clause) is { Success: true } quoted)
+            {
+                var ability = quoted.Groups["ability"].Value.Trim();
+
+                // The promise every template makes, in the form the minted tokens already make
+                // it: what the compiler cannot read, it does not claim. A granted ability that
+                // went unread would leave a copy that looks right on the board and is missing
+                // the only thing the exception said about it. Nested quotes would recurse and no
+                // printed card nests them, so they are refused rather than counted.
+                if (ability.Contains('"', StringComparison.Ordinal) || !GrantedTextReads(ability))
+                    return false;
+
+                grantedText.Add(ability.EndsWith('.') ? ability : ability + ".");
+                continue;
+            }
+
             // A bare keyword is one the conjunction split off its own verb: "it has flying and
             // haste" is two clauses and only the first says "has". The same lesson the quoted
             // abilities taught — a clause standing beside another inherits its verb — and it is
@@ -13851,12 +13872,71 @@ public static partial class CardCompiler
             Power = power,
             Toughness = toughness,
             AddKeywords = addKeywords,
+            GrantedText = grantedText,
             AddColors = addColors,
             SetColors = setColors,
         };
 
         return true;
     }
+
+    /// <summary>
+    /// The exception's clauses, cut only where the join is not inside a quotation.
+    /// </summary>
+    /// <remarks>
+    /// The clause splitter cuts on "and" and on commas, and a granted ability contains both:
+    /// "except it has haste and 'At the beginning of the end step, sacrifice this token'" was
+    /// being cut into three, two of which are sentence fragments that match nothing. This
+    /// codebase has now paid for that same cut three times — the work queue's naive split, the
+    /// static conjunction's clause splitter, and here — which is why the rule is written as a
+    /// rule: <strong>a join inside a quotation is not a join.</strong>
+    /// </remarks>
+    private static List<string> ExceptionClauseList(string clauses)
+    {
+        var parts = new List<string>();
+        var start = 0;
+        var counted = 0;
+        var quotes = 0;
+
+        foreach (Match cut in ExceptionClauses().Matches(clauses))
+        {
+            // Counted from its own cursor rather than from the start of the pending clause,
+            // because a skipped cut does not move that one - so the opening quote is counted
+            // again at the next cut and the tally flips back to even inside the quotation. Two
+            // joins in one quoted ability is all it takes: Mythos of Illuna's "When ~ enters, if
+            // it's a creature, it fights ..." was cut at its second comma, and Shelob's Food
+            // clause has the same shape.
+            quotes += clauses.AsSpan(counted, cut.Index - counted).Count('"');
+            counted = cut.Index;
+
+            if (quotes % 2 != 0)
+                continue;
+
+            parts.Add(clauses[start..cut.Index]);
+            start = cut.Index + cut.Length;
+        }
+
+        parts.Add(clauses[start..]);
+        return parts;
+    }
+
+    /// <summary>Whether a granted ability compiles on a card of its own.</summary>
+    /// <remarks>
+    /// Asked of a bare creature rather than of the card being copied, because which card that is
+    /// is only known when the effect resolves — the clause is read when the copying card
+    /// compiles. That is the same probe <c>EffectPhrase.TokenFrom</c> runs against the token it
+    /// has just minted, one step earlier in the same promise.
+    /// </remarks>
+    private static bool GrantedTextReads(string ability) => Compile(new CardDefinition
+    {
+        OracleId = "granted-probe-" + EffectPhrase.StableHash(ability),
+        Name = "Granted Ability Probe",
+        CardTypes = CardType.Creature | CardType.Token,
+        Subtypes = ["Shapeshifter"],
+        Power = 1,
+        Toughness = 1,
+        OracleText = ability,
+    }).IsComplete;
 
     /// <summary>"a black Synth artifact creature" — colours, card types and subtypes (CR 205).</summary>
     /// <remarks>
@@ -17776,6 +17856,18 @@ public static partial class CardCompiler
         @"^(?:(?:it|the token|they)\s+)?(?:has|have) (?<kw>[a-z][a-z ]*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HasKeywordClause();
+
+    /// <summary>
+    /// A whole ability the exception grants, quoted — "except it has '…'" (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The verb is optional for the reason it is optional above: a clause standing beside another
+    /// inherits it, so "except it has haste and '…'" leaves the second half a bare quotation.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:(?:it|the token|they)\s+)?(?:(?:has|have)\s+)?""(?<ability>[^""]+)""$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GrantedAbilityClause();
 
     /// <remarks>
     /// The cost is bounded so the pattern cannot run away over a whole card, and the bound is 72
