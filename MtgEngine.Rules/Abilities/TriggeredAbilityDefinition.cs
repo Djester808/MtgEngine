@@ -126,6 +126,26 @@ public sealed record TriggeredAbilityDefinition
     /// </remarks>
     public bool PerDeclaredCreature { get; init; }
 
+    /// <summary>
+    /// Whether the object this ability's condition is about is its own source (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// One event in this engine names two objects, and a card's pronoun has to pick between them:
+    /// a <see cref="Events.TargetsChosen"/> carries the spell or ability that did the targeting
+    /// and the permanent it was aimed at. <c>Game.SubjectObjectOf</c> answers with the spell,
+    /// because "counter it" - ward - is much the commonest sentence written on that event, and an
+    /// event cannot tell which sentence is asking.
+    /// <para>
+    /// The condition can. "Whenever this creature becomes the target of a spell, put a +1/+1
+    /// counter on it" has said which object it means, so the ability carries the answer and
+    /// <c>Game.Consider</c> records the source as the subject instead. Set from
+    /// <c>TriggerConditions.TargetsTheSource</c> - one query, an allow-list, default false - and
+    /// withheld where the effect names the other object, because both readings cannot sit on one
+    /// ability.
+    /// </para>
+    /// </remarks>
+    public bool SubjectIsSource { get; init; }
+
     /// <summary>Stable within its card, so a pending trigger can name it across a replay.</summary>
     public required string Id { get; init; }
 

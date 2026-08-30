@@ -16729,7 +16729,20 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        var predicate = ReadTriggerCondition(m.Groups["when"].Value.Trim());
+        // CR 603.1: "for the first time each turn" is a limit on how often the ability triggers,
+        // not a description of the event - the same thing "this ability triggers only once each
+        // turn" says after the effect, written into the condition instead. Lifted off before the
+        // condition is read, for the reason the sentence form is lifted off the effect: every
+        // reader below is written against the event on its own, so a condition carrying the limit
+        // reached each of them as a shape none of them had. 33 corpus cards print it across 23
+        // different conditions - life gained, life lost, counters put on, a card discarded, a
+        // surveil, a crew, an attack - so one rewrite here is worth a clause in each of those.
+        var whenText = m.Groups["when"].Value.Trim();
+        var firstTimeEachTurn = FirstTimeEachTurn().IsMatch(whenText);
+        if (firstTimeEachTurn)
+            whenText = FirstTimeEachTurn().Replace(whenText, string.Empty).Trim();
+
+        var predicate = ReadTriggerCondition(whenText);
 
         // "This ability triggers only once each turn" is a sentence about the ability rather than
         // part of what it does, so it comes off before the effect is read.
@@ -16753,28 +16766,38 @@ public static partial class CardCompiler
             effectText = iffy.Groups["effect"].Value.Trim();
         }
 
-        var oncePerTurn = OncePerTurnLine().IsMatch(effectText);
-        if (oncePerTurn)
+        var oncePerTurn = firstTimeEachTurn || OncePerTurnLine().IsMatch(effectText);
+        if (OncePerTurnLine().IsMatch(effectText))
             effectText = OncePerTurnLine().Replace(effectText, string.Empty).Trim();
+
+        // Which of the two objects a "becomes the target" event names this sentence is about. The
+        // condition decides, and the effect can veto: "counter that spell unless its controller
+        // pays" is the same trigger asking for the other one, and both readings cannot sit on one
+        // ability. Ten corpus cards print that pair, so the veto is not hypothetical.
+        var subjectIsSource = TriggerConditions.TargetsTheSource(whenText)
+            && !NamesTheTargetingSpell().IsMatch(effectText);
 
         // The trigger decides whether a bare "that creature" in its effects has anything to mean.
         // Asked of the condition text rather than of the predicate, because a predicate is a
         // closure and cannot be interrogated - and answered by an allow-list, so the default is
         // the safe one.
-        var namesAnObject = TriggerConditions.NamesAnObject(m.Groups["when"].Value.Trim());
+        //
+        // An ability carrying its own subject is the second way that question gets a yes, and it
+        // has to be: the pronoun resolves to the source rather than to whatever the event named,
+        // so the sentence has a referent exactly when the flag above says it does.
+        var namesAnObject = subjectIsSource || TriggerConditions.NamesAnObject(whenText);
 
         // How often it fires, for the one family where a batch is not one occurrence. The same
         // query as the flag above, and deliberately the same query: the subject a combat pronoun
         // resolves to is supplied by the per-creature decomposition and by nothing else, so a card
         // that got one flag without the other would either read a sentence with no referent or
         // fire once for a batch it was meant to see one creature at a time.
-        var perDeclaredCreature =
-            TriggerConditions.DeclarationSubject(m.Groups["when"].Value.Trim());
+        var perDeclaredCreature = TriggerConditions.DeclarationSubject(whenText);
 
         // Where the card has to be for its own trigger to be watching. Asked here rather than at
         // the end because a condition needing two zones at once has to refuse the line, and there
         // is only one field to put an answer in.
-        var zone = SelfTriggerZone(m.Groups["when"].Value.Trim());
+        var zone = SelfTriggerZone(whenText);
         if (zone is null)
         {
             unhandled.Add(line);
@@ -16855,6 +16878,7 @@ public static partial class CardCompiler
             Effects = effects,
             OncePerTurn = oncePerTurn,
             PerDeclaredCreature = perDeclaredCreature,
+            SubjectIsSource = subjectIsSource,
 
             // A trigger functions from the battlefield unless its own words say otherwise, and
             // "when you cycle this card" says otherwise: the card is in hand as the ability is
@@ -18052,6 +18076,23 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"\s*This ability triggers only once each turn\.?\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex OncePerTurnLine();
+
+    /// <summary>The same limit written into a trigger's condition instead (CR 603.1).</summary>
+    [GeneratedRegex(@"\s+for the first time each turn$", RegexOptions.IgnoreCase)]
+    private static partial Regex FirstTimeEachTurn();
+
+    /// <summary>
+    /// Whether an effect is about the spell or ability that did something, rather than about the
+    /// permanent it was done to.
+    /// </summary>
+    /// <remarks>
+    /// The veto on <c>TriggeredAbilityDefinition.SubjectIsSource</c>: an ability whose effect
+    /// names the other object the event carries cannot also claim its subject is its source.
+    /// Checked on the words rather than on the compiled effects, because the effects are read
+    /// <em>after</em> the flag that decides what their pronouns mean.
+    /// </remarks>
+    [GeneratedRegex(@"\bthat (spell|ability)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex NamesTheTargetingSpell();
 
     [GeneratedRegex(@"^if (?<cond>[^,]+), (?<effect>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex InterveningIf();
