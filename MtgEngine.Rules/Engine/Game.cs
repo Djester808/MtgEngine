@@ -9511,6 +9511,32 @@ public sealed class Game
                 continue;
             }
 
+            // "Destroy it at end of combat" (CR 701.7a). Its own arm above the zone table
+            // below, and not a fourth word in it, because destroying is not moving: a permanent
+            // with indestructible is not destroyed at all (CR 702.12b) and a regeneration shield
+            // replaces the destruction with a tap (CR 701.19b). The table's Move honours neither,
+            // so a destroy routed through it would be the sacrifice this word exists to not be
+            // (CR 701.21a).
+            //
+            // The shield is not checked here: Move emits an ObjectMoved with MoveCause.Destroy,
+            // and regeneration is already a replacement watching for exactly that event. Only
+            // indestructible has to be asked, because nothing replaces a destruction that never
+            // happens.
+            if (string.Equals(delayed.EffectId, DelayedActions.Destroy, StringComparison.Ordinal))
+            {
+                if (!Characteristics.HasKeyword(
+                        State, _abilities, subject, KeywordAbility.Indestructible))
+                {
+                    Move(
+                        delayed.SubjectId,
+                        Zone.Graveyard,
+                        MoveCause.Destroy,
+                        delayed.ControllerId);
+                }
+
+                continue;
+            }
+
             // Warp's exile is not an ordinary one: the card has to remember it left this way,
             // because that is what lets its owner cast it once the turn has ended.
             if (string.Equals(delayed.EffectId, "warp-exile", StringComparison.Ordinal))
@@ -9524,8 +9550,8 @@ public sealed class Game
 
             var (where, why) = delayed.EffectId switch
             {
-                "exile" => (Zone.Exile, MoveCause.Exile),
-                "return-to-hand" => (Zone.Hand, MoveCause.Return),
+                DelayedActions.Exile => (Zone.Exile, MoveCause.Exile),
+                DelayedActions.ReturnToHand => (Zone.Hand, MoveCause.Return),
                 _ => (Zone.Graveyard, MoveCause.Sacrifice),
             };
 

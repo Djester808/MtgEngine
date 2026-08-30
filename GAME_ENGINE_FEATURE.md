@@ -486,7 +486,64 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **49.3% of playable cards fully read** (16,140 of 32,717), 66.6% of lines.
+Coverage is **49.4% of playable cards fully read** (16,165 of 32,717), 66.6% of lines.
+
+### A delayed destroy, and an idiom that could not stand a sentence beside it
+
+Two families measured before they were built, and both were smaller than the probe that found
+them. **+27 cards, none lost** (16,138 -> 16,165), and the set diff is the number that says so:
+a net gain hides a stolen neighbour, and this round it very nearly hid three.
+
+**"Destroy it at end of combat" was recorded as 18 cards and completes 14.** The delayed
+vocabulary had three words - sacrifice, exile, return-to-hand - and no destroy, deliberately:
+its switch's last arm is a sacrifice, and CR 701.21a says sacrificing a permanent does not
+destroy it, so regeneration (CR 701.19b) and indestructible (CR 702.12b) both miss it. Reading
+the one as the other makes every one of those cards harsher than printed. `DelayedActions` now
+names the four words in one place, `FireDelayedTriggers` has a destroy arm above the zone table
+that asks about indestructible and lets the ordinary `MoveCause.Destroy` replacement find the
+regeneration shield, and the line reads.
+
+The larger half was not the verb but **the subject**. Of the 33 corpus cards carrying a delayed
+destroy, only four say "destroy ~"; the rest say "it" or "that creature", and those mean the
+creature the spell targeted or the creature the trigger was about. `DelayObjectAction` resolves
+the pronoun through `ObjectOf` - the same reader every other verb uses - and aims the delayed
+ability at what it found. That is what Ohran Viper, Mogg Cannon, Blood Frenzy, Serpentine
+Basilisk, Lowland Basilisk and Puffer Extract needed, and widening the same subject group for
+the three older verbs picked up Footsteps of the Goryo, In Thrall to the Pit, Lowland Oaf and
+Soulshriek without changing how any existing card is read.
+
+**The first cut of it destroyed three basilisks.** "That creature" was allowed the same
+last-resort fall back to the source that "it" has, and blocking names no object the engine can
+hand a sentence - `NamesAnObject` refuses the verb because a declaration is a batch - so Tangle
+Asp, Venomous Dragonfly and Infernal Medusa compiled into creatures that destroy themselves
+whenever they block. The complete count went **up by three** and the three cards were wrong.
+Only "it" may fall back now, and a destroy may take even that step only when nothing before it
+in the ability produced another permanent to mean, so "create a token, destroy it" stays unread
+rather than blowing up the card that made the token. Both are behaviour tests.
+
+**Measured and not fixed: 52 complete cards read a delayed "sacrifice it" as the source.** The
+older verbs fall back to the source unconditionally, and about a dozen of those cards mean
+something else - Planebound Accomplice sacrifices itself instead of the planeswalker it put
+onto the battlefield, Slave of Bolas sacrifices a spell that is already in the graveyard and so
+keeps the stolen creature forever. Correcting it needs its own measured pass: the honest fix
+refuses the cards whose pronoun names a token, which *loses* cards. Widening that reading to a
+verb that destroys was never on the table, which is the whole of why the destroy arm is stricter
+than its neighbours.
+
+**The impulse's blocker was not the trailing sentence.** Crossover Collaboration reads as an
+impulse until a third sentence follows it, and the family was sized at 15. It completes 13, and
+the trailing sentence is worth exactly **one** of them - the control asked for and the control
+that mattered. The other twelve were two vocabulary gaps hiding behind it: six cards print "you
+may play **it** this turn" where the reader only knew "that card", and five print the duration
+behind the permission ("you may play that card **until the end of your next turn**") where the
+reader only knew it in front. The tail itself was the shape `TryLookAndTake` had already solved
+two hundred lines above - match the pair, then read what follows the ordinary way - and the tail
+is read rather than dropped, so a tail nothing can read still refuses the whole line.
+
+**The work queue's head is worth nine cards.** Both of these families are larger than anything
+ranked in it, which is what a flat queue looks like from the inside: the leverage has moved out
+of the line ranking and into shapes that have to be found by probing a hypothesis against the
+corpus.
 
 ### Round eleven: finishing interrupted work, and four instrument defects
 

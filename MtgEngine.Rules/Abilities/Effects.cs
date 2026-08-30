@@ -4387,6 +4387,81 @@ public sealed record DelaySourceAction(string EffectId, State.TurnStep Step) : I
 }
 
 /// <summary>
+/// Sets up something to happen at a later step to a permanent the sentence named (CR 603.7).
+/// </summary>
+/// <remarks>
+/// <see cref="DelaySourceAction"/> aimed somewhere other than the source: "destroy that creature
+/// at end of combat" on a basilisk is about the creature the trigger was about, and "target
+/// creature you control gets +X/+X until end of turn. Destroy it at the beginning of the next end
+/// step" is about the creature the spell targeted. Neither is the permanent whose ability it is.
+/// <para>
+/// A separate record rather than a subject on the existing one, and the subject has no default
+/// here on purpose. The two differ only in which permanent they name, so a forgotten argument
+/// would not fail — it would silently aim a destruction at the wrong permanent, which is the
+/// direction this whole family has to fail away from.
+/// </para>
+/// <para>
+/// The subject is resolved <em>now</em>, as the ability that created this resolves, and the id it
+/// found is what the delayed ability carries. That is what CR 603.7d asks for: the delayed
+/// ability is about the object the effect was about, and if that object has left the battlefield
+/// by the time the step arrives, CR 603.7c says the ability does nothing at all.
+/// </para>
+/// </remarks>
+public sealed record DelayObjectAction(
+    string EffectId, State.TurnStep Step, EffectSubject Subject, int TargetIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } about)
+            return [];
+
+        return
+        [
+            new DelayedTriggerCreated(
+                Guid.NewGuid(),
+                context.ControllerId,
+                about,
+                Step,
+                EffectId,
+                context.State.TurnNumber),
+        ];
+    }
+}
+
+/// <summary>The words the delayed vocabulary understands, and what each one does.</summary>
+/// <remarks>
+/// A delayed ability carries one string and nothing else, so the instruction has to be a word.
+/// Named here rather than spelled at each site because two places have to agree about them: the
+/// compiler that writes one and <c>Game.FireDelayedTriggers</c> that reads it. That switch's last
+/// arm is a sacrifice, so a word the two ends spell differently does not fail — it destroys.
+/// </remarks>
+public static class DelayedActions
+{
+    /// <summary>Sacrifice it (CR 701.17a) — the vocabulary's default, and the harshest default.</summary>
+    public const string Sacrifice = "sacrifice";
+
+    /// <summary>Exile it (CR 406.2).</summary>
+    public const string Exile = "exile";
+
+    /// <summary>Return it to its owner's hand (CR 701.9a).</summary>
+    public const string ReturnToHand = "return-to-hand";
+
+    /// <summary>
+    /// Destroy it (CR 701.7a), which is not the same instruction as sacrificing it.
+    /// </summary>
+    /// <remarks>
+    /// CR 701.21a: sacrificing a permanent does not destroy it, so nothing that replaces
+    /// destruction sees a sacrifice — not regeneration (CR 701.19b) and not indestructible
+    /// (CR 702.12b). Reading "destroy it at end of combat" as the sacrifice the vocabulary
+    /// already had would have made every one of those cards strictly harsher than printed, which
+    /// is why the line stayed unread until this word existed.
+    /// </remarks>
+    public const string Destroy = "destroy";
+}
+
+/// <summary>
 /// Changes the source's counters at a later step (CR 603.7, 122.1).
 /// </summary>
 /// <remarks>

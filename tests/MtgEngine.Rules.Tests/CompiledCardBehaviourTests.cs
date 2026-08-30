@@ -11041,36 +11041,6 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "When ~ attacks or blocks, destroy it at end of combat." — Ceremonial Guard, and the arm
-    /// the delay deliberately does not have.
-    /// </summary>
-    /// <remarks>
-    /// There is no delayed <em>destroy</em> in the engine, and the vocabulary's default is a
-    /// sacrifice. The two are not the same instruction, and CR 701.21a says so in as many words:
-    /// sacrificing a permanent does not destroy it, so regeneration and everything else that
-    /// replaces destruction cannot affect it — and neither can indestructible (CR 702.12b).
-    /// Reading the one as the other makes the drawback harsher than the card prints. Four corpus
-    /// cards say it this way and all four stay unread.
-    /// </remarks>
-    [Fact]
-    public void A_delayed_destroy_is_left_unread_rather_than_becoming_a_sacrifice()
-    {
-        var guard = Card(
-            "End Of Combat Destroy Test",
-            "When ~ attacks or blocks, destroy it at end of combat.",
-            CardType.Creature,
-            power: 3,
-            toughness: 3);
-
-        var compiled = CardCompiler.Compile(guard);
-
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            compiled.Unhandled,
-            line => line.Contains("destroy it at end of combat", StringComparison.Ordinal));
-    }
-
-    /// <summary>
     /// "Put a +4/+4 counter on each creature you control" — the counter the engine cannot put.
     /// </summary>
     /// <remarks>
@@ -50428,6 +50398,471 @@ public sealed class CompiledCardBehaviourTests
 
         game.CastSpell(alice, card, [], half: 0);
         Settle(game);
+    }
+
+    // ---- A delayed destroy, and which permanent "it" means (CR 603.7, 701.7a) ---
+
+    /// <summary>
+    /// "When ~ attacks or blocks, destroy it at end of combat." - Ceremonial Guard.
+    /// </summary>
+    /// <remarks>
+    /// The delayed vocabulary had three words and none of them was this one, so the line stayed
+    /// unread on purpose: its default arm is a sacrifice, and CR 701.21a says outright that
+    /// sacrificing a permanent does not destroy it. The two tests after this one are what make
+    /// the new word worth having rather than a rename - the drawback is one that indestructible
+    /// refuses (CR 702.12b) and regeneration replaces (CR 701.19b), and a sacrifice is neither.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_takes_the_attacker_at_the_end_of_combat()
+    {
+        var guard = Card(
+            "End Of Combat Destroy Test",
+            "When ~ attacks or blocks, destroy it at end of combat.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(guard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var soldier = game.Create(alice, guard, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [soldier] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.CombatDamage);
+
+        // Still there when the damage is dealt: the destruction is owed, not done.
+        Assert.Contains(soldier, game.State.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        // Three damage got through first, and only then did it go. The card in the graveyard is
+        // a new object (CR 400.7), so it is found by what it is rather than by the id that
+        // attacked.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.DoesNotContain(soldier, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == guard.Name);
+    }
+
+    /// <summary>
+    /// Indestructible refuses it, which a sacrifice would not have (CR 702.12b, 701.21a).
+    /// </summary>
+    /// <remarks>
+    /// The assertion that separates the two instructions. Compiled as the sacrifice the
+    /// vocabulary already had, this creature would be in the graveyard - a card strictly harsher
+    /// than the one printed, on every board where the drawback was meant to be answerable.
+    /// </remarks>
+    [Fact]
+    public void An_indestructible_creature_survives_its_own_delayed_destroy()
+    {
+        var guard = Card(
+            "Indestructible Destroy Test",
+            "When ~ attacks or blocks, destroy it at end of combat.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3,
+            keywords: KeywordAbility.Indestructible);
+
+        var compiled = CardCompiler.Compile(guard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var soldier = game.Create(alice, guard, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [soldier] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        Assert.Contains(soldier, game.State.Battlefield);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == guard.Name);
+    }
+
+    /// <summary>
+    /// A regeneration shield replaces it with a tap (CR 701.19b), which is the other half.
+    /// </summary>
+    /// <remarks>
+    /// Nothing in the arm checks for a shield: it emits a move whose cause is <c>Destroy</c>, and
+    /// regeneration is already a replacement watching for that event. That is the point of the
+    /// test - the arm goes through the same door every other destruction does, where a delayed
+    /// destroy written as its own zone change would have walked past it.
+    /// </remarks>
+    [Fact]
+    public void A_regeneration_shield_answers_a_delayed_destroy()
+    {
+        var troll = Card(
+            "Regenerating Destroy Test",
+            "{G}: Regenerate ~.\nWhen ~ attacks or blocks, destroy it at end of combat.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(troll);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, troll, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        // The shield lasts until end of turn (CR 701.19b), so it is raised on the turn it has to
+        // answer for rather than on the one the creature arrived.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, creature, "a");
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetObject(creature).Permanent!.RegenerationShields);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [creature] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        var survivor = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .SingleOrDefault(o => o.Card.Name == troll.Name);
+
+        Assert.NotNull(survivor);
+        Assert.Equal(0, survivor!.Permanent!.RegenerationShields);
+    }
+
+    /// <summary>
+    /// "Whenever ~ deals combat damage to a creature, destroy that creature at end of combat."
+    /// - Ohran Viper.
+    /// </summary>
+    /// <remarks>
+    /// The delay is about the creature the trigger was about and not about the permanent whose
+    /// ability it is. Both halves are asserted, and the second is the one that matters: a
+    /// delayed action that could only name its own source would have destroyed the snake.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_names_the_creature_the_trigger_was_about()
+    {
+        var viper = Card(
+            "Ohran Viper Test",
+            "Whenever ~ deals combat damage to a creature, destroy that creature at end of combat.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(viper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var snake = game.Create(alice, viper, Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Viper Blocker Test", 2, 6), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [snake] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [snake] = [wall] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+        Settle(game);
+
+        // The blocker took three damage and would have lived; the delayed destroy is what killed
+        // it, at the end of combat rather than when the damage was dealt.
+        Assert.DoesNotContain(wall, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Viper Blocker Test");
+
+        // And the snake is still standing, which is the whole of what the subject reader buys.
+        Assert.Contains(snake, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Target creature gets +2/+0 until end of turn. Destroy it at the beginning of the next
+    /// end step." - the Puffer Extract shape.
+    /// </summary>
+    /// <remarks>
+    /// "It" after a target means that target, and this is the reading a source-only delay could
+    /// not have. The source here is a spell, which is in a graveyard by the time the end step
+    /// arrives, so a delay aimed at the source would have left the creature pumped and alive.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_names_the_creature_the_spell_targeted()
+    {
+        var extract = Card(
+            "Puffer Extract Test",
+            "Target creature gets +2/+0 until end of turn. "
+                + "Destroy it at the beginning of the next end step.");
+
+        var compiled = CardCompiler.Compile(extract);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Puffed Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, extract);
+        var land = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // Still there, pumped, with the destruction owed.
+        Assert.Contains(bear, game.State.Battlefield);
+        Assert.Equal(
+            4, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        TestCards.PassToStep(game, TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Puffed Bear Test");
+    }
+
+    /// <summary>
+    /// "Whenever ~ blocks or becomes blocked by a creature, destroy that creature at end of
+    /// combat." - Tangle Asp, and the reading this family must never take.
+    /// </summary>
+    /// <remarks>
+    /// Blocking names no object the engine can hand a sentence: a declaration is a batch, and
+    /// <c>TriggerConditions.NamesAnObject</c> refuses the verb for exactly that reason. So
+    /// "that creature" here has no referent the reader can see, and the only thing left to aim
+    /// at would be the permanent with the ability - which is the basilisk, and destroying the
+    /// basilisk is the opposite of what the card says.
+    /// <para>
+    /// This is not hypothetical. The first cut of the destroy arm let "that creature" fall back
+    /// to the source the way "it" may, and three corpus cards - Tangle Asp, Venomous Dragonfly
+    /// and Infernal Medusa - compiled into creatures that destroyed themselves whenever they
+    /// blocked. The complete-card count went up by three and the three cards were wrong, which
+    /// is why the measurement that matters is the set and not the number.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_after_a_blocks_trigger_is_left_unread()
+    {
+        var asp = Card(
+            "Tangle Asp Test",
+            "Whenever ~ blocks or becomes blocked by a creature, "
+                + "destroy that creature at end of combat.",
+            CardType.Creature,
+            power: 1,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(asp);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains(
+                "destroy that creature at end of combat", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "Create a 1/1 white Soldier creature token. Destroy it at the beginning of the next end
+    /// step." - the Hornet Cannon shape, and the guard on the last fallback.
+    /// </summary>
+    /// <remarks>
+    /// "It" may mean the source when nothing else in the ability could be meant, and a token made
+    /// a sentence earlier is something else that could be meant. So a destroy refuses here while
+    /// the sacrifice keeps the fallback it has always had. Both halves are asserted, because the
+    /// difference between the two verbs is the whole rule and stating one half of it would read
+    /// as an accident.
+    /// <para>
+    /// The sacrifice's reading of this shape is wrong as well: it sacrifices the permanent that
+    /// made the token rather than the token. Fifty-two complete cards carry that reading today
+    /// and correcting it is a measured pass of its own - widening it to a verb that destroys was
+    /// never on the table.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_delayed_destroy_refuses_the_source_when_a_token_came_first()
+    {
+        const string tokenLine = "Create a 1/1 white Soldier creature token. ";
+
+        var destroying = Card(
+            "Token Destroy Test",
+            tokenLine + "Destroy it at the beginning of the next end step.",
+            CardType.Sorcery);
+
+        var sacrificing = Card(
+            "Token Sacrifice Test",
+            tokenLine + "Sacrifice it at the beginning of the next end step.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(destroying).IsComplete);
+
+        var kept = CardCompiler.Compile(sacrificing);
+        Assert.True(kept.IsComplete, string.Join(" | ", kept.Unhandled));
+    }
+
+    // ---- The impulse, and the sentence beside it (CR 601.3e) ------------------
+
+    /// <summary>
+    /// "Exile the top two cards of your library. Until the end of your next turn, you may play
+    /// those cards. If this spell was cast using teamwork, create a Treasure token." - Crossover
+    /// Collaboration.
+    /// </summary>
+    /// <remarks>
+    /// The idiom was anchored to the end of the line, so one sentence behind it threw the whole
+    /// match away and left a card unread whose exile half the compiler had understood all along.
+    /// The look-and-take idiom in the same method had already been through this and already had
+    /// the answer: match the pair, then read whatever follows the ordinary way. The tail is read
+    /// and not dropped - a tail nothing can read still refuses the line, which is the last test
+    /// in this section.
+    /// </remarks>
+    [Fact]
+    public void An_impulse_reads_the_sentence_printed_after_it()
+    {
+        var spell = Card(
+            "Impulse Tail Test",
+            "Exile the top card of your library. You may play that card this turn. "
+                + "You gain 2 life.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Tailed Bear Test", 2, 2), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, spell);
+        var land = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        // Both halves ran: the exile is playable this turn, and the sentence behind it happened.
+        var exiled = game.State.Exile
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Tailed Bear Test");
+
+        Assert.Equal(game.State.TurnNumber, exiled.MayPlayUntilTurn);
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Exile the top card of your library. You may play it this turn." - Prophetic Flamespeaker.
+    /// </summary>
+    /// <remarks>
+    /// The same sentence with the pronoun the card actually prints. Six corpus cards say "it"
+    /// and were refused by a reader that only knew "that card", which is a vocabulary gap
+    /// wearing a mechanic's clothes.
+    /// </remarks>
+    [Fact]
+    public void An_impulse_reads_the_pronoun_the_card_prints()
+    {
+        var spell = Card(
+            "Impulse Pronoun Test",
+            "Exile the top card of your library. You may play it this turn.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Pronoun Bear Test", 2, 2), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, spell);
+        var land = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Pronoun Bear Test");
+
+        Assert.Equal(game.State.TurnNumber, exiled.MayPlayUntilTurn);
+    }
+
+    /// <summary>
+    /// "Exile the top card of your library. You may play that card until the end of your next
+    /// turn." - Clockwork Percussionist.
+    /// </summary>
+    /// <remarks>
+    /// The longer window, written behind the permission rather than in front of it. Cards spell
+    /// it both ways round about equally often and only one of the two was read, so five cards
+    /// were refused over a word order - and the duration is the half that must not be quietly
+    /// dropped, since the shorter one is a strictly worse card.
+    /// </remarks>
+    [Fact]
+    public void An_impulse_reads_a_duration_written_behind_the_permission()
+    {
+        var spell = Card(
+            "Impulse Duration Test",
+            "Exile the top card of your library. "
+                + "You may play that card until the end of your next turn.");
+
+        var compiled = CardCompiler.Compile(spell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Duration Bear Test", 2, 2), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, spell);
+        var land = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Duration Bear Test");
+
+        // The longer duration is not writable as a turn number, so it rides as its own field -
+        // and the turn number stays empty rather than being filled in with this turn's, which
+        // would have made the permission expire tonight.
+        Assert.Null(exiled.MayPlayUntilTurn);
+        Assert.NotNull(exiled.MayPlayThroughOwnersNextTurn);
+    }
+
+    /// <summary>
+    /// A tail nothing can read still refuses the whole line.
+    /// </summary>
+    /// <remarks>
+    /// The control that makes the three tests above mean something. Letting an idiom match a
+    /// prefix is only safe while the remainder is read rather than discarded: an impulse that
+    /// quietly swallowed the sentence behind it would compile Hidetsugu, Devouring Chaos into a
+    /// card that exiles and never deals the damage, and the coverage figure would go up while
+    /// the card got worse.
+    /// <para>
+    /// The tail here is that card's reflexive trigger. If it ever becomes readable this test
+    /// fails, and that is the right prompt: the assertion is about a line the compiler cannot
+    /// read, not about that particular mechanic.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_impulse_with_an_unreadable_tail_stays_unread()
+    {
+        var spell = Card(
+            "Impulse Refused Tail Test",
+            "Exile the top card of your library. You may play that card this turn. "
+                + "When you exile a nonland card this way, ~ deals damage equal to the exiled "
+                + "card's mana value to any target.");
+
+        var compiled = CardCompiler.Compile(spell);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains(
+                "Exile the top card of your library", StringComparison.Ordinal));
     }
 
     // ---- Rooms (CR 709.5) ----------------------------------------------------

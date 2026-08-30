@@ -223,6 +223,14 @@ public static class EffectTargets
         Add<ExileAndReturnAtEndStep>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        // The same pronoun-or-target shape as the three above: a delayed action aimed at the
+        // creature a trigger named carries an index nothing reads.
+        Add<DelayObjectAction>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
+
         Add<FlickerTarget>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 

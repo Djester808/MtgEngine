@@ -78,7 +78,23 @@ public static partial class EffectPhrase
                 impulse.Groups["n"].Success ? Number(impulse.Groups["n"].Value) : new Amount(1),
                 impulse.Groups["long"].Success));
 
-            parsed = new ParsedPhrase { Effects = effects.ToImmutable() };
+            // Whatever the card says next is read the ordinary way, exactly as the look-and-take
+            // idiom below already is. Anchoring the pair to the end of the line meant one
+            // trailing sentence - "If this spell was cast using teamwork, create a Treasure
+            // token." - threw the whole match away and left the card unread, which is a reader
+            // refusing a shape it understands because of a sentence beside it.
+            foreach (var sentence in Sentences(impulse.Groups["after"].Value))
+            {
+                if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                    return false;
+            }
+
+            parsed = new ParsedPhrase
+            {
+                Targets = targets.ToImmutable(),
+                Effects = effects.ToImmutable(),
+            };
+
             return true;
         }
 
@@ -3649,24 +3665,72 @@ public static partial class EffectPhrase
             // The verb is mapped rather than passed through. The engine's delayed vocabulary
             // spells the bounce "return-to-hand", and handing it the printed word would fall to
             // the default arm - which is a sacrifice, and a sacrifice is not a bounce.
+            //
+            // "Destroy" is a word of its own in that vocabulary rather than a synonym of the
+            // sacrifice, because CR 701.21a says outright that sacrificing a permanent does not
+            // destroy it: nothing that replaces destruction sees a sacrifice, neither
+            // regeneration (CR 701.19b) nor indestructible (CR 702.12b). The line stayed unread
+            // for as long as the engine had no such word, which was the right answer while it
+            // was true - a drawback read harsher than it prints is worse than one not read.
             var doing = m.Groups["verb"].Value.ToLowerInvariant() switch
             {
-                "sacrifice" => "sacrifice",
-                "exile" => "exile",
-                "return" => "return-to-hand",
+                "sacrifice" => DelayedActions.Sacrifice,
+                "exile" => DelayedActions.Exile,
+                "return" => DelayedActions.ReturnToHand,
+                "destroy" => DelayedActions.Destroy,
                 _ => null,
             };
 
-            // "Destroy it at end of combat" is printed on four cards and is deliberately not
-            // here. CR 701.21a says it outright: sacrificing a permanent does not destroy it, so
-            // regeneration and every other effect that replaces destruction cannot touch a
-            // sacrifice - and neither can indestructible (CR 702.12b). Reading the one as the
-            // other makes the drawback harsher than the card prints. There is no delayed destroy
-            // in the engine, so the line stays unread rather than becoming a stronger one.
             if (when is { } moment && doing is not null)
             {
-                effects.Add(new DelaySourceAction(doing, moment));
-                return true;
+                var who = m.Groups["who"].Value.Trim();
+
+                // "~" is the permanent with the ability and can be nothing else, whatever the
+                // verb and whatever came before it in the line.
+                if (string.Equals(who, "~", StringComparison.Ordinal))
+                {
+                    effects.Add(new DelaySourceAction(doing, moment));
+                    return true;
+                }
+
+                // A pronoun goes to the shared reader, which answers with the target an earlier
+                // sentence chose or with the object the trigger was about, and with nothing at
+                // all where it can see neither. "Destroy that creature at end of combat" on a
+                // basilisk is the second of those; "target creature you control gets +X/+X until
+                // end of turn. Destroy it at the beginning of the next end step" is the first.
+                if (ObjectOf(who, targets, objectNamedByTrigger) is { } named
+                    && named.Subject != EffectSubject.Source)
+                {
+                    effects.Add(
+                        new DelayObjectAction(doing, moment, named.Subject, named.Index));
+
+                    return true;
+                }
+
+                // Only "it" is left, and only "it" may fall back. "That creature" names something
+                // the sentence has already been told about, and where the reader above could not
+                // say what, there is no answer - reading it as the source turns "whenever ~
+                // blocks a creature, destroy that creature at end of combat" into a basilisk
+                // that destroys itself, which is the exact card this codebase has reverted
+                // before. Three of them compiled that way for the length of one measurement.
+                if (!string.Equals(who, "it", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                // "It" with nothing else named can only be the permanent with the ability. The
+                // three older verbs have always taken that step; a destroy takes it only when
+                // nothing before it in the ability produced another permanent to mean. "Create a
+                // 1/1 Insect token. Destroy it at the beginning of the next end step" is about
+                // the token, and a destroy falling back to the source there would blow up the
+                // card that made it. That fallback is wrong for the sacrifice on those same
+                // cards and is left alone deliberately: it is the reading 52 complete cards
+                // already have, and correcting it is a measured pass of its own rather than a
+                // side effect of adding a word.
+                if (!string.Equals(doing, DelayedActions.Destroy, StringComparison.Ordinal)
+                    || (effects.Count == 0 && targets.Count == 0))
+                {
+                    effects.Add(new DelaySourceAction(doing, moment));
+                    return true;
+                }
             }
         }
 
@@ -10270,15 +10334,23 @@ public static partial class EffectPhrase
     private static partial Regex ClashLine();
 
     /// <remarks>
-    /// Only the this-turn window. "Until the end of your next turn" is a longer duration this
-    /// runs to the end of that player's next turn instead, which is a different duration and not
-    /// writable as a turn number - see <c>MayPlayThroughOwnersNextTurn</c> for why.
+    /// Only the this-turn window and the one that reaches the end of the player's next turn.
+    /// The longer one is not writable as a turn number - see <c>MayPlayThroughOwnersNextTurn</c>
+    /// for why - so it rides as a flag, and it is accepted written either way round: cards spell
+    /// it in front of the permission and behind it about equally often, and taking only the
+    /// first left five cards unread over a word order.
+    /// <para>
+    /// The pronoun matters as much as the duration. "You may play it this turn" and "you may
+    /// play that card this turn" are the same sentence, and reading only the noun form refused
+    /// six cards whose exile half had been understood all along.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^[Ee]xile the top (" + N + @" )?cards? of your library\."
             + @"\s*([Uu]ntil end of turn, |[Uu]ntil (?<long>the end of your next turn), )?"
-            + @"[Yy]ou may play (that card|those cards)"
-            + @"( this turn)?\.?$",
+            + @"[Yy]ou may play (that card|those cards|it|them)"
+            + @"( this turn| until end of turn| until (?<long>the end of your next turn))?"
+            + @"\.?(?<after>.*)$",
         RegexOptions.None)]
     private static partial Regex ExileAndPlayLine();
 
@@ -10650,8 +10722,8 @@ public static partial class EffectPhrase
     /// the whole instruction in two words and "return it" does not.
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<verb>sacrifice|exile) (it|~)"
-            + @"|(?<verb>return) (it|~) to its owner's hand)"
+        @"^((?<verb>sacrifice|exile|destroy) (?<who>it|~|that creature)"
+            + @"|(?<verb>return) (?<who>it|~) to its owner's hand)"
             + @" (at the beginning of the next (?<step>[a-z ]+)|(?<combat>at end of combat))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DelayedSelfLine();
