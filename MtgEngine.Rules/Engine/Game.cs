@@ -444,41 +444,49 @@ public sealed class Game
     /// </remarks>
     private int? HandLimitFor(Guid playerId)
     {
-        var permanents = State.Battlefield.Select(State.GetObject).ToList();
+        var board = State.Battlefield.Select(State.GetObject).ToList();
 
-        if (permanents.Any(o =>
-            ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card)))
-        {
+        if (board.Any(o => ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card)))
             return null;
-        }
 
-        // Every delta on the table, added (CR 402.2). Whose is decided by the *computed*
-        // controller and not the id the object was created with, for the same reason every
-        // other question here goes through ControllerOf: control is layer 2 (CR 613.1b), so a
-        // stolen Gnat Miser shrinks the hand of whoever holds it now and of nobody else.
+        // "Your maximum hand size is reduced by three" and "each opponent's ... by two" are the
+        // same rule pointed two ways, so the permanent's controller decides which players its
+        // change reaches rather than the change naming them. Whose is asked of the *computed*
+        // controller and not the id the object was created with, for the same reason every other
+        // question here goes through ControllerOf: control is layer 2 (CR 613.1b), so a stolen
+        // Gnat Miser shrinks the hand of whoever holds it now and of nobody else.
         //
-        // One seam is left open here and is the same one the line above it has: the delta is
+        // Several of them add up (CR 402.2), in either direction and in any order, and the total
+        // stops at zero - a negative limit would ask for more cards than a player has and there
+        // is no such discard (CR 514.1).
+        //
+        // One seam is left open here and is the same one the line above it has: the change is
         // asked of the *printed* card, so a Clone of Gnat Miser is not a Miser for this purpose
         // (CR 613.2c). Closing it is one call to Characteristics.CardOf, and it belongs to both
         // reads at once rather than to this family - fixing one of the pair would leave the
         // method asking two different questions about the same battlefield.
         var limit = MaxHandSize;
-        foreach (var permanent in permanents)
+
+        foreach (var permanent in board)
         {
-            if (_abilities.HandSizeChangeOf(permanent.Card) is not { } change)
-                continue;
-
             var controller = ControllerOf(permanent);
-            var reaches = change.Scope == PlayerScope.You
-                ? controller == playerId
-                : controller != playerId;
 
-            if (reaches)
-                limit += change.Delta;
+            foreach (var change in _abilities.HandSizeChangesOf(permanent.Card))
+            {
+                var reaches = change.Scope switch
+                {
+                    PlayerScope.You => controller == playerId,
+                    PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer =>
+                        controller != playerId,
+                    PlayerScope.EachPlayer => true,
+                    _ => false,
+                };
+
+                if (reaches)
+                    limit += change.Delta;
+            }
         }
 
-        // A hand size cannot go below nothing: a player under three Misers discards to zero and
-        // then stops, rather than owing cards they do not have (CR 402.2, 514.1).
         return Math.Max(0, limit);
     }
 
@@ -3174,6 +3182,16 @@ public sealed class Game
                 ResolveColorChoice(picks);
                 break;
 
+            // Unlike the colour above, this one is asked mid-resolution and has to hand
+            // priority back to whoever was about to receive it (CR 117.5) - the mana is for
+            // a spell that player was in the middle of paying for.
+            case ChoiceKind.ChooseManaColor:
+                ResolveManaColorChoice(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.Exploit:
                 ResolveExploit(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -3902,6 +3920,9 @@ public sealed class Game
     private readonly List<HandChoiceRequested> _handChoicesOwed = [];
 
     private readonly List<ColorChoiceRequested> _colorChoicesOwed = [];
+
+    /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
+    private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
     private readonly List<CreatureTypeChoiceRequested> _creatureTypeChoicesOwed = [];
     private readonly List<ConniveRequested> _connivesOwed = [];
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
@@ -6088,6 +6109,119 @@ public sealed class Game
         return true;
     }
 
+    /// <summary>
+    /// Pays out any owed mana colour that has only one answer (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// A question with one possible answer is not a question, and the effect that raised it
+    /// already says so - this is the second lock, for a menu that narrowed between the ask and
+    /// now. Settled rather than asked, so the sweep goes round again: the mana can have triggered
+    /// something, and returning as though a question were pending would leave that on the floor.
+    /// </remarks>
+    private bool SettleForcedManaColors()
+    {
+        if (_manaColorChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _manaColorChoicesOwed[0];
+        if (owed.Options.Count > 1)
+            return false;
+
+        _manaColorChoicesOwed.RemoveAt(0);
+
+        if (owed.Options.Count == 0 || !State.Players.ContainsKey(owed.PlayerId))
+            return false;
+
+        Emit(new ManaAdded(
+            owed.PlayerId,
+            Abilities.AddChosenMana.Colour(owed.Options[0]),
+            owed.Amount,
+            null,
+            owed.SourceId));
+
+        return true;
+    }
+
+    /// <summary>
+    /// Asks the oldest owed mana colour, if any (CR 106.1a).
+    /// </summary>
+    /// <remarks>
+    /// Asked from the sweep rather than where the effect ran, for the reason every deferred
+    /// question here is: a resolution is never stopped half way through. The mana lands a beat
+    /// after the ability that promised it and still before anybody receives priority, which is
+    /// what CR 106.4 asks for - it is in the pool for the spell the player was about to cast.
+    /// </remarks>
+    private bool AskOwedManaColorChoice()
+    {
+        if (_manaColorChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _manaColorChoicesOwed[0];
+        _manaColorChoicesOwed.RemoveAt(0);
+
+        if (owed.Options.Count <= 1 || !State.Players.ContainsKey(owed.PlayerId))
+            return false;
+
+        _manaColorChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"mana-colour:{owed.PlayerId:N}",
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.ChooseManaColor,
+            Prompt = owed.Amount == 1
+                ? "Choose a color of mana to add."
+                : $"Choose a color; {owed.Amount} mana of it are added.",
+
+            // The menu the effect worked out, not one built again here. "Any type that land
+            // produced" was read off a permanent that may have left the battlefield by now, and
+            // a question whose options moved underneath it is not the one that was asked.
+            Options = [.. owed.Options.Select(c => new ChoiceOption(c.ToString(), ColorLabel(c)))],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    private ManaColorChoiceRequested? _manaColorChoiceBeingAsked;
+
+    /// <summary>Adds the mana in the colour that was named (CR 106.4).</summary>
+    private void ResolveManaColorChoice(IReadOnlyList<string> picks)
+    {
+        if (_manaColorChoiceBeingAsked is not { } owed)
+            return;
+
+        _manaColorChoiceBeingAsked = null;
+
+        if (picks.Count == 0 || !Enum.TryParse<ManaColor>(picks[0], out var chosen))
+            return;
+
+        // Only from the menu that was offered. Every other choice in this engine answers with
+        // an object's id and is unambiguous by construction; a colour is a word, and a word can
+        // arrive from outside naming something that was never on the list.
+        if (!owed.Options.Contains(chosen))
+            return;
+
+        Emit(new ManaAdded(
+            owed.PlayerId,
+            Abilities.AddChosenMana.Colour(chosen),
+            owed.Amount,
+            null,
+            owed.SourceId));
+    }
+
+    /// <summary>What a mana type is called on a button (CR 106.1b).</summary>
+    private static string ColorLabel(ManaColor colour) => colour switch
+    {
+        ManaColor.White => "White",
+        ManaColor.Blue => "Blue",
+        ManaColor.Black => "Black",
+        ManaColor.Red => "Red",
+        ManaColor.Green => "Green",
+        _ => "Colorless",
+    };
+
     private ColorChoiceRequested? _colorChoiceBeingAsked;
 
     /// <summary>Applies a named colour to whatever asked for it.</summary>
@@ -8092,6 +8226,17 @@ public sealed class Game
             if (AskOwedColorChoice())
                 return true;
 
+            // The forced arm first, so a menu with one item pays out and the sweep goes
+            // round again rather than stopping the game over a decision with one outcome.
+            if (SettleForcedManaColors())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            if (AskOwedManaColorChoice())
+                return true;
+
             if (AskOwedUntapChoice())
                 return true;
 
@@ -8951,6 +9096,12 @@ public sealed class Game
         PermanentMutated mutated => mutated.Id,
         PermanentTapped tapped => tapped.Id,
         CountersChanged counted => counted.Id,
+
+        // "Whenever a player taps a land for mana, that player adds one mana of any type
+        // that land produced." The land is what the sentence is about, and the event already
+        // says which permanent made the mana - so "that land" has an answer rather than
+        // falling back to the permanent with the ability, which is a different card.
+        ManaAdded mana => mana.SourceId,
         SpellCastEvent cast => cast.StackId,
 
         PlayerDamaged hit => hit.SourceId,
@@ -11106,6 +11257,9 @@ public sealed class Game
 
         if (e is HandChoiceRequested rummaging)
             _handChoicesOwed.Add(rummaging);
+
+        if (e is ManaColorChoiceRequested manaColour)
+            _manaColorChoicesOwed.Add(manaColour);
 
         if (e is ColorChoiceRequested naming)
             _colorChoicesOwed.Add(naming);

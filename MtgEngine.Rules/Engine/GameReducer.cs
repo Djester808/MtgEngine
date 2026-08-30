@@ -159,6 +159,7 @@ public static class GameReducer
                 ? state.WithObject(everything with { WasOverloaded = true })
                 : state,
             PermanentPhasedOut gone => PhaseOut(state, gone),
+            RemovedFromCombat stepped => OutOfCombat(state, stepped.Id),
             PermanentPhasedIn back => state.PhasedOut.ContainsKey(back.Id)
                 ? state with
                 {
@@ -198,6 +199,10 @@ public static class GameReducer
             SpellCopied copied => CopyOnStack(state, copied),
             HandChoiceRequested => state,
             ColorChoiceRequested => state,
+
+            // The question only; the mana itself arrives as a ManaAdded once it is
+            // answered, so nothing about the state changes when it is asked.
+            ManaColorChoiceRequested => state,
             CreatureTypeChoiceRequested => state,
             ConniveRequested => state,
             ManifestDreadRequested => state,
@@ -1657,22 +1662,37 @@ public static class GameReducer
         if (!state.Battlefield.Contains(e.Id))
             return state;
 
-        return state with
+        return OutOfCombat(state, e.Id) with
         {
             Battlefield = Without(state.Battlefield, e.Id),
             PhasedOut = state.PhasedOut.SetItem(e.Id, e.ReturnsFor),
-            Combat = state.Combat with
-            {
-                Attackers = state.Combat.Attackers.Remove(e.Id),
-                Blockers = state.Combat.Blockers
-                    .Remove(e.Id)
-                    .ToImmutableDictionary(
-                        pair => pair.Key,
-                        pair => pair.Value.Remove(e.Id)),
-                Blocked = state.Combat.Blocked.Remove(e.Id),
-            },
         };
     }
+
+    /// <summary>Takes a permanent out of the combat lists and nothing else (CR 506.4).</summary>
+    /// <remarks>
+    /// Shared with <see cref="PhaseOut"/> because the removal is the same removal: a
+    /// permanent that phases out is removed from combat, and a permanent that is removed
+    /// from combat by an effect leaves the same three lists. Two copies of it would be two
+    /// chances to forget the third.
+    /// </remarks>
+    private static GameState OutOfCombat(GameState state, ObjectId id) => state with
+    {
+        Combat = state.Combat with
+        {
+            Attackers = state.Combat.Attackers.Remove(id),
+            Blockers = state.Combat.Blockers
+                .Remove(id)
+                .ToImmutableDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value.Remove(id)),
+
+            // CR 506.4c: it stops being an attacking creature, so the "it is still blocked"
+            // memory goes with it. Left behind, an attacker that stepped out and came back
+            // in a later combat would arrive already blocked.
+            Blocked = state.Combat.Blocked.Remove(id),
+        },
+    };
 
     private static GameState RemoveFrom(GameState state, Zone zone, Guid ownerId, ObjectId id)
     {

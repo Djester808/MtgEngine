@@ -298,19 +298,20 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// How this permanent moves a maximum hand size, and whose (CR 402.2).
     /// </summary>
     /// <remarks>
-    /// A number and a scope rather than a number alone, because the printed sentence carries
-    /// both and the two halves are on opposite sides of the table: "your maximum hand size is
-    /// reduced by three" is the controller's, "each opponent's maximum hand size is reduced by
-    /// two" is everybody else's. Defaulting a missing scope to the controller is the defect this
-    /// engine already recorded once over group statics, so the scope is read rather than assumed
-    /// and a sentence naming neither leaves the line unread.
+    /// The other half of <see cref="RemovesHandLimit"/>: that one answers whether the limit
+    /// is gone, this one answers where the number moved to.
     /// <para>
-    /// Null rather than zero for "this permanent says nothing about hand size", so the untap
-    /// question can tell a card that has no opinion from one printing a delta of nought - which
-    /// no card does, and which the type should not have to pretend it might.
+    /// A <em>signed</em> delta and a scope, and a list of them. Signed because the corpus
+    /// prints both directions - Thought Eater reduces, Trusted Advisor increases - and a
+    /// type that can only subtract leaves the increases with nowhere to compile to. Scoped
+    /// because the printed sentence carries the seat and the two halves sit on opposite sides
+    /// of the table; defaulting a missing scope to the controller is the defect this engine
+    /// already recorded once over group statics, so it is read rather than assumed and a
+    /// sentence naming neither leaves the line unread. A list because one card could print
+    /// both halves, and a single field would silently keep whichever was read last.
     /// </para>
     /// </remarks>
-    HandSizeChange? HandSizeChangeOf(CardDefinition card) => null;
+    IReadOnlyList<HandSizeChange> HandSizeChangesOf(CardDefinition card) => [];
 
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => ChoiceOnEntry.None;

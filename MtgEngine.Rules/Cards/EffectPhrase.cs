@@ -1766,13 +1766,16 @@ public static partial class EffectPhrase
 
             var whose = targets.Count - 1;
 
-            effects.Add(m.Groups["draws"].Success
-                ? new DrawForTargetsController(many, whose)
-                : new ChangeLifeOfTargetsController(
-                    m.Groups["verb"].Value.StartsWith("gain", StringComparison.OrdinalIgnoreCase)
-                        ? many
-                        : -many,
-                    whose));
+            effects.Add(m.Groups["mills"].Success
+                ? new MillForTargetsController(many, whose)
+                : m.Groups["draws"].Success
+                    ? new DrawForTargetsController(many, whose)
+                    : new ChangeLifeOfTargetsController(
+                        m.Groups["verb"].Value.StartsWith(
+                            "gain", StringComparison.OrdinalIgnoreCase)
+                            ? many
+                            : -many,
+                        whose));
 
             return true;
         }
@@ -1961,6 +1964,23 @@ public static partial class EffectPhrase
             && effects[^1] is SearchLibrary tutored)
         {
             effects[^1] = tutored with { Destination = Zone.Library };
+            return true;
+        }
+
+        // "Target player shuffles their graveyard into their library" — the same instruction as
+        // the one below, aimed. Read before it because the untargeted pattern is anchored on
+        // "shuffle" as the first word and would never see this one; kept as its own matcher for
+        // the same reason every targeted twin here is, so a target that cannot be read loses the
+        // line rather than quietly shuffling the caster's own graveyard.
+        var yardShuffle = TargetShuffleGraveyardLine().Match(sentence);
+        if (yardShuffle.Success
+            && Specs.Parse(yardShuffle.Groups["t"].Value.Trim()) is
+            { Kind: TargetKind.Player } shuffler)
+        {
+            targets.Add(shuffler);
+            effects.Add(new ShuffleLibrary(
+                GraveyardFirst: true, TargetIndex: targets.Count - 1));
+
             return true;
         }
 
@@ -2271,6 +2291,20 @@ public static partial class EffectPhrase
             effects.Add(new DiscardCards(
                 0, ScopeOf(dumping.Groups["who"].Value), WholeHand: true));
 
+            return true;
+        }
+
+        // "…, then draw that many cards" — the second half of Tolarian Winds, arriving as its own
+        // sentence because the splitter cuts on ", then". It is read by folding the two into one
+        // effect rather than by adding a draw beside the discard: "that many" is the size of a
+        // hand that no longer exists once the discard has resolved. Accepted only directly after
+        // a whole-hand discard, so a stray "draw that many cards" with nothing to count stays
+        // unread instead of drawing zero.
+        if (DrawThatManyLine().IsMatch(sentence)
+            && effects.Count > 0
+            && effects[^1] is DiscardCards { WholeHand: true, TargetIndex: null } emptied)
+        {
+            effects[^1] = new DiscardHandThenDraw(emptied.Scope);
             return true;
         }
 
@@ -3440,6 +3474,52 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "~ gains protection from the color of your choice until end of turn" - the same
+        // question the targeted form below asks, aimed at the permanent whose ability it is.
+        // <see cref="ChooseColorForTarget"/> already reads a null index as the source, so this
+        // is the sentence and nothing else; it went unread only because no pattern said it.
+        if (SelfProtectionFromChosenColourLine().IsMatch(sentence))
+        {
+            effects.Add(new ChooseColorForTarget(
+                ColorChoiceUse.ProtectionFrom, TargetIndex: null));
+            return true;
+        }
+
+        // "~ can attack this turn as though it didn't have defender" - a permission that lasts
+        // the turn (CR 702.3b). Written as a floating effect on the source rather than as a
+        // keyword removal, because the creature keeps its defender: cards that count creatures
+        // with defender, and the Walls that care about being Walls, must not change because one
+        // of them was let through.
+        if (SelfMayAttackDespiteDefenderLine().IsMatch(sentence))
+        {
+            effects.Add(new PumpSourceUntilEndOfTurn(
+                GenerativeEffects.MayAttackAsThoughNoDefenderId()));
+            return true;
+        }
+
+        var released = TargetMayAttackDespiteDefenderLine().Match(sentence);
+        if (released.Success && Specs.Parse(released.Groups["t"].Value) is { } unwalled)
+        {
+            targets.Add(unwalled);
+            effects.Add(new PumpUntilEndOfTurn(
+                GenerativeEffects.MayAttackAsThoughNoDefenderId(), targets.Count - 1));
+            return true;
+        }
+
+        // "Put ~ on top of its owner's library" - the source sending itself back, matched here
+        // beside the other self-move sentences and before the general target grammar, which
+        // would otherwise read the tilde as a phrase naming something.
+        var deckbound = PutSelfOnLibraryLine().Match(sentence);
+        if (deckbound.Success)
+        {
+            effects.Add(new PutSourceOnLibrary(
+                deckbound.Groups["where"].Value.StartsWith(
+                    "bottom", StringComparison.OrdinalIgnoreCase)
+                    ? ZonePosition.Bottom
+                    : ZonePosition.Top));
+            return true;
+        }
+
         if (SwitchSelfPowerToughnessLine().IsMatch(sentence))
         {
             effects.Add(new PumpSourceUntilEndOfTurn(
@@ -3675,20 +3755,34 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Add {G}{G}" outside a mana ability — a trigger that makes mana, or an ability that
-        // makes mana as well as doing something else. Both use the stack, unlike a mana ability
-        // (CR 605.3b), which is why they compile to an effect rather than to Produces.
+        // "Add {G}{G}" outside a mana ability - a trigger that makes mana, an ability that makes
+        // mana as well as doing something else, or a spell. All of them use the stack, unlike a
+        // mana ability (CR 605.3b), which is why they compile to an effect rather than to
+        // Produces - and it is that resolution which gives a colour somewhere to be chosen.
         m = AddManaLine().Match(sentence);
         if (m.Success)
         {
-            var alternatives = ManaWords.Alternatives(m.Groups["mana"].Value);
+            var whose = ScopeOf(m.Groups["who"].Value);
+            var what = m.Groups["mana"].Value.Trim();
 
-            // Only an unambiguous production can be an effect. "Add one mana of any color" is a
-            // choice made on resolution, and there is nowhere to ask it — the mana-ability path
-            // splits that into one ability per colour, which an effect cannot do.
+            // "Add one mana of any color", "add two mana of any one color", "add two mana in any
+            // combination of colors" - the colour is not known until this resolves, so the
+            // effect asks. Read before the fixed forms because the words reach both.
+            if (ChosenMana(what) is { } asking)
+            {
+                effects.Add(asking with { Who = whose });
+                return true;
+            }
+
+            var alternatives = ManaWords.Alternatives(what);
+
+            // Only an unambiguous production can be a fixed effect. Anything with more than one
+            // payout is a choice, and the ones this reader cannot turn into a question - "add X
+            // mana in any combination of {U} and/or {R}" - stay unread rather than being picked
+            // for the player.
             if (alternatives.Count == 1)
             {
-                effects.Add(new AddMana(alternatives[0]));
+                effects.Add(new AddMana(alternatives[0]) { Who = whose });
                 return true;
             }
         }
@@ -4202,6 +4296,20 @@ public static partial class EffectPhrase
             effects.Add(new GainExperience(
                 Number(experience.Groups["n"].Value),
                 ScopeOf(experience.Groups["who"].Value)));
+
+            return true;
+        }
+
+        // "Defending player gets a poison counter" (CR 122.1, 704.5c). The effect has been in
+        // the engine since toxic was read, and toxic was the only thing that could produce one:
+        // the keyword assembles the ability in the compiler rather than going through a
+        // sentence, so every card that prints the sentence outright was unread.
+        var poison = GetPoisonLine().Match(sentence);
+        if (poison.Success)
+        {
+            effects.Add(new GivePoisonCounters(
+                Number(poison.Groups["n"].Value),
+                ScopeOf(poison.Groups["who"].Value)));
 
             return true;
         }
@@ -4771,7 +4879,7 @@ public static partial class EffectPhrase
             if (m.Groups["mayattack"].Success)
             {
                 effects.Add(new PumpSourceUntilEndOfTurn(
-                    GenerativeEffects.MayAttackDespiteDefenderId()));
+                    GenerativeEffects.MayAttackAsThoughNoDefenderId()));
             }
 
             return true;
@@ -4912,17 +5020,6 @@ public static partial class EffectPhrase
         {
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.GrantId(KeywordAbility.CantBeBlocked)));
-            return true;
-        }
-
-        // "~ can attack this turn as though it didn't have defender" - a permission written as a
-        // rule rather than as a keyword, and the one the wall cards are printed around. It does
-        // not take defender away (CR 609.4): anything that asks whether the creature has the
-        // keyword still gets yes, and only the attacking rule is told to look past it.
-        if (SelfMayAttackLine().IsMatch(sentence))
-        {
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.MayAttackDespiteDefenderId()));
             return true;
         }
 
@@ -6376,6 +6473,40 @@ public static partial class EffectPhrase
         // Anything else is a named counter — charge, storage, depletion, age — and the engine
         // has never cared which names exist. Those are kept exactly as printed.
         return word.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// "One mana of any color" and the rest of the family whose colour is decided on resolution.
+    /// </summary>
+    /// <remarks>
+    /// Returns the effect with its player scope still unset, because the words that name whose
+    /// pool it goes into sit in front of the verb and are read by the caller.
+    /// <para>
+    /// "N mana of any one color" and "N mana in any combination of colors" differ by exactly one
+    /// thing and it is not the count: the first is one colour for all of it, the second a colour
+    /// per mana. Writing them as one matcher with a flag is what keeps that difference visible -
+    /// two matchers would let one of them quietly acquire the other's reading.
+    /// </para>
+    /// </remarks>
+    private static AddChosenMana? ChosenMana(string text)
+    {
+        var m = ChosenColorManaLine().Match(text);
+        if (!m.Success)
+            return null;
+
+        var many = Number(m.Groups["n"].Value);
+
+        // X is chosen as the spell is cast and is not a number this reader has; a count of zero
+        // adds nothing and is not worth an effect. Both stay unread.
+        if (many.IsVariable || many.Fixed < 1)
+            return null;
+
+        return new AddChosenMana(
+            many.Fixed,
+            m.Groups["produced"].Success
+                ? ManaPalette.TypesTheSubjectProduces
+                : ManaPalette.AnyColor,
+            EachSeparately: m.Groups["combination"].Success);
     }
 
     /// <summary>Which players a printed group word names (CR 109.5).</summary>
@@ -9344,6 +9475,12 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleLine();
 
+    /// <summary>"Target player shuffles their graveyard into their library" (CR 701.23).</summary>
+    [GeneratedRegex(
+        @"^(?<t>target (player|opponent)) shuffles their graveyard into their library$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetShuffleGraveyardLine();
+
     [GeneratedRegex(
         @"^(then )?shuffle and put (it|that card) on top( of your library)?$",
         RegexOptions.IgnoreCase)]
@@ -9380,7 +9517,8 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(its|that spell's|that creature's|that permanent's) controller "
             + @"((?<verb>loses|gains) " + N + @" life"
-            + @"|(?<draws>draws) " + N + @" cards?)" + FOREACH + @"$",
+            + @"|(?<draws>draws) " + N + @" cards?"
+            + @"|(?<mills>mills) " + N + @" cards?)" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetControllerLine();
 
@@ -9603,9 +9741,19 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex DiscardLine();
 
+    /// <remarks>
+    /// "Discard all the cards in your hand" is the long spelling of the same instruction and the
+    /// wording every card in the Tolarian Winds family uses. Reading it here rather than as its
+    /// own matcher is what keeps one meaning behind one effect.
+    /// </remarks>
     [GeneratedRegex(
-        @"^" + WOPT + @"discards? (your|their) hand$", RegexOptions.IgnoreCase)]
+        @"^" + WOPT + @"discards? (all the cards in (your|their) hand|(your|their) hand)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex DiscardHandLine();
+
+    /// <summary>"…, then draw that many cards" — only ever after a whole hand has gone.</summary>
+    [GeneratedRegex(@"^" + WOPT + @"draws? that many cards$", RegexOptions.IgnoreCase)]
+    private static partial Regex DrawThatManyLine();
 
     [GeneratedRegex(
         @"^(?<who>that player|each player|each opponent) draws? " + N
@@ -9981,6 +10129,30 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^~ becomes the colou?r of your choice until end of turn$", RegexOptions.IgnoreCase)]
     private static partial Regex SelfBecomesChosenColourLine();
+
+    /// <summary>"~ gains protection from the color of your choice until end of turn".</summary>
+    [GeneratedRegex(
+        @"^~ gains protection from the colou?r of your choice until end of turn\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfProtectionFromChosenColourLine();
+
+    /// <summary>"~ can attack this turn as though it didn't have defender" (CR 702.3b).</summary>
+    [GeneratedRegex(
+        @"^~ can attack (this turn )?as though it didn't have defender\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfMayAttackDespiteDefenderLine();
+
+    /// <summary>The same permission handed to something else.</summary>
+    [GeneratedRegex(
+        @"^" + T + @" can attack (this turn )?as though it didn't have defender\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetMayAttackDespiteDefenderLine();
+
+    /// <summary>"Put ~ on top of its owner's library" (CR 400.7).</summary>
+    [GeneratedRegex(
+        @"^put ~ on (the )?(?<where>top|bottom) of its owner's library\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PutSelfOnLibraryLine();
 
     /// <summary>The same line about creature types (CR 205.1b).</summary>
     [GeneratedRegex(
@@ -10468,6 +10640,16 @@ public static partial class EffectPhrase
             + @"(?<n>an|one|two|three|\d+) experience counters?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GetExperienceLine();
+
+    /// <summary>"Defending player gets a poison counter" (CR 122.1, 704.5c).</summary>
+    /// <remarks>
+    /// The whole player vocabulary rather than the three words energy takes, because this
+    /// sentence is printed with a combat subject far more often than with "you": it is nearly
+    /// always the defender or the player a trigger was about who takes the counter.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + W + @" gets? " + N + @" poison counters?$", RegexOptions.IgnoreCase)]
+    private static partial Regex GetPoisonLine();
 
     /// <remarks>
     /// "Otherwise" would be a correct synonym for "if you lose the flip" — CR 705.2 gives a flip
@@ -11095,8 +11277,34 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex SeekLine();
 
-    [GeneratedRegex(@"^add (?<mana>.+)$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// The subject is optional and the trailing full stop is not part of the mana, both for
+    /// the same reason the shared verbs elsewhere accept them: a card prints "Add {G}" with
+    /// no subject at all (CR 608.2) and "that player adds {G}" with one, and they are one
+    /// sentence with a different pool at the end of it.
+    /// <para>
+    /// "An additional" is swallowed rather than read. It is what the mana is <em>beside</em>,
+    /// not a fact about the mana: the trigger has already fired on the first lot, and this
+    /// clause adds its own on top whatever the word in front of it.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WOPT + @"adds? (an additional )?(?<mana>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex AddManaLine();
+
+    /// <remarks>
+    /// Anchored whole, so the count belongs to this clause and the words after the colour
+    /// are read rather than shrugged off. "Any type that land produced" carries its noun in
+    /// a group only so the shape is visible in the parse; which permanent it means comes
+    /// from the triggering event, not from the word.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>one|two|three|four|five|[0-9]+) mana "
+            + @"(of any (one )?color"
+            + @"|of any type that (?<produced>[a-z ]+) produced"
+            + @"|(?<combination>in any combination of colors))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenColorManaLine();
 
     /// <remarks>
     /// Two shapes in one pattern, because they are one idea: "you may pay [cost]" followed by the
@@ -11183,18 +11391,6 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^~ can't be blocked this turn$", RegexOptions.IgnoreCase)]
     private static partial Regex SelfUnblockableLine();
-
-    /// <remarks>
-    /// "This turn" is optional because the same sentence is printed both ways: an activated
-    /// ability says it, a quoted static granted by an Aura does not. Both reach the same
-    /// permission and the duration is carried by the effect around it - an until-end-of-turn
-    /// effect for the first, a permanent one for the second - rather than by the words, which is
-    /// the same split every other grant in this grammar already has.
-    /// </remarks>
-    [GeneratedRegex(
-        @"^~ can attack( this turn)? as though it didn't have defender$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex SelfMayAttackLine();
 
     [GeneratedRegex(
         @"^enchanted (creature|permanent) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) "
@@ -11489,6 +11685,14 @@ public static partial class TriggerConditions
                 _ => false,
             };
         }
+
+        // "Whenever a player taps a land for mana" - the event names the permanent that made
+        // the mana, and Game.SubjectObjectOf answers with it, so "its controller" and "that
+        // land" each have exactly one thing they can mean. Admitted with the same discipline
+        // as the families below: the pronoun resolves to that land or to nobody, and never
+        // falls back to the permanent with the ability.
+        if (TappedForManaLine().IsMatch(condition))
+            return true;
 
         // CR 702.140c: a mutation is one spell merging with one creature, and the event names
         // that creature - so "put a +1/+1 counter on it" and "put a +1/+1 counter on that
@@ -11857,10 +12061,20 @@ public static partial class TriggerConditions
         {
             // CR 509.1h: unblocked-ness is settled by the declaration of blockers, so that is the
             // event to watch — not the attack, which happens a step earlier and cannot know yet.
+            //
+            // Read off the *event* and not off the state, which is the half this had wrong.
+            // Trigger conditions are asked against the game as it was before the event applied
+            // (CR 603.6), and before a declaration of blockers nothing is blocked — so the state
+            // question answered "unblocked" for every attacker in the batch and the ability fired
+            // whether or not somebody had just blocked it. Nothing noticed because no card using
+            // this condition had ever compiled: the effect sentence beside it was unread, so the
+            // whole family sat in the work queue with a trigger that would have played the cards
+            // strictly better than printed.
             return (e, state, source) =>
-                e is BlockersDeclared
+                e is BlockersDeclared declared
                 && state.Combat.Attackers.ContainsKey(source.Id)
-                && !state.Combat.Blocked.Contains(source.Id);
+                && !(declared.Blockers.TryGetValue(source.Id, out var stoppedBy)
+                    && !stoppedBy.IsEmpty);
         }
 
         var dealsDamage = DealsDamageTo().Match(condition);

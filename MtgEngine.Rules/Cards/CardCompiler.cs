@@ -360,7 +360,7 @@ public static partial class CardCompiler
         var costModifiers = ImmutableList.CreateBuilder<CostModifier>();
         var showsTop = false;
         var noHandLimit = false;
-        HandSizeChange? handSizeChange = null;
+        var handSizeChanges = ImmutableList.CreateBuilder<HandSizeChange>();
         var chooses = ChoiceOnEntry.None;
         var devour = 0;
         var amplify = 0;
@@ -680,14 +680,15 @@ public static partial class CardCompiler
             // "Your maximum hand size is reduced by three" and "each opponent's maximum hand
             // size is reduced by two" are one sentence with the seat swapped, and the corpus
             // prints the increase as well - Trusted Advisor, Minamo Scrollkeeper. Read as a
-            // signed delta against CR 402.2's seven rather than as a new limit, because that is
-            // what the words say and because two of them on one table have to add up.
+            // signed delta against CR 402.2's seven rather than as a new limit, because that
+            // is what the words say and because several of them on one table have to add up.
             //
             // The *set* form - "your maximum hand size is eight" - is deliberately not here.
             // Every corpus card printing it is short something else as well, so reading it
             // completes nobody, and it is a different question: an assignment two permanents
             // could disagree about, where CR 613's ordering does not reach because a player is
             // not an object. Left unread rather than guessed at.
+            //
             // NumberWordOrDigits, and it matters which: NumberWord beside it reads
             // "once"/"twice" and answers 1 to everything else, so wiring this to that one
             // compiled every card in the family and moved each hand size by exactly one.
@@ -706,7 +707,8 @@ public static partial class CardCompiler
                         ? PlayerScope.You
                         : PlayerScope.EachOpponent;
 
-                handSizeChange = new HandSizeChange(scope, less ? -by : by);
+                handSizeChanges.Add(new HandSizeChange(scope, less ? -by : by));
+
                 continue;
             }
 
@@ -793,6 +795,12 @@ public static partial class CardCompiler
                 continue;
 
             if (TryRampage(line, card, triggers))
+                continue;
+
+            if (TryBlockedBonus(line, card, triggers))
+                continue;
+
+            if (TryStepOutOfCombat(line, card, triggers))
                 continue;
 
             if (TryEvolve(line, card, triggers))
@@ -1803,7 +1811,7 @@ public static partial class CardCompiler
             CostModifiers = costModifiers.ToImmutable(),
             ShowsTopOfLibrary = showsTop,
             RemovesHandLimit = noHandLimit,
-            HandSizeChange = handSizeChange,
+            HandSizeChanges = handSizeChanges.ToImmutable(),
             ChoosesOnEntry = chooses,
             DevourCount = devour,
             AmplifyCount = amplify,
@@ -2947,7 +2955,7 @@ public static partial class CardCompiler
         && section.DevourCount == 0
         && !section.ShowsTopOfLibrary
         && !section.RemovesHandLimit
-        && section.HandSizeChange is null
+        && section.HandSizeChanges.IsEmpty
         && section.ChoosesOnEntry == ChoiceOnEntry.None
         && section.ExtraLandDrops == 0
         && !section.MayDeclineUntap
@@ -5513,6 +5521,93 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "Whenever this creature becomes blocked, it gets +N/+N until end of turn for each
+    /// creature blocking it" - rampage without the free first blocker.
+    /// </summary>
+    /// <remarks>
+    /// Five corpus lines print this beside the twelve that print rampage, and the two differ by
+    /// exactly one blocker: a lone blocker is worth nothing to a rampaging creature and one
+    /// whole bonus to this one. Reading them as one shape would have made one set or the other
+    /// wrong, whichever way the fold went, which is why <see cref="RampageBonus"/> takes the
+    /// distinction as an argument rather than either matcher assuming it.
+    /// </remarks>
+    private static bool TryBlockedBonus(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = BlockedBonusLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Only the symmetric bonus, because that is what RampageBonus can name: it builds one
+        // pump id from one number. A card printing +2/+0 for each blocker would be read as
+        // +2/+2 and is left unread instead.
+        var power = int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture);
+        var toughness = int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture);
+
+        if (power != toughness)
+            return false;
+
+        var blocked = TriggerConditions.Parse("~ becomes blocked");
+        if (blocked is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "blocked-bonus",
+            Text = $"Whenever {card.Name} becomes blocked, it gets +{power}/+{toughness} until "
+                + "end of turn for each creature blocking it.",
+            Triggers = blocked,
+            Effects = [new RampageBonus(power, BeyondTheFirst: false)],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Whenever this creature becomes blocked, you may untap it and remove it from combat"
+    /// (CR 506.4) - the Gustcloaks.
+    /// </summary>
+    /// <remarks>
+    /// Offered rather than done, because the card says "you may" and the creature that stays in
+    /// combat still deals its damage. The offer costs nothing, so it is a free
+    /// <see cref="MayPay"/> - the same shape riot uses to ask a question with no price on it.
+    /// <para>
+    /// Only the form that names the source. "Whenever a creature you control becomes blocked"
+    /// is the same sentence about somebody else, and the block events name a set rather than a
+    /// creature - so the pronoun has nothing to resolve to and that wording stays unread.
+    /// </para>
+    /// </remarks>
+    private static bool TryStepOutOfCombat(
+        string line, CardDefinition card, ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        if (!StepOutOfCombatLine().IsMatch(line))
+            return false;
+
+        var blocked = TriggerConditions.Parse("~ becomes blocked");
+        if (blocked is null)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = "blocked-steps-out",
+            Text = $"Whenever {card.Name} becomes blocked, you may untap it and remove it from "
+                + "combat.",
+            Triggers = blocked,
+            Effects =
+            [
+                new MayPay(
+                    ManaCostSpec.Free,
+                    IfYouDo: [new UntapSource(), new RemoveSourceFromCombat()],
+                    IfYouDont: [],
+                    YesLabel: "Untap and leave combat",
+                    NoLabel: "Stay blocked"),
+            ],
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// "Evolve" - grows whenever something bigger arrives (CR 702.100a).
     /// </summary>
     /// <remarks>
@@ -7149,6 +7244,7 @@ public static partial class CardCompiler
             || TryCantBeBlockedBy(line, card, statics)
             || TryDoesNotUntap(line, card, statics)
             || TryMayAttackDespiteDefender(line, card, statics)
+            || TryAbilitiesCantBeActivated(line, card, statics)
             || TryAttachedSilencing(line, card, statics)
             || TryAttachedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
@@ -7410,6 +7506,19 @@ public static partial class CardCompiler
         KeywordAbility? keywords = null;
         string? wardCost = null;
 
+        // The removal arm, read the same way and refused the same way: a list this cannot name
+        // leaves the line unread rather than dropping the half it did not understand. Ward is not
+        // offered here because nothing takes a ward away, and admitting it would be a branch no
+        // card can reach.
+        KeywordAbility? lost = null;
+        if (m.Groups["lost"].Success)
+        {
+            if (EffectPhrase.Keywords(m.Groups["lost"].Value) is not { } gone)
+                return false;
+
+            lost = gone;
+        }
+
         // A keyword the engine cannot grant leaves the whole line unread: an Equipment that gave
         // the bonus but not the ability would look implemented and play as a weaker card. Ward
         // is the one entry in this slot that is not a flag — it carries a cost — so the list is
@@ -7518,6 +7627,22 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = OnTheHost,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "Equipped creature gets +10/+10 and loses flying" — Colossus Hammer. Taking an ability
+        // away is layer 6 like granting one (CR 613.1f), and the two arms sit in the same slot of
+        // the same sentence, so this is the grant with the bits cleared instead of set. A keyword
+        // the reader cannot name leaves the whole line unread, exactly as the grant does: a
+        // Hammer that gave +10/+10 and left the flying on is a strictly better card.
+        if (lost is { } removed)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = "attached:loses:" + GenerativeEffects.GrantId(removed),
+                Layer = EffectLayer.Ability,
+                Applies = OnTheHost,
+                Apply = (_, _, builder) => builder.Keywords &= ~removed,
             });
         }
 
@@ -7968,6 +8093,23 @@ public static partial class CardCompiler
             Apply = (_, _, builder) => builder.DoesNotUntap = true,
         });
 
+        // "…and its activated abilities can't be activated" - the second half of an Encrust, and
+        // the half that kept the family unread. A second effect rather than a second flag on the
+        // first, because the two restrict different things: one untapping (CR 502.3) and one
+        // activation (CR 602.5c), and an Aura printing only the untap clause must not acquire the
+        // other. The same subject test decides both, so an Aura that has fallen off silences
+        // nothing exactly as it holds nothing down.
+        if (m.Groups["silenced"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"no-activate:{card.Name}:{(onSelf ? "self" : "attached")}",
+                Layer = EffectLayer.Ability,
+                Applies = Applies,
+                Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
+            });
+        }
+
         return true;
     }
 
@@ -8012,7 +8154,7 @@ public static partial class CardCompiler
         into.Add(new ContinuousEffectDefinition
         {
             Id =
-                $"{GenerativeEffects.MayAttackDespiteDefenderId()}:{card.Name}:"
+                $"{GenerativeEffects.MayAttackAsThoughNoDefenderId()}:{card.Name}:"
                     + (onSelf ? "self" : "attached"),
             Layer = EffectLayer.Ability,
             Applies = Applies,
@@ -8021,6 +8163,112 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>
+    /// "Activated abilities of artifacts can't be activated" (CR 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// A restriction on a whole group rather than on one permanent, setting the same flag an
+    /// Aura's silencing clause already sets. Mana abilities go with the rest, which is what
+    /// CR 602.5c says and what makes a Null Rod stop a Sol Ring.
+    /// <para>
+    /// The group goes through <see cref="ReadStaticGroup"/>, the same noun reader every lord
+    /// uses, so "artifacts", "creatures" and "creatures your opponents control" all arrive
+    /// without this knowing what an artifact is. A group it cannot narrow — the bare noun
+    /// "permanents" — is refused rather than applied to the whole board: the wrong half of a
+    /// restriction is worse than an unread line.
+    /// </para>
+    /// <para>
+    /// "…unless they're mana abilities" is deliberately not read. There is no flag for the
+    /// carve-out, and reading the sentence without one silences the mana abilities too — which
+    /// makes the card strictly stronger than printed, the one direction a half-read line may
+    /// never go.
+    /// </para>
+    /// </remarks>
+    private static bool TryAbilitiesCantBeActivated(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AbilitiesCantBeActivatedLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["group"].Value.Trim();
+        var side = string.Empty;
+
+        foreach (var clause in OwnershipClauses)
+        {
+            if (!printed.EndsWith(clause, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            side = clause;
+            printed = printed[..^clause.Length].Trim();
+            break;
+        }
+
+        if (ReadStaticGroup(printed) is not { } group)
+            return false;
+
+        // "Permanents" would ask nothing of the card types, which is a restriction on every
+        // permanent in the game written as though it were a group. No card says it, and a group
+        // this reader cannot narrow is one it must not apply.
+        if (group.Types.Count == 0 && group.Subtype is null)
+            return false;
+
+        var yours = side.Equals(" you control", StringComparison.OrdinalIgnoreCase);
+        var everyone = side.Length == 0;
+
+        // Read off the builder rather than by computing the candidate's characteristics, and that
+        // is not an optimisation: <see cref="Characteristics.Of"/> called from inside a layer
+        // computation is the CR 613.8 loop, and the first cut of this reader recursed until the
+        // stack ran out. The builder holds the types as computed so far, which is also the right
+        // answer - an animated artifact is an artifact for this.
+        bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
+        {
+            foreach (var required in group.Types)
+            {
+                if (!target.CardTypes.HasFlag(required))
+                    return false;
+            }
+
+            if (group.Adjective is { } describes && !describes(state, target))
+                return false;
+
+            if (group.Subtype is { } tribe
+                && !target.IsEveryCreatureType
+                && !target.HasSubtype(tribe))
+            {
+                return false;
+            }
+
+            if (everyone)
+                return true;
+
+            // The source's *computed* controller (CR 613.1b), through the control-only reader for
+            // the same reason the lord's filter uses it: a stolen Null Rod belongs to whoever has
+            // it now, and a full computation here would recurse.
+            var controller = source is null || source.Id == target.Subject.Id
+                ? target.ControllerId
+                : Characteristics.ControllerOf(state, target.Abilities, source);
+
+            return yours
+                ? target.ControllerId == controller
+                : target.ControllerId != controller;
+        }
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"abilities-off:{card.Name}:{group.Described}{side.Replace(' ', '-')}",
+            Layer = EffectLayer.Ability,
+            Applies = Matches,
+            Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
+        });
+
+        return true;
+    }
+
+    /// <summary>The ownership clauses a group sentence can end with, longest first.</summary>
+    private static readonly string[] OwnershipClauses =
+        [" your opponents control", " an opponent controls", " you control"];
 
     /// <summary>
     /// "~ gets +1/+1 for each artifact you control" — a static whose size is counted (CR 613.4c).
@@ -8641,7 +8889,7 @@ public static partial class CardCompiler
             into.Add(new ContinuousEffectDefinition
             {
                 Id =
-                    $"while:{card.Name}:{GenerativeEffects.MayAttackDespiteDefenderId()}",
+                    $"while:{card.Name}:{GenerativeEffects.MayAttackAsThoughNoDefenderId()}",
                 Layer = EffectLayer.Ability,
                 Applies = OnSelfWhile,
                 Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
@@ -10874,18 +11122,31 @@ public static partial class CardCompiler
         if (atUpkeep is null)
             return false;
 
+        // "{W} or {U}" is a hybrid symbol written the long way (CR 107.4e), and folding it into
+        // one is what lets the existing per-counter charge say it: the cost is asked once per age
+        // counter, and each of those payments is independently either colour, which is what
+        // repeating {W/U} means. Only the plain coloured pair folds - anything else with an "or"
+        // in it leaves the line unread rather than being guessed at.
+        var printed = m.Groups["cost"].Success
+            ? m.Groups["cost"].Value
+            : $"{m.Groups["a"].Value} or {m.Groups["b"].Value}";
+
+        var charged = m.Groups["cost"].Success
+            ? m.Groups["cost"].Value
+            : $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}";
+
         into.Add(new TriggeredAbilityDefinition
         {
             Id = "cumulative-upkeep",
             Text = $"At the beginning of your upkeep, put an age counter on {card.Name}, then "
-                + $"sacrifice it unless you pay {m.Groups["cost"].Value} for each age counter "
+                + $"sacrifice it unless you pay {printed} for each age counter "
                 + $"on it.",
             Triggers = atUpkeep,
             Effects =
             [
                 new PutCountersOnSource(AgeCounter, 1),
                 new MayPay(
-                    ManaCostSpec.Parse(m.Groups["cost"].Value),
+                    ManaCostSpec.Parse(charged),
                     IfYouDo: [],
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
@@ -13588,6 +13849,21 @@ public static partial class CardCompiler
             return true;
         }
 
+        // CR 605.1a: an untargeted activated ability whose whole effect is adding mana *is* a
+        // mana ability, and a mana ability never uses the stack (CR 605.3b). TryManaAbility is
+        // the only place one may be built. A line that reached here has already been refused
+        // there - three colours in any combination, an amount this model cannot enumerate - and
+        // building it here would produce an ability an opponent can respond to, which is the
+        // worst shape of bug this compiler has: the card counts as covered, offers its button,
+        // and plays differently from what it prints. It stays unread instead.
+        if (parsed.Targets.IsEmpty
+            && !parsed.Effects.IsEmpty
+            && parsed.Effects.All(e => e is AddMana or AddChosenMana))
+        {
+            unhandled.Add(line);
+            return true;
+        }
+
         into.Add(new ActivatedAbilityDefinition
         {
             Id = "a" + Suffix(into.Count),
@@ -14855,8 +15131,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^(?<what>[A-Za-z][A-Za-z ]*?)cycling (?<cost>(\{[^}]+\})+)$")]
     private static partial Regex TypecyclingLine();
 
+    /// <remarks>
+    /// The three-word "adjective or adjective noun" form leads the alternation because it has to
+    /// beat the two-word one: alternation is ordered, so "red or green creature" matched
+    /// "red or green" and left the noun with nowhere to go — every Aura restricted to two colours
+    /// was unread over that. The noun is not listed here; the phrase goes to the target grammar,
+    /// which already knows "red or green creature" and refuses whatever it cannot read.
+    /// </remarks>
     [GeneratedRegex(
-        @"^enchant (?<what>[a-z]+ or [a-z]+|[a-z]+ [a-z]+|[a-z]+)"
+        @"^enchant (?<what>[a-z]+ or [a-z]+ [a-z]+|[a-z]+ or [a-z]+|[a-z]+ [a-z]+|[a-z]+)"
             + @"(?<own> you control| an opponent controls)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EnchantLine();
@@ -14897,6 +15180,7 @@ public static partial class CardCompiler
         @"^(enchanted|equipped) " + AttachedSubject + " "
             + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
             + @"( and (has (?<kw>[a-z0-9{} ,]+?)"
+            + @"|loses (?<lost>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)))?"
@@ -15535,6 +15819,17 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Rampage (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RampageLine();
 
+    [GeneratedRegex(
+        @"^Whenever ~ becomes blocked, it gets \+(?<p>\d+)/\+(?<tough>\d+) until end of turn "
+            + @"for each creature blocking it\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BlockedBonusLine();
+
+    [GeneratedRegex(
+        @"^Whenever ~ becomes blocked, you may untap (it|~) and remove (it|~) from combat\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StepOutOfCombatLine();
+
     [GeneratedRegex(@"^Afterlife (?<n>\d+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex AfterlifeLine();
 
@@ -15673,10 +15968,18 @@ public static partial class CardCompiler
         @"^(?<kw>Morph|Megamorph|Disguise) (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex MorphLine();
 
+    /// <remarks>
+    /// The silencing tail is the same clause <see cref="AttachedBuffLine"/> already reads on the
+    /// pacifism family, printed here on the other half of the sentence: "doesn't untap … and its
+    /// activated abilities can't be activated" is one line and two continuous effects. Without it
+    /// the whole line was unread, which loses the holding-down half as well as the silence.
+    /// </remarks>
     [GeneratedRegex(
         @"^(?<who>~|(enchanted|equipped) " + AttachedSubject + @") doesn't untap during "
             + @"(your|its controller's|their controller's) untap step"
-            + @"( if (?<when>[^.]+))?\.?$",
+            + @"(?<silenced>,? and its activated abilities can't be activated)?"
+            + @"( if (?<when>[^.]+?))?"
+            + @"(?<silenced>,? and its activated abilities can't be activated)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DoesNotUntapLine();
 
@@ -15685,6 +15988,11 @@ public static partial class CardCompiler
             + @"defender\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MayAttackDespiteDefenderLine();
+
+    [GeneratedRegex(
+        @"^Activated abilities of (?<group>[^.]+?) can't be activated\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AbilitiesCantBeActivatedLine();
 
     [GeneratedRegex(
         @"^As an additional cost to cast (~|this spell|it), (?<cost>.+?)\.?$",
@@ -15926,8 +16234,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@"\btarget\b", RegexOptions.IgnoreCase)]
     private static partial Regex TargetWord();
 
+    /// <remarks>
+    /// The "or" form leads the alternation because alternation is ordered and the plain one would
+    /// otherwise match the first symbol and leave " or {U}" behind. What it means is a hybrid
+    /// symbol (CR 107.4e): "cumulative upkeep {W} or {U}" charges a choice of two colours once per
+    /// age counter, which is exactly what one {W/U} charged once per counter is.
+    /// </remarks>
     [GeneratedRegex(
-        @"^Cumulative upkeep (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+        @"^Cumulative upkeep ((?<a>\{[WUBRG]\}) or (?<b>\{[WUBRG]\})|(?<cost>(\{[^}]+\})+))\.?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex CumulativeUpkeepLine();
 
     /// <remarks>
@@ -16173,6 +16488,11 @@ public static partial class CardCompiler
     /// The scope clause is matched rather than skipped: a pattern loose enough to take an
     /// unrecognised one would read "the chosen player's maximum hand size is four" as the
     /// controller's, which is the wrong seat on a card whose whole point is choosing a seat.
+    /// <para>
+    /// Only the two subjects that are printed, measured against the corpus rather than guessed:
+    /// "each player's maximum hand size is reduced by N" is on no card, and a scope admitted for
+    /// a card that does not exist is a rule nothing can reach sitting beside two that fire.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^(?<whose>your|each opponent's) maximum hand size is "
@@ -16508,8 +16828,10 @@ public sealed record CompiledCard
     /// </summary>
     public bool RemovesHandLimit { get; init; }
 
-    /// <summary>How far this permanent moves a maximum hand size, and whose (CR 402.2).</summary>
-    public HandSizeChange? HandSizeChange { get; init; }
+    /// <summary>
+    /// How far this permanent moves a maximum hand size, and whose (CR 402.2).
+    /// </summary>
+    public ImmutableList<HandSizeChange> HandSizeChanges { get; init; } = [];
 
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     public ChoiceOnEntry ChoosesOnEntry { get; init; }
@@ -16556,7 +16878,7 @@ public sealed record CompiledCard
         || !CostModifiers.IsEmpty
         || ShowsTopOfLibrary
         || RemovesHandLimit
-        || HandSizeChange is not null
+        || !HandSizeChanges.IsEmpty
         || ChoosesOnEntry != ChoiceOnEntry.None
         || DevourCount > 0
         || AmplifyCount > 0

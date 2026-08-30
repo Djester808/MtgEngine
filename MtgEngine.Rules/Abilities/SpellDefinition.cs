@@ -806,6 +806,31 @@ public sealed record TapToPay(TargetSpec What, bool ColorMatters);
 public sealed record CostReducer(string FilterId, int Amount);
 
 /// <summary>
+/// How far a permanent moves somebody's maximum hand size, and whose (CR 402.2).
+/// </summary>
+/// <param name="Scope">Whose limit moves — the controller's, or every opponent's.</param>
+/// <param name="Delta">How far, signed: negative reduces, positive raises.</param>
+/// <remarks>
+/// Not a continuous effect in the CR 613 sense and so not a <see cref="ContinuousEffectDefinition"/>:
+/// the subject is a player, and the layers order changes to <em>objects</em>. It is not a
+/// <see cref="PlayerQualityDefinition"/> either, because that carries a keyword flag and this
+/// carries a number. The nearest thing already here is <see cref="CostReducer"/> — a fact about a
+/// permanent that a rule elsewhere asks for and adds.
+/// <para>
+/// **Signed, not an amount to subtract.** Two rounds built this independently, one as a reduction
+/// and one as a delta, and the reduction is the half that cannot say Trusted Advisor's direction:
+/// "your maximum hand size is increased by two" is the same sentence with one word changed, and a
+/// type that can only take cards away leaves it unread. Both directions add, in either order,
+/// because addition needs none (CR 402.2 leaves it at "modified by").
+/// </para>
+/// <para>
+/// The sum is floored at zero by the rule that reads it: a player with a maximum hand size of
+/// "minus one" discards to nothing and no further (CR 402.2, 514.1).
+/// </para>
+/// </remarks>
+public sealed record HandSizeChange(PlayerScope Scope, int Delta);
+
+/// <summary>
 /// One separately castable half of a card that has more than one (CR 709.4, 712.4).
 /// </summary>
 /// <remarks>

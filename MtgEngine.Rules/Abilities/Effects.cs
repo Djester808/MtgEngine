@@ -1743,7 +1743,14 @@ public sealed record CopySpell(Amount Count = default, int? TargetIndex = null) 
 /// bonus smaller, which is the interaction the card is played around.
 /// </para>
 /// </remarks>
-public sealed record RampageBonus(int PerBlocker) : IEffect
+/// <param name="BeyondTheFirst">
+/// Whether the first blocker is free, which is what tells rampage from the plainer
+/// "+N/+N for each creature blocking it" the same trigger also prints. One creature
+/// blocking is worth nothing under rampage and worth one bonus under the other, so
+/// folding the two shapes together would have made one family or the other bigger or
+/// smaller than printed - five corpus lines say the second, twelve the first.
+/// </param>
+public sealed record RampageBonus(int PerBlocker, bool BeyondTheFirst = true) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -1751,11 +1758,12 @@ public sealed record RampageBonus(int PerBlocker) : IEffect
 
         var sourceId = context.PhysicalSourceId;
         var blockers = context.State.Combat.BlockersOf(sourceId);
+        var counted = BeyondTheFirst ? blockers.Count - 1 : blockers.Count;
 
-        if (blockers.Count <= 1)
+        if (counted <= 0)
             return [];
 
-        var bonus = PerBlocker * (blockers.Count - 1);
+        var bonus = PerBlocker * counted;
 
         return
         [
@@ -3592,6 +3600,47 @@ public sealed record DiscardCards(
 }
 
 /// <summary>
+/// Discards a whole hand and draws back as many as it held (CR 701.8, 121.3).
+/// </summary>
+/// <remarks>
+/// One effect rather than a discard followed by a draw, because "that many" is a number that
+/// stops existing the moment the first half happens: effects in an ability resolve one at a time
+/// against the state the one before it left (CR 608.2), so by the time a draw could ask how big
+/// the hand was, it is empty. The count is taken once, here, before either instruction runs.
+/// <para>
+/// The draw reads the library and the discard reads the hand, so both sets of events can be
+/// worked out from the same state without either seeing the other's — which is what lets this be
+/// one resolution rather than a deferred question.
+/// </para>
+/// </remarks>
+public sealed record DiscardHandThenDraw(PlayerScope Scope = PlayerScope.You) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var events = new List<GameEvent>();
+
+        foreach (var who in PlayerScopes.Resolve(Scope, context))
+        {
+            var hand = context.State.GetPlayer(who).Hand;
+
+            // Nothing to choose: the whole hand goes, so there is no discard to ask about and
+            // the cards can move here the way an emptied hand does everywhere else.
+            foreach (var card in hand)
+            {
+                events.Add(new ObjectMoved(
+                    card, ObjectId.New(), Zone.Hand, Zone.Graveyard, who, MoveCause.Discard));
+            }
+
+            events.AddRange(Drawing.From(context, who, hand.Count));
+        }
+
+        return events;
+    }
+}
+
+/// <summary>
 /// Puts the top cards of a library into its owner's graveyard (CR 701.17).
 /// </summary>
 /// <remarks>
@@ -4028,16 +4077,56 @@ public sealed record MillCards(
             : PlayerScopes.Resolve(Scope, context);
 
         foreach (var who in told)
-        {
-            var library = context.State.GetPlayer(who).Library;
-            foreach (var card in library.Take(Count.In(context)))
-            {
-                events.Add(new ObjectMoved(
-                    card, ObjectId.New(), Zone.Library, Zone.Graveyard, who, MoveCause.Mill));
-            }
-        }
+            events.AddRange(Milling.From(context, who, Count.In(context)));
 
         return events;
+    }
+}
+
+/// <summary>Putting the top cards of a library into its graveyard (CR 701.13a).</summary>
+/// <remarks>
+/// Shared for the reason <see cref="Drawing"/> is: a second copy is where the empty-library
+/// arm gets forgotten. Milling more cards than a player has mills what they have and is not
+/// a loss - that only comes later, and only from a draw (CR 704.5b).
+/// </remarks>
+public static class Milling
+{
+    public static IReadOnlyList<GameEvent> From(
+        ResolutionContext context, Guid who, int count)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            .. context.State.GetPlayer(who).Library.Take(count).Select(card =>
+                new ObjectMoved(
+                    card, ObjectId.New(), Zone.Library, Zone.Graveyard, who,
+                    MoveCause.Mill)),
+        ];
+    }
+}
+
+/// <summary>
+/// The controller of a target mills cards - "Counter target spell. Its controller mills two
+/// cards" (CR 701.13a).
+/// </summary>
+/// <remarks>
+/// The third verb of the clause <see cref="ChangeLifeOfTargetsController"/> and
+/// <see cref="DrawForTargetsController"/> already read, and it finds its player the same way
+/// - through <see cref="TargetOwnership"/>, which follows a spell that has been countered
+/// into the graveyard it now sits in (CR 400.7). Whose spell it was is still a fact about
+/// the game after it stops being a spell, and every card printing this sentence counters
+/// something first.
+/// </remarks>
+public sealed record MillForTargetsController(Amount Count, int TargetIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return TargetOwnership.ControllerOf(context, TargetIndex) is { } who
+            ? Milling.From(context, who, Count.In(context))
+            : [];
     }
 }
 
@@ -4115,21 +4204,35 @@ public sealed record ShuffleSourceIntoLibrary : IEffect
     }
 }
 
+/// <param name="TargetIndex">
+/// The one player the sentence named, or null when it named a group instead.
+/// </param>
+/// <remarks>
+/// A named target wins outright over the scope, the way it does for drawing and discarding: the
+/// sentence named one player and the scope named none. "Target player shuffles their graveyard
+/// into their library" is the same instruction as the untargeted one pointed somewhere else, and
+/// a target that has gone leaves nothing to shuffle rather than falling back to the controller.
+/// </remarks>
 public sealed record ShuffleLibrary(
-    PlayerScope Whose = PlayerScope.You, bool GraveyardFirst = false) : IEffect
+    PlayerScope Whose = PlayerScope.You,
+    bool GraveyardFirst = false,
+    int? TargetIndex = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        IEnumerable<Guid> whose = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed ? [aimed.Player] : []
+            : PlayerScopes.Resolve(Whose, context);
+
         return
         [
-            .. PlayerScopes.Resolve(Whose, context)
-                .Select(who => new ShuffleRequested(
-                    who,
-                    GraveyardFirst
-                        ? context.State.GetPlayer(who).Graveyard
-                        : [])),
+            .. whose.Select(who => new ShuffleRequested(
+                who,
+                GraveyardFirst
+                    ? context.State.GetPlayer(who).Graveyard
+                    : [])),
         ];
     }
 }
@@ -4230,6 +4333,75 @@ public sealed record ReturnSourceToHand : IEffect
 /// itself. It finds the source through the ability on the stack, because by the time an ability
 /// resolves the object resolving is the ability and not the permanent that made it.
 /// </remarks>
+/// <summary>
+/// "Put this creature on top of its owner's library" (CR 400.7).
+/// </summary>
+/// <remarks>
+/// The source moving itself, which is why it is a source effect and not a targeted one: the
+/// sentence names no target, and a permanent that puts itself back is choosing nothing.
+/// <para>
+/// Owner rather than controller, because a library is a player's own zone (CR 400.3) and a
+/// stolen permanent goes home to the deck it came from.
+/// </para>
+/// </remarks>
+public sealed record PutSourceOnLibrary(ZonePosition Position = ZonePosition.Top) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var sourceId = context.PhysicalSourceId;
+
+        if (!context.State.TryGetObject(sourceId, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        return
+        [
+            new ObjectMoved(
+                sourceId,
+                ObjectId.New(),
+                Zone.Battlefield,
+                Zone.Library,
+                permanent.OwnerId,
+                MoveCause.Return,
+                Position),
+        ];
+    }
+}
+
+/// <summary>"Remove it from combat" - the source steps out (CR 506.4).</summary>
+/// <remarks>
+/// Aimed at the source rather than a target because every corpus line that says it says
+/// it about the permanent whose ability it is. It does nothing off the battlefield and
+/// nothing outside combat, which is the honest answer rather than an event describing a
+/// removal that is not happening.
+/// </remarks>
+public sealed record RemoveSourceFromCombat : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var sourceId = context.PhysicalSourceId;
+
+        if (!context.State.TryGetObject(sourceId, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        var combat = context.State.Combat;
+
+        return combat.Attackers.ContainsKey(sourceId)
+            || combat.Blockers.Any(pair => pair.Value.Contains(sourceId))
+                ? [new RemovedFromCombat(sourceId)]
+                : [];
+    }
+}
+
 public sealed record ReturnSourceFromBattlefield : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
@@ -4468,15 +4640,181 @@ public sealed record MayPay(
 /// </remarks>
 public sealed record AddMana(ImmutableList<ManaProduction> Produces) : IEffect
 {
+    /// <summary>Whose pool it goes into (CR 106.4).</summary>
+    /// <remarks>
+    /// "Whenever a player taps a land for mana, that player adds {G}" puts the mana in
+    /// somebody else's pool, and until this existed every reader of the sentence had to
+    /// assume the controller's. Defaults to <see cref="PlayerScope.You"/>, which is what
+    /// every existing caller meant and what an imperative "Add {G}" says (CR 608.2).
+    /// </remarks>
+    public PlayerScope Who { get; init; } = PlayerScope.You;
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         return
         [
-            .. Produces.Select(
-                p => new ManaAdded(context.ControllerId, p.Color, p.Amount, p.Restriction)),
+            .. PlayerScopes.Resolve(Who, context).SelectMany(
+                player => Produces.Select(
+                    p => new ManaAdded(player, p.Color, p.Amount, p.Restriction))),
         ];
+    }
+}
+
+/// <summary>Where the mana types an effect offers come from (CR 106.1b).</summary>
+public enum ManaPalette
+{
+    /// <summary>
+    /// "One mana of any color" - the five colours, and only those (CR 106.1a).
+    /// </summary>
+    /// <remarks>
+    /// Colourless is a type of mana but not a colour (CR 106.1b), so it is deliberately off this
+    /// menu: a card that meant to include it says "any type" and gets the other palette.
+    /// </remarks>
+    AnyColor,
+
+    /// <summary>
+    /// "One mana of any type that land produced" - read off the permanent the trigger was about.
+    /// </summary>
+    /// <remarks>
+    /// The types come from the land's own mana abilities (CR 106.7) rather than from the single
+    /// production that fired the trigger, because a resolution context carries the object an
+    /// event was about and not the mana it made. On the lands this is printed against - a Forest,
+    /// a Swamp, anything with one mana ability - the two answers are the same and there is no
+    /// question to ask at all. They come apart only on a land that could have made something
+    /// else, where the engine offers the wider menu; that is a stated divergence rather than a
+    /// reading of the card.
+    /// </remarks>
+    TypesTheSubjectProduces,
+}
+
+/// <summary>
+/// Adds mana whose colour is chosen while this resolves (CR 106.1a).
+/// </summary>
+/// <remarks>
+/// The half of the mana vocabulary that could not be said. <see cref="AddMana"/> needs its
+/// colours decided when the card is compiled, so "add one mana of any color" was left unread
+/// outside a mana ability - the mana-ability path answers the same question by splitting itself
+/// into one ability per colour, and an effect has nothing to split.
+/// <para>
+/// The answer is a <see cref="Events.ManaColorChoiceRequested"/> and a
+/// <see cref="State.ChoiceKind"/>, the shape every question the game must ask takes here, so a
+/// replay reaches the same offer rather than needing a continuation the log cannot rebuild.
+/// </para>
+/// <para>
+/// Not a mana ability and never one: an ability that adds mana as part of doing something else,
+/// or a trigger that adds it, uses the stack (CR 605.1a) - which is exactly why there is a
+/// resolution to ask a question during.
+/// </para>
+/// </remarks>
+/// <param name="Amount">How much mana, all of it one colour unless split below.</param>
+/// <param name="Palette">Which types are on the menu.</param>
+/// <param name="Who">Whose pool it goes into - "that player adds" is not always "you add".</param>
+/// <param name="EachSeparately">
+/// True for "in any combination of colors", where each mana has its own colour and so its own
+/// question; false for "N mana of any one color", which is one question for all of it.
+/// </param>
+public sealed record AddChosenMana(
+    int Amount = 1,
+    ManaPalette Palette = ManaPalette.AnyColor,
+    PlayerScope Who = PlayerScope.You,
+    bool EachSeparately = false) : IEffect
+{
+    /// <summary>The five colours in the order the rules name them (CR 105.1).</summary>
+    private static readonly ImmutableList<ManaColor> Colours =
+    [
+        ManaColor.White, ManaColor.Blue, ManaColor.Black, ManaColor.Red, ManaColor.Green,
+    ];
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var options = OptionsFor(context);
+
+        // CR 106.5: an ability that would produce mana of an undefined type produces none at
+        // all. A land that has left the battlefield, or one with no mana ability, leaves nothing
+        // to choose between - so nothing is added rather than a colour being invented.
+        if (options.IsEmpty || Amount <= 0)
+            return [];
+
+        var events = ImmutableList.CreateBuilder<GameEvent>();
+
+        foreach (var player in PlayerScopes.Resolve(Who, context))
+        {
+            // CR 118.3, and the rule this whole mechanism turns on: a question with one possible
+            // answer is not a question. A Forest can only make green, and stopping the game to
+            // ask which colour it made is how a game stalls.
+            if (options.Count == 1)
+            {
+                events.Add(new ManaAdded(
+                    player, Colour(options[0]), Amount, null, context.PhysicalSourceId));
+
+                continue;
+            }
+
+            // "Two mana in any combination of colors" is two questions, because each mana has a
+            // colour of its own; "two mana of any one color" is one question that pays out both.
+            var asks = EachSeparately ? Amount : 1;
+            var each = EachSeparately ? 1 : Amount;
+
+            for (var i = 0; i < asks; i++)
+            {
+                events.Add(new ManaColorChoiceRequested(
+                    player, options, each, context.PhysicalSourceId));
+            }
+        }
+
+        return events.ToImmutable();
+    }
+
+    /// <summary>
+    /// Colourless mana, which the pool stores as an absent colour rather than as a sixth one.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ManaColor"/> has a <c>Colorless</c> member and <see cref="ManaAdded"/> uses a
+    /// null colour to mean the same thing, so a menu built from the enum has to be translated on
+    /// the way out. Getting this wrong adds a sixth kind of mana to the pool that nothing spends.
+    /// </remarks>
+    internal static ManaColor? Colour(ManaColor type) =>
+        type == ManaColor.Colorless ? null : type;
+
+    /// <summary>The types on the menu, read as this resolves (CR 106.7).</summary>
+    private ImmutableList<ManaColor> OptionsFor(ResolutionContext context)
+    {
+        if (Palette != ManaPalette.TypesTheSubjectProduces)
+            return Colours;
+
+        if (context.SubjectObject is not { } about
+            || !context.State.TryGetObject(about, out var land))
+        {
+            return [];
+        }
+
+        var types = new HashSet<ManaColor>();
+
+        // The computed abilities rather than the printed ones, because a land can be granted a
+        // mana ability and a face-down permanent has none of its own (CR 613.1f, 707.2).
+        foreach (var ability in Engine.Game.ActivatedAbilitiesOf(
+            context.State, context.Abilities, land))
+        {
+            if (!ability.IsManaAbility)
+                continue;
+
+            foreach (var production in ability.Produces)
+            {
+                // "Add one mana of the chosen color" on a land that has not named one yet is not
+                // a type this land could produce (CR 106.5), so it contributes nothing.
+                if (production.FromChosenColor)
+                    continue;
+
+                types.Add(production.Color ?? ManaColor.Colorless);
+            }
+        }
+
+        // In the rules' own order, so the menu is the same on a replay as it was in the game.
+        return [.. Colours.Add(ManaColor.Colorless).Where(types.Contains)];
     }
 }
 

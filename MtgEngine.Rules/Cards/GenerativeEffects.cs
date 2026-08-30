@@ -468,18 +468,23 @@ public static partial class GenerativeEffects
     /// The id for "can attack as though it didn't have defender" (CR 609.4, 702.3b).
     /// </summary>
     /// <remarks>
-    /// A permission rather than the removal of a keyword, which is why it is its own name and
-    /// not <see cref="GrantId"/> of nothing: the creature still <em>has</em> defender, so an
-    /// anthem keyed to "creatures with defender" keeps finding it, and only the one rule the
-    /// permission names is treated as though the keyword were absent. Taking the keyword away
-    /// instead would read the card as better than printed on every board with such an anthem.
+    /// A permission rather than the removal of a keyword, and the difference is not
+    /// cosmetic: stripping defender would also shrink every card that counts creatures with
+    /// defender, that assigns damage by toughness, or that anthems them - so the permanent
+    /// would stop being what it is in order to be allowed to attack, and the card would play
+    /// as better than printed on exactly the board it was designed for.
+    /// <see cref="State.ComputedCharacteristics.MayAttackAsThoughNoDefender"/> is read
+    /// beside the keyword instead, leaving it in place, which is the scope CR 609.4 gives an
+    /// "as though" effect.
     /// <para>
     /// No duration in the name. On its own it is permanent, which is what the printed static
-    /// says; the cards that print "this turn" reach it through an until-end-of-turn effect, and
-    /// the ones that print a condition wrap it in a static of their own.
+    /// says; the cards that print "this turn" reach it through an until-end-of-turn effect,
+    /// and the ones that print a condition wrap it in a static of their own. That is why one
+    /// name serves five printed spellings, and why there is exactly one of it: two ids for
+    /// one rule is how two vocabularies start disagreeing.
     /// </para>
     /// </remarks>
-    public static string MayAttackDespiteDefenderId() => "may-attack";
+    public static string MayAttackAsThoughNoDefenderId() => "may-attack-defender";
 
     /// <summary>The id for "becomes the colour of your choice" (CR 613.4d, layer 5).</summary>
     /// <remarks>
@@ -889,22 +894,6 @@ public static partial class GenerativeEffects
             };
         }
 
-        if (string.Equals(definitionId, "may-attack", StringComparison.Ordinal))
-        {
-            return new ContinuousEffectDefinition
-            {
-                Id = definitionId,
-
-                // Layer 6 is where the engine keeps every permission of this shape, and an
-                // "as though" effect (CR 609.4) is not a characteristic change at all - it
-                // modifies a rule. The builder flag is the seam, so it rides in the layer that
-                // already carries the rest of what an ability grant does.
-                Layer = EffectLayer.Ability,
-                Applies = (_, _, _) => true,
-                Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
-            };
-        }
-
         if (string.Equals(definitionId, "must-be-blocked", StringComparison.Ordinal))
         {
             return new ContinuousEffectDefinition
@@ -975,6 +964,22 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.DoesNotUntap = true,
+            };
+        }
+
+        if (string.Equals(definitionId, "may-attack-defender", StringComparison.Ordinal))
+        {
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+
+                // Layer 6 is where the engine keeps every permission of this shape, and an
+                // "as though" effect (CR 609.4) is not a characteristic change at all - it
+                // modifies a rule. The builder flag is the seam, so it rides in the layer that
+                // already carries the rest of what an ability grant does.
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
             };
         }
 

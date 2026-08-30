@@ -924,6 +924,39 @@ public sealed record ColorChoiceRequested(
     public override string Describe() => $"{ChooserId:N} chooses a colour.";
 }
 
+/// <summary>
+/// A player must name the colour of mana an effect is adding, as it resolves (CR 106.1a).
+/// </summary>
+/// <remarks>
+/// The question the effect vocabulary had nowhere to put. "Add one mana of any color" outside a
+/// mana ability is a choice made on resolution, and until this existed the sentence was left
+/// unread rather than guessed at - the mana-ability path answers the same question by splitting
+/// itself into one ability per colour, which an effect cannot do.
+/// <para>
+/// It takes the shape every other mid-resolution question here takes: an event, then a
+/// <see cref="State.ChoiceKind"/>, so a replay reaches the same offer and the answer is read back
+/// out of the log rather than out of a captured continuation.
+/// </para>
+/// <para>
+/// The menu rides on the event rather than being worked out again when the answer arrives.
+/// "One mana of any type that land produced" is read off a permanent that may have left the
+/// battlefield by then, and a question whose options changed underneath it is not the question
+/// that was asked. <see cref="ManaColor.Colorless"/> in the list means colourless mana, which is
+/// a type of its own and not an absence of colour (CR 106.1b).
+/// </para>
+/// </remarks>
+public sealed record ManaColorChoiceRequested(
+    Guid PlayerId,
+    ImmutableList<ManaColor> Options,
+    int Amount = 1,
+    ObjectId? SourceId = null) : GameEvent
+{
+    public override string Rule => "106.1a";
+
+    public override string Describe() =>
+        $"{PlayerId:N} chooses a color for {Amount} mana.";
+}
+
 /// <summary>What a named colour is then used for.</summary>
 public enum ColorChoiceUse
 {
@@ -1748,6 +1781,25 @@ public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : Ga
 /// Carries whose untap step brings it back, which is not always its controller's: an Aura that
 /// phased out along with what it enchants returns with that permanent (CR 702.26g).
 /// </remarks>
+/// <summary>A permanent stopped attacking or blocking without leaving the battlefield (CR 506.4).</summary>
+/// <remarks>
+/// Its own event rather than a flag, because being in combat is state and state moves only by
+/// an event here. Phasing out already did this as part of leaving the battlefield; this is the
+/// same removal for a permanent that stays where it is - a Gustcloak stepping out of a block,
+/// and CR 506.4c is what makes that stop the damage.
+/// <para>
+/// Only the combat lists change. The creatures that were blocking it are still blocking
+/// creatures (CR 509.1h), and they now block nothing, so they assign no combat damage - which
+/// falls out of the attacker no longer being there rather than being written down twice.
+/// </para>
+/// </remarks>
+public sealed record RemovedFromCombat(ObjectId Id) : GameEvent
+{
+    public override string Rule => "506.4";
+
+    public override string Describe() => $"{Id} was removed from combat.";
+}
+
 public sealed record PermanentPhasedOut(ObjectId Id, Guid ReturnsFor) : GameEvent
 {
     public override string Rule => "702.26b";

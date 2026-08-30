@@ -330,6 +330,10 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
+        Add<ShuffleLibrary>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
         Add<ChangeLife>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
@@ -351,6 +355,10 @@ public static class EffectTargets
             (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
         Add<DrawForTargetsController>(
+            e => e.TargetIndex,
+            (e, n) => e with { TargetIndex = e.TargetIndex + n });
+
+        Add<MillForTargetsController>(
             e => e.TargetIndex,
             (e, n) => e with { TargetIndex = e.TargetIndex + n });
 

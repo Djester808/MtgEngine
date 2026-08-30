@@ -614,23 +614,6 @@ public sealed record PlayerQualityDefinition
 }
 
 /// <summary>
-/// What a static ability does to a maximum hand size, and whose (CR 402.2).
-/// </summary>
-/// <remarks>
-/// Not a <see cref="PlayerQualityDefinition"/>, and the difference is the same one that type's
-/// own remarks draw: what a player quality carries is a <em>keyword</em>, and a hand size is a
-/// number. Widening that record to hold one would give every grant a field it has no use for.
-/// <para>
-/// The delta is signed and added, never assigned, because two of these stack: a table with both
-/// Miser cards out reduces its opponents' hands by three, and the rules have no ordering to
-/// impose because addition needs none (CR 402.2 leaves it at "modified by").
-/// </para>
-/// </remarks>
-/// <param name="Scope">Whose hand size it moves - the controller's, or each opponent's.</param>
-/// <param name="Delta">How far, signed: negative reduces.</param>
-public readonly record struct HandSizeChange(PlayerScope Scope, int Delta);
-
-/// <summary>
 /// A replacement effect: it watches for an event and replaces it with different ones (CR 614.1).
 /// </summary>
 /// <remarks>
