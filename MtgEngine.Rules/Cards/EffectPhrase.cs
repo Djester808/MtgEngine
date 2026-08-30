@@ -8068,6 +8068,17 @@ public static partial class EffectPhrase
             if (text.Length == 0)
                 return null;
 
+            // "You" is a player and never a group of permanents. Left to the noun grammar below
+            // it is read as a creature type, which is the "Islands"/"Assassins" defect those
+            // comments describe arriving through a pronoun instead of a plural: "You gain shroud
+            // until end of turn" compiled into a keyword grant to a tribe no card has, so Gilded
+            // Light read as a complete card, passed the deck gate and did nothing when it
+            // resolved. Refused here rather than answered, because the sentence is about a
+            // player and this method can only describe objects — the reading belongs with
+            // PlayerQualityDefinition, which has no floating form yet.
+            if (text.Equals("you", StringComparison.OrdinalIgnoreCase))
+                return null;
+
             // "Other creatures you control get +2/+2" - the word excludes the permanent whose
             // ability this is, and dropping it would make a lord pump itself. Lifted off before
             // the noun is read, because everything after it is an ordinary group phrase, and put

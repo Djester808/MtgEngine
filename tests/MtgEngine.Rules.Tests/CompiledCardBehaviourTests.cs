@@ -46929,6 +46929,433 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(seats[2]).Life);
     }
 
+    // ---- A player can have a keyword (CR 702.11c, 702.18a) --------------------
+
+    /// <summary>
+    /// "You have hexproof" stops an opponent naming that player as a target (CR 702.11c).
+    /// </summary>
+    /// <remarks>
+    /// The line this whole section exists for, and what blocked it was not the wording. Every
+    /// static ability the compiler read described a <em>group of permanents</em>, and
+    /// <c>TargetSpec.IsLegal</c>'s player arm asked three questions — does the seat exist, has
+    /// it lost, does the filter admit it — before returning, so the hexproof check underneath it
+    /// was reached only by objects. A player is not an object: <see cref="PlayerState"/> carried
+    /// no keywords, and there was nothing for a reader to produce even if one had existed.
+    /// <para>
+    /// The second cast is what makes the first one evidence. A refusal alone would also be
+    /// produced by a spell that could not be cast at all, or by a target the engine had stopped
+    /// offering for some unrelated reason; the same card, from the same hand, on the same turn,
+    /// aimed one seat over, separates "hexproof refused it" from "nothing worked".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_player_with_hexproof_cannot_be_targeted_by_an_opponent()
+    {
+        var aegis = Card(
+            "Aegis Of The Gods Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(aegis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, aegis, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var card = TestCards.PutInHand(
+            game, bob, Card("Aegis Bolt Test", "~ deals 3 damage to any target."));
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, card, [Target.ToPlayer(alice)]));
+
+        // Targets are chosen before the cost is paid (CR 601.2c before 601.2h), so the refusal
+        // leaves the card in hand and the mana in the pool - and the same spell aimed at a player
+        // without hexproof is cast without complaint.
+        game.CastSpell(bob, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Hexproof stops opponents and nobody else, so its holder may still target themselves.
+    /// </summary>
+    /// <remarks>
+    /// CR 702.11c reads "your opponents control", exactly as CR 702.11b does for a permanent.
+    /// That clause is the whole difference between hexproof and shroud, and without this half
+    /// the two would be indistinguishable from outside the engine.
+    /// </remarks>
+    [Fact]
+    public void Hexproof_on_a_player_still_lets_that_player_target_themselves()
+    {
+        var aegis = Card(
+            "Self Aegis Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, aegis, Zone.Battlefield);
+
+        var card = TestCards.PutInHand(
+            game, alice, Card("Self Aegis Draw Test", "Target player draws a card."));
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.CastSpell(alice, card, [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        // One card left the hand to become the spell and one arrived from the draw.
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "You have shroud" refuses everybody, its own controller included (CR 702.18a).
+    /// </summary>
+    /// <remarks>
+    /// The negative half of the test above, and the reason the two keywords are asked separately
+    /// rather than through one "may this be targeted" question: CR 702.18a says "this permanent
+    /// or player can't be the target of spells or abilities" with no owner clause at all. Ivory
+    /// Mask and True Believer are printed exactly this way, and a player behind one genuinely
+    /// cannot target themselves.
+    /// </remarks>
+    [Fact]
+    public void Shroud_on_a_player_refuses_that_player_as_well()
+    {
+        var mask = Card("Ivory Mask Test", "You have shroud.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(mask);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, mask, Zone.Battlefield);
+
+        var mine = TestCards.PutInHand(
+            game, alice, Card("Ivory Mask Draw Test", "Target player draws a card."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, mine, [Target.ToPlayer(alice)]));
+
+        // Bob is behind nothing, so the same card finds him - which is what says the refusal was
+        // about the player rather than about the spell.
+        game.CastSpell(alice, mine, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The keyword lasts exactly as long as the permanent granting it, because it is computed.
+    /// </summary>
+    /// <remarks>
+    /// The founding rule of this engine's characteristics — computed, never stored (CR 613) —
+    /// asserted for the one subject it had never reached. A hexproof written onto
+    /// <see cref="PlayerState"/> would pass every test above and fail this one: the creature dies
+    /// and the player keeps the ability, which is precisely the "the lord died but the bonus
+    /// stuck" defect that ended the previous engine.
+    /// <para>
+    /// Both halves happen on the same turn with the same card in the same hand, so the only
+    /// thing that changed between the refusal and the cast is that the source left the
+    /// battlefield.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_player_keyword_ends_with_the_permanent_that_grants_it()
+    {
+        var aegis = Card(
+            "Ending Aegis Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, aegis, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Ending Aegis Bolt Test", "~ deals 3 damage to any target."));
+        var murder = TestCards.PutInHand(
+            game, bob, Card("Ending Aegis Murder Test", "Destroy target creature."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, bolt, [Target.ToPlayer(alice)]));
+
+        game.CastSpell(bob, murder, [Target.ToPermanent(source)]);
+        Settle(game);
+
+        Assert.DoesNotContain(source, game.State.Battlefield);
+
+        game.CastSpell(bob, bolt, [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The board is never offered a target the engine would refuse (CR 702.11c).
+    /// </summary>
+    /// <remarks>
+    /// The rule this feature turns on: the board's legality checks are a courtesy and may never
+    /// permit what the engine forbids. The list the board renders comes from
+    /// <c>Game.LegalTargetsFor</c>, which asks the same <c>TargetSpec.IsLegal</c> a cast does, so
+    /// the fix to the player arm reaches both — and this is what says so rather than assuming it.
+    /// A trigger carries the test because a trigger's targets are chosen through a halted
+    /// question with the options in it, which is where the offered list is observable.
+    /// </remarks>
+    [Fact]
+    public void A_hexproof_player_is_not_offered_as_a_target()
+    {
+        var aegis = Card(
+            "Offered Aegis Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var pinger = Card(
+            "Offered Pinger Test",
+            "When ~ enters, target player draws a card.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(pinger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, aegis, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        game.Create(bob, pinger, Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        Assert.Equal(bob, choice.PlayerId);
+
+        // Bob is the only seat offered. An option the board could click that the engine would
+        // then refuse is the exact failure this rule exists to forbid.
+        var offered = Assert.Single(choice.Options!);
+        Assert.EndsWith(bob.ToString("N"), offered.Id, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// "You and Humans you control have hexproof" is one sentence about two kinds of subject.
+    /// </summary>
+    /// <remarks>
+    /// Sigarda, Heron's Grace prints it, and it is the shape that decides whether the player
+    /// layer was built beside the object one or instead of it. The player half becomes a
+    /// <c>PlayerQualityDefinition</c> and the remainder goes straight back to the group readers
+    /// as the ordinary mass static it is — so the group vocabulary needs to know nothing about
+    /// players, and each half is enforced by the mechanism that already existed for it.
+    /// <para>
+    /// The creature that is not a Human is what carries the test. A grant that reached every
+    /// creature would look identical from Sigarda's own side.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_player_and_a_group_can_be_granted_hexproof_by_one_line()
+    {
+        var sigarda = Card(
+            "Sigarda Heron Test",
+            "You and Humans you control have hexproof.",
+            CardType.Creature,
+            power: 4,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(sigarda);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, sigarda, Zone.Battlefield);
+
+        var human = game.Create(
+            alice,
+            Card("Sigarda Human Test", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Human"),
+            Zone.Battlefield);
+
+        var wolf = game.Create(
+            alice,
+            Card("Sigarda Wolf Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Wolf"),
+            Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Sigarda Bolt Test", "~ deals 3 damage to any target."));
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, bolt, [Target.ToPlayer(alice)]));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, bolt, [Target.ToPermanent(human)]));
+
+        game.CastSpell(bob, bolt, [Target.ToPermanent(wolf)]);
+        Settle(game);
+
+        Assert.DoesNotContain(wolf, game.State.Battlefield);
+        Assert.Contains(human, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "You" is whoever controls the permanent now, not whoever started with it (CR 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// The stolen-lord defect, in the one place it had never been made. Reading
+    /// <c>source.ControllerId</c> raw is where control <em>started</em>, so a stolen Aegis of the
+    /// Gods would go on protecting the player it was taken from while giving its new controller
+    /// nothing — a card strictly better for the thief's opponent. The player quality asks
+    /// <c>Characteristics.ControllerOf</c> instead, which follows the theft.
+    /// <para>
+    /// Both directions are asserted from the same board, because a filter that had simply
+    /// inverted the question would satisfy either one alone.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Hexproof_follows_the_permanent_when_control_changes()
+    {
+        var spirit = Card(
+            "Stolen Spirit Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, spirit, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var theft = TestCards.PutInHand(
+            game,
+            bob,
+            Card("Stolen Spirit Treason Test", "Gain control of target creature until end of turn."));
+
+        var draw = TestCards.PutInHand(
+            game, bob, Card("Stolen Spirit Draw Test", "Target player draws a card."));
+
+        game.CastSpell(bob, theft, [Target.ToPermanent(source)]);
+        Settle(game);
+
+        Assert.Equal(bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(source)));
+
+        // Alice no longer has it: the ability went with the permanent, so Bob's spell finds her.
+        game.CastSpell(bob, draw, [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        // And Bob does have it now, so Alice's spell cannot find him.
+        var hers = TestCards.PutInHand(
+            game, alice, Card("Stolen Spirit Reply Test", "Target player draws a card."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, hers, [Target.ToPlayer(bob)]));
+    }
+
+    /// <summary>
+    /// A source that has lost all its abilities has lost this one too (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The gap the object path already closes and the player path had to close for itself: the
+    /// grants are gathered by sweeping the battlefield, and a sweep that never asks whether the
+    /// permanent still <em>has</em> the ability would leave a player behind a Humility'd Aegis of
+    /// the Gods untargetable. It is asked only of permanents that actually granted something —
+    /// on any real board none or one — because the question is a full layer computation.
+    /// <para>
+    /// Humility's printed wording, and it belongs to the opponent, so the test also says the
+    /// silencing is about the permanent rather than about whose side it is on.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_silenced_permanent_grants_a_player_nothing()
+    {
+        var aegis = Card(
+            "Silenced Aegis Test",
+            "You have hexproof.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var humility = Card(
+            "Humility Test",
+            "All creatures lose all abilities and have base power and toughness 1/1.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(humility);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, aegis, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Silenced Aegis Bolt Test", "~ deals 3 damage to any target."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, bolt, [Target.ToPlayer(alice)]));
+
+        // No settle: a static ability's effect is computed from the battlefield rather than
+        // resolved, so it applies the moment the enchantment is there - and passing priority
+        // here would hand the turn on before the second cast.
+        game.Create(bob, humility, Zone.Battlefield);
+
+        game.CastSpell(bob, bolt, [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A quality no player can be given leaves the whole line unread (CR 702.16a).
+    /// </summary>
+    /// <remarks>
+    /// The negative control, and it guards a specific way this reader could go wrong. The keyword
+    /// vocabulary it borrows is the one the permanents' readers use, so without a narrowing it
+    /// would compile "you have flying" into an ability with no meaning and no reader — a card
+    /// that reads as complete and does nothing, which is a worse failure than an unread line
+    /// because an unread line is visible.
+    /// <para>
+    /// The protection line is printed rather than invented: Absolute Virtue says "You have
+    /// protection from each of your opponents", and protection genuinely <em>is</em> a player
+    /// ability (CR 702.16a). It stays unread because the quality it names is a player, and this
+    /// engine's protection flags are colours and artifacts. Refusing it is the honest answer;
+    /// reading it as whichever protection the engine happens to have would be a different card.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("You have flying.")]
+    [InlineData("You have deathtouch.")]
+    [InlineData("You have protection from each of your opponents.")]
+    public void A_quality_a_player_cannot_have_is_left_unread(string line)
+    {
+        var card = Card(
+            "Unread Player Quality Test " + line.Length,
+            line,
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.Empty(compiled.PlayerQualities);
+        Assert.Contains(line, compiled.Unhandled, StringComparer.Ordinal);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

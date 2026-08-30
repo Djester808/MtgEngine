@@ -546,6 +546,74 @@ public sealed record ContinuousEffectDefinition
 }
 
 /// <summary>
+/// A continuous effect whose subject is a <em>player</em> (CR 702.11c, 702.18a).
+/// </summary>
+/// <remarks>
+/// A separate type from <see cref="ContinuousEffectDefinition"/> rather than a flag on it,
+/// because the difference is not a variation on one thing — it is that a player is not an object.
+/// Everything the object definition is built around is missing here: there is no printed card to
+/// start from, no <see cref="CharacteristicsBuilder"/> to hand an <c>Applies</c>, and no
+/// characteristic to change. What a static ability can give a player is an ability, and that is
+/// all this carries.
+/// <para>
+/// **There is no layer, and that is a rule rather than a simplification.** CR 613.1 orders the
+/// effects that change *objects'* characteristics; a player has none of those, so nothing here
+/// needs sequencing and two sources of the same keyword are simply redundant (CR 702.11h,
+/// 702.18b). The grants are unioned, and a union needs no timestamp — which is why this has
+/// neither, and why adding one later would be a claim about the rules rather than a refinement.
+/// </para>
+/// <para>
+/// Like every other continuous effect here it is **never stored**: it exists exactly while the
+/// permanent producing it is on the battlefield (CR 604.2), and
+/// <see cref="State.PlayerCharacteristics"/> gathers it from there every time it is asked. A
+/// player keyword written into <see cref="State.PlayerState"/> would drift the way stored
+/// permanent characteristics did before the layers existed — the enchantment leaves and the
+/// player keeps hexproof.
+/// </para>
+/// </remarks>
+public sealed record PlayerQualityDefinition
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// Which players it applies to, given the permanent whose static ability it is.
+    /// </summary>
+    /// <remarks>
+    /// The source is what "you" means: an ability granting its controller hexproof has to ask
+    /// who controls it, and that is layer 2 rather than the id the object was created with
+    /// (CR 613.1b). Callers reach it through <see cref="State.Characteristics.ControllerOf"/>
+    /// for that reason — a stolen Aegis of the Gods protects the thief.
+    /// <para>
+    /// The ability source is carried for that question and no other. It looks like an argument
+    /// the predicate could do without, and it is not: <c>ControllerOf</c> finds a control change
+    /// by looking the floating effect's definition up through it, so handing it an empty source
+    /// answers "who controls this" with where control <em>started</em> — silently, and in
+    /// exactly the case the argument exists to get right. The control-change test caught it.
+    /// </para>
+    /// <para>
+    /// Null for a source when the effect is not a permanent's, which nothing produces yet and
+    /// the signature admits so that a floating one has somewhere to arrive.
+    /// </para>
+    /// </remarks>
+    public required Func<State.GameState, IAbilitySource, State.GameObject?, Guid, bool> Applies
+    {
+        get;
+        init;
+    }
+
+    /// <summary>
+    /// The abilities it gives them — hexproof, shroud, or a protection (CR 702.11c, 702.18a).
+    /// </summary>
+    /// <remarks>
+    /// A flag set rather than an <c>Apply</c> delegate, because unlike an object's
+    /// characteristics there is nothing here to compute from: the printed line names the ability
+    /// outright and every player who qualifies gets the same one. A delegate would be a place for
+    /// a rule that does not exist.
+    /// </remarks>
+    public required Domain.Enums.KeywordAbility Grants { get; init; }
+}
+
+/// <summary>
 /// A replacement effect: it watches for an event and replaces it with different ones (CR 614.1).
 /// </summary>
 /// <remarks>

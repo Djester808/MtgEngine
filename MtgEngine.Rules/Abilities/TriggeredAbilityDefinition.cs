@@ -252,6 +252,18 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     IReadOnlyList<ContinuousEffectDefinition> StaticsOf(CardDefinition card) => [];
 
     /// <summary>
+    /// The continuous effects a card's static abilities apply to <em>players</em> (CR 702.11c).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="StaticsOf"/> because the subject is not an object and cannot be
+    /// described by one: an effect here is asked about a seat at the table, not about a
+    /// permanent. Asked of every permanent on the battlefield each time a player's abilities are
+    /// computed, for the same reason its sibling is — a hexproof a player keeps after the
+    /// enchantment granting it has gone is the stored-characteristic bug in a new place.
+    /// </remarks>
+    IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) => [];
+
+    /// <summary>
     /// Keywords the card's own rules text gives it beyond those printed as keywords (CR 702).
     /// </summary>
     /// <remarks>
