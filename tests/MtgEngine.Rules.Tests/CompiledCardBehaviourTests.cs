@@ -60412,6 +60412,514 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
     }
 
+    // ---- One group predicate, three readers (CR 613.4c, 109.5) ---------------
+
+    /// <summary>
+    /// A permanent of a named kind, for the boards the group tests below are judged on.
+    /// </summary>
+    /// <remarks>
+    /// Every member is a control for the others. A group read one word wider makes a lord buff
+    /// the wrong board, and a test that only asks about the permanent the group was meant to
+    /// reach cannot see that — coverage would score it as a win. So the boards here are always
+    /// mixed, and every assertion says what the group does <em>not</em> reach as well.
+    /// </remarks>
+    private static CardDefinition GroupMember(
+        string name,
+        CardType types = CardType.Creature,
+        ManaColor? colour = null,
+        string[]? supertypes = null,
+        string[]? subtypes = null) => new()
+        {
+            OracleId = "oracle-test-group-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = "Test Group " + name,
+            CardTypes = types,
+            Power = types.HasFlag(CardType.Creature) ? 2 : null,
+            Toughness = types.HasFlag(CardType.Creature) ? 2 : null,
+            Subtypes = subtypes ?? [],
+            Supertypes = supertypes ?? [],
+            Colors = colour is { } c ? [c] : [],
+            ColorIdentity = colour is { } id ? [id] : [],
+        };
+
+    /// <summary>Whether this permanent came out of the group the card named.</summary>
+    /// <remarks>
+    /// Read off the computed characteristics rather than off the compiled definition, because the
+    /// definition carries its filter as a closure — putting a board in front of it is the only
+    /// honest way to ask what it selects (CR 613.1).
+    /// </remarks>
+    private static bool HasVigilance(Game game, ObjectId id) =>
+        Characteristics.Of(game.State, Pool, game.State.GetObject(id))
+            .Keywords.HasFlag(KeywordAbility.Vigilance);
+
+    private static bool WasGrantedAnAbility(Game game, ObjectId id) =>
+        Characteristics.Of(game.State, Pool, game.State.GetObject(id)).GrantedActivated.Count > 0;
+
+    /// <summary>
+    /// A group with no ownership clause is every permanent that answers it (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// Zombie Master's printed wording. "Other Zombies have …" says nothing about who controls
+    /// them, and the rules answer that silence with "everybody" — the card is a hive lord, and
+    /// one that stops at the table edge is a different card.
+    /// <para>
+    /// The granted-ability reader defaulted the silence to "you control" while the lord beside it
+    /// defaulted the same silence to "anybody", so one printed sentence named two different
+    /// boards depending on which reader happened to claim the line. Both now read the clause
+    /// through one vocabulary, and this is the wording that tells the two answers apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_granted_ability_with_no_ownership_clause_reaches_the_whole_table()
+    {
+        var master = Card(
+            "Test Group Zombie Master",
+            "Other Zombies have \"{B}: Regenerate this permanent.\"",
+            CardType.Creature,
+            2,
+            3,
+            KeywordAbility.None,
+            "Zombie");
+
+        var compiled = CardCompiler.Compile(master);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, master, Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, GroupMember("Zed", subtypes: ["Zombie"]), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, GroupMember("Zeb", subtypes: ["Zombie"]), Zone.Battlefield);
+        var bystander = game.Create(
+            bob, GroupMember("Goblin Bystander", subtypes: ["Goblin"]), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(WasGrantedAnAbility(game, mine));
+        Assert.True(WasGrantedAnAbility(game, theirs));
+
+        // The control: the group is a tribe, not "every creature on the battlefield".
+        Assert.False(WasGrantedAnAbility(game, bystander));
+    }
+
+    /// <summary>
+    /// The same sentence with "you control" printed on it stops at the table edge.
+    /// </summary>
+    /// <remarks>
+    /// The neighbouring wording, and the reason the test above means anything: a reader that had
+    /// simply stopped asking about ownership would pass that one and fail this.
+    /// </remarks>
+    [Fact]
+    public void The_same_granted_ability_with_you_control_reaches_only_yours()
+    {
+        var marshal = Card(
+            "Test Group Zombie Marshal",
+            "Other Zombies you control have \"{B}: Regenerate this permanent.\"",
+            CardType.Creature,
+            2,
+            3,
+            KeywordAbility.None,
+            "Zombie");
+
+        var compiled = CardCompiler.Compile(marshal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var lord = game.Create(alice, marshal, Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, GroupMember("Zod", subtypes: ["Zombie"]), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, GroupMember("Zug", subtypes: ["Zombie"]), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(WasGrantedAnAbility(game, mine));
+        Assert.False(WasGrantedAnAbility(game, theirs));
+
+        // "Other" is the other half of the subject, and a lord that grants to itself is a
+        // different card.
+        Assert.False(WasGrantedAnAbility(game, lord));
+    }
+
+    /// <summary>
+    /// "Each" is how a sentence is written, not whose permanents it is about (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// Titan of Eternal Fire's printed wording. The granted-ability reader read "each" and "all"
+    /// as "everybody" and let that <em>override</em> an ownership clause the pattern had already
+    /// matched, so this card handed a repeatable ping to every Human at the table — the
+    /// opponent's included — with the words "you control" printed on it.
+    /// <para>
+    /// Nothing could see it. The line compiles, the card reads as complete, and the only place
+    /// the mistake shows is a board with a Human on the other side of it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Each_does_not_override_a_printed_ownership_clause()
+    {
+        var titan = Card(
+            "Test Group Titan",
+            "Each Human creature you control has \"{R}, {T}: This creature deals 1 damage to any"
+                + " target.\"",
+            CardType.Creature,
+            5,
+            5,
+            KeywordAbility.None,
+            "Giant");
+
+        var compiled = CardCompiler.Compile(titan);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, titan, Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, GroupMember("Villager", subtypes: ["Human"]), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, GroupMember("Refugee", subtypes: ["Human"]), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(WasGrantedAnAbility(game, mine));
+        Assert.False(WasGrantedAnAbility(game, theirs));
+    }
+
+    /// <summary>
+    /// "Land creatures" is one noun, not a creature type called "Land" (CR 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// Both Embodiments read as complete cards for as long as they have existed and gave their
+    /// keyword to nobody: the shared noun table knew "artifact creature" and "enchantment
+    /// creature" and not "land creature", so the group reader stopped at "creature" and took the
+    /// word in front of it for a tribe. No card has the creature type "Land".
+    /// <para>
+    /// It is the failure this family is prone to and the one coverage scores as a win — a line
+    /// that reads, compiles, and grants nothing at all. The revived invariant found it; nothing
+    /// else in the suite could.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_creature_is_a_noun_the_group_reader_knows()
+    {
+        var embodiment = Card(
+            "Test Group Embodiment",
+            "Land creatures you control have vigilance.",
+            CardType.Creature,
+            3,
+            3,
+            KeywordAbility.None,
+            "Elemental");
+
+        var compiled = CardCompiler.Compile(embodiment);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, embodiment, Zone.Battlefield);
+
+        var animated = game.Create(
+            alice, GroupMember("Dryad Arbor", CardType.Land | CardType.Creature), Zone.Battlefield);
+        var plainLand = game.Create(alice, GroupMember("Waste", CardType.Land), Zone.Battlefield);
+        var plainCreature = game.Create(alice, GroupMember("Ox"), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, GroupMember("Their Arbor", CardType.Land | CardType.Creature), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(HasVigilance(game, animated));
+
+        // Both halves of the noun are load-bearing, and so is the ownership clause.
+        Assert.False(HasVigilance(game, plainLand));
+        Assert.False(HasVigilance(game, plainCreature));
+        Assert.False(HasVigilance(game, theirs));
+    }
+
+    /// <summary>
+    /// A tribe spelled the same in both numbers is still a tribe (CR 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// Extricator of Sin's printed wording. The group reader proves a capitalised word is a
+    /// creature type rather than an adjective by requiring the plural, and for Eldrazi, Merfolk,
+    /// Kithkin, Treefolk, Aetherborn and Fish the plural is the singular — so the proof failed on
+    /// six real tribes, one of which had been carved out by name.
+    /// <para>
+    /// The convergence is what surfaced it: the granted-ability reader had no plural test at all,
+    /// so "Eldrazi you control have "{T}: Add one mana of any color"" was read by one reader and
+    /// refused by the other. Pointing both at the same reader turned the disagreement into a
+    /// failure instead of a silence.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_tribe_spelled_the_same_in_both_numbers_is_still_a_tribe()
+    {
+        var extricator = Card(
+            "Test Group Extricator",
+            "Eldrazi you control have vigilance.",
+            CardType.Creature,
+            2,
+            1,
+            KeywordAbility.None,
+            "Human");
+
+        var compiled = CardCompiler.Compile(extricator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, extricator, Zone.Battlefield);
+
+        var mine = game.Create(
+            alice, GroupMember("Horror", subtypes: ["Eldrazi"]), Zone.Battlefield);
+        var other = game.Create(alice, GroupMember("Ox Two"), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, GroupMember("Titan Spawn", subtypes: ["Eldrazi"]), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(HasVigilance(game, mine));
+        Assert.False(HasVigilance(game, other));
+        Assert.False(HasVigilance(game, theirs));
+    }
+
+    /// <summary>
+    /// "Commanders" names a designation, not a creature type (CR 903.3).
+    /// </summary>
+    /// <remarks>
+    /// Three cards print this and all three read as complete and gave their keyword to nobody:
+    /// the bare-noun arm of the group reader never asked the adjective vocabulary at all, so
+    /// "Commanders" became the creature type "Commander", which no card has.
+    /// <para>
+    /// The designation belongs to the card's <em>owner</em> — a commander stolen by an opponent
+    /// is still its owner's commander — while "you control" is a separate question the ownership
+    /// clause answers. The granted-ability reader had been answering exactly this question all
+    /// along for the Backgrounds; the vocabulary beside it said it could not be asked.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Commanders_names_the_designation_rather_than_a_creature_type()
+    {
+        var guardian = Card(
+            "Test Group Guardian",
+            "Commanders you control have vigilance.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(guardian);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var commander = GroupMember(
+            "Warchief", CardType.Creature, null, ["Legendary"], ["Orc"]);
+
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 40, [.. TestCards.Deck(40, "GroupA"), commander])
+                {
+                    CommanderOracleId = commander.OracleId,
+                },
+                new PlayerSetup(bob, "Bob", 40, TestCards.Deck(40, "GroupB")),
+            ],
+            new GameRandom(7),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        game.Create(alice, guardian, Zone.Battlefield);
+
+        var hers = game.Create(alice, commander, Zone.Battlefield);
+        var ordinary = game.Create(
+            alice, GroupMember("Squire", CardType.Creature, null, ["Legendary"]), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(HasVigilance(game, hers));
+
+        // The designation is the whole question: a creature nobody named as their commander is
+        // not one of these, however legendary it is.
+        Assert.False(HasVigilance(game, ordinary));
+    }
+
+    /// <summary>
+    /// A word the adjective vocabulary recognises and cannot answer leaves the line unread.
+    /// </summary>
+    /// <remarks>
+    /// The control for every test above, and what keeps them honest. "Modified" wants counters,
+    /// Auras and Equipment (CR 700.9) and this filter has no way to ask; the honest outcome is an
+    /// unread line, which a deck check refuses and somebody notices. Reading it as a tribe
+    /// instead builds a lord for the creature type "Modified", which reads as complete and does
+    /// nothing — and that is what the granted-ability reader used to do with it.
+    /// <para>
+    /// The last case is a group nobody can describe rather than one nobody can answer: "creatures
+    /// and enchantments" is two nouns, and a reader that guessed at one of them would be reading
+    /// half a card.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Modified creatures you control have vigilance.")]
+    [InlineData("Modified creatures you control have \"{T}: Add {G}.\"")]
+    [InlineData("Enchanted creatures you control have \"{T}: Add {G}.\"")]
+    [InlineData("Creatures and enchantments you control have \"{T}: Add {G}.\"")]
+    public void A_group_the_shared_reader_cannot_describe_is_left_unread(string line)
+    {
+        var card = Card("Test Group Refusal " + line.Length + line[..12], line, CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(line, compiled.Unhandled);
+    }
+
+    /// <summary>
+    /// The lord and the granted-ability reader pick out exactly the same permanents.
+    /// </summary>
+    /// <remarks>
+    /// The claim the extraction is for. Two readers worked the same noun phrase out
+    /// independently — a different tribe test, a different ownership default and a different
+    /// reading of the scope word — and every defect this family has produced was one copy being
+    /// right and the other being wrong about the same printed words.
+    /// <para>
+    /// So this is a comparison rather than a list of expectations: for each group phrase, one
+    /// board is shown "&lt;group&gt; have vigilance" and the same board is shown
+    /// "&lt;group&gt; have "{T}: Add {G}"", and the permanents each reaches must be the same set.
+    /// A reader that drifts fails here without anybody having to guess in advance which board
+    /// would show it.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Creatures you control")]
+    [InlineData("Creatures")]
+    [InlineData("Other creatures you control")]
+    [InlineData("Creatures your opponents control")]
+    [InlineData("All creatures")]
+    [InlineData("Goblins you control")]
+    [InlineData("Goblins")]
+    [InlineData("Goblin creatures you control")]
+    [InlineData("Artifacts you control")]
+    [InlineData("Lands you control")]
+    [InlineData("Permanents you control")]
+    [InlineData("Creature tokens you control")]
+    [InlineData("Legendary creatures you control")]
+    [InlineData("White creatures you control")]
+    [InlineData("Nontoken creatures you control")]
+    [InlineData("Land creatures you control")]
+    [InlineData("Eldrazi you control")]
+    public void The_lord_and_the_granted_ability_reader_read_the_same_group(string group)
+    {
+        var keyword = Card(
+            "Test Group Keyword " + group,
+            group + " have vigilance.",
+            CardType.Enchantment);
+
+        var quoted = Card(
+            "Test Group Quoted " + group,
+            group + " have \"{T}: Add {G}.\"",
+            CardType.Enchantment);
+
+        foreach (var half in new[] { keyword, quoted })
+        {
+            var read = CardCompiler.Compile(half);
+            Assert.True(read.IsComplete, half.Name + ": " + string.Join(" | ", read.Unhandled));
+        }
+
+        var byKeyword = GroupBoard(keyword);
+        var byGrant = GroupBoard(quoted);
+
+        Assert.Equal(byKeyword, byGrant);
+
+        // A group that reached nothing at all would pass the comparison above by vacuity, which
+        // is the one way this test could be green while both readers were broken.
+        Assert.NotEmpty(byKeyword);
+    }
+
+    /// <summary>
+    /// Plays one group static over a mixed board and reports which permanents it reached.
+    /// </summary>
+    /// <remarks>
+    /// The board is deliberately wider than any one group needs: both seats, four card types, two
+    /// tribes, a token, a legendary, a colour and a land creature. A group read one word wider
+    /// than printed shows up as an extra label here, and nowhere else.
+    /// </remarks>
+    private static IReadOnlyList<string> GroupBoard(CardDefinition lord)
+    {
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, lord, Zone.Battlefield);
+
+        var board = new List<(string Label, ObjectId Id)>();
+
+        foreach (var (side, who) in new[] { ("mine", alice), ("theirs", bob) })
+        {
+            void Put(string what, CardDefinition card) =>
+                board.Add(($"{side}-{what}", game.Create(who, card, Zone.Battlefield)));
+
+            Put("creature", GroupMember($"{side} Creature"));
+            Put("goblin", GroupMember($"{side} Goblin", subtypes: ["Goblin"]));
+            Put("eldrazi", GroupMember($"{side} Eldrazi", subtypes: ["Eldrazi"]));
+            Put("artifact", GroupMember($"{side} Artifact", CardType.Artifact));
+            Put("land", GroupMember($"{side} Land", CardType.Land));
+            Put(
+                "landcreature",
+                GroupMember($"{side} Land Creature", CardType.Land | CardType.Creature));
+            Put("enchantment", GroupMember($"{side} Enchantment", CardType.Enchantment));
+            Put("token", GroupMember($"{side} Token", CardType.Creature | CardType.Token));
+            Put(
+                "legendary",
+                GroupMember($"{side} Legend", CardType.Creature, null, ["Legendary"]));
+            Put("white", GroupMember($"{side} White", CardType.Creature, ManaColor.White));
+        }
+
+        board.Add(("source", source));
+        Settle(game);
+
+        return
+        [
+            .. board
+                .Where(entry =>
+                    HasVigilance(game, entry.Id) || WasGrantedAnAbility(game, entry.Id))
+                .Select(entry => entry.Label)
+                .Order(StringComparer.Ordinal),
+        ];
+    }
+
+    /// <summary>
+    /// The reader that switches a group's abilities off reads the same group as the lord.
+    /// </summary>
+    /// <remarks>
+    /// The third copy. It has no scope word of its own — nothing prints "Activated abilities of
+    /// other artifacts" — but the noun and the ownership clause are the same vocabulary, and this
+    /// is where a divergence in it would land: a Null Rod that silenced the wrong half of the
+    /// board looks exactly like one that works, because the permanent it wrongly silenced simply
+    /// offers one button fewer.
+    /// </remarks>
+    [Fact]
+    public void The_abilities_off_reader_reads_the_same_group_as_the_lord()
+    {
+        var rod = Card(
+            "Test Group Null Rod",
+            "Activated abilities of artifacts your opponents control can't be activated.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(rod);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, rod, Zone.Battlefield);
+
+        var theirs = game.Create(bob, GroupMember("Sol Ring", CardType.Artifact), Zone.Battlefield);
+        var mine = game.Create(alice, GroupMember("My Ring", CardType.Artifact), Zone.Battlefield);
+        var theirCreature = game.Create(bob, GroupMember("Their Bear"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(theirs))
+                .AbilitiesCantBeActivated);
+
+        // The ownership clause and the noun are both doing work, and a restriction read one word
+        // wider than printed is worse than an unread line.
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(mine))
+                .AbilitiesCantBeActivated);
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(theirCreature))
+                .AbilitiesCantBeActivated);
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

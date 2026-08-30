@@ -10350,6 +10350,34 @@ public static partial class EffectPhrase
             : word;
     }
 
+    /// <summary>
+    /// A subtype spelled the same in both numbers (CR 205.3m).
+    /// </summary>
+    /// <remarks>
+    /// The fact <see cref="SingularWord"/> cannot express. That method answers "what is the
+    /// singular of this word", and for these the answer is the word itself — which is
+    /// indistinguishable from "this word was never a plural". A group reader has to tell the two
+    /// apart, because it uses the plural as its proof that a capitalised word is a creature type
+    /// rather than an adjective, and every one of these fails that proof while being a tribe.
+    /// <para>
+    /// The words are the ones the corpus prints as a bare group noun, counted rather than
+    /// imagined: Merfolk on 7 lines, Eldrazi on 2, and Aetherborn, Treefolk, Kithkin and Fish on
+    /// one each. Merfolk had been carved out by name in the lord's own reader; the other five
+    /// were simply refused, and "Eldrazi you control have "{T}: Add one mana of any color"" was
+    /// read by a second reader with its own noun grammar and no plural test at all — which is
+    /// how a convergence surfaces a gap that neither half could see alone.
+    /// </para>
+    /// <para>
+    /// Creature types only. <c>Equipment</c>, <c>Vehicle</c> and <c>Spacecraft</c> are printed in
+    /// this slot too and are also invariant, but they are artifact subtypes: the bare-tribe
+    /// reading gives a group the card type <c>Creature</c>, so admitting them would build a lord
+    /// that matches nothing at all — the silent no-op this whole family exists to refuse. They
+    /// need a subtype-to-card-type table this compiler does not have.
+    /// </para>
+    /// </remarks>
+    internal static bool IsSpelledTheSameInBothNumbers(string word) =>
+        word is "Merfolk" or "Eldrazi" or "Aetherborn" or "Treefolk" or "Kithkin" or "Fish";
+
     /// <remarks>
     /// The "-ves" and "-ies" plurals are listed rather than folded by rule, and that is the whole
     /// point of this table. As rules they were wrong more often than right on this corpus: "-ves"
@@ -10993,34 +11021,51 @@ public static partial class EffectPhrase
                 if (printed.Length < 2 || !char.IsUpper(printed[0]))
                     return null;
 
-                // Folded, because a capitalised plural is never a subtype: no card has the type
-                // "Mounts". The group grammar has folded one since the Boil/"Islands" fix and
-                // this reader never did, so the same word read as a real type in "all Mounts"
-                // and as a type nothing has in "target Mounts" - which compiles, passes the deck
-                // gate and finds nothing, the failure that is worse than an unread line. Both
-                // readers of one noun, and only one of them had the fold.
-                subtype = printed;
-
-                // Which card type a subtype implies is a fact about that subtype, and reading it
-                // as "creature" whatever the word was is a card that compiles and does nothing:
-                // "you gain 1 life for each Equipment you control" asked for a *creature* with the
-                // subtype Equipment, of which there are none, so it gained nothing and reported
-                // itself complete. 945 corpus cards name a subtype that is not a creature type.
-                //
-                // This is the failure that is worse than an unread line, because nothing says so -
-                // the deck builder allows the card and the board plays it wrong in silence.
-                // The card type printed after the subtype wins over the one the subtype implies.
-                // "Nissa" is a planeswalker type and would otherwise fall to the creature default,
-                // because the planeswalker types are eighty proper names and a table of them
-                // would go stale every set - the word after them does not.
+                // The card type printed after the noun, which wins over the one the noun
+                // implies. "Nissa" is a planeswalker type and would otherwise fall to the
+                // creature default, because the planeswalker types are eighty proper names and a
+                // table of them would go stale every set - the word after them does not.
                 var spelled = m.Groups["kind"].Success
                     ? PermanentTypes(m.Groups["kind"].Value.Trim().ToLowerInvariant())
                     : null;
 
-                var implied = spelled is [var only] ? only : SubtypeCardType(printed);
+                // "Commanders you control", "Commander creatures you control" — a designation
+                // rather than a creature type (CR 903.3), and the only one the corpus prints in
+                // this slot. The capital letter that separates a subtype from an ordinary word
+                // cannot separate either of them from a designation, so it is named here: read
+                // as a subtype it asks for the creature type "Commander", which no card has, so
+                // the phrase compiles clean and selects nothing. The group vocabulary next door
+                // had the same word and the same wrong answer until this round.
+                if (string.Equals(printed, "Commander", StringComparison.Ordinal))
+                {
+                    adjectives.Add("commander");
+                    required = spelled ?? [];
+                }
+                else
+                {
+                    // Folded, because a capitalised plural is never a subtype: no card has the
+                    // type "Mounts". The group grammar has folded one since the Boil/"Islands"
+                    // fix and this reader never did, so the same word read as a real type in
+                    // "all Mounts" and as a type nothing has in "target Mounts" - which compiles,
+                    // passes the deck gate and finds nothing, the failure that is worse than an
+                    // unread line. Both readers of one noun, and only one of them had the fold.
+                    subtype = printed;
 
-                tribal = implied == CardType.Creature;
-                required = spelled is [] ? [] : [implied];
+                    // Which card type a subtype implies is a fact about that subtype, and reading
+                    // it as "creature" whatever the word was is a card that compiles and does
+                    // nothing: "you gain 1 life for each Equipment you control" asked for a
+                    // *creature* with the subtype Equipment, of which there are none, so it
+                    // gained nothing and reported itself complete. 945 corpus cards name a
+                    // subtype that is not a creature type.
+                    //
+                    // This is the failure that is worse than an unread line, because nothing says
+                    // so - the deck builder allows the card and the board plays it wrong in
+                    // silence.
+                    var implied = spelled is [var only] ? only : SubtypeCardType(printed);
+
+                    tribal = implied == CardType.Creature;
+                    required = spelled is [] ? [] : [implied];
+                }
             }
 
             var filters = adjectives.ConvertAll(AdjectiveFilter);
@@ -11679,6 +11724,14 @@ public static partial class EffectPhrase
             "artifact creature" => [CardType.Artifact, CardType.Creature],
             "enchantment creature" => [CardType.Enchantment, CardType.Creature],
 
+            // Dryad Arbor's type line, and 23 corpus lines name the pair. Its absence was not
+            // neutral: the group reader looks for the longest tail this table knows, so with
+            // "land creature" missing it stopped at "creature" and read the word in front as a
+            // tribe - and "Land creatures you control have trample" became a lord for the
+            // creature type "Land", which no card has. Both Embodiments read as complete cards
+            // and gave trample and vigilance to nobody.
+            "land creature" => [CardType.Land, CardType.Creature],
+
             // "Creature token", "artifact token" - a kind of permanent and the fact that it is a
             // token, which is two tests and reads as one noun. Spelled out beside the other
             // compounds rather than parsed as an adjective, because "token" is the *only* word
@@ -11789,6 +11842,21 @@ public static partial class EffectPhrase
                 // Equipment attached - three unrelated things under one word, like historic.
                 "modified" => (state, _, obj) => IsModified(state, obj),
                 "enchanted" => (state, _, obj) => AttachedTo(state, obj, aurasOnly: true),
+
+                // CR 903.3: a commander is a designation its *owner* made before the game
+                // began, not a characteristic and not a creature type. Asked of the owner rather
+                // than the controller because a commander stolen by an opponent is still its
+                // owner's commander.
+                //
+                // Two other readers already answered this question - the granted-ability
+                // reader's Background arm, and now the group vocabulary - while this one read
+                // the word as a creature type called "Commander" that no card has. One
+                // designation and three answers, which is the shape of every defect this family
+                // has produced.
+                "commander" => (state, _, obj) => string.Equals(
+                    state.GetPlayer(obj.OwnerId).CommanderOracleId,
+                    obj.Card.OracleId,
+                    StringComparison.Ordinal),
 
                 // CR 205.4h: historic is legendary, artifact, or Saga - three unrelated things
                 // under one word, which is why it is spelled out rather than derived.
