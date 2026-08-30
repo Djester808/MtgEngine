@@ -10378,6 +10378,40 @@ public static partial class CardCompiler
                 : KeywordAbility.MustAttack;
         }
 
+        // "Creatures you control can't attack", "Goaded creatures your opponents control can't
+        // block" - the prohibitions the single-creature readers already know, said about a
+        // group. Every one of them is a keyword this engine models (CR 702.3b makes "can't
+        // attack" exactly defender), so they join the grant above rather than becoming an effect
+        // of their own: the attack and block declarations read those flags off the *computed*
+        // characteristics of each creature, so one granted here is enforced by the code that
+        // already enforces a printed one, with no second path to keep in step.
+        //
+        // A spelling this cannot map leaves the whole line unread. A prohibition read too
+        // broadly makes a board unattackable or a creature unblockable and looks like coverage
+        // while it does it, so the switch fails closed rather than defaulting.
+        if (m.Groups["cant"].Success)
+        {
+            var forbidden = m.Groups["cant"].Value.ToLowerInvariant() switch
+            {
+                "attack" => KeywordAbility.Defender,
+                "block" => KeywordAbility.CantBlock,
+                "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
+                "be blocked" => KeywordAbility.CantBeBlocked,
+
+                // Menace is this rule with a minimum of two (CR 702.111a), and the cards that
+                // spell it out print exactly that number.
+                "be blocked by more than one creature" => KeywordAbility.Menace,
+                _ => KeywordAbility.None,
+            };
+
+            if (forbidden == KeywordAbility.None)
+                return false;
+
+            keywords = keywords is { } alreadyForbidden
+                ? alreadyForbidden | forbidden
+                : forbidden;
+        }
+
         // A subtype filter is only meaningful when it names a creature type the card itself is
         // about; anything else is read literally, which is what the rules do too.
         bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
@@ -16948,7 +16982,11 @@ public static partial class CardCompiler
             + @"|(?<lose>loses? all abilities)"
             + @"( and (has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+))?"
             + @"|(?<must>attacks? each combat if able)"
-            + @"|(?<blocks>can block an additional creature each combat))\.?$",
+            + @"|(?<blocks>can block an additional creature each combat)"
+            // The prohibitions, longest spelling first so "be blocked by more than one
+            // creature" is not cut short by the bare "be blocked" beside it.
+            + @"|can't (?<cant>attack or block|attack|block"
+            + @"|be blocked by more than one creature|be blocked))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassStaticLine();
 

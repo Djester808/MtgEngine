@@ -54005,6 +54005,469 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(3, game.State.GetObject(victim).Permanent!.DamageMarked);
     }
 
+    // ---- Prohibitions: a group's, and a one-shot joined by "and" (CR 509.1b, 702.3b) ----
+
+    /// <summary>
+    /// "Target creature gets +1/+0 until end of turn and can't be blocked this turn" (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Both halves of this sentence have read on their own for a long time - the pump through the
+    /// target grammar, the prohibition through the keyword the blocking rules already ask for -
+    /// and the word "and" between them was the whole of what defeated 24 corpus cards. So the
+    /// sentence is folded into the two the readers know rather than given a matcher of its own.
+    /// <para>
+    /// The subject is what the fold has to get right, and it is carried over as a <em>pronoun</em>:
+    /// repeating "target creature" would announce a second target (CR 601.2c) and the card would
+    /// ask for two creatures where it prints one. The bystander here is the assertion that says
+    /// so - it is the creature a group reading would have made unblockable as well.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pump_joined_to_an_unblockable_grant_lands_on_the_one_creature_it_chose()
+    {
+        var strike = Card(
+            "Test Distortion Strike",
+            "Target creature gets +1/+0 until end of turn and can't be blocked this turn.");
+
+        var compiled = CardCompiler.Compile(strike);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One target, not two: the tail is about the creature the head already chose.
+        Assert.Single(compiled.Spell!.Targets);
+
+        var (game, alice, bob) = InMainPhase();
+        var sneak = game.Create(alice, TestCards.Creature("Test Strike Sneak", 2, 2), Zone.Battlefield);
+        var plain = game.Create(alice, TestCards.Creature("Test Strike Plain", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Test Strike Guard", 1, 4), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, strike), [Target.ToPermanent(sneak)]);
+
+        Settle(game);
+
+        var pumped = Characteristics.Of(game.State, Pool, game.State.GetObject(sneak));
+        Assert.Equal(3, pumped.Power);
+        Assert.True(pumped.Has(KeywordAbility.CantBeBlocked));
+
+        // The control, and the one a group reading fails: the creature the spell did not choose
+        // is an ordinary 2/2 that anything may block.
+        Assert.False(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(plain))
+            .Has(KeywordAbility.CantBeBlocked));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [sneak] = AttackTarget.Player(bob),
+                [plain] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var guard = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Test Strike Guard");
+
+        // The grant was made on turn 1 and this is turn 3, so it is gone - which is the whole
+        // point of the next test, and here it is what lets the block below happen at all.
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(guard), game.State.GetObject(plain), bob));
+
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [plain] = [guard] });
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// The prohibition ends with the turn, exactly as the sentence it was cut from does.
+    /// </summary>
+    /// <remarks>
+    /// The failure this family is most prone to, and the reason a fold is safer than a static
+    /// reader: read as a continuous ability the creature would be unblockable for ever, which is
+    /// strictly better than printed and would pass every assertion the test above makes.
+    /// </remarks>
+    [Fact]
+    public void The_grant_joined_by_and_is_a_one_shot_and_is_gone_by_the_next_turn()
+    {
+        var strike = Card(
+            "Test Taigam Strike",
+            "Target creature gets +2/+0 until end of turn and can't be blocked this turn.");
+
+        Assert.True(CardCompiler.Compile(strike).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var sneak = game.Create(alice, TestCards.Creature("Test Taigam Sneak", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, strike), [Target.ToPermanent(sneak)]);
+
+        Settle(game);
+
+        Assert.True(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(sneak))
+            .Has(KeywordAbility.CantBeBlocked));
+
+        // CR 611.2: both halves end in the cleanup step of the turn they were made in, and the
+        // grant is asserted beside the pump so a duration lost on one of them is visible.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var later = Characteristics.Of(game.State, Pool, game.State.GetObject(sneak));
+        Assert.Equal(2, later.Power);
+        Assert.False(later.Has(KeywordAbility.CantBeBlocked));
+
+        // And an opponent's creature may block it again, which is the rule rather than the flag.
+        var guard = game.Create(bob, TestCards.Creature("Test Taigam Guard", 1, 4), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(guard), game.State.GetObject(sneak), bob));
+    }
+
+    /// <summary>
+    /// The same sentence about the card itself: "~ gets +1/+0 ... and can't be blocked this turn".
+    /// </summary>
+    /// <remarks>
+    /// Twelve of the twenty-four print it this way, and it is the arm where the carried subject
+    /// must <em>not</em> become a pronoun: there is no target to point at, and a pronoun with
+    /// nothing behind it would aim the grant at whatever the trigger happened to name.
+    /// </remarks>
+    [Fact]
+    public void A_self_pump_joined_to_an_unblockable_grant_stays_on_the_permanent_that_said_it()
+    {
+        var spellfist = Card(
+            "Test Elusive Spellfist",
+            "{U}: ~ gets +1/+0 until end of turn and can't be blocked this turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(spellfist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var fist = game.Create(alice, spellfist, Zone.Battlefield);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Test Spellfist Ally", 2, 1), Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.Blue);
+        game.ActivateAbility(alice, fist, compiled.Activated.Single().Id);
+        Settle(game);
+
+        var pumped = Characteristics.Of(game.State, Pool, game.State.GetObject(fist));
+        Assert.Equal(3, pumped.Power);
+        Assert.True(pumped.Has(KeywordAbility.CantBeBlocked));
+
+        // The control: nothing else on its controller's board was touched.
+        var other = Characteristics.Of(game.State, Pool, game.State.GetObject(bystander));
+        Assert.Equal(2, other.Power);
+        Assert.False(other.Has(KeywordAbility.CantBeBlocked));
+    }
+
+    /// <summary>
+    /// "That creature can't block this turn" binds the creature the sentence named (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// A live defect on ten already-complete cards, and invisible to everything: the pronoun was
+    /// offered to the <em>group</em> grammar before the pronoun reader, and that grammar reads a
+    /// capitalised "That creature" as a creature <em>subtype</em> of that name - the same defect
+    /// its own comments record for "Islands" and "You". No card has such a subtype, so Duel
+    /// Tactics, Mugging, Blindblast, Blood Aspirant, Stealth Mission, Kappa Cannoneer, Assassin
+    /// Den, Razzle-Dazzler, Merciless Javelineer and Creeping Tar Pit all compiled complete and
+    /// dealt their damage while the prohibition did nothing at all.
+    /// <para>
+    /// Capitalisation was what decided it, which is why it survived: the pronoun list is compared
+    /// case-insensitively, so a mid-sentence "it" reached the right reader and a sentence-initial
+    /// "That creature" did not. Both assertions below are needed - the named creature must be
+    /// stopped, and the one beside it must still block, which is what tells a no-op apart from a
+    /// prohibition read across the whole board.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void That_creature_cant_block_stops_the_one_named_and_leaves_the_rest_alone()
+    {
+        var tactics = Card(
+            "Test Duel Tactics",
+            "~ deals 1 damage to target creature. That creature can't block this turn.");
+
+        var compiled = CardCompiler.Compile(tactics);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.Spell!.Targets);
+
+        var (game, alice, bob) = InMainPhase();
+        var raider = game.Create(alice, TestCards.Creature("Test Tactics Raider", 3, 3), Zone.Battlefield);
+        var stopped = game.Create(bob, TestCards.Creature("Test Tactics Stopped", 2, 3), Zone.Battlefield);
+        var free = game.Create(bob, TestCards.Creature("Test Tactics Free", 2, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, tactics), [Target.ToPermanent(stopped)]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Equal(1, game.State.GetObject(stopped).Permanent!.DamageMarked);
+        Assert.True(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(stopped))
+            .Has(KeywordAbility.CantBlock));
+
+        Assert.False(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(free))
+            .Has(KeywordAbility.CantBlock));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(stopped), game.State.GetObject(raider), bob));
+
+        // The control case, and the half a silent no-op would also pass: the creature the spell
+        // never named blocks, and the damage it takes proves the block happened.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [raider] = [free] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(free).Permanent!.DamageMarked);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Creatures you control can't attack" - a prohibition over a group (CR 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// The group readers could grant a keyword and could not forbid anything, so every card of
+    /// this shape sat unread while the single-creature spellings of the same rule had worked for
+    /// months. Each prohibition it now reads is a keyword this engine already models - "can't
+    /// attack" is exactly defender - so the declaration checks that enforce a printed one enforce
+    /// this one, with no second path to keep in step.
+    /// <para>
+    /// The ownership clause is the assertion that matters. Glacial Chasm stops <em>your</em>
+    /// creatures and nobody else's, and a reader that dropped the clause would produce a card
+    /// that stops the whole table while looking exactly as complete.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_that_cant_attack_stops_its_controllers_creatures_and_no_others()
+    {
+        var chasm = Card(
+            "Test Glacial Chasm", "Creatures you control can't attack.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(chasm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, chasm, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Test Chasm Mine", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Test Chasm Theirs", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, Pool, game.State.GetObject(mine), alice, bob)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [mine] = AttackTarget.Player(bob) }));
+
+        // The control: the enchantment says "you control", and Bob's creature attacks normally.
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>());
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(theirs), bob, alice));
+
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [theirs] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same reader with a filtered group: "Beasts can't block" (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// A group with no ownership clause at all means every permanent that answers the
+    /// description, an opponent's included - which is what Bedlam, Frenetic Raptor and Razorjaw
+    /// Oni print. The filter is the other half: a reader that forbade every creature rather than
+    /// the described ones would pass a test that only looked at the Beast.
+    /// </remarks>
+    [Fact]
+    public void A_filtered_group_that_cant_block_stops_only_the_creatures_it_describes()
+    {
+        var raptor = Card(
+            "Test Frenetic Raptor", "Beasts can't block.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(raptor);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, raptor, Zone.Battlefield);
+        var raider = game.Create(alice, TestCards.Creature("Test Raptor Raider", 2, 2), Zone.Battlefield);
+
+        var beast = game.Create(
+            bob,
+            Card("Test Raptor Beast", string.Empty, CardType.Creature, 3, 3, subtypes: "Beast"),
+            Zone.Battlefield);
+
+        var bear = game.Create(bob, TestCards.Creature("Test Raptor Bear", 3, 3), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [raider] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.True(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(beast))
+            .Has(KeywordAbility.CantBlock));
+
+        Assert.False(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(bear))
+            .Has(KeywordAbility.CantBlock));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(beast), game.State.GetObject(raider), bob));
+
+        // The control: the creature outside the description blocks, and the damage says so.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [raider] = [bear] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Boars you control can't be blocked by more than one creature" is menace (CR 702.111a).
+    /// </summary>
+    /// <remarks>
+    /// The spelling menace was made a keyword for, said about a group. It is the same flag rather
+    /// than a second rule, so the count is enforced where every printed menace is - and the
+    /// difference between menace and being unblockable is the whole of what this asserts: one
+    /// blocker is refused, two are allowed, and a card read as "can't be blocked" would let
+    /// neither through while looking exactly as complete.
+    /// </remarks>
+    [Fact]
+    public void A_group_that_cant_be_blocked_by_more_than_one_creature_is_menace_and_not_evasion()
+    {
+        var rocksteady = Card(
+            "Test Rocksteady",
+            "Boars you control can't be blocked by more than one creature.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(rocksteady);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, rocksteady, Zone.Battlefield);
+
+        var boar = game.Create(
+            alice,
+            Card("Test Rocksteady Boar", string.Empty, CardType.Creature, 3, 3, subtypes: "Boar"),
+            Zone.Battlefield);
+
+        var bear = game.Create(alice, TestCards.Creature("Test Rocksteady Bear", 3, 3), Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Test Rocksteady Guard", 1, 4), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Test Rocksteady Watch", 1, 4), Zone.Battlefield);
+
+        Assert.True(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(boar))
+            .Has(KeywordAbility.Menace));
+
+        Assert.False(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(bear))
+            .Has(KeywordAbility.Menace));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [boar] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first] }));
+
+        Assert.Contains("702.111b", ex.Message, StringComparison.Ordinal);
+
+        // The control, and the half that tells menace from evasion: two creatures may block it.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first, second] });
+
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "Target creature can't attack or block this turn" - both halves, for one turn (CR 611.2).
+    /// </summary>
+    /// <remarks>
+    /// The one-shot the target grammar could say for blocking and not for attacking, which is
+    /// what left Off Balance, Change of Heart, Briber's Purse, Alchemist's Vial, Thundersong
+    /// Trumpeter, Martyred Rusalka and Netter en-Dal unread. Both flags are asserted, because the
+    /// pair is a single printed clause and a reader that took only the half it already knew would
+    /// produce a creature that still attacks.
+    /// </remarks>
+    [Fact]
+    public void Target_creature_cant_attack_or_block_this_turn_takes_both_and_ends_with_the_turn()
+    {
+        var balance = Card("Test Off Balance", "Target creature can't attack or block this turn.");
+
+        var compiled = CardCompiler.Compile(balance);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.Creature("Test Balance Theirs", 2, 2), Zone.Battlefield);
+        var beside = game.Create(bob, TestCards.Creature("Test Balance Beside", 2, 2), Zone.Battlefield);
+
+        // Cast on Bob's own turn, at instant speed, so the prohibition falls on the turn he
+        // would attack with it - which is the only turn a "this turn" grant covers.
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, balance), [Target.ToPermanent(theirs)]);
+
+        Settle(game);
+
+        var held = Characteristics.Of(game.State, Pool, game.State.GetObject(theirs));
+        Assert.True(held.Has(KeywordAbility.Defender));
+        Assert.True(held.Has(KeywordAbility.CantBlock));
+
+        // The control: the creature beside it is untouched and attacks in the same declaration.
+        Assert.False(Characteristics
+            .Of(game.State, Pool, game.State.GetObject(beside))
+            .Has(KeywordAbility.Defender));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, Pool, game.State.GetObject(theirs), bob, alice)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [beside] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+
+        // CR 611.2: gone by the next turn, so the creature it held back attacks then.
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(theirs), bob, alice));
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

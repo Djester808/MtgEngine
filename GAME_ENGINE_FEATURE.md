@@ -513,7 +513,117 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **52.7% of playable cards fully read** (17,237 of 32,717), 68.9% of lines.
+Coverage is **53.4% of playable cards fully read** (17,477 of 32,717), 69.4% of lines.
+
+### Round eighteen: the prohibition family is half the size it was ranked at
+
+The shape table put `can't` third at **672 sole blockers / 920 cards**. That number is a
+line-level artefact and the family is worth **329**. `sole` there means every unread line on the
+card contains the word, and most of those lines fail somewhere else in the same line: excising
+each `can't` **sentence** one at a time and asking whether the card then compiles gives 329 cards
+completed by exactly one, plus 14 that need two. The rest of the 672 are riding along.
+
+**"Can't be regenerated" is the whole lesson in one row.** Ranked at 72 sole blockers, and the
+readable spelling - `It can't be regenerated.`, `They can't be regenerated.` - completes **3** of
+the 58 cards printing it. It has read for a long time as a rider on the destruction in front of
+it, and what blocks those 55 cards is the destruction: "destroy the creature with the least
+power", "destroy each creature with mana value equal to the number of age counters on ~". The
+whole family is worth **15**, and 7 of those are the one-shot `can't be regenerated this turn`,
+which is a different mechanism (a shield ban with a duration, not a rider on a verb).
+
+The head is flat everywhere else too: **309 distinct sentence shapes for 329 cards**, largest
+**3**. So the family is not one build, and the rows below are the decomposition that says which.
+
+| ceiling | sub-shape | what it wants |
+|---|---|---|
+| 71 | can't be blocked | **24 of them are one join** - taken below |
+| 50 | can't block | 27 are a quoted ability inside a created token, blocked by the token line |
+| 45 | can't attack | 16 group statics · 6 the Vow rider · 6 an attack tax |
+| 26 | players can't cast | CR 601.3 needs a board-read ban with a spell filter - declined |
+| 21 | can't attack or block | 16 excise clean; the Gods want conditions `BoardConditions` cannot read |
+| 20 | can't be countered | 8 are a group of spells; the rest are mana riders and "the next spell" |
+| 18 | can't be the target of | hexproof-from, which the flags cannot parameterise |
+| 15 | can't be regenerated | see above |
+
+**+45 cards, none lost** (17,432 -> 17,477, by set difference), across three changes that between
+them are one idea: the prohibitions are keywords this engine already models, and what was missing
+was the grammar around them.
+
+**A one-shot joined by "and" - 24 cards, and the join was all of it.** "Target creature gets +1/+0
+until end of turn **and** can't be blocked this turn" is two instructions, and both halves have
+read alone for months. So it is folded into the two sentences the readers know
+(`EffectPhrase.FoldConjoinedProhibition`), beside the token-ability fold that does the same thing
+for the same reason. Two decisions in it are the correctness:
+
+- **The carried subject is a pronoun where the head chose a target.** Repeating "target creature"
+  announces a second target (CR 601.2c) and the card would ask for two creatures where it prints
+  one. Asserted directly - the compiled spell has one target slot.
+- **The fold is anchored to a clause opening.** Without that, "Up to two target creatures each get
+  +1/+0 until end of turn and can't be blocked this turn" folds from the word "target" in the
+  middle of itself and hands the prohibition to one creature of the two. Aquatic Ingress is that
+  card, and it is left unread rather than read as a worse version of itself.
+
+**A group can now be forbidden something - 16 cards.** `MassStaticLine` could grant a keyword and
+could not forbid anything, so "Creatures you control can't attack", "Goaded creatures your
+opponents control can't block" and "Boars you control can't be blocked by more than one creature"
+were unread while every single-creature spelling of the same rule worked. Each maps to a keyword
+the declaration checks already read off the computed characteristics - defender *is* "can't
+attack" (CR 702.3b), and "can't be blocked by more than one creature" *is* menace (CR 702.111a) -
+so a granted one is enforced by the code that enforces a printed one. The switch fails closed: a
+spelling it cannot map leaves the line unread rather than forbidding the nearest thing it knows.
+
+**"Can't attack" was missing from the one-shot vocabulary that already had "can't block" - 8
+cards.** `CantLine` read `be blocked` and `block` and not `attack` or `attack or block`, so Off
+Balance, Change of Heart, Briber's Purse, Alchemist's Vial, Thundersong Trumpeter, Martyred
+Rusalka and Netter en-Dal sat unread on half a sentence. The three arms behind that pattern - a
+group, a pronoun, a target - had each worked the flag out for itself, so the fourth spelling would
+have reached whichever arm the card happened to take; they now share one `Forbidden` table.
+
+**And the arm order was a live defect on ten complete cards.** Widening that pattern exposed it:
+the group arm was asked before the pronoun arm, and the group grammar reads a capitalised "That
+creature" as a creature *subtype* of that name - the defect its own comments record for "Islands"
+and "You". No card has such a subtype, so **Duel Tactics, Mugging, Blindblast, Blood Aspirant,
+Stealth Mission, Kappa Cannoneer, Assassin Den, Razzle-Dazzler, Merciless Javelineer and Creeping
+Tar Pit** all compiled complete, dealt their damage, and did nothing with the prohibition.
+Capitalisation is why it survived - the pronoun list is compared case-insensitively, so a
+mid-sentence "it" reached the right reader and a sentence-opening "That creature" did not. Found
+by a compiled-effect diff per card rather than by the set of complete cards, which could not see
+it: nothing was gained or lost, ten cards simply stopped being blank.
+
+**Declined, with the measurement behind each:**
+
+- **A cast prohibition** (26). The largest single mechanism left in the family and a real engine
+  capability: CR 601.3's "no rule or effect prohibits that player from casting it" needs a ban
+  read off the board at cast time, with a spell filter (a colour, a chosen colour, a name, a mana
+  value, a card type, a timing window) and a scope. `CastLimit` is the half of CR 601.3 that
+  exists, and the note beside it already records that `GameView` carries no castability - so 26
+  more cards' worth of refusals would land on a board that offers the spell and then refuses it.
+- **A group of spells that can't be countered** (8 of the 20). `StaticBans` is the right home and
+  the shape is the life-gain ban's: a board-read prohibition outside the replacement pass. Left
+  because the other 12 in the row are three different mechanisms (mana that carries a property,
+  "the next spell you cast this turn", a condition on the card's own keyword) and 8 does not pay
+  for the third one alone.
+- **Hexproof from a quality** (18). "Can't be the target of black spells or abilities from black
+  sources" is a parameterised keyword, and the flags enum carries protection from five colours and
+  artifacts because those are the qualities it can name. Admitting these as protection would be
+  wrong in both directions - protection stops damage and blocking too, and hexproof-from stops
+  only an opponent's targeting.
+- **A quoted prohibition inside a created token** (27 of the 50 "can't block" cards). Measured, and
+  not the prohibition's fault: swapping the prohibition inside the quotation for a keyword the
+  granting path reads completes **0** of them. What refuses the line is the token reader, whose
+  ability slot is a keyword list **or** a quotation and never `with toxic 1 and "..."` - dropping
+  the quotation and keeping the keyword completes 7 cards on its own. A token-line composition
+  gap wearing a prohibition's clothes, and it should be counted against the token row.
+- **The God cycle's "unless"** (4). "~ can't attack or block unless you control another creature
+  with power 4 or greater" reads as a conditional static today; what refuses it is
+  `BoardConditions`, which cannot answer the clause. A board-condition row, not a prohibition one.
+- **An attack tax** (6). "Creatures can't attack you unless their controller pays {1} for each of
+  those creatures" is a cost demanded of a declaration, and nothing in the engine can charge one
+  during the declare attackers step.
+- **A filtered one-shot** (3). "…and can't be blocked by Walls this turn" needs a block restriction
+  with a filter *and* a duration; the static form of it exists and the floating form does not.
+
+Coverage is **53.4% of playable cards fully read** (17,477 of 32,717), 69.4% of lines.
 
 ### Round seventeen: a guard that forbade every question behind it
 

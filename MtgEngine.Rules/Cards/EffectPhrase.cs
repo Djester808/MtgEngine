@@ -261,6 +261,13 @@ public static partial class EffectPhrase
         // "They have ..." has nothing to attach to and the whole line goes unread.
         text = FoldGrantedTokenAbility(text);
 
+        // "Target creature gets +1/+0 until end of turn and can't be blocked this turn" is two
+        // instructions joined by "and". Both halves already read alone - the pump through the
+        // target grammar, the prohibition through the keyword the blocking rules ask for
+        // (CR 509.1b) - and the join is the only thing that was missing, so the sentence is
+        // folded into the two the readers know rather than given a matcher of its own.
+        text = FoldConjoinedProhibition(text);
+
         // "Look at the top three cards of your library, then put them back in any order" is one
         // instruction, and ", then" is exactly what the splitter cuts on - so read before it, for
         // the same reason as the idiom below. Split apart, "put them back in any order" has no
@@ -512,6 +519,43 @@ public static partial class EffectPhrase
         return m.Success
             ? m.Groups["head"].Value + " with " + '"' + m.Groups["ability"].Value + '"'
             : text;
+    }
+
+    /// <summary>
+    /// Cuts "&lt;a one-shot&gt; and can't be blocked this turn" into the two sentences it means.
+    /// </summary>
+    /// <remarks>
+    /// A normalisation rather than a new reader, for the reason
+    /// <see cref="FoldGrantedTokenAbility"/> is one: both halves are understood already and only
+    /// the conjunction is not, so the sentence is rewritten the way the readers expect it and
+    /// every guard on the way through applies unchanged. A head this cannot read leaves the line
+    /// unread exactly as it did before, because the halves are still offered to the same readers.
+    /// <para>
+    /// <strong>The subject is the whole difficulty.</strong> The tail says nothing about who it
+    /// is about, so it has to be carried over from the head - and where the head chose a target
+    /// it must be carried as a <em>pronoun</em>, because repeating "target creature" announces a
+    /// second target (CR 601.2c) and the card would ask for two creatures where it prints one.
+    /// </para>
+    /// <para>
+    /// It stays a one-shot: the tail becomes the same until-end-of-turn grant the standalone
+    /// sentence produces. Folded into a static it would be a permanently unblockable creature,
+    /// which is strictly better than printed and is the failure this whole family is prone to.
+    /// </para>
+    /// </remarks>
+    private static string FoldConjoinedProhibition(string text) =>
+        ConjoinedProhibitionLine().Replace(text, Carried);
+
+    /// <summary>The prohibition half, rewritten with the subject the head named.</summary>
+    private static string Carried(Match m)
+    {
+        ArgumentNullException.ThrowIfNull(m);
+
+        var subject = m.Groups["subject"].Value;
+        var chose = subject.StartsWith("target", StringComparison.OrdinalIgnoreCase)
+            || subject.StartsWith("up to one target", StringComparison.OrdinalIgnoreCase);
+
+        return $"{m.Groups["head"].Value}. {(chose ? "It" : subject)} can't "
+            + $"{m.Groups["what"].Value} this turn.";
     }
 
     /// <summary>
@@ -3384,33 +3428,19 @@ public static partial class EffectPhrase
         // "Target creature can't block this turn" — a keyword granted until end of turn, not a
         // rule of its own. The engine already refuses a block by anything carrying the flag, so
         // this is the same effect as any other combat trick (CR 613.1f, layer 6).
-        // "Creatures without flying can't block this turn" - the group form, reaching the same
-        // machinery the single-target one does. A granted keyword is a continuous effect with a
-        // generated id whether it lands on one creature or on a board full of them.
         m = CantLine().Match(sentence);
-        if (m.Success && Specs.ParseGroup(m.Groups["t"].Value) is
-            { Kind: TargetKind.Permanent } restrainedGroup
-            && Specs.Parse(m.Groups["t"].Value) is null)
-        {
-            var groupFlag = m.Groups["what"].Value.StartsWith(
-                "be blocked", StringComparison.OrdinalIgnoreCase)
-                ? KeywordAbility.CantBeBlocked
-                : KeywordAbility.CantBlock;
-
-            effects.Add(new PumpGroup(GenerativeEffects.GrantId(groupFlag), restrainedGroup));
-            return true;
-        }
+        var forbids = m.Success ? Forbidden(m.Groups["what"].Value) : null;
 
         // "That creature can't block this turn" - the pronoun form, which names whatever the
         // sentence before it was about rather than anything targeted here.
-        if (m.Success
+        //
+        // Asked *before* the group arm, and the order is the whole correctness of it: "it" goes
+        // through the group grammar as a creature subtype nothing has - the same defect its own
+        // comments describe for "Islands" and "You" - so the group arm answers with a filter
+        // matching no permanent, and the card compiles complete and does nothing at all.
+        if (forbids is { } pronounFlag
             && Pronouns.Contains(m.Groups["t"].Value.Trim(), StringComparer.OrdinalIgnoreCase))
         {
-            var pronounFlag = m.Groups["what"].Value.StartsWith(
-                "be blocked", StringComparison.OrdinalIgnoreCase)
-                ? KeywordAbility.CantBeBlocked
-                : KeywordAbility.CantBlock;
-
             effects.Add(targets.Count > 0
                 ? new PumpUntilEndOfTurn(
                     GenerativeEffects.GrantId(pronounFlag), targets.Count - 1)
@@ -3421,12 +3451,19 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (m.Success && Specs.Parse(m.Groups["t"].Value) is { } restrained)
+        // "Creatures without flying can't block this turn" - the group form, reaching the same
+        // machinery the single-target one does. A granted keyword is a continuous effect with a
+        // generated id whether it lands on one creature or on a board full of them.
+        if (forbids is { } groupFlag
+            && Specs.Parse(m.Groups["t"].Value) is null
+            && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } whole)
         {
-            var flag = m.Groups["what"].Value.StartsWith("be blocked", StringComparison.OrdinalIgnoreCase)
-                ? KeywordAbility.CantBeBlocked
-                : KeywordAbility.CantBlock;
+            effects.Add(new PumpGroup(GenerativeEffects.GrantId(groupFlag), whole));
+            return true;
+        }
 
+        if (forbids is { } flag && Specs.Parse(m.Groups["t"].Value) is { } restrained)
+        {
             targets.Add(restrained);
             effects.Add(new PumpUntilEndOfTurn(
                 GenerativeEffects.GrantId(flag), targets.Count - 1));
@@ -13057,6 +13094,30 @@ public static partial class EffectPhrase
         ["it", "that creature", "that permanent", "that artifact", "that token"];
 
     /// <summary>
+    /// The keywords a printed "can't ..." names (CR 509.1b, 702.3b).
+    /// </summary>
+    /// <remarks>
+    /// One table for the three subjects <see cref="CantLine"/> reads - a group, a pronoun and a
+    /// target - because each of them used to work the flag out for itself, and a spelling added
+    /// to the pattern would have reached whichever arm the card happened to take. "Can't attack"
+    /// is exactly defender (CR 702.3b), which is how the rest of this compiler already reads it.
+    /// <para>
+    /// Fails closed. A spelling this does not know leaves the sentence unread rather than
+    /// forbidding the nearest thing it recognises: a prohibition read as the wrong one makes a
+    /// creature unblockable or a board unattackable, and nothing downstream would notice, while
+    /// coverage counts the line as read.
+    /// </para>
+    /// </remarks>
+    private static KeywordAbility? Forbidden(string what) => what.ToLowerInvariant() switch
+    {
+        "be blocked" => KeywordAbility.CantBeBlocked,
+        "block" => KeywordAbility.CantBlock,
+        "attack" => KeywordAbility.Defender,
+        "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
+        _ => null,
+    };
+
+    /// <summary>
     /// Reads a verb's object as either a target or the thing the sentence is already about.
     /// </summary>
     /// <remarks>
@@ -14049,7 +14110,9 @@ public static partial class EffectPhrase
     private static partial Regex PayLifeOffer();
 
     [GeneratedRegex(
-        @"^" + T + @" can't (?<what>be blocked|block)( this turn)?$", RegexOptions.IgnoreCase)]
+        @"^" + T + @" can't (?<what>be blocked|block|attack or block|attack)"
+            + @"( this turn)?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex CantLine();
 
     [GeneratedRegex(
@@ -14098,6 +14161,32 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^~ can't be blocked this turn$", RegexOptions.IgnoreCase)]
     private static partial Regex SelfUnblockableLine();
+
+    /// <summary>
+    /// A one-shot effect with a combat prohibition joined onto it by "and".
+    /// </summary>
+    /// <remarks>
+    /// The verb list is closed on purpose. Every printing of this shape joins the prohibition to
+    /// something that <em>changes the creature until end of turn</em> - a pump, a granted
+    /// keyword, an animation - and a wider verb would let the fold cut a sentence whose halves
+    /// are about two different things.
+    /// <para>
+    /// Not anchored to the start of the text, because the sentence is regularly printed after
+    /// another one ("Destroy target artifact. That creature gains haste until end of turn
+    /// and ..."), and not anchored to the end either, because it is as often followed by one.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        // The subject has to open a clause. Without that, "Up to two target creatures each get
+        // +1/+0 until end of turn and can't be blocked this turn" folds from the word "target"
+        // in the middle of it and hands the prohibition to one creature of the two.
+        @"(?:(?<=^)|(?<=[.,:;] )|(?<=— ))"
+            + @"(?<head>(?<subject>~|[Uu]p to one target [a-z][a-z0-9'’, ]*?"
+            + @"|[Tt]arget [a-z][a-z0-9'’, ]*?|[Tt]hat creature|[Ii]t) "
+            + @"(?:gets?|gains?|becomes?) [^.]*?)"
+            + @" and can't (?<what>be blocked|block) this turn\.",
+        RegexOptions.None)]
+    private static partial Regex ConjoinedProhibitionLine();
 
     [GeneratedRegex(
         @"^enchanted (creature|permanent) gets (?<p>[+-]\d+)/(?<tough>[+-]\d+) "
