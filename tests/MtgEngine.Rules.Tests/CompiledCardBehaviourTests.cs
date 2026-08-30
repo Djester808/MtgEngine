@@ -63881,6 +63881,189 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(conditional.Spell!.Effects.OfType<ShuffleLibrary>());
     }
 
+    // ---- Prevention both ways (CR 615.1) -------------------------------------
+
+    /// <summary>
+    /// Maze of Ith: "to and dealt by that creature" is two shields, not one.
+    /// </summary>
+    /// <remarks>
+    /// The sentence was refused outright until the excision census put it at the top of the
+    /// corpus - five cards print this exact shape and no other unread sentence is on more than
+    /// five. Both directions are asserted in one combat because the failure that matters is a
+    /// single shield holding both slots: PreventionEffect reads its victim and its source as an
+    /// AND, so one effect naming the creature twice would shield only the damage it dealt to
+    /// itself, and the card would do nothing at all while still counting as read.
+    /// <para>
+    /// The pronoun is the other half of the difficulty. "That creature" is whatever the sentence
+    /// in front of it untapped, so the shield has to reuse the target the ability already chose
+    /// rather than ask for a second one - a card that asked twice would let the player fog one
+    /// creature and untap another.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Preventing_damage_both_ways_stops_what_the_creature_deals_and_what_reaches_it()
+    {
+        var maze = Card(
+            "Test Maze of Prevention",
+            "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt"
+                + " to and dealt by that creature this turn.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(maze);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(alice, TestCards.Creature("Test Maze Wall", 1, 4), Zone.Battlefield);
+        var ogre = game.Create(bob, TestCards.Creature("Test Maze Ogre", 3, 3), Zone.Battlefield);
+        var land = game.Create(alice, maze, Zone.Battlefield);
+
+        // Turn 2 is Bob's, so his creature is the one attacking.
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [ogre] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [ogre] = [wall] });
+
+        // The active player gets priority first in every step (CR 117.3a), and on turn 2 that is
+        // Bob. Alice cannot activate anything until he has passed it to her.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        game.ActivateAbility(alice, land, "a", [Target.ToPermanent(ogre)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep > TurnStep.CombatDamage);
+
+        // What it deals: the 1/4 blocking it takes nothing, and neither does Alice.
+        Assert.Equal(0, game.State.GetObject(wall).Permanent!.DamageMarked);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // What reaches it: the blocker's one point is prevented too. Without the second shield
+        // this is 1 and the card is half of what it prints.
+        Assert.Equal(0, game.State.GetObject(ogre).Permanent!.DamageMarked);
+
+        // Two entries and not one, written and read back, so a shield lost on the way through
+        // the log shows up here rather than as a card that quietly stops working on replay.
+        Assert.Equal(2, game.State.Preventions.Count);
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// Urborg Phantom: the same sentence about the permanent whose ability it is.
+    /// </summary>
+    /// <remarks>
+    /// Three cards say "this creature" where Maze of Ith says "that creature", and it is a
+    /// different thing to resolve: no target is chosen at all, so the shield goes round
+    /// <see cref="ResolutionContext.PhysicalSourceId"/> - the creature, not the ability that is
+    /// resolving on the stack.
+    /// </remarks>
+    [Fact]
+    public void Preventing_damage_both_ways_around_this_creature_needs_no_target()
+    {
+        var phantom = Card(
+            "Test Phantom Guard",
+            "{U}: Prevent all combat damage that would be dealt to and dealt by this creature"
+                + " this turn.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(phantom);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // No target is asked for, which is the whole difference from the pronoun form.
+        Assert.Empty(compiled.Activated.Single().Targets);
+
+        var (game, alice, bob) = InMainPhase();
+        var guard = game.Create(alice, phantom, Zone.Battlefield);
+        var ogre = game.Create(bob, TestCards.Creature("Test Phantom Ogre", 4, 4), Zone.Battlefield);
+
+        var island = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget> { [ogre] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [ogre] = [guard] });
+
+        // In the same turn the damage is dealt in: "this turn" is CR 514.2's duration, so a
+        // shield put up on turn 1 is gone before turn 2's combat and the guard dies.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        game.ActivateAbility(alice, island, "mana");
+        game.ActivateAbility(alice, guard, "a");
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep > TurnStep.CombatDamage);
+
+        // A 3/3 blocking a 4/4 and neither of them marked: the shield covers both directions,
+        // and the guard is still on the battlefield rather than in a graveyard.
+        Assert.Contains(guard, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(guard).Permanent!.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(ogre).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The target-phrase arm, and the two the reader still refuses.
+    /// </summary>
+    /// <remarks>
+    /// A prevention read wider than printed is what makes a creature invulnerable, so the noun
+    /// this reader cannot resolve leaves the line unread rather than being widened. Goblin
+    /// Snowman is the case that has to fail closed: "Whenever ~ blocks, prevent all combat damage
+    /// that would be dealt to and dealt by <em>it</em>" says the same word Maze of Ith does and
+    /// means the opposite thing - the permanent rather than a target - and nothing in the
+    /// sentence tells them apart. Energy Arc's "those creatures" is the plural of the same
+    /// problem.
+    /// </remarks>
+    [Fact]
+    public void Preventing_damage_both_ways_reads_a_target_phrase_and_refuses_a_loose_pronoun()
+    {
+        var chariot = CardCompiler.Compile(Card(
+            "Test Cloud Chariot",
+            "{2}: Prevent all combat damage that would be dealt to and dealt by target creature"
+                + " you control this turn.",
+            CardType.Artifact));
+
+        Assert.True(chariot.IsComplete, string.Join(" | ", chariot.Unhandled));
+
+        var ability = chariot.Activated.Single();
+        Assert.Single(ability.Targets);
+        Assert.Equal(
+            [false, true],
+            ability.Effects.OfType<PreventDescribedDamage>().Select(e => e.TargetIsSource));
+
+        // Both shields point at the one creature the ability asked for, never at a second.
+        Assert.All(
+            ability.Effects.OfType<PreventDescribedDamage>(),
+            e => Assert.Equal(0, e.TargetIndex));
+
+        var snowman = CardCompiler.Compile(Card(
+            "Test Snowman Refusal",
+            "Whenever ~ blocks, prevent all combat damage that would be dealt to and dealt by it"
+                + " this turn.",
+            CardType.Creature,
+            power: 1,
+            toughness: 3));
+
+        Assert.False(snowman.IsComplete);
+
+        var arc = CardCompiler.Compile(Card(
+            "Test Energy Arc Refusal",
+            "Untap any number of target creatures. Prevent all combat damage that would be dealt"
+                + " to and dealt by those creatures this turn.",
+            CardType.Instant));
+
+        Assert.False(arc.IsComplete);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

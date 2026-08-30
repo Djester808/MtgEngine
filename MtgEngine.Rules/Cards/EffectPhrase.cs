@@ -6821,12 +6821,16 @@ public static partial class EffectPhrase
         // replacement effect that functions from the battlefield. Compiled here it would be a
         // shield the engine kept until the turn ended — put up by a card that has since gone to
         // a graveyard, or by an Aura that has been destroyed.
-        //
-        // "To and dealt by" is refused for a different reason: it is two shields around one
-        // noun, and the two cards that print it with a duration name their noun with a pronoun
-        // this reader cannot resolve anyway.
-        if (ReadPreventionSentence(sentence) is not { ForTheTurn: true, BothWays: false } read)
+        if (ReadPreventionSentence(sentence) is not { ForTheTurn: true } read)
             return false;
+
+        // "To and dealt by that creature" is one noun in both slots. It is two shields and not
+        // one with both fields filled: PreventionEffect reads its victim and its source as an
+        // AND, so a single effect naming the same creature twice would shield only the damage
+        // that creature dealt to itself — a card that does nothing. The static reader next door
+        // splits it the same way and says so for the same reason.
+        if (read.BothWays)
+            return TryPreventBothWays(read, targets, effects);
 
         (string? Filter, PlayerScope? Who) from = (null, null);
         TargetSpec? aimedSource = null;
@@ -6911,6 +6915,70 @@ public static partial class EffectPhrase
         }
 
         effects.AddRange(shields);
+        return true;
+    }
+
+    /// <summary>
+    /// "Prevent all combat damage that would be dealt to and dealt by X this turn" (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// The Maze of Ith sentence, and the only prevention wording that puts one noun in both
+    /// slots. It compiles to two shields around that noun — one watching what reaches it, one
+    /// watching what it deals — because a single effect holding both reads them as an AND and
+    /// would shield only the damage the creature dealt to itself, which is a card that does
+    /// nothing. <c>CardCompiler.TryStaticPrevention</c> splits the static spelling the same way
+    /// for the same reason.
+    /// <para>
+    /// The noun is named in one of the three ways a sentence can name a single object, and each
+    /// resolves to something different. A <em>pronoun</em> is the creature the sentence in front
+    /// of it already chose — "Untap target attacking creature. Prevent all combat damage … to
+    /// and dealt by <em>that creature</em>" — and is read only when there is a target behind it
+    /// to point at: with none, "it" means the permanent the ability is printed on, which is a
+    /// different card and one this cannot tell from the sentence alone (Goblin Snowman prints
+    /// exactly that and stays unread). "~" is that permanent said outright. Anything else has to
+    /// be a target phrase, and a phrase the target grammar cannot read leaves the line unread
+    /// rather than shielding something wider than printed.
+    /// </para>
+    /// <para>
+    /// A player is refused in every arm. CR 609.7a says a player is never a source of damage, so
+    /// half the pair could not be made at all — and a shield with an empty source slot watches
+    /// every source at the table, which is the direction a prevention must never fail in.
+    /// </para>
+    /// </remarks>
+    private static bool TryPreventBothWays(
+        PreventionSentence read,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects)
+    {
+        if (read.Victims is not { } noun)
+            return false;
+
+        var shield = new PreventDescribedDamage { Kind = read.Kind };
+        var named = noun.Trim();
+
+        if (string.Equals(named, "~", StringComparison.Ordinal))
+        {
+            shield = shield with { AroundSource = true };
+        }
+        else if (Pronouns.Contains(named, StringComparer.OrdinalIgnoreCase))
+        {
+            if (targets.Count == 0 || targets[^1].Kind != TargetKind.Permanent)
+                return false;
+
+            shield = shield with { TargetIndex = targets.Count - 1 };
+        }
+        else if (Specs.Parse(named) is { Kind: TargetKind.Permanent } chosen)
+        {
+            targets.Add(chosen);
+            shield = shield with { TargetIndex = targets.Count - 1 };
+        }
+        else
+        {
+            return false;
+        }
+
+        effects.Add(shield);
+        effects.Add(shield with { TargetIsSource = true });
         return true;
     }
 

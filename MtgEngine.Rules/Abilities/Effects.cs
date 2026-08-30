@@ -3936,6 +3936,23 @@ public sealed record PreventDescribedDamage : IEffect
     /// </remarks>
     public bool ForTheTurn { get; init; } = true;
 
+    /// <summary>
+    /// Whether the object shielded is the permanent whose ability this is — "this creature".
+    /// </summary>
+    /// <remarks>
+    /// The third way a sentence names a single object, beside a target and a description, and
+    /// the one an <em>activated</em> ability uses: "{U}: Prevent all combat damage that would be
+    /// dealt to and dealt by this creature this turn" names its own permanent and targets
+    /// nothing. It is not <see cref="TargetIndex"/> with a reserved value, because a target is
+    /// chosen, legality-checked twice and defeated by hexproof, and none of that is true of the
+    /// permanent an ability is printed on.
+    /// <para>
+    /// It reads <see cref="ResolutionContext.PhysicalSourceId"/> rather than the resolving
+    /// object: what resolves is the ability, and the shield goes round the creature.
+    /// </para>
+    /// </remarks>
+    public bool AroundSource { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3943,6 +3960,17 @@ public sealed record PreventDescribedDamage : IEffect
         ObjectId? permanent = null;
         ObjectId? dealer = null;
         Guid? player = null;
+
+        if (AroundSource)
+        {
+            // The same flag on both halves of a "to and dealt by" pair, told apart by
+            // TargetIsSource exactly as a targeted pair is: one shield watches what reaches the
+            // creature, the other what it deals.
+            if (TargetIsSource)
+                dealer = context.PhysicalSourceId;
+            else
+                permanent = context.PhysicalSourceId;
+        }
 
         if (TargetIndex is { } index)
         {
