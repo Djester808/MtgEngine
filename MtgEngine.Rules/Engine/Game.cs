@@ -12658,6 +12658,13 @@ public sealed class Game
             return rooms;
         }
 
+        // An emblem's abilities function in the command zone (CR 114.4), and the compiler has no
+        // way to know that: it read the quoted text as a card's text and wrote the battlefield on
+        // it, because that is where all but a handful of printed abilities work. Re-keyed rather
+        // than compiled apart, so the sentence stays one sentence - see Emblems.TriggersOf.
+        if (Emblems.IsEmblem(obj))
+            return Emblems.TriggersOf(obj, _abilities);
+
         var printed = _abilities.TriggersOf(obj.Card);
 
         if (obj.Zone != Zone.Battlefield)

@@ -826,6 +826,23 @@ public sealed record DealDamage(
     bool Deathtouch = false,
     EffectSubject Subject = EffectSubject.Target) : IEffect
 {
+    /// <summary>
+    /// Whether the damage beyond lethal goes to the permanent's controller (CR 120.4a).
+    /// </summary>
+    /// <remarks>
+    /// "Excess damage is dealt to that creature's controller instead" — a rider printed on the
+    /// sentence that deals the damage, which is why it is a field on this effect and not an
+    /// effect of its own. CR 120.4a makes it the <em>first</em> of the four steps damage is
+    /// processed in: the damage event is modified before any replacement or prevention sees it,
+    /// so the split has to happen where the event is built rather than anywhere downstream.
+    /// <para>
+    /// Two events come out instead of one, and both name the same source — so the creature's
+    /// share is still marked by this permanent, and the player's share is damage rather than life
+    /// loss, which is what protection, prevention and lifelink all read.
+    /// </para>
+    /// </remarks>
+    public bool ExcessToTargetsController { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -843,7 +860,7 @@ public sealed record DealDamage(
 
             return context.State.TryGetObject(struck, out var burned)
                 && burned.Zone == Zone.Battlefield
-                    ? [new DamageMarked(struck, Amount.In(context), Deathtouch, source)]
+                    ? Dealt(context, burned, source)
                     : [];
         }
 
@@ -861,10 +878,108 @@ public sealed record DealDamage(
             TargetKind.Permanent =>
                 context.State.TryGetObject(target.Subject, out var hit)
                 && hit.Zone == Zone.Battlefield
-                    ? [new DamageMarked(target.Subject, Amount.In(context), Deathtouch, source)]
+                    ? Dealt(context, hit, source)
                     : [],
             _ => [],
         };
+    }
+
+    /// <summary>The events one hit produces, split at lethal when the card says so (CR 120.4a).</summary>
+    private IReadOnlyList<GameEvent> Dealt(
+        ResolutionContext context, GameObject struck, ObjectId source)
+    {
+        var amount = Amount.In(context);
+
+        if (!ExcessToTargetsController)
+            return [new DamageMarked(struck.Id, amount, Deathtouch, source)];
+
+        var excess = ExcessDamage.Over(context, struck, amount, Deathtouch, source);
+        if (excess <= 0)
+            return [new DamageMarked(struck.Id, amount, Deathtouch, source)];
+
+        // Whose it is, computed rather than stored: control is layer 2 (CR 613.1b), and a stolen
+        // creature's excess belongs to whoever controls it now.
+        var owner = Characteristics.ControllerOf(context.State, context.Abilities, struck);
+
+        return
+        [
+            new DamageMarked(struck.Id, amount - excess, Deathtouch, source),
+            new PlayerDamaged(owner, source, excess, IsCombat: false),
+        ];
+    }
+}
+
+/// <summary>
+/// How much of a damage event is beyond what would have been lethal (CR 120.4a, 120.6).
+/// </summary>
+/// <remarks>
+/// The number the excess-damage family is written around, and the engine had every part of it
+/// except this: damage marked, computed toughness, loyalty and defence counters were all here,
+/// and nothing had ever subtracted one from the other.
+/// <para>
+/// It is a <em>question about the moment the damage is dealt</em>, which is why it lives beside
+/// the effect rather than in the state-based actions. CR 120.4a is step one of four and runs
+/// before replacement and prevention effects, so a creature whose damage is later prevented was
+/// still dealt the excess this says it was.
+/// </para>
+/// </remarks>
+public static class ExcessDamage
+{
+    /// <summary>
+    /// The amount of <paramref name="amount"/> in excess of lethal for this permanent.
+    /// </summary>
+    /// <remarks>
+    /// CR 120.4a spells out three measures and one tie-break, and all four are here rather than
+    /// only the creature arm, because a card reading "target creature or planeswalker" hands this
+    /// either kind and a redirect that answered nought for one of them would be a card that
+    /// silently does half of what it says.
+    /// </remarks>
+    public static int Over(
+        ResolutionContext context, GameObject struck, int amount, bool deathtouch, ObjectId source)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(struck);
+
+        if (amount <= 0)
+            return 0;
+
+        var now = Characteristics.Of(context.State, context.Abilities, struck);
+
+        // CR 120.4a: with deathtouch, everything past the first point is excess - and it is the
+        // *source's* deathtouch, not the effect's, so a Prodigal Pyromancer that has been given
+        // deathtouch counts the same as an effect that prints the word.
+        var deadly = deathtouch
+            || (context.State.TryGetObject(source, out var dealer)
+                && Characteristics.HasKeyword(
+                    context.State, context.Abilities, dealer, KeywordAbility.Deathtouch));
+
+        var lethal = (int?)null;
+
+        if (now.IsCreature)
+        {
+            lethal = deadly
+                ? 1
+                : Math.Max(0, (now.Toughness ?? 0) - (struck.Permanent?.DamageMarked ?? 0));
+        }
+
+        // A planeswalker's loyalty and a battle's defence are the same measure one counter along
+        // (CR 120.3c, 120.3h), and deathtouch has nothing to say about either.
+        lethal = Smallest(lethal, now.CardTypes.HasFlag(CardType.Planeswalker), struck, CounterKinds.Loyalty);
+        lethal = Smallest(lethal, now.CardTypes.HasFlag(CardType.Battle), struck, CounterKinds.Defense);
+
+        // "The greatest of the calculated amounts for each of the card types it has" - the most
+        // excess, which is the least lethal. A permanent that is none of the three has no measure
+        // at all and takes the whole hit.
+        return lethal is { } past ? Math.Max(0, amount - past) : 0;
+    }
+
+    private static int? Smallest(int? lethal, bool applies, GameObject struck, string counter)
+    {
+        if (!applies)
+            return lethal;
+
+        var here = struck.Permanent?.Counters.GetValueOrDefault(counter) ?? 0;
+        return lethal is { } already ? Math.Min(already, here) : here;
     }
 }
 
@@ -2200,6 +2315,52 @@ public sealed record OnAttached(ImmutableList<IEffect> Effects) : IEffect
 
         var inner = context with { Targets = [Target.ToPermanent(attached)] };
         return [.. Effects.SelectMany(effect => effect.Resolve(inner))];
+    }
+}
+
+/// <summary>
+/// Puts an emblem into a player's command zone (CR 114.2).
+/// </summary>
+/// <remarks>
+/// "[Player] gets an emblem with [ability]" is the only way an emblem is ever made, and CR 114.2
+/// says exactly what it means: that player puts an emblem with that ability into the command
+/// zone, owning and controlling it. So this is one <see cref="ObjectCreated"/> per recipient into
+/// <see cref="Zone.Command"/> — the same event a dungeon arrives on, because an emblem is the
+/// same kind of thing: an object in that zone whose abilities work from it.
+/// <para>
+/// The emblem's abilities travel as the <see cref="Domain.Models.CardDefinition"/> holding their
+/// text, exactly as a copy effect carries the copied card whole
+/// (<see cref="Cards.GenerativeEffects"/>) and for the same reason: the log has to read back in a
+/// later process, and an id pointing at something the compiler would have to be asked to rebuild
+/// is an id that can stop meaning anything. <see cref="Emblems.CardFor"/> is a pure function of
+/// the printed words, so the definition a replay rebuilds is the definition the game made.
+/// </para>
+/// <para>
+/// A player who has left the game gets nothing; <see cref="PlayerScopes"/> already answers that
+/// way, and a target that is no longer a player answers with no id at all.
+/// </para>
+/// </remarks>
+public sealed record CreateEmblem(Domain.Models.CardDefinition Emblem, int? TargetIndex = null)
+    : IEffect
+{
+    /// <summary>Who gets it, when the sentence names a group rather than a target.</summary>
+    public PlayerScope Scope { get; init; } = PlayerScope.You;
+
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // A named target wins outright over a scope, the same way it does for drawing and for
+        // life: the sentence named one player and the scope named none.
+        var recipients = TargetIndex is { } index
+            ? context.TargetAt(index)?.Player is { } aimed ? new[] { aimed } : []
+            : PlayerScopes.Resolve(Scope, context).ToArray();
+
+        return
+        [
+            .. recipients.Select(who =>
+                new ObjectCreated(ObjectId.New(), Emblem, who, who, Zone.Command)),
+        ];
     }
 }
 

@@ -985,6 +985,26 @@ public static class Characteristics
             }
         }
 
+        // An emblem's static abilities apply from the command zone (CR 114.4). Swept separately
+        // from the battlefield because the command zone holds three other kinds of object -
+        // commanders, dungeons and cards on their way out of the game - and none of those has a
+        // static ability that works from there. The loop is over a zone that is empty or nearly
+        // so at every table, and skipped entirely when it is.
+        foreach (var id in state.Command)
+        {
+            if (!state.TryGetObject(id, out var emblem) || !Abilities.Emblems.IsEmblem(emblem))
+                continue;
+
+            foreach (var effect in Abilities.Emblems.StaticsOf(emblem, abilities))
+            {
+                if (effect.Layer >= EffectLayer.Ability)
+                    (silenceable ??= []).Add(emblem.Id);
+
+                removing |= Removes(effect);
+                found.Add(new Candidate(effect, emblem, emblem.Timestamp));
+            }
+        }
+
         // Counters modify power and toughness in layer 7c (CR 613.4c, 122.1c). They are not a
         // static ability of anything, so they are added here rather than found on a permanent.
         var counters = CounterModifier(target);

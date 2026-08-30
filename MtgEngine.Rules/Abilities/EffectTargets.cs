@@ -421,6 +421,12 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        // Nullable for the same reason ChangeLife's is: "you get an emblem with ..." names a
+        // scope and only "target opponent gets an emblem with ..." names a player.
+        Add<CreateEmblem>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
         Add<DiscardCards>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);

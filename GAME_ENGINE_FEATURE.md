@@ -10018,3 +10018,87 @@ ability sacrifices the copy and leaves the creature it copied on the battlefield
 Cannon shape is a `[Theory]` over both verbs asserting that the token goes and the permanent that
 made it stays. That second claim is the one the old reading failed — something did go away at end
 of turn, and it was the card that made the token.
+
+### Round twenty: an emblem, and the first half of excess damage
+
+Two mechanisms the engine did not have, both declined repeatedly as "unmodelled", and both
+measured before anything was built. The measurements disagreed with the census in opposite
+directions, which is the fifth and sixth time that has happened.
+
+#### Emblems are worth 27, and 13 of them landed
+
+93 corpus cards print "gets an emblem with". Swapping the emblem *sentence* of each for
+`Draw a card.` and recompiling completed **27** of them: that is the row's real ceiling, above the
+census's 22. The other 66 are short somewhere else on the card and an emblem would not finish them.
+
+**An emblem needs no new zone, no new event and no new state field.** CR 114 says what one is by
+saying what it is not — no card types, no mana cost, no colour, usually no name — and says the one
+thing it does: *its abilities function in the command zone* (CR 114.4). So it is an object created
+into `Zone.Command` the way a dungeon is, carrying a `CardDefinition` whose whole text is the
+quoted ability, which `CompiledPool` then compiles like any other card. `Emblems.CardFor` is a pure
+function of the printed words, so a log replayed in a later process rebuilds the same definition —
+the same promise `TokenCards.Granting` makes about a granted ability one zone along.
+
+Three seams were all it needed: `Emblems.TriggersOf` re-keys the compiled triggers to
+`FunctionsFrom = Zone.Command`, because the compiler writes the battlefield onto every trigger it
+reads; `Characteristics.Candidates` sweeps the command zone beside the battlefield, because an
+anthem whose source is not a permanent was a thing the layers had never been shown; and
+`CreateEmblem` emits one `ObjectCreated` per recipient.
+
+**The gate that decides whether an emblem reads is a comparison against an empty compile, not a
+list.** An emblem whose text compiles to an activated ability, a cost modifier or a player quality
+would sit in the command zone reading perfectly and doing nothing, because none of those is
+gathered from that zone. `Emblems.Reads` compiles the quoted text and requires every `init`
+property of the result to equal a blank card's except `Triggers` and `Statics` — so a field added
+to `CompiledCard` tomorrow closes the gate by default rather than opening it. Get-only properties
+are dropped by derivation rather than by name, because each is a summary of the fields beside it.
+That refusal is what keeps Saheeli's cost reduction, Teferi's loyalty permission, retrace, storm
+and "that player loses the game" out: **14 of the 27 are still one line short, and each is short
+for a mechanic that genuinely does not exist.**
+
+**A join inside a quotation is not a join** — the fourth time this codebase has paid for that. The
+`, then` splitter did not respect quotation marks, so `"search your library for a creature card,
+put it onto the battlefield, then shuffle"` was cut in half inside the emblem clause and both
+halves were fragments. Three of the thirteen are that fix. The reader also refuses a clause with
+anything after the quotation: Kiora prints "You get an emblem with '…' Then create three 8/8 blue
+Octopus creature tokens" and the full stop that would have separated them is *inside* the quotes,
+so reading the emblem and dropping the rest would have made three Octopuses vanish off a card
+reporting itself understood.
+
+#### Excess damage is worth 19, and only three of them are cheap
+
+The census's 20 is nearly right and the substring is not: 142 corpus cards say "excess", and 104 of
+them are trample's reminder text, which the compiler strips before it sees a line. **38 cards have
+"excess" in a line the compiler reads; 20 are reachable** with only that sentence blocking them,
+and one of those (Superior Numbers) says "in excess of the number of creatures" and is not about
+damage at all. So **19**.
+
+They split three ways, and the split is what decides how much of this row a round can take:
+
+| what the sentence needs | cards |
+|---|---|
+| the CR 120.4a redirect — "excess damage is dealt to that creature's controller instead" | 4 |
+| the *number*, carried out of the damage event into the resolution | 8 |
+| amass, discover, conjure, Lander tokens, "discard the greatest mana value", a delayed trigger | 6 |
+| Ram Through's redirect, conditional on the dealer having trample | 1 |
+
+**The redirect is built and is worth three.** `ExcessDamage.Over` is the subtraction the engine had
+never made: damage marked, computed toughness, loyalty and defence counters were all here, and
+nothing had ever taken one from the other. CR 120.4a is step one of the four-part sequence — before
+replacement and prevention — so the split is made where the damage event is built, and `DealDamage`
+emits a `DamageMarked` for the lethal part and a `PlayerDamaged` for the rest, both naming the same
+source so protection, prevention and lifelink all still read it. All three of CR 120.4a's measures
+are implemented, not only the creature arm, because a card reading "target creature or planeswalker"
+hands it either kind.
+
+The fourth is refused, and deliberately: Gandalf's Sanction wraps its damage in "where X is the
+number of instant and sorcery cards in your graveyard", so the rider's search for a top-level hit
+to modify finds nothing, and a rider that quietly found nothing would leave a card printing a
+redirect and performing none.
+
+**The eight that need the number are left, with the design written down rather than half-built.**
+They want an excess magnitude on `DamageMarked` — which is a field on a core event, so the log, the
+serializer and `Replay(log) == State` all have to carry it — a magnitude on `ResolutionRecord`,
+which round eighteen deliberately kept to sets, and five separate sentence grammars between them.
+That is a round of its own. An excess clause that silently reads zero is worse than an unread line,
+and eight cards is not worth risking one.

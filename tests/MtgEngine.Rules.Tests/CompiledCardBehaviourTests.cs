@@ -56641,6 +56641,441 @@ public sealed class CompiledCardBehaviourTests
             o => o.Card.Name == "Unprotected Beast Test");
     }
 
+    // ---- Emblems (CR 114) ----------------------------------------------------
+
+    /// <summary>Every emblem an object in the command zone, and nothing else in play.</summary>
+    private static IEnumerable<GameObject> EmblemsOf(Game game) =>
+        game.State.Command.Select(game.State.GetObject).Where(Emblems.IsEmblem);
+
+    /// <summary>
+    /// The ultimate makes an emblem, its anthem applies, and neither the sweeper nor the
+    /// planeswalker's own death touches it.
+    /// </summary>
+    /// <remarks>
+    /// Elspeth, Sun's Champion's printed text, all three loyalty abilities. It is the whole shape
+    /// of CR 114 in one card: the emblem is put into the command zone (114.2), it has no
+    /// characteristics but its ability (114.3), that ability functions from there (114.4), and
+    /// nothing in the rules can take it away — so the anthem is still pumping a creature that
+    /// arrived after the board was wiped and long after the planeswalker that made it died.
+    /// <para>
+    /// The ultimate spends every counter it has, which makes the last point the test's cheapest:
+    /// the source is in the graveyard by the time the emblem is measured, so what is applying the
+    /// bonus cannot be a static ability of any permanent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_emblems_static_applies_from_the_command_zone_and_outlives_a_board_wipe()
+    {
+        var elspeth = Walker(
+            "Command Anthem Walker Test",
+            7,
+            "+1: Create three 1/1 white Soldier creature tokens.\n"
+                + "−2: Destroy all creatures with power 4 or greater.\n"
+                + "−7: You get an emblem with \"Creatures you control get +2/+2 and have flying.\"");
+
+        var compiled = CardCompiler.Compile(elspeth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var walker = game.Create(alice, elspeth, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Command Anthem Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(alice, walker, "loyalty2");
+        Settle(game);
+
+        // CR 704.5i: seven counters off a seven-loyalty planeswalker is a planeswalker in the
+        // graveyard. What follows is being done by something that is not on the battlefield.
+        Assert.DoesNotContain(walker, game.State.Battlefield);
+
+        var emblem = Assert.Single(EmblemsOf(game));
+
+        // CR 114.2 and 114.3: owned and controlled by that player, and no card type at all.
+        Assert.Equal(alice, emblem.OwnerId);
+        Assert.Equal(alice, emblem.ControllerId);
+        Assert.Equal(CardType.None, emblem.Card.CardTypes);
+
+        var pumped = Characteristics.Of(game.State, Pool, game.State.GetObject(bear));
+        Assert.Equal(4, pumped.Power);
+        Assert.Equal(4, pumped.Toughness);
+        Assert.True(pumped.Has(KeywordAbility.Flying));
+
+        var wrath = TestCards.PutInHand(
+            game, alice, Card("Command Anthem Wrath Test", "Destroy all creatures."));
+
+        game.CastSpell(alice, wrath, []);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Contains(emblem.Id, game.State.Command);
+
+        var later = game.Create(
+            alice, TestCards.Creature("Command Anthem Survivor Test", 2, 2), Zone.Battlefield);
+
+        var still = Characteristics.Of(game.State, Pool, game.State.GetObject(later));
+        Assert.Equal(4, still.Power);
+        Assert.True(still.Has(KeywordAbility.Flying));
+
+        // The emblem's abilities travel as the words that made it, inside the arrival event, so a
+        // game saved and read back in another process has to rebuild the same definition. The
+        // ordinary Settle invariant only replays the log in memory; this is the other half.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// An emblem's triggered ability watches from the command zone, and keeps watching.
+    /// </summary>
+    /// <remarks>
+    /// Ajani, Adversary of Tyrants' emblem, on a walker given the loyalty to reach it in one
+    /// activation. The compiler wrote <see cref="Zone.Battlefield"/> onto the trigger, because
+    /// that is what it writes onto every trigger it reads; <c>Emblems.TriggersOf</c> is what moves
+    /// it to the zone CR 114.4 says its abilities work in, and without that the emblem would sit
+    /// there reading perfectly and firing never.
+    /// <para>
+    /// Two of Alice's end steps and one of Bob's, because "your end step" has to mean the emblem's
+    /// controller. Six Cats and not nine is the assertion that says so.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_emblems_trigger_fires_on_each_of_its_controllers_turns_and_no_others()
+    {
+        var ajani = Walker(
+            "Command Cats Walker Test",
+            7,
+            "−7: You get an emblem with \"At the beginning of your end step, create three 1/1 "
+                + "white Cat creature tokens with lifelink.\"");
+
+        var compiled = CardCompiler.Compile(ajani);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var walker = game.Create(alice, ajani, Zone.Battlefield);
+
+        game.ActivateAbility(alice, walker, "loyalty");
+        Settle(game);
+
+        Assert.Single(EmblemsOf(game));
+
+        static int Cats(Game game) => game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Count(o => string.Equals(o.Card.Name, "Cat", StringComparison.Ordinal));
+
+        Assert.Equal(0, Cats(game));
+
+        PassTo(game, 1, TurnStep.End);
+        Settle(game);
+        Assert.Equal(3, Cats(game));
+
+        // Turn two is Bob's end step, and the emblem is Alice's. Turn three is hers again.
+        PassTo(game, 3, TurnStep.End);
+        Settle(game);
+        Assert.Equal(6, Cats(game));
+    }
+
+    /// <summary>
+    /// An emblem is handed to the player the sentence targeted, and watches on their behalf.
+    /// </summary>
+    /// <remarks>
+    /// Garruk, Apex Predator's printed ultimate, which is the only emblem in the corpus whose
+    /// whole point is that somebody else gets it. "You" inside the quotation means the emblem's
+    /// controller and not the planeswalker's, so Alice attacking Bob is what fires it — and the
+    /// creature that gets the bonus is Alice's own attacker.
+    /// </remarks>
+    [Fact]
+    public void An_emblem_given_to_an_opponent_is_theirs_and_triggers_for_them()
+    {
+        var garruk = Walker(
+            "Command Gift Walker Test",
+            8,
+            "−8: Target opponent gets an emblem with \"Whenever a creature attacks you, it gets "
+                + "+5/+5 and gains trample until end of turn.\"");
+
+        var compiled = CardCompiler.Compile(garruk);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var walker = game.Create(alice, garruk, Zone.Battlefield);
+        var attacker = game.Create(
+            alice,
+            Card("Command Gift Attacker Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Haste),
+            Zone.Battlefield);
+
+        game.ActivateAbility(alice, walker, "loyalty", [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        var emblem = Assert.Single(EmblemsOf(game));
+        Assert.Equal(bob, emblem.OwnerId);
+        Assert.Equal(bob, emblem.ControllerId);
+
+        PassTo(game, 1, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        Assert.Single(TriggersFiledBy(game, emblem.Id));
+
+        var buffed = Characteristics.Of(game.State, Pool, game.State.GetObject(attacker));
+        Assert.Equal(7, buffed.Power);
+        Assert.True(buffed.Has(KeywordAbility.Trample));
+    }
+
+    /// <summary>
+    /// An emblem whose text the engine could not run leaves the whole line in the work queue.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half, and the reason the gate is a comparison against an empty compile
+    /// rather than a list of what an emblem may carry. Both of these compile perfectly as
+    /// <em>cards</em>, and both would be silent as emblems:
+    /// <list type="bullet">
+    /// <item>Saheeli, Filigree Master's second quoted ability is a cost reduction. A cost modifier
+    /// is gathered from the battlefield, so the emblem would grant the +1/+1 and quietly charge
+    /// full price for every artifact spell.</item>
+    /// <item>Nissa, Who Shakes the World prints an instruction <em>after</em> the quotation, and
+    /// the full stop that would have separated them is inside it — so the clause splitter hands
+    /// both halves over as one sentence. Reading the emblem and dropping the rest would have made
+    /// a library search for any number of Forests vanish off a card reporting itself understood.
+    /// </item>
+    /// </list>
+    /// A refusal is the honest answer to both: the card stays in the queue with a name on it,
+    /// which is how the next round finds it.
+    /// </remarks>
+    [Fact]
+    public void An_emblem_the_engine_cannot_run_leaves_its_line_unread()
+    {
+        var saheeli = Walker(
+            "Command Refused Walker Test",
+            4,
+            "−4: You get an emblem with \"Artifact creatures you control get +1/+1\" and "
+                + "\"Artifact spells you cast cost {1} less to cast.\"");
+
+        var refused = CardCompiler.Compile(saheeli);
+        Assert.Contains(
+            refused.Unhandled, l => l.Contains("emblem with", StringComparison.Ordinal));
+
+        var nissa = Walker(
+            "Command Trailing Walker Test",
+            8,
+            "−8: You get an emblem with \"Lands you control have indestructible.\" Search your "
+                + "library for any number of Forest cards, put them onto the battlefield tapped, "
+                + "then shuffle.");
+
+        // The quoted half on its own is an emblem this engine runs, which is what makes the
+        // refusal meaningful rather than incidental.
+        Assert.True(Emblems.Reads(Emblems.CardFor("Lands you control have indestructible.")));
+
+        var trailing = CardCompiler.Compile(nissa);
+        Assert.Contains(
+            trailing.Unhandled, l => l.Contains("emblem with", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A dungeon and an emblem share the command zone without reading each other.
+    /// </summary>
+    /// <remarks>
+    /// Two kinds of rules object now work from the same zone (CR 114.4, CR 309.4c), and each is
+    /// recognised by an id prefix of its own rather than by being the only thing there. The
+    /// interesting half is the sweep <c>Characteristics.Candidates</c> gained: it runs inside the
+    /// layer computation, where CR 613.8's dependency question has produced a stack overflow in
+    /// this engine before, so it reads <em>raw state</em> — the object's zone and its card's id —
+    /// and never the computed characteristics of anything.
+    /// <para>
+    /// The Goblin is what proves both halves at once. It exists because the dungeon's room
+    /// ability fired from the command zone with an emblem sitting beside it, and it is 3/3 with
+    /// flying because the emblem's anthem reached a token the dungeon made.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_emblem_and_a_dungeon_share_the_command_zone_without_reading_each_other()
+    {
+        var elspeth = Walker(
+            "Command Coexist Walker Test",
+            7,
+            "−7: You get an emblem with \"Creatures you control get +2/+2 and have flying.\"");
+
+        var (game, alice, _) = InMainPhase();
+        var walker = game.Create(alice, elspeth, Zone.Battlefield);
+
+        game.ActivateAbility(alice, walker, "loyalty");
+        Settle(game);
+
+        VentureTo(game, alice, "Cave Entrance", "Goblin Lair");
+
+        var dungeon = DungeonOf(game, alice);
+        Assert.NotNull(dungeon);
+
+        var emblem = Assert.Single(EmblemsOf(game));
+        Assert.NotEqual(dungeon.Id, emblem.Id);
+
+        // Neither reader answers for the other's object, which is what keeps one sweep of the
+        // command zone from picking up two kinds of thing.
+        Assert.False(Emblems.IsEmblem(dungeon));
+        Assert.Empty(Emblems.TriggersOf(dungeon, Pool));
+        Assert.Empty(Emblems.StaticsOf(dungeon, Pool));
+        Assert.Empty(Dungeons.RoomAbilitiesOf(emblem));
+
+        var goblin = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Goblin", StringComparison.Ordinal));
+
+        Assert.Equal(3, PowerNow(game, goblin.Id));
+        Assert.True(Now(game, goblin.Id).Has(KeywordAbility.Flying));
+    }
+
+    // ---- Excess damage (CR 120.4a) -------------------------------------------
+
+    /// <summary>
+    /// The damage past lethal goes to the creature's controller, and only the damage past lethal.
+    /// </summary>
+    /// <remarks>
+    /// Pigment Storm's printed text. The engine had every part of this number already — damage
+    /// marked, computed toughness, the state-based comparison of one against the other — and had
+    /// never subtracted one from the other, so the sentence was unread on every card that prints
+    /// it. <c>ExcessDamage.Over</c> is that subtraction, and CR 120.4a is emphatic about when it
+    /// happens: it is step one of four, before replacement and prevention, which is why the split
+    /// is made where the damage event is built.
+    /// <para>
+    /// The 6/6 beside the 2/2 is what makes the assertion mean anything. An implementation that
+    /// sent the whole five to the player, or none of it, would look identical from one creature.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Excess_damage_is_dealt_to_the_creatures_controller_and_the_rest_is_not()
+    {
+        var storm = Card(
+            "Excess Storm Test",
+            "~ deals 5 damage to target creature. Excess damage is dealt to that creature's "
+                + "controller instead.");
+
+        var compiled = CardCompiler.Compile(storm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var small = game.Create(bob, TestCards.Creature("Excess Small Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, storm), [Target.ToPermanent(small)]);
+        Settle(game);
+
+        // Two of the five were lethal to a 2/2; the other three went to Bob as damage from the
+        // same source, which is what "instead" means — not life loss.
+        Assert.DoesNotContain(small, game.State.Battlefield);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var big = game.Create(bob, TestCards.Creature("Excess Big Test", 6, 6), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, storm), [Target.ToPermanent(big)]);
+        Settle(game);
+
+        // Nothing is in excess of lethal on a 6/6, so the whole five stays on the creature.
+        Assert.Contains(big, game.State.Battlefield);
+        Assert.Equal(5, game.State.GetObject(big).Permanent!.DamageMarked);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Damage already marked counts towards lethal, so the excess grows (CR 120.6).
+    /// </summary>
+    /// <remarks>
+    /// Ravenous Tyrannosaurus prints the same rider on a trigger rather than a spell, which is
+    /// the other half of why this is a field on the damage effect and not a sentence of its own:
+    /// wherever the damage is dealt from, the split is the same.
+    /// </remarks>
+    [Fact]
+    public void Excess_damage_counts_the_damage_already_marked_on_the_creature()
+    {
+        var storm = Card(
+            "Excess Marked Test",
+            "~ deals 4 damage to target creature. Excess damage is dealt to that creature's "
+                + "controller instead.");
+
+        var ping = Card("Excess Ping Test", "~ deals 3 damage to any target.");
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(bob, TestCards.Creature("Excess Wall Test", 1, 5), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, ping), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(wall).Permanent!.DamageMarked);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, storm), [Target.ToPermanent(wall)]);
+        Settle(game);
+
+        // Two more were lethal to a 1/5 already carrying three; the other two went to Bob.
+        Assert.DoesNotContain(wall, game.State.Battlefield);
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The rider is refused when it has no damage of its own line to modify.
+    /// </summary>
+    /// <remarks>
+    /// Gandalf's Sanction is the corpus's one case: "~ deals X damage to target creature, where X
+    /// is the number of instant and sorcery cards in your graveyard" is read as a counted
+    /// variable wrapping the damage, so the rider's search for a top-level hit to modify finds
+    /// nothing.
+    /// <para>
+    /// A rider that quietly found nothing would leave a card printing a redirect and performing
+    /// none — the whole five damage on the creature, and a player who should have taken three
+    /// taking nothing. Refusing puts the card back in the work queue under its own name, which is
+    /// where the next round will find it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_excess_rider_with_no_damage_to_modify_leaves_its_line_unread()
+    {
+        var sanction = Card(
+            "Excess Counted Test",
+            "~ deals X damage to target creature, where X is the number of instant and sorcery "
+                + "cards in your graveyard. Excess damage is dealt to that creature's controller "
+                + "instead.");
+
+        var compiled = CardCompiler.Compile(sanction);
+        Assert.Contains(
+            compiled.Unhandled, l => l.Contains("Excess damage", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Damage with no excess rider is dealt whole, however far past lethal it goes (CR 120.3e).
+    /// </summary>
+    /// <remarks>
+    /// The control the redirect needs, and it is not optional: splitting a damage event at lethal
+    /// is invisible to coverage, because the line reads either way. A rider that fired on every
+    /// burn spell in the game would look exactly like the one above working, and the only symptom
+    /// would be damage quietly going somewhere else. Six damage to a 2/2 kills the 2/2 and touches
+    /// nobody's life total.
+    /// </remarks>
+    [Fact]
+    public void Damage_with_no_excess_rider_is_dealt_whole()
+    {
+        var bolt = Card("Excess Control Test", "~ deals 6 damage to target creature.");
+
+        var compiled = CardCompiler.Compile(bolt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The flag is off on the compiled effect, not merely unobserved at runtime.
+        Assert.All(
+            compiled.Spell!.Effects.OfType<DealDamage>(),
+            d => Assert.False(d.ExcessToTargetsController));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Excess Control Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

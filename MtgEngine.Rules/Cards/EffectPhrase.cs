@@ -1015,7 +1015,7 @@ public static partial class EffectPhrase
             var whole = part.Trim();
             var first = true;
 
-            foreach (var clause in ThenSeparator().Split(part))
+            foreach (var clause in ThenClauses(part))
             {
                 // A clause after "then" often opens with "then" again on cards that print
                 // "Do X. Then do Y."; either way the word carries no rules meaning of its own.
@@ -1478,6 +1478,177 @@ public static partial class EffectPhrase
         if (start < text.Length)
             yield return text[start..];
     }
+
+    /// <summary>
+    /// A clause's ", then" cuts, made only where the join is not inside a quotation.
+    /// </summary>
+    /// <remarks>
+    /// <strong>A join inside a quotation is not a join</strong> — the rule this codebase has now
+    /// paid for four times, after the work queue's naive split, the static conjunction's clause
+    /// splitter and the copy exception's. <see cref="SplitOutsideQuotes"/> already knew it about
+    /// full stops; the conjunction beside it did not, so a quoted ability reading "search your
+    /// library for a creature card, put it onto the battlefield, <em>then shuffle</em>" was cut
+    /// in half and both halves were sentence fragments that match nothing.
+    /// <para>
+    /// The three emblems that shape blocks are the ones that found it, but it is not an emblem
+    /// rule: every granted ability the corpus quotes goes through this splitter, and a quoted
+    /// "…, then …" has never been two instructions of the sentence that quotes it.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<string> ThenClauses(string part)
+    {
+        var start = 0;
+        var counted = 0;
+        var quotes = 0;
+
+        foreach (Match cut in ThenSeparator().Matches(part))
+        {
+            // Counted from its own cursor rather than from the start of the pending clause,
+            // because a skipped cut does not move that one - the same arithmetic, and the same
+            // reason for it, as CardCompiler.ExceptionClauseList.
+            quotes += part.AsSpan(counted, cut.Index - counted).Count('"');
+            counted = cut.Index;
+
+            if (quotes % 2 != 0)
+                continue;
+
+            yield return part[start..cut.Index];
+            start = cut.Index + cut.Length;
+        }
+
+        yield return part[start..];
+    }
+
+    /// <summary>
+    /// "[Player] gets an emblem with '[ability]'" (CR 114.2).
+    /// </summary>
+    /// <remarks>
+    /// One sentence form for the whole mechanic, because CR 114.2 says an emblem is only ever
+    /// made this way. What is inside the quotation marks is a card's worth of rules text, so it
+    /// is not read here at all: <see cref="Abilities.Emblems.CardFor"/> turns it into a
+    /// definition and the compiler reads that definition the way it reads any other card. The
+    /// emblem is that definition sitting in the command zone.
+    /// <para>
+    /// <strong>Refused unless the engine can run the whole quoted ability.</strong>
+    /// <see cref="Abilities.Emblems.Reads"/> is the gate and it is deliberately strict: an emblem
+    /// that compiles and then grants nothing is a card that reads perfectly, passes the deck
+    /// check and quietly does less than it says — the failure this compiler treats as worse than
+    /// leaving the line in the work queue. The same promise <c>GrantedTextReads</c> makes for a
+    /// token's granted ability, one zone along.
+    /// </para>
+    /// <para>
+    /// A quotation containing <c>~</c> is refused outright. By the time a sentence reaches this
+    /// reader the compiler has already replaced the card's own name with <c>~</c>
+    /// (<c>CardCompiler.Lines</c>), so a <c>~</c> inside the quotation means <em>the card that
+    /// made the emblem</em> — and compiled onto the emblem's own definition it would silently
+    /// come to mean the emblem. Valki's "you may play cards exiled with Tibalt" is the shape:
+    /// read that way it would be a permission about a card nobody exiled anything with.
+    /// </para>
+    /// </remarks>
+    private static bool TryEmblem(
+        string sentence,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects)
+    {
+        var m = EmblemLine().Match(sentence.Trim());
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["abilities"].Value;
+        var quoted = QuotedAbility().Matches(printed);
+        if (quoted.Count == 0 || !NothingButQuotations(printed, quoted))
+            return false;
+
+        // CR 113.2c: the effect that created an emblem may have given it several abilities, and
+        // four printed emblems say so with a second quotation joined by "and". They are one
+        // emblem with two abilities, which is one definition of two lines.
+        var text = string.Join('\n', quoted.Select(q => Sentence(q.Groups["a"].Value.Trim())));
+
+        if (text.Contains('~', StringComparison.Ordinal))
+            return false;
+
+        var emblem = Abilities.Emblems.CardFor(text);
+        if (!Abilities.Emblems.Reads(emblem))
+            return false;
+
+        var who = m.Groups["who"].Value.Trim();
+
+        if (who.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Specs.Parse(who) is not { } aimed)
+                return false;
+
+            targets.Add(aimed);
+            effects.Add(new CreateEmblem(emblem, targets.Count - 1));
+            return true;
+        }
+
+        if (EmblemScope(who) is not { } scope)
+            return false;
+
+        effects.Add(new CreateEmblem(emblem) { Scope = scope });
+        return true;
+    }
+
+    /// <summary>Whose command zone the emblem lands in, for the groups the corpus prints.</summary>
+    /// <remarks>
+    /// Deliberately short. Chandra, Fire of Kaladesh says "each player dealt damage this way gets
+    /// an emblem", which names a set the engine does not carry from one sentence to the next, and
+    /// is left unread rather than approximated as "each player" — that would hand an emblem to
+    /// somebody the card never touched.
+    /// </remarks>
+    private static PlayerScope? EmblemScope(string who) => who.ToLowerInvariant() switch
+    {
+        "you" => PlayerScope.You,
+        "each opponent" => PlayerScope.EachOpponent,
+        "each player" => PlayerScope.EachPlayer,
+        "each other player" => PlayerScope.EachOtherPlayer,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Whether the whole tail of the sentence is quoted abilities and the joins between them.
+    /// </summary>
+    /// <remarks>
+    /// The guard that keeps a half-read line from looking whole. Kiora, Master of the Depths
+    /// prints "You get an emblem with '…' <em>Then create three 8/8 blue Octopus creature
+    /// tokens</em>", and the full stop that would have separated the two is inside the quotation —
+    /// so the clause splitter hands both halves over as one sentence. Reading the quotation and
+    /// dropping the rest would have made three Octopuses vanish off a card that reported itself
+    /// fully understood.
+    /// </remarks>
+    private static bool NothingButQuotations(string text, MatchCollection quoted)
+    {
+        var at = 0;
+
+        foreach (Match one in quoted)
+        {
+            var between = text[at..one.Index].Trim();
+            if (between.Length > 0 && !string.Equals(between, "and", StringComparison.Ordinal))
+                return false;
+
+            at = one.Index + one.Length;
+        }
+
+        return text[at..].Trim().TrimEnd('.').Length == 0;
+    }
+
+    private static string Sentence(string text) =>
+        text.Length == 0 || text.EndsWith('.') ? text : text + ".";
+
+    /// <remarks>
+    /// The recipient is left as words rather than parsed here, because the two ways a card names
+    /// one — a target phrase and a group — are read by different vocabularies and the sentence
+    /// does not say which until the words are looked at.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>[A-Za-z][A-Za-z' ]*?) gets? an emblem with (?<abilities>[""'].*)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex EmblemLine();
+
+    /// <summary>One quoted ability, in either of the two quotation marks the corpus prints.</summary>
+    [GeneratedRegex(@"""(?<a>[^""]*)""|'(?<a>[^']*)'")]
+    private static partial Regex QuotedAbility();
 
     /// <summary>
     /// "[Do something] to target [thing] unless its controller pays [cost]" (CR 601.2b).
@@ -2325,6 +2496,15 @@ public static partial class EffectPhrase
         if (ThisWay.Mentions(sentence) && TryTouchedSet(sentence, effects))
             return true;
 
+        // "You get an emblem with '...'" (CR 114.2). Guarded on the two words so that no other
+        // sentence in the corpus pays for the match, and read early because the quoted ability
+        // inside it is a whole card's worth of text that the matchers below would cut up.
+        if (sentence.Contains("emblem with", StringComparison.Ordinal)
+            && TryEmblem(sentence, targets, effects))
+        {
+            return true;
+        }
+
         // "If the roll was 4 or higher, it gains menace until end of turn." — a clause of a dice
         // ability's effect, testing the number the trigger carried (CR 706.4). Not a board
         // condition: nothing on the board remembers what was rolled, the trigger's subject
@@ -2698,6 +2878,26 @@ public static partial class EffectPhrase
                 return false;
 
             effects[last] = ((CounterTargetSpell)effects[last]) with { ToExile = true };
+            return true;
+        }
+
+        // "Excess damage is dealt to that creature's controller instead" (CR 120.4a) - the same
+        // shape of rider, on the sentence that dealt the damage. It has to modify that effect
+        // rather than add one beside it: CR 120.4a is the *first* of the four steps damage is
+        // processed in, so the split happens as the event is built, and a second effect would be
+        // measuring a creature the first one has already killed.
+        //
+        // Refused when the damage is not a top-level effect of the same line, which is the one
+        // case the corpus has: Gandalf's Sanction wraps its damage in "where X is ...", and a
+        // rider that quietly found nothing to modify would leave a card printing a redirect and
+        // performing none.
+        if (ExcessToControllerLine().IsMatch(sentence))
+        {
+            var last = effects.FindLastIndex(e => e is DealDamage);
+            if (last < 0)
+                return false;
+
+            effects[last] = ((DealDamage)effects[last]) with { ExcessToTargetsController = true };
             return true;
         }
 
@@ -12505,6 +12705,16 @@ public static partial class EffectPhrase
             + @"instead of putting it into its owner's graveyard$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExileCounteredLine();
+
+    /// <remarks>
+    /// Written against <see cref="ItsController"/> rather than one spelling, so the rewritten
+    /// form reaches it too — the reader that only knew the printed words is the failure that
+    /// alternation exists to record.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^excess damage is dealt to " + ItsController + @" instead$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ExcessToControllerLine();
 
     /// <remarks>
     /// "A Mount creature card" is an article, a filter and a noun. Only the middle is the filter;
