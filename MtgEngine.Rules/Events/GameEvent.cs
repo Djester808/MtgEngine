@@ -1748,6 +1748,25 @@ public sealed record SpellSneaked(ObjectId Id, State.AttackTarget? Against) : Ga
 /// Carries whose untap step brings it back, which is not always its controller's: an Aura that
 /// phased out along with what it enchants returns with that permanent (CR 702.26g).
 /// </remarks>
+/// <summary>A permanent stopped attacking or blocking without leaving the battlefield (CR 506.4).</summary>
+/// <remarks>
+/// Its own event rather than a flag, because being in combat is state and state moves only by
+/// an event here. Phasing out already did this as part of leaving the battlefield; this is the
+/// same removal for a permanent that stays where it is - a Gustcloak stepping out of a block,
+/// and CR 506.4c is what makes that stop the damage.
+/// <para>
+/// Only the combat lists change. The creatures that were blocking it are still blocking
+/// creatures (CR 509.1h), and they now block nothing, so they assign no combat damage - which
+/// falls out of the attacker no longer being there rather than being written down twice.
+/// </para>
+/// </remarks>
+public sealed record RemovedFromCombat(ObjectId Id) : GameEvent
+{
+    public override string Rule => "506.4";
+
+    public override string Describe() => $"{Id} was removed from combat.";
+}
+
 public sealed record PermanentPhasedOut(ObjectId Id, Guid ReturnsFor) : GameEvent
 {
     public override string Rule => "702.26b";
