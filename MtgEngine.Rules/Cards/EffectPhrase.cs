@@ -37,6 +37,36 @@ public static partial class EffectPhrase
     public static bool TryParse(
         string text, out ParsedPhrase parsed, bool objectNamedByTrigger = false)
     {
+        if (!TryRead(text, out parsed, objectNamedByTrigger))
+            return false;
+
+        // A card that exiles itself and then says "return it to the battlefield" is blinking, not
+        // reviving, and the two are one sentence apart on the page: Ojutai Exemplars prints "Exile
+        // this creature, then return it to the battlefield tapped under its owner's control", and
+        // Estrid's Invocation the same pair either side of an offer. The effect those words read
+        // into can only fetch the card from its owner's *graveyard* — where one that has just been
+        // exiled is not — so both compiled clean and did nothing at all, which is the one outcome
+        // worth less than an unread line.
+        //
+        // Asked here rather than at the reader, and of the whole tree rather than of a sentence,
+        // because the pair is only visible from outside: the free branch of an offer and its "if
+        // you do" are parsed one at a time and neither can see the other, and the offer leaves by
+        // its own early return well before the sentence loop ends. Nothing legitimate is refused —
+        // a permanent in exile is not a permanent in a graveyard, so no printed card does both.
+        var built = EffectTree.Flatten(parsed.Effects).ToList();
+        if (built.Any(e => e is ReturnSourceFromGraveyard) && built.Any(e => e is ExileSource))
+        {
+            parsed = new ParsedPhrase();
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>The reading itself, with <see cref="TryParse"/>'s whole-phrase refusals around it.</summary>
+    private static bool TryRead(
+        string text, out ParsedPhrase parsed, bool objectNamedByTrigger = false)
+    {
         parsed = new ParsedPhrase();
 
         // CR 615.12's rider is printed after the damage it is about — "~ deals 4 damage to
@@ -6332,6 +6362,40 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Return it to the battlefield tapped under its owner's control" — undying's own
+        // sentence, written out. It is the commonest thing printed inside a one-turn grant
+        // ("target creature gains \"When this creature dies, return it …\""), which is why the
+        // words matter as well as the keyword: the grant hands the whole ability over as text and
+        // reads it back through this parser, so a sentence only the keyword could say is a
+        // sentence no card may hand to anything.
+        //
+        // Two refusals, and the second is the one that costs a card. Nothing may have been
+        // targeted — "exile target creature, then return it to the battlefield" means the
+        // creature the spell chose and there are eleven of those in the corpus. And the trigger
+        // may not name an object of its own: on "when enchanted creature dies, return it to the
+        // battlefield" the pronoun is the *host*, and this effect can only bring back the source,
+        // so the Aura would return itself and the creature would stay dead.
+        if (targets.Count == 0
+            && !objectNamedByTrigger
+            && ReturnSelfToBattlefieldLine().Match(sentence) is { Success: true } reborn)
+        {
+            // "With a +1/+1 counter on it" — one counter, and the name is read by the same reader
+            // every printed counter goes through rather than by a list of the two this sentence
+            // happens to print.
+            var counter = reborn.Groups["counter"].Success
+                ? CounterKindNamed(reborn.Groups["counter"].Value)
+                : null;
+
+            effects.Add(new ReturnSourceFromGraveyard(
+                counter ?? CounterKinds.PlusOnePlusOne,
+                counter is null ? 0 : 1)
+            {
+                Tapped = reborn.Groups["tapped"].Success,
+            });
+
+            return true;
+        }
+
         // "~ gains flying until end of turn" — a keyword granted to the source rather than a
         // target, which is the shape every firebreathing-style ability uses.
         m = SelfGrant().Match(sentence);
@@ -12280,6 +12344,30 @@ public static partial class EffectPhrase
     private const string COUNTED = @"[A-Za-z0-9'’~+/ -]";
 
     /// <summary>
+    /// One printed instruction: everything up to a full stop that is not inside a quotation.
+    /// </summary>
+    /// <remarks>
+    /// The third statement of a rule this compiler has now had to learn three times — <strong>a
+    /// sentence boundary inside a quotation is not a sentence boundary</strong>. The clause
+    /// splitter learned it about the comma, the quote tally learned it needed its own cursor, and
+    /// <see cref="SplitOutsideQuotes"/> is the same rule about the full stop when a whole line is
+    /// being cut. This is that rule where a <em>regex</em> does the cutting: a plain
+    /// <c>[^.]+</c> stops dead at the stop inside <c>… and it has "When this token leaves the
+    /// battlefield, return the exiled card to its owner's graveyard."</c>, leaving a lone
+    /// quotation mark that no anchor can match, so the whole offer is refused.
+    /// <para>
+    /// A quoted span is consumed whole. The two alternatives are disjoint on their first
+    /// character — one is anything that is neither a stop nor a quote, the other must start with
+    /// a quote — so there is nothing for the engine to backtrack over and the run is linear.
+    /// </para>
+    /// <para>
+    /// An unbalanced quotation matches neither alternative and simply ends the run, which is the
+    /// fail-closed answer: half a quoted ability read as a whole one is worse than an unread line.
+    /// </para>
+    /// </remarks>
+    internal const string SENTENCE = @"(?:[^.""]|""[^""]*"")";
+
+    /// <summary>
     /// The optional "for each ..." tail that scales an amount by a count of the board.
     /// </summary>
     /// <remarks>
@@ -13738,8 +13826,15 @@ public static partial class EffectPhrase
     private static partial Regex ProliferateLine();
 
     /// <summary>"[Do something]. If you do, [do something else]" after a mandatory action.</summary>
+    /// <remarks>
+    /// Both halves run to a full stop that is outside quotation marks — see
+    /// <see cref="SENTENCE"/>. Hofri Ghostforge's consequence is "create a token that's a copy of
+    /// that creature, except … it has "When this token leaves the battlefield, return the exiled
+    /// card to its owner's graveyard."", and a plain <c>[^.]+</c> stopped at the stop inside that
+    /// quotation, leaving a closing quote the anchor could not reach.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<doing>(?!you may )[^.]+)\. If you do, (?<then>[^.]+)\.?$",
+        @"^(?<doing>(?!you may )" + SENTENCE + @"+)\. If you do, (?<then>" + SENTENCE + @"+)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex IfYouDidLine();
 
@@ -15035,10 +15130,18 @@ public static partial class EffectPhrase
     /// instant. Two cards read, both of them silently inert on the branch that was added. The
     /// word is only safe here once a branch can see the targets its sibling chose.
     /// </remarks>
+    /// <remarks>
+    /// Every branch runs to a full stop that is outside quotation marks — see
+    /// <see cref="SENTENCE"/>. Minion Reflector buys "create a token that's a copy of that
+    /// creature, except it has haste and "At the beginning of the end step, sacrifice this
+    /// permanent."", and the stop inside that quotation cut the branch one character short of the
+    /// closing quote, so the offer matched nothing and a card whose every part the engine can play
+    /// went unread.
+    /// </remarks>
     [GeneratedRegex(
-        @"^[Yy]ou may (pay (?<cost>(\{[^}]+\})+)|(?<free>[^.]+?))\.?"
-            + @"(\s*(If|When) you do,\s*(?<do>[^.]+)\.?)?"
-            + @"(\s*If you don't,\s*(?<dont>[^.]+)\.?)?\s*$",
+        @"^[Yy]ou may (pay (?<cost>(\{[^}]+\})+)|(?<free>" + SENTENCE + @"+?))\.?"
+            + @"(\s*(If|When) you do,\s*(?<do>" + SENTENCE + @"+)\.?)?"
+            + @"(\s*If you don't,\s*(?<dont>" + SENTENCE + @"+)\.?)?\s*$",
         RegexOptions.None)]
     private static partial Regex MayPayLine();
 
@@ -15136,6 +15239,24 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^return it to its owner's hand$", RegexOptions.IgnoreCase)]
     private static partial Regex ReturnSelfToHandLine();
+
+    /// <remarks>
+    /// "Under its owner's control" is required rather than optional, and the phrase it excludes is
+    /// "under <em>your</em> control" — a different rule with a different answer (CR 400.7), and one
+    /// <see cref="ReturnSourceFromGraveyard"/> cannot express: it brings the card back to the
+    /// player whose graveyard it found it in. Nine corpus lines say "your"; reading them here
+    /// would hand the card back to the wrong player on every one of them.
+    /// <para>
+    /// Nothing may follow. "Return it to the battlefield under its owner's control <em>at the
+    /// beginning of the next end step</em>" is a delayed ability rather than this one, and a
+    /// pattern loose enough to take it would fire the return immediately.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^return (it|~) to the battlefield(?<tapped> tapped)? under its owner's control"
+            + @"( with an? (?<counter>[+-]\d/[+-]\d) counter on it)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ReturnSelfToBattlefieldLine();
 
     [GeneratedRegex(
         @"^~ gains (?<kw>[a-z ,]+?) until end of turn$", RegexOptions.IgnoreCase)]

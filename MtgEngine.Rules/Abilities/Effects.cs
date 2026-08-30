@@ -3877,12 +3877,27 @@ public sealed record DethroneCounter : IEffect
 /// Returns the source from its graveyard to the battlefield, with counters (CR 702.92a).
 /// </summary>
 /// <remarks>
-/// Undying and persist. The trigger fires as the creature dies, so by the time the ability
-/// resolves the card is already in the graveyard and has a new identity there (CR 400.7) — which
-/// is why this finds it by the id the move produced rather than by the id that died.
+/// Undying and persist, and the sentence the two keywords are shorthand for — "when this creature
+/// dies, return it to the battlefield tapped under its owner's control". The trigger fires as the
+/// creature dies, so by the time the ability resolves the card is already in the graveyard and has
+/// a new identity there (CR 400.7) — which is why this finds it by the id the move produced rather
+/// than by the id that died.
+/// <para>
+/// The counter is emitted only when there is one. The keywords always bring one and always did;
+/// the printed sentence usually brings none, and a <c>CountersChanged</c> of zero is an event
+/// saying nothing happened, which a log should not have to carry or replay.
+/// </para>
 /// </remarks>
 public sealed record ReturnSourceFromGraveyard(string CounterKind, Amount Counters) : IEffect
 {
+    /// <summary>Whether it comes back tapped.</summary>
+    /// <remarks>
+    /// Emitted as the arrival's own second event, which is the pair the enters-tapped replacement
+    /// already makes (<c>[moved, tapped]</c>) — one shape for "this permanent arrives tapped", so
+    /// the two can never come to mean different things.
+    /// </remarks>
+    public bool Tapped { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -3908,13 +3923,20 @@ public sealed record ReturnSourceFromGraveyard(string CounterKind, Amount Counte
         var sourceId = found.Id;
         var arriving = ObjectId.New();
 
-        return
-        [
+        var events = new List<GameEvent>
+        {
             new ObjectMoved(
                 sourceId, arriving, Zone.Graveyard, Zone.Battlefield,
                 owner, MoveCause.Return),
-            new CountersChanged(arriving, CounterKind, Counters.In(context)),
-        ];
+        };
+
+        if (Tapped)
+            events.Add(new PermanentTapped(arriving));
+
+        if (Counters.In(context) is var many && many != 0)
+            events.Add(new CountersChanged(arriving, CounterKind, many));
+
+        return events;
     }
 }
 
