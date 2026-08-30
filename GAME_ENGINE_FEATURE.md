@@ -487,7 +487,96 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **51.4% of playable cards fully read** (16,801 of 32,717), 68.0% of lines.
+Coverage is **51.5% of playable cards fully read** (16,834 of 32,717), 68.0% of lines.
+
+### Round fifteen: a trigger that watches a batch, and a wall misattributed for two rounds
+
++35 cards, none lost. Two families whose *effects* already read and whose trigger was the whole
+blocker, both of them the plural of a sentence about one thing:
+
+| wording | cards | what was missing |
+|---|---|---|
+| `Whenever one or more cards leave your graveyard` | 22 | no event said which moves were simultaneous |
+| `Whenever you discard one or more cards` | 13 | the same, one zone along, plus "that many" |
+
+The engine already had one batched trigger — `CombatDamageDealt`, a damage step summarised as a
+single fact — so this is that mechanism extended rather than a second one. What is new is
+**where** the batch comes from. A damage step is produced in one place and can append its own
+summary; a card leaves a graveyard from dozens of places, so the batch is defined by a scope
+instead: `Game.AsOneBatch` marks a unit of work whose moves happen at once, `Emit` files
+qualifying `ObjectMoved`s into it, and the summary is derived from that list in **one** place so
+the summary and the moves it summarises cannot disagree.
+
+Three details the design turns on:
+
+- **A move outside any scope is a batch of one, summarised immediately.** The alternative — only
+  emitting a summary inside an explicit scope — makes every route nobody remembered to wrap into
+  a card that reads perfectly and does nothing, which is this file's most-repeated failure.
+  Wrapping is therefore an optimisation for correctness in the *other* direction: it stops a loop
+  of five `Move` calls firing the trigger five times.
+- **Nested scopes join the outer one.** Two scopes over one simultaneous event would fire the
+  trigger twice, and a trigger paid per card instead of per batch prints a strictly better card
+  than the one on the table (CR 603.2c: an ability triggers once each time its event occurs, and
+  a plural sentence makes the whole batch one occurrence).
+- **The batch says how big it was, and how big it was *for this ability*.** `AmountFor` already
+  narrowed an attack batch by asking the ability's own predicate about each attacker on its own;
+  the two card batches are narrowed by exactly that method, because the description lives in the
+  predicate and nowhere else. Without the count, "create that many tokens" fires and creates
+  nothing — the defect this file records against `AttackersDeclared`, which is why that family
+  was refused before it was built.
+
+The scopes are `RunEffects` (one effect's events, CR 608.2c), the three discard-choice paths and
+the chosen-cost payment. `and/or` was added to the shared search vocabulary rather than to the
+one reader that met it, so "artifact and/or creature cards" reads everywhere at once.
+
+**`deal combat damage to one or more players` is worth zero cards** and was left alone. It was
+briefed as part of this family; a substitution probe says every card printing it is held up by
+something else as well. Two other briefed numbers were high by the same measure — the two
+families above were briefed at 27 and 17.
+
+#### The block-declaration subject is not what those nine cards are behind
+
+`SubjectObjectOf` deliberately answers nothing for `BlockersDeclared`, because a block
+declaration is a batch of pairs. Two rounds have now recorded that as the wall in front of
+Ashmouth Hound, Inferno Elemental, Ornery Goblin and six others. **It is not.** Admitting the
+block pronoun — flipping `NamesAnObject`'s `blocks` and `becomes blocked` arms and recompiling
+the corpus — completes **five** cards, and all five are the *attached* wording ("whenever
+enchanted creature blocks or becomes blocked, its controller loses 2 life") where the pronoun
+means the host. Not one of the nine is among them.
+
+The nine are behind **`~ deals N damage to that creature`**: `DealDamage` reads
+`context.TargetAt(index)` and has no `EffectSubject` at all, so unlike destroy, exile and tap it
+cannot take a pronoun. Swapping that clause for one that reads completes exactly those nine and
+nothing else — Ashmouth Hound, Inferno Elemental, Ornery Goblin, Acolyte of the Inferno, Kolaghan
+Aspirant, Flame-Kin War Scout, Kessig Forgemaster, Skewer Slinger, Somberwald Vigilante.
+
+So the two halves are **both** required and neither is worth anything alone:
+
+- the subject alone completes none of the nine;
+- the effect alone completes all nine **as cards that damage themselves**, because "that
+  creature" would fall back to the source — which is the exact failure this file already records
+  for "whenever ~ blocks a creature, destroy that creature", found by the corpus structural gate
+  and reverted.
+
+Costed, having mapped it: `EffectPhrase.BlockPairSubject(condition)` as a sibling of
+`NamesAnObject` (the channel already exists — `NamesAnObject` is a separate static query on the
+same condition text, so no signature has to change); one `init` property on
+`TriggeredAbilityDefinition` beside `Chapter` and `OpensDoor`; `Game.Consider` decomposing a
+declaration into single pairs and recording one `AbilityTriggered` per matching pair, which is
+the same singleton-probe technique `AmountFor` already uses and is what the `Func<…, bool>`
+shape can express after all; an `EffectSubject` on `DealDamage`. An afternoon of work, and it
+touches `Consider` — the hottest path in the engine, run millions of times by the corpus checks
+— so it wants its own commit and its own soak rather than riding along with a batch summariser.
+
+#### The tribal narrowing on the batched combat trigger is a tail, not a family
+
+Briefed as a family; measured at **8 cards**, and they are four unrelated grammar features of
+one to three cards each: `artifact creatures` (3, wants the plural head singularised on its last
+word), `Ninja or Rogue creatures` (2, two subtypes qualifying one noun), `non-Human creatures`
+(1), `creatures you control with +1/+1 counters on them` (1) and `creatures you control that
+entered this turn` (1). `OneOrMoreLine`'s head is one word, and widening it safely is a bigger
+change than any of those rows is worth.
+
 
 ### Round fourteen: the compiler was competing with itself
 

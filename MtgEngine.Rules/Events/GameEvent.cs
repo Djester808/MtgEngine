@@ -2134,6 +2134,48 @@ public sealed record CombatDamageDealt(
     public override string Describe() => $"{Dealers.Count} creature(s) dealt combat damage.";
 }
 
+/// <summary>
+/// Every card that left one player's graveyard at once, as a single fact (CR 603.2c).
+/// </summary>
+/// <remarks>
+/// The same shape as <see cref="CombatDamageDealt"/> and for the same reason. "Whenever one or
+/// more cards leave your graveyard" is one trigger however many left together (CR 603.2c: an
+/// ability triggers once each time its trigger event occurs, and a sentence written in the
+/// plural makes the whole batch one occurrence), and there is no way to get that from the
+/// individual moves without knowing which of them were simultaneous - which is exactly what this
+/// records. Derived from the moves it summarises so the two cannot disagree, and folding to no
+/// state change because it exists only for triggers to read.
+/// <para>
+/// The ids are the <em>new</em> ones: a zone change makes a new object (CR 400.7), and the new
+/// one is what exists by the time a trigger asks what kind of card it was.
+/// </para>
+/// </remarks>
+public sealed record CardsLeftGraveyard(
+    Guid PlayerId, ImmutableList<ObjectId> Ids) : GameEvent
+{
+    public override string Rule => "603.2c";
+
+    public override string Describe() =>
+        $"{Ids.Count} card(s) left a graveyard.";
+}
+
+/// <summary>
+/// Every card one player discarded at once, as a single fact (CR 701.9a, 603.2c).
+/// </summary>
+/// <remarks>
+/// The discard twin of <see cref="CardsLeftGraveyard"/>, derived in the same place from the same
+/// batch of moves. A discard is a move from a hand to a graveyard and the engine has always
+/// recorded it as one; what no single move can say is how many went at once, which is the whole
+/// content of "whenever you discard one or more cards" and of the "that many" printed after it.
+/// </remarks>
+public sealed record CardsDiscarded(
+    Guid PlayerId, ImmutableList<ObjectId> Ids) : GameEvent
+{
+    public override string Rule => "701.9a";
+
+    public override string Describe() => $"{PlayerId:N} discarded {Ids.Count} card(s).";
+}
+
 /// <summary>Which colours of mana paid for a spell (CR 202.2, 106.1).</summary>
 /// <remarks>
 /// Recorded on the spell rather than on the player, because it is a fact about that casting and

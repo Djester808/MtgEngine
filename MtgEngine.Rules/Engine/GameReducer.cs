@@ -378,6 +378,8 @@ public static class GameReducer
 
             // A summary of events already folded in, so folding it again would double them.
             CombatDamageDealt => state,
+            CardsLeftGraveyard => state,
+            CardsDiscarded => state,
             ManaAdded added => AddMana(state, added),
             CharacteristicChosen chosen => Changing(
                 state, chosen.Id, o => o with { Chosen = chosen.Value }),
