@@ -223,6 +223,7 @@ public static class EventLogSerializer
             ["ManaSpent"] = typeof(ManaSpent),
             ["ManaPoolsEmptied"] = typeof(ManaPoolsEmptied),
             ["TargetsChosen"] = typeof(TargetsChosen),
+            ["DivisionAnnounced"] = typeof(DivisionAnnounced),
             ["FizzledForIllegalTargets"] = typeof(FizzledForIllegalTargets),
             ["AbilityActivated"] = typeof(AbilityActivated),
             ["ChoiceRequested"] = typeof(ChoiceRequested),

@@ -3050,35 +3050,36 @@ public static partial class EffectPhrase
             return false;
         }
 
-        // "~ deals 3 damage divided as you choose among one, two, or three targets" - one
-        // sentence naming a variable number of targets and a split between them. The largest
-        // count becomes that many optional targets, because "one, two, or three" is exactly
-        // "up to three, at least one" and the target grammar already has optional targets.
+        // "~ deals 3 damage divided as you choose among one, two, or three target creatures" -
+        // one sentence naming a variable number of targets and a split between them.
         var divided = DividedDamageLine().Match(sentence);
         if (divided.Success)
         {
-            // "Among any number of targets" names no ceiling, and the damage is the ceiling:
-            // every target in a division has to be assigned at least one (CR 601.2d), so three
-            // damage cannot reach a fourth target however many are on the board.
-            var most = divided.Groups["any"].Success
-                ? Number(divided.Groups["n"].Value).Fixed
-                : Number(divided.Groups["most"].Value).Fixed;
-
-            // "Among one, two, or three targets" names no kind, and "any target" is what the
-            // grammar calls a creature, player or planeswalker (CR 115.4).
-            var kind = divided.Groups["t"].Value.Trim();
-            var each = Specs.Parse(kind.Length == 0 ? "any target" : "target " + Singular(kind));
-
-            if (each is null || most < 2)
+            if (DivideAmong(divided, targets) is not { } split)
                 return false;
 
-            // The first is required and the rest are optional, which is exactly what "one, two,
-            // or three" says: at least one, at most three.
-            for (var i = 0; i < most; i++)
-                targets.Add(i == 0 ? each : each with { Optional = true });
+            effects.Add(new DealDividedDamage(split.Total, split.Most, split.FirstIndex));
+            return true;
+        }
 
-            effects.Add(new DealDividedDamage(
-                Number(divided.Groups["n"].Value).Fixed, most, targets.Count - most));
+        // "Distribute three +1/+1 counters among one, two, or three target creatures" - the same
+        // announcement with a different verb. CR 601.2d is written over dividing *or
+        // distributing*, so the two share the reader below rather than each growing their own:
+        // the count phrase, the ceiling, the optional tail and the "at least one each" rule are
+        // the same rules, and two copies of them would be two chances to read a card differently
+        // from the way the engine will play it.
+        var distributed = DistributeCountersLine().Match(sentence);
+        if (distributed.Success)
+        {
+            if (CounterKindNamed(distributed.Groups["kind"].Value) is not { } distributedKind)
+                return false;
+
+            if (DivideAmong(distributed, targets) is not { } spread)
+                return false;
+
+            effects.Add(new DistributeCounters(
+                distributedKind, spread.Total, spread.Most, spread.FirstIndex));
+
             return true;
         }
 
@@ -8270,6 +8271,95 @@ public static partial class EffectPhrase
     /// "creature cards", "artifacts". A phrase whose head is irregular simply fails to parse
     /// afterwards, which loses the card rather than mis-reading it.
     /// </remarks>
+    /// <summary>
+    /// The targets a divided or distributed sentence names, and how many share the quantity
+    /// (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// Shared by the two divided verbs, because everything either of them decides is the same
+    /// decision. "One, two, or three target creatures" is exactly "up to three, at least one",
+    /// which the target grammar already says with an optional spec; "up to four" is the same list
+    /// with the first one optional too, which is a different card and reads as one.
+    /// <para>
+    /// "Any number of" carries no ceiling and the quantity is the ceiling: every target in a
+    /// division has to be assigned at least one (CR 601.2d), so three counters cannot reach a
+    /// fourth creature however many are on the board. That only works for a printed number - an X
+    /// announced as the spell is cast has no ceiling at compile time, and those are refused here
+    /// rather than given an arbitrary one.
+    /// </para>
+    /// <para>
+    /// The noun is singularised and handed to the ordinary target grammar, so every phrase that
+    /// grammar already reads arrives working and nothing has to learn what a plural target is. A
+    /// phrase it does not read leaves the sentence unread, which is the fail-closed half: a spell
+    /// dividing damage among targets it had chosen wrongly would be a different card.
+    /// </para>
+    /// </remarks>
+    private static (Amount Total, int Most, int FirstIndex)? DivideAmong(
+        Match line, ImmutableList<TargetSpec>.Builder targets)
+    {
+        var total = Number(line.Groups["n"].Value);
+
+        // "That many" and the other counted amounts are read off the board as the effect
+        // resolves, and a division has to be announced before that (CR 601.2d). Refused here
+        // rather than left to throw at the moment somebody casts the card.
+        if (total.Counter is not null)
+            return null;
+
+        int most;
+        if (line.Groups["any"].Success)
+        {
+            if (total.IsVariable)
+                return null;
+
+            most = total.Fixed;
+        }
+        else
+        {
+            most = Number(line.Groups["most"].Value).Fixed;
+        }
+
+        // Fewer than two shares is not a division, and a quantity smaller than the number of
+        // targets it must cover cannot be announced at all. Both are refused rather than compiled
+        // into a card that can never be legally cast.
+        if (most < 2 || (!total.IsVariable && total.Fixed < most))
+            return null;
+
+        // "Up to N" makes every target optional; "one, two, or three" makes only the tail
+        // optional, because that phrase promises at least one.
+        var upTo = line.Groups["upto"].Success;
+
+        // "Among one, two, or three targets" names no kind, and "any target" is what the grammar
+        // calls a creature, player or planeswalker (CR 115.4). Anything else is a printed target
+        // phrase in the plural.
+        var noun = SingularTargets(line.Groups["t"].Value.Trim());
+        var each = Specs.Parse(
+            string.Equals(noun, "target", StringComparison.OrdinalIgnoreCase) ? "any target" : noun);
+
+        if (each is null)
+            return null;
+
+        var firstIndex = targets.Count;
+
+        for (var i = 0; i < most; i++)
+            targets.Add(i == 0 && !upTo ? each : each with { Optional = true });
+
+        return (total, most, firstIndex);
+    }
+
+    /// <summary>
+    /// A plural target phrase in the singular - "target creatures and/or planeswalkers".
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Singular(string)"/> folds the first plural word it finds and stops, which is
+    /// right for a phrase with one noun in it and wrong for the "and/or" phrases these sentences
+    /// print: it left "target creature and/or planeswalkers", which the target grammar does not
+    /// read. Each side of the "and/or" is folded on its own, which is what the phrase means.
+    /// </remarks>
+    private static string SingularTargets(string phrase) =>
+        string.Join(
+            " and/or ",
+            phrase.Split(" and/or ", StringSplitOptions.None).Select(Singular));
+
     internal static string Singular(string phrase)
     {
         var words = phrase.Split(' ');
@@ -10472,18 +10562,55 @@ public static partial class EffectPhrase
         RegexOptions.None)]
     private static partial Regex SelfBiteLine();
 
+    /// <summary>How many things a divided quantity is spread across (CR 601.2d).</summary>
     /// <remarks>
-    /// Only the counted shapes. "Any number of targets" is the same sentence with no bound, and
-    /// a spell whose target list has no length cannot be expressed by a fixed list of specs -
-    /// so it is left unread rather than given an arbitrary ceiling, which would be a different
-    /// card whenever the ceiling mattered.
+    /// "Any number of" carries no ceiling of its own and takes the quantity as its ceiling, which
+    /// only works for a printed number - <see cref="DivideAmong"/> refuses an X. "Up to N" is a
+    /// group of its own rather than another spelling of "one, two, or N" because it means
+    /// something different: every target is optional, the first one included.
+    /// </remarks>
+    private const string DIVIDED_AMONG =
+        @"((one, two, or |one or )(?<most>three|two)"
+            + @"|(?<upto>up to )(?<most>ten|nine|eight|seven|six|five|four|three|two|\d+)"
+            + @"|(?<any>any number of))";
+
+    /// <summary>
+    /// The plural target phrase a division is spread over (CR 115.1).
+    /// </summary>
+    /// <remarks>
+    /// Everything from the count to the end of the sentence, handed to the ordinary target
+    /// grammar in the singular. It always contains the word "target" and may carry adjectives on
+    /// either side of it - "other target creatures", "target attacking or blocking creatures",
+    /// "target creatures you control". Written once and shared by both divided verbs, because
+    /// "one, two, or three target creatures you control" is the same phrase whether what is being
+    /// divided is damage or counters.
+    /// </remarks>
+    private const string DIVIDED_OVER =
+        @"(?<t>[A-Za-z0-9'’/, -]*?targets?[A-Za-z0-9'’/, -]*)";
+
+    /// <remarks>
+    /// The noun form reads now. "Among any number of target creatures" was refused by a pattern
+    /// that allowed only the bare word "targets", which is what ten of these cards print and not
+    /// what the other twenty-nine do.
     /// </remarks>
     [GeneratedRegex(
-        @"^~ deals (?<n>\d+) damage divided as you choose among "
-            + @"((one, two, or |one or )(?<most>three|two)|(?<any>any number of)) "
-            + @"(?<t>[a-z ]*?)targets?$",
+        @"^~ deals (?<n>\d+|X) damage divided as you choose among "
+            + DIVIDED_AMONG + @" " + DIVIDED_OVER + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DividedDamageLine();
+
+    /// <summary>
+    /// "Distribute three +1/+1 counters among one, two, or three target creatures" (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// The counter half of the same rule, built from the same two fragments so that the two verbs
+    /// cannot come to read the count phrase differently from each other.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^distribute " + N + @" (?<kind>\+\d/\+\d|-\d/-\d|[a-z]+) counters among "
+            + DIVIDED_AMONG + @" " + DIVIDED_OVER + @"$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DistributeCountersLine();
 
     [GeneratedRegex(
         @"^~ deals (?<a>\d+) damage to (?<t1>.+?) and (?<b>\d+) damage to (?<t2>.+?)\.?$",

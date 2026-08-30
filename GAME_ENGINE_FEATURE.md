@@ -62,8 +62,9 @@ not just that player, the whole game. Nothing else may happen while a choice is 
 
 `ChoiceKind` is the list of questions: mulligans, which cards to bottom, the legend rule, the
 order of your simultaneous triggers (CR 603.3b), which replacement to apply next, dividing combat
-damage (CR 510.1c), discarding to hand size, discarding because an effect said so, choosing a
-triggered ability's targets (CR 603.3d), and whether to pay an optional cost (CR 601.2b).
+damage (CR 510.1c), dividing an ability's quantity among the targets it chose (CR 601.2d),
+discarding to hand size, discarding because an effect said so, choosing a triggered ability's
+targets (CR 603.3d), and whether to pay an optional cost (CR 601.2b).
 
 **The optional payment is the one whose answer decides what the rest of the effect *is*.** It
 works without a continuation because the choice carries a *locator* — which permanent, which of
@@ -6361,13 +6362,66 @@ at least one, and nothing may be given to a target that was not chosen. Without 
 player could name three targets, give two of them nothing, and use a divided spell to hit one
 creature while appearing to spread it.
 
+The check runs beside the target check now, not at the end of the cast. CR 601.2d comes before
+601.2h, and an illegal announcement was getting as far as paying for the spell before it was
+refused.
+
+**None of that is about damage, and the machinery no longer is either.** CR 601.2d is written over
+a spell or ability that "requires a player to divide or distribute an effect", and the second
+family printed on cards is counters: *"distribute three +1/+1 counters among one, two, or three
+target creatures"* is the same announcement, the same "at least one each", the same refusal to
+redistribute a lost target's share. So the announcement check is keyed on an `IDividedEffect`
+interface rather than on a verb, `DealDividedDamage` and `DistributeCounters` both implement it,
+and one shared `Division.Shares` reads the announcement back out. A third divided verb costs a
+record, not a second copy of the rule.
+
+The total is an `Amount` rather than an `int` for the same reason — "deals X damage divided as you
+choose" is a real card, and X is announced before the division is (CR 601.2b before 601.2d), so
+the number is known by the time it is checked. An amount *counted off the board* is not, and is
+refused at compile time rather than guessed at.
+
+**An ability has nowhere to put the announcement, so the game stops and asks.** A spell carries its
+division on the cast; a triggered ability is put on the stack by nobody and picks its targets from
+questions of its own (CR 603.3d), and a hub method may not grow a parameter. `AskOwedDivision`
+therefore sweeps the stack from the settle step — after the ability is on the stack, before
+anybody has priority, which is the same moment the rules mean — and asks one pick per point, the
+way combat damage division is already asked. The answer lands as a `DivisionAnnounced` event.
+Without it the division would have been empty and every one of these abilities would have put no
+counters on anything while compiling perfectly: **13 of the 28 cards this reading finished are
+triggers or activated abilities**, so the question is half the work rather than a corner of it.
+
+A **mode** may not divide. A division is announced as one list over every target the spell chose,
+while a mode's effects index into that mode's own slice of them, so a divided effect inside a mode
+would read the wrong end of the announcement. The compiler refuses it and the card is reported
+unread. Abzan Charm is the only printed card that costs.
+
 The hub carries the division too, so the feature is reachable over the wire rather than only from
-a test. The engine checks it against what the spell deals; the hub checks that the numbers are
-amounts of damage at all, because a **negative** share would let a division sum to the right total
-while healing its target — the sort of thing a client can send and the rules never contemplate.
+a test. `CastOptionsDto.DamageDivision` and `TargetsChosen.DamageDivision` keep their printed names
+because both are on a wire — clients send the first by property name, and the persisted event log
+replays JSON written by earlier builds — while what they carry is a division of anything. The
+state field they land in is `GameObject.Division`, named for what it is. The engine checks the
+division against what the spell divides; the hub checks that the numbers are amounts at all,
+because a **negative** share would let a division sum to the right total while healing its target —
+the sort of thing a client can send and the rules never contemplate.
 
 "One, two, or three targets" compiles to three specs of which only the first is required, which is
-what the phrase says. **"Any number of target ..." reads now**, and without a ceiling - the
+what the phrase says — and so does **"one, two, or three target creatures"**, which is the same
+sentence with a noun on it and was refused for years by a pattern that allowed only the bare word
+"targets". The noun is singularised (each side of an "and/or" on its own) and handed to the
+ordinary target grammar, so every phrase that grammar already reads arrives working; a phrase it
+does not read leaves the sentence unread rather than guessed at. "Up to N" is its own count phrase
+because it means something else: every target is optional, the first one included.
+
+A division whose ceiling cannot be known at compile time is still refused. "Any number of" takes
+the quantity as its ceiling — every target must be assigned at least one, so three counters cannot
+reach a fourth creature — and that only works for a printed number. **"X damage divided as you
+choose among any number of target creatures" is left unread** — 7 sole blockers print it, of which
+4 are spells the block machinery below could express. A divided effect's target count is fixed in
+the definition and the expansion does not grow it, so reading it would compile a card that divided
+across one target however many were chosen; the other 3 are triggers, which are refused a block
+anyway for the reason given at the end of this file.
+
+**"Any number of target ..." reads now**, and without a ceiling - the
 objection this paragraph used to raise still stands and is what the shape is built to avoid. One
 spec is marked as standing for a block, and the count arrives when the caster announces it. See
 the section at the end of this file.

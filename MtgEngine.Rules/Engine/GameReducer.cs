@@ -403,8 +403,10 @@ public static class GameReducer
                 {
                     Targets = chosen.Targets,
                     VariableValue = chosen.VariableValue,
-                    DamageDivision = chosen.DamageDivision ?? [],
+                    Division = chosen.DamageDivision ?? [],
                 }),
+            DivisionAnnounced divided => state.WithObject(
+                state.GetObject(divided.StackId) with { Division = divided.Division }),
             FizzledForIllegalTargets => state,
             AbilityActivated => state,
             ChoiceRequested asked => state with { Choice = asked.Choice },

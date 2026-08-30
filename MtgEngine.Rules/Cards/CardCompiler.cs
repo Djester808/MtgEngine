@@ -11081,7 +11081,7 @@ public static partial class CardCompiler
         if (spree && SpreeBullet().Match(line) is { Success: true } priced)
         {
             var offer = priced.Groups["mode"].Value.Trim();
-            if (!EffectPhrase.TryParse(offer, out var costly))
+            if (!EffectPhrase.TryParse(offer, out var costly) || DividesSomething(costly.Effects))
                 return false;
 
             into.Add(
@@ -11103,12 +11103,29 @@ public static partial class CardCompiler
 
         // A mode the parser cannot read leaves the *line* unread, which is what stops a modal
         // card from quietly offering fewer modes than it prints.
-        if (!EffectPhrase.TryParse(bullet.Groups["mode"].Value.Trim(), out var parsed))
+        if (!EffectPhrase.TryParse(bullet.Groups["mode"].Value.Trim(), out var parsed)
+            || DividesSomething(parsed.Effects))
+        {
             return false;
+        }
 
         into.Add(new SpellMode(bullet.Groups["mode"].Value.Trim(), parsed.Targets, parsed.Effects));
         return true;
     }
+
+    /// <summary>
+    /// Whether these effects divide something, which a <em>mode</em> may not (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// A division is announced as one list over every target the spell chose, while a mode's
+    /// effects index into that mode's own slice of them - so a divided effect inside a mode would
+    /// read the wrong end of the announcement and put the damage on the wrong creature. Refused
+    /// here so the card is reported unread, rather than compiled into one that quietly does the
+    /// wrong thing. Abzan Charm is the only printed card this costs.
+    /// </remarks>
+    private static bool DividesSomething(ImmutableList<IEffect> effects) =>
+        effects.OfType<IDividedEffect>().Any();
+
 
     /// <summary>How many modes a written-out number asks for, or null if it is not one.</summary>
     /// <remarks>
@@ -14924,7 +14941,7 @@ public static partial class CardCompiler
             return false;
 
         var text = bullet.Groups["mode"].Value.Trim();
-        if (!EffectPhrase.TryParse(text, out var parsed))
+        if (!EffectPhrase.TryParse(text, out var parsed) || DividesSomething(parsed.Effects))
             return false;
 
         var trigger = into[at];

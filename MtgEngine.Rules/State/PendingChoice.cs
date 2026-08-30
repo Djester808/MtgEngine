@@ -165,6 +165,25 @@ public enum ChoiceKind
     /// </summary>
     AssignAsThoughUnblocked,
 
+    /// <summary>
+    /// How a spell or ability's quantity is divided among the targets it chose (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// A spell announces its division with the cast — it rides on <c>CastSpell</c> beside the
+    /// targets, because an opponent deciding whether to respond is entitled to know it. An
+    /// <em>ability</em> has nowhere to put it: a trigger is not activated by anybody and chooses
+    /// its targets from a question of its own (CR 603.3d), and a hub method may not grow a
+    /// parameter. So the ability is asked, at the one moment that is still the announcement:
+    /// after its targets are chosen and before anybody has priority.
+    /// <para>
+    /// Distinct from <see cref="DivideCombatDamage"/>, which is CR 510.1c and a different rule
+    /// underneath the same word: that one is constrained by lethal damage and is asked of an
+    /// attacker's blockers, this one is constrained by "at least one each" and is asked of the
+    /// targets an ability chose.
+    /// </para>
+    /// </remarks>
+    DivideAmongTargets,
+
     /// <summary>Which card to discard for a connive, deciding the counter (CR 701.50a).</summary>
     Connive,
 
@@ -330,7 +349,8 @@ public sealed record PendingChoice
     /// each". Two damage to each of two three-toughness blockers, killing neither, is a legal
     /// division that no ordering can express.
     /// </remarks>
-    public bool IsDivision => Kind is ChoiceKind.DivideCombatDamage;
+    public bool IsDivision =>
+        Kind is ChoiceKind.DivideCombatDamage or ChoiceKind.DivideAmongTargets;
 
     /// <summary>How much is being divided, for a division choice (CR 510.1a).</summary>
     public int TotalToDivide { get; init; }

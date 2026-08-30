@@ -48461,6 +48461,250 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(vague).IsComplete);
     }
 
+    // ---- Dividing and distributing (CR 601.2d) -------------------------------
+
+    [Fact]
+    public void Distributed_counters_are_announced_with_the_cast_and_land_as_announced()
+    {
+        var rite = Card(
+            "Elven Rite Test",
+            "Distribute two +1/+1 counters among one or two target creatures.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // "One or two" is at least one and at most two, which is one required spec and one
+        // optional - the same shape divided damage already compiles to.
+        Assert.Equal(2, compiled.Spell!.Targets.Count);
+        Assert.False(compiled.Spell.Targets[0].Optional);
+        Assert.True(compiled.Spell.Targets[1].Optional);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.Creature("Counted One Test", 1, 1), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Counted Two Test", 1, 1), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, rite);
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPermanent(first), Target.ToPermanent(second)],
+            damageDivision: [1, 1]);
+
+        Settle(game);
+
+        // One each, and each of them a 2/2 - the counters went where the announcement said and
+        // not both onto the first creature.
+        foreach (var id in new[] { first, second })
+        {
+            var creature = game.State.GetObject(id);
+            Assert.Equal(
+                1,
+                creature.Permanent!.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+            var computed = Characteristics.Of(game.State, Pool, creature);
+            Assert.Equal(2, computed.Power);
+            Assert.Equal(2, computed.Toughness);
+        }
+    }
+
+    [Fact]
+    public void A_distribution_that_leaves_a_target_with_nothing_is_refused()
+    {
+        var rite = Card(
+            "Greedy Rite Test",
+            "Distribute two +1/+1 counters among one or two target creatures.",
+            CardType.Sorcery);
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.Creature("Greedy One Test", 1, 1), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Greedy Two Test", 1, 1), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, rite);
+
+        // The rule this family turns on. Naming two creatures and giving one of them nothing is
+        // an illegal announcement, not a legal one that happens to do nothing (CR 601.2d) - it is
+        // how a player would put both counters on one creature while appearing to spread them.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                card,
+                [Target.ToPermanent(first), Target.ToPermanent(second)],
+                damageDivision: [2, 0]));
+
+        // And the total has to be exactly what the card distributes.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                card,
+                [Target.ToPermanent(first), Target.ToPermanent(second)],
+                damageDivision: [1, 2]));
+
+        // Nothing happened either time. The refusal is a refusal to cast, taken before the cost
+        // is paid (CR 601.2d before 601.2h), so no counter reached the board and no mana left the
+        // pool - an illegal announcement cannot be used to drain an opponent's response window.
+        Assert.All(
+            new[] { first, second },
+            id => Assert.Empty(game.State.GetObject(id).Permanent!.Counters));
+    }
+
+    [Fact]
+    public void Divided_damage_reads_the_noun_form_and_spends_the_announcement()
+    {
+        var volley = Card(
+            "Forked Volley Test",
+            "~ deals 3 damage divided as you choose among one, two, or three target creatures.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(volley);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The noun is what the division is spread over, so it is a creature target and not "any
+        // target" - a player may not be given a share of this one.
+        Assert.Equal(3, compiled.Spell!.Targets.Count);
+        Assert.Equal(TargetKind.Permanent, compiled.Spell.Targets[0].Kind);
+
+        var (game, alice, bob) = InMainPhase();
+        var small = game.Create(bob, TestCards.Creature("Volleyed One Test", 1, 1), Zone.Battlefield);
+        var big = game.Create(bob, TestCards.Creature("Volleyed Two Test", 3, 3), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, volley);
+        game.CastSpell(
+            alice,
+            card,
+            [Target.ToPermanent(small), Target.ToPermanent(big)],
+            damageDivision: [1, 2]);
+
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Volleyed One Test");
+
+        var survivor = game.State.Battlefield.Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Volleyed Two Test");
+
+        Assert.Equal(2, survivor.Permanent?.DamageMarked);
+    }
+
+    [Fact]
+    public void A_triggered_ability_is_asked_how_it_divides_before_anybody_has_priority()
+    {
+        var corps = Card(
+            "Armament Corps Test",
+            "When ~ enters, distribute two +1/+1 counters among one or two target creatures "
+                + "you control.",
+            CardType.Creature,
+            power: 4,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(corps);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, TestCards.Creature("Armed One Test", 1, 1), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Armed Two Test", 1, 1), Zone.Battlefield);
+
+        // Created in hand and moved, because an enters-the-battlefield trigger watches the move
+        // (CR 603.6a) and a permanent conjured straight onto the battlefield never made one.
+        game.Move(game.Create(alice, corps, Zone.Hand), Zone.Battlefield, MoveCause.Resolve);
+        TestCards.PassUntil(game, () => game.State.IsWaitingForChoice);
+
+        // The trigger picks its targets one question at a time (CR 603.3d) and only then is the
+        // division asked - which is the announcement, made before anybody may respond to it.
+        var targets = new[] { first, second };
+        var picked = 0;
+
+        for (var guard = 0; guard < 8 && game.State.Choice is { } choice; guard++)
+        {
+            if (choice.Kind != ChoiceKind.ChooseTriggerTargets)
+                break;
+
+            // The option's id carries which kind of target it is, because the id is all that
+            // survives the question.
+            var wanted = "object:" + targets[picked++].Value.ToString("N");
+            game.Choose(choice.PlayerId, [wanted]);
+        }
+
+        var division = game.State.Choice;
+        Assert.NotNull(division);
+        Assert.Equal(ChoiceKind.DivideAmongTargets, division!.Kind);
+        Assert.True(division.IsDivision);
+        Assert.Equal(2, division.TotalToDivide);
+
+        // One pick per counter, which is what makes every legal division sayable: two counters
+        // between two creatures is two picks from two answers.
+        Assert.Equal(2, division.MinPicks);
+        Assert.Equal(2, division.MaxPicks);
+
+        // Nothing may happen while the question is outstanding - the ability has not resolved and
+        // no counter has reached the board.
+        Assert.Empty(game.State.GetObject(first).Permanent!.Counters);
+
+        // Both counters onto the first creature is an illegal announcement, because the second
+        // was chosen as a target and CR 601.2d gives every chosen target at least one.
+        var onlyTheFirst = division.Options[0].Id;
+        Assert.Throws<InvalidOperationException>(
+            () => game.Choose(division.PlayerId, [onlyTheFirst, onlyTheFirst]));
+
+        // The question is still outstanding after the refusal, so the ability cannot slip past it.
+        Assert.Equal(ChoiceKind.DivideAmongTargets, game.State.Choice!.Kind);
+
+        game.Choose(
+            division.PlayerId,
+            [division.Options[0].Id, division.Options[1].Id]);
+
+        Settle(game);
+
+        foreach (var id in targets)
+        {
+            Assert.Equal(
+                1,
+                game.State.GetObject(id).Permanent!.Counters
+                    .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+        }
+    }
+
+    [Fact]
+    public void An_activated_ability_divides_its_damage_from_a_question_of_its_own()
+    {
+        var fist = Card(
+            "Iron Fist Test",
+            "{T}: ~ deals 2 damage divided as you choose among one or two target creatures.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(fist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, fist, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Punched One Test", 1, 1), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Punched Two Test", 1, 1), Zone.Battlefield);
+
+        // Haste, because the cost taps it and the permanent arrived this turn (CR 302.6). The
+        // rule under test is the division, not summoning sickness.
+        game.ActivateAbility(
+            alice,
+            source,
+            compiled.Activated[0].Id,
+            [Target.ToPermanent(first), Target.ToPermanent(second)]);
+
+        var division = game.State.Choice;
+        Assert.NotNull(division);
+        Assert.Equal(ChoiceKind.DivideAmongTargets, division!.Kind);
+        Assert.Equal(2, division.TotalToDivide);
+
+        game.Choose(division.PlayerId, [division.Options[0].Id, division.Options[1].Id]);
+        Settle(game);
+
+        // One damage each killed both 1/1s. An unannounced division would have dealt nothing at
+        // all, which is the failure this question exists to make impossible.
+        Assert.Equal(2, game.State.GetPlayer(bob).Graveyard.Count);
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>

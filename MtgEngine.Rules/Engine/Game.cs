@@ -1276,6 +1276,14 @@ public sealed class Game
         // CR 601.2c: targets are chosen as the spell is cast, and they have to be legal now.
         RequireLegalTargets(specs, chosen, playerId, card.Card.Name, card, variableValue);
 
+        // CR 601.2d comes next and before the cost at 601.2h, so a division that does not add up
+        // is refused before any mana is spent. It was checked at the very end, beside the event
+        // that records it, which meant an illegal announcement got as far as paying for the
+        // spell. Checked here and carried down, so the number the event writes is the number
+        // that was checked.
+        var announcedDivision = RequireDivision(
+            definition, chosen, damageDivision, variableValue);
+
         // CR 601.2h: the cost is paid last, and a spell whose cost cannot be paid is not cast at
         // all — the game rewinds rather than leaving it half-cast (CR 601.2i, 733).
         var cost = prototype is { } smaller
@@ -2000,7 +2008,7 @@ public sealed class Game
 
         if (!chosen.IsEmpty || variableValue > 0)
             Emit(new TargetsChosen(
-                stackId, chosen, variableValue, RequireDamageDivision(definition, chosen, damageDivision)));
+                stackId, chosen, variableValue, announcedDivision));
 
         if (fromCommandZone)
         {
@@ -2706,47 +2714,251 @@ public sealed class Game
     }
 
     /// <summary>
-    /// Checks the division of damage announced as a spell is cast (CR 601.2d).
+    /// Checks the division announced as a spell is cast (CR 601.2d).
     /// </summary>
     /// <remarks>
     /// Three rules, and each one is a card that would otherwise be better than it is printed:
-    /// the total must be exactly the damage the spell deals, every chosen target must be given
-    /// at least one, and nothing may be given to a target that was not chosen. Without the
-    /// middle rule a player could name three targets and give two of them nothing, which is how
-    /// you would use a divided spell to hit one creature while looking like you spread it.
+    /// the total must be exactly what the spell divides, every chosen target must be given at
+    /// least one, and nothing may be given to a target that was not chosen. Without the middle
+    /// rule a player could name three targets and give two of them nothing, which is how you
+    /// would use a divided spell to hit one creature while looking like you spread it.
+    /// <para>
+    /// It is not about damage. CR 601.2d covers dividing <em>or distributing</em>, so the same
+    /// three rules govern "distribute three +1/+1 counters among one, two, or three target
+    /// creatures" - and the check is keyed on <see cref="IDividedEffect"/> rather than on any one
+    /// verb, so a second divided verb inherits the rules instead of copying them.
+    /// </para>
     /// </remarks>
-    private static ImmutableList<int>? RequireDamageDivision(
+    private static ImmutableList<int>? RequireDivision(
         SpellDefinition? definition,
         ImmutableList<Target> chosen,
-        IReadOnlyList<int>? division)
+        IReadOnlyList<int>? division,
+        int variableValue)
     {
         // The total is read off the effect rather than held beside it, so the number the
-        // engine checks against is the same number the effect will deal.
-        if (definition?.Effects.OfType<DealDividedDamage>().FirstOrDefault() is not { } dividing)
+        // engine checks against is the same number the effect will spend.
+        if (definition?.Effects.OfType<IDividedEffect>().FirstOrDefault() is not { } dividing)
             return null;
 
-        if (division is null || division.Count != chosen.Count)
+        return RequireDivision(dividing, chosen.Count, division, variableValue);
+    }
+
+    /// <summary>
+    /// The same three rules, against one divided effect and a count of targets (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// Shared with the abilities, which announce their division from a question rather than from
+    /// the cast. The rule is one rule; two copies of it would be two places for "at least one"
+    /// to be forgotten, and that is the rule an unchecked division is worth cheating on.
+    /// </remarks>
+    private static ImmutableList<int>? RequireDivision(
+        IDividedEffect dividing,
+        int targetCount,
+        IReadOnlyList<int>? division,
+        int variableValue)
+    {
+        var total = AnnouncedTotal(dividing.Total, variableValue);
+
+        if (division is null || division.Count != targetCount)
         {
             throw new InvalidOperationException(
-                $"This spell divides its damage among {chosen.Count} target(s) and none was "
-                + "announced (CR 601.2d).");
+                $"This divides among {targetCount} target(s) and no division was announced "
+                + "(CR 601.2d).");
         }
 
         if (division.Any(amount => amount < 1))
         {
             throw new InvalidOperationException(
-                "Each target a divided spell chooses must be assigned at least 1 damage "
+                "Each target a divided spell or ability chooses must be assigned at least 1 "
                 + "(CR 601.2d).");
         }
 
-        if (division.Skip(dividing.FirstIndex).Take(dividing.TargetCount).Sum() != dividing.Total)
+        if (division.Skip(dividing.FirstIndex).Take(dividing.TargetCount).Sum() != total)
         {
             throw new InvalidOperationException(
-                $"A divided spell must assign exactly {dividing.Total} damage, not "
+                $"A divided spell or ability must assign exactly {total}, not "
                 + $"{division.Sum()} (CR 601.2d).");
         }
 
         return [.. division];
+    }
+
+    /// <summary>
+    /// How much a divided effect has to spend, at the moment the division is announced.
+    /// </summary>
+    /// <remarks>
+    /// X is announced first (CR 601.2b before CR 601.2d), so a spell that deals X damage divided
+    /// as you choose knows its total by the time the division is checked. An amount counted off
+    /// the board does not: "X is the number of creatures on the battlefield as you cast this"
+    /// is fixed as the spell is cast but is not the announced X, and a division checked against
+    /// the wrong number is a card that deals the wrong amount of damage. The compiler never emits
+    /// one, and this refuses rather than guesses if it ever does.
+    /// </remarks>
+    private static int AnnouncedTotal(Amount total, int variableValue) =>
+        total.Counter is null
+            ? total.IsVariable ? variableValue : total.Fixed
+            : throw new InvalidOperationException(
+                "A division whose total is counted from the board cannot be announced "
+                + "(CR 601.2d).");
+
+    /// <summary>
+    /// Asks an ability's controller how it divides what it divides (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// A spell announces its division with the cast and never reaches here. An ability cannot:
+    /// a triggered ability is put on the stack by the game rather than by a player, and chooses
+    /// its targets from questions of its own (CR 603.3d), so there is no call to hang the
+    /// announcement on. The question is asked from the settle sweep, which runs after the ability
+    /// is on the stack and before priority is granted — which is the same moment, and keeps the
+    /// division public before anybody may respond to it.
+    /// <para>
+    /// One pick per point, exactly as combat damage division is asked, because that is what makes
+    /// every legal division sayable with a list of options: three counters between two creatures
+    /// is three picks from two answers.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedDivision()
+    {
+        foreach (var stackId in State.Stack)
+        {
+            if (!State.TryGetObject(stackId, out var onStack)
+                || onStack.Ability is not { } ability
+                || !onStack.Division.IsEmpty
+                || onStack.Targets.IsEmpty)
+            {
+                continue;
+            }
+
+            var effects = EffectsOfAbility(onStack.Card, ability.AbilityId, ability.SourceId);
+            if (effects.OfType<IDividedEffect>().FirstOrDefault() is not { } dividing)
+                continue;
+
+            // An amount counted off the board cannot be announced, and the compiler never emits
+            // one — see AnnouncedTotal. Skipped rather than thrown so that a granted ability from
+            // outside the compiler cannot stop the game; it will divide nothing, which is the
+            // fail-closed half of the same decision.
+            if (dividing.Total.Counter is not null)
+                continue;
+
+            var total = AnnouncedTotal(dividing.Total, onStack.VariableValue);
+            var slots = Math.Min(dividing.TargetCount, onStack.Targets.Count - dividing.FirstIndex);
+            if (total < slots || slots < 1)
+                continue;
+
+            Ask(new PendingChoice
+            {
+                Id = "divide-targets:" + stackId,
+                PlayerId = ControllerOf(onStack),
+                Kind = ChoiceKind.DivideAmongTargets,
+                Prompt = $"{ability.Text} Divide {total} among the {slots} target(s) it chose. "
+                    + "Pick a target once per point; every target must be given at least one.",
+                // The option's id is the target's *position*, not the object's, because two of an
+                // ability's targets can be the same kind of thing and a division keyed on the
+                // object could not tell the two shares apart. The label carries the name so the
+                // person picking can.
+                Options =
+                [
+                    .. Enumerable.Range(dividing.FirstIndex, slots).Select(
+                        i => new ChoiceOption(
+                            i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            DivisionTargetLabel(onStack.Targets[i], ControllerOf(onStack)))),
+                ],
+                MinPicks = total,
+                MaxPicks = total,
+                TotalToDivide = total,
+                Context = [stackId.Value.ToString("N")],
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// What a target of a division is called, for the person dividing.
+    /// </summary>
+    /// <remarks>
+    /// The same labelling every other question uses, and for the same reason: a board with three
+    /// Grizzly Bears on it offers three identical buttons and the player cannot tell which one
+    /// they are pointing at. The answer itself is the target's position, so a pick is never
+    /// ambiguous to the engine - this is purely so it is unambiguous to the person.
+    /// </remarks>
+    private string DivisionTargetLabel(Target target, Guid chooserId) =>
+        target.Kind == TargetKind.Player
+            ? State.GetPlayer(target.Player).Name
+            : State.TryGetObject(target.Subject, out var obj) ? LabelFor(obj, chooserId) : "(gone)";
+
+    /// <summary>The object on the stack an announced division is about, and what divides.</summary>
+    private (ObjectId StackId, GameObject OnStack, IDividedEffect Dividing) DividedOnStack(
+        PendingChoice choice)
+    {
+        var stackId = State.Stack.First(
+            id => string.Equals(id.Value.ToString("N"), choice.Context[0], StringComparison.Ordinal));
+
+        var onStack = State.GetObject(stackId);
+        var ability = onStack.Ability!;
+
+        return (
+            stackId,
+            onStack,
+            EffectsOfAbility(onStack.Card, ability.AbilityId, ability.SourceId)
+                .OfType<IDividedEffect>()
+                .First());
+    }
+
+    /// <summary>How much each target was given, read off one-pick-per-point (CR 601.2d).</summary>
+    private static int[] AnnouncedAmounts(int targets, IReadOnlyList<string> picks)
+    {
+        var amounts = new int[targets];
+
+        foreach (var pick in picks)
+        {
+            var slot = int.Parse(pick, System.Globalization.CultureInfo.InvariantCulture);
+            if (slot < 0 || slot >= amounts.Length)
+                throw new InvalidOperationException($"No such target to divide among: {pick}.");
+
+            amounts[slot]++;
+        }
+
+        return amounts;
+    }
+
+    /// <summary>
+    /// Refuses an announced division the rules do not allow (CR 601.2d).
+    /// </summary>
+    /// <remarks>
+    /// The picks are one per point, so the total is right by construction — but "every chosen
+    /// target gets at least one" is not, and it is the rule worth cheating on: a player who could
+    /// leave a target at zero would name three creatures and put everything on one. Checked with
+    /// the same <c>RequireDivision</c> a cast is checked with, so the two cannot drift.
+    /// <para>
+    /// Run before the answer is recorded, like every other answer's rules, because emitting first
+    /// and validating during the resumption clears the question and <em>then</em> throws —
+    /// leaving a game with nothing outstanding and no way to move.
+    /// </para>
+    /// </remarks>
+    private void RequireAnnouncedDivision(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        var (_, onStack, dividing) = DividedOnStack(choice);
+        var amounts = AnnouncedAmounts(onStack.Targets.Count, picks);
+        var covered = dividing.FirstIndex
+            + Math.Min(dividing.TargetCount, onStack.Targets.Count - dividing.FirstIndex);
+
+        RequireDivision(dividing, covered, [.. amounts.Take(covered)], onStack.VariableValue);
+    }
+
+    /// <summary>Records the division an ability's controller announced (CR 601.2d).</summary>
+    private void RecordAnnouncedDivision(PendingChoice choice, IReadOnlyList<string> picks)
+    {
+        var (stackId, onStack, _) = DividedOnStack(choice);
+
+        Emit(new DivisionAnnounced(
+            stackId, [.. AnnouncedAmounts(onStack.Targets.Count, picks)]));
+
+        _priorityRecipient = choice.ResumePriorityTo;
+        SettleBeforePriority();
+        GrantPriorityAfterSettle(choice.ResumePriorityTo);
     }
 
     /// <summary>Names a described prevention effect among the replacements (CR 615.1).</summary>
@@ -3244,8 +3456,15 @@ public sealed class Game
         // first and validating during the resumption clears the pending choice and *then*
         // throws, which leaves the game with no question outstanding and no way to move — the
         // one failure worse than refusing the answer.
-        if (choice.IsDivision)
+        // Two kinds of division and two different rules. Combat's is CR 510.1c - nothing may
+        // be assigned more than lethal while another blocker has none. An announced division's
+        // is CR 601.2d - every target the spell or ability chose has to be given at least one.
+        // Sharing an arm here asked the combat question of an ability and threw looking for an
+        // attacker that does not exist.
+        if (choice.Kind == ChoiceKind.DivideCombatDamage)
             RequireLegalDivision(DivisionAttacker(choice), DivisionAmounts(choice, picks));
+        else if (choice.Kind == ChoiceKind.DivideAmongTargets)
+            RequireAnnouncedDivision(choice, picks);
 
         Emit(new ChoiceMade(choice.Id, [.. picks]));
         Resume(choice, picks);
@@ -3300,6 +3519,10 @@ public sealed class Game
             case ChoiceKind.OrderReplacements:
                 _replacementOrder = picks[0];
                 ReplayHeldEvent();
+                break;
+
+            case ChoiceKind.DivideAmongTargets:
+                RecordAnnouncedDivision(choice, picks);
                 break;
 
             case ChoiceKind.DivideCombatDamage:
@@ -8408,6 +8631,12 @@ public sealed class Game
             if (AskLegendRuleIfNeeded())
                 return true;
 
+            // An ability that divides something has to say how before anybody has priority
+            // (CR 601.2d). Asked first among the questions below, because it is part of putting
+            // the ability on the stack rather than something an effect asked for.
+            if (AskOwedDivision())
+                return true;
+
             // A discard, scry or surveil an effect asked for. They wait until here so that a
             // resolution is never stopped half way through — see the note on _looksOwed.
             if (AskOwedPayment())
@@ -11526,7 +11755,7 @@ public sealed class Game
             AbilityId = source.Ability?.AbilityId,
             Targets = source.Targets,
             VariableValue = source.VariableValue,
-            DamageDivision = source.DamageDivision,
+            Division = source.Division,
             SubjectPlayer = source.Ability?.SubjectPlayer,
             SubjectAmount = about,
             SubjectObject = subjectObject ?? source.Ability?.SubjectObject,

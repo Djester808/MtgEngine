@@ -2627,6 +2627,12 @@ public sealed record ManaPoolsEmptied : GameEvent
 }
 
 /// <summary>Targets were chosen for a spell or ability on the stack (CR 601.2c).</summary>
+/// <remarks>
+/// <c>DamageDivision</c> keeps its printed name because it is on two wires: the persisted event
+/// log, which is replayed from JSON written by earlier builds, and <c>CastOptionsDto</c>, which
+/// clients send by property name. What it carries is a division of <em>anything</em> the spell
+/// divides — damage or counters — and the state field it lands in is named for that.
+/// </remarks>
 public sealed record TargetsChosen(
     ObjectId StackId,
     ImmutableList<Target> Targets,
@@ -2636,6 +2642,27 @@ public sealed record TargetsChosen(
     public override string Rule => "601.2c";
 
     public override string Describe() => $"{Targets.Count} target(s) chosen.";
+}
+
+/// <summary>
+/// How an ability on the stack divides its quantity among the targets it chose (CR 601.2d).
+/// </summary>
+/// <remarks>
+/// Its own event rather than a second <see cref="TargetsChosen"/>, because it is a second
+/// announcement and not a re-announcement of the first: the targets were chosen when the ability
+/// went on the stack and have not changed, and a log that said so twice would read as though they
+/// had. A spell never emits one — its division is announced with the cast and arrives inside
+/// <see cref="TargetsChosen"/>.
+/// </remarks>
+public sealed record DivisionAnnounced(ObjectId StackId, ImmutableList<int> Division) : GameEvent
+{
+    public override string Rule => "601.2d";
+
+    public override string Describe() =>
+        "Divided as "
+        + string.Join(
+            "/", Division.Select(n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+        + ".";
 }
 
 /// <summary>

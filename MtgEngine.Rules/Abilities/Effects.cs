@@ -538,8 +538,12 @@ public sealed record ResolutionContext
     /// <summary>The value chosen for X as the spell was cast (CR 601.2b).</summary>
     public int VariableValue { get; init; }
 
-    /// <summary>How much each target is to be dealt, by target index (CR 601.2d).</summary>
-    public ImmutableList<int> DamageDivision { get; init; } = [];
+    /// <summary>How much each target was assigned, by target index (CR 601.2d).</summary>
+    /// <remarks>
+    /// Not "how much damage". The same announcement carries a distribution of counters, and the
+    /// rule it comes from is written over dividing or distributing anything at all.
+    /// </remarks>
+    public ImmutableList<int> Division { get; init; } = [];
 
     /// <summary>
     /// Who controlled an object, whether or not that object still exists (CR 400.7).
@@ -1210,6 +1214,36 @@ public sealed record ToEachChosenTarget(ImmutableList<IEffect> Effects, int Firs
 }
 
 /// <summary>
+/// An effect that spends a quantity announced as a division among its targets (CR 601.2d).
+/// </summary>
+/// <remarks>
+/// Division is not a fact about damage. CR 601.2d is written over a spell or ability that
+/// "requires a player to divide or distribute an effect", and the two families printed on cards
+/// are damage and counters — the same announcement, the same "each target must be assigned at
+/// least one", the same refusal to redistribute a lost target's share. This is what the
+/// announcement check is keyed on, so a second divided verb costs a record rather than a second
+/// copy of the rule.
+/// <para>
+/// <see cref="Total"/> is an <see cref="Amount"/> and not an <c>int</c> because "deals X damage
+/// divided as you choose" is a real card. X is announced before the division is (CR 601.2b before
+/// CR 601.2d), so the number the announcement is checked against is known by the time it is
+/// needed — but only for an amount that is fixed or is X. An amount counted off the board is
+/// refused rather than guessed at, in <c>Game.RequireDivision</c>.
+/// </para>
+/// </remarks>
+public interface IDividedEffect
+{
+    /// <summary>How much is divided, in total, across every target this reaches.</summary>
+    Amount Total { get; }
+
+    /// <summary>How many of the spell or ability's targets the division covers.</summary>
+    int TargetCount { get; }
+
+    /// <summary>The first of those targets, as an index into what was chosen.</summary>
+    int FirstIndex { get; }
+}
+
+/// <summary>
 /// Deals damage split among the targets in the amounts announced as the spell was cast
 /// (CR 601.2d).
 /// </summary>
@@ -1224,8 +1258,8 @@ public sealed record ToEachChosenTarget(ImmutableList<IEffect> Effects, int Firs
 /// redistribute what a lost target was owed.
 /// </para>
 /// </remarks>
-public sealed record DealDividedDamage(int Total, int TargetCount, int FirstIndex = 0)
-    : IEffect
+public sealed record DealDividedDamage(Amount Total, int TargetCount, int FirstIndex = 0)
+    : IEffect, IDividedEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -1233,20 +1267,86 @@ public sealed record DealDividedDamage(int Total, int TargetCount, int FirstInde
 
         var events = new List<GameEvent>();
 
-        for (var i = 0; i < TargetCount; i++)
-        {
-            var slot = FirstIndex + i;
-            if (slot >= context.DamageDivision.Count)
-                break;
+        foreach (var (slot, amount) in Division.Shares(this, context))
+            events.AddRange(new DealDamage(new Amount(amount), slot).Resolve(context));
 
-            var amount = context.DamageDivision[slot];
-            if (amount <= 0)
+        return events;
+    }
+}
+
+/// <summary>
+/// Puts counters on the targets in the numbers announced as the spell was cast (CR 121.2,
+/// CR 601.2d).
+/// </summary>
+/// <remarks>
+/// "Distribute three +1/+1 counters among one, two, or three target creatures" is divided damage
+/// with a different verb, and it is built as one: the same announcement rides on the same field of
+/// the stack object, and the same three rules are enforced against it. They are identical because
+/// CR 601.2d never mentions damage — it is about dividing or distributing anything, and both
+/// printings say "as you choose" and require every chosen target to be assigned at least one.
+/// <para>
+/// The battlefield check is <see cref="PutCounters"/>'s, for <see cref="PutCounters"/>'s reason:
+/// the reducer refuses a counter on anything that is not a permanent, so a target that has since
+/// died has to be found here rather than discovered there. Its share is not moved to the others
+/// (CR 608.2b).
+/// </para>
+/// </remarks>
+public sealed record DistributeCounters(
+    string Kind,
+    Amount Total,
+    int TargetCount,
+    int FirstIndex = 0) : IEffect, IDividedEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var events = new List<GameEvent>();
+
+        foreach (var (slot, amount) in Division.Shares(this, context))
+        {
+            if (Subjects.Resolve(context, EffectSubject.Target, slot) is not { } on)
                 continue;
 
-            events.AddRange(new DealDamage(new Amount(amount), slot).Resolve(context));
+            if (!context.State.TryGetObject(on, out var subject)
+                || subject.Zone != Zone.Battlefield)
+            {
+                continue;
+            }
+
+            events.Add(new CountersChanged(on, Kind, amount));
         }
 
         return events;
+    }
+}
+
+/// <summary>Reading an announced division back out, for the effects that spend one.</summary>
+/// <remarks>
+/// One reader rather than one per divided verb. Every line of the loop is a rule — which slots
+/// this effect owns, that a slot the announcement never reached gets nothing, and that a zero
+/// share does nothing at all — so two copies would be two places for those rules to drift.
+/// Damage and counters differ only in what they do with the number.
+/// </remarks>
+public static class Division
+{
+    /// <summary>Each of this effect's target slots that was assigned anything, and how much.</summary>
+    public static IEnumerable<(int Slot, int Amount)> Shares(
+        IDividedEffect effect, ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        ArgumentNullException.ThrowIfNull(context);
+
+        for (var i = 0; i < effect.TargetCount; i++)
+        {
+            var slot = effect.FirstIndex + i;
+            if (slot >= context.Division.Count)
+                break;
+
+            var amount = context.Division[slot];
+            if (amount > 0)
+                yield return (slot, amount);
+        }
     }
 }
 

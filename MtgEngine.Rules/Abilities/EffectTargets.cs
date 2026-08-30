@@ -420,10 +420,15 @@ public static class EffectTargets
         Add<ExileGraveyard>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
-        // A range rather than a slot: divided damage aims at every target the spell chose, and
-        // which of them get any is decided by the division announced as it was cast. It is the
-        // one effect whose targets are positions rather than a number it carries.
+        // A range rather than a slot: a divided effect aims at every target the spell chose, and
+        // which of them get any is decided by the division announced as it was cast. These are the
+        // effects whose targets are positions rather than a number they carry.
         Add<DealDividedDamage>(
+            e => e.FirstIndex,
+            (e, n) => e with { FirstIndex = e.FirstIndex + n },
+            e => Enumerable.Range(e.FirstIndex, e.TargetCount));
+
+        Add<DistributeCounters>(
             e => e.FirstIndex,
             (e, n) => e with { FirstIndex = e.FirstIndex + n },
             e => Enumerable.Range(e.FirstIndex, e.TargetCount));

@@ -1001,7 +1001,7 @@ public sealed record GameObject
     /// Empty for everything else, which is nearly every spell.
     /// </para>
     /// </remarks>
-    public ImmutableList<int> DamageDivision { get; init; } = [];
+    public ImmutableList<int> Division { get; init; } = [];
 
     /// <summary>Convenience for the common check; see <see cref="Permanent"/>.</summary>
     public bool IsPermanent => Permanent is not null;
@@ -1023,7 +1023,7 @@ public sealed record GameObject
         Equals(Permanent, other.Permanent) &&
         Equals(Ability, other.Ability) &&
         VariableValue == other.VariableValue &&
-        DamageDivision.SequenceEqual(other.DamageDivision) &&
+        Division.SequenceEqual(other.Division) &&
         Structural.Same(Targets, other.Targets) &&
         // Anything the state carries has to be compared here, and not only for correctness of
         // equality: the objects live in an ImmutableDictionary, and SetItem skips the write when
