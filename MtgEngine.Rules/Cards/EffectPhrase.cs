@@ -4014,18 +4014,13 @@ public static partial class EffectPhrase
                 // "With mana value 3" on its own is an exact match, not a ceiling. Reading it
                 // as "3 or less" would find cards the card does not allow, which is a strictly
                 // better tutor than the one printed.
-                ExactManaValue: m.Groups["cap"].Success && !m.Groups["dir"].Success
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null,
-                MinManaValue: m.Groups["cap"].Success
-                    && m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null,
-                MaxManaValue: m.Groups["cap"].Success
-                    && m.Groups["dir"].Success
+                ExactManaValue: !m.Groups["dir"].Success ? ManaValueBound(m) : null,
+                MinManaValue: m.Groups["dir"].Value.Equals(
+                    "greater", StringComparison.OrdinalIgnoreCase) ? ManaValueBound(m) : null,
+                MaxManaValue: m.Groups["dir"].Success
                     && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null));
+                        ? ManaValueBound(m)
+                        : null));
             return true;
         }
 
@@ -4062,18 +4057,13 @@ public static partial class EffectPhrase
                 // "With mana value 3" alone is an exact match and not a ceiling, the same
                 // reading the search takes: treating it as "3 or less" would find cards the
                 // card does not allow, which is a strictly better card than the printed one.
-                ExactManaValue: m.Groups["cap"].Success && !m.Groups["dir"].Success
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null,
-                MinManaValue: m.Groups["cap"].Success
-                    && m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null,
-                MaxManaValue: m.Groups["cap"].Success
-                    && m.Groups["dir"].Success
+                ExactManaValue: !m.Groups["dir"].Success ? ManaValueBound(m) : null,
+                MinManaValue: m.Groups["dir"].Value.Equals(
+                    "greater", StringComparison.OrdinalIgnoreCase) ? ManaValueBound(m) : null,
+                MaxManaValue: m.Groups["dir"].Success
                     && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
-                    ? int.Parse(m.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                    : null));
+                        ? ManaValueBound(m)
+                        : null));
 
             return true;
         }
@@ -6346,6 +6336,31 @@ public static partial class EffectPhrase
     };
 
     /// <summary>
+    /// The mana-value bound a search or seek prints, or null where it prints none.
+    /// </summary>
+    /// <remarks>
+    /// An <see cref="Amount"/> rather than a number because "with mana value X or less" names one
+    /// that is not on the card: X is chosen as the spell is cast or the ability activated
+    /// (CR 601.2b, 602.2b), and the compiled definition is shared by every casting. The effect
+    /// settles it against the resolution, so what reaches the log is still a number.
+    /// <para>
+    /// Shared by both grammars, because a bound is the same clause in both and a second copy
+    /// would drift the first time either of them learned a word.
+    /// </para>
+    /// </remarks>
+    private static Amount? ManaValueBound(Match m)
+    {
+        if (!m.Groups["cap"].Success)
+            return null;
+
+        var printed = m.Groups["cap"].Value;
+
+        return string.Equals(printed, "X", StringComparison.Ordinal)
+            ? Amount.X
+            : new Amount(int.Parse(printed, CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>
     /// The shared card-filter vocabulary, under the name other readers ask for it by.
     /// </summary>
     /// <remarks>
@@ -8291,19 +8306,24 @@ public static partial class EffectPhrase
 
             if (GraveyardPhrase().Match(text) is { Success: true } buried)
             {
+                var buriedCap = buried.Groups["cap"].Value;
+                var buriedCapIsX = string.Equals(buriedCap, "X", StringComparison.Ordinal);
+
                 return InGraveyard(
                     buried.Groups["noun"].Value,
                     buried.Groups["whose"].Value,
-                    buried.Groups["cap"].Success
-                        ? int.Parse(buried.Groups["cap"].Value, CultureInfo.InvariantCulture)
-                        : null);
+                    buried.Groups["cap"].Success && !buriedCapIsX
+                        ? int.Parse(buriedCap, CultureInfo.InvariantCulture)
+                        : null,
+                    buriedCapIsX);
             }
 
             // "...with power 3 or greater", "...without flying". A qualifier sits between the
             // noun and the owner clause, so it is lifted out and the rest is read as an ordinary
             // phrase - which is what lets "target creature with power 4 or greater you control"
             // work without the noun grammar having to know anything about power.
-            Func<GameState, IAbilitySource, GameObject, bool>? qualifier = null;
+            Func<GameState, IAbilitySource, GameObject, int, bool>? qualifier = null;
+            var qualifierReadsX = false;
             var described = text;
 
             // Kept before the qualifier is lifted off, because an alternation has to be split on
@@ -8314,7 +8334,9 @@ public static partial class EffectPhrase
 
             if (QualifierPhrase().Match(text) is { Success: true } qualified)
             {
-                qualifier = QualifierFilter(qualified.Groups["q"].Value.Trim());
+                qualifier = QualifierFilter(
+                    qualified.Groups["q"].Value.Trim(), out qualifierReadsX);
+
                 if (qualifier is null)
                     return null;
 
@@ -8464,41 +8486,57 @@ public static partial class EffectPhrase
                         return Characteristics.Of(state, abilities, obj).ControllerId
                             == attacking.DefendingPlayer;
                     },
-                ObjectFilter = (state, abilities, obj, controller) =>
-                {
-                    if (qualifier?.Invoke(state, abilities, obj) == false)
-                        return false;
-
-                    // Types come from the computed characteristics, not the printed card: a land
-                    // animated into a creature is a legal "target creature" (CR 613.1c).
-                    var computed = Characteristics.Of(state, abilities, obj);
-                    foreach (var type in required)
-                    {
-                        if (!computed.CardTypes.HasFlag(type))
-                            return false;
-                    }
-
-                    // "Target artifact or enchantment" - one target that may be either, so the
-                    // types are alternatives rather than the intersection every other list here
-                    // means. Held apart for that reason: an intersection would ask for a card
-                    // that is both at once, which is a different and much rarer thing.
-                    if (eitherOf is { } alternatives && (computed.CardTypes & alternatives) == 0)
-                        return false;
-
-                    // CR 702.73a: a changeling is every creature type, so it answers to any tribe.
-                    // Every *creature* type — an artifact creature changeling is not an Equipment,
-                    // so the bypass is offered only where the subtype was read as a tribe.
-                    if (subtype is not null
-                        && !(tribal && computed.IsEveryCreatureType)
-                        && !computed.HasSubtype(subtype))
-                    {
-                        return false;
-                    }
-
-                    return adjectiveFilter(state, abilities, obj)
-                        && ownerFilter(state, abilities, obj, controller);
-                },
+                // A clause that measures against X hangs off VariableFilter instead, so the
+                // spec refuses outright wherever no value was announced rather than being asked
+                // with a zero. It is the whole filter that moves and not just the clause: the
+                // two are one conjunction, and splitting them would leave the type test
+                // answering on its own for a card that has not said what X is.
+                ObjectFilter = qualifierReadsX
+                    ? null
+                    : (state, abilities, obj, controller) =>
+                        Matches(state, abilities, obj, controller, 0),
+                VariableFilter = qualifierReadsX ? Matches : null,
             };
+
+            bool Matches(
+                GameState state,
+                IAbilitySource abilities,
+                GameObject obj,
+                Guid controller,
+                int announced)
+            {
+                if (qualifier?.Invoke(state, abilities, obj, announced) == false)
+                    return false;
+
+                // Types come from the computed characteristics, not the printed card: a land
+                // animated into a creature is a legal "target creature" (CR 613.1c).
+                var computed = Characteristics.Of(state, abilities, obj);
+                foreach (var type in required)
+                {
+                    if (!computed.CardTypes.HasFlag(type))
+                        return false;
+                }
+
+                // "Target artifact or enchantment" - one target that may be either, so the
+                // types are alternatives rather than the intersection every other list here
+                // means. Held apart for that reason: an intersection would ask for a card
+                // that is both at once, which is a different and much rarer thing.
+                if (eitherOf is { } alternatives && (computed.CardTypes & alternatives) == 0)
+                    return false;
+
+                // CR 702.73a: a changeling is every creature type, so it answers to any tribe.
+                // Every *creature* type — an artifact creature changeling is not an Equipment,
+                // so the bypass is offered only where the subtype was read as a tribe.
+                if (subtype is not null
+                    && !(tribal && computed.IsEveryCreatureType)
+                    && !computed.HasSubtype(subtype))
+                {
+                    return false;
+                }
+
+                return adjectiveFilter(state, abilities, obj)
+                    && ownerFilter(state, abilities, obj, controller);
+            }
         }
 
         /// <summary>
@@ -8680,7 +8718,13 @@ public static partial class EffectPhrase
             _ => null,
         };
 
-        private static TargetSpec? InGraveyard(string noun, string whose, int? maxManaValue = null)
+        /// <param name="maxManaValue">
+        /// The cap the phrase prints, if it prints one, and null if it does not. A cap of
+        /// <c>null</c> and a cap of X are different things and are told apart by
+        /// <paramref name="capIsVariable"/>: X is not a number until the spell is cast.
+        /// </param>
+        private static TargetSpec? InGraveyard(
+            string noun, string whose, int? maxManaValue = null, bool capIsVariable = false)
         {
             var word = noun.Trim();
             string? subtype = null;
@@ -8736,45 +8780,61 @@ public static partial class EffectPhrase
 
             var mine = whose.Trim().StartsWith("your", StringComparison.OrdinalIgnoreCase);
 
+            var capWord = capIsVariable
+                ? "X"
+                : maxManaValue?.ToString(CultureInfo.InvariantCulture);
+
             return new TargetSpec
             {
                 Kind = TargetKind.CardInGraveyard,
-                Description = maxManaValue is { } cap
+                Description = capWord is { } cap
                     ? $"target {(excludesLands ? "nonland " : string.Empty)}{word} card with mana "
                         + $"value {cap} or less from {whose} graveyard"
                         .Replace("  ", " ", StringComparison.Ordinal)
                     : $"target {(excludesLands ? "nonland " : string.Empty)}{word} card from "
                         + $"{whose} graveyard"
                         .Replace("  ", " ", StringComparison.Ordinal),
-                ObjectFilter = (_, _, obj, controller) =>
-                {
-                    if (excludesLands && obj.Card.CardTypes.HasFlag(CardType.Land))
-                        return false;
 
-                    // CR 202.3: mana value is computed from the printed cost, and a card in a
-                    // graveyard has only its printed cost — nothing on the battlefield can be
-                    // raising or lowering it.
-                    if (maxManaValue is { } limit && obj.Card.Cmc > limit)
-                        return false;
-
-                    // Read from the card, not from computed characteristics: a card in a
-                    // graveyard is not on the battlefield, so no continuous effect applies to it
-                    // (CR 613 is about permanents) and its printed types are what it has.
-                    foreach (var type in required)
-                    {
-                        if (!obj.Card.CardTypes.HasFlag(type))
-                            return false;
-                    }
-
-                    if (subtype is not null
-                        && !obj.Card.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-
-                    return !mine || obj.OwnerId == controller;
-                },
+                // A printed cap is an ordinary object filter; a cap of X is the same test against
+                // a number only the cast knows, so it goes where a caller with no announced value
+                // is refused rather than answered.
+                ObjectFilter = capIsVariable
+                    ? null
+                    : (_, _, obj, controller) => Matches(obj, controller, maxManaValue),
+                VariableFilter = capIsVariable
+                    ? (_, _, obj, controller, announced) =>
+                        Matches(obj, controller, announced)
+                    : null,
             };
+
+            bool Matches(GameObject obj, Guid controller, int? cap)
+            {
+                if (excludesLands && obj.Card.CardTypes.HasFlag(CardType.Land))
+                    return false;
+
+                // CR 202.3: mana value is computed from the printed cost, and a card in a
+                // graveyard has only its printed cost — nothing on the battlefield can be
+                // raising or lowering it.
+                if (cap is { } limit && obj.Card.Cmc > limit)
+                    return false;
+
+                // Read from the card, not from computed characteristics: a card in a
+                // graveyard is not on the battlefield, so no continuous effect applies to it
+                // (CR 613 is about permanents) and its printed types are what it has.
+                foreach (var type in required)
+                {
+                    if (!obj.Card.CardTypes.HasFlag(type))
+                        return false;
+                }
+
+                if (subtype is not null
+                    && !obj.Card.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return !mine || obj.OwnerId == controller;
+            }
         }
 
         /// <remarks>
@@ -8784,7 +8844,7 @@ public static partial class EffectPhrase
         /// </remarks>
         [GeneratedRegex(
             @"^[Tt]arget ((?<noun>(nonland )?[A-Za-z]+( or [A-Za-z]+)?) )?card"
-                + @"( with mana value (?<cap>\d+) or less)?"
+                + @"( with mana value (?<cap>\d+|X) or less)?"
                 + @" (from|in) (?<whose>your|a|an opponent's) graveyard$",
             RegexOptions.None)]
         private static partial Regex GraveyardPhrase();
@@ -9093,9 +9153,17 @@ public static partial class EffectPhrase
         /// (CR 613.1). Mana value is the printed one: nothing in the engine changes it, and the
         /// card is the only place it is written down.
         /// </remarks>
-        private static Func<GameState, IAbilitySource, GameObject, bool>? QualifierFilter(
-            string qualifier)
+        /// <param name="readsVariable">
+        /// Whether the clause measures against X rather than against a printed number. The
+        /// caller has to know, because a filter that reads X may not be asked without one: it
+        /// goes in <see cref="TargetSpec.VariableFilter"/>, which refuses when no value was
+        /// announced, rather than in the plain object filter, which would be handed a zero.
+        /// </param>
+        private static Func<GameState, IAbilitySource, GameObject, int, bool>? QualifierFilter(
+            string qualifier, out bool readsVariable)
         {
+            readsVariable = false;
+
             var counter = CounterQualifier().Match(qualifier);
             if (counter.Success)
             {
@@ -9103,16 +9171,24 @@ public static partial class EffectPhrase
                 // a permanent can carry a counter at zero, so the count is what is asked about
                 // rather than whether the key is present.
                 if (!counter.Groups["kind"].Success)
-                    return (_, _, obj) => obj.Permanent?.Counters.Values.Any(n => n > 0) == true;
+                    return (_, _, obj, _) => obj.Permanent?.Counters.Values.Any(n => n > 0) == true;
 
                 var kind = counter.Groups["kind"].Value;
-                return (_, _, obj) => obj.Permanent?.Counters.GetValueOrDefault(kind, 0) > 0;
+                return (_, _, obj, _) => obj.Permanent?.Counters.GetValueOrDefault(kind, 0) > 0;
             }
 
             var number = NumberQualifier().Match(qualifier);
             if (number.Success)
             {
-                var wanted = Number(number.Groups["n"].Value).Fixed;
+                // "With mana value X or less" measures against a number nothing printed on the
+                // card knows - the value announced as the spell was cast (CR 601.2b). The
+                // comparison is otherwise identical, so the two spellings share one delegate and
+                // differ only in where the number comes from.
+                var printed = number.Groups["n"].Value;
+                var variable = string.Equals(printed, "X", StringComparison.Ordinal);
+                readsVariable = variable;
+
+                var wanted = variable ? 0 : Number(printed).Fixed;
                 var direction = number.Groups["dir"].Value;
                 var orMore =
                     direction.StartsWith("greater", StringComparison.OrdinalIgnoreCase)
@@ -9120,7 +9196,7 @@ public static partial class EffectPhrase
 
                 var what = number.Groups["what"].Value.ToLowerInvariant();
 
-                return (state, abilities, obj) =>
+                return (state, abilities, obj, announced) =>
                 {
                     var computed = Characteristics.Of(state, abilities, obj);
                     int? has = what switch
@@ -9130,7 +9206,9 @@ public static partial class EffectPhrase
                         _ => obj.Card.Cmc,
                     };
 
-                    return has is { } value && (orMore ? value >= wanted : value <= wanted);
+                    var limit = variable ? announced : wanted;
+
+                    return has is { } value && (orMore ? value >= limit : value <= limit);
                 };
             }
 
@@ -9138,7 +9216,7 @@ public static partial class EffectPhrase
             if (keyword.Success && Keywords(keyword.Groups["kw"].Value) is { } wantedKeyword)
             {
                 var negated = keyword.Groups["not"].Success;
-                return (state, abilities, obj) =>
+                return (state, abilities, obj, _) =>
                     Characteristics.Of(state, abilities, obj).Has(wantedKeyword) != negated;
             }
 
@@ -9188,9 +9266,17 @@ public static partial class EffectPhrase
             RegexOptions.IgnoreCase)]
         private static partial Regex QualifierPhrase();
 
+        /// <remarks>
+        /// "X" sits in the number alternation rather than in a pattern of its own, because it is
+        /// the same clause in the same place with the number left to the cast: 27 corpus cards
+        /// print one, and every one of them writes it exactly where a digit would go. It is
+        /// matched case-sensitively even though the rest of this pattern is not — a lowercase x
+        /// is a letter in a word, and the surrounding alternatives are all spelled out — so the
+        /// literal turns the option off around itself rather than relying on the group.
+        /// </remarks>
         [GeneratedRegex(
             @"^with (?<what>power|toughness|mana value) "
-                + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
+                + @"(?<n>\d+|(?-i:X)|one|two|three|four|five|six|seven|eight|nine|ten) "
                 + @"or (?<dir>greater|more|less|fewer)$",
             RegexOptions.IgnoreCase)]
         private static partial Regex NumberQualifier();
@@ -11386,7 +11472,7 @@ public static partial class EffectPhrase
             + @"(an?|up to (?<n>one|two|three|four|five)|(?<any>any number of)) "
             + @"(?<what>[A-Za-z, ]+? )?cards?"
             + @"( named (?<named>[^,.]+?))?"
-            + @"( with mana value (?<cap>\d+)( or (?<dir>less|greater))?)?"
+            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"(,? reveal (it|that card|them|those cards))?"
             + @"(,? put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield|into your hand|into your graveyard)"
@@ -11406,7 +11492,7 @@ public static partial class EffectPhrase
         @"^seeks? (an?|(?<n>two|three|four|five)) "
             + @"(?<what>[A-Za-z, ]+? )?cards?"
             + @"( named (?<named>[^,.]+?))?"
-            + @"( with mana value (?<cap>\d+)( or (?<dir>less|greater))?)?"
+            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"( (and|then) put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield)(?<tapped> tapped)?)?\.?$",
         RegexOptions.IgnoreCase)]

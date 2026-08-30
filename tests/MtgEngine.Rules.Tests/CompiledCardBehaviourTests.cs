@@ -51096,6 +51096,438 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, game.State.Battlefield.Count);
     }
 
+    // ---- A filter measured against X (CR 601.2b, 602.2b, 607.2) --------------
+
+    /// <summary>A spell whose one target is chosen against the X it was cast for.</summary>
+    private static CardDefinition KillingGlare() => new()
+    {
+        OracleId = "oracle-xfilter-killing-glare",
+        Name = "Killing Glare Test",
+        OracleText = "Destroy target creature with power X or less.",
+        CardTypes = CardType.Instant,
+        ManaCostRaw = "{X}{B}",
+        Cmc = 1,
+    };
+
+    /// <summary>An artifact of a known mana value, for the filters that measure one.</summary>
+    private static CardDefinition Trinket(string name, int manaValue) => new()
+    {
+        OracleId = "oracle-xfilter-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Artifact,
+        Cmc = manaValue,
+    };
+
+    /// <summary>A creature card of a known mana value, for the tutors that cap one.</summary>
+    private static CardDefinition Costed(string name, int manaValue) => new()
+    {
+        OracleId = "oracle-xfilter-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        CardTypes = CardType.Creature,
+        Cmc = manaValue,
+        Power = 1,
+        Toughness = 1,
+    };
+
+    /// <summary>
+    /// A target filter reads the X its spell was cast for, at both of the moments it is asked
+    /// (CR 601.2c, 608.2b).
+    /// </summary>
+    /// <remarks>
+    /// The family this was built for, and the reason it had been declined: a filter is a
+    /// predicate the compiler closes over, and there is no number to close over when the number
+    /// is chosen as the spell is cast. So the value is threaded to the filter instead, the way
+    /// the announced target count already is - which makes X a fourth thing a
+    /// <see cref="TargetSpec"/> can be about, beside the candidate, the source and a sibling
+    /// target.
+    /// <para>
+    /// Played at two different values on one board, because a filter that hard-coded any number
+    /// at all would pass a test that only ever announced one. The four-power creature is illegal
+    /// for X=2 and legal for X=4, and the same spell says both.
+    /// </para>
+    /// <para>
+    /// It resolves rather than merely being castable, and that is the second half: CR 608.2b
+    /// asks the question again on resolution, by which time the spell is a different object. A
+    /// re-check that had lost X would find a four-power creature illegal for a limit of zero,
+    /// the spell would fizzle, and the creature would still be standing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_target_filter_measures_against_the_X_its_spell_was_cast_for()
+    {
+        var glare = KillingGlare();
+        var compiled = CardCompiler.Compile(glare);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The clause hangs off the variable slot rather than the plain object filter, which is
+        // what makes a caller with no announced value get a refusal instead of a comparison
+        // against zero.
+        var spec = compiled.Spell!.Targets[0];
+        Assert.NotNull(spec.VariableFilter);
+        Assert.Null(spec.ObjectFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        var small = game.Create(bob, TestCards.Creature("Glare Small Test", 2, 2), Zone.Battlefield);
+        var big = game.Create(bob, TestCards.Creature("Glare Big Test", 4, 4), Zone.Battlefield);
+
+        // Fail closed. An unknown X is not zero: answered as zero this same spec would admit the
+        // whole board on "X or greater" and nothing at all on "X or less", and neither is the
+        // printed card. A caller that cannot say what X is gets no legal target.
+        Assert.False(spec.IsLegal(game.State, Pool, Target.ToPermanent(small), alice));
+        Assert.True(
+            spec.IsLegal(game.State, Pool, Target.ToPermanent(small), alice, announced: 2));
+
+        var card = TestCards.PutInHand(game, alice, glare);
+        game.AddMana(alice, ManaColor.Black, 3);
+
+        // Announced for two, the four-power creature is not a legal target and the cast is
+        // refused outright - the card is still in hand, having never been cast (CR 601.2c).
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPermanent(big)], 2));
+
+        Assert.Contains(card, game.State.GetPlayer(alice).Hand);
+
+        // Announced for four it reaches the same creature, and kills it.
+        game.AddMana(alice, ManaColor.Black, 2);
+        game.CastSpell(alice, card, [Target.ToPermanent(big)], 4);
+        Settle(game);
+
+        Assert.DoesNotContain(big, game.State.Battlefield);
+        Assert.Contains(small, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A sweeper finds its set against the X it was cast for (CR 609.2).
+    /// </summary>
+    /// <remarks>
+    /// The same clause on a group rather than on a target, and it needed nothing of its own: a
+    /// group phrase is parsed as a target phrase, so the moment the qualifier learned X the
+    /// sweepers learned it too. What it does need is the value at resolution rather than at cast
+    /// - an untargeted effect finds its set as it resolves - and that is read off the object on
+    /// the stack.
+    /// <para>
+    /// Three artifacts either side of the announced value, because a sweeper that ignored the
+    /// cap and one that ignored the announcement both destroy exactly two of a board of two.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_sweeper_measures_each_permanent_against_the_X_it_was_cast_for()
+    {
+        var meltdown = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-meltdown",
+            Name = "Meltdown Test",
+            OracleText = "Destroy each artifact with mana value X or less.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{X}{R}",
+            Cmc = 1,
+        };
+
+        var compiled = CardCompiler.Compile(meltdown);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var cheap = game.Create(alice, Trinket("Meltdown Cheap Test", 1), Zone.Battlefield);
+        var middling = game.Create(alice, Trinket("Meltdown Middling Test", 2), Zone.Battlefield);
+        var dear = game.Create(alice, Trinket("Meltdown Dear Test", 4), Zone.Battlefield);
+
+        game.AddMana(alice, ManaColor.Red, 3);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, meltdown), null, 2);
+        Settle(game);
+
+        Assert.DoesNotContain(cheap, game.State.Battlefield);
+        Assert.DoesNotContain(middling, game.State.Battlefield);
+        Assert.Contains(dear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A tutor capped by X fetches only what that X allows (CR 701.23).
+    /// </summary>
+    /// <remarks>
+    /// The bound on a search is not a filter delegate at all - it is a number that travels in the
+    /// event, because a library search has to read back out of a log. So the bound became an
+    /// <see cref="Amount"/>, which is this engine's existing answer to "a number that is not
+    /// known until the spell is cast", and the effect settles it against the resolution before
+    /// the event is emitted. Nothing downstream of the event knows X exists.
+    /// <para>
+    /// Cast twice at two values, which is the only way to tell a cap that moves from a cap that
+    /// happens to be right: the five-drop is out of reach for X=2 and in it for X=5.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_tutor_capped_by_X_offers_only_what_that_X_allows()
+    {
+        var rhythm = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-natures-rhythm",
+            Name = "Natures Rhythm Test",
+            OracleText =
+                "Search your library for a creature card with mana value X or less, put it onto "
+                + "the battlefield, then shuffle.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{X}{G}{G}",
+            Cmc = 2,
+        };
+
+        var compiled = CardCompiler.Compile(rhythm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One game per announced value. Settling a search runs the turn on past the main phase,
+        // and a second cast in the same game is refused for want of priority rather than for
+        // anything this test is about.
+        var forTwo = Offered(2);
+
+        Assert.Contains(forTwo, label => label.Contains("Rhythm Cheap", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            forTwo, label => label.Contains("Rhythm Dear", StringComparison.Ordinal));
+
+        // The same card announced for five reaches the five-drop, which is what says the bound is
+        // the announcement rather than a number the compiler happened to pick.
+        Assert.Contains(Offered(5), label => label.Contains("Rhythm Dear", StringComparison.Ordinal));
+
+        // And the card it is allowed to fetch actually arrives, which the offered list alone
+        // does not say.
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Costed("Rhythm Cheap Test", 2), Zone.Library);
+
+        game.AddMana(alice, ManaColor.Green, 4);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rhythm), null, 2);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+
+        game.Choose(
+            alice,
+            [
+                choice.Options
+                    .First(o => o.Label.Contains("Rhythm Cheap", StringComparison.Ordinal))
+                    .Id,
+            ]);
+
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Rhythm Cheap Test", StringComparison.Ordinal));
+
+        List<string> Offered(int announced)
+        {
+            var (table, searcher, _) = InMainPhase();
+            table.Create(searcher, Costed("Rhythm Cheap Test", 2), Zone.Library);
+            table.Create(searcher, Costed("Rhythm Dear Test", 5), Zone.Library);
+
+            table.AddMana(searcher, ManaColor.Green, announced + 2);
+            table.CastSpell(
+                searcher, TestCards.PutInHand(table, searcher, rhythm), null, announced);
+
+            TestCards.PassUntil(
+                table, () => table.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+            return [.. table.State.Choice!.Options.Select(o => o.Label)];
+        }
+    }
+
+    /// <summary>
+    /// An activation cost of {X} is paid, and the ability reads the value that paid it
+    /// (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// Two halves that only work together, and only one of them existed. The engine already
+    /// carried an announced number into <c>ActivateAbility</c> - it is how "remove any number of
+    /// counters" is paid - but it was never handed to the mana payment, so an activation cost of
+    /// <c>{X}</c> charged nothing at all: a tutor for as much as its controller cared to name,
+    /// free. And the value never reached the ability's own object on the stack, so the filter
+    /// that wanted it would have measured against zero as it resolved.
+    /// <para>
+    /// The pool is asserted empty afterwards for exactly that reason. A test that only checked
+    /// what the search offered would pass with the cost still free.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_activation_cost_of_X_is_paid_and_read_by_its_own_filter()
+    {
+        var flute = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-citanul-flute",
+            Name = "Citanul Flute Test",
+            OracleText =
+                "{X}, {T}: Search your library for a creature card with mana value X or less, "
+                + "reveal it, put it into your hand, then shuffle.",
+            CardTypes = CardType.Artifact,
+            ManaCostRaw = "{5}",
+            Cmc = 5,
+        };
+
+        var compiled = CardCompiler.Compile(flute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, flute, Zone.Battlefield);
+        game.Create(alice, Costed("Flute Cheap Test", 2), Zone.Library);
+        game.Create(alice, Costed("Flute Dear Test", 5), Zone.Library);
+
+        var ability = compiled.Activated[0].Id;
+
+        // The board is told to ask for the number, which is the difference between an ability
+        // the engine can run and one a player can reach. Without it the button sends zero and
+        // the search finds nothing.
+        Assert.True(
+            Views.PlayerViewProjector.Project(game.State, alice, Pool)
+                .Battlefield
+                .Single(o => o.Name == "Citanul Flute Test")
+                .Abilities
+                .Single(a => string.Equals(a.Id, ability, StringComparison.Ordinal))
+                .AnnouncesVariable);
+
+        // One mana does not buy an X of two. The refusal is the whole point: without the
+        // announcement reaching the payment this line was free.
+        game.AddMana(alice, ManaColor.Green);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, source, ability, null, null, 2));
+
+        game.AddMana(alice, ManaColor.Green);
+        game.ActivateAbility(alice, source, ability, null, null, 2);
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var offered = game.State.Choice!.Options.Select(o => o.Label).ToList();
+
+        Assert.Contains(offered, label => label.Contains("Flute Cheap", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            offered, label => label.Contains("Flute Dear", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A permanent's own trigger reads the X the spell that became it was cast for (CR 607.2).
+    /// </summary>
+    /// <remarks>
+    /// The third place an X can come from, and the one that needed the value carried further than
+    /// it had been. A permanent keeps what its spell announced - the reducer has done that since
+    /// ravenous - but a triggered ability is its own object on the stack (CR 113.7a), and it was
+    /// being put there with nothing. Its targets would then be chosen against the right number
+    /// and re-checked on resolution against zero, so the trigger would fizzle every time and the
+    /// card would still look implemented.
+    /// </remarks>
+    [Fact]
+    public void A_triggered_ability_reads_the_X_its_permanent_was_cast_for()
+    {
+        var drifter = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-dune-drifter",
+            Name = "Dune Drifter Test",
+            OracleText =
+                "When this creature enters, return target creature card with mana value X or "
+                + "less from your graveyard to the battlefield.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{X}{W}{B}",
+            Cmc = 2,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var compiled = CardCompiler.Compile(drifter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Costed("Drifter Cheap Test", 3), Zone.Graveyard);
+        game.Create(alice, Costed("Drifter Dear Test", 5), Zone.Graveyard);
+
+        game.AddMana(alice, ManaColor.White, 4);
+        game.AddMana(alice, ManaColor.Black);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drifter), null, 3);
+
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChooseTriggerTargets });
+
+        var choice = game.State.Choice!;
+        var offered = choice.Options.Select(o => o.Label).ToList();
+
+        Assert.Contains(offered, label => label.Contains("Drifter Cheap", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            offered, label => label.Contains("Drifter Dear", StringComparison.Ordinal));
+
+        game.Choose(
+            alice,
+            [
+                choice.Options
+                    .First(o => o.Label.Contains("Drifter Cheap", StringComparison.Ordinal))
+                    .Id,
+            ]);
+
+        Settle(game);
+
+        // It resolved rather than fizzling, which is what says the ability carried the number
+        // onto the stack with it.
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Drifter Cheap Test", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A filter whose X nothing announces is left unread (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The refusal that keeps the family honest, and it is worth more than the five cards it
+    /// costs. Those five write the same clause about a completely different X - "where X is the
+    /// number of Faeries you control", "you may pay {X}. If you do, ..." - and none of those
+    /// numbers is one this engine reads. Compiled anyway they would each settle at zero, find
+    /// nothing in any zone, and report themselves complete: a card that passes the deck gate and
+    /// then does nothing, which this compiler treats as strictly worse than an unread line.
+    /// <para>
+    /// The contrast is the point of the third case. The same clause with a real announcement
+    /// behind it reads perfectly, so what is refused is the missing X and not the sentence.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_filter_whose_X_nothing_announces_is_refused()
+    {
+        var counted = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-spellstutter",
+            Name = "Spellstutter Sprite Test",
+            OracleText =
+                "Flying\nWhen this creature enters, counter target spell with mana value X or "
+                + "less, where X is the number of Faeries you control.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{1}{U}",
+            Cmc = 2,
+            Power = 1,
+            Toughness = 1,
+        };
+
+        var paidMidway = new CardDefinition
+        {
+            OracleId = "oracle-xfilter-taj-nar",
+            Name = "Taj-Nar Swordsmith Test",
+            OracleText =
+                "When this creature enters, you may pay {X}. If you do, search your library for "
+                + "an Equipment card with mana value X or less, put that card onto the "
+                + "battlefield, then shuffle.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{3}{W}",
+            Cmc = 4,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        foreach (var refused in new[] { counted, paidMidway })
+        {
+            var compiled = CardCompiler.Compile(refused);
+
+            Assert.False(compiled.IsComplete);
+            Assert.Contains(
+                compiled.Unhandled,
+                line => line.Contains("mana value X or less", StringComparison.Ordinal));
+        }
+
+        // The same clause, on a card that does announce one.
+        var announced = CardCompiler.Compile(KillingGlare());
+        Assert.True(announced.IsComplete, string.Join(" | ", announced.Unhandled));
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

@@ -3004,6 +3004,17 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
         /// <summary>The largest board any one phrase was tried against, for the report.</summary>
         internal int Size { get; private set; }
 
+        /// <summary>
+        /// The X a phrase written around one is witnessed at (CR 601.2b).
+        /// </summary>
+        /// <remarks>
+        /// Larger than any printed mana value, power or toughness the board holds, because the
+        /// question here is whether <em>some</em> announcement satisfies the phrase and a caster
+        /// may name any number they can pay for. A ceiling clause is the common printing, so a
+        /// number that is too small would report a live filter as unsatisfiable.
+        /// </remarks>
+        private const int Witness = 99;
+
         /// <summary>Whether anything the game can contain answers this filter.</summary>
         internal bool Satisfies(TargetSpec spec, string phrase)
         {
@@ -3022,6 +3033,16 @@ public sealed class CardCompilerInvariantTests(ITestOutputHelper output)
 
                         if (spec.SourceFilter?.Invoke(state, pool, obj, null, controller) == false)
                             continue;
+
+                        // "With mana value X or less" is satisfiable exactly when some X makes it
+                        // so, and the witness has to supply one: asked with none the spec refuses
+                        // every candidate by design, and asked with none *here* it would have
+                        // been skipped entirely and the phrase called satisfiable for free.
+                        if (spec.VariableFilter?.Invoke(state, pool, obj, controller, Witness)
+                            == false)
+                        {
+                            continue;
+                        }
 
                         return true;
                     }
