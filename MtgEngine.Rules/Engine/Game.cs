@@ -6540,19 +6540,29 @@ public sealed class Game
         var asking = State.TryGetObject(owed.SourceId, out var raiser) ? raiser : null;
 
         // "Sacrifice a creature" looks at the battlefield; "return a creature card from your
-        // graveyard to your hand" is the same question asked of a different zone. The control
-        // test belongs only to the first: a graveyard is already one player's, and asking who
-        // controls a card in it is not a question the rules ask (CR 108.4).
-        var from = effect.From == Zone.Graveyard
-            ? State.GetPlayer(owed.PlayerId).Graveyard
-            : State.Battlefield;
+        // graveyard to your hand" is the same question asked of a different zone, and "exile a
+        // card from your hand" is a third. The control test belongs only to the battlefield: a
+        // graveyard and a hand are already one player's, and asking who controls a card in one
+        // is not a question the rules ask (CR 108.4).
+        //
+        // The hand is hidden and stays hidden. What makes that safe is not this method: the
+        // options of a pending choice are projected only to the player being asked
+        // (PlayerViewProjector.ProjectChoice), and the player being asked here is always the one
+        // whose hand it is - a card that made somebody else pick from your hand would be a
+        // different question and is not this one.
+        var from = effect.From switch
+        {
+            Zone.Graveyard => State.GetPlayer(owed.PlayerId).Graveyard,
+            Zone.Hand => State.GetPlayer(owed.PlayerId).Hand,
+            _ => State.Battlefield,
+        };
 
         var eligible = from
             .Where(id => effect.What.ObjectFilter?.Invoke(
                 State, _abilities, State.GetObject(id), owed.PlayerId) != false)
             .Where(id => effect.What.SourceFilter?.Invoke(
                 State, _abilities, State.GetObject(id), asking, owed.PlayerId) != false)
-            .Where(id => effect.From == Zone.Graveyard
+            .Where(id => effect.From != Zone.Battlefield
                 || ControllerOf(State.GetObject(id)) == owed.PlayerId)
             .ToList();
 

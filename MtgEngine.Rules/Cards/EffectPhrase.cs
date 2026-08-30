@@ -1810,6 +1810,19 @@ public static partial class EffectPhrase
         // "Its controller loses 1 life", "its controller draws a card" - one clause shape with
         // two verbs, so one matcher reads both. A second pattern for the second verb is how the
         // two would drift over which subjects they accept.
+        // "~ also deals 3 damage to that creature's controller" - the same damage as the tail of
+        // the two-part sentence above, printed as its own sentence after the one that chose the
+        // creature. It reads the last target for the reason the life and draw clauses below do:
+        // the pronoun means whatever the sentence before it named.
+        var hurtController = DamageTargetsControllerLine().Match(sentence);
+        if (hurtController.Success && targets.Count > 0 && !objectNamedByTrigger)
+        {
+            effects.Add(new DamageTargetsController(
+                Number(hurtController.Groups["n"].Value), targets.Count - 1));
+
+            return true;
+        }
+
         m = TargetControllerLine().Match(sentence);
         if (m.Success && targets.Count > 0)
         {
@@ -2199,6 +2212,65 @@ public static partial class EffectPhrase
                     ? Zone.Exile
                     : GraveyardDestination(m.Groups["where"].Value),
                 ScopeOf(m.Groups["whose"].Value)));
+            return true;
+        }
+
+        // "Target opponent exiles a card from their hand" and "target player exiles a card from
+        // their graveyard" - one sentence, and the two rows of the work queue it answers look
+        // nothing alike. What they share is the whole of the difficulty: a player other than the
+        // controller is told to pick one of their own cards, which is the choice-on-resolution
+        // machinery a sacrifice already uses (CR 609.4) pointed at a different zone.
+        //
+        // It is not a discard and must not be read as one. A card exiled from a hand never
+        // reaches a graveyard, so nothing that watches for a discard fires and nothing in a
+        // graveyard counts it - and madness, which is a replacement on the discard itself, never
+        // gets the chance to apply.
+        var handedOver = PlayerExilesFromZoneLine().Match(sentence);
+        if (handedOver.Success)
+        {
+            var exilesFromHand = handedOver.Groups["zone"].Value
+                .Equals("hand", StringComparison.OrdinalIgnoreCase);
+
+            // The kind is not consulted for a choice made on resolution - the zone in From is
+            // what the eligible set is built from - and there is no kind for a card in a hand,
+            // so this carries the nearest true thing rather than inventing one.
+            var whose = new TargetSpec
+            {
+                Kind = TargetKind.CardInGraveyard,
+                Description = "a card from their " + (exilesFromHand ? "hand" : "graveyard"),
+            };
+
+            var who = handedOver.Groups["who"].Value.Trim();
+
+            // "Target player" is a target and every other subject is a scope. The two cannot
+            // both be given, so a targeted subject takes the target slot and the scope is left
+            // at its default, exactly as the targeted sacrifice beside this one does.
+            if (who.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Specs.Parse(who) is not { Kind: TargetKind.Player } aimedAt)
+                    return false;
+
+                targets.Add(aimedAt);
+                effects.Add(new ChooseAndMove(
+                    whose,
+                    Zone.Exile,
+                    MoveCause.Exile,
+                    effects.Count,
+                    PlayerScope.You,
+                    TargetIndex: targets.Count - 1,
+                    From: exilesFromHand ? Zone.Hand : Zone.Graveyard));
+
+                return true;
+            }
+
+            effects.Add(new ChooseAndMove(
+                whose,
+                Zone.Exile,
+                MoveCause.Exile,
+                effects.Count,
+                ScopeOf(who),
+                From: exilesFromHand ? Zone.Hand : Zone.Graveyard));
+
             return true;
         }
 
@@ -2682,6 +2754,34 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "That player loses half their life, rounded up" (CR 119.3, 107.15). Half a life total
+        // is not a number the compiler can work out - it is different for each player the
+        // sentence names and it is only known when the effect resolves - so this is its own
+        // effect rather than an Amount handed to the life clause beside it.
+        var halving = LoseHalfLifeLine().Match(sentence);
+        if (halving.Success)
+        {
+            var roundsUp = halving.Groups["round"].Value
+                .Equals("up", StringComparison.OrdinalIgnoreCase);
+
+            var whose = halving.Groups["who"].Value.Trim();
+
+            if (whose.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Specs.Parse(whose) is not { Kind: TargetKind.Player } halved)
+                    return false;
+
+                targets.Add(halved);
+                effects.Add(new LoseHalfLife(
+                    PlayerScope.You, roundsUp, targets.Count - 1));
+
+                return true;
+            }
+
+            effects.Add(new LoseHalfLife(ScopeOf(whose), roundsUp));
+            return true;
+        }
+
         m = EachLifeLine().Match(sentence);
         if (m.Success)
         {
@@ -2851,6 +2951,19 @@ public static partial class EffectPhrase
                 effects.Add(new DealDamage(Number(twoDamages.Groups["a"].Value), firstIndex));
                 effects.Add(new DamageEach(
                     Number(twoDamages.Groups["b"].Value), PlayerScope.You));
+
+                return true;
+            }
+
+            // "And 2 damage to that creature's controller" names a player decided by the first
+            // half of the same sentence. Not a target either, and for a stronger reason than
+            // "you": nothing about the words chooses that player, so hexproof and protection have
+            // nothing to say about them and the board must not show them as a second choice.
+            if (SubjectControllerPhrase().IsMatch(second))
+            {
+                effects.Add(new DealDamage(Number(twoDamages.Groups["a"].Value), firstIndex));
+                effects.Add(new DamageTargetsController(
+                    Number(twoDamages.Groups["b"].Value), firstIndex));
 
                 return true;
             }
@@ -3590,6 +3703,47 @@ public static partial class EffectPhrase
         {
             effects.Add(new PumpSourceUntilEndOfTurn(
                 GenerativeEffects.SwitchPowerToughnessId()));
+            return true;
+        }
+
+        // "Target creature becomes blue until end of turn" (CR 105.2, 613.1e) - the fixed-colour
+        // twin of the "colour of your choice" sentence below, and the one shape of recolouring
+        // the vocabulary had no way in for. Every piece of it already existed: the layer 5 effect
+        // is the same BecomesColorId the animation reader builds when a card says "a 3/3 white
+        // Elemental creature", and the only thing missing was a sentence that says the colour
+        // without also saying a size.
+        //
+        // The duration is required rather than assumed, for the reason the animation reader
+        // gives: this builds an until-end-of-turn effect, so a card that recolours something
+        // permanently - "Target spell or permanent becomes red", the lace cycle - would be read
+        // as a trick that undoes itself. Those stay in the work queue.
+        //
+        // "In addition to its other colors" is refused for the opposite reason. Becoming a colour
+        // *sets* the colours (CR 105.2b), which is what this effect does, and Indigo Faerie's
+        // wording keeps the ones already there - reading the two as one would take colours away
+        // from a permanent whose card says it keeps them.
+        m = BecomesColourLine().Match(sentence);
+        if (m.Success
+            && AnimationLastsTheTurn(m)
+            && ColourNamed(m.Groups["colour"].Value) is { } painted
+            && Specs.Parse(m.Groups["t"].Value) is { } repainted)
+        {
+            targets.Add(repainted);
+            effects.Add(new PumpUntilEndOfTurn(
+                GenerativeEffects.BecomesColorId(painted), targets.Count - 1));
+            return true;
+        }
+
+        // The same sentence about the permanent whose ability it is, split out for the reason
+        // every other self form here is: the pattern above starts at a target phrase, and the
+        // source is not a target.
+        m = SelfBecomesColourLine().Match(sentence);
+        if (m.Success
+            && AnimationLastsTheTurn(m)
+            && ColourNamed(m.Groups["colour"].Value) is { } selfPainted)
+        {
+            effects.Add(new PumpSourceUntilEndOfTurn(
+                GenerativeEffects.BecomesColorId(selfPainted)));
             return true;
         }
 
@@ -5193,6 +5347,60 @@ public static partial class EffectPhrase
         }
 
 
+        // "Double the number of +1/+1 counters on target creature" (CR 121.3), and the same
+        // sentence about something the words name by role rather than by target. Two readers for
+        // the same verb, split exactly where the counter readers above are split and for the same
+        // reason: one side has a target phrase to parse and the other has a pronoun to resolve.
+        //
+        // "Each kind of counter" is a distinct instruction rather than a missing noun. The named
+        // form doubles one kind and leaves the rest alone; this one doubles every kind the
+        // permanent is carrying, which is a set the compiler cannot know because it is a fact of
+        // the board when the ability resolves.
+        var doublingTarget = DoubleCountersLine().Match(sentence);
+        if (doublingTarget.Success && Specs.Parse(doublingTarget.Groups["t"].Value) is { } doubled)
+        {
+            if (DoubledKind(doublingTarget) is not { } aimedKind)
+                return false;
+
+            targets.Add(doubled);
+            effects.Add(new DoubleCounters(aimedKind.Named, targets.Count - 1));
+            return true;
+        }
+
+        var doublingSubject = DoubleCountersOnSubjectLine().Match(sentence);
+        if (doublingSubject.Success)
+        {
+            if (DoubledKind(doublingSubject) is not { } subjectKind)
+                return false;
+
+            var whose = doublingSubject.Groups["who"].Value.Trim().ToLowerInvariant();
+
+            EffectSubject on;
+            var whoseIndex = 0;
+
+            if (whose is "~")
+            {
+                on = EffectSubject.Source;
+            }
+            else if (whose.StartsWith("enchanted", StringComparison.Ordinal)
+                || whose.StartsWith("equipped", StringComparison.Ordinal))
+            {
+                on = EffectSubject.AttachedHost;
+            }
+            else if (targets.Count > 0)
+            {
+                on = EffectSubject.Target;
+                whoseIndex = targets.Count - 1;
+            }
+            else
+            {
+                on = EffectSubject.TriggerSubject;
+            }
+
+            effects.Add(new DoubleCounters(subjectKind.Named, whoseIndex, on));
+            return true;
+        }
+
         // CR 702.131a: adapt N is "if this creature has no +1/+1 counters on it, put N +1/+1
         // counters on it" - a keyword action that is exactly one conditional effect, so it
         // compiles to that rather than to a mechanic of its own. The condition is the whole
@@ -6533,6 +6741,29 @@ public static partial class EffectPhrase
         // has never cared which names exist. Those are kept exactly as printed.
         return word.ToLowerInvariant();
     }
+
+    /// <summary>
+    /// Which counters a "double the number of" sentence names, or null when it names none the
+    /// compiler can read.
+    /// </summary>
+    /// <remarks>
+    /// Wrapped in a record rather than returned as a bare string because null already means two
+    /// different things here: "every kind" is a legitimate answer and "a word I could not read"
+    /// is a refusal, and a reader that folded them together would double every counter on the
+    /// permanent whenever it failed to understand which one was meant.
+    /// </remarks>
+    private static DoubledCounterKind? DoubledKind(Match m)
+    {
+        if (m.Groups["each"].Success)
+            return new DoubledCounterKind(null);
+
+        return CounterKindNamed(m.Groups["kind"].Value) is { } named
+            ? new DoubledCounterKind(named)
+            : null;
+    }
+
+    /// <summary>The counter kind a doubling names — null inside it meaning every kind.</summary>
+    private sealed record DoubledCounterKind(string? Named);
 
     /// <summary>
     /// "One mana of any color" and the rest of the family whose colour is decided on resolution.
@@ -9625,6 +9856,18 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex TargetControllerLine();
 
+    /// <summary>"~ also deals 3 damage to that creature's controller" (CR 119.3).</summary>
+    /// <remarks>
+    /// "Also" is optional because both spellings are printed, and the sentence is anchored on the
+    /// source dealing the damage: a card where some other object deals it - "that Archer deals
+    /// that much damage to that creature's controller" - is a different subject and stays in the
+    /// work queue rather than being attributed to the wrong permanent.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ (also )?deals (?<n>\d+) damage to (its|that [a-z]+'s) controller\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DamageTargetsControllerLine();
+
     /// <remarks>
     /// Only the bare sentence. "Remove all attacking creatures from combat and untap them" says
     /// the same words about a set this parser never chose, and reading it here would untap
@@ -9968,6 +10211,19 @@ public static partial class EffectPhrase
         RegexOptions.None)]
     private static partial Regex ChooseFromGraveyardLine();
 
+    /// <summary>"Target opponent exiles a card from their hand" (CR 609.4).</summary>
+    /// <remarks>
+    /// Only the un-described card. Every wording that narrows what may be picked - "a creature
+    /// card", "a nonland card" - is a filter this spec would have to carry, and a reader that
+    /// dropped the adjective would let a player hand over the cheapest thing they held while the
+    /// card said otherwise. Those stay in the work queue.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>target (player|opponent)|each opponent|each player|that player) "
+            + @"exiles a card from their (?<zone>hand|graveyard)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PlayerExilesFromZoneLine();
+
     /// <remarks>
     /// Only "under its owner's control". "Under your control" is a theft wearing the same
     /// sentence, and reading it as a flicker would quietly hand the permanent back to the player
@@ -10045,6 +10301,19 @@ public static partial class EffectPhrase
             + @"( and you gain (?<gain>\d+|a|an|one|two|three|four|five|six|seven) life)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EachLifeLine();
+
+    /// <summary>"Target opponent loses half their life, rounded up" (CR 119.3, 107.15).</summary>
+    /// <remarks>
+    /// The rounding is required. CR 107.15 leaves it to the card to say which way a fraction
+    /// goes, and the two answers differ on every odd life total - so a sentence that leaves the
+    /// words out, or puts them in a separate "Round up each time" a whole clause away, stays in
+    /// the work queue rather than being given a default.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>you|each player|each opponent|that player|target player|target opponent) "
+            + @"loses? half (your|their) life, rounded (?<round>up|down)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LoseHalfLifeLine();
 
     [GeneratedRegex(
         @"^~ deals " + N + @" damage to " + W + @"$", RegexOptions.IgnoreCase)]
@@ -10234,6 +10503,27 @@ public static partial class EffectPhrase
             + @"the colou?r of your choice until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ProtectionFromChosenColourLine();
+
+    /// <summary>"Target permanent becomes white until end of turn" (CR 105.2).</summary>
+    /// <remarks>
+    /// The colour word is its own group rather than an alternation of five patterns, and the
+    /// trailing clause is deliberately not admitted: "becomes red until end of turn and attacks
+    /// this turn if able" and "becomes blue and isn't an artifact" are two effects in one
+    /// sentence, and reading only the colour would file the card as understood while dropping
+    /// the half it was printed for.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?(?<t>[Tt]arget [A-Za-z0-9'’ ]+?) becomes "
+            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BecomesColourLine();
+
+    /// <summary>The same sentence said about the source (CR 105.2).</summary>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?~ becomes "
+            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfBecomesColourLine();
 
     /// <summary>"Switch target creature's power and toughness until end of turn" (CR 613.4d).</summary>
     [GeneratedRegex(
@@ -11581,6 +11871,25 @@ public static partial class EffectPhrase
             + @"(?<who>~|it|that creature|that permanent|(enchanted|equipped) [a-z]+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PutCountersOnSubjectLine();
+
+    /// <summary>"Double the number of +1/+1 counters on target creature" (CR 121.3).</summary>
+    [GeneratedRegex(
+        @"^double the number of (?:(?<each>each kind of) counter"
+            + @"|(?<kind>[+-]\d/[+-]\d|[a-z]+) counters) on (?<t>target [A-Za-z0-9,'’ ]+?)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DoubleCountersLine();
+
+    /// <remarks>
+    /// The same subjects the counter reader above accepts, and no others: a sentence naming a
+    /// group - "double the number of +1/+1 counters on each creature you control" - is a
+    /// different instruction and is left in the work queue rather than read as one permanent.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^double the number of (?:(?<each>each kind of) counter"
+            + @"|(?<kind>[+-]\d/[+-]\d|[a-z]+) counters) on "
+            + @"(?<who>~|it|that creature|that permanent|(enchanted|equipped) [a-z]+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DoubleCountersOnSubjectLine();
 
     [GeneratedRegex(
         @"^prevent the next " + N + @" damage that would be dealt to (?<t>[a-z0-9'’ ,]+?) this turn$",

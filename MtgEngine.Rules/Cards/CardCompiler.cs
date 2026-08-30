@@ -8086,6 +8086,14 @@ public static partial class CardCompiler
 
         // "Any number" is a number no board can reach rather than a separate unlimited flag,
         // and small enough that the grants can still be added together without overflowing.
+        //
+        // The cardinal is checked before it is read, because NumberWordOrDigits answers 1 to
+        // anything it does not know: Hundred-Handed One blocks "an additional ninety-nine
+        // creatures", and without the guard it would have compiled as blocking one more. A word
+        // this compiler cannot count leaves the line in the work queue instead.
+        if (m.Groups["n"].Success && !IsCardinal(m.Groups["n"].Value))
+            return false;
+
         var count = m.Groups["any"].Success
             ? 1_000_000
             : m.Groups["n"].Success
@@ -9655,6 +9663,24 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = Matches,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "Each creature you control can block an additional creature each combat" (CR 509.1a) -
+        // the permission TryExtraBlocks already reads on one creature, said about a group. It is
+        // here rather than there because the group half is the whole difficulty: that reader
+        // knows three subjects ("~", enchanted, equipped) and this one knows every noun phrase
+        // the lords do, so Cenn's Tactician's "each creature you control with a +1/+1 counter on
+        // it" arrives already filtered. Added rather than assigned, for the reason the
+        // single-creature form gives: "an additional" is an amount, not a state.
+        if (m.Groups["blocks"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:extra-blocks",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (_, _, builder) => builder.ExtraBlocks += 1,
             });
         }
 
@@ -15488,7 +15514,8 @@ public static partial class CardCompiler
             + @"|(has|have) (?<kw>[a-z0-9{} ,]+?)( and (?<must>attacks? each combat if able))?"
             + @"|(?<lose>loses? all abilities)"
             + @"( and (has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+))?"
-            + @"|(?<must>attacks? each combat if able))\.?$",
+            + @"|(?<must>attacks? each combat if able)"
+            + @"|(?<blocks>can block an additional creature each combat))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassStaticLine();
 
@@ -16037,6 +16064,7 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"^(?<who>~|Enchanted creature|Equipped creature) can block "
         + @"(?:(?<any>any number of creatures)|an additional creature|"
+        + @"an additional (?<n>[a-z-]+) creatures|"
         + @"up to (?<n>[a-z]+) additional creatures)(?: each combat)?[.]?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExtraBlocksLine();

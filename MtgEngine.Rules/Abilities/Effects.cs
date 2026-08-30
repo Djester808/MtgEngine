@@ -1429,6 +1429,39 @@ public sealed record DrawForTargetsController(Amount Count, int TargetIndex = 0)
     }
 }
 
+/// <summary>
+/// Damages whoever controls a target — "and 2 damage to that creature's controller" (CR 119.3).
+/// </summary>
+/// <remarks>
+/// The third verb of the clause <see cref="ChangeLifeOfTargetsController"/> and
+/// <see cref="DrawForTargetsController"/> already read, and it arrives late for a reason worth
+/// keeping: those two are printed as their own sentence after a counterspell, while this one is
+/// almost always the tail of the sentence that did the damage — "~ deals 4 damage to target
+/// creature <em>and 2 damage to that creature's controller</em>" — so the words never reached a
+/// reader that begins at a subject.
+/// <para>
+/// Damage rather than life loss, and the difference is not cosmetic: it is dealt by the physical
+/// source, so it can be prevented, it is what lifelink and "whenever this deals damage" watch,
+/// and a player with protection from the source is not touched. A card of this shape compiled as
+/// life loss would be a different card in all four ways.
+/// </para>
+/// </remarks>
+public sealed record DamageTargetsController(Amount Amount, int TargetIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // The creature this damage is measured against may already be dead — the first half of
+        // the same sentence often kills it — so the controller is followed back through the log
+        // rather than looked up on a battlefield that no longer holds it (CR 400.7).
+        return TargetOwnership.ControllerOf(context, TargetIndex) is { } who
+            ? [new PlayerDamaged(
+                who, context.PhysicalSourceId, Amount.In(context), IsCombat: false)]
+            : [];
+    }
+}
+
 /// <summary>Which player a target belongs to (CR 608.2).</summary>
 /// <remarks>
 /// One question asked by more than one effect — "its controller loses 2 life", "its controller
@@ -2454,6 +2487,66 @@ public sealed record PutCounters(
             return [];
 
         return [new CountersChanged(on, Kind, Count.In(context))];
+    }
+}
+
+/// <summary>
+/// "Double the number of +1/+1 counters on target creature" (CR 121.3).
+/// </summary>
+/// <remarks>
+/// Doubling is putting on as many as are already there, so it is one <see cref="CountersChanged"/>
+/// per kind and needs no event of its own. It cannot be written as a <see cref="PutCounters"/>
+/// with a counted <see cref="Amount"/>, and the reason is the un-named form: "double the number of
+/// <em>each kind</em> of counter" is one instruction over a set the compiler cannot know, because
+/// which kinds a permanent carries is a fact of the board at the moment it resolves.
+/// <para>
+/// The count is read off the permanent rather than off the computed characteristics, for the
+/// reason every other counter reader here does: a counter is a thing sitting on an object
+/// (CR 122.1), not a characteristic, and nothing in CR 613 puts one there.
+/// </para>
+/// <para>
+/// A permanent with none of the named kind gets nothing rather than one - doubling zero is zero,
+/// and the ordinary reading of "double" would otherwise quietly become "put one on".
+/// </para>
+/// </remarks>
+public sealed record DoubleCounters(
+    string? Kind = null,
+    int TargetIndex = 0,
+    EffectSubject Subject = EffectSubject.Target) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } on)
+            return [];
+
+        // Counters live on permanents and the reducer refuses one anywhere else, so an object
+        // that has left the battlefield since the ability went on the stack is checked for here
+        // rather than discovered there - the same guard PutCounters carries, for the same reason.
+        if (!context.State.TryGetObject(on, out var subject)
+            || subject.Zone != Zone.Battlefield
+            || subject.Permanent is not { } permanent)
+        {
+            return [];
+        }
+
+        // Ordered, because the log is replayed and two events differing only in order would
+        // make a game that does not fold back to itself.
+        var doubled = new List<GameEvent>();
+
+        foreach (var held in permanent.Counters.OrderBy(c => c.Key, StringComparer.Ordinal))
+        {
+            if (held.Value <= 0)
+                continue;
+
+            if (Kind is { } named && !string.Equals(held.Key, named, StringComparison.Ordinal))
+                continue;
+
+            doubled.Add(new CountersChanged(on, held.Key, held.Value));
+        }
+
+        return doubled;
     }
 }
 
@@ -4173,6 +4266,59 @@ public sealed record ChangeLifeOfEach(Amount Amount, PlayerScope Scope) : IEffec
                 new LifeChanged(
                     who, Amount.In(context), context.State.GetPlayer(who).Life + Amount.In(context))),
         ];
+    }
+}
+
+/// <summary>
+/// "You lose half your life, rounded up" (CR 119.3, 107.15).
+/// </summary>
+/// <remarks>
+/// It cannot be an <see cref="Amount"/>, and that is the whole reason this is an effect of its
+/// own. An amount is one number handed to every player the sentence names; half a life total is
+/// a different number for each of them, taken when the effect resolves. "Each player loses half
+/// their life" at 20 and 7 is ten and four, and any single number is wrong for one of them.
+/// <para>
+/// The rounding is read from the card rather than assumed, because CR 107.15 leaves it to the
+/// card to say and the two answers differ on every odd life total - which is most of them. A
+/// sentence that does not say is left unread.
+/// </para>
+/// <para>
+/// A player already at or below nothing loses nothing rather than gaining some back. Half of a
+/// negative total is a negative loss, and a life <em>gain</em> is not what this sentence says;
+/// the state-based action has that player anyway (CR 704.5a).
+/// </para>
+/// </remarks>
+public sealed record LoseHalfLife(
+    PlayerScope Scope = PlayerScope.You,
+    bool RoundUp = true,
+    int? TargetIndex = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // A named target wins outright over a scope, the same way it does for drawing and
+        // discarding: the sentence named one player and the scope named none.
+        var told = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed
+                ? (IEnumerable<Guid>)[aimed.Player]
+                : []
+            : PlayerScopes.Resolve(Scope, context);
+
+        var lost = new List<GameEvent>();
+
+        foreach (var who in told)
+        {
+            var life = context.State.GetPlayer(who).Life;
+            var half = RoundUp ? (life + 1) / 2 : life / 2;
+
+            if (half <= 0)
+                continue;
+
+            lost.Add(new LifeChanged(who, -half, life - half));
+        }
+
+        return lost;
     }
 }
 
