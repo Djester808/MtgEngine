@@ -9343,7 +9343,10 @@ public static partial class CardCompiler
 
         into.Add(new ContinuousEffectDefinition
         {
-            Id = $"attached-count:{card.Name}:{power}/{toughness}:{what}:{line.GetHashCode(StringComparison.Ordinal)}",
+            // Through the shared hash, not string.GetHashCode: that one is randomised per process
+            // on .NET Core, so this id was a different string every run. EffectPhrase.StableHash
+            // carries the reason it must not be.
+            Id = $"attached-count:{card.Name}:{power}/{toughness}:{what}:{EffectPhrase.StableHash(line)}",
             Layer = EffectLayer.PowerToughnessModify,
             Applies = attached
                 ? (_, source, target) =>
@@ -10660,6 +10663,32 @@ public static partial class CardCompiler
             ? EffectPhrase.SingularWord(m.Groups["subtype"].Value.Trim())
             : null;
 
+        // The tribe slot is "a capitalised word", and so is every adjective that can stand in
+        // front of this noun - which is the bug <see cref="ReadStaticGroup"/> was written to end
+        // for the lord beside this reader, still standing here because this one keeps its own
+        // noun grammar in its own pattern. "Green creatures have "Cumulative upkeep {1}"" and
+        // "Nontoken creatures you control have "..."" each compiled to a lord for a creature type
+        // no card has, granted the ability to nobody, and read as complete.
+        //
+        // The word goes through the same three-answer vocabulary the lord uses: a filter is
+        // applied beside the tribe test below, an adjective this cannot answer leaves the line
+        // unread rather than guessing, and anything it does not recognise stays a tribe.
+        Func<GameState, CharacteristicsBuilder, bool>? adjective = null;
+
+        if (m.Groups["subtype"].Success)
+        {
+            var (isAdjective, filter) = GroupAdjective(m.Groups["subtype"].Value.Trim());
+
+            if (isAdjective)
+            {
+                if (filter is null)
+                    return false;
+
+                adjective = filter;
+                subtype = null;
+            }
+        }
+
         // "Lands you control have ..." is not "permanents you control have ...", and until the
         // noun was read this filter never asked: it checked the tribe and who controlled it and
         // handed the ability to every permanent that passed. Reading the noun and then ignoring
@@ -10714,6 +10743,12 @@ public static partial class CardCompiler
                     return source.Permanent?.AttachedTo == target.Subject.Id;
 
                 if (subtype is not null && !target.IsEveryCreatureType && !target.HasSubtype(subtype))
+                    return false;
+
+                // The adjective in the same slot, asked the same way the lord asks it and from
+                // inside the layer loop for the same reason: a finished set of characteristics
+                // would re-enter the computation this test is part of.
+                if (adjective is { } describes && !describes(state, target))
                     return false;
 
                 // A named tribe is a creature type, so a bare one carries the creature

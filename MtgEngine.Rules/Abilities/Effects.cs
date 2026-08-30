@@ -3423,37 +3423,14 @@ public sealed record EndSourceEffect(string DefinitionId) : IEffect
     }
 }
 
-/// <summary>
-/// Gives every creature its controller controls +N/+N until end of turn (CR 613.4).
-/// </summary>
-/// <remarks>
-/// The set is fixed as the effect resolves, not re-evaluated afterwards: a creature that arrives
-/// later does not get the bonus, which is what "creatures you control get" means as a one-shot
-/// (CR 611.2c). A static anthem is a different thing and is a continuous effect on the source.
-/// </remarks>
-public sealed record PumpCreaturesYouControl(string DefinitionId) : IEffect
-{
-    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        var affected = context.State.Battlefield
-            .Select(context.State.GetObject)
-            .Where(o => o.ControllerId == context.ControllerId
-                && Characteristics.IsCreature(context.State, context.Abilities, o))
-            .Select(o => o.Id)
-            .ToImmutableList();
-
-        if (affected.IsEmpty)
-            return [];
-
-        return
-        [
-            new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, affected, context.State.TurnNumber),
-        ];
-    }
-}
+// "Creatures you control get +N/+N until end of turn" was compiled to a PumpCreaturesYouControl
+// by a reader that nothing could reach - EffectPhrase.MassPumpLine claims the sentence first and
+// builds a PumpGroup over a parsed spec. The effect went with its only producer, and it was worth
+// going: it selected its creatures by reading obj.ControllerId, which is where control *started*
+// rather than where it is (CR 613.1b), so a creature stolen this turn would have been pumped by
+// its old controller's spell. The reader that survives asks the group vocabulary, which asks
+// Game.ControllerOf. A second implementation nothing runs is a second implementation nothing
+// tests.
 
 /// <summary>
 /// Puts a regeneration shield on the source (CR 701.19).
