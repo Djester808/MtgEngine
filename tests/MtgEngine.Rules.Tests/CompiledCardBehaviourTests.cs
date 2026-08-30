@@ -46850,6 +46850,272 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Buried Blade Test");
     }
 
+    // ---- One vocabulary, read the same way by every grammar (CR 109.4, 310.1) ----
+
+    /// <summary>
+    /// The adjectives a search phrase reads are the adjectives a graveyard phrase reads.
+    /// </summary>
+    /// <remarks>
+    /// The graveyard reader had a private adjective vocabulary of exactly one word - "nonland" -
+    /// beside a shared card-filter vocabulary that has known the colours, the supertypes, the
+    /// negations and the conjunctions for as long as searches have existed, and its own pattern
+    /// admitted a single noun. So "target legendary creature card from your graveyard" never
+    /// reached a reader at all: the phrase did not match, and nothing got the chance to refuse it
+    /// for a word the compiler already knew. Sixteen corpus cards print an adjective in this slot.
+    /// </remarks>
+    [Fact]
+    public void An_adjective_in_a_graveyard_phrase_narrows_it_like_a_search_filter()
+    {
+        var rebirth = Card(
+            "Legend Rebirth Test",
+            "Return target legendary creature card from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rebirth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var legend = game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-buried-legend-test",
+                Name = "Buried Legend Test",
+                CardTypes = CardType.Creature,
+                Supertypes = ["Legendary"],
+                Power = 2,
+                Toughness = 2,
+            },
+            Zone.Graveyard);
+
+        var ordinary = game.Create(
+            alice, TestCards.Creature("Buried Commoner Test"), Zone.Graveyard);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        // The adjective is the whole of the restriction: an ordinary creature card in the same
+        // graveyard is not a legal target, which is what tells this apart from the phrase
+        // without it.
+        var wrong = TestCards.PutInHand(game, alice, rebirth);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(ordinary)]));
+
+        var card = TestCards.PutInHand(game, alice, rebirth);
+        game.CastSpell(alice, card, [Target.ToCard(legend)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Buried Legend Test");
+    }
+
+    /// <summary>
+    /// A search may name one adjective and no type at all.
+    /// </summary>
+    /// <remarks>
+    /// The filter vocabulary is asked for a phrase of at least <em>two</em> words by the search
+    /// reader and of at least one by the reader that describes a spell on the stack, and nothing
+    /// but the number differed - so "counter target red spell" was read while "search your
+    /// library for a red card" was not. One word is a card type or a subtype nearly always, and
+    /// both of those are answered before this; the case the second word was excluding was the
+    /// bare adjective, which is the only case it was ever asked about.
+    /// </remarks>
+    [Fact]
+    public void A_search_may_name_a_colour_with_no_type_beside_it()
+    {
+        var raid = Card(
+            "Crimson Raid Test",
+            "Search your library for a red card, reveal it, put it into your hand, then shuffle.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(raid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal("red", compiled.Spell!.Effects.OfType<SearchLibrary>().Single().FilterId);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Coloured("Raid Blue Bear Test", ManaColor.Blue), Zone.Library);
+        game.Create(alice, Coloured("Raid Red Bear Test", ManaColor.Red), Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, raid);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        // The colour is a real filter and not a word that was skipped: the blue creature in the
+        // same library is not what the search may take.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Raid Red Bear Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Raid Blue Bear Test");
+    }
+
+    /// <summary>
+    /// A sweeper reads the hyphenated adjectives a target phrase reads.
+    /// </summary>
+    /// <remarks>
+    /// The target grammar's noun class has carried the hyphen for months, with a comment beside
+    /// it saying two spellings of one sentence should not read differently - and the group
+    /// classes next to it did not have it. So "destroy target non-Elf creature" was read and
+    /// "destroy all non-Elf creatures" was not: the phrase could not even be captured out of the
+    /// sentence, so the adjective vocabulary that answers it was never asked. Thirty-eight corpus
+    /// cards name a hyphenated adjective in front of a plural noun.
+    /// </remarks>
+    [Fact]
+    public void A_sweeper_may_name_a_negated_creature_type()
+    {
+        var purge = Card(
+            "Elf Purge Test", "Destroy all non-Elf creatures.", CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(purge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var elf = game.Create(
+            alice,
+            Card("Purge Elf Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Elf"),
+            Zone.Battlefield);
+
+        var goblin = game.Create(
+            bob,
+            Card(
+                "Purge Goblin Test",
+                string.Empty,
+                CardType.Creature,
+                2,
+                2,
+                KeywordAbility.None,
+                "Goblin"),
+            Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, purge);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        Assert.Contains(elf, game.State.Battlefield);
+        Assert.DoesNotContain(goblin, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// And so does a lord, which had the same hole one grammar further in.
+    /// </summary>
+    /// <remarks>
+    /// Two things had to be true for "Non-Elf creatures you control get +1/+1" to read, and
+    /// neither was: the static reader's noun class stopped at the hyphen, so the phrase came out
+    /// as the word "Non"; and the adjective vocabulary it hands the phrase to answered a negated
+    /// card type and a negated colour but not a negated creature type, which is what the hyphen
+    /// says (CR 702.73a settles the awkward case - a changeling is every creature type, so it is
+    /// a non-Elf no more than it is a non-Wall). Widening the first alone would have been worse
+    /// than leaving it: the phrase would have reached the tribe reading and become a lord for a
+    /// creature type spelled "Non-Elf", which no card has, compiling as complete and pumping
+    /// nothing.
+    /// </remarks>
+    [Fact]
+    public void A_lord_may_name_a_negated_creature_type()
+    {
+        var banner = Card(
+            "Outsider Banner Test",
+            "Non-Elf creatures you control get +1/+1.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(banner);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, banner, Zone.Battlefield);
+
+        var elf = game.Create(
+            alice,
+            Card(
+                "Banner Elf Test",
+                string.Empty,
+                CardType.Creature,
+                2,
+                2,
+                KeywordAbility.None,
+                "Elf"),
+            Zone.Battlefield);
+
+        var other = game.Create(
+            alice, TestCards.Creature("Banner Outsider Test", 2, 2), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Banner Their Outsider Test", 2, 2), Zone.Battlefield);
+
+        Settle(game);
+
+        var pool = new CompiledPool();
+
+        Assert.Equal(2, Characteristics.PowerOf(game.State, pool, game.State.GetObject(elf)));
+        Assert.Equal(3, Characteristics.PowerOf(game.State, pool, game.State.GetObject(other)));
+        Assert.Equal(2, Characteristics.PowerOf(game.State, pool, game.State.GetObject(theirs)));
+    }
+
+    /// <summary>
+    /// A battle is a permanent, and the type tables now say so (CR 110.4a, 310.1).
+    /// </summary>
+    /// <remarks>
+    /// The target grammar's noun alternation had spelled out "battle or X" for months while the
+    /// table behind it had no entry for the word, so every one of those alternatives was dead the
+    /// moment it matched. Zero cards were blocked by it, which is exactly why it is worth
+    /// closing: a pattern that says a word is read and a table that says it is not is where the
+    /// next divergence starts, and the same missing entry really was blocking the graveyard
+    /// phrase one reader over.
+    /// </remarks>
+    [Fact]
+    public void A_graveyard_phrase_may_name_a_battle_beside_a_creature()
+    {
+        var escort = Card(
+            "Wildwood Escort Test",
+            "Return target creature or battle card from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(escort);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var battle = game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-buried-siege-test",
+                Name = "Buried Siege Test",
+                CardTypes = CardType.Battle,
+                Subtypes = ["Siege"],
+            },
+            Zone.Graveyard);
+
+        var land = game.Create(alice, TestCards.BasicLand("Buried Waste Test"), Zone.Graveyard);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+
+        // Either type will do and nothing else will: a land card in the same graveyard answers
+        // to neither half.
+        var wrong = TestCards.PutInHand(game, alice, escort);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(land)]));
+
+        var card = TestCards.PutInHand(game, alice, escort);
+        game.CastSpell(alice, card, [Target.ToCard(battle)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Buried Siege Test");
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

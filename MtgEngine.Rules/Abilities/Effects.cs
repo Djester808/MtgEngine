@@ -6470,6 +6470,20 @@ public static class SearchFilters
         if (string.Equals(filterId, "monocolored", StringComparison.Ordinal))
             return card.Colors.Count == 1;
 
+        // "Historic" is legendary, artifact or Saga (CR 205.4h) - three unrelated things under
+        // one word, so it cannot be a supertype lookup or a type lookup and has to be asked
+        // whole. Two other readers in this compiler have answered it for as long as they have
+        // existed - the permanent adjective vocabulary and the one that describes a spell being
+        // cast - and this one, which decides what a search, a hand filter or a count of a
+        // graveyard may name, had never been told. So "exile target historic card from your
+        // graveyard" was refused one reader along from "whenever you cast a historic spell".
+        if (string.Equals(filterId, "historic", StringComparison.Ordinal))
+        {
+            return card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase)
+                || card.CardTypes.HasFlag(Domain.Enums.CardType.Artifact)
+                || card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase);
+        }
+
         // A capitalised name is a subtype — "Forest", "Goblin", "Equipment".
         return card.Subtypes.Contains(filterId, StringComparer.OrdinalIgnoreCase);
     }
