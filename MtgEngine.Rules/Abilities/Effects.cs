@@ -4075,6 +4075,28 @@ public enum PlayerScope
     TriggerSubject,
 
     /// <summary>
+    /// The player this spell or ability has already named - "that player's hand" (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// A possessive points back at a player the same text has picked out, and text does that two
+    /// ways: by targeting one, and by being a trigger whose event was about one. The target is
+    /// asked first, because a target is named by the ability's own words and a trigger subject
+    /// only by its condition - so on "target player mills three cards ... the number of instant
+    /// and sorcery cards in that player's graveyard" the target is the later of the two and the
+    /// one the pronoun means. Asked the other way round that card counts the graveyard of
+    /// whoever the "when this enters" trigger was about, which is its own controller: a card
+    /// that reads perfectly and counts the wrong pile.
+    /// <para>
+    /// Exactly one player among the targets, or none at all. Two would make the pronoun
+    /// ambiguous, and naming nobody is the honest answer where naming the first would be a
+    /// guess. Distinct from <see cref="TriggerSubject"/>, which is what a template that writes
+    /// its own ability text uses when it knows the pronoun means the event: this one is what a
+    /// <em>printed</em> pronoun compiles to, where the compiler has to work out which.
+    /// </para>
+    /// </remarks>
+    NamedPlayer,
+
+    /// <summary>
     /// The player the source is attacking - "defending player" (CR 506.2).
     /// </summary>
     /// <remarks>
@@ -4124,7 +4146,12 @@ internal static class PlayerScopes
             PlayerScope.You => [context.ControllerId],
             // Followed forward if the permanent has since moved on (CR 400.7): a creature that
             // died still names whoever controlled it.
-            PlayerScope.SubjectController => context.SubjectObject is { } about
+            // The target first and the trigger's object only behind it, for the reason
+            // NamedPlayer gives about players: "destroy target creature. Its controller
+            // discards a card" names the creature this spell chose, and a spell has no
+            // triggering object at all.
+            PlayerScope.SubjectController =>
+                (TargetedObject(context) ?? context.SubjectObject) is { } about
                 && (context.State.TryGetObject(about, out var owner)
                     ? owner
                     : context.ObjectBehind?.Invoke(about)) is { } found
@@ -4135,6 +4162,15 @@ internal static class PlayerScopes
                 && context.State.Players.ContainsKey(subject)
                 ? [subject]
                 : [],
+
+            // The target first and the trigger's subject only behind it - see the enum member
+            // for why that order is the whole of the rule.
+            PlayerScope.NamedPlayer => TargetedPlayer(context) is { } named
+                ? [named]
+                : context.SubjectPlayer is { } behind
+                    && context.State.Players.ContainsKey(behind)
+                    ? [behind]
+                    : [],
 
             // Read off the physical source — the spell on the stack while it resolves, or the
             // permanent its gift trigger belongs to — and followed behind if the object has
@@ -4171,6 +4207,64 @@ internal static class PlayerScopes
                 .Where(id => id != context.ControllerId && !context.State.GetPlayer(id).HasLost),
             _ => context.State.ApnapOrder().Where(id => !context.State.GetPlayer(id).HasLost),
         };
+
+    /// <summary>
+    /// The one player among a spell's chosen targets, or null when there is not exactly one.
+    /// </summary>
+    /// <remarks>
+    /// A permanent target names no player at all - its <see cref="Target.Player"/> is empty - so
+    /// only the player-shaped targets are counted, "any target" among them when it was aimed at
+    /// a seat rather than at a creature (CR 115.4). Two different players is not an answer: the
+    /// pronoun would be ambiguous and this returns null rather than taking the first.
+    /// </remarks>
+    private static Guid? TargetedPlayer(ResolutionContext context)
+    {
+        Guid? only = null;
+
+        foreach (var target in context.Targets)
+        {
+            if (target.Kind is not (TargetKind.Player or TargetKind.Any)
+                || target.Player == Guid.Empty)
+            {
+                continue;
+            }
+
+            if (only is { } already && already != target.Player)
+                return null;
+
+            only = target.Player;
+        }
+
+        return only is { } chosen && context.State.Players.ContainsKey(chosen) ? chosen : null;
+    }
+
+    /// <summary>
+    /// The one object among a spell's chosen targets, or null when there is not exactly one.
+    /// </summary>
+    /// <remarks>
+    /// The twin of <see cref="TargetedPlayer"/>, and it counts the other three kinds: a
+    /// permanent, a spell on the stack, a card in a graveyard, and "any target" when it was
+    /// aimed at one of those rather than at a seat. Two different objects is not an answer for
+    /// the same reason two players are not - "its" would be ambiguous, and the honest reply is
+    /// nobody rather than the first one chosen.
+    /// </remarks>
+    private static ObjectId? TargetedObject(ResolutionContext context)
+    {
+        ObjectId? only = null;
+
+        foreach (var target in context.Targets)
+        {
+            if (target.Kind is TargetKind.Player || target.Subject == default)
+                continue;
+
+            if (only is { } already && already != target.Subject)
+                return null;
+
+            only = target.Subject;
+        }
+
+        return only;
+    }
 
     /// <summary>
     /// The same question asked of a permanent rather than of a resolving spell or ability.

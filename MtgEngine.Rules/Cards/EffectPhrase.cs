@@ -1553,22 +1553,22 @@ public static partial class EffectPhrase
         ImmutableList<IEffect>.Builder effects,
         bool objectNamedByTrigger = false)
     {
-        // "Its controller", "that creature's controller" — a player named off the triggering
-        // event rather than off a target (CR 603.2), and the same pronoun discipline the object
-        // vocabulary uses. Two things have to be true or the phrase names nobody:
+        // "Its controller", "that creature's controller" — a player named by something this same
+        // spell or ability has already picked out, and the same pronoun discipline the object
+        // vocabulary uses. One of two things has to be true or the phrase names nobody:
         //
-        // - Nothing may have been targeted. "Counter target spell. Its controller mills four
-        //   cards" is about the spell's controller, and matchers below already read that shape
-        //   with the target's controller in mind.
-        // - The trigger has to be one whose event carries an object, which is the same
-        //   allow-list that decides whether "that creature" may be read at all.
+        // - Something has been targeted. "Counter target spell. Its controller discards a card"
+        //   is about the spell this spell chose, and the scope resolves the target before it
+        //   looks at any trigger, so the two arms cannot disagree about which object is meant.
+        // - Or the trigger is one whose event carries an object, which is the same allow-list
+        //   that decides whether "that creature" may be read at all.
         //
-        // Only when both hold is the phrase rewritten into the one word the shared player
-        // vocabulary knows. Rewriting rather than refusing is deliberate: a refusal here took
-        // thirty-seven cards away from matchers that have their own grammar for these words and
-        // had been reading them correctly for months, and a rewrite is invisible to every one of
-        // them because it never happens on the sentences they take.
-        if (targets.Count == 0 && objectNamedByTrigger)
+        // The first arm used to be a refusal - a target meant the phrase was left alone - because
+        // matchers below read that shape with the target's controller in mind and a rewrite took
+        // thirty-seven cards away from them. What made it safe to lift is that the phrase they
+        // test for now includes the rewritten spelling, so the rewrite is invisible to them
+        // exactly as it was when it never happened on their sentences.
+        if (objectNamedByTrigger || targets.Count > 0)
             sentence = SubjectControllerPhrase().Replace(sentence, SubjectControllerWord, 1);
 
         // "Have target opponent discard a card" - the causative, which reaches here with the
@@ -7210,10 +7210,32 @@ public static partial class EffectPhrase
             : null;
 
     /// <summary>"Its controller", "that creature's controller" - as a subject, and after a target.</summary>
-    [GeneratedRegex(@"^(its|that [a-z]+'s) controller$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^" + ItsController + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex TargetsControllerWords();
 
-    private static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch
+    /// <summary>
+    /// Whether a scope is one the board alone settles, with no resolution to ask.
+    /// </summary>
+    /// <remarks>
+    /// The same four <see cref="PlayerScopes.Around"/> answers, and named here rather than
+    /// spelled out so the two cannot come apart: a scope this says yes to and that method
+    /// answers with nothing is a count of zero wearing a complete card.
+    /// </remarks>
+    internal static bool SettledByTheBoard(PlayerScope scope) => scope
+        is PlayerScope.You
+        or PlayerScope.EachPlayer
+        or PlayerScope.EachOpponent
+        or PlayerScope.EachOtherPlayer;
+
+    /// <summary>Whether a caller at this distance can find the seat a possessive names.</summary>
+    internal static bool Reaches(CountSeats seats, PlayerScope whose) => seats switch
+    {
+        CountSeats.Resolution => true,
+        CountSeats.Host => SettledByTheBoard(whose) || whose is PlayerScope.SubjectController,
+        _ => SettledByTheBoard(whose),
+    };
+
+    internal static PlayerScope ScopeOf(string word) => word.ToLowerInvariant() switch
     {
         "each opponent" => PlayerScope.EachOpponent,
         "each other player" => PlayerScope.EachOtherPlayer,
@@ -7237,6 +7259,19 @@ public static partial class EffectPhrase
     private const string SubjectControllerWord = "the subject's controller";
 
     /// <summary>
+    /// Every spelling of "the controller of the thing this sentence has just named".
+    /// </summary>
+    /// <remarks>
+    /// Four readers test for this phrase and each had written its own list: one took any noun,
+    /// one took three named ones, none of them took the rewritten form. They are one list here
+    /// because the rewrite below turns the printed spellings into a fourth, and a reader that
+    /// does not know the fourth silently stops recognising its own clause the moment the rewrite
+    /// runs on a sentence it used to get first - which is the "widened reader steals a
+    /// neighbour's clause" failure this file records, and which this round caused and caught.
+    /// </remarks>
+    private const string ItsController = @"(its|that [a-z]+'s|the subject's) controller";
+
+    /// <summary>
     /// Those words as the <em>subject</em> of a sentence, which is the only place they name a
     /// player rather than qualify something else.
     /// </summary>
@@ -7245,8 +7280,13 @@ public static partial class EffectPhrase
     /// its controller's next untap step" carries the same words in the middle of a sentence
     /// about something else, and a pattern matching them anywhere reached ninety-eight cards
     /// that were never this reader's business.
+    /// <para>
+    /// The word the rewrite produces is one of the alternatives, which makes the rewrite
+    /// idempotent - and idempotence is what lets every reader downstream test for the same
+    /// phrase whether or not the rewrite has already been over the sentence.
+    /// </para>
     /// </remarks>
-    [GeneratedRegex(@"^(its|that [a-z]+'s) controller\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^" + ItsController + @"\b", RegexOptions.IgnoreCase)]
     private static partial Regex SubjectControllerPhrase();
 
     /// <summary>
@@ -7874,11 +7914,61 @@ public static partial class EffectPhrase
     /// The permanent a phrase saying "it" points at. Only meaningful when the caller had one to
     /// give; see the <c>hasSource</c> argument of <see cref="Counting"/>.
     /// </param>
+    /// <param name="players">
+    /// Who a possessive names, when the caller is in a position to say. Null from a caller that
+    /// is not; see the <c>seats</c> argument of <see cref="Counting"/>.
+    /// </param>
     internal delegate int CountFn(
-        GameState state, IAbilitySource abilities, Guid you, ObjectId source);
+        GameState state,
+        IAbilitySource abilities,
+        Guid you,
+        ObjectId source,
+        PlayerLookup? players);
+
+    /// <summary>
+    /// The players a scope names, answered by whoever is asking the count (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// A count phrase can name a player - "the number of cards in that player's hand" - and the
+    /// four things a count is handed cannot answer that: "you" is the controller and a scope
+    /// like <see cref="PlayerScope.NamedPlayer"/> is decided by a resolution's targets. So the
+    /// question is passed back to the caller, which is the only party that knows. Everything
+    /// answerable from the board alone is answered by <see cref="PlayerScopes.Around"/> without
+    /// one, so a caller that has nothing to give still counts every phrase it could before.
+    /// </remarks>
+    internal delegate IEnumerable<Guid> PlayerLookup(PlayerScope scope);
+
+    /// <summary>
+    /// How far a caller's answer to <see cref="PlayerLookup"/> reaches (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// One statement of what the caller can say rather than a bool per relation, because the
+    /// three callers genuinely reach three distances and a pair of bools would eventually be set
+    /// in a combination nobody meant. A count refused for naming a seat its caller cannot find
+    /// is a line left unread; a count *allowed* there comes back as nought on a card that
+    /// compiled, which is the failure this whole vocabulary exists to avoid.
+    /// </remarks>
+    internal enum CountSeats
+    {
+        /// <summary>Only what the board settles: you, each player, each opponent, each other.</summary>
+        Board,
+
+        /// <summary>
+        /// The board, plus "its controller" - what an <em>attached</em> continuous effect knows.
+        /// </summary>
+        /// <remarks>
+        /// An Aura's "its controller" is the controller of the permanent it is on, and the
+        /// permanent whose characteristics are being computed is exactly that one. No resolution
+        /// is involved and none is needed.
+        /// </remarks>
+        Host,
+
+        /// <summary>Everything, because a resolution has the targets and the trigger's subject.</summary>
+        Resolution,
+    }
 
     private static Amount? CountingAmount(Amount each, string groupPhrase) =>
-        Counting(groupPhrase, hasSource: true) is not { } count
+        Counting(groupPhrase, hasSource: true, CountSeats.Resolution) is not { } count
             ? null
             : each with
             {
@@ -7886,7 +7976,8 @@ public static partial class EffectPhrase
                     context.State,
                     context.Abilities,
                     context.ControllerId,
-                    context.PhysicalSourceId),
+                    context.PhysicalSourceId,
+                    scope => PlayerScopes.Resolve(scope, context)),
             };
 
     /// <summary>
@@ -7900,7 +7991,12 @@ public static partial class EffectPhrase
     /// that quietly comes out as nought is the failure this whole vocabulary exists to avoid,
     /// and it compiles as a complete card while doing nothing.
     /// </param>
-    internal static CountFn? Counting(string groupPhrase, bool hasSource)
+    /// <param name="seats">
+    /// Which possessives the caller is in a position to answer - the twin of
+    /// <paramref name="hasSource"/>, and refused the same way rather than answered with zero.
+    /// </param>
+    internal static CountFn? Counting(
+        string groupPhrase, bool hasSource, CountSeats seats = CountSeats.Board)
     {
         ArgumentNullException.ThrowIfNull(groupPhrase);
 
@@ -7944,14 +8040,14 @@ public static partial class EffectPhrase
         if (people.Equals("opponent", StringComparison.OrdinalIgnoreCase)
             || people.Equals("opponents", StringComparison.OrdinalIgnoreCase))
         {
-            return (state, _, you, _) => state.TurnOrder.Count(
+            return (state, _, you, _, _) => state.TurnOrder.Count(
                 id => id != you && !state.GetPlayer(id).HasLost);
         }
 
         if (people.Equals("player", StringComparison.OrdinalIgnoreCase)
             || people.Equals("players", StringComparison.OrdinalIgnoreCase))
         {
-            return (state, _, _, _) => state.TurnOrder.Count(
+            return (state, _, _, _, _) => state.TurnOrder.Count(
                 id => !state.GetPlayer(id).HasLost);
         }
 
@@ -7963,7 +8059,7 @@ public static partial class EffectPhrase
             if (!hasSource)
                 return null;
 
-            return (state, _, _, source) =>
+            return (state, _, _, source, _) =>
                 state.TryGetObject(source, out var kickedSpell) ? kickedSpell.TimesKicked : 0;
         }
 
@@ -7972,13 +8068,13 @@ public static partial class EffectPhrase
         // below: that one looks for "counters on" something, and this one has nothing to be on.
         // The "you have" has already come off with the possessive tail above.
         if (ExperienceCountersLine().IsMatch(people))
-            return (state, _, you, _) => state.GetPlayer(you).ExperienceCounters;
+            return (state, _, you, _, _) => state.GetPlayer(you).ExperienceCounters;
 
         // "For each card you've drawn this turn" (CR 121.1). The player already keeps the tally,
         // because a draw is an event and the fold counts them; nothing here has to remember which
         // cards they were, and a card that has since been discarded still counts.
         if (CardsDrawnThisTurnLine().IsMatch(people))
-            return (state, _, you, _) => state.GetPlayer(you).CardsDrawnThisTurn;
+            return (state, _, you, _, _) => state.GetPlayer(you).CardsDrawnThisTurn;
 
         // "For each creature that died this turn" (CR 700.4) - battlefield to graveyard and
         // nothing else, so a creature exiled or bounced this turn is not counted. Game-wide and
@@ -7991,7 +8087,7 @@ public static partial class EffectPhrase
             // every one of them.
             var nontokenOnly = died.Groups["nontoken"].Success;
 
-            return (state, _, _, _) => state.CreaturesDiedThisTurn(nontokenOnly);
+            return (state, _, _, _, _) => state.CreaturesDiedThisTurn(nontokenOnly);
         }
 
         // "For each creature in your party" (CR 700.8) - not a count of creatures at all: a party
@@ -8007,7 +8103,7 @@ public static partial class EffectPhrase
         // attacking you, even though the defending player is you either way.
         if (CreaturesAttackingYouLine().IsMatch(people))
         {
-            return (state, _, you, _) => state.Battlefield.Count(
+            return (state, _, you, _, _) => state.Battlefield.Count(
                 id => state.Combat.Attackers.TryGetValue(id, out var at)
                     && at.DefendingPlayer == you
                     && !at.IsPlaneswalker);
@@ -8026,7 +8122,7 @@ public static partial class EffectPhrase
 
             var kind = counters.Groups["kind"].Value.Trim();
 
-            return (state, _, _, source) =>
+            return (state, _, _, source, _) =>
             {
                 if (!state.TryGetObject(source, out var bearing)
                     || bearing.Permanent is not { } onIt)
@@ -8065,7 +8161,7 @@ public static partial class EffectPhrase
                 .Where(word => word.Length > 0)
                 .ToArray();
 
-            return (state, abilities, _, source) => state.Battlefield.Count(id =>
+            return (state, abilities, _, source, _) => state.Battlefield.Count(id =>
             {
                 var onIt = state.GetObject(id);
 
@@ -8094,7 +8190,7 @@ public static partial class EffectPhrase
         // dual-land cycles these appear beside are for.
         if (DomainPhrase().IsMatch(people))
         {
-            return (state, abilities, you, _) => BasicLandTypes.Count(
+            return (state, abilities, you, _, _) => BasicLandTypes.Count(
                 type => state.Battlefield.Any(id =>
                 {
                     var land = state.GetObject(id);
@@ -8120,7 +8216,7 @@ public static partial class EffectPhrase
             if (DevotionColours(devoted) is not { } wanted)
                 return null;
 
-            return (state, abilities, you, _) => DevotionTo(state, abilities, you, wanted);
+            return (state, abilities, you, _, _) => DevotionTo(state, abilities, you, wanted);
         }
 
         // "The number of colors among permanents you control" - like domain above, this counts
@@ -8135,7 +8231,7 @@ public static partial class EffectPhrase
             && Specs.ParseGroup("each " + hues.Groups["group"].Value.Trim()) is
             { Kind: TargetKind.Permanent } among)
         {
-            return (state, abilities, you, _) =>
+            return (state, abilities, you, _, _) =>
             {
                 var seen = new HashSet<ManaColor>();
 
@@ -8165,7 +8261,7 @@ public static partial class EffectPhrase
             && Specs.ParseGroup("each " + distinct.Groups["group"].Value.Trim()) is
             { Kind: TargetKind.Permanent } byName)
         {
-            return (state, abilities, you, _) =>
+            return (state, abilities, you, _, _) =>
             {
                 var names = new HashSet<string>(StringComparer.Ordinal);
 
@@ -8228,13 +8324,23 @@ public static partial class EffectPhrase
                 types = [.. alternatives.Select(set => set!.ToArray())];
             }
 
-            var mine = pile.Groups["whose"].Value.StartsWith(
-                "your", StringComparison.OrdinalIgnoreCase);
+            // Whose pile, through the shared possessive vocabulary rather than through a
+            // StartsWith("your") that answered "everybody" to every other word there is. That
+            // reading was safe only while the list beside it held three entries; the moment the
+            // list is shared it would count all five graveyards for "that player's".
+            var whose = PossessiveScopeOf(pile.Groups["whose"].Value);
+
+            // A pile belonging to a player the sentence named is unanswerable without the
+            // resolution that named them, and a count that quietly comes out as nought is the
+            // failure this whole vocabulary exists to avoid - so the phrase is refused here
+            // instead, exactly as a phrase needing a source is.
+            if (!Reaches(seats, whose))
+                return null;
 
             var named = pile.Groups["zone"].Value.ToLowerInvariant();
 
-            return (state, _, you, _) => state.TurnOrder
-                .Where(who => !mine || who == you)
+            return (state, _, you, _, players) =>
+                (players is null ? PlayerScopes.Around(whose, state, you) : players(whose))
                 .Sum(who =>
                 {
                     var player = state.GetPlayer(who);
@@ -8256,7 +8362,7 @@ public static partial class EffectPhrase
         if (Specs.ParseGroup(phrase) is not { Kind: TargetKind.Permanent } counted)
             return null;
 
-        return (state, abilities, you, _) => state.Battlefield.Count(
+        return (state, abilities, you, _, _) => state.Battlefield.Count(
             id => counted.ObjectFilter?.Invoke(
                 state, abilities, state.GetObject(id), you) != false);
     }
@@ -8355,9 +8461,10 @@ public static partial class EffectPhrase
     /// answer to the same rule.
     /// </summary>
     internal static int PartySizeFor(GameState state, IAbilitySource abilities, Guid you) =>
-        PartySize(state, abilities, you, default);
+        PartySize(state, abilities, you, default, null);
 
-    private static int PartySize(GameState state, IAbilitySource abilities, Guid you, ObjectId _)
+    private static int PartySize(
+        GameState state, IAbilitySource abilities, Guid you, ObjectId _, PlayerLookup? _players)
     {
         var candidates = state.Battlefield
             .Select(state.GetObject)
@@ -10860,7 +10967,7 @@ public static partial class EffectPhrase
     /// the tail of a tutor, where a stray subject would be a different instruction.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>each player|target player) shuffles "
+        @"^" + WOrTarget + @" shuffles "
             + @"(their library|(?<yard>their graveyard) into their library)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleWhoLine();
@@ -10899,7 +11006,7 @@ public static partial class EffectPhrase
     /// would eventually disagree about that.
     /// </remarks>
     [GeneratedRegex(
-        @"^(its|that spell's|that creature's|that permanent's) (?<whose>controller|owner) "
+        @"^(its|that [a-z]+'s|the subject's) (?<whose>controller|owner) "
             + @"((?<verb>loses|gains) " + N + @" life"
             + @"|(?<draws>draws) " + N + @" cards?"
             + @"|(?<mills>mills) " + N + @" cards?)" + FOREACH + @"$",
@@ -10914,7 +11021,7 @@ public static partial class EffectPhrase
     /// work queue rather than being attributed to the wrong permanent.
     /// </remarks>
     [GeneratedRegex(
-        @"^~ (also )?deals (?<n>\d+) damage to (its|that [a-z]+'s) controller\.?$",
+        @"^~ (also )?deals (?<n>\d+) damage to " + ItsController + @"\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamageTargetsControllerLine();
 
@@ -11157,12 +11264,102 @@ public static partial class EffectPhrase
     /// one already had: the edict below knew two of these seven.
     /// </para>
     /// </remarks>
-    private const string WhoElse =
+    internal const string WhoElse =
         @"each opponent|each other player|each player|that player|defending player"
             + @"|enchanted player|the subject's controller";
 
     /// <summary>The same group with "you" left out.</summary>
     private const string WThem = @"(?<who>" + WhoElse + @")";
+
+    /// <summary>
+    /// The same group plus the two targeted forms, for verbs the cards print both ways.
+    /// </summary>
+    /// <remarks>
+    /// "Target player" is a target and every other subject is a scope, and half a dozen matchers
+    /// already know that: each tests the captured word for a leading "target" and puts it in the
+    /// target slot instead. What they did not share was the list of everything else, so the same
+    /// sentence read for "each opponent" and refused for "each other player" purely by which
+    /// matcher it landed in. The targeted arms lead, because they are the longer phrases and
+    /// nothing here may be swallowed by a shorter neighbour.
+    /// </remarks>
+    private const string WOrTarget =
+        @"(?<who>target (player|opponent)|you|" + WhoElse + @")";
+
+    /// <summary>
+    /// Every player a <em>possessive</em> phrase can name - "your hand", "that player's
+    /// graveyard", "each opponent's upkeep".
+    /// </summary>
+    /// <remarks>
+    /// The possessive twin of <see cref="WhoElse"/>, and it exists because five readers had each
+    /// grown a small private list of these words and no two of them agreed: the zone count knew
+    /// "your", "all" and "each player's"; the static pump beside it knew "your" and "each"; the
+    /// hand-size line knew "your" and "each opponent's"; the step trigger knew seven of them and
+    /// the beginning-of-combat trigger beside it knew three. Nobody decided any of that - it is
+    /// what happens when a vocabulary is written down once per reader.
+    /// <para>
+    /// "All" is here because it is what the cards print for "each player's" in front of a zone -
+    /// "cards in all graveyards" - and it is a possessive in everything but spelling. It is
+    /// mapped rather than duplicated, so the scope it names is the same one "each player's"
+    /// names and there is no second answer to keep in step.
+    /// </para>
+    /// <para>
+    /// Ordered longest-first, unlike <see cref="W"/>, and for a reason that vocabulary does not
+    /// have: "your" is a prefix of "your opponents'". Backtracking would find the longer arm
+    /// anyway on the patterns here, but a list whose correctness depends on the engine
+    /// backtracking is one a future anchor breaks silently.
+    /// </para>
+    /// </remarks>
+    private const string WhoseElse =
+        @"the subject's controller's|that [a-z]+'s controller's|its controller's"
+            + @"|each other player's|each opponent's|each player's|your opponents'"
+            + @"|defending player's|enchanted player's|that player's|all";
+
+    /// <summary>The same list with "your" in it - what most of these patterns want.</summary>
+    internal const string WHOSE = @"(?<whose>" + WhoseElse + @"|your)";
+
+    /// <summary>
+    /// Which player a possessive names, or which group of them (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The bare subject is recovered and handed to <see cref="ScopeOf"/>, so the possessive
+    /// vocabulary and the subject vocabulary cannot answer differently: a word added to one is a
+    /// word both read, and the mapping to a <see cref="PlayerScope"/> is written down once.
+    /// <para>
+    /// One entry does not simply lose its apostrophe. "That player's" compiles to
+    /// <see cref="PlayerScope.NamedPlayer"/> rather than to <see cref="PlayerScope.TriggerSubject"/>,
+    /// because a printed possessive points back at whichever player the text has already named
+    /// and half the corpus lines saying it are on spells with no trigger at all. The subject form
+    /// is left where it is: this file already records that reading every printed "that player" as
+    /// the trigger's subject would mis-compile about half of them, and moving the subject word is
+    /// a separate measurement from moving the possessive.
+    /// </para>
+    /// </remarks>
+    internal static PlayerScope PossessiveScopeOf(string possessive)
+    {
+        ArgumentNullException.ThrowIfNull(possessive);
+
+        // "Its controller's hand", "that creature's controller's graveyard" - the same relation
+        // the sentence-level rewrite normalises, met here in the middle of a phrase where that
+        // rewrite is anchored and never fires. Put through the same pattern so there is one
+        // spelling of it and not two.
+        var bare = BareSubject(
+            SubjectControllerPhrase().Replace(possessive, SubjectControllerWord, 1));
+
+        return bare == "that player" ? PlayerScope.NamedPlayer : ScopeOf(bare);
+    }
+
+    /// <summary>The subject form of a possessive - "each opponent's" is "each opponent".</summary>
+    private static string BareSubject(string possessive) =>
+        possessive.Trim().ToLowerInvariant() switch
+        {
+            "your" => "you",
+
+            // The two spellings that are not their subject plus an apostrophe. A plural
+            // possessive drops more than the "s", and "all" is not a possessive at all.
+            "your opponents'" => "each opponent",
+            "all" => "each player",
+            var other => other.EndsWith("'s", StringComparison.Ordinal) ? other[..^2] : other,
+        };
 
     /// <summary>
     /// The same group, optional — because half of these sentences are imperative.
@@ -11193,9 +11390,12 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^" + WOPT + @"draws? that many cards$", RegexOptions.IgnoreCase)]
     private static partial Regex DrawThatManyLine();
 
+    /// <remarks>
+    /// "You" is deliberately not here: the imperative reader above owns that subject, and a
+    /// second matcher for it would be two readings of one sentence.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>that player|each player|each opponent) draws? " + N
-            + @" (additional )?cards?$",
+        @"^" + WThem + @" draws? " + N + @" (additional )?cards?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ScopedDrawLine();
 
@@ -11235,7 +11435,7 @@ public static partial class EffectPhrase
     private static partial Regex ExileGraveyardLine();
 
     [GeneratedRegex(
-        @"^(?<who>you|each opponent|each player) puts? the top " + N
+        @"^" + W + @" puts? the top " + N
             + @" cards? of (your|their) library into (your|their) graveyard$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PutTopIntoGraveyardLine();
@@ -11348,8 +11548,7 @@ public static partial class EffectPhrase
     /// card said otherwise. Those stay in the work queue.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>target (player|opponent)|each opponent|each player|that player) "
-            + @"exiles a card from their (?<zone>hand|graveyard)\.?$",
+        @"^" + WOrTarget + @" exiles a card from their (?<zone>hand|graveyard)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PlayerExilesFromZoneLine();
 
@@ -11439,8 +11638,8 @@ public static partial class EffectPhrase
     /// the work queue rather than being given a default.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|each player|each opponent|that player|target player|target opponent) "
-            + @"loses? half (your|their) life, rounded (?<round>up|down)\.?$",
+        @"^" + WOrTarget + @" loses? half (your|their) life, "
+            + @"rounded (?<round>up|down)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LoseHalfLifeLine();
 
@@ -11911,8 +12110,7 @@ public static partial class EffectPhrase
     /// (CR 401.3), and it is the order and the faces that are hidden, not the size.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<noun>[a-z ]*?) ?cards? in (?<whose>your|all|each player's) "
-            + @"(?<zone>hand|graveyard|library)s?$",
+        @"^(?<noun>[a-z ]*?) ?cards? in " + WHOSE + @" (?<zone>hand|graveyard|library)s?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CardsInZoneLine();
 
@@ -12186,7 +12384,7 @@ public static partial class EffectPhrase
     /// counted rather than parsed.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|each opponent|each player) gets? (?<e>(\{E\})+)$", RegexOptions.IgnoreCase)]
+        @"^" + W + @" gets? (?<e>(\{E\})+)$", RegexOptions.IgnoreCase)]
     private static partial Regex GetEnergyLine();
 
     /// <summary>"You get an experience counter" (CR 122.1).</summary>
@@ -12196,8 +12394,7 @@ public static partial class EffectPhrase
     /// then needs nothing new.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|each opponent|each player) gets? "
-            + @"(?<n>an|one|two|three|\d+) experience counters?$",
+        @"^" + W + @" gets? (?<n>an|one|two|three|\d+) experience counters?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GetExperienceLine();
 
@@ -12776,9 +12973,13 @@ public static partial class EffectPhrase
     private static partial Regex GrantedTokenAbilityLine();
 
     [GeneratedRegex(
-        @"^((?<who>you|each opponent|each player|target player|target opponent"
-            + @"|its controller|that [a-z]+'s controller|the subject's controller) "
-            + @"creates?|create) "
+        @"^(" + WOrTarget + @" creates?"
+
+            // The two spellings the pronoun rewrite has not been applied to. That rewrite only
+            // runs on a trigger that named an object and has targeted nothing, so a sentence
+            // outside those two conditions still arrives written the way the card prints it -
+            // and this reader is the one that has always met them there.
+            + @"|(?<who>its controller|that [a-z]+'s controller) creates?|create) "
             + N
             + @"(?<tapped> tapped)?"
             + @" (?<kind>Treasure|Clue|Food|Gold|Blood|Lander|Map|Junk|Mutagen|Powerstone)"
@@ -14479,28 +14680,51 @@ public static partial class TriggerConditions
     /// </remarks>
     private static Func<GameEvent, GameState, TriggerSource, bool>? TryPhase(string condition)
     {
-        string owner;
+        PlayerScope whose;
+        var hosts = false;
         TurnStep step;
 
         var m = BeginningOfStep().Match(condition);
         if (m.Success)
         {
-            owner = m.Groups["owner"].Value;
             if (StepNamed(m.Groups["step"].Value) is not { } named)
                 return null;
 
             step = named;
+
+            if (m.Groups["of"].Success)
+            {
+                var of = m.Groups["of"].Value;
+
+                // "The beginning of the upkeep of enchanted creature's controller" - an Aura's
+                // clock runs on whoever it is attached to, not on whoever owns the Aura. The two
+                // differ exactly when the Aura is on somebody else's creature, which is what most
+                // of them are for, and no PlayerScope says it: the scope vocabulary can name the
+                // enchanted *player*, and this is one relation further out.
+                hosts = HostControllerPhrase().IsMatch(of);
+                whose = hosts ? PlayerScope.You : EffectPhrase.ScopeOf(of);
+            }
+            else if (m.Groups["any"].Success)
+            {
+                // "The beginning of the end step", "each upkeep" - a step with no owner named is
+                // every player's (CR 500.1).
+                whose = PlayerScope.EachPlayer;
+            }
+            else
+            {
+                whose = EffectPhrase.PossessiveScopeOf(m.Groups["whose"].Value);
+            }
         }
         else if (BeginningOfCombatOn().Match(condition) is { Success: true } combat)
         {
-            owner = combat.Groups["owner"].Value;
+            whose = EffectPhrase.PossessiveScopeOf(combat.Groups["whose"].Value);
             step = TurnStep.BeginningOfCombat;
         }
         else if (EndOfCombat().IsMatch(condition))
         {
             // CR 511.1: every combat phase has an end of combat step, so this is not restricted
             // to a particular player's turn.
-            owner = "each";
+            whose = PlayerScope.EachPlayer;
             step = TurnStep.EndOfCombat;
         }
         else
@@ -14508,24 +14732,19 @@ public static partial class TriggerConditions
             return null;
         }
 
-        // "Each of your postcombat main phases" is "your" with the repetition spelled out - a
-        // trigger fires every time its step is reached anyway, so the words add nothing the
-        // engine has to do differently.
-        var mine = owner.StartsWith("your", StringComparison.OrdinalIgnoreCase)
-            || owner.StartsWith("each of your", StringComparison.OrdinalIgnoreCase);
-        var theirs = owner.StartsWith("each opponent", StringComparison.OrdinalIgnoreCase)
-            || owner.StartsWith("your opponents", StringComparison.OrdinalIgnoreCase);
-
-        // "The beginning of the upkeep of enchanted creature's controller" - an Aura's clock runs
-        // on whoever it is attached to, not on whoever owns the Aura. The two differ exactly when
-        // the Aura is on somebody else's creature, which is what most of them are for.
-        // "Enchanted player's upkeep" is the Aura's host being a player rather than a permanent,
-        // and the answer is simply that player - there is no controller to follow through.
-        var hostPlayer = owner.StartsWith("enchanted player", StringComparison.OrdinalIgnoreCase);
-
-        var hosts = !hostPlayer
-            && (owner.StartsWith("enchanted", StringComparison.OrdinalIgnoreCase)
-                || owner.StartsWith("equipped", StringComparison.OrdinalIgnoreCase));
+        // A step belongs to whoever is taking the turn, so only the scopes that describe a *seat*
+        // can own one. A possessive naming somebody the game picked out for another reason - a
+        // target, a trigger's subject, the defending player - is not a question a turn can
+        // answer, and the condition stays unread rather than falling through to "everybody". That
+        // fall-through is what the prefix tests this replaced would have done with every word the
+        // shared vocabulary has since brought in: a trigger firing on all five turns instead of
+        // one, which coverage would have counted as a win.
+        if (!hosts && whose is not (PlayerScope.You or PlayerScope.EachPlayer
+            or PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer
+            or PlayerScope.EnchantedPlayer))
+        {
+            return null;
+        }
 
         return (e, state, source) =>
         {
@@ -14541,18 +14760,19 @@ public static partial class TriggerConditions
                     && state.ActivePlayerId == wearer.ControllerId;
             }
 
-            if (hostPlayer)
+            return whose switch
             {
+                PlayerScope.You => state.ActivePlayerId == source.ControllerId,
+                PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer =>
+                    state.ActivePlayerId != source.ControllerId,
+
                 // Attached to nobody means there is no such player and the ability does not
                 // trigger, which is the right answer rather than an error (CR 704.5n).
-                return source.Permanent?.AttachedToPlayer is { } enchanted
-                    && state.ActivePlayerId == enchanted;
-            }
-
-            if (mine)
-                return state.ActivePlayerId == source.ControllerId;
-
-            return !theirs || state.ActivePlayerId != source.ControllerId;
+                PlayerScope.EnchantedPlayer =>
+                    source.Permanent?.AttachedToPlayer is { } enchanted
+                    && state.ActivePlayerId == enchanted,
+                _ => true,
+            };
         };
     }
 
@@ -15466,20 +15686,44 @@ public static partial class TriggerConditions
         _ => null,
     };
 
+    /// <summary>Whose step it is, in the two grammars the cards print it in.</summary>
+    /// <remarks>
+    /// The step words are this reader's own - a step is not a thing any other sentence counts -
+    /// but the <em>player</em> words are not, and they had been written out here a third time.
+    /// This one knew seven, <see cref="BeginningOfCombatOn"/> beside it knew three, and neither
+    /// was the shared list: "each other player's" is on sixteen corpus cards and no reader of a
+    /// turn could say it.
+    /// <para>
+    /// Two grammars because the cards print two. Before the step the phrase is possessive -
+    /// "each opponent's upkeep" - and after it, it is not: "the upkeep of enchanted creature's
+    /// controller", "the end step of each player". Both feed the same
+    /// <see cref="PlayerScope"/>, so a word learnt in one spelling is understood in the other.
+    /// </para>
+    /// <para>
+    /// The plural is the whole difference between "your upkeep" and "each of your upkeeps", and
+    /// a trigger fires every time its step is reached anyway - so the repetition is read and
+    /// discarded rather than being a second shape.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^the beginning of the (?<step>upkeep|end step) of "
-            + @"(?<owner>enchanted [a-z]+'s controller)$"
+        @"^the beginning of the (?<step>upkeep|upkeep step|draw step|end step|main phase"
+            + @"|precombat main phase|postcombat main phase) of "
+            + @"(?<of>" + EffectPhrase.WhoElse + @"|you|(enchanted|equipped) [a-z]+'s controller)$"
             + @"|^the beginning of "
-            + @"(?<owner>each of your|your|each player's|each opponent's|your opponents'"
-            + @"|enchanted player's|the|each) "
+            + @"(?:(each of )?" + EffectPhrase.WHOSE + @"|(?<any>the|each)) "
             + @"(?<step>untap step|upkeep step|upkeep|draw step|precombat main phase|"
             + @"first main phase|postcombat main phases?|second main phase|main phase|"
-            + @"combat step|combat phase|combat|end step)$",
+            + @"combat step|combat phase|combat|end step)s?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BeginningOfStep();
 
+    /// <summary>"Enchanted creature's controller" — the Aura's host, not the Aura's owner.</summary>
     [GeneratedRegex(
-        @"^the beginning of combat on (?<owner>your|each player's|each opponent's) turn$",
+        @"^(enchanted|equipped) [a-z]+'s controller$", RegexOptions.IgnoreCase)]
+    private static partial Regex HostControllerPhrase();
+
+    [GeneratedRegex(
+        @"^the beginning of combat on " + EffectPhrase.WHOSE + @" turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BeginningOfCombatOn();
 

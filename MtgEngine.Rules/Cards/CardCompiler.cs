@@ -713,17 +713,22 @@ public static partial class CardCompiler
             // Coverage rose by eight and eight cards were wrong; only a test that played one
             // could tell. The cardinal is checked in the guard rather than inside, so a word
             // this cannot read leaves the line unread instead of taking a fallback of 1.
+            //
+            // A limit belongs to a seat, so the scope is checked in the guard rather than
+            // inside: the reader downstream answers for four scopes and refuses the rest, and a
+            // possessive naming somebody a resolution picked out - a target, a trigger's
+            // subject - would compile to a static ability that silently never reaches anyone.
+            // Refused here, the line stays unread instead, which is this file's preferred
+            // failure.
             if (HandSizeChangeLine().Match(line) is { Success: true } handSize
-                && IsCardinal(handSize.Groups["n"].Value))
+                && IsCardinal(handSize.Groups["n"].Value)
+                && EffectPhrase.PossessiveScopeOf(handSize.Groups["whose"].Value) is
+                    (PlayerScope.You or PlayerScope.EachPlayer or PlayerScope.EachOpponent
+                        or PlayerScope.EachOtherPlayer) and var scope)
             {
                 var by = NumberWordOrDigits(handSize.Groups["n"].Value);
                 var less = handSize.Groups["dir"].Value
                     .StartsWith("reduc", StringComparison.OrdinalIgnoreCase);
-
-                var scope = handSize.Groups["whose"].Value
-                    .StartsWith("your", StringComparison.OrdinalIgnoreCase)
-                        ? PlayerScope.You
-                        : PlayerScope.EachOpponent;
 
                 handSizeChanges.Add(new HandSizeChange(scope, less ? -by : by));
 
@@ -6776,31 +6781,23 @@ public static partial class CardCompiler
     private static Func<GameState, Guid, int>? CountOf(string group)
     {
         if (ZoneCountLine().Match(group) is { Success: true } zoned
-            && CardKindOfEither(zoned.Groups["what"].Value.Trim()) is { } kind)
+            && CardKindOfEither(zoned.Groups["what"].Value.Trim()) is { } kind
+            && WhoseZone(zoned) is { } whose
+            && EffectPhrase.SettledByTheBoard(whose))
         {
             var inGraveyard = zoned.Groups["zone"].Value.Equals(
                 "graveyard", StringComparison.OrdinalIgnoreCase);
-            var everyone = zoned.Groups["whose"].Value.Equals(
-                "each", StringComparison.OrdinalIgnoreCase);
 
-            return (state, you) =>
-            {
-                var many = 0;
-                foreach (var playerId in state.TurnOrder)
+            return (state, you) => Abilities.PlayerScopes.Around(whose, state, you)
+                .Sum(playerId =>
                 {
-                    if (!everyone && playerId != you)
-                        continue;
-
                     var player = state.GetPlayer(playerId);
                     var cards = inGraveyard ? player.Graveyard : player.Hand;
 
-                    many += cards.Count(id =>
+                    return cards.Count(id =>
                         kind == Domain.Enums.CardType.None
                         || (state.GetObject(id).Card.CardTypes & kind) != 0);
-                }
-
-                return many;
-            };
+                });
         }
 
         if (EffectPhrase.Specs.ParseGroup(group) is
@@ -6823,7 +6820,7 @@ public static partial class CardCompiler
         // permanent the phrase would mean by "it" does not exist yet (CR 400.7). A phrase that
         // needs one is refused rather than answered about the wrong object.
         if (EffectPhrase.Counting(group, hasSource: false) is { } shared)
-            return (state, you) => shared(state, EmptyAbilities.Instance, you, default);
+            return (state, you) => shared(state, EmptyAbilities.Instance, you, default, null);
 
         return null;
     }
@@ -7974,9 +7971,14 @@ public static partial class CardCompiler
         if (!powerCounts && !toughnessCounts)
             return false;
 
+        // Always an attached effect - see Applies below - so "its controller" is a seat this
+        // one can find, and it is the only reader of a defined X that can say so.
         var what = m.Groups["what"].Value.Trim();
-        if (EffectPhrase.Counting(what, hasSource: false) is not { } count)
+        if (EffectPhrase.Counting(what, hasSource: false, EffectPhrase.CountSeats.Host) is not
+            { } count)
+        {
             return false;
+        }
 
         var powerSign = m.Groups["p"].Value == "-" ? -1 : 1;
         var toughnessSign = m.Groups["t"].Value == "-" ? -1 : 1;
@@ -8002,7 +8004,8 @@ public static partial class CardCompiler
                     return;
 
                 var you = Characteristics.ControllerOf(state, builder.Abilities, source);
-                var many = count(state, EmptyAbilities.Instance, you, default);
+                var many = count(
+                    state, EmptyAbilities.Instance, you, default, HostSeats(state, builder, you));
 
                 builder.Modify(
                     powerSign * (powerCounts ? many : flatPower),
@@ -8861,25 +8864,75 @@ public static partial class CardCompiler
         CardKindNamed(noun)
         ?? (noun.EndsWith('s') ? CardKindNamed(noun[..^1]) : null);
 
+    /// <summary>
+    /// Whether a static line's subject is the thing it is attached to rather than itself.
+    /// </summary>
+    /// <remarks>
+    /// Case-sensitive, because "Enchanted creature" and "Equipped creature" are the two attached
+    /// forms and a lower-case "enchanted" mid-sentence is the subject of nothing. Written down
+    /// once because three readers had each spelled the same two-prefix test out, and the answer
+    /// now decides more than where the effect lands: it decides whether "its controller" is a
+    /// seat the effect can find.
+    /// </remarks>
+    private static bool SubjectIsAttached(Match m) =>
+        m.Groups["subject"].Value.StartsWith("En", StringComparison.Ordinal)
+        || m.Groups["subject"].Value.StartsWith("Eq", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The seats an <em>attached</em> continuous effect can find, for a counted phrase.
+    /// </summary>
+    /// <remarks>
+    /// "Its controller" is the controller of the permanent being computed, because an attached
+    /// effect only ever computes the one it is attached to - and it is read through
+    /// <see cref="Characteristics.ControllerOf"/> rather than off the object, because a
+    /// permanent whose control has changed keeps the controller it started with (CR 613.1b) and
+    /// the pronoun means the one it has now. Everything else is the board's own answer.
+    /// </remarks>
+    private static EffectPhrase.PlayerLookup HostSeats(
+        GameState state, CharacteristicsBuilder builder, Guid you) =>
+        scope => scope is PlayerScope.SubjectController
+            ? [Characteristics.ControllerOf(state, builder.Abilities, builder.Subject)]
+            : Abilities.PlayerScopes.Around(scope, state, you);
+
+    /// <summary>Whose zone a count phrase names, through the shared possessive vocabulary.</summary>
+    /// <remarks>
+    /// "Each graveyard" is this pattern's own spelling and carries no apostrophe, so it is
+    /// answered here rather than being added to a vocabulary of possessives it is not one of.
+    /// </remarks>
+    private static PlayerScope? WhoseZone(Match zoned) =>
+        zoned.Groups["any"].Success
+            ? PlayerScope.EachPlayer
+            : EffectPhrase.PossessiveScopeOf(zoned.Groups["whose"].Value);
+
     /// <summary>"gets +N/+N for each [kind] in your graveyard" — a count taken in a zone.</summary>
-    private static void AddZoneCount(
-        string line,
+    /// <returns>False when the phrase names a seat this cannot find, leaving the line unread.</returns>
+    private static bool AddZoneCount(
         CardDefinition card,
         ImmutableList<ContinuousEffectDefinition>.Builder into,
         Match m,
         Domain.Enums.CardType kind,
         string zone,
-        string whose)
+        PlayerScope whose)
     {
+        var attached = SubjectIsAttached(m);
+
+        // Two kinds of seat this can find, and no others. The board settles four scopes on its
+        // own; "its controller" settles only on an attached effect, where the permanent being
+        // computed *is* the enchanted one and its controller is what the pronoun means. Anything
+        // else - a target, a trigger's subject - is decided by a resolution that a continuous
+        // effect does not have, so the line stays unread rather than counting nobody's pile.
+        if (!EffectPhrase.Reaches(
+            attached ? EffectPhrase.CountSeats.Host : EffectPhrase.CountSeats.Board, whose))
+        {
+            return false;
+        }
+
         var power = int.Parse(
             m.Groups["p"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
         var toughness = int.Parse(
             m.Groups["tough"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
 
-        var attached = m.Groups["subject"].Value.StartsWith("En", StringComparison.Ordinal)
-            || m.Groups["subject"].Value.StartsWith("Eq", StringComparison.Ordinal);
         var inGraveyard = zone.Equals("graveyard", StringComparison.OrdinalIgnoreCase);
-        var everyone = whose.Equals("each", StringComparison.OrdinalIgnoreCase);
 
         into.Add(new ContinuousEffectDefinition
         {
@@ -8887,7 +8940,7 @@ public static partial class CardCompiler
             Layer = EffectLayer.PowerToughnessModify,
             Applies = attached
                 ? (_, source, target) =>
-                    source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host
+                    source?.Permanent?.AttachedTo is { } wearer && target.Subject.Id == wearer
                 : (_, source, target) => source is not null && target.Subject.Id == source.Id,
             Apply = (state, source, builder) =>
             {
@@ -8895,23 +8948,21 @@ public static partial class CardCompiler
                     ? builder.ControllerId
                     : Characteristics.Of(state, EmptyAbilities.Instance, source).ControllerId;
 
-                var many = 0;
-                foreach (var playerId in state.TurnOrder)
+                var many = HostSeats(state, builder, you)(whose).Sum(playerId =>
                 {
-                    if (!everyone && playerId != you)
-                        continue;
-
                     var player = state.GetPlayer(playerId);
                     var cards = inGraveyard ? player.Graveyard : player.Hand;
 
-                    many += cards.Count(id =>
+                    return cards.Count(id =>
                         kind == Domain.Enums.CardType.None
                         || (state.GetObject(id).Card.CardTypes & kind) != 0);
-                }
+                });
 
                 builder.Modify(power * many, toughness * many);
             },
         });
+
+        return true;
     }
 
     /// <summary>
@@ -8944,8 +8995,7 @@ public static partial class CardCompiler
         var toughness = int.Parse(
             m.Groups["tough"].Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
 
-        var attached = m.Groups["subject"].Value.StartsWith("En", StringComparison.Ordinal)
-            || m.Groups["subject"].Value.StartsWith("Eq", StringComparison.Ordinal);
+        var attached = SubjectIsAttached(m);
 
         into.Add(new ContinuousEffectDefinition
         {
@@ -8962,7 +9012,11 @@ public static partial class CardCompiler
                     : Characteristics.Of(state, EmptyAbilities.Instance, source).ControllerId;
 
                 var many = counted(
-                    state, EmptyAbilities.Instance, you, source?.Id ?? default);
+                    state,
+                    EmptyAbilities.Instance,
+                    you,
+                    source?.Id ?? default,
+                    HostSeats(state, builder, you));
 
                 builder.Modify(power * many, toughness * many);
             },
@@ -9038,10 +9092,10 @@ public static partial class CardCompiler
         // filter is read off the printed card types, because a card in a graveyard or a hand is
         // not a permanent and has no computed characteristics to ask (CR 109.3).
         if (ZoneCountLine().Match(group) is { Success: true } zoned
-            && CardKindNamed(zoned.Groups["what"].Value.Trim()) is { } kind)
+            && CardKindNamed(zoned.Groups["what"].Value.Trim()) is { } kind
+            && WhoseZone(zoned) is { } whose
+            && AddZoneCount(card, into, m, kind, zoned.Groups["zone"].Value, whose))
         {
-            AddZoneCount(line, card, into, m, kind, zoned.Groups["zone"].Value,
-                zoned.Groups["whose"].Value);
             return true;
         }
 
@@ -9059,7 +9113,14 @@ public static partial class CardCompiler
             //
             // Asked after the arms above rather than instead of them, so that nothing which
             // reads today reads differently tomorrow.
-            if (EffectPhrase.Counting(group, hasSource: true) is { } shared)
+            // An attached pump computes the permanent it is attached to, so it can find the
+            // one seat the board cannot - "its controller". The unattached form cannot, and
+            // saying otherwise here would let a phrase through that comes back as nought.
+            var reach = SubjectIsAttached(m)
+                ? EffectPhrase.CountSeats.Host
+                : EffectPhrase.CountSeats.Board;
+
+            if (EffectPhrase.Counting(group, hasSource: true, reach) is { } shared)
             {
                 AddSharedCount(card, into, m, group, shared);
                 return true;
@@ -9281,7 +9342,7 @@ public static partial class CardCompiler
         var counted = phrase["the number of ".Length..].Trim();
 
         return EffectPhrase.Counting(counted, hasSource: false) is { } shared
-            ? (state, you) => shared(state, EmptyAbilities.Instance, you, default)
+            ? (state, you) => shared(state, EmptyAbilities.Instance, you, default, null)
             : null;
     }
 
@@ -16369,8 +16430,17 @@ public static partial class CardCompiler
     private static partial Regex AttachedCountLine();
 
     /// <summary>"creature card in your graveyard" — a count taken in a zone, inside a "for each".</summary>
+    /// <remarks>
+    /// The fifth private copy of the possessive player words, and the smallest: two, where the
+    /// shared vocabulary next door has eleven and the zone reader it duplicates counts three
+    /// zones to this one's two. It is asked <em>before</em> that reader, so a phrase it matches
+    /// never reaches the shared one - which is why the words are shared here rather than left to
+    /// the fall-through to catch. "Each" stays beside the list because it is this pattern's own
+    /// spelling of "each player's" and is not a possessive at all.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<what>[a-z ]+?) in (?<whose>your|each) (?<zone>graveyard|hand)$",
+        @"^(?<what>[a-z ]+?) in (?:" + EffectPhrase.WHOSE + @"|(?<any>each)) "
+            + @"(?<zone>graveyard|hand)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ZoneCountLine();
 
@@ -17670,13 +17740,16 @@ public static partial class CardCompiler
     /// unrecognised one would read "the chosen player's maximum hand size is four" as the
     /// controller's, which is the wrong seat on a card whose whole point is choosing a seat.
     /// <para>
-    /// Only the two subjects that are printed, measured against the corpus rather than guessed:
-    /// "each player's maximum hand size is reduced by N" is on no card, and a scope admitted for
-    /// a card that does not exist is a rule nothing can reach sitting beside two that fire.
+    /// It reads the shared possessive vocabulary rather than the two subjects that happen to be
+    /// printed today, which is a change of instrument and not of scope: "the chosen player's" is
+    /// still not in that list and this still refuses it. What went with the private list is the
+    /// <c>StartsWith("your")</c> beside it, which answered "each opponent" to every word in the
+    /// language that was not "your" - safe while the list held two entries and a wrong seat the
+    /// moment it held more.
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<whose>your|each opponent's) maximum hand size is "
+        @"^" + EffectPhrase.WHOSE + @" maximum hand size is "
             + @"(?<dir>reduced|increased) by (?<n>[a-z]+|\d+)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HandSizeChangeLine();
