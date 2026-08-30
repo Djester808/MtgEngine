@@ -46,7 +46,13 @@ public sealed partial class MechanicCoverageTests
     [
         "PowerBlockers",
         "GreaterPowerBlockers",
-        "CyclingTrigger",
+        // Where a card's own trigger watches from, asked of the condition after "When"
+        // rather than of a line: "you cycle ~" and "you cast ~" are phrases the trigger
+        // reader cut out. Played through the lines that contain them, by
+        // A_when_you_cycle_trigger_fires_on_cycling_it and
+        // A_cards_own_cast_trigger_fires_from_the_stack.
+        "CyclesSelf",
+        "CastsSelf",
         "DiscardSelfCost",
 
         // The noun inside a "for each ..." count, not a line: DefinedCount is handed only the

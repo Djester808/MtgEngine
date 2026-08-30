@@ -487,7 +487,86 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **50.5% of playable cards fully read** (16,507 of 32,717), 67.3% of lines.
+Coverage is **50.6% of playable cards fully read** (16,554 of 32,717), 67.4% of lines.
+
+### Round fourteen: leads that had been measured and left, and what they were worth
+
+A round with no work queue in it at all: every item was something a previous agent found while
+doing something else, measured, wrote down, and deliberately did not build. **+49 cards, none
+lost** (16,505 -> 16,554 by set difference), plus two engine fixes and one silent no-op class.
+
+**Five of the eleven briefed counts were wrong, and only one of them downwards.** Re-measuring each
+lead before building it is what this round is an argument for:
+
+- **`{M}: ~ phases out` was briefed at 3 cards. It is 13.** The brief had counted one wording of
+  one template; the effect is a verb, and the verb reaches the targeted form (Reality Ripple,
+  Vodalian Illusionist, Haystack, Slip Out the Back, a mode of Unite the Coalition), the attached
+  form through the Aura and Equipment wordings (Vanishing, Robe of Stars), and the source form the
+  brief named (Blink Dog, Rainbow Efreet, Teferi's Honor Guard, Crystal Golem) - plus two that
+  needed nothing else at all once the verb existed (Frenetic Efreet, Renegade Silent).
+- **`Whenever you expend N` was briefed at 8 sole blockers. It is 10** - Bakersbane Duo and
+  Trailtracker Scout were missing from the list, and the second is on `expend 8`, which is the
+  same reader with a different number.
+- **The tribal narrowing on the batched combat triggers was briefed as one missing word reaching
+  past its own row. Measured, it is worth one card**, because the narrowing already read for every
+  real creature type - Rogues, Dragons, Pirates all compiled. What did not read was three quite
+  different things wearing the same shape: `outlaws` (CR 700.12's five types, printed lowercase
+  because it is not a type), the defender said out loud (`attack a player`), and the batched
+  recipient (`deal combat damage to one or more players`). Together they are 5 cards on the row and
+  6 in the corpus. **The substitution probe is what told them apart** - swapping only the tribe
+  gained one card, and swapping only `attack a player` gained two.
+- **`is dealt combat damage` was already fixed** and the lead was stale: three cards read it. The
+  two still short die on something else in the same line.
+- **`You may shuffle.` was briefed at 2 and is 3**, because Pondering Mage's other trailing
+  sentence came with the same fix.
+
+**Two engine fixes that had been located precisely and left alone.** Both were one line, and both
+had been written down rather than taken because the round they were found in was about something
+else:
+
+- **Regeneration's replacement claimed in its own comment to remove the permanent from combat and
+  did not.** `RemovedFromCombat` had existed since the Gustcloaks. Without it a regenerated blocker
+  is still in `Combat.Blockers`, so the attacker it was holding up stays blocked and a later damage
+  step finds a creature the rules say has left. The behaviour test for it was mutation-checked:
+  deleting the new line fails it.
+- **`Game.HandLimitFor` asked `permanent.Card` in both of its reads**, so a Clone of Gnat Miser was
+  not a Miser for hand size and a Clone of Reliquary Tower did not lift the limit (CR 613.2c). The
+  comment beside it had already said the seam was open and that the pair had to be closed together.
+
+**A silent no-op class, found by building something next to it.** The generic trigger reader knew
+one exception to "a trigger watches from the battlefield": the cycling one, added because a card
+left at the default compiled cleanly and never fired. **A card's own `When you cast ~` is the same
+shape and had no exception** - the cast is announced with the card already on the stack, so the
+trigger was watching a zone it had left. Around fifty corpus cards print it, every one of them read
+perfectly, and not one of them did anything. `SelfTriggerZone` now answers for both.
+
+It also answers **null**, and that is the honest half. `When you cast or cycle ~` needs the ability
+to watch from two zones at once - the stack for one arm, the hand for the other - and a
+`TriggeredAbilityDefinition` has one `FunctionsFrom`. Compiled with either zone the card plays half
+of what it says, silently, so the line is refused and Drownyard Lurker and Warped Tusker are two
+cards this round gained and then gave back. Closing it means letting an ability watch from more
+than one zone, which is a change to what a triggered ability is.
+
+**"Expend" needed a number nothing was keeping.** CR 700.14 counts mana spent casting spells this
+turn, and fires on the payment that takes the total from below N to N or more - so
+`PlayerState.ManaSpentCastingThisTurn` plus a `ManaSpentCasting` event carrying **both** totals.
+Both, because a trigger predicate is handed the state from one side of the event (CR 603.6) and
+neither side alone says a line was crossed. What is counted is what actually left the pool rather
+than what the cost named, which is the same distinction `PayMana` already returns for sunburst.
+One seam is written down: mana somebody else pays through assist is counted for nobody.
+
+**A refusal narrowed rather than lifted.** `FindsItselfByIndex` refused any deferred question
+inside a free offer, a rule written when the locator was resolved against an ability's *top-level*
+effects. `EffectTree.Locate` walks the whole tree now, so the refusal narrowed to what still cannot
+be answered: more than one question in the branch, or a question already compiled whose index the
+nested one could be confused with (`Locate` answers null on ambiguity rather than guessing). That
+took the briefed 3 cards and 4 more nobody had listed.
+
+Two more, each one word: **`its owner` is not `its controller`** (CR 108.3 - the life goes to the
+player who lost the card, not to the one who stole it, which is the only board the sentence is
+about), and **a coloured surcharge is not a generic one** - `Black spells you cast cost {B} more`
+adds a black pip, and reading it as `{1}` gives the Leech cycle's controller a tax payable with
+anything.
 
 ### Round fourteen: X inside a filter, and the four places it comes from
 
@@ -2455,18 +2534,23 @@ that are two.
 clauses can be nine cards or none, and the difference is invisible until the reader is written.
 That is worth knowing before planning around a ranking.
 
-### Measured and deferred: putting cards back in any order
+### Retired: "putting cards back in any order" was deferred, then built, and the note stayed
 
-"Look at the top four cards of your library, then put them back in any order" is seven cards and
-looks like scry, which the engine has. It is not: scry moves cards *out* of the top and this
-reorders them *within* it, and `Move` mints a new object id on every move (CR 400.7). Reordering by
-moving each card to the top in turn would invalidate the ids of the cards still to be moved, half
-way through the reorder.
+**This decline was stale, and the check that retired it took one probe.** It said the family was
+deferred because reordering inside a zone would invalidate ids half way through. `LookAtTop
+ThenArrange` was built at some point after it was written, and by round fourteen **thirteen** cards
+printing the phrase already read - Sensei's Divining Top, Sage Owl, Index, Mirri's Guile, Halimar
+Depths and the rest.
 
-Doing it properly means either a move that keeps identity inside one zone, or an event that states
-a library order outright. Both are reasonable; neither is seven cards' worth of design decided in
-passing, and the reason is recorded so it is not rediscovered by writing the loop and watching it
-scramble a library.
+What kept the note looking true is that the best-known cards on it were still short, for an
+unrelated reason: Ponder, Omen and Pondering Mage differ from Index by one trailing sentence, and
+the idiom's pattern was anchored to the end of the line, so `You may shuffle.` threw the whole
+match away. Unanchoring it and reading the tail the ordinary way took all three - the same fix the
+look-and-take idiom beside it had already been given, and for the same reason.
+
+The general lesson about these notes: **a decline records what was true when it was written, and
+nothing tells you when it stops being true.** Several have now been retired by running the probe
+rather than re-reading the paragraph.
 
 ### Fourteen mutations, and what the survivors mean
 

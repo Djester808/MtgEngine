@@ -254,6 +254,11 @@ public static class EffectTargets
                 ? e with { TargetIndex = e.TargetIndex + n }
                 : e);
         Add<UntapTarget>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+        Add<PhaseOutPermanent>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
         // Only when it is about a target: the source, host and trigger-subject forms carry an
         // index that means nothing, and shifting it would move a number nobody reads.
         Add<PutCounters>(

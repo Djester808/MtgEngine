@@ -2006,6 +2006,29 @@ public sealed record LandDropUsed(Guid PlayerId) : GameEvent
 /// when it moved (CR 400.7). A card asking "whenever you cast a spell from anywhere other than
 /// your hand" is asking about a fact only the casting knew.
 /// </remarks>
+/// <summary>
+/// Mana was spent casting a spell, and how much the payer had spent this turn (CR 700.14).
+/// </summary>
+/// <remarks>
+/// Its own event rather than a field on <see cref="SpellCastEvent"/>, because "expend N" is a
+/// trigger about a <em>threshold being crossed</em> and a trigger predicate is handed the state
+/// from one side of the event (CR 603.6) - so the crossing has to be legible in the event itself.
+/// Carrying both totals is what makes the predicate one comparison and makes a replayed log
+/// answer the same question the live game did.
+/// <para>
+/// Emitted before the cast is announced, so a "whenever you cast" trigger and an "expend" trigger
+/// off the same spell go on the stack in the order the rules put them (CR 603.3b) rather than in
+/// the order this file happens to emit them.
+/// </para>
+/// </remarks>
+public sealed record ManaSpentCasting(Guid PlayerId, int Amount, int Before, int After) : GameEvent
+{
+    public override string Rule => "700.14";
+
+    public override string Describe() =>
+        $"{PlayerId:N} spent {Amount} mana casting (now {After} this turn).";
+}
+
 public sealed record SpellCastEvent(
     Guid PlayerId,
     ObjectId StackId,

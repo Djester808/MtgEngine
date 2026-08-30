@@ -245,6 +245,15 @@ public static partial class EffectPhrase
         {
             effects.Add(new LookAtTopThenArrange(Number(arranging.Groups["n"].Value)));
 
+            // The rest of the line is read the ordinary way, sentence by sentence, and a tail
+            // this cannot read leaves the whole line unread rather than a card that looks at its
+            // library and silently drops what the card said next.
+            foreach (var sentence in Sentences(arranging.Groups["after"].Value.Trim()))
+            {
+                if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                    return false;
+            }
+
             parsed = new ParsedPhrase
             {
                 Targets = targets.ToImmutable(),
@@ -1189,6 +1198,32 @@ public static partial class EffectPhrase
         effect is MayPay or ChooseAndMove or FlipCoin or RollDice;
 
     /// <summary>
+    /// Whether a free offer may carry one deferred question inside it after all (CR 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The blanket refusal above was written when the locator was resolved against an ability's
+    /// <em>top-level</em> effects; <c>EffectTree.Locate</c> now walks the whole tree, so a nested
+    /// question can be found again — as long as it is the only one of its kind carrying that
+    /// index, because <c>Locate</c> answers null rather than guessing between two.
+    /// <para>
+    /// The two conditions here are what make that certain rather than likely, and both are
+    /// needed. The offer's branch may hold <strong>one</strong> question, whose index is 0 because
+    /// the branch is compiled into a builder that starts empty. And nothing already compiled for
+    /// this ability may hold a question at all, which is the only way another 0 could exist:
+    /// every top-level effect added <em>after</em> this one takes its index from a list that
+    /// already contains the offer, so it is 1 or more and cannot collide.
+    /// </para>
+    /// <para>
+    /// "Mill three cards, then you may return a creature card from your graveyard to your hand"
+    /// is the shape this exists for — the mill reads, the return reads, and the pair did not.
+    /// </para>
+    /// </remarks>
+    private static bool OneQuestionCanBeNested(
+        ImmutableList<IEffect>.Builder soFar, ImmutableList<IEffect>.Builder branch) =>
+        branch.Count(FindsItselfByIndex) == 1
+        && !EffectTree.Flatten(soFar).Any(FindsItselfByIndex);
+
+    /// <summary>
     /// "Target opponent reveals their hand. You choose a card from it. That player discards
     /// that card." (CR 701.16)
     /// </summary>
@@ -1834,16 +1869,24 @@ public static partial class EffectPhrase
 
             var whose = targets.Count - 1;
 
+            // "Its owner" is a different player from "its controller" (CR 108.3), and on Path of
+            // Peace's board - destroy the creature you stole, then pay its owner - it is the
+            // whole point of the sentence. One word apart in the pattern, one flag apart in the
+            // effect; reading them as the same word would have paid the thief.
+            var toOwner = m.Groups["whose"].Value.Equals(
+                "owner", StringComparison.OrdinalIgnoreCase);
+
             effects.Add(m.Groups["mills"].Success
-                ? new MillForTargetsController(many, whose)
+                ? new MillForTargetsController(many, whose) { ToOwner = toOwner }
                 : m.Groups["draws"].Success
-                    ? new DrawForTargetsController(many, whose)
+                    ? new DrawForTargetsController(many, whose) { ToOwner = toOwner }
                     : new ChangeLifeOfTargetsController(
                         m.Groups["verb"].Value.StartsWith(
                             "gain", StringComparison.OrdinalIgnoreCase)
                             ? many
                             : -many,
-                        whose));
+                        whose)
+                    { ToOwner = toOwner });
 
             return true;
         }
@@ -2413,6 +2456,29 @@ public static partial class EffectPhrase
             else if (ObjectOf(m.Groups["t"].Value, targets, objectNamedByTrigger) is { } tapped)
             {
                 effects.Add(new TapTarget(tapped.Index, tapped.Subject));
+                return true;
+            }
+        }
+
+        // "~ phases out", "target creature phases out", "equipped creature phases out"
+        // (CR 702.26b). The subject leads, so this cannot go through the verb-first attachment
+        // rewriter above; the two attachment wordings are named here instead, which is cheaper
+        // than widening a pattern that is deliberately narrow to keep statics out of it.
+        m = PhasesOutLine().Match(sentence);
+        if (m.Success)
+        {
+            var who = m.Groups["t"].Value.Trim();
+
+            if (who.StartsWith("enchanted ", StringComparison.OrdinalIgnoreCase)
+                || who.StartsWith("equipped ", StringComparison.OrdinalIgnoreCase))
+            {
+                effects.Add(new PhaseOutPermanent(Subject: EffectSubject.AttachedHost));
+                return true;
+            }
+
+            if (ObjectOf(who, targets, objectNamedByTrigger) is { } phasing)
+            {
+                effects.Add(new PhaseOutPermanent(phasing.Index, phasing.Subject));
                 return true;
             }
         }
@@ -5599,7 +5665,8 @@ public static partial class EffectPhrase
 
             if (TryOne(offered.Groups["effect"].Value.Trim(), scratchTargets, scratchEffects, objectNamedByTrigger)
                 && scratchEffects.Count > 0
-                && !scratchEffects.Any(FindsItselfByIndex))
+                && (!scratchEffects.Any(FindsItselfByIndex)
+                    || OneQuestionCanBeNested(effects, scratchEffects)))
             {
                 var offset = targets.Count;
                 targets.AddRange(scratchTargets);
@@ -10044,7 +10111,7 @@ public static partial class EffectPhrase
     /// would eventually disagree about that.
     /// </remarks>
     [GeneratedRegex(
-        @"^(its|that spell's|that creature's|that permanent's) controller "
+        @"^(its|that spell's|that creature's|that permanent's) (?<whose>controller|owner) "
             + @"((?<verb>loses|gains) " + N + @" life"
             + @"|(?<draws>draws) " + N + @" cards?"
             + @"|(?<mills>mills) " + N + @" cards?)" + FOREACH + @"$",
@@ -10197,6 +10264,15 @@ public static partial class EffectPhrase
 
     [GeneratedRegex(@"^(?<verb>tap|untap) " + T + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex TapOrUntapLine();
+
+    /// <remarks>
+    /// Anchored at both ends on purpose. "Target creature phases out until you roll a 3 or less"
+    /// and "…​ It can't phase in for as long as you control this Saga" are different cards with a
+    /// duration this effect has no way to honour, and reading them as a plain phase-out would
+    /// send a permanent away for one turn where the card says otherwise.
+    /// </remarks>
+    [GeneratedRegex(@"^(?<t>.+) phases out$", RegexOptions.IgnoreCase)]
+    private static partial Regex PhasesOutLine();
 
     /// <remarks>
     /// The subject is optional on all three of these, and that had been inconsistent: draw
@@ -10900,9 +10976,17 @@ public static partial class EffectPhrase
     private static partial Regex UntapUpToLine();
 
     /// <summary>"Look at the top N cards of your library, then put them back in any order".</summary>
+    /// <remarks>
+    /// Whatever follows is captured rather than refused, exactly as the look-and-take idiom
+    /// beside it learned to do. Anchored to the end of the line, one trailing sentence - Ponder's
+    /// "You may shuffle.", Pondering Mage's "Draw a card." - threw the whole match away and left
+    /// the card unread, though every one of those tails already had a reader of its own.
+    /// </remarks>
     [GeneratedRegex(
         @"^look at the top (?<n>" + N + @") cards? of your library, "
-            + @"then put (them|those cards) back in any order\.?$",
+            + @"then put (them|those cards) back in any order\.(?<after>.*)$"
+            + @"|^look at the top (?<n>" + N + @") cards? of your library, "
+            + @"then put (them|those cards) back in any order$",
         RegexOptions.IgnoreCase)]
     private static partial Regex LookAndArrangeLine();
 
@@ -12588,6 +12672,23 @@ public static partial class TriggerConditions
                 && cycled.SourceId == source.Id;
         }
 
+        // "You expend 4" - the tally of mana spent casting spells this turn crossing a threshold
+        // (CR 700.14). It is not "you spent 4 mana": it fires once, on the payment that takes the
+        // total from below N to N or more, and never again that turn however much else is cast.
+        // The event carries both totals for exactly that reason - a predicate is handed the state
+        // from one side of the event (CR 603.6), and neither side alone says a line was crossed.
+        var expending = ExpendCondition().Match(condition);
+        if (expending.Success)
+        {
+            var threshold = int.Parse(expending.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+            return (e, _, source) =>
+                e is ManaSpentCasting spent
+                && spent.PlayerId == source.ControllerId
+                && spent.Before < threshold
+                && spent.After >= threshold;
+        }
+
         // "You roll one or more dice" and "you roll a die" are one event here: a roll
         // instruction rolls one die for as long as nothing reads the multi-dice instructions,
         // so the two wordings cannot yet come apart. The day "roll two d6" compiles, the
@@ -13408,8 +13509,40 @@ public static partial class TriggerConditions
             };
         }
 
+        // "You cast or cycle ~", "you cycle or discard a card" - two conditions sharing a subject
+        // and an object, printed as one clause. Tried last, so every reader above keeps whatever
+        // it already takes whole, and it is self-limiting: the arm only admits a disjunction whose
+        // *both* halves this parser already reads, so it can never invent a condition. A trigger
+        // that fired on only one half would be a strictly worse card than the printed one, and one
+        // that fired on neither is what the corpus had.
+        //
+        // Narrow on purpose: the alternatives have to be the two words immediately after "you".
+        // A general split on " or " reads "you control no Elves or Goblins" as a disjunction, and
+        // that clause means neither of them - an "or" between nouns under a negation is an "and",
+        // and nothing in a predicate combinator can tell the two apart.
+        var either = SharedSubjectDisjunction().Match(condition);
+        if (either.Success)
+        {
+            var tail = " " + either.Groups["tail"].Value;
+            var left = Parse("you " + either.Groups["a"].Value + tail);
+            var right = Parse("you " + either.Groups["b"].Value + tail);
+
+            if (left is null || right is null)
+                return null;
+
+            return (e, state, source) => left(e, state, source) || right(e, state, source);
+        }
+
         return null;
     }
+
+    /// <remarks>
+    /// Both alternatives must be single words directly after the subject, which is what keeps
+    /// this off the noun disjunctions that mean something else — see the caller.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you (?<a>[a-z]+) or (?<b>[a-z]+) (?<tail>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SharedSubjectDisjunction();
 
     /// <summary>
     /// "At the beginning of [whose] [step]" — a trigger that fires off the turn itself (CR 603.1).
@@ -13792,7 +13925,15 @@ public static partial class TriggerConditions
         // "You" is whoever controls the ability; "enchanted player" is whoever the permanent is
         // attached to (CR 303.4b), and an Aura on nothing names nobody rather than falling back.
         var whom = m.Groups["whom"].Value.Trim();
-        var defenderNamed = whom.Length > 0;
+
+        // "A player" and "an opponent" are the unqualified defender said out loud. They are not
+        // a *named* defender - there is nobody to compare the declaration against - so they take
+        // a flag of their own rather than being folded into the one below, which asks whether
+        // the attack was aimed at this card's controller. Folded together, Meriadoc Brandybuck
+        // would have created a Food only when his own controller was attacked.
+        var attacksAnyPlayer = whom is "a player" or "an opponent";
+        var attacksAnOpponent = whom is "an opponent";
+        var defenderNamed = whom.Length > 0 && !attacksAnyPlayer;
         var defendsEnchanted = whom is "enchanted player" or "to enchanted player";
 
         // "Attacks you" is the player and not the planeswalker: a creature attacking a
@@ -13841,6 +13982,11 @@ public static partial class TriggerConditions
         if (defenderNamed && !attacking && !dealing)
             return null;
 
+        // Only an attack is declared against anybody. "Deals combat damage to a player" already
+        // says so in its own verb, and no other verb in this pattern has a defender at all.
+        if (attacksAnyPlayer && !attacking)
+            return null;
+
         // "One or more creatures deal combat damage to you" - the batched damage event records
         // who dealt it and not who took it, so the recipient cannot be checked and the sentence
         // is left unread. A trigger that fired for damage dealt to anybody would be a strictly
@@ -13866,7 +14012,15 @@ public static partial class TriggerConditions
         {
             var word = named.Value.Trim();
 
-            if (TypeNamed(word) is { } known)
+            // "Outlaw" is not a type at all: CR 700.12 defines it as any of five creature types,
+            // which is why it is printed lowercase beside the capitalised tribes. Expanded into
+            // the alternation the sentence already supports, so a Pirate Rogue answers once.
+            if (word.Equals("outlaw", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var kind in new[] { "Assassin", "Mercenary", "Pirate", "Rogue", "Warlock" })
+                    alternatives.Add((Domain.Enums.CardType.Creature, kind));
+            }
+            else if (TypeNamed(word) is { } known)
             {
                 alternatives.Add((known, null));
             }
@@ -13941,9 +14095,14 @@ public static partial class TriggerConditions
                     return false;
 
                 return declared.Attackers
-                    .Where(one => !defenderNamed
-                        || (one.Value.DefendingPlayer == defended
-                            && (planeswalkerCounts || !one.Value.IsPlaneswalker)))
+                    .Where(one => (!defenderNamed
+                            || (one.Value.DefendingPlayer == defended
+                                && (planeswalkerCounts || !one.Value.IsPlaneswalker)))
+                        // "Attack a player": a creature aimed at a planeswalker is attacking its
+                        // controller's *permanent*, not the player (CR 508.1b), so it does not
+                        // answer this description however many of them were declared.
+                        && (!attacksAnyPlayer || !one.Value.IsPlaneswalker)
+                        && (!attacksAnOpponent || one.Value.DefendingPlayer != source.ControllerId))
                     .Select(one => state.TryGetObject(one.Key, out var o) ? o : null)
                     .OfType<GameObject>()
                     .Any(attacker =>
@@ -14508,6 +14667,12 @@ public static partial class TriggerConditions
             // you" was refused while "whenever a creature attacks" was read. Optional, because
             // the unqualified sentence means any defender and is the commoner one.
             + @"(?<whom> to you| to enchanted player"
+            // "Attacks a player" and "attacks an opponent" name no particular defender - they
+            // rule out a planeswalker, and nothing else (CR 508.1b). Kept in the same group as
+            // the named defenders so the pattern stays one, and told apart below, because a
+            // trigger that demanded the attack be aimed at its own controller would fire for
+            // nobody on a card that says "attack a player".
+            + @"| a player| an opponent"
             + @"| you or a planeswalker you control| you| enchanted player)?$",
         RegexOptions.None)]
     private static partial Regex ZoneChangeLine();
@@ -14529,7 +14694,9 @@ public static partial class TriggerConditions
     /// </remarks>
     [GeneratedRegex(
         @"^one or more (?<head>[A-Za-z]+)(?<rest>.*?)"
-            + @" (?<verb>deal combat damage to a player|deal combat damage|attack|block"
+            + @" (?<verb>deal combat damage to one or more players"
+            + @"|deal combat damage to a player|deal combat damage"
+            + @"|attack a player|attack an opponent|attack|block"
             + @"|become blocked)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex OneOrMoreLine();
@@ -14542,8 +14709,15 @@ public static partial class TriggerConditions
     /// </remarks>
     private static string PluralVerb(string verb) => verb.ToLowerInvariant() switch
     {
+        // "To one or more players" is what a batch says when "to a player" is what one creature
+        // says. The batch verb below already fires once for the whole step and asks whether any
+        // of the creatures that connected answers the description, so the two are the same
+        // question and the longer spelling only ever appeared on the plural subject.
+        "deal combat damage to one or more players" => "deals combat damage to a player",
         "deal combat damage to a player" => "deals combat damage to a player",
         "deal combat damage" => "deals combat damage",
+        "attack a player" => "attacks a player",
+        "attack an opponent" => "attacks an opponent",
         "attack" => "attacks",
         "block" => "blocks",
         "become blocked" => "becomes blocked",
@@ -14622,6 +14796,10 @@ public static partial class TriggerConditions
     [GeneratedRegex(
         @"^you (cycle or discard|discard or cycle) an? card$", RegexOptions.IgnoreCase)]
     private static partial Regex CycleOrDiscardLine();
+
+    /// <summary>"You expend 4" — CR 700.14's threshold, printed as a number.</summary>
+    [GeneratedRegex(@"^you expend (?<n>\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExpendCondition();
 
     [GeneratedRegex(@"^you roll (one or more dice|a die)$", RegexOptions.IgnoreCase)]
     private static partial Regex RollsDiceCondition();
