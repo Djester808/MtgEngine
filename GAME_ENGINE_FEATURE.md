@@ -7132,10 +7132,30 @@ a capability rather than a wider pattern.
   its line correctly and is refused because the whole card counts as a spell, so the static reader
   is never offered the line.
 
-CR 615.10's numbered static — "if a source would deal damage to you, prevent 1 of that damage" — is
-a differently-shaped sentence and the next family along at **23 sole blockers, 24 cards**: the five
-Spheres, Urza's Armor, Daunting Defender, Djeru, Temple Altisaur, Gisela and the rest.
-`PreventionEffect.Amount` is already CR 615.10's cap and is already applied afresh to each damage
-event, and `Preventions.Watches` already asks about the source's colour and type — so what that
-family needs is a reader for the "if … would … prevent N" sentence, not a mechanism.
+**One recorded decline was stale, and it was the biggest one.** The tail was written down as "26
+name a target the shield cannot aim at", and the shield could not aim at one because
+`PreventionEffect` had no source slot — but the *target grammar* had meanwhile grown the adjectives
+those cards use. `Specs.Parse` already read "target attacking creature", "target blocked creature",
+"target unblocked creature" and "target attacking or blocking creature", and it already read "one or
+two target creatures" into two targets. Adding the field turned nine of them over with no pattern
+work at all. That is the fourth time this file has recorded a decline going stale because a
+mechanism arrived elsewhere; the check that finds them is re-reading the note, and it costs an hour.
+
+The other two thirds of that tail stand and were re-measured. **"Needs a state-based filter" is only
+half stale**: the adjectives arrived in the grammar that reads a *target*, and not in the vocabulary
+that describes a *set* — `PermanentFilter` and `SourceFilter` are `SearchFilters` ids asked of a
+printed card, so "prevent all combat damage that would be dealt this turn by attacking creatures"
+(Harmless Assault) is still unread while Kor Haven now plays. The multi-sentence declines are
+unchanged: Subdue, Boros Fury-Shield, Chain of Silence and Inquisitor's Snare each read their
+prevention and are blocked by the clause after it.
+
+Three families sit next to this one and are each worth more than what is left inside it. CR 615.10's
+numbered static — "if a source would deal damage to you, prevent 1 of that damage" — is **23 sole
+blockers, 24 cards**: the five Spheres, Urza's Armor, Daunting Defender, Djeru, Temple Altisaur,
+Gisela. It needs a reader and not a mechanism: `PreventionEffect.Amount` is already CR 615.10's cap
+applied afresh to each damage event, and `Preventions.Watches` already asks about the source's
+colour and type. CR 615.7's countdown is **32 sole blockers**, and that machinery is finished too.
+And "damage can't be prevented" (CR 615.12) is **24 sole blockers** and is the one of the three that
+is genuinely a mechanism — an unpreventable flag the replacement pass has to carry, which is why
+Banefire and Questing Beast are unread.
 
