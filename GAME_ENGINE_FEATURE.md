@@ -488,7 +488,56 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **51.5% of playable cards fully read** (16,834 of 32,717), 68.0% of lines.
+Coverage is **51.8% of playable cards fully read** (16,936 of 32,717), 68.3% of lines.
+
+### Round fifteen: chosen by grepping for a shape, not by reading down the queue
+
+Rank had stopped predicting value, so every target this round was found by grepping the
+**compile dump** — a probe emitting `(oracleId, name, isComplete, unhandled)` for all 32,717
+cards, grouped by the shape of the unread line. That is a better instrument than grepping the
+corpus, because it asks what the compiler *fails* on rather than what cards say. One query -
+`^\w+-(?!\{)`, a keyword head and an em dash followed by something that is not a mana symbol -
+returned the whole non-mana-keyword-cost family at **91 rows / 104 cards, five times what the
+line ranking showed**. It also splits families the ranking conflates: `devotion` returned 51
+unread rows that are two unrelated mechanics, 34 counts and 10 type-removals.
+
+### The founding invariant was quietly broken, and by a gap in a helper
+
+`GameState.Equals` omitted `ArmedStateTriggers`, so two states differing only in which state
+triggers had fired compared **equal** - and a replay would fire each of them a second time
+(CR 603.8). The cause is worth more than the fix: `Structural` had equality overloads for a
+list and for a dictionary and **none for a set**, so the one set-valued field on the state had
+nowhere to go. Nobody decided to leave it out.
+
+### Live defects, each a card better than printed
+
+- **A spell target's qualifier was parsed and discarded.** `Counter target spell with mana value
+  4 or greater` compiled *complete* and countered anything - Disdainful Stroke, Spell Queller,
+  Hypnotic Sprite and five others shipped that way.
+- **Nothing enforced CR 115.3.** Every "up to two target creatures" was castable twice at one
+  creature.
+- **`RequireDamageDivision` ran at the end of `CastSpell`**, so an illegal announcement got as
+  far as paying for the spell. Moved beside `RequireLegalTargets`, where 601.2d belongs.
+- **A trigger with a trailing optional target and nothing legal left was removed from the stack**
+  rather than resolving with what it had.
+
+### Two instruments had drifted from what they measure
+
+The coverage harness's Scryfall keyword table held **33 of production's 34** (no `Banding`), so
+every banding card reached the compiler as a different card from the one the app builds. And
+`WitnessBoard.Satisfies` asked three of `TargetSpec`'s four filters - the same two-of-three bug
+as before, recurring the moment `PeerFilter` was added, which made every radiance phrase
+satisfiable for free. It now calls `spec.Accepts`, the one place that asks them all.
+
+### A wall recorded twice, and recorded wrong
+
+Two rounds had concluded that Ashmouth Hound and its eight siblings were blocked by
+`SubjectObjectOf` refusing `BlockersDeclared`. Flipping that arm and recompiling the corpus
+completes **five** cards and **not one of the nine**. The nine are behind `DealDamage` having no
+`EffectSubject` at all - unlike destroy, exile and tap, it cannot take a pronoun. Both halves
+are required and neither is worth anything alone: building only the effect half would make all
+nine damage *themselves*, which is the failure the corpus gate caught and reverted two rounds
+before. The corrected diagnosis is here so the next attempt starts from the right wall.
 
 ### Round fifteen: a trigger that watches a batch, and a wall misattributed for two rounds
 
