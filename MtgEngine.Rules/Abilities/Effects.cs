@@ -4891,6 +4891,78 @@ public sealed record DelayObjectAction(
     }
 }
 
+/// <summary>
+/// Its controller loses the game (CR 104.3e).
+/// </summary>
+/// <remarks>
+/// The one thing an effect can do that no state-based action is checking for. CR 704 catches a
+/// player at zero life, drawing from an empty library, or holding ten poison counters; this is
+/// the arm for an effect that simply says the words, and the pacts are what say them.
+/// <para>
+/// It emits the same <see cref="PlayerLost"/> that conceding and every state-based loss emit, so
+/// nothing downstream has to learn a second way for a player to be out — the last player left
+/// wins by the rule that was already there (CR 104.2a).
+/// </para>
+/// <para>
+/// "You" is the effect's controller, which for the branch of a delayed payment is the player who
+/// controlled the spell as it resolved (CR 603.7d) — the controller stored on the card the spell
+/// became. It is deliberately not the player who was asked to pay: those are the same person on
+/// every card that prints this, and reading it off the question rather than off the ability would
+/// make the first card that separates them lose the wrong game.
+/// </para>
+/// </remarks>
+public sealed record LoseTheGame : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return [new PlayerLost(context.ControllerId, "an effect said so", "104.3e")];
+    }
+}
+
+/// <summary>
+/// Sets one of the card's own abilities to go on the stack at a later step (CR 603.7).
+/// </summary>
+/// <remarks>
+/// The delayed vocabulary's other half, and the half <c>Game.FireDelayedTriggers</c>'s own note
+/// asked for: everything the word-based delays do is a zone change performed inline, "because
+/// nothing in the game can profitably respond to that — but a delayed ability that drew a card
+/// would be wrong here, and should go through the trigger machinery instead."
+/// <para>
+/// A pact is exactly that card. "At the beginning of your next upkeep, pay {2}{B}. If you don't,
+/// you lose the game" has to reach the stack, because the whole of what the player does about it
+/// happens while it is there: mana empties between steps (CR 500.4), so a payment asked at the
+/// moment the upkeep begins is a payment nobody can ever make, and every pact would kill its
+/// caster. Put on the stack, the ability is answered the way the cards are actually played —
+/// priority, lands tapped in response, and then the question.
+/// </para>
+/// <para>
+/// What it names is an ability id on its own card rather than an effect list, for the reason the
+/// whole delayed family carries strings: a delayed ability lives in the state, the state folds
+/// from a log, and a log holds no closures. The body is looked up again from the compiled card
+/// through the same <c>EffectsOfAbility</c> that resolves every other triggered ability.
+/// </para>
+/// </remarks>
+public sealed record DelayAbility(string AbilityId, State.TurnStep Step) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new DelayedTriggerCreated(
+                Guid.NewGuid(),
+                context.ControllerId,
+                context.PhysicalSourceId,
+                Step,
+                DelayedActions.Ability + AbilityId,
+                context.State.TurnNumber),
+        ];
+    }
+}
+
 /// <summary>The words the delayed vocabulary understands, and what each one does.</summary>
 /// <remarks>
 /// A delayed ability carries one string and nothing else, so the instruction has to be a word.
@@ -4920,6 +4992,23 @@ public static class DelayedActions
     /// is why the line stayed unread until this word existed.
     /// </remarks>
     public const string Destroy = "destroy";
+
+    /// <summary>
+    /// A prefix, not a word: what follows it is an ability id on the delayed trigger's own card.
+    /// </summary>
+    /// <remarks>
+    /// The four words above are performed inline. This one is not performed at all — it names an
+    /// ability, and <c>Game.FireDelayedTriggers</c> puts that ability on the stack so priority
+    /// happens before it resolves. See <see cref="DelayAbility"/> for why a pact needs that and
+    /// a delayed sacrifice does not.
+    /// <para>
+    /// The arm that reads it fires only on a turn of the delayed ability&apos;s own controller,
+    /// because every card printing this shape says &quot;your next upkeep&quot;. A delayed
+    /// ability that has to fire on anyone&apos;s turn will need a second prefix; no corpus card
+    /// prints one, so there is not one here to be read by nothing.
+    /// </para>
+    /// </remarks>
+    public const string Ability = "ability:";
 }
 
 /// <summary>
@@ -5722,6 +5811,73 @@ public enum CostModifierKind
 
     /// <summary>"Abilities you activate cost {1} less to activate."</summary>
     ActivatedAbilities,
+}
+
+/// <summary>
+/// How many spells a player may cast in a turn, when a permanent says (CR 601.3).
+/// </summary>
+/// <remarks>
+/// "A player can begin to cast a spell only if a rule or effect allows that player to cast it and
+/// no rule or effect prohibits that player from casting it." This is that prohibition, and it is
+/// the first one in the engine that comes from somewhere other than the card being cast:
+/// <see cref="SpellDefinition.CastOnlyWhen"/> is a restriction a card prints about itself, and
+/// nothing could say anything about anyone else's.
+/// <para>
+/// It is a value on the card rather than a continuous effect because there is nothing to compute:
+/// CR 613 sequences effects that change objects' characteristics, and a limit on casting changes
+/// no object at all. It modifies the rules, and the rule it modifies asks it directly.
+/// </para>
+/// <para>
+/// No new state was needed for it. <see cref="State.PlayerState.SpellsCastThisTurn"/> and its two
+/// siblings have counted this since "your first enchantment spell each turn" was built, which is
+/// also why the qualified forms are expressible: the cards cast this turn are kept, not only
+/// tallied, so "more than one <em>non-Phyrexian</em> spell" is a question that can be asked
+/// rather than a counter nobody thought to add.
+/// </para>
+/// </remarks>
+public sealed record CastLimit
+{
+    /// <summary>How many may be cast — "more than one" is a maximum of one.</summary>
+    public required int Max { get; init; }
+
+    /// <summary>
+    /// Whose casting it limits, read around whoever controls the permanent printing it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PlayerScope.EachPlayer"/> is the common form and taxes its own controller too;
+    /// <see cref="PlayerScope.You"/> is Moderation, which limits nobody else; and
+    /// <see cref="PlayerScope.EnchantedPlayer"/> is Curse of Exhaustion, an Aura on a player
+    /// (CR 303.4b). Defaulting a missing subject to the controller is the mistake this file
+    /// records one layer over, so there is no default that means "guess".
+    /// </remarks>
+    public PlayerScope Who { get; init; } = PlayerScope.EachPlayer;
+
+    /// <summary>
+    /// A card type the limit does not count and does not restrict — "noncreature spell".
+    /// </summary>
+    public Domain.Enums.CardType ExceptTypes { get; init; }
+
+    /// <summary>
+    /// A subtype the limit does not count and does not restrict — "non-Phyrexian spell".
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="ExceptTypes"/> because the printing tells them apart and the
+    /// engine has to as well: "noncreature" is a card type written closed up, "non-Phyrexian" is
+    /// a subtype written with a hyphen. Reading one as the other would build a limit that matches
+    /// nothing while compiling clean, which is the silent no-op this compiler keeps finding.
+    /// </remarks>
+    public string? ExceptSubtype { get; init; }
+
+    /// <summary>Whether a spell of this card counts towards the limit, and is stopped by it.</summary>
+    public bool Counts(Domain.Models.CardDefinition card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        return (ExceptTypes == Domain.Enums.CardType.None
+                || (card.CardTypes & ExceptTypes) == Domain.Enums.CardType.None)
+            && (ExceptSubtype is null
+                || !card.Subtypes.Contains(ExceptSubtype, StringComparer.OrdinalIgnoreCase));
+    }
 }
 
 /// <summary>

@@ -259,7 +259,7 @@ public sealed class Game
 
         if (!withMulligans)
         {
-            BeginTurn();
+            AskNextOpeningHandAction();
             return;
         }
 
@@ -395,7 +395,84 @@ public sealed class Game
         }
 
         Emit(new MulligansFinished());
+        AskNextOpeningHandAction();
+    }
+
+    /// <summary>
+    /// Offers each player in turn whatever their opening hand allows (CR 103.6).
+    /// </summary>
+    /// <remarks>
+    /// "Once the mulligan process is complete, the starting player may take any such actions in
+    /// any order. Then each other player in turn order may do the same." So it is a queue round
+    /// the table starting from the player who goes first, and the first turn begins only once
+    /// everybody has been past.
+    /// <para>
+    /// Whose turn it is to be asked is read out of <see cref="GameState.OpeningHandActed"/>
+    /// rather than from a field here, because a saved game is its log and a field is not in one.
+    /// A player with nothing to do is marked and skipped rather than being asked to pick from an
+    /// empty list — a question with one possible answer is not a question (CR 118.3's lesson,
+    /// one procedure over), and stopping the game to ask it is how a game stalls.
+    /// </para>
+    /// <para>
+    /// Only CR 103.6a is implemented. The reveal of 103.6b is a different action with a different
+    /// payload — the card stays revealed until the first turn begins — and no card printing it is
+    /// otherwise readable, so offering it here would be a question about nothing.
+    /// </para>
+    /// </remarks>
+    private void AskNextOpeningHandAction()
+    {
+        foreach (var playerId in State.PlayersFrom(FirstPlayerId))
+        {
+            if (State.OpeningHandActed.Contains(playerId))
+                continue;
+
+            var eligible = State.GetPlayer(playerId).Hand
+                .Where(id => _abilities.MayBeginOnBattlefield(State.GetObject(id).Card))
+                .ToList();
+
+            if (eligible.Count == 0)
+            {
+                Emit(new OpeningHandActionsTaken(playerId));
+                continue;
+            }
+
+            Ask(new PendingChoice
+            {
+                Id = "opening-hand:" + playerId.ToString("N"),
+                PlayerId = playerId,
+                Kind = ChoiceKind.OpeningHandBattlefield,
+                Prompt = "Begin the game with any of these on the battlefield, "
+                    + "or pick nothing to decline.",
+                Options = [.. eligible.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+                MinPicks = 0,
+                MaxPicks = eligible.Count,
+            });
+
+            return;
+        }
+
         BeginTurn();
+    }
+
+    /// <summary>Puts the chosen cards onto the battlefield before the game starts (CR 103.6a).</summary>
+    /// <remarks>
+    /// An ordinary zone change, which is the whole of what the rule says to do: "the player
+    /// taking this action puts that card onto the battlefield". It is not played and not cast,
+    /// so nothing is paid and nothing goes on the stack.
+    /// </remarks>
+    private void BeginWithOnBattlefield(Guid playerId, IReadOnlyList<string> picks)
+    {
+        foreach (var pick in picks)
+        {
+            var id = State.GetPlayer(playerId).Hand
+                .First(h => string.Equals(h.Value.ToString("N"), pick, StringComparison.Ordinal));
+
+            Move(id, Zone.Battlefield, MoveCause.Other, playerId);
+        }
+
+        Emit(new OpeningHandActionsTaken(playerId));
+        AskNextOpeningHandAction();
     }
 
     private void BottomAfterMulligan(Guid playerId, IReadOnlyList<string> picks)
@@ -1015,6 +1092,15 @@ public sealed class Game
         if (definition?.CastOnlyWhen is { } allowed && !allowed(State, playerId))
             throw new InvalidOperationException(
                 $"{card.Card.Name} cannot be cast now (CR 601.3e).");
+
+        // CR 601.3: and no rule or effect prohibits the player from casting it. Checked here,
+        // before anything is spent or moved, because a cast this refuses must never have begun.
+        if (CastLimitRefusing(card.Card, playerId) is { } limiting)
+        {
+            throw new InvalidOperationException(
+                $"{card.Card.Name} cannot be cast: {limiting} limits how many spells "
+                + "may be cast this turn (CR 601.3).");
+        }
 
         // CR 702.37b: a card with morph may be cast face down as a 2/2 creature spell for {3}.
         // Nothing else about the card applies while it is being cast that way — not its targets,
@@ -2770,6 +2856,75 @@ public sealed class Game
     }
 
     /// <summary>
+    /// The permanent refusing this cast, if the board holds one (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// "A player can begin to cast a spell only if a rule or effect allows that player to cast it
+    /// and no rule or effect prohibits that player from casting it." Every other refusal in this
+    /// method comes off the card being cast; this one comes off somebody else's board, which is
+    /// why it is a sweep rather than a field.
+    /// <para>
+    /// The card is read through <see cref="Characteristics.CardOf"/> and not off the object,
+    /// because a permanent that has become a copy of Rule of Law has Rule of Law's static ability
+    /// and its printed card has none (CR 613.2c). That is the mistake this file records nine
+    /// times over, and it is the same one here.
+    /// </para>
+    /// <para>
+    /// The qualifier narrows both halves of the sentence at once, and it has to: "more than one
+    /// noncreature spell" neither stops a creature spell nor counts one. Asking it only of the
+    /// tally, or only of the spell, would produce a card that stops the wrong half of a turn.
+    /// </para>
+    /// </remarks>
+    private string? CastLimitRefusing(CardDefinition casting, Guid playerId)
+    {
+        foreach (var id in State.Battlefield)
+        {
+            var permanent = State.GetObject(id);
+            var card = Characteristics.CardOf(State, _abilities, permanent);
+
+            foreach (var limit in _abilities.CastLimitsOf(card))
+            {
+                if (!LimitReaches(limit, permanent, playerId) || !limit.Counts(casting))
+                    continue;
+
+                if (SpellsCastTowards(limit, playerId) >= limit.Max)
+                    return card.Name;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether a permanent's cast limit is about this player (CR 601.3).</summary>
+    /// <remarks>
+    /// The scope is read around the permanent's <em>current</em> controller, which is layer 2
+    /// (CR 613.1b) — a stolen Moderation limits the thief. The enchanted-player arm is separate
+    /// because the player an Aura is attached to is not a scope around anybody: it is a fact
+    /// stored on the permanent, and an Aura attached to nothing names nobody at all (CR 303.4b).
+    /// </remarks>
+    private bool LimitReaches(CastLimit limit, GameObject permanent, Guid playerId) =>
+        limit.Who == PlayerScope.EnchantedPlayer
+            ? permanent.Permanent?.AttachedToPlayer == playerId
+            : PlayerScopes.Around(limit.Who, State, ControllerOf(permanent)).Contains(playerId);
+
+    /// <summary>How many spells this player has cast this turn that the limit counts.</summary>
+    /// <remarks>
+    /// The bare limit reads the tally and the qualified ones read the cards, and the difference is
+    /// deliberate rather than an inconsistency: the tally counts a spell whose object could not be
+    /// described — a face-down cast — and the card list does not (see <c>GameReducer.Cast</c>). A
+    /// limit on every spell must count that spell; a limit on "noncreature spells" cannot say
+    /// whether it was one, and not counting it is the arm that errs towards letting a player play.
+    /// </remarks>
+    private int SpellsCastTowards(CastLimit limit, Guid playerId)
+    {
+        var player = State.GetPlayer(playerId);
+
+        return limit.ExceptTypes == CardType.None && limit.ExceptSubtype is null
+            ? player.SpellsCastThisTurn
+            : player.SpellCardsCastThisTurn.Count(limit.Counts);
+    }
+
+    /// <summary>
     /// Pays a mana cost from the player's pool (CR 601.2h), or refuses if it cannot be paid.
     /// </summary>
     /// <returns>
@@ -3080,6 +3235,10 @@ public sealed class Game
 
             case ChoiceKind.BottomAfterMulligan:
                 BottomAfterMulligan(choice.PlayerId, picks);
+                break;
+
+            case ChoiceKind.OpeningHandBattlefield:
+                BeginWithOnBattlefield(choice.PlayerId, picks);
                 break;
 
             case ChoiceKind.LegendRule:
@@ -9578,11 +9737,18 @@ public sealed class Game
     /// Fires any delayed triggered abilities waiting for this step (CR 603.7).
     /// </summary>
     /// <remarks>
-    /// Done immediately rather than put on the stack, which is a simplification and is recorded
-    /// as one: a delayed trigger does use the stack, and an opponent could respond to it. Every
-    /// delayed ability the compiler currently creates sacrifices or exiles the permanent that
-    /// made it, and nothing in the game can profitably respond to that — but a delayed ability
-    /// that drew a card would be wrong here, and should go through the trigger machinery instead.
+    /// The word-based delays are done immediately rather than put on the stack, which is a
+    /// simplification and is recorded as one: a delayed trigger does use the stack, and an
+    /// opponent could respond to it. Everything that vocabulary can be asked to do is a zone
+    /// change or a counter, and nothing in the game can profitably respond to that.
+    /// <para>
+    /// A delayed ability that does anything else has a route now, and the note that used to sit
+    /// here asked for it: <see cref="Abilities.DelayedActions.Ability"/> names an ability on the
+    /// delayed trigger's own card, and <see cref="PutDelayedAbilityOnStack"/> puts that ability
+    /// on the stack rather than performing anything. A pact is why it had to exist — its payment
+    /// is asked after it resolves, and mana empties as a step ends (CR 500.4), so a payment
+    /// demanded at the moment the upkeep began is one no player could ever make.
+    /// </para>
     /// <para>
     /// <c>TurnCreated</c> is recorded on the ability but not read here: the ordering makes it
     /// unnecessary. It stays because a delayed ability with a stated duration — "until end of
@@ -9596,10 +9762,20 @@ public sealed class Game
         // runs at the moment of entry and an effect resolving inside the step comes later. So
         // "the next one" needs no arithmetic: an ability created during an end step is simply not
         // in this list yet, and waits for the following turn's.
-        var due = State.Delayed.Where(d => d.Step == step).ToList();
+        var due = State.Delayed.Where(d => d.Step == step && IsDueNow(d)).ToList();
 
         foreach (var delayed in due)
         {
+            // An ability rather than an instruction: it goes on the stack and is answered there,
+            // which is the difference between a payment a player can make and one nobody can.
+            // Above the fired event because putting it on the stack is what firing it *is* -
+            // there is nothing left for the arms below to do afterwards.
+            if (delayed.EffectId.StartsWith(DelayedActions.Ability, StringComparison.Ordinal))
+            {
+                PutDelayedAbilityOnStack(delayed);
+                continue;
+            }
+
             Emit(new DelayedTriggerFired(delayed.Id));
 
             // A delayed ability that does something to its controller rather than to a permanent
@@ -9714,6 +9890,66 @@ public sealed class Game
 
             Move(delayed.SubjectId, where, why, delayed.ControllerId);
         }
+    }
+
+    /// <summary>
+    /// Whether a delayed ability waiting for this step is waiting for <em>this</em> one (CR 603.7).
+    /// </summary>
+    /// <remarks>
+    /// The word-based delays name a step and mean the next one in the game — "sacrifice it at the
+    /// beginning of the next end step" is whichever end step comes first, whoever's turn it is.
+    /// An ability-bodied delay is printed only in the other form: every card that prints one says
+    /// "at the beginning of <em>your</em> next upkeep", and a pact that came due on the opponent's
+    /// upkeep would demand payment a turn early and kill its caster for it.
+    /// <para>
+    /// Which turn it is answers "next" completely, and no arithmetic is needed for the "next"
+    /// part: an ability created inside a step is not in this list when that step is entered, so
+    /// a pact cast during its caster's own upkeep waits for the following one.
+    /// </para>
+    /// </remarks>
+    private bool IsDueNow(DelayedTrigger delayed) =>
+        !delayed.EffectId.StartsWith(DelayedActions.Ability, StringComparison.Ordinal)
+        || State.ActivePlayerId == delayed.ControllerId;
+
+    /// <summary>
+    /// Puts the ability a delayed trigger names onto the stack (CR 603.7, 603.3).
+    /// </summary>
+    /// <remarks>
+    /// The body is read back off the card the delay was created by, through the same lookup that
+    /// resolves every other triggered ability — so the ability is an ordinary object on the stack
+    /// from the moment it arrives: an opponent may respond to it, and its controller may tap
+    /// lands before it resolves.
+    /// <para>
+    /// CR 603.7c's counterpart for a card rather than a permanent: if nothing can be found behind
+    /// the id any more, the ability does nothing. That is a real position — a pact whose card was
+    /// exiled from the graveyard — and it is the wrong answer, because a pact is owed whatever
+    /// became of the card that promised it. It is left this way rather than guessed at: the fix
+    /// is for the delayed trigger to carry the ability's text and cost itself, which is a change
+    /// to what a stored delayed ability is and wants its own pass.
+    /// </para>
+    /// </remarks>
+    private void PutDelayedAbilityOnStack(DelayedTrigger delayed)
+    {
+        var abilityId = delayed.EffectId[DelayedActions.Ability.Length..];
+
+        if (CardBehind(delayed.SubjectId) is not { } card)
+            return;
+
+        var ability = _abilities.TriggersOf(card)
+            .FirstOrDefault(t => string.Equals(t.Id, abilityId, StringComparison.Ordinal));
+
+        if (ability is null)
+            return;
+
+        Emit(new DelayedTriggerFired(delayed.Id));
+
+        Emit(new TriggerPutOnStack(
+            ObjectId.New(),
+            delayed.SubjectId,
+            card,
+            abilityId,
+            ability.Text,
+            delayed.ControllerId));
     }
 
     private void EnterStep(TurnStep step)

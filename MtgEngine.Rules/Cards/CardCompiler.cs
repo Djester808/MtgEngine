@@ -373,6 +373,8 @@ public static partial class CardCompiler
         var mayDeclineUntap = false;
         var skipsDraw = false;
         var revealsTop = false;
+        var mayBeginOnBattlefield = false;
+        var castLimits = ImmutableList.CreateBuilder<CastLimit>();
         var assist = false;
         ManaCostSpec? escalate = null;
         ManaCostSpec? kicker = null;
@@ -691,6 +693,20 @@ public static partial class CardCompiler
 
                 continue;
             }
+
+            // CR 103.6a. A real game rule and not deck-construction trivia: the permanent is on
+            // the battlefield before the first turn, so the whole of what a Leyline does happens
+            // in a step that had to be built for it. Reading the line into `DeckRules` beside
+            // "~ can be your commander" would have filed six cards as understood while deleting
+            // the only thing they do - which is why the note on that field says so.
+            if (BeginOnBattlefieldLine().IsMatch(line))
+            {
+                mayBeginOnBattlefield = true;
+                continue;
+            }
+
+            if (TryCastLimit(line, castLimits))
+                continue;
 
             if (SkipDrawStepLine().IsMatch(line))
             {
@@ -1481,6 +1497,13 @@ public static partial class CardCompiler
             if (TryActivatedAbility(line, card, activated, unhandled))
                 continue;
 
+            // Before the trigger reader, which would take the "At the beginning of your next
+            // upkeep" clause and then fail on the payment behind it - filing a line it very
+            // nearly understood as unread. Only on a spell: the delayed ability is created as
+            // the spell resolves (CR 603.7a), and nothing else prints this shape.
+            if (isSpell && TryPactPayment(line, card, spellEffects, triggers))
+                continue;
+
             if (TryTrigger(line, card, triggers, unhandled, ref modalTriggerAt))
                 continue;
 
@@ -1800,6 +1823,8 @@ public static partial class CardCompiler
             MayDeclineUntap = mayDeclineUntap,
             SkipsDrawStep = skipsDraw,
             RevealsTopOfLibrary = revealsTop,
+            MayBeginOnBattlefield = mayBeginOnBattlefield,
+            CastLimits = castLimits.ToImmutable(),
             Statics = statics.ToImmutable(),
             PlayerQualities = playerQualities.ToImmutable(),
             GrantedKeywords = grantedKeywords,
@@ -2941,6 +2966,8 @@ public static partial class CardCompiler
         && !section.MayDeclineUntap
         && !section.SkipsDrawStep
         && !section.RevealsTopOfLibrary
+        && !section.MayBeginOnBattlefield
+        && section.CastLimits.IsEmpty
         && section.AttacksOnlyIfDefenderControls is null;
 
     public static CompiledCard CompileFace(CardDefinition card, CardFace face)
@@ -4367,6 +4394,147 @@ public static partial class CardCompiler
                     YesLabel: $"Put {count} +1/+1 counter(s) on it",
                     NoLabel: $"Create {count} Servo token(s)"),
             ],
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// The pact: pay at your next upkeep or lose the game (CR 603.7, 104.3e).
+    /// </summary>
+    /// <remarks>
+    /// Two halves that only work together, the way rebound's are. The spell creates a delayed
+    /// triggered ability as it resolves (CR 603.7a); the ability itself is compiled onto the card
+    /// under an id, so that the thing put on the stack a turn later is looked up rather than
+    /// remembered. Nothing sweeps it into a game on its own: the ability functions from the
+    /// battlefield, and an instant is never there.
+    /// <para>
+    /// The payment is an ordinary optional cost with both branches spelled out, which is what
+    /// lets CR 118.3 apply without another line of code: a player who cannot pay is not asked,
+    /// and the "if you don't" branch simply runs. A question with one possible answer is not a
+    /// question, and a pact offered to a player with an empty pool would be a button whose only
+    /// effect is to lose.
+    /// </para>
+    /// <para>
+    /// <c>IfYouDo</c> is empty on purpose. Paying is the whole of what paying does — the cards say
+    /// nothing else happens — and an arm that did something would be an ability the card has not
+    /// got.
+    /// </para>
+    /// </remarks>
+    private static bool TryPactPayment(
+        string line,
+        CardDefinition card,
+        ImmutableList<IEffect>.Builder spellEffects,
+        ImmutableList<TriggeredAbilityDefinition>.Builder into)
+    {
+        var m = PactUpkeepLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var cost = ManaCostSpec.Parse(m.Groups["cost"].Value);
+        if (cost.Symbols.IsEmpty)
+            return false;
+
+        into.Add(new TriggeredAbilityDefinition
+        {
+            Id = PactAbilityId,
+            Text = $"At the beginning of your next upkeep, pay {cost}. "
+                + "If you don't, you lose the game.",
+
+            // It never triggers on its own, and that is the point rather than an omission: the
+            // ability does not exist until the spell that creates it has resolved (CR 603.7a),
+            // and what puts it on the stack is the delayed trigger below. The predicate is here
+            // because a triggered ability has to have one, and it answers the only honest thing
+            // it can - no event brings this ability into being.
+            Triggers = (_, _, _) => false,
+            Effects =
+            [
+                new MayPay(
+                    cost,
+                    IfYouDo: [],
+                    IfYouDont: [new LoseTheGame()],
+                    EffectIndex: 0,
+                    YesLabel: $"Pay {cost}",
+                    NoLabel: "Don't pay, and lose the game"),
+            ],
+        });
+
+        spellEffects.Add(new DelayAbility(PactAbilityId, State.TurnStep.Upkeep));
+        return true;
+    }
+
+    /// <summary>The id the pact's delayed ability is looked up by, in both halves.</summary>
+    private const string PactAbilityId = "pact";
+
+    /// <summary>
+    /// "Each player can't cast more than one spell each turn" and its three variants (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Three slots, and every one of the nine corpus cards is a different filling of them: the
+    /// subject ("Each player", "You", "Enchanted player"), the number, and an optional qualifier
+    /// that both narrows what is stopped and narrows what counts. Five cards print the bare form;
+    /// the other four are one slot each, which is why this is one reader rather than five.
+    /// <para>
+    /// A qualifier this cannot read refuses the whole line rather than dropping it. The two halves
+    /// of the sentence are the same word — a limit on "noncreature spells" that counted creature
+    /// spells would stop a player casting nothing at all after their first creature — so a
+    /// half-read qualifier is not a milder card, it is a different one.
+    /// </para>
+    /// </remarks>
+    private static bool TryCastLimit(string line, ImmutableList<CastLimit>.Builder into)
+    {
+        var m = CastLimitLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var max = NumberWordOrDigits(m.Groups["n"].Value);
+        if (max <= 0)
+            return false;
+
+        var who = m.Groups["who"].Value.ToLowerInvariant() switch
+        {
+            "each player" => PlayerScope.EachPlayer,
+            "you" => PlayerScope.You,
+            _ => PlayerScope.EnchantedPlayer,
+        };
+
+        var exceptTypes = CardType.None;
+        string? exceptSubtype = null;
+
+        if (m.Groups["except"].Success)
+        {
+            var qualifier = m.Groups["except"].Value.Trim();
+
+            // The hyphen is the printing's own distinction and it is load-bearing:
+            // "non-Phyrexian" names a subtype, "noncreature" names a card type.
+            if (qualifier.StartsWith("non-", StringComparison.OrdinalIgnoreCase))
+            {
+                exceptSubtype = qualifier[4..];
+            }
+            else
+            {
+                exceptTypes = qualifier[3..].ToLowerInvariant() switch
+                {
+                    "creature" => CardType.Creature,
+                    "artifact" => CardType.Artifact,
+                    "enchantment" => CardType.Enchantment,
+                    "instant" => CardType.Instant,
+                    "sorcery" => CardType.Sorcery,
+                    "land" => CardType.Land,
+                    _ => CardType.None,
+                };
+
+                if (exceptTypes == CardType.None)
+                    return false;
+            }
+        }
+
+        into.Add(new CastLimit
+        {
+            Max = max,
+            Who = who,
+            ExceptTypes = exceptTypes,
+            ExceptSubtype = exceptSubtype,
         });
 
         return true;
@@ -16494,6 +16662,50 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^skip your draw step\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex SkipDrawStepLine();
 
+    /// <summary>
+    /// The Leyline permission, exactly as printed (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// The pronoun is a group because one card says "him" - Quicksilver, Brash Blur - and the
+    /// sentence is otherwise word for word the one nineteen Leylines print. Anchored whole, so
+    /// Gemstone Caverns' longer version ("and you're not the starting player ... with a luck
+    /// counter on it. If you do, exile a card from your hand") is left unread rather than
+    /// compiled into a card that starts in play for nothing.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^If ~ is in your opening hand, you may begin the game with (it|him|her|them) on the battlefield\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BeginOnBattlefieldLine();
+
+    /// <summary>
+    /// The pact, exactly as the five of them are printed (CR 603.7, 104.3e).
+    /// </summary>
+    /// <remarks>
+    /// Anchored whole. The consequence clause is part of the pattern rather than read separately,
+    /// because it is the half that decides what the card is: the same sentence with a different
+    /// tail - "if you don&apos;t, sacrifice it" - is a different card, and a reader that took the
+    /// payment and skipped the penalty would compile a free spell.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^At the beginning of your next upkeep, pay (?<cost>(\{[^}]+\})+)\. If you don.t, you lose the game\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PactUpkeepLine();
+
+    /// <summary>
+    /// A per-turn limit on casting, in the three subjects the corpus prints (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The qualifier is one optional group with no alternation inside it, so an adjective nothing
+    /// downstream can read reaches the reader and is refused there rather than being skipped
+    /// here. A pattern that listed the two adjectives it knows would leave the third card
+    /// unread with no sign of why.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>Each player|You|Enchanted player) can.t cast more than "
+        + @"(?<n>one|two|three|four|five|\d+) (?<except>non[a-zA-Z-]+ )?spells? each turn\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CastLimitLine();
+
     [GeneratedRegex(
         @"^you may play (an|(?<n>one|two|three)) additional lands? "
             + @"(on each of your turns|each turn)\.?$",
@@ -16563,7 +16775,9 @@ public sealed record CompiledCard
     /// <strong>"If ~ is in your opening hand, you may begin the game with it on the battlefield"
     /// is deliberately not one of these.</strong> CR 103.6 is a real game rule and the Leylines
     /// genuinely start in play; swallowing it here would file eighteen cards as understood while
-    /// silently removing the only thing they do.
+    /// silently removing the only thing they do. It reads into
+    /// <see cref="MayBeginOnBattlefield"/> instead, which the engine asks about in the step
+    /// between the last mulligan and the first turn.
     /// </para>
     /// </remarks>
     public ImmutableList<string> DeckRules { get; init; } = [];
@@ -16747,6 +16961,21 @@ public sealed record CompiledCard
     public bool RevealsTopOfLibrary { get; init; }
 
     /// <summary>
+    /// How many spells this permanent lets a player cast in a turn (CR 601.3).
+    /// </summary>
+    public ImmutableList<CastLimit> CastLimits { get; init; } = [];
+
+    /// <summary>
+    /// Whether its owner may start the game with it on the battlefield (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// A permission exercised once, before the first turn, and never again - which is why it is
+    /// a flag on the card rather than an ability: there is no object to hang one on yet, and the
+    /// question is asked of a card sitting in a hand.
+    /// </remarks>
+    public bool MayBeginOnBattlefield { get; init; }
+
+    /// <summary>
     /// Keywords the card's rules text grants it beyond those printed as keywords (CR 702).
     /// </summary>
     public KeywordAbility GrantedKeywords { get; init; } = KeywordAbility.None;
@@ -16783,5 +17012,7 @@ public sealed record CompiledCard
         || MayDeclineUntap
         || SkipsDrawStep
         || RevealsTopOfLibrary
+        || MayBeginOnBattlefield
+        || !CastLimits.IsEmpty
         || AttacksOnlyIfDefenderControls is not null;
 }

@@ -318,9 +318,29 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     bool SkipsDrawStep(CardDefinition card) => false;
 
     /// <summary>
+    /// How many spells this permanent lets a player cast in a turn (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A list rather than a single value because nothing stops a card printing two, and because
+    /// the sweep that reads it already visits every permanent once — an answer that could only be
+    /// one limit would need a second question the day a card had two.
+    /// </remarks>
+    IReadOnlyList<CastLimit> CastLimitsOf(CardDefinition card) => [];
+
+    /// <summary>
     /// Whether this permanent turns its controller's top card face up for everyone (CR 401.2).
     /// </summary>
     bool RevealsTopOfLibrary(CardDefinition card) => false;
+
+    /// <summary>
+    /// Whether its owner may start the game with this card on the battlefield (CR 103.6a).
+    /// </summary>
+    /// <remarks>
+    /// Asked of a card in an opening hand, once, in the step between the last mulligan and the
+    /// first turn. Every other question on this interface is about a permanent; this one has no
+    /// permanent to be about yet, which is exactly why it is here rather than being an ability.
+    /// </remarks>
+    bool MayBeginOnBattlefield(CardDefinition card) => false;
 
     /// <summary>
     /// The land type a creature's attack is conditional on, or null (CR 506.3).
