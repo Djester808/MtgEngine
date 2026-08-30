@@ -45466,6 +45466,228 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(4, PowerOf(knight));
     }
 
+    // ---- "It deals" - the source spelled as a pronoun (CR 120.2b) ------------
+
+    /// <summary>
+    /// A pronoun that can only mean the source deals the damage from the source.
+    /// </summary>
+    /// <remarks>
+    /// "It deals 2 damage to each creature and each player" is the same instruction as "~ deals
+    /// 2 damage to each creature and each player", and the compiler reads it as that sentence:
+    /// the word is normalised on the way in rather than given a reader of its own, so every
+    /// damage shape the named form already understood arrives working.
+    /// <para>
+    /// The giant's own damage is the assertion worth having. "Each creature" includes the one
+    /// that said it, and a reading that aimed the sentence at the source's opponents - or at
+    /// the ability rather than the permanent - would leave it untouched and still look right
+    /// everywhere else on the board.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_that_can_only_mean_the_source_deals_the_damage_from_it()
+    {
+        var giant = Card(
+            "Magma Giant Test",
+            "When ~ enters, it deals 2 damage to each creature and each player.",
+            CardType.Creature,
+            3,
+            3);
+
+        var compiled = CardCompiler.Compile(giant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bystander = game.Create(
+            bob, TestCards.Creature("Magma Bystander Test", 3, 3), Zone.Battlefield);
+
+        var arrival = game.Create(alice, giant, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(bystander).Permanent!.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(arrival).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The pronoun reaches every damage sentence the named form already read.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole argument for normalising the word instead of writing a reader for it.
+    /// Two narrow pronoun readers already existed - "it deals N damage to &lt;target&gt;" and the
+    /// group form - and both are anchored whole, so a sentence with a second clause on the end
+    /// fell outside them while the identical sentence naming the source read. Two damages in one
+    /// sentence is one of those: 310 corpus cards print the pronoun form of a damage sentence,
+    /// and 46 of them complete once the two spellings are one sentence.
+    /// <para>
+    /// The second half is not a target (CR 601.2c), so the trigger chooses one thing and not two
+    /// - a spell that damages you does not target you, and reading it as a target would let the
+    /// damage be redirected.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_pronoun_reaches_the_damage_sentences_the_named_form_already_read()
+    {
+        var club = Card(
+            "Billy Club Test",
+            "When ~ enters, it deals 2 damage to any target and 1 damage to you.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(club);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.Triggers[0].Targets);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, club, Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        // Picked by the target's id rather than by its label, the way the token test above does:
+        // the label exists to be unambiguous to a person.
+        var choice = game.State.Choice!;
+        Assert.Equal(ChoiceKind.ChooseTriggerTargets, choice.Kind);
+        game.Choose(alice, [choice.Options!.Single(o => o.Id == $"player:{bob:N}").Id]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A pronoun whose antecedent is not the source is left unread.
+    /// </summary>
+    /// <remarks>
+    /// CR 120.2b: the ability specifies which object deals the damage, and reading the wrong one
+    /// is not a detail - lifelink, deathtouch and every "whenever this deals damage" trigger read
+    /// the source, and a spell has no power for "equal to its power" to find. So the word is only
+    /// normalised where the last thing the line named before it was the source. Three printed
+    /// shapes name something else, and all three stay unread:
+    /// <list type="bullet">
+    /// <item>the trigger names another object - Warstorm Surge, Be'lakor, Stalking Vengeance,
+    /// Fiendlash (6 corpus cards);</item>
+    /// <item>an earlier sentence targeted a creature and the pronoun is that creature - Deadshot,
+    /// Assert Perfection, Venom Blast, Bionic Blow (4 cards);</item>
+    /// <item>the trigger names the source <em>or</em> another object and the text cannot say
+    /// which entered - Hawkeye, Trick Shot.</item>
+    /// </list>
+    /// <para>
+    /// Each is asserted as a pair, and the pair is what stops the test going vacuous: the same
+    /// card with the source named outright <em>does</em> read, so what is being refused is the
+    /// pronoun and not the sentence.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_whose_antecedent_is_not_the_source_is_left_unread()
+    {
+        static bool Reads(string name, string text, CardType types, int? power, int? toughness) =>
+            CardCompiler.Compile(Card(name, text, types, power, toughness)).IsComplete;
+
+        // The trigger names the creature that entered, not the enchantment that said so.
+        Assert.False(Reads(
+            "Warstorm Pronoun Test",
+            "Whenever a creature you control enters, it deals damage equal to its power "
+                + "to any target.",
+            CardType.Enchantment,
+            null,
+            null));
+
+        Assert.True(Reads(
+            "Warstorm Named Test",
+            "Whenever a creature you control enters, ~ deals damage equal to its power "
+                + "to any target.",
+            CardType.Enchantment,
+            null,
+            null));
+
+        // The sentence before it targeted a creature, and that creature is what deals the damage.
+        Assert.False(Reads(
+            "Deadshot Pronoun Test",
+            "Tap target creature. It deals damage equal to its power to another target creature.",
+            CardType.Sorcery,
+            null,
+            null));
+
+        Assert.True(Reads(
+            "Deadshot Named Test",
+            "Tap target creature. ~ deals damage equal to its power to another target creature.",
+            CardType.Sorcery,
+            null,
+            null));
+
+        // "~ or another Hero" names two candidates and the text cannot say which arrived.
+        Assert.False(Reads(
+            "Hawkeye Pronoun Test",
+            "Whenever ~ or another Hero you control enters, it deals damage equal to the number "
+                + "of Heroes you control to any target.",
+            CardType.Creature,
+            3,
+            3));
+
+        Assert.True(Reads(
+            "Hawkeye Named Test",
+            "Whenever ~ or another Hero you control enters, ~ deals damage equal to the number "
+                + "of Heroes you control to any target.",
+            CardType.Creature,
+            3,
+            3));
+    }
+
+    /// <summary>
+    /// The two words in the middle of a sentence about something else are left where they stand.
+    /// </summary>
+    /// <remarks>
+    /// "A creature you control with a +1/+1 counter on it deals combat damage to a player" and
+    /// "any amount of damage it deals to a creature" both contain the words this normalisation
+    /// rewrites, and in neither is the pronoun the sentence's subject - the first means the
+    /// counter's creature and the second is reminder text. A rewrite that fired there would break
+    /// lines that read today, so the pronoun is only taken where it opens a clause.
+    /// <para>
+    /// Played rather than compiled, because a line can be corrupted and still compile into
+    /// something. The counter is on the attacker and the draw is what proves the trigger found
+    /// the creature the sentence meant.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_that_is_not_a_subject_is_left_where_it_stands()
+    {
+        var research = Card(
+            "Counter Research Test",
+            "Whenever a creature you control with a +1/+1 counter on it deals combat damage "
+                + "to a player, you may draw a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(research);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, research, Zone.Battlefield);
+
+        var attacker = game.Create(
+            alice, TestCards.Creature("Counted Attacker Test", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(attacker, CounterKinds.PlusOnePlusOne, 1);
+
+        // Turn 3, so the attacker is no longer summoning sick.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        // "You may draw" is offered as a yes/no by the general optional wrapper, and the offer
+        // arriving at all is half the assertion: the trigger found the attacker.
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        game.Choose(alice, ["yes"]);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>
