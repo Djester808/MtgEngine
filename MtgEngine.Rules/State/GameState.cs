@@ -225,6 +225,39 @@ public sealed record GameState
     public ImmutableList<PreventionEffect> Preventions { get; init; } = [];
 
     /// <summary>
+    /// Damage that can't be prevented, described the same way a shield is (CR 615.12).
+    /// </summary>
+    /// <remarks>
+    /// A ban on prevention, and the same record as the shields above on purpose: "damage can't
+    /// be prevented this turn" and "prevent all damage this turn" describe the same set of damage
+    /// events in the same words, so <see cref="Preventions.Watches"/> and its two Covers
+    /// siblings answer for both. Two vocabularies for one question is how the two halves of the
+    /// prevention family drifted apart the first time.
+    /// <para>
+    /// CR 615.12 is why this is a filter over the prevention pass rather than another entry in
+    /// it: unpreventable damage still has every applicable prevention effect applied to it, they
+    /// just prevent nothing, and — the part that is invisible unless it is written down —
+    /// existing shields are <em>not</em> spent on it. Skipping the pass is what buys that; a
+    /// shield reduced to zero by damage it could not stop would be a strictly worse card than
+    /// the printed one.
+    /// </para>
+    /// <para>
+    /// Only the turn-scoped and spell-scoped bans live here. A permanent's static "damage can't
+    /// be prevented" is read off the battlefield when the question is asked, so that it stops the
+    /// moment the permanent does (CR 611.2c) with nothing left behind to forget to sweep.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<PreventionEffect> Unpreventable { get; init; } = [];
+
+    /// <summary>Players who can't gain life, for as long as the ban lasts (CR 119.7).</summary>
+    /// <remarks>
+    /// Turn-scoped and named-player bans only, for the same reason its neighbour above holds
+    /// only those: a permanent's static "players can't gain life" is answered from the
+    /// battlefield.
+    /// </remarks>
+    public ImmutableList<LifeGainBan> LifeGainBans { get; init; } = [];
+
+    /// <summary>
     /// Every permanent that has entered the battlefield this turn, oldest first (CR 400.7).
     /// </summary>
     /// <remarks>
@@ -609,6 +642,8 @@ public sealed record GameState
         Structural.Same(PendingTriggers, other.PendingTriggers) &&
         Structural.Same(FloatingEffects, other.FloatingEffects) &&
         Structural.Same(Preventions, other.Preventions) &&
+        Structural.Same(Unpreventable, other.Unpreventable) &&
+        Structural.Same(LifeGainBans, other.LifeGainBans) &&
 
         // Delayed triggers were missing from this comparison, which is the one omission
         // that hides itself: two states differing only in what is waiting to happen

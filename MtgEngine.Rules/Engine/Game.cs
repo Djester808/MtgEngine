@@ -1641,6 +1641,33 @@ public sealed class Game
             cost = cost with { Symbols = cost.Symbols.AddRange(buybackCost.Symbols) };
         }
 
+        // CR 601.2b: an additional cost printed as a choice is announced as the spell is cast,
+        // and the announcement is what the caster offered to pay with - see ChooseCostOption.
+        // Resolved here rather than beside the other chosen costs below, because the mana arm of
+        // a choice has to be in the total before CR 601.2f works the modifiers out: added
+        // afterwards it would be a cost no reduction could reach.
+        var pricesTaken = new List<CostOption>();
+
+        if (definition?.CostChoices is { IsEmpty: false } choices)
+        {
+            // Where in the offered payment this choice's share begins. Everything appended to
+            // `owed` ahead of the choice has already spoken for that many cards, and the matcher
+            // takes them from the front in that order - so the two counts have to be derived
+            // from the same list or one cost would be handed another cost's payment.
+            var consumed = (definition.ChosenCosts).Sum(CardsAskedFor);
+
+            if (fromElsewhere && alternative!.Extra is { } ahead)
+                consumed += ahead.Sum(CardsAskedFor);
+
+            foreach (var choice in choices)
+            {
+                var option = ChooseCostOption(choice, playerId, cardId, costPayment, consumed);
+                pricesTaken.Add(option);
+                consumed += option.Chosen.Sum(CardsAskedFor);
+                cost = cost with { Symbols = cost.Symbols.AddRange(option.Mana.Symbols) };
+            }
+        }
+
         // CR 601.2f: what the board does to this spell's cost, worked out once here and never
         // recomputed - a modifier changes what the spell costs to cast, not what it is. It moves
         // the generic part only, because neither half can pay or demand a coloured pip; letting a
@@ -1661,6 +1688,12 @@ public sealed class Game
         var owed = definition?.ChosenCosts ?? [];
         if (fromElsewhere && alternative!.Extra is { } extra)
             owed = owed.AddRange(extra);
+
+        // The cards half of each choice taken above. Appended after the card's own chosen costs
+        // and in printed order, which is the order ChooseCostOption consumed the offered payment
+        // in - the two have to agree or the matcher would hand one cost another cost's cards.
+        foreach (var option in pricesTaken)
+            owed = owed.AddRange(option.Chosen);
 
         // CR 601.2b, 702.119c: what an alternative cost asks for besides mana is chosen as the
         // offer is taken and paid as the total cost is paid, so it joins the list the cast
@@ -1826,6 +1859,19 @@ public sealed class Game
         {
             var before = State.GetPlayer(playerId).Life;
             Emit(new LifeChanged(playerId, -bleeding.LifeCost, before - bleeding.LifeCost));
+        }
+
+        // CR 118.8 again, for the life arm of a cost choice - "discard a card or pay 3 life".
+        // Charged here beside the alternative cost's life for the same reason it is: this is the
+        // moment the rest of the cost is paid, and a payment made anywhere else would be one the
+        // legality check above never saw.
+        foreach (var option in pricesTaken)
+        {
+            if (option.Life <= 0)
+                continue;
+
+            var before = State.GetPlayer(playerId).Life;
+            Emit(new LifeChanged(playerId, -option.Life, before - option.Life));
         }
 
         // The same charge for a permission that names life as part of its price, and it is a
@@ -2773,6 +2819,149 @@ public sealed class Game
         Preventions.CoversPlayer(effect, State, playerId);
 
     /// <summary>
+    /// Whether this damage can't be prevented (CR 615.12).
+    /// </summary>
+    /// <remarks>
+    /// Asked before each prevention arm rather than inside them, and the difference is the half
+    /// of CR 615.12 that is easy to miss: "existing damage prevention shields won't be reduced by
+    /// damage that can't be prevented". An arm that ran and prevented zero would still have
+    /// spent the shield. Skipping the arm is what keeps the shield whole.
+    /// <para>
+    /// The rule's other half — applicable prevention effects are still <em>applied</em>, so any
+    /// additional effect they carry happens — is vacuous in this engine: no prevention it
+    /// compiles has a rider. That is written down in <see cref="BanDamagePrevention"/> so the day
+    /// one does, this is the line that has to change.
+    /// </para>
+    /// <para>
+    /// Two sources of ban, and the split is the same one the prevention family already makes.
+    /// A "this turn" ban is a one-shot a spell resolved and is held in state; a permanent's
+    /// static ban is read off the battlefield here, so that it stops the moment the permanent
+    /// does (CR 611.2c) rather than leaving an entry behind for a sweep to forget.
+    /// </para>
+    /// </remarks>
+    private bool IsUnpreventable(
+        bool isCombat, ObjectId sourceId, GameObject? victim, Guid? victimPlayer)
+    {
+        foreach (var ban in State.Unpreventable)
+        {
+            if (!Preventions.Watches(ban, State, _abilities, isCombat, sourceId))
+                continue;
+
+            var hits = victim is not null
+                ? Preventions.Covers(ban, State, _abilities, victim)
+                : victimPlayer is { } player && Preventions.CoversPlayer(ban, State, player);
+
+            if (hits)
+                return true;
+        }
+
+        foreach (var ban in StaticBansInPlay())
+        {
+            foreach (var said in ban.Bans.Unpreventable)
+            {
+                // CR 609.7a: a source named by a static ability is that permanent, and CR 613.1b
+                // says "you control" is read around whoever controls it now. Both are bound here
+                // rather than when the card was compiled, because neither is knowable then.
+                var described = new PreventionEffect
+                {
+                    // Bookkeeping for the replacement pass, which this descriptor never enters:
+                    // it is asked a question and thrown away.
+                    Id = Guid.Empty,
+                    ControllerId = ban.ControllerId,
+                    Kind = said.Kind,
+                    Source = said.DealtBySource ? ban.Host.Id : null,
+                    SourceFilter = said.SourceFilter,
+                    SourceController = said.SourceController,
+                };
+
+                if (Preventions.Watches(described, State, _abilities, isCombat, sourceId))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether a damage event is one no prevention may touch (CR 615.12).
+    /// </summary>
+    /// <remarks>
+    /// The event-shaped face of <see cref="IsUnpreventable"/>, so that the two call sites which
+    /// hold a whole event rather than its pieces cannot take the victim and the source apart
+    /// differently. Anything that is not a damage event answers false: a ban is about damage.
+    /// </remarks>
+    private bool IsBannedFrom(GameEvent e) => e switch
+    {
+        DamageMarked marked => State.TryGetObject(marked.Id, out var victim)
+            && IsUnpreventable(marked.IsCombat, marked.SourceId, victim, null),
+        PlayerDamaged hit => IsUnpreventable(hit.IsCombat, hit.SourceId, null, hit.PlayerId),
+        _ => false,
+    };
+
+    /// <summary>Whether anything at all is banning prevention right now (CR 615.12).</summary>
+    /// <remarks>
+    /// Asked so the combat damage step can keep its wholesale fog: with no ban in play, a fog
+    /// stops every point and the step can say so in one line instead of asking per event. The
+    /// two answers are the same and one of them is far cheaper.
+    /// </remarks>
+    private bool AnyPreventionBan() =>
+        !State.Unpreventable.IsEmpty
+        || StaticBansInPlay().Any(b => !b.Bans.Unpreventable.IsEmpty);
+
+    /// <summary>Whether this player can't gain life (CR 119.7).</summary>
+    /// <remarks>
+    /// Not a replacement effect, which is why it is asked outside the replacement pass. CR 119.7
+    /// says a replacement effect that would replace a life gain event affecting a banned player
+    /// "won't do anything" — a prohibition sits above that machinery rather than competing inside
+    /// it, and modelled as a candidate it would be offered to CR 616.1's ordering question, which
+    /// nobody gets to answer about a rule.
+    /// </remarks>
+    private bool CannotGainLife(Guid playerId)
+    {
+        foreach (var ban in State.LifeGainBans)
+        {
+            if (Bans.Covers(ban, State, playerId))
+                return true;
+        }
+
+        foreach (var ban in StaticBansInPlay())
+        {
+            foreach (var scope in ban.Bans.NoLifeGain)
+            {
+                if (PlayerScopes.Around(scope, State, ban.ControllerId).Contains(playerId))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Every prohibition a permanent on the battlefield is printing right now.</summary>
+    /// <remarks>
+    /// CR 613.1f: a permanent that has lost all abilities forbids nothing either, which is the
+    /// same exclusion the replacement scan makes and for the same reason. The card asked is the
+    /// object's own rather than a computed copy: a prohibition is not a characteristic, so
+    /// nothing in CR 613 can move it from one card to another.
+    /// </remarks>
+    private IEnumerable<(GameObject Host, Guid ControllerId, StaticBans Bans)> StaticBansInPlay()
+    {
+        foreach (var id in State.Battlefield)
+        {
+            if (!State.TryGetObject(id, out var host))
+                continue;
+
+            var bans = _abilities.BansOf(host.Card);
+            if (bans.IsEmpty
+                || Characteristics.Of(State, _abilities, host).HasLostAllAbilities)
+            {
+                continue;
+            }
+
+            yield return (host, Characteristics.ControllerOf(State, _abilities, host), bans);
+        }
+    }
+
+    /// <summary>
     /// Every cost modifier on the battlefield that applies to this payment (CR 601.2f).
     /// </summary>
     /// <remarks>
@@ -3714,6 +3903,121 @@ public sealed class Game
     /// to label anything. Every check happens before a single card moves (CR 601.2h): a player
     /// who offers an illegal payment has spent nothing.
     /// </remarks>
+    /// <summary>
+    /// Which price of a cost choice the caster is paying (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// CR 601.2b says the choice is announced as the spell is cast, and the cast path already
+    /// carries the announcement: the cards the caster offered to pay with. A caster who hands
+    /// over a creature is sacrificing it; one who hands over nothing is paying the mana. Nothing
+    /// new goes on the wire for this, which matters more than it looks - a parameter added to
+    /// <c>GameHub.CastSpell</c> is a change every client has to make in the same commit, and this
+    /// question is answerable without one.
+    /// <para>
+    /// The prices that ask for cards are tried first and in printed order, because the ones that
+    /// do not are always available and would otherwise win every time: "pay {4} or sacrifice an
+    /// artifact or creature" prints the mana first, and a caster offering a creature plainly
+    /// means the second.
+    /// </para>
+    /// <para>
+    /// Whether the <em>particular</em> card is a legal payment is not decided here. That is
+    /// <see cref="RequirePayable"/>'s job when the payment is matched, and leaving it there is
+    /// deliberate: a caster who offers the wrong permanent gets a refusal naming what was wrong
+    /// with it, rather than silently having their spell charged the other price.
+    /// </para>
+    /// </remarks>
+    private CostOption ChooseCostOption(
+        CostChoice choice,
+        Guid playerId,
+        ObjectId cardId,
+        IReadOnlyList<ObjectId>? offered,
+        int consumed)
+    {
+        var left = (offered ?? []).Skip(consumed).ToList();
+
+        foreach (var option in choice.Options)
+        {
+            if (!option.Chosen.IsEmpty && Fits(option, playerId, left))
+                return option;
+        }
+
+        foreach (var option in choice.Options)
+        {
+            if (option.Chosen.IsEmpty)
+                return option;
+        }
+
+        // Every price asks for cards and none of them was offered. CR 601.2h: an unpayable cost
+        // cannot be paid, and the cast is refused with nothing spent.
+        throw new InvalidOperationException(
+            $"{State.GetObject(cardId).Card.Name} needs one of its additional costs paid "
+                + "(CR 601.2b).");
+    }
+
+    /// <summary>Whether what the caster offered could be this price (CR 601.2b).</summary>
+    /// <remarks>
+    /// The zone is what separates the prices in practice - "sacrifice a creature or discard a
+    /// card" is a battlefield permanent against a card in hand - and the filter is asked beside
+    /// it so that a choice between two prices over the same zone still lands on the right one.
+    /// </remarks>
+    private bool Fits(CostOption option, Guid playerId, List<ObjectId> offered)
+    {
+        var i = 0;
+
+        foreach (var cost in option.Chosen)
+        {
+            // The engine picks these, so nothing is offered for them (CR 701.9b).
+            if (cost.Kind is ChosenCostKind.DiscardAtRandom)
+                continue;
+
+            if (PaidFrom(cost.Kind) is not { } zone)
+                return false;
+
+            for (var n = 0; n < cost.Count; n++, i++)
+            {
+                if (i >= offered.Count
+                    || !State.TryGetObject(offered[i], out var card)
+                    || card.Zone != zone)
+                {
+                    return false;
+                }
+
+                var mine = zone == Zone.Battlefield
+                    ? ControllerOf(card) == playerId
+                    : card.OwnerId == playerId;
+
+                if (!mine)
+                    return false;
+
+                if (cost.What?.ObjectFilter?.Invoke(State, _abilities, card, playerId) == false)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Where a chosen cost takes its cards from, or null when it takes none.</summary>
+    private static Zone? PaidFrom(ChosenCostKind kind) => kind switch
+    {
+        ChosenCostKind.SacrificePermanents
+            or ChosenCostKind.TapPermanents
+            or ChosenCostKind.ReturnToHand => Zone.Battlefield,
+        ChosenCostKind.DiscardCards or ChosenCostKind.ExileFromHand => Zone.Hand,
+        ChosenCostKind.ExileFromGraveyard => Zone.Graveyard,
+        _ => null,
+    };
+
+    /// <summary>How many offered cards a chosen cost speaks for.</summary>
+    /// <remarks>
+    /// Zero for the two kinds that take none: a random discard is the engine's pick (CR 701.9b),
+    /// and crew takes as many as it needs to reach a total power (CR 702.122a) rather than a
+    /// fixed count. Neither shares a card with a cost choice on any card in the corpus, and a
+    /// count that guessed at crew would hand the choice the wrong slice of the payment.
+    /// </remarks>
+    private static int CardsAskedFor(ChosenCost cost) =>
+        cost.Kind is ChosenCostKind.DiscardAtRandom || cost.MinTotalPower > 0 ? 0 : cost.Count;
+
     private List<(ChosenCost Cost, List<ObjectId> Cards)> MatchChosenCosts(
         ImmutableList<ChosenCost> costs,
         Guid playerId,
@@ -9493,6 +9797,7 @@ public sealed class Game
         if (e is DamageMarked prevented
             && State.TryGetObject(prevented.Id, out var shielded)
             && shielded.Permanent is { DamageToPrevent: > 0 } armour
+            && !IsUnpreventable(prevented.IsCombat, prevented.SourceId, shielded, null)
             && !applied.Contains((prevented.Id, "prevent")))
         {
             var soaked = Math.Min(armour.DamageToPrevent, prevented.Amount);
@@ -9512,6 +9817,7 @@ public sealed class Game
         if (e is PlayerDamaged struck
             && State.Players.TryGetValue(struck.PlayerId, out var target)
             && target.DamageToPrevent > 0
+            && !IsUnpreventable(struck.IsCombat, struck.SourceId, null, struck.PlayerId)
             && !applied.Contains((new ObjectId(struck.PlayerId), "prevent-player")))
         {
             var soaked = Math.Min(target.DamageToPrevent, struck.Amount);
@@ -9537,7 +9843,10 @@ public sealed class Game
         // each damage event and applies again to the next one, which is the whole difference
         // between "prevent 1 of that damage" and "prevent the next 1 damage". So the replacement
         // emits the remainder and writes no state back.
-        if (e is DamageMarked hit && State.TryGetObject(hit.Id, out var damaged))
+        if (e is DamageMarked hit
+            && !State.Preventions.IsEmpty
+            && State.TryGetObject(hit.Id, out var damaged)
+            && !IsUnpreventable(hit.IsCombat, hit.SourceId, damaged, null))
         {
             foreach (var effect in State.Preventions)
             {
@@ -9563,7 +9872,13 @@ public sealed class Game
         // The same effects, for the other kind of victim. Damage to a player is its own event and
         // shares none of the machinery above.
         if (e is PlayerDamaged hitPlayerBySource
-            && State.TryGetObject(hitPlayerBySource.SourceId, out var dealing))
+            && !State.Preventions.IsEmpty
+            && State.TryGetObject(hitPlayerBySource.SourceId, out var dealing)
+            && !IsUnpreventable(
+                hitPlayerBySource.IsCombat,
+                hitPlayerBySource.SourceId,
+                null,
+                hitPlayerBySource.PlayerId))
         {
             foreach (var effect in State.Preventions)
             {
@@ -9703,6 +10018,13 @@ public sealed class Game
                     continue;
 
                 if (!effect.Applies(e, State, source))
+                    continue;
+
+                // CR 615.12, for the half of the prevention family that lives out here. A
+                // shield printed as a permanent's static ability is a replacement effect, so it
+                // arrives through this loop rather than through the arms above — and the ban has
+                // to reach both or a card would be stopped by one kind of fog and not the other.
+                if (effect.IsPrevention && IsBannedFrom(e))
                     continue;
 
                 foreach (var candidate in Branches(e, id, effect, source, applied))
@@ -10417,8 +10739,14 @@ public sealed class Game
     {
         // CR 615.1: a fog prevents the damage, so none is dealt. The step still finishes —
         // combat carries on to the end of combat step, it just does nothing on the way.
-        if (State.FloatingEffects.Any(f =>
-            string.Equals(f.DefinitionId, PreventAllCombatDamage.FloatingId, StringComparison.Ordinal)))
+        var fogged = State.FloatingEffects.Any(f =>
+            string.Equals(f.DefinitionId, PreventAllCombatDamage.FloatingId, StringComparison.Ordinal));
+
+        // CR 615.12: with a ban in play the fog is no longer all-or-nothing — it prevents the
+        // events the ban does not cover and none of the ones it does, so the step has to be
+        // walked event by event. The shortcut stays for the case that is still wholesale, which
+        // is every game with no ban in it.
+        if (fogged && !AnyPreventionBan())
         {
             _damageDivision.Clear();
             _damageDivided.Clear();
@@ -10432,6 +10760,12 @@ public sealed class Game
         foreach (var damage in CombatRules.AssignCombatDamage(
             State, _abilities, firstStrikeStep, _damageDivision, _assigningAsThoughUnblocked))
         {
+            // CR 615.12: under a fog, only the damage the ban covers is dealt. Asked here rather
+            // than in the replacement pass because the fog is not a replacement effect at all -
+            // it is a floating effect the step reads - so there is nowhere else to ask it.
+            if (fogged && !IsBannedFrom(damage))
+                continue;
+
             Emit(damage);
         }
 
@@ -11844,6 +12178,15 @@ public sealed class Game
     /// </param>
     private void Emit(GameEvent e, HashSet<(ObjectId, string)> applied)
     {
+        // CR 119.7: a player who can't gain life doesn't, and this is not a replacement effect -
+        // the rule says outright that a replacement effect which would replace the life gain
+        // "won't do anything", so the ban sits above the pass rather than inside it. Modelled as
+        // a candidate it would be handed to CR 616.1's ordering question, which is a question
+        // about which effect to apply first and not one anybody may answer about a prohibition.
+        // Zero is not a life gain event at all (CR 119.9), so the guard asks for more than none.
+        if (e is LifeChanged { Delta: > 0 } gain && CannotGainLife(gain.PlayerId))
+            return;
+
         var candidates = Replacements(e, applied).ToList();
 
         // CR 616.1: when more than one replacement effect applies, the affected object's

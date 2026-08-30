@@ -526,6 +526,14 @@ public static class GameReducer
             {
                 Preventions = state.Preventions.Add(shield.Effect),
             },
+            UnpreventableDamageDeclared ban => state with
+            {
+                Unpreventable = state.Unpreventable.Add(ban.Damage),
+            },
+            LifeGainBanned banned => state with
+            {
+                LifeGainBans = state.LifeGainBans.Add(banned.Ban),
+            },
             RedirectionChanged redirect => Redirect(state, redirect),
             HandLookedAt => state,
             FreerunningEnabled ready => state.WithPlayer(
@@ -1654,6 +1662,30 @@ public static class GameReducer
             {
                 Preventions = state.Preventions.RemoveAll(
                     p => p.UntilEndOfTurn <= state.TurnNumber),
+            };
+        }
+
+        // CR 514.2 once more, for the two prohibitions. "Damage can't be prevented this turn"
+        // and "players can't gain life this turn" end where every other "this turn" does, and
+        // they are swept here rather than at a moment of their own so that a ban and the shield
+        // it was aimed at cannot expire on different schedules. A ban left standing is the same
+        // bug the shields had - a card that goes on working on every turn after the one it was
+        // played on - with the sign flipped: it would make damage unpreventable forever.
+        if (state.Unpreventable.Any(p => p.UntilEndOfTurn <= state.TurnNumber))
+        {
+            state = state with
+            {
+                Unpreventable = state.Unpreventable.RemoveAll(
+                    p => p.UntilEndOfTurn <= state.TurnNumber),
+            };
+        }
+
+        if (state.LifeGainBans.Any(b => b.UntilEndOfTurn <= state.TurnNumber))
+        {
+            state = state with
+            {
+                LifeGainBans = state.LifeGainBans.RemoveAll(
+                    b => b.UntilEndOfTurn <= state.TurnNumber),
             };
         }
 

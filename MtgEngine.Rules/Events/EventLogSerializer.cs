@@ -73,6 +73,8 @@ public static class EventLogSerializer
             ["PoisonCountersChanged"] = typeof(PoisonCountersChanged),
             ["PreventionChanged"] = typeof(PreventionChanged),
             ["PreventionEffectCreated"] = typeof(PreventionEffectCreated),
+            ["UnpreventableDamageDeclared"] = typeof(UnpreventableDamageDeclared),
+            ["LifeGainBanned"] = typeof(LifeGainBanned),
             ["PlayerPreventionChanged"] = typeof(PlayerPreventionChanged),
             ["CardManifested"] = typeof(CardManifested),
             ["ConniveRequested"] = typeof(ConniveRequested),

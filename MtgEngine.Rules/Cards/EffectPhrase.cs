@@ -39,6 +39,18 @@ public static partial class EffectPhrase
     {
         parsed = new ParsedPhrase();
 
+        // CR 615.12's rider is printed after the damage it is about — "~ deals 4 damage to
+        // target creature. The damage can't be prevented." Read in printed order the ban would
+        // be created after the event it exists to modify, and CR 615.4 says a prevention is
+        // applied when the damage would happen: the shield soaks the lot and the second sentence
+        // does nothing at all. The words are not an action in a sequence, they are a statement
+        // about what this card's damage is, so the sentence is moved to the front.
+        //
+        // Rewritten rather than reordered after compiling, for the reason every other rewrite in
+        // this file is: the effect list is indexed into by the deferred-question effects, and
+        // moving a compiled effect would move what those indices point at.
+        text = HoistPreventionBan(text);
+
         var effects = ImmutableList.CreateBuilder<IEffect>();
         var targets = ImmutableList.CreateBuilder<TargetSpec>();
 
@@ -5581,6 +5593,12 @@ public static partial class EffectPhrase
         if (TryPreventDescribed(sentence, targets, effects))
             return true;
 
+        if (TryBanPrevention(sentence, effects))
+            return true;
+
+        if (TryBanLifeGain(sentence, effects))
+            return true;
+
         m = ScryLine().Match(sentence);
         if (m.Success)
         {
@@ -5907,6 +5925,167 @@ public static partial class EffectPhrase
 
         effects.AddRange(shields);
         return true;
+    }
+
+    /// <summary>
+    /// "Damage can't be prevented this turn", and the rider a burn spell puts on its own damage
+    /// (CR 615.12).
+    /// </summary>
+    /// <remarks>
+    /// Only the two lifetimes a resolving spell can have. A ban with no duration at all is a
+    /// permanent's static ability, and compiled here it would be a ban held in state by a card
+    /// that has already gone to the graveyard — the same mistake the prevention shield next door
+    /// exists to keep apart, with the sign flipped: a fog that never lifts against a ban that
+    /// never does.
+    /// <para>
+    /// "The damage can't be prevented" is the exception that keeps the duration. Its source is
+    /// this very spell and the damage is dealt during the same resolution, so the turn is the
+    /// only lifetime the entry could ever be reached in; leaving it undated would put a row in
+    /// the state that nothing can ever match again.
+    /// </para>
+    /// <para>
+    /// A described source is refused. The two cards that print one — "damage that would be dealt
+    /// by ~" and "…by creatures you control" — are permanents' static abilities, and a spell
+    /// naming a set of sources by description would need the set fixed at resolution
+    /// (CR 609.7b) rather than rechecked, which is a different mechanism from the one here.
+    /// </para>
+    /// </remarks>
+    private static bool TryBanPrevention(string sentence, ImmutableList<IEffect>.Builder effects)
+    {
+        if (ReadPreventionBanSentence(sentence) is not { } read)
+            return false;
+
+        if (read.Sources is not null)
+            return false;
+
+        if (!read.ForTheTurn && !read.BySelf)
+            return false;
+
+        effects.Add(new BanDamagePrevention { Kind = read.Kind, BySource = read.BySelf });
+        return true;
+    }
+
+    /// <summary>Moves "the damage can't be prevented" to the front of the line it trails.</summary>
+    private static string HoistPreventionBan(string text)
+    {
+        var trailing = SelfDamageBanTail().Match(text);
+
+        return trailing.Success
+            ? "The damage can't be prevented. " + text.Remove(trailing.Index, trailing.Length).Trim()
+            : text;
+    }
+
+    /// <summary>"Players can't gain life this turn" (CR 119.7).</summary>
+    /// <remarks>
+    /// The duration is required here for the reason it is required of a shield: without it the
+    /// sentence is a permanent's static ability, and a ban held in state by a spell that has
+    /// resolved would stop the table gaining life for the rest of the game.
+    /// </remarks>
+    private static bool TryBanLifeGain(string sentence, ImmutableList<IEffect>.Builder effects)
+    {
+        if (ReadLifeGainBanSentence(sentence) is not { ForTheTurn: true } read)
+            return false;
+
+        effects.Add(new BanLifeGain { Players = read.Players });
+        return true;
+    }
+
+    /// <summary>
+    /// A ban on prevention taken apart (CR 615.12).
+    /// </summary>
+    /// <param name="Kind">Combat, noncombat, or any.</param>
+    /// <param name="Sources">The "dealt by …" clause, or null for every source.</param>
+    /// <param name="BySelf">
+    /// Whether the sentence said "<em>the</em> damage" — the damage this very card deals.
+    /// </param>
+    /// <param name="ForTheTurn">Whether the sentence printed "this turn" (CR 514.2).</param>
+    internal readonly record struct BanSentence(
+        DamageKind Kind, string? Sources, bool BySelf, bool ForTheTurn);
+
+    /// <summary>
+    /// Reads "damage can't be prevented" in each of the forms the corpus prints it (CR 615.12).
+    /// </summary>
+    /// <remarks>
+    /// One front end for both readers, exactly as <see cref="ReadPreventionSentence"/> is: the
+    /// same sentence is a one-shot when it says "this turn" and a permanent's static ability when
+    /// it does not, and the only difference between the two is that phrase. Reported rather than
+    /// required, so each caller can refuse the lifetime it cannot express instead of the sentence
+    /// being read twice by two patterns that would drift.
+    /// <para>
+    /// <strong>Nothing is read past the ban.</strong> "That damage can't be prevented <em>or
+    /// dealt instead to another permanent or player</em>" is two prohibitions in one sentence,
+    /// and reading the first while dropping the second would leave Lava Burst redirectable when
+    /// it prints that it is not — a strictly worse card than the one on the table, and invisible
+    /// to any count of how many cards compile. The anchor at the end of the pattern is what
+    /// refuses it.
+    /// </para>
+    /// </remarks>
+    internal static BanSentence? ReadPreventionBanSentence(string sentence)
+    {
+        ArgumentNullException.ThrowIfNull(sentence);
+
+        var text = sentence.Trim().TrimEnd('.').Trim();
+
+        if (PreventionBanLine().Match(text) is not { Success: true } read)
+            return null;
+
+        var kind = read.Groups["kind"].Value.Trim().ToLowerInvariant() switch
+        {
+            "combat" => DamageKind.Combat,
+            "noncombat" => DamageKind.Noncombat,
+            _ => DamageKind.Any,
+        };
+
+        // "The damage" is the damage this card deals and nothing else (CR 609.7a). A sentence
+        // that says it *and* names a source by description would be saying two different things
+        // about the same slot, so it is refused rather than guessed at.
+        var bySelf = read.Groups["the"].Success;
+        if (bySelf && read.Groups["by"].Success)
+            return null;
+
+        return new BanSentence(
+            kind,
+            read.Groups["by"].Success ? read.Groups["by"].Value.Trim() : null,
+            bySelf,
+            read.Groups["turn"].Success);
+    }
+
+    /// <summary>
+    /// A ban on gaining life taken apart (CR 119.7).
+    /// </summary>
+    /// <param name="Players">Which players are stopped.</param>
+    /// <param name="ForTheTurn">Whether the sentence printed "this turn" (CR 514.2).</param>
+    internal readonly record struct LifeBanSentence(PlayerScope Players, bool ForTheTurn);
+
+    /// <summary>
+    /// Reads "players can't gain life" and its one variant (CR 119.7).
+    /// </summary>
+    /// <remarks>
+    /// Two subjects and no more. "Enchanted player can't gain life" wants an Aura's host, and
+    /// "that player can't gain life for the rest of the game" wants a player named by a trigger
+    /// and a duration that is neither the turn nor the permanent — both are left unread rather
+    /// than widened into "players", which would be a ban on the whole table from a card that
+    /// named one seat.
+    /// </remarks>
+    internal static LifeBanSentence? ReadLifeGainBanSentence(string sentence)
+    {
+        ArgumentNullException.ThrowIfNull(sentence);
+
+        var text = sentence.Trim().TrimEnd('.').Trim();
+
+        if (LifeGainBanLine().Match(text) is not { Success: true } read)
+            return null;
+
+        var who = read.Groups["who"].Value.Trim().ToLowerInvariant() switch
+        {
+            "players" => PlayerScope.EachPlayer,
+            "your opponents" => PlayerScope.EachOpponent,
+            _ => (PlayerScope?)null,
+        };
+
+        return who is { } scope
+            ? new LifeBanSentence(scope, read.Groups["turn"].Success)
+            : null;
     }
 
     /// <summary>
@@ -12229,6 +12408,34 @@ public static partial class EffectPhrase
         @"^prevent all (?<kind>combat |noncombat )?damage that would be dealt(?<rest>[^.]*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PreventDescribedPassiveLine();
+
+    /// <remarks>
+    /// Anchored at both ends on purpose. A ban that runs on into another clause — Lava Burst's
+    /// "or dealt instead to another permanent or player" — is a second prohibition this reads
+    /// nothing of, and a pattern that stopped at "prevented" would compile the card with half
+    /// its text silently dropped.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<the>the )?(?<kind>combat |noncombat )?damage"
+            + @"(?: that would be dealt by (?<by>.+?))?"
+            + @" can't be prevented(?<turn> this turn)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PreventionBanLine();
+
+    [GeneratedRegex(
+        @"^(?<who>players|your opponents) can't gain life(?<turn> this turn)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LifeGainBanLine();
+
+    /// <remarks>
+    /// The lookbehind is what makes this a whole sentence rather than a phrase: the words have to
+    /// follow a full stop, so a line that merely contains them inside a longer clause is left
+    /// where it is and read — or refused — in place.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<=\.\s)[Tt]he damage can't be prevented\.\s*",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SelfDamageBanTail();
 
     /// <remarks>
     /// The active voice — "prevent all damage that creatures would deal to players this turn" —
