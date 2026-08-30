@@ -12809,11 +12809,23 @@ public sealed class Game
         // then the life totals have moved on and the number is gone.
         var produced = about;
 
+        // What the effects so far have done, for a later sentence that says "this way"
+        // (CR 608.2). The magnitude beside it has been carried forward since the day the loop was
+        // written; this is the things themselves, which is what the other four printed
+        // back-references ask about.
+        var record = ResolutionRecord.Empty;
+
         foreach (var effect in effects)
         {
             // Each effect sees the state the previous one left behind (CR 608.2c), so the
             // context is rebuilt rather than captured once.
-            var emitted = effect.Resolve(context with { State = State, SubjectAmount = produced });
+            var emitted = effect.Resolve(
+                context with { State = State, SubjectAmount = produced, Record = record });
+
+            // Read before the batch is applied, because the record keeps each object's card and
+            // an id that has moved names nothing afterwards (CR 400.7). The id it *stores* is
+            // the new one, which is the object that will exist once these events have landed.
+            record = record.Following(emitted, CardMoving);
 
             // One effect's events happen together (CR 608.2c), which is the batch a "one or
             // more" trigger is written about: "exile three cards from your graveyard" is one
@@ -12845,6 +12857,25 @@ public sealed class Game
                 produced = magnitude;
         }
     }
+
+    /// <summary>
+    /// The card an object about to change zones is, for the resolution's own record (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// Through the computed characteristics rather than off <c>obj.Card</c>, because a permanent
+    /// that has become a copy is the card it copied (CR 613.2c) — a Clone of a Grizzly Bears that
+    /// gets swept away is a creature card destroyed this way, and reading the printed card would
+    /// answer with whatever the Clone itself is. That is the same mistake this file records
+    /// against nine other readers.
+    /// <para>
+    /// Falls back to the card behind an id the state no longer knows, which is how a token that
+    /// has already ceased to exist is still named by the sweep that killed it.
+    /// </para>
+    /// </remarks>
+    private CardDefinition? CardMoving(ObjectId id) =>
+        State.TryGetObject(id, out var live)
+            ? Characteristics.CardOf(State, _abilities, live)
+            : CardBehind(id);
 
     /// <summary>Notes a scry or surveil the moment its effect asks for it.</summary>
     private void NoteLook(GameEvent e)

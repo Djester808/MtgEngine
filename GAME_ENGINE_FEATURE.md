@@ -513,7 +513,141 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **52.7% of playable cards fully read** (17,237 of 32,717), 68.9% of lines.
+Coverage is **53.5% of playable cards fully read** (17,489 of 32,717), 69.4% of lines.
+
+### Round eighteen: "this way", and the difference between a ceiling and a reader
+
+The largest lead in the shape table — **797 sole blockers, 991 cards** when re-measured on this
+branch — and the one-sentence diagnosis it came with was right: nothing recorded what an effect
+touched, so a later sentence of the same instruction had nothing to ask. That is CR 608.2's
+"information about what happened during a resolution", and the engine wrote none of it down.
+
+**The record is one field and no state.** `ResolutionRecord` is derived in `Game.RunEffects` from
+the events each effect emitted and handed to the next effect through `ResolutionContext.Record`. It
+is the twin of the magnitude that loop has carried forward since the day it was written — that one
+is "that much", this one is the things themselves. Nothing new is folded, nothing joins
+`GameState.Equals`, and `Replay(log) == State` is untouched, because the record lives exactly as
+long as "this way" means anything. The id it stores is the one the object has *after* the move
+(CR 400.7), which every mover already picks when it builds the event; the card is read *before* the
+batch is applied and through `Characteristics.CardOf`, so a Clone of a Grizzly Bears that is swept
+away is a creature card destroyed this way.
+
+**It accumulates rather than replacing, and the verb is why.** "Discard two cards, then draw two
+cards. For each card drawn this way ..." asks about the draw and says so in the word. Keeping only
+the last effect's events would answer the same question by guessing at the order, and would be
+wrong the moment a card puts a third sentence between the two.
+
+**Three grammars, one filter.** "For each creature card exiled this way", "equal to the number of
+creature cards exiled this way" and "if a creature card is exiled this way" are one question in
+three grammars, so the phrase is read once into a `TouchFilter` and each grammar asks for it where
+it stands. The count went into `CountingAmount` — the one place in the counting vocabulary that
+holds a `ResolutionContext`, since `CountFn` is handed a state and a player and neither knows what
+the sentence before just did — so all eight positions that scale an amount read it at once. The
+condition is `OnlyIfTouched`, its own effect rather than an arm of `OnlyIf`, for the reason
+`OnlyIfRollAtLeast` is: `OnlyIf` is given a state and a source, and every condition it can express
+is a fact about the board.
+
+#### The measurement that decided the size, and it is not 797
+
+A sole-blocker rank is an upper bound on a reader's worth, not a forecast. Each of the 795
+one-line-short cards had its this-way sentence swapped for `Draw a card.` and was recompiled:
+**224** completed, so on the other 571 the line carries a second defect and no reader of this family
+can reach them. The 224 decompose as **did-it conditional 93 · a count 56 · the set as an object 38
+· an amount 27 · a member and one-offs 12** — near enough the shape table's proportions, at a
+quarter of its size. Priced again with a substitution probe that keeps the rest of the sentence, the
+union is **75**. And even that is above what may honestly be built, for the next reason.
+
+#### The fail-closed cut, which is most of the family
+
+**This engine defers every question a player has to answer until after the resolution.** A reveal, a
+search, a chosen discard, a chosen sacrifice each become an owed question settled by
+`SettleBeforePriority`, precisely so that a resolution is never stopped half way through. A sentence
+asking "for each card revealed this way" from inside the same resolution is therefore asking about
+events that have not happened: it would answer nought, every time, on a card that compiles clean,
+plays without an error, and looks exactly like a card that works. Nothing downstream can tell it
+from one.
+
+So `TouchVerb` carries only what an effect does *while it resolves*, and `ThisWay` refuses the rest
+by name. What that costs, counted in cards the ceiling probe says are otherwise reachable:
+
+| participle | reachable | recorded |
+|---|---|---|
+| exiled | 31 | yes |
+| destroyed | 26 | yes |
+| milled | 18 | yes |
+| discarded | 17 | **no** — chosen, and deferred |
+| prevented | 14 | **no** — prevention is a shield and spends no event |
+| countered | 12 | **no** — see the declines |
+| sacrificed | 8 | **no** — chosen, and deferred |
+| revealed | 5 (98 rows) | **no** — deferred |
+| returned | 5 | yes |
+| dealt damage | 4 | **no** — a magnitude, not a set |
+| drawn | 2 | yes |
+| died | 1 | yes |
+
+`DiscardCards` is what shows why the line is drawn at the verb rather than at the card: it emits the
+moves directly when the whole hand goes and a `DiscardRequested` when there is a choice. A verb that
+is recorded on some cards and not on others is exactly the silent failure the refusal exists for.
+
+#### Two gates on the family that are not about "this way" at all
+
+Both were found by asking the compiler which *positions* read, rather than which lines do — a probe
+that compiles `You gain 1 life for each <phrase>.` and reads the answer.
+
+- **The leading "For each X, &lt;effect&gt;" is not read, on 0 of 65.** The count in front instead
+  of behind, and every verb already understands it behind — so `TryOne` fronts it and re-offers it
+  rather than growing a second grammar for the counted amount. **The guard is what makes that
+  safe:** "for each permanent destroyed this way, its controller creates a 3/3 Centaur" is one token
+  to each permanent's *own* controller, and fronted it becomes N tokens to whoever "its" resolves to
+  once — which on a sweeper that targets nothing is nobody, or the wrong player. Half of this family
+  prints such a pronoun. Four cards compiled while the guard was broken by a mangled escape and the
+  corpus diff caught every one: Hour of Need, March of Souls, Rampage of the Clans, Descent of the
+  Dragons.
+- **"Put a +1/+1 counter on ~ for each X" had no counted tail**, while its targeted twin has had one
+  for months — `PutCountersOnSubjectLine` simply stopped at the pronoun. Malanthrope, Bane of
+  Progress, Whiptongue Hydra and Froghemoth sat behind one missing group.
+
+#### Result
+
+**17,432 → 17,489 complete cards, +57, none lost**, diffed as a set and again as a per-card
+fingerprint of the compiled abilities. The fingerprint moved on 76 cards; of the 22 that are not
+the 57, eleven are the `attached-count` id-hash noise this file has recorded before, and **eleven
+gained an ability while staying incomplete** — Graveyard Trespasser, Avenge, Dune Chanter, Feral
+Appetite, Mana Cache, Turf War, Huatli, Dihada and three more, each now reading one line further.
+Nothing lost an ability. The family itself goes 797 → 759 sole blockers, 991 → 948 touched.
+
+The four cards the pronoun guard refuses are the measurement of the guard: they are the difference
+between +61 and +57, and every one of them would have given the tokens to the wrong side of the
+table. The guard was broken for one build by a `\b` mangled into a backspace on the way into the
+file, and **the only thing that caught it was the corpus diff** — the build was clean, the suite was
+green, and the count had gone up.
+
+#### Declined, with the measurement behind each
+
+- **The set as an object — 38 reachable.** "Put all cards revealed this way into your hand" wants
+  effects that act on the recorded set rather than on a target or a group, and almost every source
+  of one is a deferred look, so the record would be empty when the sentence ran. Both halves would
+  have to move; neither alone buys anything.
+- **A member of the set — 12.** As above, one card at a time.
+- **"If that spell is countered this way, exile it instead" — 12.** `EffectPhrase` already reads one
+  wording of this by *rewriting the previous effect* (`ExileCounteredLine`), which is the right
+  shape for it: two effects would counter the spell and then try to exile a card that is no longer
+  where the first one left it. The other wordings want that reader widened, not this record.
+- **A subtype or a colour in the noun — 16 clauses, largest 2.** "At least one Angel card is milled
+  this way", "for each Plains returned this way", "a nonblack card is exiled this way". The filter
+  reads card *types* through the shared two-table lookup; subtypes and colours are two more tables
+  against a flat tail.
+- **A relation between the things — 8.** "Two cards that share a color were milled this way" needs
+  the cards compared with each other, which no filter expresses; read as "two cards were milled" the
+  card would fire on a pair that shares nothing.
+- **A pronoun subject — 6, beside the 12 countered.** "That artifact is put into a graveyard this
+  way" names one particular object and this reader cannot tell it from the set. The same refusal the
+  "instead" rider makes, for the same reason.
+- **A possessive naming somebody else — 14.** "Card exiled from their hand this way", "creatures
+  they controlled that were destroyed this way": a different number for each player being asked, and
+  one total would be wrong for all of them.
+
+Coverage is **53.5% of playable cards fully read** (17,489 of 32,717), 69.4% of lines.
 
 ### Round seventeen: a guard that forbade every question behind it
 
