@@ -225,6 +225,24 @@ public sealed record PlayerState
     public int SpellsCastThisTurn { get; init; }
 
     /// <summary>
+    /// How much mana this player has spent casting spells this turn (CR 700.14).
+    /// </summary>
+    /// <remarks>
+    /// The number "expend" counts, and it is mana rather than spells: a player who casts one
+    /// four-drop has expended 4 and a player who casts four one-drops has expended 4 as well.
+    /// What is counted is what actually left the pool, not what the cost named, for the reason
+    /// <c>Game.PayMana</c> returns that pool - a generic symbol may be paid with anything, and
+    /// the amount handed over is what the rule asks about.
+    /// <para>
+    /// One seam, written down rather than guessed: mana somebody else pays through assist
+    /// (CR 702.132a) is counted for nobody. It is mana a player spent, but not on a spell they
+    /// are casting, and CR 700.14's subject is the player paying a cost to cast <em>a</em> spell.
+    /// No printed card turns on the difference today.
+    /// </para>
+    /// </remarks>
+    public int ManaSpentCastingThisTurn { get; init; }
+
+    /// <summary>
     /// How many spells this player cast during the previous turn.
     /// </summary>
     /// <remarks>
@@ -413,6 +431,7 @@ public sealed record PlayerState
         WasDealtDamageThisTurn == other.WasDealtDamageThisTurn &&
         Energy == other.Energy &&
         SpellsCastThisTurn == other.SpellsCastThisTurn &&
+        ManaSpentCastingThisTurn == other.ManaSpentCastingThisTurn &&
         SpellsCastLastTurn == other.SpellsCastLastTurn &&
         CardsDrawnThisTurn == other.CardsDrawnThisTurn &&
         Speed == other.Speed &&

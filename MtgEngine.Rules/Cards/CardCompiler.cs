@@ -3733,13 +3733,31 @@ public static partial class CardCompiler
         if (!undying && !persist)
             return false;
 
+        if (ReturnsWithCounter(undying) is not { } ability)
+            return false;
+
+        into.Add(ability);
+        return true;
+    }
+
+    /// <summary>
+    /// The trigger the words "undying" and "persist" stand for (CR 702.92a, 702.78a).
+    /// </summary>
+    /// <remarks>
+    /// Lifted out so that the keyword and the <em>granted</em> keyword are one ability rather
+    /// than two. "~ has persist as long as you control a black creature" grants the same trigger
+    /// in layer 6 that the printed word adds outright, and a second construction of it here would
+    /// be a second place for the intervening-if below to be got wrong.
+    /// </remarks>
+    private static TriggeredAbilityDefinition? ReturnsWithCounter(bool undying)
+    {
         var predicate = TriggerConditions.Parse("~ dies");
         if (predicate is null)
-            return false;
+            return null;
 
         var kind = undying ? CounterKinds.PlusOnePlusOne : CounterKinds.MinusOneMinusOne;
 
-        into.Add(new TriggeredAbilityDefinition
+        return new TriggeredAbilityDefinition
         {
             Id = undying ? "undying" : "persist",
             Text = undying
@@ -3764,9 +3782,7 @@ public static partial class CardCompiler
                 && dying.Permanent?.Counters.GetValueOrDefault(kind) is null or 0,
 
             Effects = [new ReturnSourceFromGraveyard(kind, 1)],
-        });
-
-        return true;
+        };
     }
 
     /// <summary>
@@ -5340,11 +5356,38 @@ public static partial class CardCompiler
             }
             : null;
 
+        var change = ChangeFor(m.Groups["dir"].Value);
+
+        // A coloured tax - "Black spells you cast cost {B} more to cast", the Leech cycle. Only
+        // upwards: a coloured *reduction* is the rule with its own reminder text ("this effect
+        // reduces only the amount of colored mana you pay"), which is a different question from
+        // this one, and reading Morophon's {W}{U}{B}{R}{G} as five generic off would be a much
+        // stronger card than the one printed.
+        if (m.Groups["sym"].Success)
+        {
+            if (change != CostChange.Increase)
+                return false;
+
+            into.Add(new CostModifier
+            {
+                FilterId = filter,
+                Amount = 0,
+                Surcharge = m.Groups["sym"].Value,
+                Change = CostChange.Increase,
+                Kind = CostModifierKind.Spells,
+                Who = who,
+                FromZone = from,
+                TargetsSource = targetsSource,
+            });
+
+            return true;
+        }
+
         into.Add(new CostModifier
         {
             FilterId = filter,
             Amount = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture),
-            Change = ChangeFor(m.Groups["dir"].Value),
+            Change = change,
             Kind = CostModifierKind.Spells,
             Who = who,
             FromZone = from,
@@ -8957,7 +9000,23 @@ public static partial class CardCompiler
             : parsed;
 
         var keywords = m.Groups["kw"].Success ? EffectPhrase.Keywords(m.Groups["kw"].Value) : null;
-        if (m.Groups["kw"].Success && keywords is null)
+
+        // "~ has persist as long as you control a black creature" - the two Scarecrows. Persist
+        // and undying are triggered abilities rather than flags (which is why the grantable
+        // keyword table leaves them out on purpose), so a conditional one is granted the way a
+        // quoted ability is: the same TriggeredAbilityDefinition the printed keyword builds, put
+        // into layer 6 behind the same condition (CR 613.1f).
+        TriggeredAbilityDefinition? grantedTrigger = null;
+        if (keywords is null && m.Groups["kw"].Success)
+        {
+            var word = m.Groups["kw"].Value.Trim();
+            var undying = word.Equals("undying", StringComparison.OrdinalIgnoreCase);
+
+            if (undying || word.Equals("persist", StringComparison.OrdinalIgnoreCase))
+                grantedTrigger = ReturnsWithCounter(undying);
+        }
+
+        if (m.Groups["kw"].Success && keywords is null && grantedTrigger is null)
             return false;
 
         // "And can't block" - the same pair of restrictions the Aura reader maps, and the engine
@@ -9024,6 +9083,17 @@ public static partial class CardCompiler
             // Attached to nothing means there is nothing this applies to, which is the right
             // answer rather than an error: an Aura in a graveyard has no host.
             return source.Permanent?.AttachedTo is { } host && target.Subject.Id == host;
+        }
+
+        if (grantedTrigger is { } conditional)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"while:{card.Name}:{conditional.Id}",
+                Layer = EffectLayer.Ability,
+                Applies = OnSelfWhile,
+                Apply = (_, _, builder) => builder.GrantedTriggers.Add(conditional),
+            });
         }
 
         if (m.Groups["p"].Success)
@@ -14662,6 +14732,16 @@ public static partial class CardCompiler
         // the safe one.
         var namesAnObject = TriggerConditions.NamesAnObject(m.Groups["when"].Value.Trim());
 
+        // Where the card has to be for its own trigger to be watching. Asked here rather than at
+        // the end because a condition needing two zones at once has to refuse the line, and there
+        // is only one field to put an answer in.
+        var zone = SelfTriggerZone(m.Groups["when"].Value.Trim());
+        if (zone is null)
+        {
+            unhandled.Add(line);
+            return true;
+        }
+
         // "When ~ enters, choose one —" is a trigger whose effect is a menu. The menu is on the
         // lines after it, so the ability is built empty here and the bullets are added to it as
         // they arrive; a header with no bullets under it produces an ability that offers a mode
@@ -14736,9 +14816,7 @@ public static partial class CardCompiler
             // activated and in the graveyard by the time it resolves (CR 702.29a). Left at the
             // default it compiled cleanly and never fired, which is the failure this whole
             // exercise keeps producing when a card reads correctly and plays as nothing.
-            FunctionsFrom = CyclingTrigger().IsMatch(m.Groups["when"].Value.Trim())
-                ? Zone.Hand
-                : Zone.Battlefield,
+            FunctionsFrom = zone!.Value,
         });
 
         return true;
@@ -16592,8 +16670,56 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^Recover (?<cost>(\{[^}]+\})+)[.]?$", RegexOptions.IgnoreCase)]
     private static partial Regex RecoverLine();
 
+    /// <summary>Whether a trigger condition is about this very card being cycled.</summary>
     [GeneratedRegex(@"^you cycle ~$", RegexOptions.IgnoreCase)]
-    private static partial Regex CyclingTrigger();
+    private static partial Regex CyclesSelf();
+
+    /// <summary>Whether a trigger condition is about this very card being cast.</summary>
+    [GeneratedRegex(@"^you cast ~$", RegexOptions.IgnoreCase)]
+    private static partial Regex CastsSelf();
+
+    /// <summary>Two verbs sharing a subject and an object — "you cast or cycle ~".</summary>
+    /// <remarks>
+    /// The same split the condition parser makes, and it has to be the same one: this decides
+    /// which zone the halves need, and a different reading here would answer for a trigger that
+    /// was compiled from other words.
+    /// </remarks>
+    [GeneratedRegex(@"^you (?<a>[a-z]+) or (?<b>[a-z]+) (?<tail>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex SharedSubjectDisjunctionCondition();
+
+    /// <summary>
+    /// Which zone a card has to be in for its own trigger to be watching (CR 603.6).
+    /// </summary>
+    /// <remarks>
+    /// Almost everything watches from the battlefield. The exceptions are the card talking about
+    /// itself: cycling happens while it is still in hand (CR 702.29a), and casting happens once
+    /// it is already on the stack — so a self-cast trigger left at the default compiled cleanly
+    /// and never fired, which is the same silent no-op the cycling arm was written to stop.
+    /// <para>
+    /// Null when the two halves of a disjunction need different zones. "When you cast or cycle
+    /// this card" is a real printing and a real gap: there is one zone on the ability, so the
+    /// line is refused rather than compiled into a card that plays half of what it says. Closing
+    /// it means letting an ability watch from more than one zone, which is a change to what a
+    /// triggered ability is and not to this reader.
+    /// </para>
+    /// </remarks>
+    private static Zone? SelfTriggerZone(string when)
+    {
+        var either = SharedSubjectDisjunctionCondition().Match(when);
+        if (either.Success)
+        {
+            var tail = " " + either.Groups["tail"].Value;
+            var left = SelfTriggerZone("you " + either.Groups["a"].Value + tail);
+            var right = SelfTriggerZone("you " + either.Groups["b"].Value + tail);
+
+            return left == right ? left : null;
+        }
+
+        if (CyclesSelf().IsMatch(when))
+            return Zone.Hand;
+
+        return CastsSelf().IsMatch(when) ? Zone.Stack : Zone.Battlefield;
+    }
 
     [GeneratedRegex(@"^Vanishing (?<n>\d+)[.]?$", RegexOptions.IgnoreCase)]
     private static partial Regex VanishingLine();
@@ -16613,7 +16739,8 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(
         @"^(?<what>[A-Za-z ]+?)? ?spells(?<who> you cast| your opponents cast)?"
-            + @"(?: from your (?<zone>graveyard|hand|exile))? cost \{(?<n>\d+)\} "
+            + @"(?: from your (?<zone>graveyard|hand|exile))? cost "
+            + @"(?:\{(?<n>\d+)\}|(?<sym>(?:\{[WUBRGC]\})+)) "
             + @"(?<dir>less|more) to cast\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SpellCostModifierLine();

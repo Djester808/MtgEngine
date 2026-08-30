@@ -333,6 +333,8 @@ public static class GameReducer
             // Counted as it is cast, not as it resolves: a countered spell was still cast, and
             // the cards that ask about "your second spell each turn" are about the casting.
             SpellCastEvent cast => Cast(state, cast),
+            ManaSpentCasting spent => state.WithPlayer(
+                state.GetPlayer(spent.PlayerId) with { ManaSpentCastingThisTurn = spent.After }),
             StackObjectResolved => state,
             DamageCleared => ClearDamage(state),
             PermanentSaddled saddled => state.TryGetObject(saddled.Id, out var mount)
@@ -1396,6 +1398,10 @@ public static class GameReducer
                     AssassinOrCommanderConnectedThisTurn = false,
                     SpellsCastLastTurn = player.SpellsCastThisTurn,
                     SpellsCastThisTurn = 0,
+
+                    // CR 700.14 counts the mana spent "this turn", so the tally starts again
+                    // for everyone - a player casts spells on other players' turns too.
+                    ManaSpentCastingThisTurn = 0,
                     CardsDrawnThisTurn = 0,
                     SpeedIncreasedThisTurn = false,
                     LostLifeThisTurn = false,

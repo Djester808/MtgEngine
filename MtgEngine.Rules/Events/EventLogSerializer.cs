@@ -154,6 +154,7 @@ public static class EventLogSerializer
             ["RippleRequested"] = typeof(RippleRequested),
             ["PermanentPhasedOut"] = typeof(PermanentPhasedOut),
             ["RemovedFromCombat"] = typeof(RemovedFromCombat),
+            ["ManaSpentCasting"] = typeof(ManaSpentCasting),
             ["PermanentPhasedIn"] = typeof(PermanentPhasedIn),
             ["SpellSneaked"] = typeof(SpellSneaked),
             ["SpellBestowed"] = typeof(SpellBestowed),

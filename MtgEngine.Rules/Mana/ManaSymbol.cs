@@ -173,6 +173,24 @@ public sealed record ManaCostSpec
         amount <= 0 ? this : this with { Symbols = Symbols.Add(ManaSymbol.Generic0(amount)) };
 
     /// <summary>
+    /// This cost with printed symbols added to it — a <em>coloured</em> tax (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The asymmetry in CR 601.2f is the reason this exists beside <see cref="PlusGeneric"/> and
+    /// has no counterpart on the reduction side: a cost increase is "add this to the cost" and
+    /// may name any symbol, while a reduction may only take generic mana off unless the card
+    /// says otherwise. So "Black spells you cast cost {B} more to cast" adds a black pip that has
+    /// to be paid with black mana, and reading it as {1} would let the Leech's controller pay the
+    /// tax with anything — a materially cheaper card than the one printed.
+    /// </remarks>
+    public ManaCostSpec Plus(ManaCostSpec extra)
+    {
+        ArgumentNullException.ThrowIfNull(extra);
+
+        return extra.Symbols.IsEmpty ? this : this with { Symbols = Symbols.AddRange(extra.Symbols) };
+    }
+
+    /// <summary>
     /// Parses a Scryfall-style cost such as <c>{2}{W/U}{X}</c>.
     /// </summary>
     /// <remarks>

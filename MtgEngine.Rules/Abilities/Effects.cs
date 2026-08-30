@@ -1300,6 +1300,101 @@ public sealed record TapTarget(
     }
 }
 
+/// <summary>
+/// Which permanents leave with one that phases out (CR 702.26g).
+/// </summary>
+/// <remarks>
+/// Shared with the untap step's own phasing sweep rather than written twice. The keyword sweep
+/// had this fan-out and an effect that phased one permanent would not have: an Aura on a creature
+/// sent away by Reality Ripple would have stayed on the battlefield attached to nothing, which is
+/// CR 704.5m's state-based action putting it in a graveyard - the creature comes back naked and
+/// the opponent is a card up on the exchange.
+/// <para>
+/// It runs to a fixed point because attachment chains: an Aura on an Equipment on a creature goes
+/// whole. And what is written down is <em>whose</em> untap step returns each one, taken from the
+/// permanent that is actually phasing, so an opponent's Aura returns on its host's schedule
+/// (CR 702.26h) rather than its own.
+/// </para>
+/// </remarks>
+public static class Phasing
+{
+    /// <summary>The events that phase <paramref name="leaving"/> out, hangers-on included.</summary>
+    public static IReadOnlyList<GameEvent> Out(
+        GameState state, IReadOnlyDictionary<ObjectId, Guid> leaving)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(leaving);
+
+        var going = new Dictionary<ObjectId, Guid>(leaving);
+        bool grew;
+
+        do
+        {
+            grew = false;
+
+            foreach (var id in state.Battlefield)
+            {
+                if (going.ContainsKey(id))
+                    continue;
+
+                if (state.GetObject(id).Permanent?.AttachedTo is { } host
+                    && going.TryGetValue(host, out var withHost))
+                {
+                    going[id] = withHost;
+                    grew = true;
+                }
+            }
+        }
+        while (grew);
+
+        return [.. going.Select(pair => new PermanentPhasedOut(pair.Key, pair.Value))];
+    }
+}
+
+/// <summary>
+/// A permanent phases out (CR 702.26b) — "target creature phases out", "~ phases out".
+/// </summary>
+/// <remarks>
+/// The one-shot half of the keyword. Nothing else is needed in the state: the untap step's sweep
+/// already returns whatever <see cref="GameState.PhasedOut"/> holds for the active player, so an
+/// effect that writes the same entry gets the phasing-in half for free (CR 702.26c).
+/// <para>
+/// Who it returns for is the permanent's <em>computed</em> controller rather than the id it was
+/// created with, because a stolen creature phases in under whoever holds it now (CR 702.26c, and
+/// control is layer 2 — CR 613.1b).
+/// </para>
+/// </remarks>
+public sealed record PhaseOutPermanent(
+    int TargetIndex = 0, EffectSubject Subject = EffectSubject.Target) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } leaving)
+            return [];
+
+        if (!context.State.TryGetObject(leaving, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        // Already gone. A phased-out permanent does not exist for this purpose (CR 702.26b), so
+        // there is nothing to phase out and no event describing one.
+        if (context.State.PhasedOut.ContainsKey(leaving))
+            return [];
+
+        return Phasing.Out(
+            context.State,
+            new Dictionary<ObjectId, Guid>
+            {
+                [leaving] =
+                    Characteristics.ControllerOf(context.State, context.Abilities, permanent),
+            });
+    }
+}
+
 /// <summary>Untaps a target permanent (CR 701.26b).</summary>
 /// <remarks>
 /// Reuses the untap step's event rather than adding a singular one. There is no such thing as
@@ -1396,11 +1491,21 @@ public sealed record ChangeLife(Amount Amount, int? TargetIndex = null) : IEffec
 /// </remarks>
 public sealed record ChangeLifeOfTargetsController(Amount Amount, int TargetIndex = 0) : IEffect
 {
+    /// <summary>
+    /// Whether the sentence said "its owner" rather than "its controller" (CR 108.3).
+    /// </summary>
+    /// <remarks>
+    /// A flag on the one effect rather than a second effect beside it, because the two sentences
+    /// differ in one word and in nothing else - and two effects would be two places to keep the
+    /// id-following right.
+    /// </remarks>
+    public bool ToOwner { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (TargetOwnership.ControllerOf(context, TargetIndex) is not { } who)
+        if (TargetOwnership.WhoseTarget(context, TargetIndex, ToOwner) is not { } who)
             return [];
 
         var amount = Amount.In(context);
@@ -1419,11 +1524,14 @@ public sealed record ChangeLifeOfTargetsController(Amount Amount, int TargetInde
 /// </remarks>
 public sealed record DrawForTargetsController(Amount Count, int TargetIndex = 0) : IEffect
 {
+    /// <summary>Whether the sentence said "its owner" (CR 108.3).</summary>
+    public bool ToOwner { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        return TargetOwnership.ControllerOf(context, TargetIndex) is { } who
+        return TargetOwnership.WhoseTarget(context, TargetIndex, ToOwner) is { } who
             ? Drawing.From(context, who, Count.In(context))
             : [];
     }
@@ -1454,6 +1562,39 @@ public static class TargetOwnership
 
         return context.ControllerBehind?.Invoke(target.Subject);
     }
+
+    /// <summary>Who <em>owns</em> a target, which is a different player (CR 108.3).</summary>
+    /// <remarks>
+    /// Owner is where the card came from and never changes; controller is layer 2 and does. On
+    /// Path of Peace - "Destroy target creature. Its owner gains 4 life" - the two are the same
+    /// player until somebody steals the creature, and then the life goes to the player who lost
+    /// the card rather than to the one who took it. Reading "owner" as "controller" would have
+    /// paid the wrong player on exactly the board where the distinction is the point, which is
+    /// why the sentence stayed unread until there was something honest to compile it to.
+    /// <para>
+    /// Like its sibling it follows the id forward: the creature is in a graveyard under a new id
+    /// by the time this runs (CR 400.7), and who owned it is still a fact about the game.
+    /// </para>
+    /// </remarks>
+    public static Guid? OwnerOf(ResolutionContext context, int targetIndex)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (context.TargetAt(targetIndex) is not { } target)
+            return null;
+
+        if (target.Kind == TargetKind.Player)
+            return target.Player;
+
+        if (context.State.TryGetObject(target.Subject, out var live))
+            return live.OwnerId;
+
+        return context.ObjectBehind?.Invoke(target.Subject)?.OwnerId;
+    }
+
+    /// <summary>Whichever of the two the sentence named.</summary>
+    public static Guid? WhoseTarget(ResolutionContext context, int targetIndex, bool owner) =>
+        owner ? OwnerOf(context, targetIndex) : ControllerOf(context, targetIndex);
 }
 
 /// <summary>Drawing cards, and what happens when there are none (CR 121.3, 121.4).</summary>
@@ -4120,11 +4261,14 @@ public static class Milling
 /// </remarks>
 public sealed record MillForTargetsController(Amount Count, int TargetIndex = 0) : IEffect
 {
+    /// <summary>Whether the sentence said "its owner" (CR 108.3).</summary>
+    public bool ToOwner { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        return TargetOwnership.ControllerOf(context, TargetIndex) is { } who
+        return TargetOwnership.WhoseTarget(context, TargetIndex, ToOwner) is { } who
             ? Milling.From(context, who, Count.In(context))
             : [];
     }
@@ -5991,6 +6135,21 @@ public sealed record CostModifier
     /// </para>
     /// </remarks>
     public bool TargetsSource { get; init; }
+
+    /// <summary>
+    /// Printed symbols an increase adds, for a tax that is not generic mana (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// "Black spells you cast cost {B} more to cast" — the Leech cycle. Set instead of
+    /// <see cref="Amount"/> rather than beside it, because the two are the same slot said two
+    /// ways and a modifier carrying both would charge twice.
+    /// <para>
+    /// Increases only. A coloured <em>reduction</em> is a different rule with its own reminder
+    /// text ("this effect reduces only the amount of colored mana you pay"), and the compiler
+    /// refuses those lines rather than reading them as this.
+    /// </para>
+    /// </remarks>
+    public string? Surcharge { get; init; }
 }
 
 /// <summary>
@@ -6038,9 +6197,19 @@ public static class CostModification
 
         var increase = 0;
         var reduction = 0;
+        var surcharge = Mana.ManaCostSpec.Free;
 
         foreach (var modifier in modifiers)
         {
+            // A coloured tax carries its symbols rather than an amount, and is added whole
+            // (CR 601.2f). It goes on before the reductions like every other increase, and the
+            // reductions cannot take it off again because they only take generic mana.
+            if (modifier is { Change: CostChange.Increase, Surcharge: { Length: > 0 } printed })
+            {
+                surcharge = surcharge.Plus(Mana.ManaCostSpec.Parse(printed));
+                continue;
+            }
+
             if (modifier.Amount <= 0)
                 continue;
 
@@ -6050,7 +6219,7 @@ public static class CostModification
                 reduction += modifier.Amount;
         }
 
-        return cost.PlusGeneric(increase).WithoutGeneric(reduction);
+        return cost.PlusGeneric(increase).Plus(surcharge).WithoutGeneric(reduction);
     }
 }
 
