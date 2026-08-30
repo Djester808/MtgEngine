@@ -47535,6 +47535,329 @@ public sealed class CompiledCardBehaviourTests
             Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(enchantment)));
     }
 
+    // ---- "This way": what a resolution did, named by a later sentence (CR 608.2) ----
+
+    /// <summary>Plays on until this player may cast a sorcery again (CR 117.1, 307.1).</summary>
+    /// <remarks>
+    /// Settling a spell leaves the game wherever the passes took it, which is not reliably a main
+    /// phase and not reliably this player's priority - so a second cast in the same test threw
+    /// "you do not have priority" on three tests out of four and passed on the fourth by accident
+    /// of timing. Asked as a condition rather than as a step, because both halves have to hold.
+    /// </remarks>
+    private static void UntilTheyMayCastAgain(Game game, Guid player) =>
+        TestCards.PassUntil(
+            game,
+            () => game.State.Stack.IsEmpty
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.ActivePlayerId == player
+                && game.State.Priority.Holder == player);
+
+    /// <summary>
+    /// "Destroy all creatures. You gain 2 life for each creature destroyed this way."
+    /// </summary>
+    /// <remarks>
+    /// The whole family in one sentence. CR 608.2 lets a resolution use information about what
+    /// happened during itself, and nothing in this engine wrote any of it down — so the count is
+    /// not of the board, of the turn, or of anything a state can be asked: it is of what the
+    /// sentence in front of it just did, and only a record kept across the effect loop can answer.
+    /// <para>
+    /// Two creatures are left alive under an opponent's control to make the assertion mean
+    /// something. A count that quietly read the battlefield instead would answer zero here, and
+    /// zero is exactly what a card doing nothing looks like.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_reads_what_this_resolution_just_did()
+    {
+        var wrath = Card(
+            "Wrath Count Test",
+            "Destroy all creatures. You gain 2 life for each creature destroyed this way.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(wrath).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Wrath Count Mine A", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Wrath Count Mine B", 2, 2), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Wrath Count Theirs", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.CardTypes.HasFlag(CardType.Creature));
+
+        Assert.Equal(26, game.State.GetPlayer(alice).Life);
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The verb picks out which of the resolution's doings are counted, not the position.
+    /// </summary>
+    /// <remarks>
+    /// The record accumulates rather than replacing, which is only safe because the printed word
+    /// says what to count: "for each creature destroyed this way" on a spell that destroyed lands
+    /// as well must not count the lands. Keeping the last effect's events instead would answer the
+    /// same question by guessing at the order, and would be wrong the moment a card puts a third
+    /// sentence between the two.
+    /// </remarks>
+    [Fact]
+    public void The_count_is_the_noun_and_the_verb_and_not_the_whole_batch()
+    {
+        var quake = Card(
+            "Quake Count Test",
+            "Destroy all permanents. You gain 2 life for each creature destroyed this way.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(quake).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Quake Count Bear", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Quake Count Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Quake Count Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, quake), []);
+        Settle(game);
+
+        // Two per creature, and the two lands are not creatures however they were destroyed.
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "If a creature card is put into a graveyard this way" is asked, not assumed.
+    /// </summary>
+    /// <remarks>
+    /// Both arms, because only the negative one can catch the failure this family is arranged
+    /// around: a guard reading an empty record answers no for ever, and a card whose second half
+    /// never happens compiles clean, plays without an error, and looks exactly like a card that
+    /// works. The positive arm alone would pass against a guard that was always true.
+    /// </remarks>
+    [Fact]
+    public void A_did_it_conditional_is_false_when_it_did_not()
+    {
+        var wrath = Card(
+            "Wrath Conditional Test",
+            "Destroy all creatures. If a creature card is put into a graveyard this way, "
+                + "you gain 5 life.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(wrath).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+
+        // Nothing to destroy: the sweeper resolves, the record stays empty, the guard is false.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.Create(alice, TestCards.Creature("Wrath Conditional Bear", 2, 2), Zone.Battlefield);
+        UntilTheyMayCastAgain(game, alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "If two or more ... this way" is a threshold, and one is not two (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// The number in the clause is read rather than treated as "at least one". A reader that took
+    /// only the commonest opening would file the plural forms as understood while answering a
+    /// different question, which is the failure mode a coverage number cannot see.
+    /// </remarks>
+    [Fact]
+    public void A_did_it_conditional_counts_up_to_its_threshold()
+    {
+        var wrath = Card(
+            "Wrath Threshold Test",
+            "Destroy all creatures. If two or more creature cards are put into a graveyard "
+                + "this way, you gain 5 life.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(wrath).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Wrath Threshold One", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.Create(alice, TestCards.Creature("Wrath Threshold Two", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Wrath Threshold Three", 2, 2), Zone.Battlefield);
+        UntilTheyMayCastAgain(game, alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A verb whose events arrive after the resolution leaves the whole line unread.
+    /// </summary>
+    /// <remarks>
+    /// <b>The refusal is the load-bearing half of this round.</b> Every question a player has to
+    /// answer — a reveal, a search, a chosen discard, a chosen sacrifice — is deferred by this
+    /// engine to the settle *after* the resolution, precisely so that a resolution is never
+    /// stopped half way through. A sentence asking about one of those from inside the same
+    /// resolution would be asking about events that have not happened, would answer nought every
+    /// time, and would do it on a card that coverage counts as complete and that no downstream
+    /// test can tell from a working one.
+    /// <para>
+    /// So the verb table is short on purpose, and this asserts what it refuses rather than what it
+    /// takes. The line stays unread, which is the one outcome an instrument can see.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_verb_the_record_cannot_answer_leaves_the_line_unread()
+    {
+        foreach (var deferred in new[] { "revealed", "sacrificed", "discarded", "tapped" })
+        {
+            var card = Card(
+                "Unrecorded " + deferred + " Test",
+                "Destroy all creatures. You gain 2 life for each creature " + deferred
+                    + " this way.",
+                CardType.Sorcery);
+
+            var compiled = CardCompiler.Compile(card);
+
+            Assert.False(compiled.IsComplete);
+
+            // And not half of it either: the sweeper on the front of the line is not compiled
+            // into a spell that quietly drops the clause it could not read.
+            Assert.Null(compiled.Spell);
+        }
+    }
+
+    /// <summary>
+    /// "For each X this way, its controller ..." is distributive, and fronting it would be a lie.
+    /// </summary>
+    /// <remarks>
+    /// The count in front of the instruction is read by rewriting it to the back, which every verb
+    /// here already understands. That rewrite is meaning-preserving only while nothing inside the
+    /// instruction points back at the thing being counted: "for each permanent destroyed this way,
+    /// its controller draws a card" is one draw for each permanent's <em>own</em> controller, and
+    /// fronted it becomes N draws for whoever "its" resolves to once — which on a sweeper that
+    /// targets nothing is nobody, or the wrong player.
+    /// <para>
+    /// Half of the corpus lines in this family print such a pronoun, and reading them would have
+    /// been four more complete cards with the tokens going to the wrong side of the table.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_fronted_count_whose_instruction_points_back_is_refused()
+    {
+        var distributive = Card(
+            "Fronted Pronoun Test",
+            "Destroy all creatures. For each permanent destroyed this way, its controller "
+                + "draws a card.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(distributive).IsComplete);
+
+        // The same sentence with nothing pointing back is the amount it looks like, and reads.
+        var plain = Card(
+            "Fronted Plain Test",
+            "Destroy all creatures. For each creature destroyed this way, you gain 2 life.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(plain).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Fronted Bear A", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Fronted Bear B", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plain), []);
+        Settle(game);
+
+        // The fronted form is the trailing form, so it had better come to the same number.
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The record belongs to one resolution and does not survive into the next (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// "This way" means "by this instruction", not "this turn" — the game already has a separate
+    /// vocabulary for the turn-wide question, and a record that leaked would make the two silently
+    /// the same. Asserted by casting the counting spell a second time with nothing to destroy: a
+    /// leak shows up as life gained for creatures the previous spell killed.
+    /// </remarks>
+    [Fact]
+    public void A_record_does_not_survive_its_own_resolution()
+    {
+        var wrath = Card(
+            "Wrath Leak Test",
+            "Destroy all creatures. You gain 2 life for each creature destroyed this way.",
+            CardType.Sorcery);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Leak Bear A", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Leak Bear B", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        UntilTheyMayCastAgain(game, alice);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wrath), []);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Where a card went is part of what the participle means: an exile is not a destruction.
+    /// </summary>
+    /// <remarks>
+    /// The record keeps the move rather than a label, and each printed participle asks its own
+    /// question of it — which is what stops "exiled this way" and "destroyed this way" being one
+    /// entry that answers both. Two spells that do the same amount of work to the same board have
+    /// to come out with different numbers here, or the distinction is not being made.
+    /// </remarks>
+    [Fact]
+    public void An_exile_is_not_a_destruction_in_the_record()
+    {
+        var exiling = Card(
+            "Exile Count Test",
+            "Exile all creatures. You gain 2 life for each creature card exiled this way.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(exiling).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Exile Count Bear A", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Exile Count Bear B", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, exiling), []);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        // The same board, destroyed rather than exiled, counts nothing for a sentence about exile.
+        var crossed = Card(
+            "Exile Crossed Test",
+            "Destroy all creatures. You gain 2 life for each creature card exiled this way.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(crossed).IsComplete);
+
+        game.Create(alice, TestCards.Creature("Exile Crossed Bear", 2, 2), Zone.Battlefield);
+        UntilTheyMayCastAgain(game, alice);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, crossed), []);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

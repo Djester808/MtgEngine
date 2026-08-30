@@ -664,6 +664,23 @@ public sealed record ResolutionContext
     /// <summary>The value chosen for X as the spell was cast (CR 601.2b).</summary>
     public int VariableValue { get; init; }
 
+    /// <summary>
+    /// What the effects before this one in this same resolution did — "this way" (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// The twin of <see cref="SubjectAmount"/>, which has carried "that much" forward since the
+    /// day it was built. That one is a magnitude and this is the things themselves, and the
+    /// printed sentences want both: "each opponent loses 2 life and you gain that much life"
+    /// against "destroy all creatures, then draw a card for each creature destroyed this way".
+    /// <para>
+    /// Empty on a context built without one, and on a deferred branch that runs after its own
+    /// resolution is over — callers treat an empty record as "nothing was done", which is why the
+    /// compiler refuses every verb whose events arrive at the settle rather than in the
+    /// resolution.
+    /// </para>
+    /// </remarks>
+    public ResolutionRecord Record { get; init; } = ResolutionRecord.Empty;
+
     /// <summary>How much each target was assigned, by target index (CR 601.2d).</summary>
     /// <remarks>
     /// Not "how much damage". The same announcement carries a distribution of counters, and the

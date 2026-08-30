@@ -6193,11 +6193,20 @@ public static partial class EffectPhrase
             if (CounterKindNamed(onSomething.Groups["kind"].Value) is not { } kindOnSubject)
                 return false;
 
-            effects.Add(new PutCounters(
-                kindOnSubject,
-                Number(onSomething.Groups["n"].Value),
-                index,
-                putOn));
+            // "Put a +1/+1 counter on ~ for each creature destroyed this way" - the counted tail
+            // the targeted twin of this reader has had all along, and the reason a whole family
+            // of sweepers that grow their own source went unread: the pattern simply stopped at
+            // the pronoun. CountedBy refuses a group the counting vocabulary cannot read, which
+            // is what keeps the widening fail-closed - a tail silently dropped would put one
+            // counter on where the card says several.
+            if (CountedBy(
+                    Number(onSomething.Groups["n"].Value),
+                    onSomething.Groups["foreach"]) is not { } howManyOnSubject)
+            {
+                return false;
+            }
+
+            effects.Add(new PutCounters(kindOnSubject, howManyOnSubject, index, putOn));
 
             return true;
         }
@@ -6510,6 +6519,40 @@ public static partial class EffectPhrase
         // Read last among the whole-sentence forms, so every reader that knows a particular "if"
         // - "if you do", "if you win the flip", "if ~ was kicked" - still sees it first.
         var conditional = ConditionalSentence().Match(sentence);
+
+        // "If a creature card is exiled this way, you gain 2 life." The same sentence shape with
+        // a condition BoardConditions cannot answer and must not be taught to: what it asks about
+        // is not the board at all, it is what the previous sentence of this resolution just did
+        // (CR 608.2c). The clause goes to the same reader the counting grammar uses, so the two
+        // can never disagree about what "exiled this way" means.
+        if (conditional.Success && ThisWay.Mentions(conditional.Groups["cond"].Value))
+        {
+            if (ThisWay.Condition(conditional.Groups["cond"].Value.Trim()) is not { } clause)
+                return false;
+
+            var (touched, least) = clause;
+
+            var recorded = ImmutableList.CreateBuilder<IEffect>();
+
+            // The whole remainder as one instruction, and the same three refusals the board
+            // condition below makes: an unreadable remainder leaves the sentence unread rather
+            // than falling through to the "and" split, an empty guard is a guard over nothing,
+            // and a deferred question inside would be located against the wrapper.
+            if (!TryOne(
+                    conditional.Groups["effect"].Value.Trim(),
+                    targets,
+                    recorded,
+                    objectNamedByTrigger)
+                || recorded.Count == 0
+                || recorded.Any(FindsItselfByIndex))
+            {
+                return false;
+            }
+
+            effects.Add(new OnlyIfTouched(touched, least, recorded.ToImmutable()));
+            return true;
+        }
+
         if (conditional.Success
             && BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is { } required)
         {
@@ -6580,6 +6623,39 @@ public static partial class EffectPhrase
                 otherwise.ToImmutable()));
 
             return true;
+        }
+
+        // "For each creature destroyed this way, create a 2/2 black Zombie creature token." The
+        // count in front instead of behind, which is the *only* difference from a sentence every
+        // verb here already reads - and the corpus prints it 177 times on cards that are one line
+        // short. Fronted rather than given a reader of its own, because a second grammar for the
+        // counted amount is a second grammar that falls behind the first.
+        //
+        // Read last, after every whole-sentence form and before the "and" split, so nothing that
+        // would have been understood better is taken here.
+        var fronted = LeadingForEachLine().Match(sentence);
+        if (fronted.Success)
+        {
+            var instruction = fronted.Groups["effect"].Value.Trim().TrimEnd('.');
+
+            // **A pronoun in the instruction is what makes fronting a lie.** "For each permanent
+            // destroyed this way, its controller creates a 3/3 Centaur" gives one token to each
+            // permanent's *own* controller; fronted it becomes N tokens to whoever "its" resolves
+            // to once, which on a sweeper with no target is nobody or the wrong player. The
+            // sentence is distributive and the fronted form is an amount, and the two are the
+            // same instruction only when nothing inside points back at the thing being counted.
+            //
+            // A guard that fires falls through to the split below rather than refusing outright,
+            // so nothing that read before this reader existed stops reading now.
+            if (!BackPointingPronoun().IsMatch(instruction)
+                && TryOne(
+                    instruction + " for " + fronted.Groups["group"].Value.Trim(),
+                    targets,
+                    effects,
+                    objectNamedByTrigger))
+            {
+                return true;
+            }
         }
 
         return TrySplitOnAnd(sentence, targets, effects);
@@ -8473,7 +8549,7 @@ public static partial class EffectPhrase
     /// types a permanent can never have. A graveyard holds both, so a count over one has to ask
     /// both (CR 205.2a).
     /// </remarks>
-    private static IReadOnlyList<Domain.Enums.CardType>? TypesOfCardNoun(string noun) =>
+    internal static IReadOnlyList<Domain.Enums.CardType>? TypesOfCardNoun(string noun) =>
         Specs.PermanentTypes(noun)
             ?? (Specs.CardTypeInGraveyard(noun) is { } single ? [single] : null);
 
@@ -8919,8 +8995,26 @@ public static partial class EffectPhrase
         Resolution,
     }
 
-    private static Amount? CountingAmount(Amount each, string groupPhrase) =>
-        Counting(groupPhrase, hasSource: true, CountSeats.Resolution) is not { } count
+    private static Amount? CountingAmount(Amount each, string groupPhrase)
+    {
+        // "For each creature card exiled this way", "equal to the number of creatures destroyed
+        // this way" - a count of what this resolution has already done rather than of the board
+        // (CR 608.2). It is answered here rather than inside `Counting` because this is the one
+        // place in the counting vocabulary that holds a ResolutionContext: `CountFn` is handed a
+        // state, an ability source and a player, and none of those knows what the sentence before
+        // this one just did.
+        //
+        // Every position that scales an amount already funnels through here, so the printed "for
+        // each", "equal to the number of" and "where X is the number of" all read it at once -
+        // three of the five ways the corpus spells this reference, for one branch.
+        if (ThisWay.Mentions(groupPhrase))
+        {
+            return ThisWay.Counted(groupPhrase) is not { } touched
+                ? null
+                : each with { Counter = touched.In };
+        }
+
+        return Counting(groupPhrase, hasSource: true, CountSeats.Resolution) is not { } count
             ? null
             : each with
             {
@@ -8931,6 +9025,7 @@ public static partial class EffectPhrase
                     context.PhysicalSourceId,
                     scope => PlayerScopes.Resolve(scope, context)),
             };
+    }
 
     /// <summary>
     /// Reads a counted group phrase, or null when it names something this cannot count.
@@ -12803,6 +12898,32 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^(?<effect>.+?) unless (?<cond>[^,]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex UnlessSentence();
 
+    /// <summary>"For each creature destroyed this way, create a token" - the count in front.</summary>
+    /// <remarks>
+    /// The group is the shared counted class, so everything the counting vocabulary reads behind
+    /// a verb is read in front of one too, and a phrase it cannot read leaves the sentence unread
+    /// exactly as it would in the trailing position.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^for (?<group>each " + COUNTED + @"+), (?<effect>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingForEachLine();
+
+    /// <summary>
+    /// A word inside a fronted instruction that points back at what is being counted.
+    /// </summary>
+    /// <remarks>
+    /// The guard on <see cref="LeadingForEachLine"/>, and the reason that rewrite is safe at all.
+    /// "Its controller", "that land's controller", "they", "them" each make the sentence one
+    /// instruction carried out once per counted thing, about that thing; an amount carries it out
+    /// once, about nothing in particular. Half of the corpus lines in this family print one of
+    /// these words, and reading them would be a card that compiles, resolves, and gives the
+    /// tokens to the wrong player.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(its|their|they|them|that [a-z]+'s|those)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex BackPointingPronoun();
+
+
     /// <summary>The else branch of the sentence above, which is where its condition lives.</summary>
     /// <remarks>
     /// Matched only as the sentence <em>after</em> a conditional one. On its own it names no
@@ -14504,7 +14625,8 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^put " + N + @" (?<kind>[+-]\d/[+-]\d|[a-z]+) counters? on "
-            + @"(?<who>~|it|that creature|that permanent|(enchanted|equipped) [a-z]+)$",
+            + @"(?<who>~|it|that creature|that permanent|(enchanted|equipped) [a-z]+)"
+            + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PutCountersOnSubjectLine();
 
