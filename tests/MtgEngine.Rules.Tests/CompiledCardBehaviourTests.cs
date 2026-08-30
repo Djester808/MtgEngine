@@ -55300,6 +55300,466 @@ public sealed class CompiledCardBehaviourTests
             game.State, Pool, game.State.GetObject(theirs), bob, alice));
     }
 
+    // ---- A prohibition that takes an argument (CR 702.11b, 702.11d, 701.6a) --
+
+    /// <summary>A spell of one colour, so a targeting restriction has something to judge.</summary>
+    /// <remarks>
+    /// The <see cref="Card"/> helper leaves a card colourless, which is exactly the answer these
+    /// restrictions are asked about — a card with no colour passes every "hexproof from [colour]"
+    /// there is, so a test written with it would pass whether the rule worked or not.
+    /// </remarks>
+    private static CardDefinition ColouredSpell(
+        string name, string text, ManaColor colour, CardType types = CardType.Instant) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = text,
+            CardTypes = types,
+            ColorIdentity = [colour],
+            Colors = [colour],
+        };
+
+    /// <summary>An artifact that pings, for the half of these rules that is about abilities.</summary>
+    /// <remarks>
+    /// An artifact rather than a creature because the ability costs {T} and a creature would be
+    /// summoning sick (CR 302.6) — the test would then be measuring the wrong refusal.
+    /// </remarks>
+    private static CardDefinition PingingArtifact(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = "{T}: ~ deals 1 damage to target creature.",
+        CardTypes = CardType.Artifact,
+    };
+
+    /// <summary>The same, killing rather than pinging, for an assertion that has to outlast a step.</summary>
+    /// <remarks>
+    /// Damage marked on a permanent is wiped in the cleanup step (CR 514.2), so a test that
+    /// settles the game twice can watch its control case evaporate and read that as the rule
+    /// working. A creature that is gone stays gone.
+    /// </remarks>
+    private static CardDefinition DestroyingArtifact(string name) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = "{T}: Destroy target creature.",
+        CardTypes = CardType.Artifact,
+    };
+
+    [Fact]
+    public void Hexproof_from_a_colour_refuses_that_colour_and_lets_the_others_through()
+    {
+        // CR 702.11d. The quality is about the spell doing the targeting, which is why it cannot
+        // be a keyword flag on the creature and is a restriction asked about the source instead.
+        var knight = Card(
+            "Hexproof From Black Test",
+            "Hexproof from black",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(knight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, knight, Zone.Battlefield);
+
+        // The control, and the reason this test is worth anything: the same spell in another
+        // colour lands. Without it a refusal below could be a spell that was never castable.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var red = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Red Ping Test", "~ deals 1 damage to target creature.", ManaColor.Red));
+        game.CastSpell(bob, red, [Target.ToPermanent(guarded)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, guarded));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var black = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Black Ping Test", "~ deals 1 damage to target creature.", ManaColor.Black));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, black, [Target.ToPermanent(guarded)]));
+    }
+
+    [Fact]
+    public void Hexproof_from_a_colour_leaves_its_own_controller_alone()
+    {
+        // CR 702.11d says "your opponents control", which is the whole of what separates this
+        // family from shroud. Read without that clause the creature would be untargetable by the
+        // player who owns it, and every Aura and pump spell in their deck would stop working.
+        var knight = Card(
+            "Own Hexproof From Black Test",
+            "Hexproof from black",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, knight, Zone.Battlefield);
+
+        var black = TestCards.PutInHand(game, alice, ColouredSpell(
+            "Own Black Ping Test", "~ deals 1 damage to target creature.", ManaColor.Black));
+        game.CastSpell(alice, black, [Target.ToPermanent(mine)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, mine));
+    }
+
+    [Fact]
+    public void Hexproof_from_a_card_type_asks_about_the_type_and_not_the_colour()
+    {
+        // Elenda, Saint of Dusk's quality. A card type is a quality like a colour (CR 702.11d),
+        // and it is the one that shows the flags could never have carried this: there is a flag
+        // per protection colour and there is no supply of them for "instants", "planeswalkers"
+        // and "artifacts, creatures, and enchantments".
+        var saint = Card(
+            "Hexproof From Instants Test",
+            "Hexproof from instants",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(saint);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, saint, Zone.Battlefield);
+
+        // A sorcery is cast at sorcery speed, so this needs the caster's own main phase — and the
+        // passing has to happen before anything reaches his hand. The harness answers a
+        // discard-to-hand-size question with the first card it holds, which is how a fixture put
+        // in hand a turn early goes missing.
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var instant = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Instant Ping Test", "~ deals 1 damage to target creature.", ManaColor.Red));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, instant, [Target.ToPermanent(guarded)]));
+
+        // The control, in the same colour and at the same creature: only the card type differs,
+        // so the refusal above is the quality being read and nothing else.
+        var sorcery = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Sorcery Ping Test",
+            "~ deals 1 damage to target creature.",
+            ManaColor.Red,
+            CardType.Sorcery));
+
+        game.CastSpell(bob, sorcery, [Target.ToPermanent(guarded)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, guarded));
+    }
+
+    [Fact]
+    public void A_keyword_list_ending_in_hexproof_from_keeps_the_keywords_in_front_of_it()
+    {
+        // Sporeweb Weaver's line. The words are one line and two different things, and the
+        // keyword reader could only ever take the whole line or none of it — so a card printing
+        // both lost its reach as well as its hexproof.
+        var weaver = Card(
+            "Reach And Hexproof Test",
+            "Reach, hexproof from blue",
+            CardType.Creature,
+            power: 1,
+            toughness: 4,
+            keywords: KeywordAbility.Reach);
+
+        var compiled = CardCompiler.Compile(weaver);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, weaver, Zone.Battlefield);
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(guarded))
+            .Has(KeywordAbility.Reach));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var red = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Weaver Red Ping Test", "~ deals 1 damage to target creature.", ManaColor.Red));
+        game.CastSpell(bob, red, [Target.ToPermanent(guarded)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, guarded));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var blue = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Weaver Blue Ping Test", "~ deals 1 damage to target creature.", ManaColor.Blue));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, blue, [Target.ToPermanent(guarded)]));
+    }
+
+    [Fact]
+    public void A_prohibition_naming_spells_alone_leaves_abilities_free_to_target()
+    {
+        // Spectral Shield. The printed sentence names one of the two and means one of the two, so
+        // an engine that could only say "hexproof" would be reading a strictly better card.
+        var shield = Card(
+            "Untargetable By Spells Test",
+            "Enchant creature\nEnchanted creature gets +0/+2 and can't be the target of spells.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(shield);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Shielded Bear", 2, 2), Zone.Battlefield);
+        var aura = TestCards.PutInHand(game, alice, shield);
+        game.CastSpell(alice, aura, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(bear)));
+
+        var rod = game.Create(bob, DestroyingArtifact("Shield Rod Test"), Zone.Battlefield);
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+
+        var spell = TestCards.PutInHand(
+            game, bob, Card("Shield Spell Test", "Destroy target creature."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, spell, [Target.ToPermanent(bear)]));
+
+        // The control, and the half the sentence does not cover: the identical effect from an
+        // ability reaches the creature, so the refusal above is the word "spells" being read and
+        // not a creature nothing could ever aim at.
+        game.ActivateAbility(bob, rod, "a", [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Shielded Bear");
+    }
+
+    [Fact]
+    public void A_prohibition_naming_abilities_alone_is_the_mirror_of_it()
+    {
+        // Shanna, Sisay's Legacy. The same grammar with the other half taken, and it has to be
+        // told apart at the moment the question is asked: CR 113.7a says an ability's source is
+        // the object it came from, so a permanent doing the targeting is an ability and anything
+        // else is a spell.
+        var shanna = Card(
+            "Untargetable By Abilities Test",
+            "~ can't be the target of abilities your opponents control.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(shanna);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, shanna, Zone.Battlefield);
+        var rod = game.Create(bob, PingingArtifact("Shanna Ping Rod Test"), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var spell = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Shanna Ping Spell Test", "~ deals 1 damage to target creature.", ManaColor.Red));
+        game.CastSpell(bob, spell, [Target.ToPermanent(guarded)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, guarded));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(bob, rod, "a", [Target.ToPermanent(guarded)]));
+    }
+
+    [Fact]
+    public void A_group_prohibition_covers_that_group_and_nobody_else()
+    {
+        // Spellbane Centaur, and the one line of this family that goes through the mass-static
+        // grammar rather than a pattern of its own. That is deliberate: the noun phrase and the
+        // ownership clause are the ones every other group prohibition uses, and a second copy of
+        // that vocabulary is what read a sentence-opening "That creature" as a creature subtype.
+        var centaur = Card(
+            "Group Untargetable Test",
+            "Creatures you control can't be the targets of blue spells or abilities from blue "
+                + "sources.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(centaur);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, centaur, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Guarded Bear", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Open Bear", 2, 2), Zone.Battlefield);
+
+        // Two controls, because the sentence makes two claims. A blue spell reaches a creature
+        // the centaur's controller does not control…
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var atTheirs = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Blue Ping Elsewhere Test", "~ deals 1 damage to target creature.", ManaColor.Blue));
+        game.CastSpell(bob, atTheirs, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, theirs));
+
+        // …and a spell of another colour reaches one they do.
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var red = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Red Ping Guarded Test", "~ deals 1 damage to target creature.", ManaColor.Red));
+        game.CastSpell(bob, red, [Target.ToPermanent(mine)]);
+        Settle(game);
+
+        Assert.Equal(1, DamageOn(game, mine));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var blue = TestCards.PutInHand(game, bob, ColouredSpell(
+            "Blue Ping Guarded Test", "~ deals 1 damage to target creature.", ManaColor.Blue));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, blue, [Target.ToPermanent(mine)]));
+    }
+
+    [Fact]
+    public void A_quality_the_reader_cannot_name_leaves_the_whole_line_unread()
+    {
+        // The direction a prohibition must never fail in. Read generously, "hexproof from
+        // Dragons" would be plain hexproof and the creature would be untargetable by everything —
+        // a strictly better card, and one the coverage figure would score as a win.
+        var compiled = CardCompiler.Compile(Card(
+            "Unknown Quality Test",
+            "Hexproof from Dragons",
+            CardType.Creature,
+            power: 2,
+            toughness: 2));
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains("Hexproof from Dragons", compiled.Unhandled);
+    }
+
+    [Fact]
+    public void A_permanent_can_say_cant_be_countered_about_a_group_of_spells()
+    {
+        // Prowling Serpopard. The keyword has existed since the first counterspell and could only
+        // ever be said by a spell about itself, because the flag lives on the card being
+        // countered. What was missing was a permanent's voice, not a parameter on the keyword.
+        var serpopard = Card(
+            "Group Uncounterable Test",
+            "Creature spells you control can't be countered.",
+            CardType.Creature,
+            power: 4,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(serpopard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, serpopard, Zone.Battlefield);
+
+        var beast = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Uncounterable Beast Test", 3, 3));
+        var onStack = game.CastSpell(alice, beast, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var counter = TestCards.PutInHand(
+            game, bob, Card("Serpopard Counter Test", "Counter target spell."));
+
+        // Targeting is legal — CR 701.6a is about the effect, not about the choice of target,
+        // which is the same shape the keyword arm already had.
+        game.CastSpell(bob, counter, [Target.ToSpell(onStack)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Uncounterable Beast Test");
+    }
+
+    [Fact]
+    public void The_group_ban_reads_both_halves_of_what_it_names()
+    {
+        // Two controls for one sentence. "Creature spells" is not "spells", and "you control" is
+        // not "anybody's" — a ban widened in either direction would make a counterspell useless
+        // against half the table, and the count of complete cards would not notice.
+        var serpopard = Card(
+            "Two Halves Uncounterable Test",
+            "Creature spells you control can't be countered.",
+            CardType.Creature,
+            power: 4,
+            toughness: 3);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, serpopard, Zone.Battlefield);
+
+        var trick = TestCards.PutInHand(
+            game, alice, Card("Noncreature Under Ban Test", "You gain 5 life."));
+        var onStack = game.CastSpell(alice, trick, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var counter = TestCards.PutInHand(
+            game, bob, Card("Noncreature Counter Test", "Counter target spell."));
+        game.CastSpell(bob, counter, [Target.ToSpell(onStack)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // The other half: the ban is read around whoever controls the permanent, so the opponent's
+        // creature spell is still counterable.
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var theirs = TestCards.PutInHand(
+            game, bob, TestCards.Creature("Counterable Beast Test", 3, 3));
+        var theirSpell = game.CastSpell(bob, theirs, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+        var second = TestCards.PutInHand(
+            game, alice, Card("Their Beast Counter Test", "Counter target spell."));
+        game.CastSpell(alice, second, [Target.ToSpell(theirSpell)]);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Counterable Beast Test");
+    }
+
+    [Fact]
+    public void The_group_ban_stops_dead_when_its_permanent_leaves()
+    {
+        // CR 611.2c, and the reason this is a ban read off the battlefield rather than anything
+        // written into state: there is nothing to sweep. The same creature spell that survived a
+        // counter a moment ago is countered once the permanent saying so is in the graveyard.
+        var serpopard = Card(
+            "Departing Uncounterable Test",
+            "Creature spells you control can't be countered.",
+            CardType.Creature,
+            power: 4,
+            toughness: 3);
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, serpopard, Zone.Battlefield);
+        game.Move(host, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == alice
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == alice);
+
+        var beast = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Unprotected Beast Test", 3, 3));
+        var onStack = game.CastSpell(alice, beast, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+        var counter = TestCards.PutInHand(
+            game, bob, Card("Departed Counter Test", "Counter target spell."));
+        game.CastSpell(bob, counter, [Target.ToSpell(onStack)]);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Unprotected Beast Test");
+    }
+
     // ---- Backgrounds (CR 702.123) --------------------------------------------
 
     /// <summary>

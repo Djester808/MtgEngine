@@ -8856,13 +8856,19 @@ public static partial class CardCompiler
                 return true;
 
             // CR 113.7a: the source of an ability is the object it came from, and a spell is its
-            // own source. A permanent doing the targeting is therefore an ability's source and
-            // anything else is a spell — a card being cast, or the spell on the stack re-checking
-            // its targets as it resolves. That is the whole distinction the printed sentences
-            // need, and it is why Dense Foliage's "spells" can be told from Shanna's "abilities".
+            // own source. So an ability arrives here in one of two shapes and a spell in the
+            // other two: the permanent whose ability is being activated, or the ability itself
+            // waiting on the stack — against a card being cast, or the spell re-checking its
+            // targets as it resolves (CR 608.2b).
+            //
+            // The stack half was learned the hard way. Without it an ability's *resolution* asked
+            // this question holding the ability's stack object, which is not a permanent, so
+            // Spectral Shield's "spells" swallowed every ability as well: the activation was
+            // allowed, the cost was paid, and the ability then fizzled on a target it had been
+            // told was legal a moment earlier.
             var quality = Characteristics.Of(state, abilities, from);
 
-            return from.IsPermanent
+            return from.IsPermanent || from.Ability is not null
                 ? !takesAbilities || !abilityQuality(quality)
                 : !takesSpells || !spellQuality(quality);
         };
@@ -14382,7 +14388,7 @@ public static partial class CardCompiler
 
         if (what.Length > 0)
         {
-            filter = EffectPhrase.SearchFilterFor(what);
+            filter = EffectPhrase.SearchFilterFor(SentenceCased(what));
             if (filter is null)
                 return false;
         }
@@ -14395,6 +14401,39 @@ public static partial class CardCompiler
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// A phrase with its sentence-opening capital taken off, when that capital meant nothing.
+    /// </summary>
+    /// <remarks>
+    /// The card-filter vocabulary tells a subtype from everything else by its capital, which is
+    /// right in the middle of a sentence and wrong at the start of one. "Sliver spells can't be
+    /// countered" and "Green spells you control can't be countered" open the same way and mean
+    /// different things, and reading both as subtypes gave Allosaurus Shepherd a ban on a
+    /// creature type named Green — a line that compiled, read as complete, and forbade nothing.
+    /// This is the same defect the group grammar had when a sentence-opening "That creature"
+    /// became a subtype, in the one other place a capital carries meaning.
+    /// <para>
+    /// The vocabulary itself decides, rather than a list here: it echoes a capitalised word back
+    /// unchanged, so a word it also answers to in lower case is one it genuinely knows — a
+    /// colour, a card type, a supertype — and anything else keeps its capital and stays a
+    /// subtype.
+    /// </para>
+    /// </remarks>
+    private static string SentenceCased(string phrase)
+    {
+        var space = phrase.IndexOf(' ', StringComparison.Ordinal);
+        var first = space < 0 ? phrase : phrase[..space];
+
+        if (first.Length == 0 || !char.IsUpper(first[0]))
+            return phrase;
+
+        var lower = first.ToLowerInvariant();
+
+        return EffectPhrase.SearchFilterFor(lower) is null
+            ? phrase
+            : lower + (space < 0 ? string.Empty : phrase[space..]);
     }
 
     private static bool TryStaticPrevention(
