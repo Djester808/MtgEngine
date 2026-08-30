@@ -1252,6 +1252,36 @@ public sealed record ManifestDreadRequested(
     public override string Describe() => $"{ChooserId:N} looks at {Looked.Length} to manifest one.";
 }
 
+/// <summary>
+/// A player must pick which of the things this resolution touched to move (CR 608.2c).
+/// </summary>
+/// <remarks>
+/// The candidates are named in the event rather than worked out again when the question is
+/// asked, for the reason a manifest dread's two cards are: by then the record that produced them
+/// is gone, the resolution having ended, and the player is choosing among the cards that
+/// sentence actually put there.
+/// <para>
+/// One zone for all of them, because every verb the record answers pins where the object went -
+/// milled and destroyed to a graveyard, exiled to exile - so a set gathered under one participle
+/// is a set in one place. A candidate that has since moved is dropped when the question is asked
+/// rather than filtered here, the same way every other owed question re-checks its options.
+/// </para>
+/// </remarks>
+public sealed record TouchedChoiceRequested(
+    Guid ChooserId,
+    System.Collections.Immutable.ImmutableArray<ObjectId> Candidates,
+    Zone From,
+    Zone To,
+    MoveCause Cause,
+    int Least,
+    int Most) : GameEvent
+{
+    public override string Rule => "608.2c";
+
+    public override string Describe() =>
+        $"{ChooserId:N} picks up to {Most} of {Candidates.Length} to move to {To}.";
+}
+
 /// <summary>The Ring tempted a player (CR 701.54a).</summary>
 public sealed record RingTempted(Guid PlayerId) : GameEvent
 {

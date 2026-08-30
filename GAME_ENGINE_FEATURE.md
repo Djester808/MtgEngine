@@ -513,7 +513,140 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **53.4% of playable cards fully read** (17,476 of 32,717), 69.4% of lines.
+Coverage is **54.0% of playable cards fully read** (17,651 of 32,717), 69.7% of lines.
+
+### Round nineteen: the recorded set as an object, and the second fail-closed line
+
+Round eighteen built `ResolutionRecord` and read three of "this way"'s five grammars off it — a
+count, an amount and a did-it conditional. It left the other two, **the set as an object** and **a
+member of it**, measured at 38 and 12, on the grounds that the effects which act on a recorded set
+did not exist and that most sources of one are a deferred look. Both halves of that were right,
+and the honest number is smaller than either figure — which took re-measuring rather than
+believing the table.
+
+#### What the family is worth now, measured the way round eighteen measured it
+
+748 corpus cards are one line short of complete with that line printing "this way". Swapping the
+this-way *sentence* of each for `Draw a card.` and recompiling completed **143** of them before
+this round — the whole remaining ceiling. Grouped by the participle sitting immediately in front
+of the phrase:
+
+| participle | reachable cards | recorded |
+|---|---|---|
+| dealt damage / prevented | 39 | **no** — a magnitude, not a set, and a shield spends no event |
+| discarded | 21 | **no** — chosen, and deferred |
+| exiled | 14 | yes |
+| countered | 11 | **no** — `ExileCounteredLine` rewrites the previous effect instead |
+| sacrificed | 10 | **no** — chosen, and deferred |
+| milled | 9 | yes |
+| destroyed | 8 | yes |
+| put into a graveyard | 6 | yes |
+| put a card into your hand | 6 | **no** — the look that produced it is deferred |
+| revealed · enters/created/cast · regenerates | 9 | **no** |
+| returned | 3 | yes |
+| put onto the battlefield | 3 | yes |
+| drawn | 2 | yes |
+| counters put on · searched | 3 | **no** |
+
+**44 of the 143 name a participle the record carries**; everything else is refused by name for the
+reason round eighteen wrote down. Ten of those 44 are what this round is worth.
+
+#### The set as an object is three readers and one phrase
+
+The phrase is the one the count and the condition already read, so it goes to the same
+`TouchFilter`: "a permanent card **from among the cards** milled this way" is folded into "a
+permanent card milled this way" before anything reads it, because half this family prints the noun
+and the participle side by side and half prints them either side of an interposed clause, and they
+mean one thing. What is new is where the answer goes.
+
+- **`TakeFromTouched`** — the recorded set as the object of a verb. It offers the cards rather than
+  moving them, because which one is a decision; the ceiling and the minimum are the only things
+  that differ between "you may put a permanent card ... into your hand" and "return a creature card
+  ... to your hand", so those are one effect and not two.
+- **`MayPlayTouched`** — the set given a window to be played in (CR 601.3e), reusing the event the
+  impulse-draw pair already emits. Deliberately not folded into that pair: "this way" points at
+  whatever exiled them, which on Heartless Conscription is a sweeper two sentences back.
+- **A characteristic of the one thing** — "where X is the mana value of the permanent exiled this
+  way", the fourth grammar and the only one that is not a number of things. Written in the singular
+  and answered in the singular: nothing touched and several touched both come to zero, because a
+  phrase saying "the permanent" has not said which one.
+
+That third reader is why `Touch` now carries the size the object last had. CR 608.2h's last known
+information for a permanent is what it was *after* the layers, so a 2/2 under an anthem that gets
+exiled was a 4/4 — and a record keeping only the printed card would have answered 2, on a card
+that compiles, plays and looks right.
+
+#### The second fail-closed line, one step past the verb list
+
+Round eighteen drew the line at the verb: nothing a player answers may be recorded, because the
+engine settles those after the resolution. **Taking a card out of the set is itself a question**,
+so the line moves out one step — a sentence asking about *the take* is asking about an event that
+has not happened either.
+
+Cache Grab is the whole argument. "Mill four cards. You may put a permanent card from among the
+cards milled this way into your hand. If you control a Squirrel or **returned a Squirrel card to
+your hand this way**, create a Food token." The middle sentence is readable now and the last one
+never will be, so the card stays unread — while Sparring Dummy's second sentence asks about the
+*mill* instead and is answerable. One word apart, and nothing downstream could tell a card that
+answers wrongly from one that answers.
+
+#### A subtype in the noun, which cost one lower-casing
+
+"If a Pirate was exiled this way", "at least one Angel card is milled this way", "another Desert
+was returned this way" — round eighteen measured these at 16 clauses and declined them. Measured
+as whole cards they are worth four, three of which also want the taking. The reader could not see
+them for a reason that looked like a missing vocabulary and was a missing *distinction*: `ThisWay`
+lower-cased every phrase on the way in, and a capital is the only thing on the page that marks a
+subtype. Case is kept now, and every comparison asks for it to be ignored.
+
+**The guard is what makes that safe.** The type table is asked first, because the opening word of a
+sentence carries a capital whether it is a subtype or not: "Land card milled this way" read the
+other way round would demand the *Land subtype*, which no card in the game has, and the clause
+would answer no for ever on a card that compiles clean.
+
+#### Result
+
+**17,641 → 17,651 complete cards, +10, none lost** — Arid Archway, Escape to the Wilds, Foul
+Renewal, Leyline Dowser, Monster Manual, Renegade Reaper, Ruinous Intrusion, Siren's Ruse, Szarekh
+and Wasteful Harvest — diffed as a set and again as a per-card fingerprint of the compiled
+abilities. The fingerprint moved on twelve cards; the two that are not the ten each **gained an
+ability while staying incomplete**: Liliana, Untouched by Death now reads its Zombie clause, and
+Terra, Magical Adept now reads its mill and its take. A corpus-wide census of effect names rose in
+fourteen places and fell in none, which is the check that says no card lost a clause *inside* a
+card that stayed complete — the failure a set diff cannot see. The family goes 758 → 748 sole
+blockers, 948 → 936 touched.
+
+#### Declined, with the measurement behind each
+
+34 of the 44 are left, and a third of them are not about "this way" at all. The probe that says so
+is the one that compiles `You gain 1 life for each <phrase>.` and its siblings with an ordinary
+board count in place of the this-way phrase: where that is unread too, the family is not the
+blocker.
+
+- **A gate outside the family — 7.** "Add {B} or {G} for each X", "create an X/X token, where X is
+  the number of X", "for each X, you create a token", "the greatest power among X", "put X counters
+  on *a* commander creature you control", "if X is 6 or more" — every one unread with a board count
+  in place. Astarion's Thirst, Culling Ritual, Discerning Taste, Dread Summons, Phyrexian Rebirth,
+  Zero Point Ballad, and Stitcher Geralf, whose "exile up to two creature cards put into graveyards
+  this way" *does* read now and whose third sentence does not.
+- **The "its controller" pronoun guard — 6.** Descent of the Dragons, From the Ashes, Hour of Need,
+  March of Souls, Martyr's Cry, Rampage of the Clans. Round eighteen's guard, still right: fronting
+  the count gives the tokens to whoever "its" resolves to once.
+- **A trigger inside the resolution — 3.** "When one or more nonland cards are exiled this way, ..."
+  is a reflexive trigger and not a later sentence of the same instruction. Augusta, Gilgamesh,
+  Vivien's Invocation.
+- **A relation between the things — 3.** Grindstone, Sphinx's Tutelage, Triple Triad.
+- **A possessive naming somebody else — 3.** Deadly Tempest, Oversimplify, Cut a Deal: a different
+  number for each player asked, and one total would be wrong for all of them.
+- **A deferred source under a recordable participle — 3.** Cache Grab's condition names what was
+  taken, Expand the Sphere's put-onto-battlefield comes out of a search, Danse Macabre's return
+  names what was sacrificed. Each would answer nought for ever.
+- **The rest — 9, one shape each.** A token copy of a member (Ardyn), "a permanent you controlled
+  **or a token**" (Break the Spell), an until-loop (Dream Harvest), a present-tense active clause
+  with three other defects beside it (Flood of Tears), a per-card permission carrying a mana rider
+  (Heartless Conscription), an unless-payment under a leading for-each (Read the Runes), a conjure
+  (Sheoldred's Assimilator), a delayed trigger the record does not outlive (Song of Blood), and a
+  trailing "if" the sentence grammar does not read (Sparring Dummy).
 
 ### Round eighteen: the prohibition family is half the size it was ranked at
 

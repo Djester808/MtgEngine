@@ -1359,6 +1359,91 @@ public static partial class EffectPhrase
     }
 
     /// <summary>
+    /// The recorded set as the object of a verb — "put a permanent card from among the cards
+    /// milled this way into your hand" (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// One reader for the whole shape, because the sentences differ only in the verb, the ceiling
+    /// on the answer and whether it is offered or instructed — and every one of them names what it
+    /// is about with the same noun-and-participle phrase the count and the condition use, read by
+    /// the same <see cref="ThisWay"/>.
+    /// <para>
+    /// The destination is taken from the printed words and nothing is inferred: "into your hand"
+    /// and "to your hand" are the same place said twice, and a verb with no destination is only
+    /// read for exile, where the verb <em>is</em> the destination. Anything else leaves the
+    /// sentence unread rather than guessing at a zone.
+    /// </para>
+    /// <para>
+    /// "You may play cards exiled this way" is the same set in a sentence that moves nothing, so
+    /// it is read here beside its siblings rather than folded into the impulse-draw pair the way
+    /// its adjacent-sentence twin is. Reading it as that pair would need the exile to be the
+    /// sentence immediately before, which on Heartless Conscription and Dream Harvest it is not.
+    /// A rider the permission cannot express — "without paying their mana costs" — falls off the
+    /// end of the pattern and takes the sentence with it.
+    /// </para>
+    /// </remarks>
+    private static bool TryTouchedSet(string sentence, ImmutableList<IEffect>.Builder effects)
+    {
+        var playing = PlayTouchedLine().Match(sentence);
+        if (playing.Success)
+        {
+            if (ThisWay.Set(playing.Groups["what"].Value.Trim()) is not { } playable
+                || playable.Verb != TouchVerb.Exiled)
+            {
+                return false;
+            }
+
+            effects.Add(new MayPlayTouched(playable, playing.Groups["long"].Success));
+            return true;
+        }
+
+        var moving = TakeTouchedLine().Match(sentence);
+        if (!moving.Success)
+            return false;
+
+        if (ThisWay.Set(moving.Groups["what"].Value.Trim()) is not { } taken)
+            return false;
+
+        var verb = moving.Groups["verb"].Value.ToLowerInvariant();
+        var destination = moving.Groups["dest"].Value.Trim().ToLowerInvariant();
+
+        // Every pairing the corpus prints, and no pairing it does not. The causes are the ones
+        // every other mover out of a graveyard already uses, so a trigger watching for a card
+        // returned to a hand sees the same event whichever sentence moved it.
+        var (zone, cause) = (verb, destination) switch
+        {
+            ("put", "your hand") or ("return", "your hand") => (Zone.Hand, MoveCause.Return),
+            ("exile", "") => (Zone.Exile, MoveCause.Exile),
+
+            // The stack is not a destination any of these sentences names, so it is the arm that
+            // means "the words did not pair" - refused below rather than defaulted to somewhere.
+            _ => (Zone.Stack, MoveCause.Other),
+        };
+
+        if (zone == Zone.Stack)
+            return false;
+
+        var many = moving.Groups["many"].Value.Trim().ToLowerInvariant();
+
+        var most = many switch
+        {
+            "up to two" => 2,
+            "up to three" => 3,
+            "up to four" => 4,
+            _ => 1,
+        };
+
+        effects.Add(new TakeFromTouched(
+            taken,
+            zone,
+            cause,
+            most,
+            Optional: moving.Groups["may"].Success || many.StartsWith("up to", StringComparison.Ordinal)));
+
+        return true;
+    }
+
+    /// <summary>
     /// Splits on the full stop, but not on one inside quotation marks.
     /// </summary>
     /// <remarks>
@@ -2233,6 +2318,13 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "This way" where the cards themselves are the object of the verb rather than a number:
+        // the other half of the family whose count and condition are read further down. Both are
+        // guarded on the phrase being present at all, so no sentence in the corpus without those
+        // two words pays for either of them.
+        if (ThisWay.Mentions(sentence) && TryTouchedSet(sentence, effects))
+            return true;
+
         // "If the roll was 4 or higher, it gains menace until end of turn." — a clause of a dice
         // ability's effect, testing the number the trigger carried (CR 706.4). Not a board
         // condition: nothing on the board remembers what was rolled, the trigger's subject
@@ -2319,6 +2411,41 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new WithCountedVariable(counting, scratch.ToImmutable()));
+            return true;
+        }
+
+        // "..., where X is the mana value of the permanent exiled this way." The same clause
+        // again, measuring the one thing an earlier sentence of this same resolution touched
+        // (CR 608.2h). It goes through the record rather than through the pronoun reader below
+        // because there is no pronoun to work out: the phrase names what it is about, in the same
+        // words the count and the condition name it, and the shared reader answers all three.
+        var byTouchedStat = VariableIsTouchedStatLine().Match(sentence);
+        if (byTouchedStat.Success)
+        {
+            if (ThisWay.Counted(byTouchedStat.Groups["phrase"].Value.Trim()) is not { } touchedStat)
+                return false;
+
+            var wanted = byTouchedStat.Groups["stat"].Value.ToLowerInvariant() switch
+            {
+                "power" => TouchStat.Power,
+                "toughness" => TouchStat.Toughness,
+                _ => TouchStat.ManaValue,
+            };
+
+            var measuring = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(
+                    byTouchedStat.Groups["head"].Value.Trim(),
+                    targets,
+                    measuring,
+                    objectNamedByTrigger))
+            {
+                return false;
+            }
+
+            effects.Add(new WithCountedVariable(
+                context => touchedStat.StatIn(context, wanted), measuring.ToImmutable()));
+
             return true;
         }
 
@@ -12020,6 +12147,43 @@ public static partial class EffectPhrase
         @"^(?<head>.+?), where X is (?<whose>its|~'s) (?<stat>power|toughness|mana value)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsStatLine();
+
+    /// <summary>
+    /// "…, where X is the mana value of the permanent exiled this way" (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The stat list is the closed one its sibling above keeps, and for the same reason: an
+    /// arithmetic tail admitted here would read as the bare stat and give the card a number it
+    /// does not print. The phrase after "of" is left whole for <see cref="ThisWay"/>, which is
+    /// what refuses the participles the record cannot answer — so "the power of the creature
+    /// sacrificed this way" reaches a reader that says no rather than one that says zero.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is the (?<stat>power|toughness|mana value) "
+            + @"of (?<phrase>.+ this way)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsTouchedStatLine();
+
+    /// <summary>
+    /// "You may put a permanent card from among the cards milled this way into your hand".
+    /// </summary>
+    /// <remarks>
+    /// The noun is matched lazily up to the words "this way" so that the destination behind it is
+    /// not swallowed, and the destination is optional only because exile does not print one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<may>[Yy]ou may )?(?<verb>[Pp]ut|[Rr]eturn|[Ee]xile) "
+            + @"(?<many>an?|up to one|up to two|up to three|up to four) "
+            + @"(?<what>.+? this way)( (?:in)?to (?<dest>your hand))?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex TakeTouchedLine();
+
+    /// <summary>"You may play cards exiled this way until the end of your next turn".</summary>
+    [GeneratedRegex(
+        @"^[Yy]ou may (play|cast) (?<what>.+? this way)"
+            + @"( this turn| until end of turn| until (?<long>the end of your next turn))?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PlayTouchedLine();
 
     /// <remarks>
     /// The counted group is written as "the number of X" and handed to the same group grammar as
