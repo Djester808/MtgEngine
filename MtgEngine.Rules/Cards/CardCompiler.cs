@@ -436,6 +436,7 @@ public static partial class CardCompiler
         ManaCostSpec? faceDownWard = null;
         var unpreventable = ImmutableList.CreateBuilder<UnpreventableStatic>();
         var noLifeGain = ImmutableList.CreateBuilder<PlayerScope>();
+        var noCounter = ImmutableList.CreateBuilder<CounterBan>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
         // the loop for the reason the one-line form is built as a pair: an exile that compiles
@@ -1566,7 +1567,7 @@ public static partial class CardCompiler
             // same reason the shield above is: on a spell the same words say "this turn" and
             // belong to the sentence parser, and a ban filed here would be one no permanent is
             // holding up - nothing would ever take it down again.
-            if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain))
+            if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain, noCounter))
                 continue;
 
             if (TryDamageAmount(line, replacements))
@@ -1962,6 +1963,7 @@ public static partial class CardCompiler
             {
                 Unpreventable = unpreventable.ToImmutable(),
                 NoLifeGain = noLifeGain.ToImmutable(),
+                NoCounter = noCounter.ToImmutable(),
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
@@ -7753,6 +7755,8 @@ public static partial class CardCompiler
             || TryExtraBlocks(line, card, statics)
             || TryMustBeBlocked(line, card, statics)
             || TryMinimumBlockers(line, card, statics)
+            || TryCantBeTheTargetOf(line, card, statics)
+            || TryHexproofFrom(line, card, statics)
             || TryCantBeBlockedExceptBy(line, card, statics)
             || TryCantBeBlockedBy(line, card, statics)
             || TryDoesNotUntap(line, card, statics)
@@ -8662,6 +8666,288 @@ public static partial class CardCompiler
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// "[This] can't be the target of [black] spells or abilities [from black sources]"
+    /// (CR 702.11b).
+    /// </summary>
+    /// <remarks>
+    /// The general form of hexproof, and the reason hexproof could not be extended by adding
+    /// another flag. CR 702.11b <em>is</em> this sentence with no quality on it; CR 702.11d's
+    /// "hexproof from [quality]" is the same sentence with one. The quality describes the spell
+    /// or ability doing the targeting, which is not a characteristic of the permanent carrying
+    /// the ability at all — so it has nowhere to live in a bitfield, and the two spellings
+    /// compile to one <see cref="State.TargetRestriction"/> read by one check.
+    /// <para>
+    /// Fails closed on every part it cannot read — an unreadable quality, a subject that is not
+    /// the permanent itself or the thing it is attached to, or anything at all trailing the
+    /// clause. "This turn" is the case that matters there: it is a one-shot with a different
+    /// lifetime, and compiled here it would be a prohibition nothing ever takes off. A
+    /// prohibition widened by a default is how a permanent becomes untargetable on a card that
+    /// never said so, and the coverage figure would score that as a win.
+    /// </para>
+    /// </remarks>
+    private static bool TryCantBeTheTargetOf(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = CantBeTheTargetOfLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var who = m.Groups["who"].Value.Trim().ToLowerInvariant();
+        var onSelf = who == "~";
+
+        if (!onSelf && who is not ("enchanted creature" or "equipped creature"))
+            return false;
+
+        var what = m.Groups["what"].Value.Trim();
+        if (ReadTargetProhibition(what) is not { } prohibition)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"no-target:{card.Name}:{what}",
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, target) =>
+                source is not null
+                && (onSelf
+                    ? target.Subject.Id == source.Id
+                    : source.Permanent?.AttachedTo == target.Subject.Id),
+            Apply = (state, source, builder) =>
+            {
+                if (source is null)
+                    return;
+
+                // "Your opponents" is read around whoever controls the ability, which is layer 2
+                // rather than the id the source was created with (CR 613.1b) — a stolen Aura
+                // protects its new controller's creature from its old controller's spells.
+                builder.TargetRestrictions.Add(prohibition(
+                    Characteristics.ControllerOf(state, builder.Abilities, source)));
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Hexproof from black", including inside a keyword list (CR 702.11d).
+    /// </summary>
+    /// <remarks>
+    /// Read as the sentence CR 702.11d says it means rather than as a keyword, because the flags
+    /// cannot hold the quality. Protection carries its colour by spending one flag per colour and
+    /// there are five of them; the same trick applied here would need one flag per printed
+    /// quality, and the qualities include "planeswalkers", "monocolored" and
+    /// "artifacts, creatures, and enchantments". So this produces exactly the
+    /// <see cref="State.TargetRestriction"/> the printed sentence produces, and one rule is
+    /// enforced by one piece of code however it was spelled.
+    /// <para>
+    /// The line is cut at the words rather than on commas, because commas fall on both sides of
+    /// them: "Flying, lifelink, hexproof from planeswalkers" has a keyword list in front, and
+    /// "Hexproof from artifacts, creatures, and enchantments" has a quality list behind — which
+    /// CR 702.11f makes shorthand for several separate abilities, and is why the quality reader
+    /// ORs its list. Everything in front has to be a keyword the card actually has, the same
+    /// check <see cref="KeywordsOn"/> makes and for the same reason: "Flying" on a card without
+    /// flying is a sentence granting it to something else.
+    /// </para>
+    /// </remarks>
+    private static bool TryHexproofFrom(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var body = line.TrimEnd('.', ' ');
+        var at = body.IndexOf("hexproof from ", StringComparison.OrdinalIgnoreCase);
+        if (at < 0)
+            return false;
+
+        foreach (var part in body[..at].TrimEnd(' ', ',').Split(','))
+        {
+            var word = part.Trim();
+            if (word.Length == 0)
+                continue;
+
+            if (!KeywordNames.TryGetValue(word, out var flag) || !card.Keywords.HasFlag(flag))
+                return false;
+        }
+
+        var quality = body[(at + "hexproof from ".Length)..].Trim();
+        if (ReadSourceQuality(quality) is not { } matches)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"hexproof-from:{card.Name}:{quality}",
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, target) => source is not null && target.Subject.Id == source.Id,
+            Apply = (state, source, builder) =>
+            {
+                if (source is null)
+                    return;
+
+                var you = Characteristics.ControllerOf(state, builder.Abilities, source);
+
+                // CR 702.11d names both halves with the same quality — "[quality] spells your
+                // opponents control or abilities your opponents control from [quality] sources" —
+                // so one predicate about the source answers for both, and the opponents clause
+                // is the whole of what separates this from shroud.
+                builder.TargetRestrictions.Add((state2, abilities, _, from, controllerId) =>
+                    controllerId == you || !matches(Characteristics.Of(state2, abilities, from)));
+            },
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// What "can't be the target of ..." forbids, given who "your opponents" is read around.
+    /// </summary>
+    /// <remarks>
+    /// Returns a factory rather than the restriction itself because the two things are settled at
+    /// different times: the words are read once, when the card is compiled, and the player they
+    /// are read around is whoever controls the source <em>now</em> (CR 613.1b), which is only
+    /// known while the layers are running.
+    /// <para>
+    /// The ownership clause is lifted off wherever it appears and applied to the whole sentence.
+    /// Shielding Plax prints it once at the end and means it about both halves; Thrun repeats it
+    /// on each. No corpus card restricts one half to opponents and leaves the other open, so
+    /// there is nothing here to tell those two readings apart and no card that would notice.
+    /// </para>
+    /// </remarks>
+    private static Func<Guid, State.TargetRestriction>? ReadTargetProhibition(string what)
+    {
+        var text = what.Trim().TrimEnd('.');
+
+        var opponentsOnly = text.Contains(
+            " your opponents control", StringComparison.OrdinalIgnoreCase);
+
+        if (opponentsOnly)
+        {
+            text = text.Replace(
+                " your opponents control", string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var m = TargetProhibitionClause().Match(text.Trim());
+        if (!m.Success)
+            return null;
+
+        var takesSpells = m.Groups["spells"].Success;
+        var takesAbilities = m.Groups["abilities"].Success;
+
+        Func<ComputedCharacteristics, bool> spellQuality = _ => true;
+        if (m.Groups["spellq"].Success)
+        {
+            if (ReadSourceQuality(m.Groups["spellq"].Value) is not { } read)
+                return null;
+
+            spellQuality = read;
+        }
+
+        Func<ComputedCharacteristics, bool> abilityQuality = _ => true;
+        if (m.Groups["absrcq"].Success)
+        {
+            if (ReadSourceQuality(m.Groups["absrcq"].Value) is not { } read)
+                return null;
+
+            abilityQuality = read;
+        }
+
+        return you => (state, abilities, _, from, controllerId) =>
+        {
+            if (opponentsOnly && controllerId == you)
+                return true;
+
+            // CR 113.7a: the source of an ability is the object it came from, and a spell is its
+            // own source. A permanent doing the targeting is therefore an ability's source and
+            // anything else is a spell — a card being cast, or the spell on the stack re-checking
+            // its targets as it resolves. That is the whole distinction the printed sentences
+            // need, and it is why Dense Foliage's "spells" can be told from Shanna's "abilities".
+            var quality = Characteristics.Of(state, abilities, from);
+
+            return from.IsPermanent
+                ? !takesAbilities || !abilityQuality(quality)
+                : !takesSpells || !spellQuality(quality);
+        };
+    }
+
+    /// <summary>
+    /// A quality a spell or an ability's source can have — "black", "nongreen", "artifact".
+    /// </summary>
+    /// <remarks>
+    /// Every list is an OR however it was joined, which is what CR 702.11f and CR 702.11g say:
+    /// "hexproof from [A] and from [B]" behaves as two separate abilities, and "hexproof from
+    /// each color" as one per colour. A spell caught by any of them is refused, so the joiner
+    /// does not change the answer and does not have to be told apart from a comma.
+    /// <para>
+    /// A word this cannot name returns null and leaves the whole line unread, rather than
+    /// widening to "any source". That direction is the one that matters: read too broadly, a
+    /// prohibition makes a permanent untargetable on a card that never said so.
+    /// </para>
+    /// </remarks>
+    private static Func<ComputedCharacteristics, bool>? ReadSourceQuality(string phrase)
+    {
+        var tests = new List<Func<ComputedCharacteristics, bool>>();
+
+        foreach (var part in QualityJoiner().Split(phrase.Trim().TrimEnd('.')))
+        {
+            var word = part.Trim();
+            if (word.Length == 0)
+                continue;
+
+            if (SourceQualityNamed(word) is not { } test)
+                return null;
+
+            tests.Add(test);
+        }
+
+        if (tests.Count == 0)
+            return null;
+
+        return source => tests.Any(test => test(source));
+    }
+
+    /// <summary>One quality word, or null when it is not one this engine can ask about.</summary>
+    private static Func<ComputedCharacteristics, bool>? SourceQualityNamed(string word)
+    {
+        var bare = word.Trim().ToLowerInvariant();
+
+        switch (bare)
+        {
+            // CR 702.11g: "from each color" is shorthand for one ability per colour, so anything
+            // with a colour at all is caught and a colourless source is not.
+            case "each color":
+                return source => source.Colors.Count > 0;
+            case "colorless":
+                return source => source.Colors.Count == 0;
+            case "monocolored":
+                return source => source.Colors.Count == 1;
+            case "multicolored":
+                return source => source.Colors.Count > 1;
+            default:
+                break;
+        }
+
+        if (ColorNamed(bare) is { } colour)
+            return source => source.Colors.Contains(colour);
+
+        // CR 106.7: "nongreen" is every object that is not green, colourless ones included.
+        if (bare.StartsWith("non", StringComparison.Ordinal)
+            && ColorNamed(bare[3..]) is { } absent)
+        {
+            return source => !source.Colors.Contains(absent);
+        }
+
+        var type = EffectPhrase.SingularWord(bare) switch
+        {
+            "artifact" => CardType.Artifact,
+            "creature" => CardType.Creature,
+            "enchantment" => CardType.Enchantment,
+            "instant" => CardType.Instant,
+            "sorcery" => CardType.Sorcery,
+            "land" => CardType.Land,
+            "planeswalker" => CardType.Planeswalker,
+            _ => CardType.None,
+        };
+
+        return type == CardType.None ? null : source => source.CardTypes.HasFlag(type);
     }
 
     /// <summary>
@@ -10429,6 +10715,24 @@ public static partial class CardCompiler
                 : forbidden;
         }
 
+        // "Creatures you control can't be the targets of blue spells or abilities from blue
+        // sources" - hexproof said about a group, and the one prohibition in this reader that is
+        // not a keyword. It cannot be one: the parameter describes the spell doing the targeting
+        // rather than the creature holding the ability, and no flag has room for it. So it
+        // becomes a restriction on the computed characteristics, exactly as the single-creature
+        // spelling does, and the same check enforces both.
+        Func<Guid, State.TargetRestriction>? untargetable = null;
+
+        if (m.Groups["cbt"].Success)
+        {
+            untargetable = ReadTargetProhibition(m.Groups["cbt"].Value);
+
+            // A clause this cannot read leaves the whole line unread rather than a group that is
+            // untargetable by everything, which is the direction a prohibition must never fail in.
+            if (untargetable is null)
+                return false;
+        }
+
         // A subtype filter is only meaningful when it names a creature type the card itself is
         // about; anything else is read literally, which is what the rules do too.
         bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target)
@@ -10589,6 +10893,20 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = Matches,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        if (untargetable is { } prohibition)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:no-target:{m.Groups["cbt"].Value.Trim()}",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (state, source, builder) => builder.TargetRestrictions.Add(prohibition(
+                    source is null
+                        ? builder.ControllerId
+                        : Characteristics.ControllerOf(state, builder.Abilities, source))),
             });
         }
 
@@ -13953,13 +14271,17 @@ public static partial class CardCompiler
     private static bool TryStaticBans(
         string line,
         ImmutableList<UnpreventableStatic>.Builder unpreventable,
-        ImmutableList<PlayerScope>.Builder noLifeGain)
+        ImmutableList<PlayerScope>.Builder noLifeGain,
+        ImmutableList<CounterBan>.Builder noCounter)
     {
         if (EffectPhrase.ReadLifeGainBanSentence(line) is { ForTheTurn: false } life)
         {
             noLifeGain.Add(life.Players);
             return true;
         }
+
+        if (TryCantBeCounteredGroup(line, noCounter))
+            return true;
 
         // "The damage" is a spell talking about its own damage as it resolves, and a permanent
         // has no such moment. Refused rather than read as the host, which would be a ban on
@@ -14001,6 +14323,75 @@ public static partial class CardCompiler
             DealtBySource = dealtByHost,
             SourceFilter = filter,
             SourceController = whose,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Creature spells you control can't be countered" (CR 701.6a).
+    /// </summary>
+    /// <remarks>
+    /// The engine has had <see cref="KeywordAbility.CantBeCountered"/> since the first
+    /// counterspell, and could only ever hear a spell say it about <em>itself</em> — the flag is
+    /// on the card being countered, so a permanent saying it about a group had nowhere to put it.
+    /// <para>
+    /// The fix is not a parameterised keyword. The parameter here describes the protected spell,
+    /// which the existing flag already covers; what was missing is a permanent's voice. So it
+    /// becomes a <see cref="CounterBan"/> beside the other two prohibitions a permanent prints,
+    /// read off the battlefield at the moment a counter would happen — which is also what makes
+    /// it stop dead when the permanent leaves (CR 611.2c), with nothing to sweep.
+    /// </para>
+    /// <para>
+    /// That is the answer to the pair this round was asked about, and the two halves needed
+    /// different ones. A prohibition whose parameter describes the <em>other</em> side of the
+    /// question — "hexproof from black" — cannot be a characteristic of the thing it protects and
+    /// has to be a predicate; one whose parameter describes the protected thing itself is served
+    /// by the flag the engine already had, plus a way to say it about a group.
+    /// </para>
+    /// <para>
+    /// Refused on an instant or sorcery by its caller, for the reason the shield and the life ban
+    /// are: "Spells you control can't be countered this turn" is a one-shot, and filed here it
+    /// would be a ban no permanent is holding up and nothing would ever take down.
+    /// </para>
+    /// </remarks>
+    private static bool TryCantBeCounteredGroup(
+        string line, ImmutableList<CounterBan>.Builder into)
+    {
+        var m = CantBeCounteredGroupLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var what = m.Groups["what"].Value.Trim();
+        PlayerScope? whose = null;
+
+        if (m.Groups["side"].Success)
+        {
+            whose = PlayerScope.You;
+            what = what[..^m.Groups["side"].Value.Length].TrimEnd();
+        }
+
+        // The noun the filter vocabulary answers is the description without the word it is
+        // describing: it knows "creature" and "instant and sorcery", not "creature spells".
+        what = what[..^"spells".Length].TrimEnd();
+
+        // "Spells can't be countered" asks nothing of the spell; anything else is a card filter,
+        // read by the vocabulary every other card description here uses. A phrase it cannot name
+        // leaves the line unread rather than banning every counter on the table.
+        string? filter = null;
+
+        if (what.Length > 0)
+        {
+            filter = EffectPhrase.SearchFilterFor(what);
+            if (filter is null)
+                return false;
+        }
+
+        into.Add(new CounterBan
+        {
+            Id = "no-counter:" + (filter ?? "any") + ":" + whose,
+            SpellFilter = filter,
+            Controller = whose,
         });
 
         return true;
@@ -17132,7 +17523,13 @@ public static partial class CardCompiler
             // The prohibitions, longest spelling first so "be blocked by more than one
             // creature" is not cut short by the bare "be blocked" beside it.
             + @"|can't (?<cant>attack or block|attack|block"
-            + @"|be blocked by more than one creature|be blocked))\.?$",
+            + @"|be blocked by more than one creature|be blocked)"
+            // The group spelling of hexproof (CR 702.11b). It lives here rather than in a
+            // pattern of its own so that the noun phrase, the ownership clause and the
+            // adjectives are the ones every other group prohibition uses - a second copy of that
+            // vocabulary is the drift this file has already been bitten by, and the copy would
+            // be the half that reads "That creature" as a creature subtype.
+            + @"|can't be the targets? of (?<cbt>[^.]+?))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassStaticLine();
 
@@ -17851,6 +18248,65 @@ public static partial class CardCompiler
         @"^(?<who>~|enchanted creature|equipped creature) can't be blocked by (?<what>[^.]+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CantBeBlockedByLine();
+
+    /// <summary>"[This] can't be the target of …" — hexproof said in full (CR 702.11b).</summary>
+    /// <remarks>
+    /// The subjects are the three the attached readers beside it know. A group subject —
+    /// "Creatures you control can't be the targets of blue spells" — is read by
+    /// <see cref="MassStaticLine"/> instead, which owns the noun-phrase vocabulary; a second
+    /// copy of it here is the drift this file has been bitten by before.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>~|enchanted creature|equipped creature) can't be the targets? of "
+            + @"(?<what>[^.]+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CantBeTheTargetOfLine();
+
+    /// <summary>
+    /// The clause after "can't be the target of": which of spells and abilities, with qualities.
+    /// </summary>
+    /// <remarks>
+    /// Two alternatives sharing group names, because a sentence naming only abilities has no
+    /// spell half to make optional — "abilities from artifact sources" would otherwise be read
+    /// as an unqualified "spells" with a trailing clause nobody looked at.
+    /// <para>
+    /// The abilities half takes its quality only from "from [quality] sources", the spelling
+    /// CR 702.11d uses and the only one the corpus prints. A leading quality there ("black
+    /// abilities") matches nothing and leaves the line unread, which is the right direction: read
+    /// as unqualified it would forbid every ability rather than the black ones.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:(?<spellq>[a-z][a-z ]*?) )?(?<spells>spells)"
+            + @"(?: (?:or|and) (?<abilities>abilities)"
+            + @"(?: from (?<absrcq>[a-z][a-z, ]*?) sources)?)?$"
+            + @"|^(?<abilities>abilities)(?: from (?<absrcq>[a-z][a-z, ]*?) sources)?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetProhibitionClause();
+
+    /// <summary>How a list of qualities is joined — a comma, "or", or "and from".</summary>
+    [GeneratedRegex(@",\s*(?:and\s+)?|\s+(?:or|and)\s+(?:from\s+)?", RegexOptions.IgnoreCase)]
+    private static partial Regex QualityJoiner();
+
+    /// <summary>
+    /// "[Creature] spells [you control] can't be countered" (CR 701.6a).
+    /// </summary>
+    /// <remarks>
+    /// The subject is captured whole and handed to the card-filter vocabulary rather than being
+    /// described here, for the reason the mass static's noun phrase is: a group vocabulary
+    /// restated in a second pattern is a copy that drifts, and a drifting copy of this one would
+    /// quietly protect the wrong spells.
+    /// <para>
+    /// Anchored on "spells" so that the singular self-reference — "~ can't be countered", which is
+    /// the keyword table's line — cannot reach it. Those two must not both match: one is a flag on
+    /// the card and the other is a ban a permanent holds up, and a spell compiled as the second
+    /// would go on protecting itself from the graveyard.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<what>[A-Za-z][^.]*?spells(?<side> you control)?) can't be countered\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CantBeCounteredGroupLine();
 
     /// <summary>"…can't be blocked except by X" — only X may block it (CR 509.1b).</summary>
     [GeneratedRegex(

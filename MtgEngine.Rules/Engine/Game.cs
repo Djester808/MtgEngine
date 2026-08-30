@@ -3262,28 +3262,11 @@ public sealed class Game
 
     /// <summary>Every prohibition a permanent on the battlefield is printing right now.</summary>
     /// <remarks>
-    /// CR 613.1f: a permanent that has lost all abilities forbids nothing either, which is the
-    /// same exclusion the replacement scan makes and for the same reason. The card asked is the
-    /// object's own rather than a computed copy: a prohibition is not a characteristic, so
-    /// nothing in CR 613 can move it from one card to another.
+    /// The scan itself lives on <see cref="Bans"/>, because a resolving counter effect has to ask
+    /// the same question and holds no game to ask it of. This is the game's spelling of it.
     /// </remarks>
     private IEnumerable<(GameObject Host, Guid ControllerId, StaticBans Bans)> StaticBansInPlay()
-    {
-        foreach (var id in State.Battlefield)
-        {
-            if (!State.TryGetObject(id, out var host))
-                continue;
-
-            var bans = _abilities.BansOf(host.Card);
-            if (bans.IsEmpty
-                || Characteristics.Of(State, _abilities, host).HasLostAllAbilities)
-            {
-                continue;
-            }
-
-            yield return (host, Characteristics.ControllerOf(State, _abilities, host), bans);
-        }
-    }
+        => Bans.InPlay(State, _abilities);
 
     /// <summary>
     /// Every cost modifier on the battlefield that applies to this payment (CR 601.2f).

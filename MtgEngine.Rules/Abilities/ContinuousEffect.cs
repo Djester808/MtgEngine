@@ -168,6 +168,17 @@ public sealed class CharacteristicsBuilder
     public List<State.BlockRestriction> BlockRestrictions { get; } = [];
 
     /// <summary>
+    /// Which spells and abilities may not target this one (CR 702.11b, 702.11d).
+    /// </summary>
+    /// <remarks>
+    /// A list of predicates about the <em>source</em> rather than a flag, because the parameter
+    /// a "hexproof from [quality]" carries describes the other side of the question and so is not
+    /// a characteristic of this object. See <see cref="State.ComputedCharacteristics"/>'s note on
+    /// the same list for why the keyword flags could not have carried it.
+    /// </remarks>
+    public List<State.TargetRestriction> TargetRestrictions { get; } = [];
+
+    /// <summary>
     /// How many creatures beyond the first this one may block (CR 509.1a).
     /// </summary>
     public int ExtraBlocks { get; set; }
@@ -399,6 +410,7 @@ public sealed class CharacteristicsBuilder
         copy.GrantedActivated.AddRange(GrantedActivated);
         copy.GrantedTriggers.AddRange(GrantedTriggers);
         copy.BlockRestrictions.AddRange(BlockRestrictions);
+        copy.TargetRestrictions.AddRange(TargetRestrictions);
         copy.Subtypes.Clear();
         copy.Subtypes.AddRange(Subtypes);
         copy.Colors.Clear();
@@ -428,6 +440,7 @@ public sealed class CharacteristicsBuilder
         GrantedActivated = [.. GrantedActivated],
         GrantedTriggers = [.. GrantedTriggers],
         BlockRestrictions = [.. BlockRestrictions],
+        TargetRestrictions = [.. TargetRestrictions],
         ExtraBlocks = ExtraBlocks,
         MinBlockers = MinBlockers,
         MustBeBlockedByAll = MustBeBlockedByAll,

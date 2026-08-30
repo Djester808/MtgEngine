@@ -99,6 +99,33 @@ public sealed record ComputedCharacteristics
     public ImmutableList<BlockRestriction> BlockRestrictions { get; init; } = [];
 
     /// <summary>
+    /// Which spells and abilities may not target this object (CR 702.11b, 702.11d).
+    /// </summary>
+    /// <remarks>
+    /// <strong>This is the bitfield's answer to a keyword that takes an argument.</strong> Plain
+    /// hexproof and shroud are flags because the rule they state has no parameter; protection
+    /// carries its colour by spending one flag per colour, which is why there are five of them
+    /// and why "hexproof from Dragons" could never be spelled that way. The parameter is not
+    /// about the object holding it — it describes <em>the other side</em>, the spell or ability
+    /// doing the targeting — so it cannot be a characteristic of this object at all. A predicate
+    /// asked about the source is the only place it fits.
+    /// <para>
+    /// CR 702.11d says "hexproof from [quality]" means "this permanent can't be the target of
+    /// [quality] spells or abilities your opponents control", so the keyword and the printed
+    /// sentence are one mechanism and compile to one entry here. Each is asked whether a
+    /// targeting is <em>allowed</em>, the way <see cref="BlockRestriction"/> is, so several
+    /// collected from several sources all bind at once.
+    /// </para>
+    /// <para>
+    /// Computed rather than read off the card for the reason the block restrictions are: the
+    /// commonest source of one is somewhere else. "Enchanted creature can't be the target of
+    /// spells or abilities your opponents control" is a restriction on a permanent whose own
+    /// text says nothing about being targeted.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<TargetRestriction> TargetRestrictions { get; init; } = [];
+
+    /// <summary>
     /// How many creatures beyond the first this one may block (CR 509.1a).
     /// </summary>
     /// <remarks>
@@ -313,6 +340,29 @@ public delegate bool BlockRestriction(
     Abilities.IAbilitySource abilities,
     GameObject attacker,
     GameObject blocker);
+
+/// <summary>
+/// Whether one spell or ability may target an object (CR 702.11b, 702.11d).
+/// </summary>
+/// <remarks>
+/// Named for the reason <see cref="BlockRestriction"/> is: two of its arguments are game objects
+/// and the order is the whole meaning — <paramref name="subject"/> carries the restriction and
+/// <paramref name="source"/> is being judged by it. It answers whether the targeting is
+/// <em>allowed</em>, so a restriction that recognises nothing simply returns true and several
+/// collected from several places all bind together.
+/// <para>
+/// <paramref name="controllerId"/> is who controls the spell or ability, which is a different
+/// question from who controls <paramref name="source"/>: an activated ability of a permanent an
+/// opponent has stolen is controlled by the thief. Every printed "your opponents control" clause
+/// is about the former.
+/// </para>
+/// </remarks>
+public delegate bool TargetRestriction(
+    GameState state,
+    Abilities.IAbilitySource abilities,
+    GameObject subject,
+    GameObject source,
+    Guid controllerId);
 
 public static class Characteristics
 {
