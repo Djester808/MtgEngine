@@ -264,13 +264,21 @@ public static class EffectTargets
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<ExileInsteadOfDying>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
-        Add<ReturnToHand>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+        Add<ReturnToHand>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
         Add<TapTarget>(
             e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
             (e, n) => e.Subject == EffectSubject.Target
                 ? e with { TargetIndex = e.TargetIndex + n }
                 : e);
-        Add<UntapTarget>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+        Add<UntapTarget>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
         Add<PhaseOutPermanent>(
             e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
             (e, n) => e.Subject == EffectSubject.Target
@@ -384,8 +392,10 @@ public static class EffectTargets
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
         Add<SkipNextUntap>(
-            e => e.TargetIndex,
-            (e, n) => e with { TargetIndex = e.TargetIndex + n });
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
 
         Add<PutTargetOnLibrary>(
             e => e.TargetIndex,

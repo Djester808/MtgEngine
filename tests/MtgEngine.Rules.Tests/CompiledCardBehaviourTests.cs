@@ -51196,29 +51196,24 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "Sacrifice it" after a token was created means the token, and nothing here can say so.
+    /// "Sacrifice it" after a token copy means the token, and Kiki-Jiki's whole ability plays.
     /// </summary>
     /// <remarks>
-    /// Kiki-Jiki's whole printed ability, refused. The pronoun ladder answers "it" with the
-    /// target an earlier sentence chose, which on this card is the creature that was copied - so
-    /// the compiled ability sacrificed the original at end of turn and let the token live
-    /// forever. Two different cards, both of them not Kiki-Jiki, and the line read perfectly.
+    /// This asserted a <em>refusal</em> for one round, and the refusal existed only because the
+    /// delayed vocabulary could not name a token. The pronoun ladder answered "it" with the
+    /// target an earlier sentence chose, which on this card is the creature that was copied, so
+    /// the compiled ability sacrificed the original at end of turn and let the token live for
+    /// ever - two different cards, both of them not Kiki-Jiki, and the line read perfectly.
     /// <para>
-    /// The refusal is deliberately narrow: it fires only where the pronoun resolves to a
-    /// <em>target</em>, because the same sentence with nothing targeted falls back to the
-    /// permanent with the ability and is wrong in the same way on a further 14 cards. That
-    /// fallback is older than this round, its own comment already records it, and correcting it
-    /// wants the measured pass that comment asks for - a delayed action that can name a token -
-    /// rather than a side effect of this sentence becoming reachable.
-    /// </para>
-    /// <para>
-    /// Three cards were complete before and are not now: Kiki-Jiki's siblings The Fire Crystal,
-    /// Tempestra, Dame of Games, and Nemesis Trap. Every one of them was sacrificing or exiling
-    /// the permanent it had just copied.
+    /// It can be named now, because the delay is folded into the effect that mints the token
+    /// (<see cref="DelayedTokenAction"/>) rather than added beside it. So the card is played
+    /// rather than refused, and both halves are asserted in the one game: the copy goes, and
+    /// the creature it was copied from stays. Asserting only the first would pass on the old
+    /// reading too, where something was sacrificed at end of turn and it was the wrong thing.
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_delayed_sacrifice_after_a_token_copy_is_refused_rather_than_aimed_at_the_target()
+    public void A_delayed_sacrifice_after_a_token_copy_takes_the_token_and_not_what_it_copied()
     {
         var kiki = Card(
             "Token Copy Sacrifice Test",
@@ -51229,16 +51224,41 @@ public sealed class CompiledCardBehaviourTests
             2);
 
         var compiled = CardCompiler.Compile(kiki);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Empty(compiled.Activated);
-        Assert.Contains(
-            compiled.Unhandled,
-            line => line.Contains("Sacrifice it", StringComparison.Ordinal));
+        var (game, alice, _) = InMainPhase();
+        var mirror = game.Create(alice, kiki, Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Token Copy Sacrifice Bear Test", 3, 3), Zone.Battlefield);
 
-        // The same sentence with nothing targeted before it still reads, because "it" can only
-        // be the permanent with the ability there - the refusal is about the ambiguity, not
-        // about the words.
+        // Alice's next turn, so the permanent with the {T} ability may use it.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var ability = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(mirror)));
+
+        game.ActivateAbility(alice, mirror, ability.Id, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Sacrifice Bear Test");
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.Cleanup);
+
+        Assert.DoesNotContain(token, game.State.Battlefield);
+        Assert.Contains(bear, game.State.Battlefield);
+        Assert.Contains(mirror, game.State.Battlefield);
+    }
+
+    /// <summary>The control: a card whose "it" really is the permanent with the ability.</summary>
+    /// <remarks>
+    /// Nothing this ability does makes a token, so the fallback below the token arm is the only
+    /// answer left and it is the right one. Kept beside the Kiki-Jiki game because the token arm
+    /// sits in front of this fallback: a reader that took every delayed pronoun as a token would
+    /// leave this creature on the battlefield for ever and no other test would notice.
+    /// </remarks>
+    [Fact]
+    public void A_delayed_sacrifice_with_no_token_in_the_ability_still_means_the_source()
+    {
         var brute = Card(
             "Token Copy Self Sacrifice Test",
             "When this creature enters, sacrifice it at the beginning of the next end step.",
@@ -51246,9 +51266,22 @@ public sealed class CompiledCardBehaviourTests
             4,
             4);
 
-        Assert.True(
-            CardCompiler.Compile(brute).IsComplete,
-            string.Join(" | ", CardCompiler.Compile(brute).Unhandled));
+        var compiled = CardCompiler.Compile(brute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, brute);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        var creature = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Token Copy Self Sacrifice Test");
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.Cleanup);
+
+        Assert.DoesNotContain(creature.Id, game.State.Battlefield);
     }
 
     /// <summary>The one token on the battlefield copying this card.</summary>
@@ -61842,40 +61875,56 @@ public sealed class CompiledCardBehaviourTests
 
     /// <summary>
     /// "Create a 1/1 white Soldier creature token. Destroy it at the beginning of the next end
-    /// step." - the Hornet Cannon shape, and the guard on the last fallback.
+    /// step." - the Hornet Cannon shape, and both verbs now take the token.
     /// </summary>
     /// <remarks>
-    /// "It" may mean the source when nothing else in the ability could be meant, and a token made
-    /// a sentence earlier is something else that could be meant. So a destroy refuses here while
-    /// the sacrifice keeps the fallback it has always had. Both halves are asserted, because the
-    /// difference between the two verbs is the whole rule and stating one half of it would read
-    /// as an accident.
+    /// This asserted a refusal on the destroy and a source fallback on the sacrifice, and the
+    /// two halves disagreed for a reason that has gone. The destroy refused because a token made
+    /// a sentence earlier is something else "it" could mean; the sacrifice kept a fallback that
+    /// was wrong about exactly those cards. Eleven fully compiled cards were taking it - Lagomos,
+    /// Hand of Hatred sacrificed <em>itself</em> at the beginning of every end step instead of
+    /// the Elemental it had just made, and Rakdos Guildmage exiled itself instead of the Goblin.
     /// <para>
-    /// The sacrifice's reading of this shape is wrong as well: it sacrifices the permanent that
-    /// made the token rather than the token. Fifty-two complete cards carry that reading today
-    /// and correcting it is a measured pass of its own - widening it to a verb that destroys was
-    /// never on the table.
+    /// Both verbs now fold the delay into the creation, so both are played rather than asserted
+    /// about, and the permanent that made the token is checked in the same game. That second
+    /// claim is the one the old reading failed: something did go away at end of turn, and it was
+    /// the card that made the token.
     /// </para>
     /// </remarks>
-    [Fact]
-    public void A_delayed_destroy_refuses_the_source_when_a_token_came_first()
+    [Theory]
+    [InlineData("Destroy")]
+    [InlineData("Sacrifice")]
+    public void A_delayed_action_after_a_token_takes_the_token_and_not_the_permanent_that_made_it(
+        string verb)
     {
-        const string tokenLine = "Create a 1/1 white Soldier creature token. ";
+        var cannon = Card(
+            "Token Delay Test " + verb,
+            "{T}: Create a 1/1 white Soldier creature token. "
+                + verb + " it at the beginning of the next end step.",
+            CardType.Artifact | CardType.Creature,
+            1,
+            3);
 
-        var destroying = Card(
-            "Token Destroy Test",
-            tokenLine + "Destroy it at the beginning of the next end step.",
-            CardType.Sorcery);
+        var compiled = CardCompiler.Compile(cannon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        var sacrificing = Card(
-            "Token Sacrifice Test",
-            tokenLine + "Sacrifice it at the beginning of the next end step.",
-            CardType.Sorcery);
+        var (game, alice, _) = InMainPhase();
+        var machine = game.Create(alice, cannon, Zone.Battlefield);
 
-        Assert.False(CardCompiler.Compile(destroying).IsComplete);
+        PassTo(game, 3, TurnStep.PrecombatMain);
 
-        var kept = CardCompiler.Compile(sacrificing);
-        Assert.True(kept.IsComplete, string.Join(" | ", kept.Unhandled));
+        var ability = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(machine)));
+
+        game.ActivateAbility(alice, machine, ability.Id, []);
+        Settle(game);
+
+        var soldier = TokenNamed(game, "Soldier");
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.Cleanup);
+
+        Assert.DoesNotContain(soldier, game.State.Battlefield);
+        Assert.Contains(machine, game.State.Battlefield);
     }
 
     // ---- The impulse, and the sentence beside it (CR 601.3e) ------------------
@@ -69131,6 +69180,254 @@ public sealed class CompiledCardBehaviourTests
             CardType.Sorcery));
 
         Assert.True(onBottom.IsComplete, string.Join(" | ", onBottom.Unhandled));
+    }
+
+    // ---- A pronoun the trigger named, for the readers that used to refuse one ----
+
+    /// <summary>
+    /// "Whenever this creature blocks a creature, that creature doesn't untap during its
+    /// controller's next untap step" - Wall of Frost, and the creature is the one it blocked.
+    /// </summary>
+    /// <remarks>
+    /// The freeze had one answer for its pronoun and it was a target index, so a sentence with
+    /// nothing targeted in front of it was refused outright and took the whole line - and with it
+    /// the whole card - down with it. Six corpus cards print this shape: Wall of Frost, Labyrinth
+    /// Minotaur, Cleric of Chill Depths, Vertigo Spawn, Mercurial Kite and Queen of Ice.
+    /// <para>
+    /// Both halves are asserted in the one game. "The attacker is frozen" passes on any reading
+    /// that freezes something, and the reading this replaced would have frozen the wall - a card
+    /// with a permanent drawback where the printed one has a permanent lock.
+    /// </para>
+    /// <para>
+    /// The controls for the other two answers this reader can give are already played elsewhere:
+    /// <see cref="A_creature_told_to_skip_its_untap_step_misses_exactly_one"/> is the target form,
+    /// and <see cref="A_land_that_pays_double_sits_out_the_next_untap_step"/> is the card that
+    /// really does mean itself.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_block_trigger_freezes_the_creature_it_blocked_and_not_itself()
+    {
+        var wall = Card(
+            "Frost Wall Test",
+            "Whenever this creature blocks a creature, that creature doesn't untap during "
+                + "its controller's next untap step.",
+            CardType.Creature,
+            0,
+            7);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var blocker = game.Create(alice, wall, Zone.Battlefield);
+        var attacker = game.Create(
+            bob, TestCards.Creature("Frost Wall Bear Test", 2, 2), Zone.Battlefield);
+
+        // Bob's turn, so his bear is the one attacking into the wall.
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
+
+        Settle(game);
+
+        Assert.True(game.State.GetObject(attacker).Permanent?.SkipsNextUntap);
+        Assert.False(game.State.GetObject(blocker).Permanent?.SkipsNextUntap);
+
+        // Bob's own next untap step - turn four - comes and goes without the bear.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 4 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.True(game.State.GetObject(attacker).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// "Whenever this creature deals combat damage to a creature, tap that creature. That creature
+    /// doesn't untap during its controller's next untap step" - Mercurial Kite.
+    /// </summary>
+    /// <remarks>
+    /// Two sentences and two readers, both answering the same pronoun, which is the whole reason
+    /// this card is worth its own game: the tap had a subject and the freeze did not, so the
+    /// second sentence failed and the first one went down with it. A line is read or unread whole.
+    /// </remarks>
+    [Fact]
+    public void A_combat_damage_trigger_taps_and_freezes_the_creature_it_damaged()
+    {
+        var kite = Card(
+            "Mercurial Kite Test",
+            "Whenever this creature deals combat damage to a creature, tap that creature. "
+                + "That creature doesn't untap during its controller's next untap step.",
+            CardType.Creature,
+            2,
+            3);
+
+        var compiled = CardCompiler.Compile(kite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bird = game.Create(alice, kite, Zone.Battlefield);
+        var bear = game.Create(
+            bob, TestCards.Creature("Kite Bear Test", 2, 3), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [bird] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [bird] = [bear] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.PostcombatMain);
+        Settle(game);
+
+        // Both survived the exchange, and the blocker is the one holding the effect.
+        Assert.Contains(bear, game.State.Battlefield);
+        Assert.Contains(bird, game.State.Battlefield);
+        Assert.True(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.True(game.State.GetObject(bear).Permanent?.SkipsNextUntap);
+        Assert.False(game.State.GetObject(bird).Permanent?.SkipsNextUntap);
+    }
+
+    /// <summary>
+    /// "When enchanted creature dies, return that card to its owner's hand" - Squee's Embrace.
+    /// </summary>
+    /// <remarks>
+    /// Eight corpus cards, all one shape: Squee's Embrace, Demonic Vigor and the six Zendikons.
+    /// The pronoun is the card the trigger's own event was about, which is the card now in a
+    /// graveyard under a new id (CR 400.7) - never the Aura, which is on its way to the same
+    /// graveyard by CR 704.5m.
+    /// <para>
+    /// The zone is the load-bearing half. <c>ReturnToHand</c> read only from the battlefield,
+    /// because a target that has already left is skipped (CR 608.2b) - and a pronoun answered by
+    /// the trigger names a card that is <em>expected</em> to have left, so every one of these
+    /// eight would have compiled clean and returned nothing at all. A silent no-op on a complete
+    /// card is worse than the unread line it replaced, which is why this test moves the card
+    /// rather than reading the compiled effect.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_dies_trigger_returns_the_card_that_died_and_not_the_aura()
+    {
+        var embrace = Card(
+            "Squee Embrace Test",
+            "Enchant creature\n"
+                + "Enchanted creature gets +2/+2 and has haste.\n"
+                + "When enchanted creature dies, return that card to its owner's hand.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(embrace);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Embraced Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, embrace);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(bear)));
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Embraced Bear Test");
+
+        // The Aura went to the graveyard and stayed there: it is not what the sentence named.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Squee Embrace Test");
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Squee Embrace Test");
+    }
+
+    /// <summary>
+    /// The control: "When this creature dies, return it to its owner's hand" is about itself.
+    /// </summary>
+    /// <remarks>
+    /// Mortus Strider, and the same six words as the Aura above with a different subject in front
+    /// of them. It has always read as the source and still does - the pronoun ladder gained an
+    /// answer, it did not lose one - and the two games are kept side by side because a reader that
+    /// took every dies-trigger pronoun as the trigger's object would return the same card here and
+    /// pass anyway.
+    /// </remarks>
+    [Fact]
+    public void A_dies_trigger_about_itself_still_returns_the_permanent_with_the_ability()
+    {
+        var strider = Card(
+            "Mortus Strider Test",
+            "When this creature dies, return it to its owner's hand.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(strider);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, strider, Zone.Battlefield);
+
+        game.Move(creature, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Mortus Strider Test");
+    }
+
+    /// <summary>
+    /// "Create a 2/1 red Elemental creature token with trample and haste. Sacrifice it at the
+    /// beginning of the next end step" - Lagomos, Hand of Hatred, sacrificing the Elemental.
+    /// </summary>
+    /// <remarks>
+    /// The headline of the delayed pronoun's fallback arm, and the reason it was worth a pass of
+    /// its own: this card was fully compiled, it played, and every turn it sacrificed
+    /// <em>itself</em>. Eleven complete cards were taking that reading - the exile half of it is
+    /// Rakdos Guildmage exiling itself instead of the Goblin it just made.
+    /// <para>
+    /// The delay is folded into the creating effect (<see cref="DelayedTokenAction"/>), so it
+    /// names the token the way mobilize's own sacrifice always has. Asserting that Lagomos is
+    /// still on the battlefield is the half that fails on the old reading; asserting that the
+    /// token is gone passes on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_delayed_sacrifice_takes_the_token_and_leaves_the_permanent_that_made_it()
+    {
+        var lagomos = Card(
+            "Lagomos Test",
+            "At the beginning of combat on your turn, create a 2/1 red Elemental creature token "
+                + "with trample and haste. Sacrifice it at the beginning of the next end step.",
+            CardType.Creature,
+            3,
+            3);
+
+        var compiled = CardCompiler.Compile(lagomos);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var lord = game.Create(alice, lagomos, Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.EndOfCombat);
+        Settle(game);
+
+        var token = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.CardTypes.HasFlag(CardType.Token));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep >= TurnStep.Cleanup);
+
+        Assert.DoesNotContain(token, game.State.Battlefield);
+        Assert.Contains(lord, game.State.Battlefield);
     }
 
     // ---- Fuse (CR 702.102) ---------------------------------------------------

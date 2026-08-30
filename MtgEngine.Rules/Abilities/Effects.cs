@@ -1162,29 +1162,42 @@ public sealed record FlickerTarget(int TargetIndex = 0, bool Tapped = false) : I
 /// and different in exactly the ones that matter — a creature you have taken control of goes
 /// home when it is bounced, and a rule written against the controller would quietly steal it.
 /// </remarks>
-public sealed record ReturnToHand(int TargetIndex = 0) : IEffect
+public sealed record ReturnToHand(
+    int TargetIndex = 0, EffectSubject Subject = EffectSubject.Target) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Permanent } target)
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } going)
             return [];
 
-        if (!context.State.TryGetObject(target.Subject, out var permanent))
+        if (!context.State.TryGetObject(going, out var permanent))
             return [];
 
         // CR 608.2b: a target that has stopped being legal is skipped, and the spell does as much
         // as it can with the rest. A creature bounced or killed in response to this is exactly
         // that, and describing a move out of the battlefield it has already left was refused by
         // the reducer rather than quietly doing nothing.
-        if (permanent.Zone != Zone.Battlefield)
+        //
+        // For a target only. A pronoun the trigger answered names a card that is *expected* to
+        // have left: "when enchanted creature dies, return that card to its owner's hand" is
+        // about the card now in a graveyard under a new id (CR 400.7), and eight corpus cards -
+        // Squee's Embrace, Demonic Vigor and the six Zendikons - are that one sentence. Holding
+        // them to the battlefield rule compiled every one of them into an effect that did
+        // nothing at all, which is a worse card than the unread line it replaced.
+        if (Subject == EffectSubject.Target && permanent.Zone != Zone.Battlefield)
+            return [];
+
+        // Wherever it actually is, so the event describes a move that can happen. A card already
+        // in a hand or a library is left alone rather than moved from a zone it is not in.
+        if (permanent.Zone is not (Zone.Battlefield or Zone.Graveyard or Zone.Exile))
             return [];
 
         return
         [
             new ObjectMoved(
-                target.Subject, ObjectId.New(), Zone.Battlefield, Zone.Hand,
+                going, ObjectId.New(), permanent.Zone, Zone.Hand,
                 permanent.OwnerId, MoveCause.Return),
         ];
     }
@@ -1292,20 +1305,21 @@ public sealed record RevealHand(int? TargetIndex = null, PlayerScope Scope = Pla
 /// untap step", which is why it names no target of its own - it reads the one the sentence
 /// before it chose.
 /// </remarks>
-public sealed record SkipNextUntap(int TargetIndex = 0) : IEffect
+public sealed record SkipNextUntap(
+    int TargetIndex = 0, EffectSubject Subject = EffectSubject.Target) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Permanent } target
-            || !context.State.TryGetObject(target.Subject, out var permanent)
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } held
+            || !context.State.TryGetObject(held, out var permanent)
             || permanent.Zone != Zone.Battlefield)
         {
             return [];
         }
 
-        return [new UntapSkipped(target.Subject, Skipping: true)];
+        return [new UntapSkipped(held, Skipping: true)];
     }
 }
 
@@ -1716,23 +1730,32 @@ public sealed record PhaseOutPermanent(
 /// untapping "one at a time" in the rules — the untap step untaps a whole set simultaneously —
 /// and a second event meaning the same thing is a second thing every reducer and replay has to
 /// know about.
+/// <para>
+/// It is the last of <c>EffectPhrase.ItLine</c>'s five verbs to get a subject, and the comment
+/// beside the tap-or-untap reader had said so for months: a pronoun there was refused outright
+/// because untapping had nowhere to put an answer. No corpus card reaches the trigger-subject
+/// form yet - every printing of "untap it" whose sentence names nothing sits behind a trigger
+/// the allow-list does not admit - so what this buys today is that one sentence has one reader
+/// and one ladder, rather than four verbs with an answer and a fifth with a special case.
+/// </para>
 /// </remarks>
-public sealed record UntapTarget(int TargetIndex = 0) : IEffect
+public sealed record UntapTarget(
+    int TargetIndex = 0, EffectSubject Subject = EffectSubject.Target) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Permanent } target)
+        if (Subjects.Resolve(context, Subject, TargetIndex) is not { } waking)
             return [];
 
-        if (!context.State.TryGetObject(target.Subject, out var permanent))
+        if (!context.State.TryGetObject(waking, out var permanent))
             return [];
 
         if (permanent.Permanent?.IsTapped != true)
             return [];
 
-        return [new PermanentsUntapped([target.Subject])];
+        return [new PermanentsUntapped([waking])];
     }
 }
 
@@ -2536,6 +2559,10 @@ public sealed record CreateTokenCopy(
     /// </remarks>
     bool CopiesACard = false) : IEffect
 {
+    /// <summary>What happens to each token later (CR 603.7b) - see
+    /// <see cref="DelayedTokenAction"/>. Kiki-Jiki is the card this exists for.</summary>
+    public DelayedTokenAction? Delayed { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -2604,6 +2631,17 @@ public sealed record CreateTokenCopy(
 
             if (Tapped)
                 made.Add(new PermanentTapped(token));
+
+            if (Delayed is { } later)
+            {
+                made.Add(new DelayedTriggerCreated(
+                    Guid.NewGuid(),
+                    context.ControllerId,
+                    token,
+                    later.Step,
+                    later.EffectId,
+                    context.State.TurnNumber));
+            }
         }
 
         return made;
@@ -5925,6 +5963,34 @@ public sealed record DelayAbility(string AbilityId, State.TurnStep Step) : IEffe
     }
 }
 
+/// <summary>
+/// Something that happens to a token at a later step, folded into the effect that made it
+/// (CR 603.7b).
+/// </summary>
+/// <remarks>
+/// "Create a 2/1 red Elemental creature token with trample and haste. Sacrifice it at the
+/// beginning of the next end step" is two sentences about one token, and the second has nothing
+/// to name it with. A delayed ability is set up against an object id, and the only place that
+/// knows the token's id is the effect that minted it - so the delay travels with the creation
+/// rather than standing beside it, which is exactly how mobilize's own sacrifice is built.
+/// <para>
+/// Both alternatives were measured and both are worse. Aiming the delay at the <em>source</em>
+/// is what eleven fully compiled cards were doing: Lagomos, Hand of Hatred sacrificed itself at
+/// the beginning of every end step instead of the Elemental it had just made, and Rakdos
+/// Guildmage exiled itself instead of the Goblin. Aiming it at a <em>target</em> is the Kiki-Jiki
+/// reading - "create a token that's a copy of target nonlegendary creature you control ...
+/// sacrifice it" would sacrifice the creature that was copied, which is a strictly different card
+/// that reads perfectly.
+/// </para>
+/// <para>
+/// It carries no id of its own because it needs none: the creating effect emits one delayed
+/// ability per token as it mints them, so "create two tokens ... sacrifice them" would reach both
+/// without the sentence having to name either. What the reader will not do is fold a delay onto a
+/// creation it cannot see as a sibling - that leaves the line unread rather than guessing.
+/// </para>
+/// </remarks>
+public sealed record DelayedTokenAction(string EffectId, State.TurnStep Step);
+
 /// <summary>The words the delayed vocabulary understands, and what each one does.</summary>
 /// <remarks>
 /// A delayed ability carries one string and nothing else, so the instruction has to be a word.
@@ -8714,6 +8780,10 @@ public sealed record CreateToken(
     /// <summary>A named player, when the sentence targets one rather than naming a group.</summary>
     public int? TargetIndex { get; init; }
 
+    /// <summary>What happens to each token later - "sacrifice it at the beginning of the next
+    /// end step" (CR 603.7b).</summary>
+    public DelayedTokenAction? Delayed { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -8744,6 +8814,20 @@ public sealed record CreateToken(
 
                 if (Tapped)
                     made.Add(new PermanentTapped(id));
+
+                // CR 603.7d: the delayed ability is controlled by the player who controlled the
+                // effect that created it, which is not always the player who got the token -
+                // "each opponent creates a Treasure token" hands them out and keeps the say.
+                if (Delayed is { } later)
+                {
+                    made.Add(new DelayedTriggerCreated(
+                        Guid.NewGuid(),
+                        context.ControllerId,
+                        id,
+                        later.Step,
+                        later.EffectId,
+                        context.State.TurnNumber));
+                }
             }
         }
 
