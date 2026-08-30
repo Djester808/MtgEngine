@@ -5052,8 +5052,18 @@ public sealed class Game
     /// — so a miscompiled offer would hand the player the "if you do" branch for free, and read
     /// as a card strictly better than the one printed. Asked in one place so the ask and the
     /// answer cannot come to different conclusions about what was owed.
+    /// <para>
+    /// Multiplied by what the offer was made for (CR 702.24a): cumulative upkeep's fifth turn
+    /// asks for five, and the number comes off the event rather than off the board because the
+    /// counter that priced it may be gone by the time the answer arrives.
+    /// </para>
     /// </remarks>
-    private static int ChosenCountOf(MayPay offer) => Math.Max(1, offer.ChosenCount);
+    private static int ChosenCountOf(OptionalPaymentRequested owed, MayPay offer) =>
+        Math.Max(1, offer.ChosenCount) * Math.Max(1, owed.Times);
+
+    /// <summary>Life owed, scaled the same way the objects and the mana are.</summary>
+    private static int LifeOwed(OptionalPaymentRequested owed, MayPay offer) =>
+        offer.LifeCost * Math.Max(1, owed.Times);
 
     /// <summary>
     /// How to say a chosen cost out loud.
@@ -5062,16 +5072,17 @@ public sealed class Game
     /// The prompt is all the board shows about the price, so a wording that dropped the number
     /// would price two very different offers identically — "discard a card" and "discard three
     /// cards" are not the same decision, and the options alone do not say which is being asked.
-    /// The filter names the qualifying cards the way the compiler spells it, and "creature|land"
-    /// is two of them, so the separator is read back out as the word it stands for.
+    /// The description is the compiler's own words for the qualifying objects, minus the "target"
+    /// it prefixes them with — nothing here is targeted, and a prompt saying so would be wrong
+    /// about a rule as well as clumsy.
     /// </remarks>
-    private static string ChosenCostPrompt(ChosenCostKind kind, int count, string filterId)
+    private static string ChosenCostPrompt(ChosenCostKind kind, int count, TargetSpec? what)
     {
-        var what = string.Equals(filterId, SearchFilters.AnyCard, StringComparison.Ordinal)
-            ? kind == ChosenCostKind.DiscardCards ? "card" : "permanent"
-            : filterId.Replace("|", " or ", StringComparison.Ordinal);
+        var noun = what?.Description is { Length: > 0 } described
+            ? Untargeted(described)
+            : kind == ChosenCostKind.DiscardCards ? "card" : "permanent";
 
-        var many = count == 1 ? what : what + "s";
+        var many = count == 1 || noun.EndsWith('s') ? noun : noun + "s";
 
         var asking = kind switch
         {
@@ -5083,6 +5094,12 @@ public sealed class Game
 
         return $"{asking}, or pick nothing to decline.";
     }
+
+    /// <summary>A spec's description with the word "target" taken off the front.</summary>
+    private static string Untargeted(string description) =>
+        description.StartsWith("target ", StringComparison.OrdinalIgnoreCase)
+            ? description["target ".Length..]
+            : description;
 
     /// <summary>
     /// Asks the oldest offered optional payment, if any (CR 601.2b).
@@ -5123,8 +5140,10 @@ public sealed class Game
         // colour called E and always come back unpayable.
         // CR 118.4: life can be paid down to zero but no further, so the check is a floor and
         // not a margin - a player on exactly 2 may pay 2.
+        var lifeDue = LifeOwed(owed, offer);
+
         if (offer.EnergyCost > State.GetPlayer(owed.PlayerId).Energy
-            || offer.LifeCost > State.GetPlayer(owed.PlayerId).Life
+            || lifeDue > State.GetPlayer(owed.PlayerId).Life
             || !CouldPayMidResolution(owed.PlayerId, CostOwed(owed, offer)))
         {
             RunDeferredBranch(
@@ -5138,13 +5157,14 @@ public sealed class Game
         // so it stays one question, with objects for options and nothing picked as the decline.
         if (offer.ChosenKind is { } chosen)
         {
-            var payable = PayableFor(owed.PlayerId, chosen, offer.ChosenFilterId);
+            var owedCount = ChosenCountOf(owed, offer);
+            var payable = PayableFor(owed.PlayerId, chosen, offer.ChosenWhat);
 
             // CR 118.3: a cost cannot be paid without the resources to pay it in full, so a
             // player holding fewer than it names is not offered it at all. The currencies above
             // skip the question for the same reason — a question with one possible answer is not
             // a question, and stopping the game to ask it is how a game stalls.
-            if (payable.Count < ChosenCountOf(offer))
+            if (payable.Count < owedCount)
             {
                 RunDeferredBranch(
                     owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
@@ -5156,7 +5176,7 @@ public sealed class Game
                 Id = $"pay:{owed.PlayerId:N}:{owed.EffectIndex}",
                 PlayerId = owed.PlayerId,
                 Kind = ChoiceKind.OptionalPayment,
-                Prompt = ChosenCostPrompt(chosen, ChosenCountOf(offer), offer.ChosenFilterId),
+                Prompt = ChosenCostPrompt(chosen, owedCount, offer.ChosenWhat),
                 Options = [.. payable.Select(id => new ChoiceOption(
                     id.Value.ToString("N"), State.GetObject(id).Card.Name))],
 
@@ -5164,22 +5184,31 @@ public sealed class Game
                 // floor. The ceiling is the whole cost: picking part of one buys nothing
                 // (CR 601.2h), so offering to take part of it would only mislead.
                 MinPicks = 0,
-                MaxPicks = ChosenCountOf(offer),
+                MaxPicks = owedCount,
             });
 
             _paymentBeingAsked = (owed, offer, aimedAt);
             return true;
         }
 
+        // What the player is actually being charged, in words. The mana is the event's own text
+        // — already written out once per age counter — and the life is added because a cost of
+        // "Pay 1 life for each age counter" carries no symbols at all: without this the button
+        // read "Pay " with nothing after it, and now that the number climbs the player would have
+        // no way at all to see what this upkeep costs.
+        var priced = owed.CostText;
+        if (lifeDue > 0)
+            priced = priced.Length == 0 ? $"{lifeDue} life" : $"{priced} and {lifeDue} life";
+
         Ask(new PendingChoice
         {
             Id = $"pay:{owed.PlayerId:N}:{owed.EffectIndex}",
             PlayerId = owed.PlayerId,
             Kind = ChoiceKind.OptionalPayment,
-            Prompt = owed.YesLabel is null ? $"Pay {owed.CostText}?" : "Choose one.",
+            Prompt = owed.YesLabel is null ? $"Pay {priced}?" : "Choose one.",
             Options =
             [
-                new ChoiceOption("yes", owed.YesLabel ?? $"Pay {owed.CostText}"),
+                new ChoiceOption("yes", owed.YesLabel ?? $"Pay {priced}"),
                 new ChoiceOption("no", owed.NoLabel ?? "Don't pay"),
             ],
             MinPicks = 1,
@@ -5310,24 +5339,25 @@ public sealed class Game
         // third outcome to read out of a short answer.
         var paying = offer.ChosenKind is null
             ? picks.Count > 0 && string.Equals(picks[0], "yes", StringComparison.Ordinal)
-            : picks.Count >= ChosenCountOf(offer);
+            : picks.Count >= ChosenCountOf(owed, offer);
 
         var due = CostOwed(owed, offer);
+        var lifeDue = LifeOwed(owed, offer);
 
         if (paying
             && offer.EnergyCost <= State.GetPlayer(owed.PlayerId).Energy
-            && offer.LifeCost <= State.GetPlayer(owed.PlayerId).Life
+            && lifeDue <= State.GetPlayer(owed.PlayerId).Life
             && ManaPayment.CanPay(State.GetPlayer(owed.PlayerId).ManaPool, due))
         {
             if (offer.EnergyCost > 0)
                 Emit(new EnergyChanged(owed.PlayerId, -offer.EnergyCost));
 
-            if (offer.LifeCost > 0)
+            if (lifeDue > 0)
             {
                 Emit(new LifeChanged(
                     owed.PlayerId,
-                    -offer.LifeCost,
-                    State.GetPlayer(owed.PlayerId).Life - offer.LifeCost));
+                    -lifeDue,
+                    State.GetPlayer(owed.PlayerId).Life - lifeDue));
             }
 
             PayMana(owed.PlayerId, due);
@@ -7934,23 +7964,46 @@ public sealed class Game
     /// </remarks>
     private IReadOnlyList<ObjectId> PayableFor(
         Guid payerId, ChosenCostKind kind, string filterId) =>
+        PayableFor(
+            payerId,
+            kind,
+            (state, obj) => SearchFilters.Matches(filterId, state.GetObject(obj).Card));
+
+    /// <summary>
+    /// The same list, described the way an <em>activation</em> cost describes it (CR 118.12a).
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="TargetSpec"/> asks about the object on the board rather than about the card
+    /// that was printed, which is the whole difference: "a permanent with mana value 1 or greater"
+    /// and "an untapped creature you control" are questions a filter id cannot put. Null accepts
+    /// everything the kind can reach, which is what "discard a card" means.
+    /// </remarks>
+    private IReadOnlyList<ObjectId> PayableFor(
+        Guid payerId, ChosenCostKind kind, TargetSpec? what) =>
+        PayableFor(
+            payerId,
+            kind,
+            (state, obj) => what?.ObjectFilter?.Invoke(
+                state, _abilities, state.GetObject(obj), payerId) != false);
+
+    private IReadOnlyList<ObjectId> PayableFor(
+        Guid payerId, ChosenCostKind kind, Func<GameState, ObjectId, bool> qualifies) =>
         kind switch
         {
             ChosenCostKind.SacrificePermanents =>
                 [.. State.Battlefield
                     .Where(id => ControllerOf(State.GetObject(id)) == payerId
-                        && SearchFilters.Matches(filterId, State.GetObject(id).Card))],
+                        && qualifies(State, id))],
 
             ChosenCostKind.DiscardCards =>
-                [.. State.GetPlayer(payerId).Hand
-                    .Where(id => SearchFilters.Matches(filterId, State.GetObject(id).Card))],
+                [.. State.GetPlayer(payerId).Hand.Where(id => qualifies(State, id))],
 
             // The same permanents a sacrifice could take, going somewhere kinder. Only the
             // destination differs, which is why it is a kind rather than an effect of its own.
             ChosenCostKind.ReturnToHand =>
                 [.. State.Battlefield
                     .Where(id => ControllerOf(State.GetObject(id)) == payerId
-                        && SearchFilters.Matches(filterId, State.GetObject(id).Card))],
+                        && qualifies(State, id))],
 
             _ => [],
         };
@@ -8887,14 +8940,6 @@ public sealed class Game
         if (spliced is null || spliced.Count == 0)
             return [];
 
-        // Splice is onto Arcane, and the subtype is read off the spell being cast rather than
-        // computed: a card on the stack is not a permanent and nothing is changing its types.
-        if (!card.Card.Subtypes.Contains("Arcane", StringComparer.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"{card.Card.Name} is not an Arcane spell (CR 702.47a).");
-        }
-
         var cards = ImmutableList.CreateBuilder<Domain.Models.CardDefinition>();
         var seen = new HashSet<ObjectId>();
 
@@ -8910,8 +8955,20 @@ public sealed class Game
             if (onto.Zone != Zone.Hand || onto.OwnerId != playerId)
                 throw new InvalidOperationException("A spliced card is revealed from your hand (CR 702.47a).");
 
-            if (_abilities.SpellOf(onto.Card)?.SpliceCost is null)
+            if (_abilities.SpellOf(onto.Card) is not { SpliceCost: not null } splice)
                 throw new InvalidOperationException($"{onto.Card.Name} has no splice (CR 702.47a).");
+
+            // Each card names the spells it may be spliced onto, and it is asked of that card
+            // rather than assumed to be Arcane: "splice onto instant or sorcery" is the same
+            // keyword aimed at a card type. The quality is read off the spell being cast rather
+            // than computed - a card on the stack is not a permanent and nothing is changing its
+            // types.
+            if (!SearchFilters.Matches(splice.SpliceOnto, card.Card))
+            {
+                throw new InvalidOperationException(
+                    $"{card.Card.Name} is not a spell {onto.Card.Name} can be spliced onto "
+                        + "(CR 702.47a).");
+            }
 
             cards.Add(onto.Card);
         }

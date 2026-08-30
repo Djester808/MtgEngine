@@ -582,6 +582,23 @@ public sealed record SpellDefinition
     public ManaCostSpec? SpliceCost { get; init; }
 
     /// <summary>
+    /// Which spells this card may be spliced onto, as a <see cref="SearchFilters"/> id
+    /// (CR 702.47a).
+    /// </summary>
+    /// <remarks>
+    /// The keyword names its own quality and four cards do not name Arcane: "Splice onto instant
+    /// or sorcery" is the same ability aimed at a type rather than a subtype. It had been read as
+    /// a constant, so the whole line went unread on those four rather than splicing onto the
+    /// wrong thing - the safe direction, and the reason the fix is a field rather than a bug.
+    /// <para>
+    /// A filter id and not a subtype string, because that is what already tells a subtype from a
+    /// type from a union: "Arcane" is a subtype, "instant|sorcery" is two card types, and one
+    /// vocabulary answers both.
+    /// </para>
+    /// </remarks>
+    public string SpliceOnto { get; init; } = "Arcane";
+
+    /// <summary>
     /// What each mode beyond the first costs on top of the mana cost (CR 702.101a) - escalate.
     /// </summary>
     /// <remarks>

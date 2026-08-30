@@ -12704,7 +12704,7 @@ public sealed class CompiledCardBehaviourTests
     /// </para>
     /// </remarks>
     private static (HandBuilt Pool, CardDefinition Card) OfferPaidBy(
-        string name, string text, ChosenCostKind kind, string filterId)
+        string name, string text, ChosenCostKind kind, string? what)
     {
         var card = Card(name, text, CardType.Sorcery);
 
@@ -12718,7 +12718,9 @@ public sealed class CompiledCardBehaviourTests
                     IfYouDont: [new ChangeLife(-2)],
                     ChosenKind: kind,
                     ChosenCount: 1,
-                    ChosenFilterId: filterId),
+                    ChosenWhat: what is null
+                        ? null
+                        : EffectPhrase.Specs.Parse("target " + what)),
             ],
         });
 
@@ -12855,7 +12857,7 @@ public sealed class CompiledCardBehaviourTests
             "Chosen Discard Offer Test",
             "You may discard a card. If you do, you gain 3 life. If you don't, you lose 2 life.",
             ChosenCostKind.DiscardCards,
-            SearchFilters.AnyCard);
+            what: null);
 
         var (game, alice, _) = InMainPhaseWith(pool);
         var card = TestCards.PutInHand(game, alice, ransom);
@@ -51654,6 +51656,510 @@ public sealed class CompiledCardBehaviourTests
             "Equipment");
 
         Assert.Contains(line, CardCompiler.Compile(blade).Unhandled, StringComparer.Ordinal);
+    }
+
+    // ---- Keyword prices that are not mana (CR 702.24a, 702.21a, 702.29a, 702.188a) ----
+
+    /// <summary>
+    /// "Cumulative upkeep—Pay 1 life" charges one life per age counter (CR 702.24a).
+    /// </summary>
+    /// <remarks>
+    /// The rule the whole keyword is: the price climbs. Mana said that by repeating its printed
+    /// symbols in the offer's text, and nothing repeated a number — so the non-mana forms would
+    /// have compiled into a tax that never grew, which is a strictly better card than the one
+    /// printed and the failure this compiler may not ship. The multiplier travels on the offer
+    /// now, and the two upkeeps below charge 1 and then 2 out of one unchanging life total.
+    /// </remarks>
+    [Fact]
+    public void A_cumulative_upkeep_paid_in_life_costs_one_more_life_every_turn()
+    {
+        var relic = Card(
+            "Ageing Life Relic Test", "Cumulative upkeep—Pay 1 life", CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(relic);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, relic, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3
+                && game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // First age counter: the offer names one life, and the prompt says so. A button reading
+        // "Pay ?" is what this looked like before the price had words.
+        var first = game.State.Choice;
+        Assert.NotNull(first);
+        Assert.Contains("1 life", first!.Prompt, StringComparison.Ordinal);
+
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 5
+                && game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Second age counter, and the price with it. Two lives, not one — the number came off
+        // the offer rather than off the printed text.
+        var second = game.State.Choice;
+        Assert.NotNull(second);
+        Assert.Contains("2 life", second!.Prompt, StringComparison.Ordinal);
+
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Ageing Life Relic Test");
+    }
+
+    /// <summary>
+    /// A cumulative upkeep paid in permanents asks for one more of them each turn (CR 702.24a).
+    /// </summary>
+    /// <remarks>
+    /// The half a repeated cost string cannot express. "Sacrifice a land" is one land however
+    /// many times you write it out, so this is the case that proves the multiplier and not the
+    /// text is what does the work: the second upkeep offers a ceiling of two and takes two.
+    /// </remarks>
+    [Fact]
+    public void A_cumulative_upkeep_paid_in_lands_asks_for_one_more_land_every_turn()
+    {
+        var kraken = Card(
+            "Ageing Kraken Test",
+            "Cumulative upkeep—Sacrifice a land",
+            CardType.Creature,
+            power: 6,
+            toughness: 6);
+
+        var compiled = CardCompiler.Compile(kraken);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, kraken, Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 4))
+            game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3
+                && game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var first = game.State.Choice;
+        Assert.NotNull(first);
+        Assert.Equal(1, first!.MaxPicks);
+
+        game.Choose(alice, [first.Options[0].Id]);
+        Settle(game);
+
+        Assert.Equal(
+            3,
+            game.State.Battlefield.Count(id => game.State.GetObject(id).Card.Name == "Forest"));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 5
+                && game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Two age counters, two lands. A cost that stayed at one would leave three Forests here
+        // and would have passed every assertion above it.
+        var second = game.State.Choice;
+        Assert.NotNull(second);
+        Assert.Equal(2, second!.MaxPicks);
+
+        game.Choose(alice, [second.Options[0].Id, second.Options[1].Id]);
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            game.State.Battlefield.Count(id => game.State.GetObject(id).Card.Name == "Forest"));
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Ageing Kraken Test");
+    }
+
+    /// <summary>"Echo—Discard a card" is echo priced in cards (CR 702.29a).</summary>
+    /// <remarks>
+    /// Nothing about the trigger changes with the currency, which is the point: the keyword was
+    /// unread on three printings for no reason other than that its reader assumed mana. The card
+    /// leaving the hand is the assertion that earns its place — an engine that ran the "if you
+    /// do" branch without taking the payment keeps the creature and passes everything else.
+    /// </remarks>
+    [Fact]
+    public void Echo_can_be_paid_by_discarding_and_the_card_really_goes()
+    {
+        var imp = new CardDefinition
+        {
+            OracleId = "oracle-echo-discard-test",
+            Name = "Echo Discard Test",
+            OracleText = "Echo—Discard a card.",
+            CardTypes = CardType.Creature,
+            Power = 3,
+            Toughness = 3,
+            ManaCostRaw = "{1}",
+        };
+
+        var compiled = CardCompiler.Compile(imp);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, imp);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.ActivateAbility(alice, forest, "mana");
+        game.CastSpell(alice, card, targets: null);
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.Upkeep);
+
+        // Put in hand once the turn has come round: a card sitting through a cleanup can be
+        // discarded to hand size, and then there is no named card to look for.
+        var spare = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Echo Discard Fodder Test", 1, 1));
+
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var offer = game.State.Choice;
+        Assert.NotNull(offer);
+        Assert.Contains(offer!.Options, o => o.Id == spare.Value.ToString("N"));
+
+        game.Choose(alice, [spare.Value.ToString("N")]);
+        Settle(game);
+
+        // Paid: the card left the hand for the graveyard, and the creature stayed. Looked up by
+        // name because a discarded card is a new object (CR 400.7) and the id it had in hand
+        // names nothing.
+        Assert.True(InGraveyard(game, alice, "Echo Discard Fodder Test"));
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Echo Discard Fodder Test");
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Echo Discard Test");
+    }
+
+    /// <summary>"Ward—{2}, Pay 3 life" charges both halves (CR 702.21a, 118.8).</summary>
+    /// <remarks>
+    /// Ward had grown its own three-shape cost vocabulary, and a combination was in none of the
+    /// three: this line was unread while "Ward {2}" and "Ward—Pay 3 life" both read. Both prices
+    /// are asserted because charging one of them is the failure that looks like success — the
+    /// spell still resolves, and the card is quietly cheaper to target than the one printed.
+    /// </remarks>
+    [Fact]
+    public void Ward_can_charge_mana_and_life_at_once()
+    {
+        var sentinel = Card(
+            "Ward Both Test",
+            "Ward—{2}, Pay 3 life",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(sentinel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var warded = game.Create(alice, sentinel, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Ward Both Bolt Test", "Destroy target creature."));
+
+        // Exactly the two the ward asks for. The bolt itself is free, so a pool with anything
+        // left in it afterwards means the ward charged less than it printed.
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(bob, land, "mana");
+        }
+
+        game.CastSpell(bob, bolt, [Target.ToPermanent(warded)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var before = game.State.GetPlayer(bob).Life;
+        game.Choose(bob, ["yes"]);
+        Settle(game);
+
+        // Three life and two mana, and the spell got through: the ward was paid, not dodged.
+        Assert.Equal(before - 3, game.State.GetPlayer(bob).Life);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Assert.DoesNotContain(warded, game.State.Battlefield);
+    }
+
+    /// <summary>"Ward—Sacrifice two permanents" taxes two, not one (CR 702.21a).</summary>
+    /// <remarks>
+    /// The count is the part ward's own vocabulary could not say at all: it read "a &lt;noun&gt;"
+    /// and nothing else, so every counted printing went unread. One is not two, and a ward that
+    /// asked for one would be the cheapest ward in the game while looking exactly like this one.
+    /// </remarks>
+    [Fact]
+    public void Ward_can_charge_two_permanents()
+    {
+        var horror = Card(
+            "Ward Two Test",
+            "Ward—Sacrifice two permanents",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(horror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var warded = game.Create(alice, horror, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Ward Two Bolt Test", "Destroy target creature."));
+
+        var land = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.ActivateAbility(bob, land, "mana");
+        game.Create(bob, TestCards.Creature("Ward Two Fodder Test", 1, 1), Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Ward Two Spare Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(bob, bolt, [Target.ToPermanent(warded)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        var offer = game.State.Choice!;
+        Assert.Equal(bob, offer.PlayerId);
+        Assert.Equal(2, offer.MaxPicks);
+
+        var his = game.State.Battlefield.Count(
+            id => game.State.GetObject(id).ControllerId == bob);
+
+        game.Choose(bob, [offer.Options[0].Id, offer.Options[1].Id]);
+        Settle(game);
+
+        // Two of Bob's permanents, not one. Counted off his own board so the bolt in his
+        // graveyard cannot be mistaken for a payment.
+        Assert.Equal(
+            his - 2,
+            game.State.Battlefield.Count(
+                id => game.State.GetObject(id).ControllerId == bob));
+        Assert.DoesNotContain(warded, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// A ward price the offer cannot ask as one question leaves the line unread (CR 702.21a).
+    /// </summary>
+    /// <remarks>
+    /// The direction this reader has to be wrong in. "Collect evidence 4" is a real cost and not
+    /// one the engine can charge; read as an empty price it would be a ward nobody ever pays,
+    /// which is a card better than the one printed and indistinguishable from a working one at
+    /// the table.
+    /// </remarks>
+    [Fact]
+    public void A_ward_price_the_engine_cannot_charge_leaves_the_line_unread()
+    {
+        var ferox = Card(
+            "Ward Evidence Test",
+            "Ward—Collect evidence 4.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        Assert.Contains(
+            "Ward—Collect evidence 4.",
+            CardCompiler.Compile(ferox).Unhandled,
+            StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A freerunning price that is not mana at all (CR 702.173a).
+    /// </summary>
+    /// <remarks>
+    /// Every alternative cost has been able to ask for a permanent since emerge, so the only
+    /// thing between this card and the compiler was the em dash: its reader required mana and
+    /// stopped there. The board question is unchanged, which is asserted first — an offer that
+    /// forgot the condition would be a free instant on turn one.
+    /// </remarks>
+    [Fact]
+    public void Freerunning_can_be_priced_in_a_creature_rather_than_mana()
+    {
+        var escape = new CardDefinition
+        {
+            OracleId = "oracle-freerunning-bounce-test",
+            Name = "Freerunning Bounce Test",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{1}{U}{U}",
+            Cmc = 3,
+            OracleText =
+                "Freerunning—Return a blue creature you control to its owner's hand."
+                + "\nDraw a card.",
+        };
+
+        var compiled = CardCompiler.Compile(escape);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var offer = Assert.Single(compiled.Spell!.ConditionalAlternativeCost!.Payments);
+        Assert.Equal(ChosenCostKind.ReturnToHand, offer.Kind);
+        Assert.Empty(compiled.Spell.ConditionalAlternativeCost.Cost.Symbols);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var assassin = game.Create(
+            alice,
+            Card("Freerunning Bounce Assassin Test", string.Empty, CardType.Creature, 2, 2,
+                KeywordAbility.None, "Assassin"),
+            Zone.Battlefield);
+
+        var blue = game.Create(
+            alice, Coloured("Freerunning Bounce Drake Test", ManaColor.Blue), Zone.Battlefield);
+
+        // Nothing has connected yet, so the offer is not open and there is no mana at all for
+        // the printed cost.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, escape),
+                targets: null,
+                alternativeCost: true,
+                costPayment: [blue]));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [assassin] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.PostcombatMain);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        var card = TestCards.PutInHand(game, alice, escape);
+        game.CastSpell(
+            alice, card, targets: null, alternativeCost: true, costPayment: [blue]);
+        Settle(game);
+
+        // No mana was ever floated: the creature was the whole price, and it went home rather
+        // than dying.
+        Assert.DoesNotContain(blue, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Freerunning Bounce Drake Test");
+
+        // The spell resolved: a card drawn, and the creature back, is two more than it started
+        // with minus the one that was cast.
+        Assert.Equal(held + 2, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// Web-slinging casts a spell for its own price plus a tapped creature (CR 702.188a).
+    /// </summary>
+    /// <remarks>
+    /// Emerge's shape without the discount: an alternative cost paid in mana <em>and</em> a
+    /// permanent. The untapped creature being refused is what pins the "tapped" in the rule — an
+    /// offer that took any creature would pass every other assertion here and would let five
+    /// cards be cast a turn earlier than they can be.
+    /// </remarks>
+    [Fact]
+    public void Web_slinging_pays_with_a_tapped_creature_and_returns_it_to_hand()
+    {
+        var spider = PricedCard("Web Slinger Test", "{3}{W}", 4, "Web-slinging {W}");
+
+        var compiled = CardCompiler.Compile(spider);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal("web-slinging", compiled.Spell!.ConditionalAlternativeCost!.Keyword);
+
+        var (game, alice, _) = InMainPhase();
+        var standing = game.Create(
+            alice, TestCards.Creature("Web Standing Test", 1, 1), Zone.Battlefield);
+        var swung = game.Create(
+            alice, TestCards.Creature("Web Swung Test", 1, 1), Zone.Battlefield);
+        game.Tap(swung);
+
+        var card = TestCards.PutInHand(game, alice, spider);
+        game.AddMana(alice, ManaColor.White);
+
+        // An untapped creature is not what the rule names, and the payment is refused on its own
+        // terms rather than the spell being cast for free.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, card, targets: null, alternativeCost: true, costPayment: [standing]));
+
+        game.CastSpell(alice, card, targets: null, alternativeCost: true, costPayment: [swung]);
+        Settle(game);
+
+        // One white mana bought a four-drop, and the tapped creature went home rather than dying:
+        // web-slinging returns, it does not sacrifice.
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Web Slinger Test");
+        Assert.DoesNotContain(swung, game.State.Battlefield);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Web Swung Test");
+        Assert.Contains(standing, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Splice onto instant or sorcery" reaches a spell that is not Arcane (CR 702.47a).
+    /// </summary>
+    /// <remarks>
+    /// The keyword names the spells it splices onto and that had been read as a constant, so four
+    /// cards whose quality is a card type rather than a subtype went unread whole. Both halves
+    /// are asserted: it reaches a plain instant, and it still does not reach a creature — a
+    /// splice-onto that had widened to everything would pass the first assertion alone.
+    /// </remarks>
+    [Fact]
+    public void Splice_onto_instant_or_sorcery_reaches_a_spell_that_is_not_arcane()
+    {
+        var dream = Card(
+            "Splice Everdream Test",
+            "You gain 2 life.\nSplice onto instant or sorcery {1}");
+
+        var compiled = CardCompiler.Compile(dream);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.Spell!.SpliceCost);
+        Assert.Equal("instant|sorcery", compiled.Spell.SpliceOnto);
+
+        var (game, alice, bob) = InMainPhase();
+        var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.ActivateAbility(alice, land, "mana");
+
+        var host = TestCards.PutInHand(
+            game, alice, Card("Splice Plain Host Test", "Target player loses 1 life."));
+        var spliceCard = TestCards.PutInHand(game, alice, dream);
+
+        game.CastSpell(alice, host, targets: [Target.ToPlayer(bob)], spliced: [spliceCard]);
+        Settle(game);
+
+        // Both halves happened, and the spliced card was revealed rather than cast.
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Splice Everdream Test");
+    }
+
+    [Fact]
+    public void Splice_onto_instant_or_sorcery_is_still_refused_onto_a_creature()
+    {
+        var dream = Card(
+            "Splice Refused Everdream Test",
+            "You gain 2 life.\nSplice onto instant or sorcery {1}");
+
+        var (game, alice, _) = InMainPhase();
+        var host = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Splice Creature Host Test", 2, 2));
+        var spliceCard = TestCards.PutInHand(game, alice, dream);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, host, targets: null, spliced: [spliceCard]));
+
+        Assert.Contains("702.47a", refused.Message, StringComparison.Ordinal);
     }
 
     // ---- Backgrounds (CR 702.123) --------------------------------------------

@@ -359,6 +359,23 @@ public sealed record OptionalPaymentRequested(
     /// </remarks>
     public int? SubjectAmount { get; init; }
 
+    /// <summary>
+    /// How many times over the price is owed (CR 702.24a).
+    /// </summary>
+    /// <remarks>
+    /// Cumulative upkeep charges its cost once per age counter. Mana says that in
+    /// <see cref="CostText"/> — the printed symbols written out several times — but life and a
+    /// count of objects to sacrifice or discard have no text to repeat, so the multiplier itself
+    /// travels here and the engine multiplies as it asks.
+    /// <para>
+    /// On the event rather than re-read from the board at answer time, because the board moves:
+    /// the counter that priced the offer can be gone by the time the player answers, and a replay
+    /// has to reach the same price the game actually offered. One for every offer that never
+    /// scaled at all, which is nearly all of them.
+    /// </para>
+    /// </remarks>
+    public int Times { get; init; } = 1;
+
     public override string Rule => "601.2b";
 
     public override string Describe() => $"{PlayerId:N} may pay {CostText}.";
