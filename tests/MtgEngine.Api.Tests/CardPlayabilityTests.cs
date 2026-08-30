@@ -244,7 +244,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The production gate asks PlayableCards.Refuses, which admits all of them and
     // is held by PlayableCardsTests; this row documents the naive question's gap, and the
     // ratchet stays because it forces exactly the investigation that wrote this comment.
-    private const int CompiledGateRefusesComplete = 422;
+    private const int CompiledGateRefusesComplete = 426;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
@@ -341,7 +341,12 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// planeswalker, and a land is none of those. They are not instants or sorceries either, so
     /// the spell soak does not see them. See <see cref="SoakPermanent"/>.
     /// </remarks>
-    private const int SoakSelectsNeither = 781;
+    // 782 and every one of them a Land, checked rather than assumed: the typeless bucket
+    // this number exists to police is empty, and it rose because one more land became
+    // fully read. The two times it caught something real - 48 sticker sheets that are not
+    // cards, and four reversible printings arriving with no type at all - both showed up
+    // in that bucket, which is why the failure message names its residents card by card.
+    private const int SoakSelectsNeither = 782;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.

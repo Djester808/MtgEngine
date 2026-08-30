@@ -489,6 +489,43 @@ cheaper of the two.
 
 Coverage is **49.8% of playable cards fully read** (16,281 of 32,717), 66.9% of lines.
 
+### Round twelve: six structural walls, and what measuring them was worth
+
+This round targeted things the engine could not *express* rather than lines it had not read.
++143 cards, none lost. What is worth keeping is that **five of the six briefs were wrong about
+their own family**, and every correction came from a probe rather than an argument:
+
+- The damage back-reference was briefed at "at most 95 cards". It is two families sharing a
+  verb: 310 cards print the *subject* pronoun ("**It deals** 4 damage"), 264 the *object* one
+  ("deals 4 damage to **that creature**"). 552 print one, 76 are reachable by respelling, 47
+  were taken - and the money was in the subject pronoun, which the brief had not mentioned.
+- "Any number of target" was briefed as a structural wall. `RequireLegalTargets` had always
+  validated a *range*, so the block grammar was buildable with no new state, event or hub
+  argument. Then the decisive measurement: recompiling all 147 remaining cards with "up to two
+  target" substituted completes **zero** of them. The block grammar is now as complete as the
+  effect vocabulary behind it allows, and widening its pattern buys nothing.
+- The arrival family was briefed as one class of ~30. Decomposed: enters-tapped is 15 sole
+  blockers, enters-with-counters was **already built two rounds ago**, enter-untapped and
+  enter-under-another's-control are worth one card between them, and **no corpus card says**
+  "enter face down" as a group static at all.
+- Delayed destroy was briefed at 18 and completes 14; the impulse tail was briefed at 15 and the
+  trailing sentence turned out to be worth exactly **one** card, the real blockers being a
+  pronoun the reader did not know and a duration printed behind the permission.
+- The prevention tail's recorded decline - "26 name a target the shield cannot aim at" - was
+  **half stale**. Nine turned over with no pattern work once the shield could name a source,
+  because `Specs.Parse` had grown `attacking`/`blocked`/`unblocked` in the meantime. The other
+  half stands, and now says why: those adjectives live in the grammar that reads a *target*,
+  not the one that describes a *set*.
+
+Two defects found that the coverage number could never show. `Specs.ParseGroup` read the pronoun
+**"You"** as a creature type, so "You gain shroud until end of turn" compiled to a grant aimed at
+a tribe no card has - Gilded Light read as complete, passed the deck gate, and did nothing when
+it resolved. Refusing the pronoun costs one card from the count and removes a blank from the
+game. And a first cut of the delayed destroy let "that creature" take the source fallback that
+only "it" is entitled to, compiling Tangle Asp, Venomous Dragonfly and Infernal Medusa into
+creatures that destroy themselves whenever they block - the count rose by three while three
+cards became wrong, and only the set diff showed it.
+
 ### A delayed destroy, and an idiom that could not stand a sentence beside it
 
 Two families measured before they were built, and both were smaller than the probe that found
