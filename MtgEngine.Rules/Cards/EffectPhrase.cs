@@ -1797,6 +1797,15 @@ public static partial class EffectPhrase
                 much = perThing;
             }
 
+            // "Bond of Passion deals 2 damage to any other target", printed after the sentence
+            // that gained control of a creature. "Other" than that creature: the ability has
+            // already named a target, and the word is about the announcement as a whole rather
+            // than about this sentence (CR 601.2c). With nothing targeted yet the word means the
+            // source instead - Screaming Nemesis and every other "it deals that much damage to
+            // any other target" - and that reading is already on the spec.
+            if (Specs.SaysOther(m.Groups["t"].Value) && targets.Count > 0)
+                burned = burned with { PeerIndex = targets.Count - 1 };
+
             targets.Add(burned);
             effects.Add(new DealDamage(much, targets.Count - 1));
             return true;
@@ -3036,7 +3045,15 @@ public static partial class EffectPhrase
 
             if (Specs.Parse(second) is { } alsoHurt)
             {
-                targets.Add(alsoHurt);
+                // "~ deals 2 damage to any target and 1 damage to any *other* target." The word
+                // names the target this same sentence has just chosen, and there is nowhere else
+                // it could be pointing - so the second spec is measured against the first
+                // (CR 115.4, 601.2c). Without the index the two halves could be aimed at one
+                // creature for three damage, which is a strictly better card than Arc Trail.
+                targets.Add(Specs.SaysOther(second)
+                    ? alsoHurt with { PeerIndex = firstIndex }
+                    : alsoHurt);
+
                 effects.Add(new DealDamage(Number(twoDamages.Groups["a"].Value), firstIndex));
                 effects.Add(new DealDamage(
                     Number(twoDamages.Groups["b"].Value), targets.Count - 1));
@@ -3109,9 +3126,25 @@ public static partial class EffectPhrase
             // creature". So the rewrite says it that way and every reader that already handles
             // one of those handles all of them. 46 corpus lines, all of them plural: the singular
             // has read since the target grammar was built.
+            //
+            // "Deals 2 damage to each of two targets" names no noun because there is none to
+            // name: CR 115.4 lists "two targets" beside "any target" as a way of saying
+            // creatures, players, planeswalkers and battles at once, which is exactly what "any
+            // target" already spells here. So the bare plural rewrites to that singular and
+            // every reader that handles one handles both. "Two other targets" is not printed and
+            // is left unread rather than guessed at.
+            var one = several.Groups["t"].Success
+                ? (several.Groups["other"].Success ? "another target " : "target ")
+                    + Singular(several.Groups["t"].Value.Trim())
+                : several.Groups["other"].Success
+                ? null
+                : "any target";
+
+            if (one is null)
+                return false;
+
             var singular = several.Groups["head"].Value
-                + (several.Groups["other"].Success ? "another target " : "target ")
-                + Singular(several.Groups["t"].Value.Trim())
+                + one
                 + Agreeing(several.Groups["tail"].Value);
 
             var scratchTargets = ImmutableList.CreateBuilder<TargetSpec>();
@@ -3128,12 +3161,29 @@ public static partial class EffectPhrase
                 && scratchEffects.Count > 0
                 && !scratchEffects.Any(FindsItselfByIndex))
             {
+                // The copies are one instance of the word "target" and CR 115.3 forbids a
+                // repeat inside one: "up to two target creatures get +1/+1" may not be pointed
+                // twice at the same creature for +2/+2, and "deals 2 damage to each of two
+                // targets" may not be pointed twice at the same player for 4. Nothing said so
+                // until specs could carry an index, so every one of these was castable that way.
+                // The first copy is the anchor and every copy after it is measured against it.
+                //
+                // "From a single graveyard" rides on the same index. The phrase grammar can say
+                // what the comparison is - a spec carrying one and naming no sibling is exactly
+                // that - but it reads one target at a time and has no index to point at, so the
+                // anchor drops the comparison it cannot make against itself and the rest keep it.
+                var anchor = targets.Count;
+
                 for (var copy = 0; copy < howMany; copy++)
                 {
                     var offset = targets.Count;
+                    var each = copy == 0
+                        ? scratchTargets[0] with { PeerFilter = null }
+                        : scratchTargets[0] with { PeerIndex = anchor };
+
                     targets.Add(optional || (range && copy > 0)
-                        ? scratchTargets[0] with { Optional = true }
-                        : scratchTargets[0]);
+                        ? each with { Optional = true }
+                        : each);
 
                     foreach (var effect in scratchEffects)
                         effects.Add(EffectTargets.Shift(effect, offset));
@@ -8642,6 +8692,38 @@ public static partial class EffectPhrase
                 Characteristics.Of(state, abilities, obj).IsCreature,
         };
 
+        /// <summary>"Another …", "any other …" — never the permanent doing the asking.</summary>
+        /// <remarks>
+        /// One delegate rather than two identical lambdas, because "another target creature" and
+        /// "any other target" are the same word doing the same job and a second copy is a second
+        /// thing to get wrong. A caller that cannot say what its source is skips the test, as
+        /// every source filter does.
+        /// </remarks>
+        internal static readonly Func<GameState, IAbilitySource, GameObject, GameObject?, Guid, bool>
+            NotTheSource = (_, _, obj, source, _) =>
+            {
+                if (source is null)
+                    return true;
+
+                // The card that just changed zones is a new object (CR 400.7), so an id
+                // comparison alone lets a dies-trigger name the very card it came from - the one
+                // thing "another" exists to forbid.
+                var self = source.Ability?.SourceId ?? source.Id;
+                return obj.Id != self && obj.PreviousId != self;
+            };
+
+        /// <summary>Whether a printed target phrase says "other" (CR 115.4).</summary>
+        /// <remarks>
+        /// Asked by the sentence readers rather than by <see cref="Parse"/>, because the word is
+        /// about something outside the phrase. "Other" than what is a question only the whole
+        /// sentence can answer, and the answer differs: on Arc Trail it is the target the same
+        /// sentence chose first, on Bond of Passion it is the one an earlier sentence chose, and
+        /// on Screaming Nemesis there is no other target at all and it means the source.
+        /// </remarks>
+        internal static bool SaysOther(string phrase) =>
+            AnyTargetPhrase().Match(phrase.Trim().TrimEnd('.')) is { Success: true } m
+            && m.Groups["other"].Success;
+
         public static readonly TargetSpec TargetCreature = new()
         {
             Kind = TargetKind.Permanent,
@@ -8746,6 +8828,171 @@ public static partial class EffectPhrase
         }
 
         /// <summary>
+        /// One spec with a lifted "with ..." clause folded back into it (CR 115.1).
+        /// </summary>
+        /// <remarks>
+        /// The permanent grammar builds its filter and its qualifier together in one closure, so
+        /// it never needed this. A spell does: its spec is finished before the qualifier is
+        /// looked at, and the two have to be joined afterwards. A clause that measures against X
+        /// goes to <see cref="TargetSpec.VariableFilter"/> for the reason it does everywhere —
+        /// a caller that cannot say what X is gets no target rather than one measured against a
+        /// zero nobody announced.
+        /// </remarks>
+        private static TargetSpec WithQualifier(
+            TargetSpec spec,
+            string described,
+            Func<GameState, IAbilitySource, GameObject, int, bool> qualifier,
+            bool readsVariable)
+        {
+            var already = spec.ObjectFilter;
+
+            bool Both(
+                GameState state,
+                IAbilitySource abilities,
+                GameObject obj,
+                Guid controller,
+                int announced) =>
+                already?.Invoke(state, abilities, obj, controller) != false
+                && qualifier(state, abilities, obj, announced);
+
+            return spec with
+            {
+                Description = described,
+                ObjectFilter = readsVariable
+                    ? null
+                    : (state, abilities, obj, controller) =>
+                        Both(state, abilities, obj, controller, 0),
+                VariableFilter = readsVariable ? Both : null,
+            };
+        }
+
+        /// <summary>
+        /// "Target spell that targets a creature you control" (CR 115.1, 115.2).
+        /// </summary>
+        /// <remarks>
+        /// A question about what the <em>other</em> spell chose, which nothing else in this
+        /// grammar asks: every other clause describes the object in front of it, and this one
+        /// describes the objects behind it. The spell on the stack carries its targets
+        /// (CR 601.2c), so the whole clause is a predicate over that list, and "targets" is
+        /// satisfied by any one of them — a spell aimed at two creatures and a player targets a
+        /// creature.
+        /// <para>
+        /// The inner phrase is read by <see cref="Parse"/> itself, with the article swapped for
+        /// "target": "a creature you control" is the same noun phrase the rest of the grammar
+        /// already knows, and rebuilding it here would be a second vocabulary that drifts. The
+        /// two clauses that are not noun phrases — a player, and the source itself — are answered
+        /// before that, because neither is a permanent and the permanent grammar would refuse
+        /// them.
+        /// </para>
+        /// </remarks>
+        private static TargetSpec? SpellTargeting(string clause)
+        {
+            var what = clause.Trim().TrimEnd('.');
+
+            // "You or a permanent you control" — the two halves are read separately and either
+            // one satisfies the clause. Split before anything else, because "a permanent you
+            // control" on its own is a phrase the noun grammar reads and the whole thing is not.
+            var halves = what.Split(" or ", StringSplitOptions.TrimEntries);
+            if (halves.Length == 2)
+            {
+                if (OneTargetOf(halves[0]) is not { } left
+                    || OneTargetOf(halves[1]) is not { } right)
+                {
+                    // "An artifact or creature you control" is one noun phrase with two types
+                    // and not two clauses, so a failed split falls through to the whole phrase
+                    // rather than losing the card.
+                    return Whole();
+                }
+
+                return Aimed(
+                    (state, abilities, target, source, controller) =>
+                        left(state, abilities, target, source, controller)
+                        || right(state, abilities, target, source, controller));
+            }
+
+            return Whole();
+
+            TargetSpec? Whole() =>
+                OneTargetOf(what) is { } only ? Aimed(only) : null;
+
+            TargetSpec Aimed(
+                Func<GameState, IAbilitySource, Target, GameObject?, Guid, bool> wanted) =>
+                new()
+                {
+                    Kind = TargetKind.SpellOnStack,
+                    Description = "target spell that targets " + what,
+
+                    // A source filter and not an object filter, because "this creature" needs to
+                    // know whose ability is asking. The others do not, and pay nothing for
+                    // sharing the seat: the source is passed by every caller that chooses or
+                    // re-checks a target, and the one clause that needs it refuses when it is
+                    // absent rather than passing.
+                    SourceFilter = (state, abilities, obj, source, controller) =>
+                        obj.Targets.Exists(
+                            target => wanted(state, abilities, target, source, controller)),
+                };
+        }
+
+        /// <summary>What one target of the countered spell has to be, or null if unread.</summary>
+        private static Func<GameState, IAbilitySource, Target, GameObject?, Guid, bool>?
+            OneTargetOf(string phrase)
+        {
+            var what = phrase.Trim();
+
+            // CR 115.2: a player is a legal target only where the spell says so, and none of the
+            // permanent grammar can describe one - so the two player clauses are answered here.
+            if (what.Equals("you", StringComparison.OrdinalIgnoreCase))
+            {
+                return (_, _, target, _, controller) =>
+                    target.Kind == TargetKind.Player && target.Player == controller;
+            }
+
+            if (what.Equals("a player", StringComparison.OrdinalIgnoreCase))
+                return (_, _, target, _, _) => target.Kind == TargetKind.Player;
+
+            // Mistfolk: "counter target spell that targets this creature". The permanent whose
+            // ability is asking, found the way every other "this permanent" question finds it -
+            // through the ability, because by the time the ability is on the stack the source is
+            // the ability and its own source is the permanent (CR 113.7a).
+            if (what.Equals("this creature", StringComparison.OrdinalIgnoreCase)
+                || what.Equals("~", StringComparison.Ordinal))
+            {
+                return (_, _, target, source, _) =>
+                {
+                    // Fail closed. With no source there is no "this creature", and a clause that
+                    // cannot be evaluated must not read as satisfied - that would be a Mistfolk
+                    // that counters every spell on the stack.
+                    if (source is null)
+                        return false;
+
+                    var self = source.Ability?.SourceId ?? source.Id;
+                    return target.Kind is TargetKind.Permanent or TargetKind.Any
+                        && target.Subject == self;
+                };
+            }
+
+            var article = ArticlePrefix().Match(what);
+            if (!article.Success)
+                return null;
+
+            if (Parse("target " + what[article.Length..]) is not { } spec
+                || spec.Kind != TargetKind.Permanent)
+            {
+                return null;
+            }
+
+            return (state, abilities, target, _, controller) =>
+                target.Kind is TargetKind.Permanent or TargetKind.Any
+                && state.TryGetObject(target.Subject, out var aimed)
+
+                // The permanent the other spell chose is asked the ordinary phrase filters and
+                // nothing else. Not IsLegal: whether *this* player could target it is a
+                // different question from whether that spell did, and a creature with hexproof
+                // is still a creature the spell targeted.
+                && spec.Accepts(state, abilities, aimed, controller);
+        }
+
+        /// <summary>
         /// Reads a printed target phrase — "target artifact creature an opponent controls".
         /// </summary>
         /// <remarks>
@@ -8788,17 +9035,7 @@ public static partial class EffectPhrase
                     ? other with
                     {
                         Description = "another " + other.Description,
-                        SourceFilter = (_, _, obj, source, _) =>
-                        {
-                            if (source is null)
-                                return true;
-
-                            // The card that just changed zones is a new object (CR 400.7), so an
-                            // id comparison alone lets a dies-trigger name the very card it came
-                            // from - the one thing "another" exists to forbid.
-                            var self = source.Ability?.SourceId ?? source.Id;
-                            return obj.Id != self && obj.PreviousId != self;
-                        },
+                        SourceFilter = NotTheSource,
                     }
                     : null;
             }
@@ -8830,11 +9067,32 @@ public static partial class EffectPhrase
                 };
             }
 
-            if (AnyTargetPhrase().IsMatch(text))
-                return AnyTarget;
+            // "Any target", and "any other target" — the same phrase with one word that means
+            // "not the thing this sentence is already about" (CR 115.4). Which thing that is
+            // depends on the sentence and is settled by whoever reads it: the source, when the
+            // ability names nothing else, and the target already chosen when it does. The source
+            // half is the same exclusion "another target creature" already gets and is applied
+            // here; the sibling half is an index only the reader of the whole sentence has, so
+            // it is attached there (see <see cref="TargetSpec.PeerIndex"/>).
+            if (AnyTargetPhrase().Match(text) is { Success: true } anyTarget)
+            {
+                return anyTarget.Groups["other"].Success
+                    ? AnyTarget with
+                    {
+                        Description = "any other target",
+                        SourceFilter = NotTheSource,
+                    }
+                    : AnyTarget;
+            }
 
             // A card in a graveyard is targetable — the zone is public (CR 404.2) — and it is
             // its own kind of target, because the legality check has to look in a different zone.
+            // "Target spell that targets a creature you control" — read before everything else
+            // about a spell, because the clause contains a whole noun phrase of its own and the
+            // qualifier grammar below would take the wrong half of it.
+            if (SpellTargetingPhrase().Match(text) is { Success: true } aimedAt)
+                return SpellTargeting(aimedAt.Groups["what"].Value);
+
             // "Target creature spell" — a spell of a named type. Read before the permanent
             // grammar, whose noun list would take the "creature" and then choke on "spell".
             if (TypedSpellPhrase().Match(text) is { Success: true } kindOfSpell)
@@ -8916,9 +9174,21 @@ public static partial class EffectPhrase
                 // A spell takes its kind from one word, so two of them is a phrase this does not
                 // read - refused rather than narrowed to whichever happened to be last.
                 case "spell":
-                    return owner.Length == 0 && adjectives.Count <= 1
-                        ? SpellOfKind(adjectives.Count == 1 ? adjectives[0] : string.Empty)
-                        : null;
+                    if (owner.Length != 0 || adjectives.Count > 1)
+                        return null;
+
+                    var kindOnly =
+                        SpellOfKind(adjectives.Count == 1 ? adjectives[0] : string.Empty);
+
+                    // The qualifier was being lifted off and then dropped on the floor: "counter
+                    // target spell with mana value 4 or greater" parsed its clause, checked it
+                    // was one this grammar knows, and returned a spec that countered anything.
+                    // Disdainful Stroke, Thoughtbind, Liquify and five more compiled as a
+                    // strictly better card than the one printed - the exact failure
+                    // SpellOfKind's own note says is the wrong way round.
+                    return kindOnly is null || qualifier is null
+                        ? kindOnly
+                        : WithQualifier(kindOnly, described, qualifier, qualifierReadsX);
             }
 
             // "Target Goblin", "Sacrifice a Goblin" — a subtype standing in for the noun, told
@@ -9330,6 +9600,13 @@ public static partial class EffectPhrase
             var word = noun.Trim();
             string? subtype = null;
 
+            // "From a single graveyard" is a restriction between the targets and not on any one
+            // of them, so it is carried as the comparison with no sibling named. The expansion
+            // that turns "up to four target cards" into four specs is what supplies the index;
+            // until it does, the spec accepts nothing, which is the fail-closed reading a
+            // one-target printing of this phrase would deserve and no card prints.
+            var oneGraveyard = whose.Trim().Equals("a single", StringComparison.OrdinalIgnoreCase);
+
             // "Target nonland permanent card in your graveyard" - a type word with a type taken
             // out of it, which the type table cannot hold and does not need to: the word in front
             // is one more test rather than a different noun. Lifted off before the table is asked
@@ -9355,6 +9632,7 @@ public static partial class EffectPhrase
                         (obj.Card.CardTypes.HasFlag(first) || obj.Card.CardTypes.HasFlag(second))
                         && (!whose.Trim().StartsWith("your", StringComparison.OrdinalIgnoreCase)
                             || obj.OwnerId == controller),
+                    PeerFilter = oneGraveyard ? PeerFilters.InTheSameGraveyard : null,
                 };
             }
 
@@ -9406,6 +9684,7 @@ public static partial class EffectPhrase
                     ? (_, _, obj, controller, announced) =>
                         Matches(obj, controller, announced)
                     : null,
+                PeerFilter = oneGraveyard ? PeerFilters.InTheSameGraveyard : null,
             };
 
             bool Matches(GameObject obj, Guid controller, int? cap)
@@ -9443,10 +9722,20 @@ public static partial class EffectPhrase
         /// the point of putting it in the grammar rather than building the one spec soulshift
         /// needs: reanimation spells cap the same way, and they get it for free.
         /// </remarks>
+        /// <remarks>
+        /// "A single graveyard" is one more determiner and a great deal more than one more word.
+        /// It says nothing about the card in front of it — every card in every graveyard is in
+        /// *a* single graveyard — so as a filter over one target it is exactly "a graveyard".
+        /// What it restricts is the *set*: 27 corpus cards say "exile up to four target cards
+        /// from a single graveyard", and the restriction is that the picks agree with each other.
+        /// The spec therefore carries the comparison and not the answer, and the expansion that
+        /// makes the several targets is what points each of them at the first
+        /// (<see cref="TargetSpec.PeerIndex"/>).
+        /// </remarks>
         [GeneratedRegex(
             @"^[Tt]arget ((?<noun>(nonland )?[A-Za-z]+( or [A-Za-z]+)?) )?card"
                 + @"( with mana value (?<cap>\d+|X) or less)?"
-                + @" (from|in) (?<whose>your|a|an opponent's) graveyard$",
+                + @" (from|in) (?<whose>your|a single|a|an opponent's) graveyard$",
             RegexOptions.None)]
         private static partial Regex GraveyardPhrase();
 
@@ -9915,8 +10204,21 @@ public static partial class EffectPhrase
         [GeneratedRegex(@"\s+or\s+", RegexOptions.IgnoreCase)]
         private static partial Regex EitherType();
 
-        [GeneratedRegex(@"^any target$", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"^any (?<other>other )?target$", RegexOptions.IgnoreCase)]
         private static partial Regex AnyTargetPhrase();
+
+        /// <remarks>
+        /// No adjective before "spell". Every corpus printing of this clause is on a bare spell —
+        /// "counter target spell that targets a creature" — and a phrase that named a kind as
+        /// well would need both halves joined, which is a card that does not exist rather than
+        /// one this refuses.
+        /// </remarks>
+        [GeneratedRegex(@"^target spell that targets (?<what>.+)$", RegexOptions.IgnoreCase)]
+        private static partial Regex SpellTargetingPhrase();
+
+        /// <summary>The article a noun phrase inside a "that targets" clause starts with.</summary>
+        [GeneratedRegex(@"^an? ", RegexOptions.IgnoreCase)]
+        private static partial Regex ArticlePrefix();
 
         [GeneratedRegex(
             @"^target (?<left>[a-z0-9'’ ]+?)(?:,\s*or\s+|,\s*|\s+or\s+)"
@@ -10457,7 +10759,13 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex OntoLibraryLine();
 
-    [GeneratedRegex(@"^counter " + T + @"$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// Its own target class rather than the shared one, for one character: "counter target spell
+    /// that targets ~" is the only line in the corpus whose target phrase contains the card's own
+    /// name, and widening the shared fragment would let "~" be read as a noun by every matcher
+    /// built from it. Mistfolk is the card; the rest of the family says "a creature" or "you".
+    /// </remarks>
+    [GeneratedRegex(@"^counter (?<t>[A-Za-z0-9'’ ,~-]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex CounterSpellLine();
 
     [GeneratedRegex(@"^(?<verb>tap|untap) " + T + @"$", RegexOptions.IgnoreCase)]
@@ -11381,8 +11689,8 @@ public static partial class EffectPhrase
         // "two or three" and leave the rest of the phrase stranded.
         @"^(?<head>.*?)(?<upto>up to )?"
             + @"(?<n>one or two|two or three|three or four|two|three|four) "
-            + @"(?<other>other )?target "
-            + @"(?<t>[A-Za-z' ]+?)"
+            + @"(?<other>other )?(?:target "
+            + @"(?<t>[A-Za-z' ]+?)|targets)"
             + @"(?<tail>| (get|gain|become|have|are)\s.*| to .*| from .*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MultiTargetLine();

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
@@ -53543,6 +53544,358 @@ public sealed class CompiledCardBehaviourTests
         // The same clause, on a card that does announce one.
         var announced = CardCompiler.Compile(KillingGlare());
         Assert.True(announced.IsComplete, string.Join(" | ", announced.Unhandled));
+    }
+
+    // ---- A target that can see the other targets of the same spell (CR 601.2c) ----
+
+    /// <summary>
+    /// "From a single graveyard" is a restriction between the targets, and it is checked as they
+    /// are announced (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TargetSpec.PeerFilter"/> had existed for a while and had never once run while
+    /// targets were being <em>chosen</em>. It was built for radiance, where the sibling is found
+    /// as the spell resolves and an effect names its index; nothing carried an index at
+    /// announcement time, so every card whose restriction is about the announcement stayed
+    /// unread. Two families live there, and this is the larger: 14 cards say "exile up to N
+    /// target cards from a single graveyard", and "…from a graveyard" already read, plural
+    /// machinery and all. Only the word "single" was missing.
+    /// <para>
+    /// CR 601.2c announces every target at once, so an announcement that breaks the restriction
+    /// is <em>illegal</em> — not legal with the offending part quietly skipped. Both refusals are
+    /// played here rather than parsed: two cards from different graveyards, and the same card
+    /// named twice, which CR 115.3 forbids for one instance of the word "target" and which
+    /// nothing in this engine had ever refused.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Cards_from_a_single_graveyard_have_to_come_from_one_graveyard()
+    {
+        var decompose = Card(
+            "Decompose Test",
+            "Exile up to three target cards from a single graveyard.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(decompose);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The first pick is the one the others agree with, so it carries no comparison of its
+        // own; every pick after it is measured against that one.
+        var specs = compiled.Spell!.Targets;
+        Assert.Equal(3, specs.Count);
+        Assert.Null(specs[0].PeerIndex);
+        Assert.Null(specs[0].PeerFilter);
+        Assert.Equal(0, specs[1].PeerIndex);
+        Assert.Equal(0, specs[2].PeerIndex);
+        Assert.NotNull(specs[1].PeerFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, TestCards.Creature("Peer Mine One Test"), Zone.Graveyard);
+        var alsoMine = game.Create(
+            alice, TestCards.Creature("Peer Mine Two Test"), Zone.Graveyard);
+        var theirs = game.Create(bob, TestCards.Creature("Peer Theirs Test"), Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, decompose);
+
+        // One from each graveyard is the announcement the word "single" exists to forbid. The
+        // message names the spec that refused, so the refusal is this rule and not the count.
+        var mixed = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToCard(mine), Target.ToCard(theirs)]));
+
+        Assert.Contains("single graveyard", mixed.Message, StringComparison.Ordinal);
+
+        // The same card twice is one graveyard and still illegal: CR 115.3 says a target cannot
+        // be chosen twice for one instance of the word "target", and "up to three target cards"
+        // is one instance. Without this a one-card graveyard would answer a three-target spell.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToCard(mine), Target.ToCard(mine)]));
+
+        // Neither refusal half-cast anything: the spell is still in hand (CR 601.2i, 733).
+        Assert.Contains(card, game.State.GetPlayer(alice).Hand);
+
+        game.CastSpell(alice, card, [Target.ToCard(mine), Target.ToCard(alsoMine)]);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name.StartsWith("Peer Mine", StringComparison.Ordinal));
+
+        // The other graveyard is untouched, which is the half a spell that ignored the word
+        // would have got wrong.
+        Assert.Contains(theirs, game.State.GetPlayer(bob).Graveyard);
+    }
+
+    /// <summary>
+    /// A trigger is offered only the picks its earlier answer allows (CR 603.3d, 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// The board may never be shown a pick the engine would refuse, and a trigger chooses its
+    /// targets one question at a time — so the second question has to be asked with the first
+    /// answer in hand. Four of the fourteen cards in this family are enters-the-battlefield
+    /// triggers, so this is where most of them are actually played.
+    /// <para>
+    /// It also shows the narrowing is a narrowing and not a refusal to offer anything: the first
+    /// question offers all four cards, and only the second is cut down.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_triggers_second_pick_comes_from_the_graveyard_its_first_pick_did()
+    {
+        var sunshield = Card(
+            "Sunshield Test",
+            "When this creature enters, exile up to two target cards from a single graveyard.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(sunshield);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Trigger Mine One Test"), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Trigger Mine Two Test"), Zone.Graveyard);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Trigger Theirs One Test"), Zone.Graveyard);
+        var alsoTheirs = game.Create(
+            bob, TestCards.Creature("Trigger Theirs Two Test"), Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, sunshield);
+        game.CastSpell(alice, card);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.Choice is { Kind: ChoiceKind.ChooseTriggerTargets },
+            guard: 200);
+
+        // Nothing has been chosen yet, so every card in every graveyard is on offer.
+        var first = game.State.Choice!;
+        Assert.Equal(4, first.Options.Count);
+
+        game.Choose(alice, [OptionForCard(theirs)]);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.Choice is { Kind: ChoiceKind.ChooseTriggerTargets },
+            guard: 200);
+
+        // One option: the other card in the same graveyard. Not the two in Alice's, and not the
+        // card already chosen.
+        var second = game.State.Choice!;
+        Assert.Equal([OptionForCard(alsoTheirs)], second.Options.Select(o => o.Id));
+
+        game.Choose(alice, [second.Options[0].Id]);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(2, game.State.GetPlayer(alice).Graveyard.Count);
+    }
+
+    /// <summary>The option id the engine offers for one card in a graveyard.</summary>
+    /// <remarks>
+    /// Built here rather than matched by label, because two cards with the same name give the
+    /// same label and the whole question this test asks is <em>which</em> card was offered.
+    /// </remarks>
+    private static string OptionForCard(ObjectId id) =>
+        "card:" + id.Value.ToString("N", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// "Any other target" is other than the target the same spell already chose (CR 115.4).
+    /// </summary>
+    /// <remarks>
+    /// The second family the missing index blocked, and the one that shows why the comparison
+    /// could not be an object filter: Arc Trail may not put both halves of its damage on the
+    /// same <em>player</em>, and a player is not an object. So the restriction is asked of the
+    /// chosen <see cref="Target"/> rather than of anything on the battlefield.
+    /// <para>
+    /// The word means the source instead when the ability has named no target of its own —
+    /// Screaming Nemesis and Invasion of Ulgrotha, where "it deals that much damage to any other
+    /// target" means anything but itself — and that reading is the ordinary source exclusion
+    /// "another target creature" has always had. Only the sibling reading needed an index.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Any_other_target_may_not_be_the_target_already_chosen()
+    {
+        var arcTrail = Card(
+            "Arc Trail Peer Test",
+            "~ deals 2 damage to any target and 1 damage to any other target.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(arcTrail);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Null(compiled.Spell!.Targets[0].PeerIndex);
+        Assert.Equal(0, compiled.Spell.Targets[1].PeerIndex);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Arc Peer Bear Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, arcTrail);
+
+        // The same player twice would be three damage to one head off a spell that spreads two
+        // and one. No object filter could ever have said so.
+        var twice = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPlayer(bob), Target.ToPlayer(bob)]));
+
+        Assert.Contains("any other target", twice.Message, StringComparison.Ordinal);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, card, [Target.ToPermanent(bear), Target.ToPermanent(bear)]));
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob), Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(1, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// "Each of two targets" is two different targets (CR 115.3, 115.4).
+    /// </summary>
+    /// <remarks>
+    /// The plural of "any target", and the neighbour that fell out of the same index. "Each of
+    /// two target creatures" already read; "each of two targets" names no noun because CR 115.4
+    /// puts the plural beside "any target" as a way of saying creature, player, planeswalker or
+    /// battle at once — so the bare form rewrites to the singular the grammar already knows.
+    /// <para>
+    /// Its distinctness is not a peer <em>filter</em> at all: it is CR 115.3 alone, and it now
+    /// covers every expansion the compiler makes. "Up to two target creatures get +1/+1" was
+    /// castable at one creature for +2/+2 until specs could carry an index.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Each_of_two_targets_has_to_be_two_of_them()
+    {
+        var reprisal = Card(
+            "Furious Reprisal Test",
+            "~ deals 2 damage to each of two targets.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reprisal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.Targets.Count);
+        Assert.Equal(0, compiled.Spell.Targets[1].PeerIndex);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Reprisal Bear Test", 3, 3), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, reprisal);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, card, [Target.ToPlayer(bob), Target.ToPlayer(bob)]));
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob), Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// A counterspell that asks what the other spell is aimed at (CR 115.1, 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// The adjacent row taken in the same round, and no peer at all: the spell on the stack
+    /// already carries the targets it was cast with, so the whole clause is a predicate over that
+    /// list. Fourteen cards, and the noun phrase inside the clause is read by the same grammar
+    /// that reads it anywhere else — "a creature you control" is not a second vocabulary.
+    /// </remarks>
+    [Fact]
+    public void Counter_target_spell_that_targets_a_creature_reads_what_it_was_aimed_at()
+    {
+        var confound = Card(
+            "Confound Test", "Counter target spell that targets a creature.", CardType.Instant);
+
+        var compiled = CardCompiler.Compile(confound);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var bolt = Card("Peer Bolt Test", "~ deals 3 damage to any target.");
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            bob, TestCards.Creature("Confound Bear Test", 5, 5), Zone.Battlefield);
+
+        // A bolt aimed at a player is not a spell that targets a creature, so the counterspell
+        // has no legal target for it. A counterspell that could hit anything is a strictly
+        // better card than the one printed, which is the failure this clause exists to avoid.
+        var atAPlayer = TestCards.PutInHand(game, alice, bolt);
+        var wrongAnswer = TestCards.PutInHand(game, bob, confound);
+        var missing = game.CastSpell(alice, atAPlayer, [Target.ToPlayer(bob)]);
+        game.PassPriority(alice);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, wrongAnswer, [Target.ToSpell(missing)]));
+
+        Settle(game);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+
+        // The same bolt aimed at a creature is one it may counter.
+        var atACreature = TestCards.PutInHand(game, alice, bolt);
+        var answer = TestCards.PutInHand(game, bob, confound);
+        var aimed = game.CastSpell(alice, atACreature, [Target.ToPermanent(bear)]);
+        game.PassPriority(alice);
+        game.CastSpell(bob, answer, [Target.ToSpell(aimed)]);
+        Settle(game);
+
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// A spell qualifier that was parsed and then dropped (CR 115.1).
+    /// </summary>
+    /// <remarks>
+    /// Found while measuring the row above, and a live bug rather than a gap. "Counter target
+    /// spell with mana value 4 or greater" compiled <em>complete</em>: the clause was lifted off
+    /// the phrase, checked against the qualifier grammar, and then thrown away, because the arm
+    /// that answers "spell" returned before anything applied it. Disdainful Stroke, Thoughtbind,
+    /// Liquify, Minor Misstep, Change the Equation, Hypnotic Sprite, Runescale Stormbrood and
+    /// Spell Queller were all shipped as unconditional counterspells, and nothing said so —
+    /// coverage counted them, and a card that is better than printed passes every gate this
+    /// project has except a test that plays it.
+    /// </remarks>
+    [Fact]
+    public void Counter_target_spell_with_mana_value_4_or_greater_leaves_a_cheap_one_alone()
+    {
+        var stroke = Card(
+            "Disdainful Stroke Test",
+            "Counter target spell with mana value 4 or greater.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(stroke);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var cheap = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Cheap Threat Test", "{G}", 1));
+        var dear = TestCards.PutInHand(
+            game, alice, TestCards.Costed("Costly Threat Test", "{4}{G}", 5));
+
+        game.AddMana(alice, ManaColor.Green, 1);
+
+        var refused = TestCards.PutInHand(game, bob, stroke);
+        var small = game.CastSpell(alice, cheap, []);
+        game.PassPriority(alice);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, refused, [Target.ToSpell(small)]));
+
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Cheap Threat Test");
+
+        // The same counterspell against the same player's five-drop, which is what it is for.
+        game.AddMana(alice, ManaColor.Green, 5);
+        var answer = TestCards.PutInHand(game, bob, stroke);
+        var big = game.CastSpell(alice, dear, []);
+        game.PassPriority(alice);
+        game.CastSpell(bob, answer, [Target.ToSpell(big)]);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Costly Threat Test");
     }
 
     // ---- Adventures (CR 715) -------------------------------------------------
