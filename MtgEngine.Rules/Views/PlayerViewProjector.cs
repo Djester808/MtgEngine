@@ -307,6 +307,7 @@ public static class PlayerViewProjector
                 // The definition already answers this, and to the rule: CR 605.1a requires
                 // that a mana ability take no target, which "it produces mana" alone misses.
                 IsManaAbility = a.IsManaAbility,
+                AnnouncesVariable = a.ManaCost.HasVariable,
                 Timing = a.Timing == ActivationTiming.AnyTime ? null : a.Timing.ToString(),
                 CostChoices = [.. a.ChosenCosts.Select(c => new CostChoiceView(
                     c.Kind.ToString(), c.Count, c.What?.Description))],

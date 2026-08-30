@@ -454,6 +454,12 @@ public static partial class CardCompiler
                 continue;
             }
 
+            if (FilterReadsUnannouncedX(card, line))
+            {
+                unhandled.Add(line);
+                continue;
+            }
+
             if (TryGiftLine(line, triggers, ref hasGift))
                 continue;
 
@@ -3059,6 +3065,50 @@ public static partial class CardCompiler
 
         return [.. names.OrderByDescending(name => name.Length)];
     }
+
+    /// <summary>
+    /// Whether a line filters on an X that nothing about it announces (CR 107.3, 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// "Target creature with mana value X or less" is only a card when there is an X to read.
+    /// It comes from exactly two places: <c>{X}</c> in the spell's own mana cost, which a
+    /// permanent then keeps for its own abilities (CR 607.2), and <c>{X}</c> in the activation
+    /// cost of the ability the line prints (CR 602.2b). Everywhere else the sentence defines its
+    /// own X and defines it as something this engine does not read - "where X is the number of
+    /// Faeries you control", "you may pay {X}. If you do, ..." - and five corpus cards say so.
+    /// <para>
+    /// Compiled without this the five would each be a card that reads, passes the deck gate and
+    /// then does nothing: X would settle at zero, "mana value 0 or less" would match no card in
+    /// any graveyard or library, and the spell would find nothing while reporting itself
+    /// complete. That is the failure this compiler treats as worse than an unread line, so the
+    /// line is refused instead - which is also the direction the runtime fails in, since a
+    /// <see cref="Abilities.TargetSpec.VariableFilter"/> asked without a value accepts nothing.
+    /// </para>
+    /// <para>
+    /// The activation cost is taken as the text before the first colon rather than parsed. A
+    /// line whose cost is genuinely an activation cost has its <c>{X}</c> there; one that has a
+    /// colon for another reason - a quoted granted ability - has the cost of the ability being
+    /// granted there, which is the ability the X belongs to either way.
+    /// </para>
+    /// </remarks>
+    private static bool FilterReadsUnannouncedX(CardDefinition card, string line)
+    {
+        if (!VariableFilterClause().IsMatch(line))
+            return false;
+
+        // An activated ability announces its own X and never inherits the one its card was cast
+        // for: CR 107.3 defines X by the cost being paid, and the two are different numbers on a
+        // permanent that was cast for one and then activated for another.
+        var colon = line.IndexOf(':', StringComparison.Ordinal);
+
+        return colon >= 0
+            ? !line[..colon].Contains("{X}", StringComparison.Ordinal)
+            : !card.ManaCostRaw.Contains("{X}", StringComparison.Ordinal);
+    }
+
+    /// <summary>A filter clause measured against X rather than against a printed number.</summary>
+    [GeneratedRegex(@"with (mana value|power|toughness) X\b", RegexOptions.None)]
+    private static partial Regex VariableFilterClause();
 
     public static IEnumerable<string> Lines(CardDefinition card)
     {

@@ -107,6 +107,35 @@ public sealed record TargetSpec
         init;
     }
 
+    /// <summary>
+    /// A further test that gets to see the value announced for X, or null.
+    /// </summary>
+    /// <remarks>
+    /// The fourth thing a filter can be about, and the one none of the others can say: "target
+    /// creature with mana value X or less" is a filter over a number that is not printed on the
+    /// card at all. X is chosen as the spell is cast or the ability activated (CR 601.2b,
+    /// 602.2b), so the compiler has no number to close over — the same shape
+    /// <see cref="VariableTargets"/> already answers for "how many targets", one question along.
+    /// <para>
+    /// The announced value is <em>nullable</em> at every call site and a spec carrying this
+    /// refuses when it is absent, which is the same decision <see cref="PeerFilter"/> makes and
+    /// is made for a sharper reason. A missing X defaulted to zero is not merely wrong: on "with
+    /// mana value X or greater" it admits the entire battlefield, and on "X or less" it admits
+    /// nothing and the card becomes uncastable. Neither is the printed card, so a caller that
+    /// cannot say what X is gets no targets rather than the wrong ones.
+    /// </para>
+    /// <para>
+    /// The compiler will only build one where the ability announces an X — <c>{X}</c> in the
+    /// spell's mana cost, or in the activation cost of the ability the line prints. "Where X is
+    /// the number of Faeries you control" names a different X entirely and is left unread.
+    /// </para>
+    /// </remarks>
+    public Func<GameState, IAbilitySource, GameObject, Guid, int, bool>? VariableFilter
+    {
+        get;
+        init;
+    }
+
     /// <summary>Which players qualify. Null accepts any player still in the game.</summary>
     public Func<GameState, Guid, Guid, bool>? PlayerFilter { get; init; }
 
@@ -174,13 +203,26 @@ public sealed record TargetSpec
         GameObject candidate,
         Guid controllerId,
         GameObject? source = null,
-        GameObject? peer = null)
+        GameObject? peer = null,
+        int? announced = null)
     {
         if (ObjectFilter?.Invoke(state, abilities, candidate, controllerId) == false)
             return false;
 
         if (SourceFilter?.Invoke(state, abilities, candidate, source, controllerId) == false)
             return false;
+
+        if (VariableFilter is { } variable)
+        {
+            // Fail closed. An unknown X is not zero: read that way "with mana value X or
+            // greater" would admit every permanent on the board, which is strictly better than
+            // the printed card and is the one class of error this compiler refuses outright.
+            if (announced is not { } chosen)
+                return false;
+
+            if (!variable(state, abilities, candidate, controllerId, chosen))
+                return false;
+        }
 
         if (PeerFilter is not { } comparison)
             return true;
@@ -204,13 +246,18 @@ public sealed record TargetSpec
     /// yet — so such a spec refuses every target rather than accepting every target, which is a
     /// card that cannot be cast instead of a card that does the wrong thing.
     /// </param>
+    /// <param name="announced">
+    /// The value chosen for X, when this is a spell or ability that announced one (CR 601.2b).
+    /// Null everywhere else, and a spec carrying a <see cref="VariableFilter"/> then refuses.
+    /// </param>
     public bool IsLegal(
         GameState state,
         IAbilitySource abilities,
         Target target,
         Guid controllerId,
         GameObject? source = null,
-        GameObject? peer = null)
+        GameObject? peer = null,
+        int? announced = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -292,7 +339,7 @@ public sealed record TargetSpec
             }
         }
 
-        return Accepts(state, abilities, obj, controllerId, source, peer);
+        return Accepts(state, abilities, obj, controllerId, source, peer, announced);
     }
 }
 
@@ -5220,7 +5267,7 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
         var affected = context.State.Battlefield
             .Where(id => What.Accepts(
                 context.State, context.Abilities, context.State.GetObject(id),
-                context.ControllerId, source, peer))
+                context.ControllerId, source, peer, context.VariableValue))
             .ToImmutableList();
 
         return affected.IsEmpty
@@ -5312,8 +5359,13 @@ public sealed record ToEachPermanent(
         foreach (var id in context.State.Battlefield)
         {
             var obj = context.State.GetObject(id);
+
+            // The announced X, for the sweepers whose filter is written around one: "destroy
+            // each nonland permanent with mana value X or less" finds its set as it resolves
+            // (CR 609.2) and the number it measures against was chosen as it was cast.
             if (!What.Accepts(
-                context.State, context.Abilities, obj, context.ControllerId, source, peer))
+                context.State, context.Abilities, obj, context.ControllerId, source, peer,
+                context.VariableValue))
             {
                 continue;
             }
@@ -5488,13 +5540,21 @@ public enum SearchWho
     SubjectController,
 }
 
+/// <remarks>
+/// The three mana-value bounds are <see cref="Amount"/>s rather than numbers so that "with mana
+/// value X or less" can be said at all: X is chosen as the spell is cast (CR 601.2b) and the
+/// compiled definition is shared by every casting of the card, so the bound cannot be a number
+/// until the effect resolves. What reaches the log still is one - <see cref="Resolve"/> settles
+/// each bound against the resolution before the event is emitted, which is what keeps a stored
+/// search replayable as the search it was.
+/// </remarks>
 public sealed record SearchLibrary(
     string FilterId,
     Zone Destination,
     bool Tapped = false,
-    int? MaxManaValue = null,
-    int? ExactManaValue = null,
-    int? MinManaValue = null,
+    Amount? MaxManaValue = null,
+    Amount? ExactManaValue = null,
+    Amount? MinManaValue = null,
     int Count = 1,
 
     /// <summary>
@@ -5540,8 +5600,8 @@ public sealed record SearchLibrary(
         return
         [
             new LibrarySearchRequested(
-                searcher, filter, Destination, Tapped, Count, MaxManaValue,
-                MinManaValue, ExactManaValue),
+                searcher, filter, Destination, Tapped, Count, MaxManaValue?.In(context),
+                MinManaValue?.In(context), ExactManaValue?.In(context)),
         ];
     }
 }
@@ -5579,9 +5639,9 @@ public sealed record Seek(
     Zone Destination = Zone.Hand,
     bool Tapped = false,
     int Count = 1,
-    int? MaxManaValue = null,
-    int? MinManaValue = null,
-    int? ExactManaValue = null) : IEffect
+    Amount? MaxManaValue = null,
+    Amount? MinManaValue = null,
+    Amount? ExactManaValue = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -5601,7 +5661,8 @@ public sealed record Seek(
         [
             new SeekRequested(
                 context.ControllerId, filter, Destination, Tapped, Count,
-                MaxManaValue, MinManaValue, ExactManaValue),
+                MaxManaValue?.In(context), MinManaValue?.In(context),
+                ExactManaValue?.In(context)),
         ];
     }
 }

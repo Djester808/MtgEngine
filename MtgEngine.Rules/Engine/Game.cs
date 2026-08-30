@@ -1270,7 +1270,7 @@ public sealed class Game
         specs = VariableTargets.ExpandSpecs(specs, chosen.Count);
 
         // CR 601.2c: targets are chosen as the spell is cast, and they have to be legal now.
-        RequireLegalTargets(specs, chosen, playerId, card.Card.Name, card);
+        RequireLegalTargets(specs, chosen, playerId, card.Card.Name, card, variableValue);
 
         // CR 601.2h: the cost is paid last, and a spell whose cost cannot be paid is not cast at
         // all — the game rewinds rather than leaving it half-cast (CR 601.2i, 733).
@@ -2193,7 +2193,8 @@ public sealed class Game
         var chosen = MatchChosenCosts(ability.ChosenCosts, playerId, sourceId, costPayment);
 
         var chosenTargets = (targets ?? []).ToImmutableList();
-        RequireLegalTargets(ability.Targets, chosenTargets, playerId, ability.Text, source);
+        RequireLegalTargets(
+            ability.Targets, chosenTargets, playerId, ability.Text, source, variableValue);
 
         // CR 602.2b: an activated ability's activation cost is the analogue of a spell's mana
         // cost, so CR 601.2f's increases and reductions apply to it in the same way. This is the
@@ -2209,7 +2210,12 @@ public sealed class Game
                 sourceId,
                 ability.IsManaAbility));
 
-        PayMana(playerId, activationCost, spend: ManaSpend.Activating(source.Card));
+        // The announced X is handed to the payment, not only to the cost checks above. An
+        // activation cost may contain {X} the way a spell's mana cost can (CR 602.2b), and
+        // without this "{X}, {T}: search for a card with mana value X or less" charged nothing
+        // at all - a free tutor for as much as its controller cared to name.
+        PayMana(
+            playerId, activationCost, variableValue, spend: ManaSpend.Activating(source.Card));
 
         if (ability.LifeCost > 0)
         {
@@ -2365,10 +2371,16 @@ public sealed class Game
             // and it is the same question here - so station reads its counters from it rather
             // than from a second field that would mean the same thing on a different day.
             SubjectAmount = powerTapped > 0 ? powerTapped : null,
+
+            // The X this activation announced, so the ability resolves knowing it. It is on the
+            // ability's own object because that is what resolves (CR 113.7a): read off the
+            // permanent instead, the number would be whatever the permanent was cast for, which
+            // is a different X entirely.
+            VariableValue = variableValue,
         });
 
         if (!chosenTargets.IsEmpty)
-            Emit(new TargetsChosen(stackId, chosenTargets, 0));
+            Emit(new TargetsChosen(stackId, chosenTargets, variableValue));
 
         SettleBeforePriority();
         Emit(new PriorityGranted(playerId));
@@ -2643,12 +2655,19 @@ public sealed class Game
     }
 
     /// <summary>Checks that targets match the specs and are legal right now (CR 601.2c).</summary>
+    /// <param name="announced">
+    /// The value chosen for X (CR 601.2b). It is announced <em>before</em> targets are chosen, so
+    /// a filter written around it - "target creature with mana value X or less" - has its number
+    /// by the time this runs. It is not on the stack object yet, which is why it is passed rather
+    /// than read: the object is not built until the cast is known to be legal.
+    /// </param>
     private void RequireLegalTargets(
         ImmutableList<TargetSpec> specs,
         ImmutableList<Target> chosen,
         Guid playerId,
         string what,
-        GameObject? source = null)
+        GameObject? source = null,
+        int announced = 0)
     {
         // CR 601.2c: "up to" targets may be left unchosen, so the count is a range rather than
         // a number. The optional ones are the trailing block — a card never asks for an optional
@@ -2666,7 +2685,7 @@ public sealed class Game
 
         for (var i = 0; i < chosen.Count; i++)
         {
-            if (!specs[i].IsLegal(State, _abilities, chosen[i], playerId, source))
+            if (!specs[i].IsLegal(State, _abilities, chosen[i], playerId, source, announced: announced))
                 throw new InvalidOperationException($"Illegal target: {specs[i].Description}.");
         }
     }
@@ -8030,8 +8049,13 @@ public sealed class Game
         return null;
     }
 
+    /// <param name="announced">
+    /// The X the asking object was cast for, for a filter written around one (CR 607.2). Null
+    /// where nothing announced one, and a spec that reads X then offers nothing rather than
+    /// measuring against a zero nobody chose.
+    /// </param>
     private List<(string Id, string Label, Target Target)> LegalTargetsFor(
-        TargetSpec spec, Guid controllerId, GameObject? source = null)
+        TargetSpec spec, Guid controllerId, GameObject? source = null, int? announced = null)
     {
         var options = new List<(string, string, Target)>();
 
@@ -8040,7 +8064,8 @@ public sealed class Game
             foreach (var playerId in State.TurnOrder)
             {
                 var target = Target.ToPlayer(playerId);
-                if (spec.IsLegal(State, _abilities, target, controllerId, source))
+                if (spec.IsLegal(
+                        State, _abilities, target, controllerId, source, announced: announced))
                 {
                     options.Add((
                         "player:" + playerId.ToString("N"),
@@ -8068,7 +8093,8 @@ public sealed class Game
                     _ => Target.ToPermanent(id),
                 };
 
-                if (spec.IsLegal(State, _abilities, target, controllerId, source))
+                if (spec.IsLegal(
+                        State, _abilities, target, controllerId, source, announced: announced))
                 {
                     // The prefix carries which kind of target this is, because the option id is
                     // all that survives the question — the Target built here is thrown away when
@@ -8839,8 +8865,14 @@ public sealed class Game
                         // the trigger's subject, and a permanent carries no such thing. Offering
                         // the permanent meant the filter found no subject, refused every option,
                         // and the ability was removed for having no legal target.
+                        // The X the source was cast for, so "target ... with mana value X or
+                        // less" on a permanent's own trigger measures against the value
+                        // announced for the spell that became it (CR 607.2).
                         var options = LegalTargetsFor(
-                            spec, trigger.ControllerId, AsPendingAbility(trigger));
+                            spec,
+                            trigger.ControllerId,
+                            AsPendingAbility(trigger),
+                            SourceNow(trigger.SourceId)?.VariableValue);
 
                         // CR 603.3d: an ability that needs a target and has none legal is
                         // removed from the stack — it never goes on it at all.
@@ -8881,6 +8913,7 @@ public sealed class Game
                         SubjectPlayer = trigger.SubjectPlayer,
                         SubjectObject = trigger.SubjectObject,
                         SubjectAmount = trigger.SubjectAmount,
+                        VariableValue = SourceNow(trigger.SourceId)?.VariableValue ?? 0,
                     });
                     _triggerTargets.Remove(key);
                     _triggerModes.Remove(modeKey);
@@ -8899,6 +8932,7 @@ public sealed class Game
                     SubjectPlayer = trigger.SubjectPlayer,
                     SubjectObject = trigger.SubjectObject,
                     SubjectAmount = trigger.SubjectAmount,
+                    VariableValue = SourceNow(trigger.SourceId)?.VariableValue ?? 0,
                 });
 
                 _triggerModes.Remove(modeKey);
@@ -11045,7 +11079,13 @@ public sealed class Game
 
         var index = specs.Count;
         return index < spell.Targets.Count
-            && merging.IsLegal(State, _abilities, spell.Targets[index], spell.ControllerId, spell);
+            && merging.IsLegal(
+                State,
+                _abilities,
+                spell.Targets[index],
+                spell.ControllerId,
+                spell,
+                announced: spell.VariableValue);
     }
 
     /// <summary>
@@ -11071,8 +11111,18 @@ public sealed class Game
         {
             // CR 608.2b: a spell fizzles only if *every* target is illegal by the time it
             // resolves, and protection acquired in between is one of the ways that happens.
-            if (specs[i].IsLegal(State, _abilities, spell.Targets[i], spell.ControllerId, spell))
+            // The X it was cast for rides on the object (CR 601.2b), so a filter written around
+            // one asks the same question here that it was asked as the target was chosen.
+            if (specs[i].IsLegal(
+                    State,
+                    _abilities,
+                    spell.Targets[i],
+                    spell.ControllerId,
+                    spell,
+                    announced: spell.VariableValue))
+            {
                 return true;
+            }
         }
 
         return false;

@@ -489,6 +489,107 @@ cheaper of the two.
 
 Coverage is **50.5% of playable cards fully read** (16,507 of 32,717), 67.3% of lines.
 
+### Round fourteen: X inside a filter, and the four places it comes from
+
+A filter is a predicate the compiler closes over, and **"target creature with mana value X or
+less" has no number to close over**: X is chosen as the spell is cast (CR 601.2b). `TargetSpec`
+was three delegates over a printed card, `SearchLibrary`'s bounds were `int?`, and neither had
+anywhere to put a number that is only known at the moment of casting. That is why the family had
+been declined twice, and the decline recorded further down this file was right about the danger
+while wrong about the reason: it said "the cast-time filter check runs before the chosen X is
+recorded", and in fact `CastSpell` has the announced value in scope the whole time - it simply
+never handed it to anything.
+
+**+22 cards, none lost** (16,505 → 16,527, by set difference on a rebuilt baseline).
+
+**Measured before it was built, and the measurement decided the shape.** 201 corpus cards carry
+an X inside a filter clause and all 201 are unread; 154 of them are one line short. A
+substitution probe swapping the clause for a printed equivalent says **+21 for `mana value X or
+less` alone and +27 for the whole clause**, `power X or less` and `toughness X or less` beside
+it. Five of that 27 are refused deliberately - see below - which is where +22 comes from.
+
+The same probe answered the two neighbouring questions and answered both **no**:
+
+- **X in a cost blocks no card.** Substituting `{X}` for `{2}` across the corpus is **+0 / -3**:
+  the symbol, the payment (`ManaPayment.Pay` takes the announced value) and the wire
+  (`GameHub.ActivateAbility`'s positional `variableValue`) were all already there, so nothing is
+  left unread for want of one. It was still *wrong* - `ActivateAbility` never handed the number
+  to `PayMana`, so an activation cost of `{X}` charged nothing - which is the difference between
+  a coverage gap and a behaviour bug, and only the second kind was there.
+- **X in an amount was never the gap either.** `Amount.X` has read
+  `ResolutionContext.VariableValue` since that type existed. Substituting a bare `X` for `2`
+  everywhere is **+66 / -171** - net *negative*, because the amount reader already does better
+  than a literal would. Of that +66, 27 are this family; the rest are other shapes entirely.
+
+  So the three rows that were declined together are one row. Only the filter needed anything.
+
+**The mechanism is a fourth thing a filter can be about.** `TargetSpec` already carried three
+delegates - the candidate, the source, a sibling target - and `VariableFilter` is the fourth,
+taking the announced X. `Accepts` and `IsLegal` gained a nullable `announced`, and every reader
+that has one passes it: the cast (CR 601.2c), the activation (CR 602.2b), the resolution re-check
+(CR 608.2b), the sweeper finding its set (CR 609.2), and the list of targets a trigger is offered.
+
+**A missing X is refused, not defaulted, and the reason is sharper than fail-closed by habit.**
+Read as zero, the *same clause* breaks in both directions: "X or greater" admits the whole
+battlefield and "X or less" admits nothing. Neither is the printed card, so a caller that cannot
+say what X is gets no legal target - the decision `PeerFilter` already makes, made again.
+
+**The search bound is not a delegate at all.** A library search has to read back out of a log, so
+its bounds travel in the event as numbers. They became `Amount`s on the *effect*, which is this
+engine's existing answer to "a number not known until the spell is cast", and `Resolve` settles
+each against the resolution before emitting. Nothing downstream of the event knows X exists.
+
+**Three things were carrying zero and had to be taught to carry the value:**
+
+- **An activation cost of `{X}` charged nothing.** `ActivateAbility` had taken an announced number
+  since "remove any number of counters", and never passed it to `PayMana` - so `{X}, {T}: search
+  your library for a card with mana value X or less` would have been a free tutor for as much as
+  its controller cared to name. Six of the 22 cards are activated abilities.
+- **An activated ability reached the stack with `VariableValue` zero**, and its `TargetsChosen`
+  said zero outright, so the filter would have measured against nothing as it resolved.
+- **A triggered ability reached the stack with nothing.** The permanent keeps what its spell
+  announced (CR 607.2) and has since ravenous, but the ability is its own object (CR 113.7a);
+  its targets would have been chosen against the right number and re-checked against zero, so it
+  fizzled every time while the card looked implemented.
+
+**The gate is what makes this honest, and it costs five cards.** X in a filter is only a card when
+something announces one, and it comes from exactly two places: `{X}` in the spell's mana cost -
+which a permanent then keeps for its own abilities - and `{X}` in the activation cost of the
+ability the line prints. An activated ability announces **its own** X and never inherits its
+card's, because CR 107.3 defines X by the cost being paid and a permanent cast for one value and
+activated for another has two.
+
+Everywhere else the sentence defines a different X in words this engine does not read, and five
+corpus cards do exactly that: **Spellstutter Sprite** and **Unforgiving One** ("where X is the
+number of Faeries/modified creatures you control"), **Go-Shintai of Hidden Cruelty** and
+**Invasion of Lorwyn** (the same, counted differently), and **Taj-Nar Swordsmith**, whose X is
+paid in the middle of a resolution. Compiled anyway, each would settle at zero, match nothing in
+any zone, and report itself complete - a card that passes the deck gate and does nothing, which
+is worse than an unread line. They stay unread. The probe was *wrong by 5 in the optimistic
+direction* until the gate existed, which is the substitution probe's own known weakness: it
+answers "if this clause read" and not "if this clause read *correctly*".
+
+**Still declined, with counts.** 179 of the 201 remain unread, and apart from the five the gate
+refuses, none of them is held back by the filter clause any more:
+
+- **`with mana value X` exactly** (2 sole blockers, e.g. "Counter target spell with mana value X"),
+  where the qualifier grammar reads only "or less"/"or greater". An exact match is a different
+  comparison and one line, not a family.
+- **"exile the top X cards ... you may cast a spell with mana value X or less from among them"**
+  (about 8 lines, each unique) - a play-from-exile permission, which is a different capability.
+- **`where X is <a count>` as a filter** - the five above plus a long tail. Reading them needs the
+  counted-amount vocabulary to reach a *filter* rather than an amount, which is a real family and
+  a separate piece of work.
+- The remainder are each one-off sentences whose blocker is beside the X, not the X.
+
+**And the board is told which abilities want a number.** `AbilityView.AnnouncesVariable` is the
+same courtesy `CostChoices` is, one cost along: the announcement travels *with* the activation,
+so an ability whose cost is `{X}` cannot be activated by clicking it, and a board that offered it
+as a plain button would send an X of zero - which on "search your library for a card with mana
+value X or less" is a search that finds nothing. The hub has carried `variableValue` positionally
+since it was added; only the view could not say which abilities want one, which would have left
+six of these 22 cards implemented and unreachable.
+
 ### Round thirteen: past half, and what a sweep is for
 
 The named families were gone, so this round sliced the work queue by rank and gave four agents
@@ -1464,9 +1565,11 @@ Recorded so the next pass does not re-spend the cycle. Each was probed or swept,
   is folded into `CostModifier` rather than sitting beside it, because `Game` reads both lists and
   a card emitting both would be discounted twice.
 - **`X target <noun>`** (55 cards) — a variable *number of targets* chosen as the spell is cast
-  (CR 601.2c), while `SpellDefinition.Targets` is a fixed list. **`mana value X or less`** (66) is
-  worse than unread if guessed: the cast-time filter check runs *before* the chosen X is recorded,
-  so any targeted form would become uncastable.
+  (CR 601.2c), while `SpellDefinition.Targets` is a fixed list. ~~**`mana value X or less`**~~ —
+  **now built** (round fourteen, above). The decline was right that a guessed reading is worse
+  than none and wrong about the mechanism: `CastSpell` has the announced X in scope throughout
+  and simply never handed it to a filter. What it needed was a fourth delegate on `TargetSpec`
+  and a refusal where no value was announced.
 - **`at random`** (36 cards) — randomness reaches an effect only through an event the `Game` handles.
 - **`destroy it at end of combat`** (4 cards) — the delayed vocabulary defaults an unknown verb to
   *sacrifice*, and sacrificing is not destroying (CR 701.21a): regeneration and indestructible

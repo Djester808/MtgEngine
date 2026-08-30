@@ -283,6 +283,19 @@ public sealed record AbilityView
     public bool IsManaAbility { get; init; }
 
     /// <summary>
+    /// Whether its cost contains {X}, so the board asks for a number first (CR 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The same courtesy <see cref="CostChoices"/> is, one cost along: the announcement travels
+    /// <em>with</em> the activation, so an ability whose cost is <c>{X}</c> cannot be activated
+    /// by clicking it, and a board that offered it as a plain button would send an X of zero -
+    /// which on "search your library for a card with mana value X or less" is a search that
+    /// finds nothing at all. The hub has carried the value positionally since it was added; only
+    /// the view could not say which abilities want one.
+    /// </remarks>
+    public bool AnnouncesVariable { get; init; }
+
+    /// <summary>
     /// A printed timing restriction, as the enum name (CR 602.5d). Absent means any time.
     /// </summary>
     /// <remarks>

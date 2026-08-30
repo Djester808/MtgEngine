@@ -2352,6 +2352,22 @@ public sealed record TriggerPutOnStack(
     public ObjectId? SubjectObject { get; init; }
 
     /// <summary>
+    /// The X its source was cast for, for an ability written around one (CR 607.2).
+    /// </summary>
+    /// <remarks>
+    /// A permanent keeps the value announced for the spell that became it, and an ability of
+    /// that permanent referring to X means that value. The ability is its own object on the
+    /// stack (CR 113.7a) and the permanent it came from may be gone by the time it resolves, so
+    /// the number is copied onto the ability as it goes on the stack rather than looked up
+    /// again - which is the same reason the triggering event's subject travels here.
+    /// <para>
+    /// Zero for everything else, which is nearly every trigger: CR 107.3g puts X at zero
+    /// wherever it was not announced, and a permanent that was never cast never announced one.
+    /// </para>
+    /// </remarks>
+    public int VariableValue { get; init; }
+
+    /// <summary>
     /// How much the event was about, for a trigger that says "that many" (CR 603.2).
     /// </summary>
     /// <remarks>

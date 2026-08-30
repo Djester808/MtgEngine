@@ -1286,6 +1286,10 @@ public static class GameReducer
             Timestamp = timestamp,
             Targets = e.Targets,
             ChosenModes = e.Modes,
+
+            // CR 607.2: the X its source was cast for, so a target filter written around one is
+            // asked the same question on resolution that it was asked as the target was chosen.
+            VariableValue = e.VariableValue,
             Ability = new AbilityOnStack
             {
                 SourceId = e.SourceId,
