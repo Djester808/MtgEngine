@@ -79,6 +79,7 @@ public static class EventLogSerializer
             ["CardManifested"] = typeof(CardManifested),
             ["ConniveRequested"] = typeof(ConniveRequested),
             ["ManifestDreadRequested"] = typeof(ManifestDreadRequested),
+            ["TouchedChoiceRequested"] = typeof(TouchedChoiceRequested),
             ["PopulateRequested"] = typeof(PopulateRequested),
             ["ExploitRequested"] = typeof(ExploitRequested),
             ["SoulbondPairRequested"] = typeof(SoulbondPairRequested),

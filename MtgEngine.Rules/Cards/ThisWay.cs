@@ -16,6 +16,13 @@ namespace MtgEngine.Rules.Cards;
 /// grammar would be the vocabulary restated three times, which is the mistake this codebase has
 /// paid for four times over.
 /// <para>
+/// The set and the member are the same phrase again, in a position where the cards themselves are
+/// the object of a verb rather than a number: "put a permanent card from among the cards milled
+/// this way into your hand". They read through <see cref="Set"/>, which folds the "from among"
+/// wording away and hands the rest to the same reader — the noun and the participle are printed
+/// in two places on those cards and mean one thing.
+/// </para>
+/// <para>
 /// <b>The verb list is the fail-closed guard, and it is short on purpose.</b> The engine defers
 /// every question a player has to answer until after the resolution is over, so the events behind
 /// "cards revealed this way", "cards you discarded this way" and "creatures sacrificed this way"
@@ -23,6 +30,14 @@ namespace MtgEngine.Rules.Cards;
 /// would compile a card whose second half asks an empty record, answers nought, and does nothing —
 /// for ever, silently, on a card that coverage counts as complete. They are refused here instead,
 /// and the measurement of what that costs is in GAME_ENGINE_FEATURE.md.
+/// </para>
+/// <para>
+/// <b>The same guard bites the set as an object, one step further on.</b> Which card to take is
+/// itself a question, so the take happens at the settle after the resolution — which means a
+/// sentence asking about <em>the take</em> is asking about an event that has not happened. Cache
+/// Grab prints exactly that ("if you ... returned a Squirrel card to your hand this way") and is
+/// left unread for it, while Sparring Dummy's second sentence asks about the mill instead and is
+/// answerable. The difference is one word, and nothing downstream could tell the two apart.
 /// </para>
 /// </remarks>
 internal static partial class ThisWay
@@ -46,7 +61,7 @@ internal static partial class ThisWay
             return null;
 
         var text = Normalise(phrase);
-        if (!text.EndsWith(" this way", StringComparison.Ordinal))
+        if (!text.EndsWith(" this way", StringComparison.OrdinalIgnoreCase))
             return null;
 
         text = text[..^" this way".Length].Trim();
@@ -56,12 +71,31 @@ internal static partial class ThisWay
         // board-counting vocabulary next door.
         foreach (var article in new[] { "each ", "all ", "the ", "every " })
         {
-            if (text.StartsWith(article, StringComparison.Ordinal))
+            if (text.StartsWith(article, StringComparison.OrdinalIgnoreCase))
                 text = text[article.Length..].Trim();
         }
 
         return Read(text);
     }
+
+    /// <summary>
+    /// The same phrase where the cards are the object of a verb — "a permanent card from among
+    /// the cards milled this way".
+    /// </summary>
+    /// <remarks>
+    /// The noun and the participle are printed either side of an interposed phrase on half of
+    /// this family and next to each other on the other half — "a land card milled this way"
+    /// against "a permanent card from among the cards milled this way" — and they mean the same
+    /// thing. So the interposition is folded away and the result goes to the reader every other
+    /// grammar uses, rather than a second reader learning the same nouns.
+    /// <para>
+    /// Only "from among the cards &lt;participle&gt; this way" is folded. "From among them" names
+    /// a set some earlier sentence looked at rather than one this resolution recorded, and is left
+    /// alone so that the caller refuses the sentence.
+    /// </para>
+    /// </remarks>
+    internal static TouchFilter? Set(string phrase) =>
+        phrase is null ? null : Counted(FromAmong().Replace(Normalise(phrase), " "));
 
     /// <summary>
     /// A condition — "a creature card is exiled this way" — with how many it takes to satisfy it.
@@ -78,7 +112,7 @@ internal static partial class ThisWay
             return null;
 
         var text = Normalise(clause);
-        if (!text.EndsWith(" this way", StringComparison.Ordinal))
+        if (!text.EndsWith(" this way", StringComparison.OrdinalIgnoreCase))
             return null;
 
         text = text[..^" this way".Length].Trim();
@@ -116,7 +150,7 @@ internal static partial class ThisWay
         // spelled back into "drawn" rather than given an entry of its own in the verb table -
         // one table, asked twice, cannot drift from itself.
         var verb = active.Groups["verb"].Value;
-        verb = verb.Equals("drew", StringComparison.Ordinal) ? "drawn" : verb;
+        verb = verb.Equals("drew", StringComparison.OrdinalIgnoreCase) ? "drawn" : verb;
 
         var found = Read(active.Groups["noun"].Value + " " + verb);
 
@@ -124,7 +158,7 @@ internal static partial class ThisWay
     }
 
     /// <summary>How many of the thing the clause's opening words demand.</summary>
-    private static int Threshold(string many) => many.Trim() switch
+    private static int Threshold(string many) => many.Trim().ToLowerInvariant() switch
     {
         "two or more" => 2,
         "three or more" => 3,
@@ -146,11 +180,11 @@ internal static partial class ThisWay
         // front of it is the one word that narrows what is counted.
         foreach (var joiner in new[] { " that was", " that were", " that" })
         {
-            if (text.EndsWith(joiner, StringComparison.Ordinal))
+            if (text.EndsWith(joiner, StringComparison.OrdinalIgnoreCase))
                 text = text[..^joiner.Length].TrimEnd();
         }
 
-        if (text.EndsWith(" you controlled", StringComparison.Ordinal))
+        if (text.EndsWith(" you controlled", StringComparison.OrdinalIgnoreCase))
         {
             yours = true;
             text = text[..^" you controlled".Length].TrimEnd();
@@ -176,7 +210,7 @@ internal static partial class ThisWay
     {
         foreach (var (participle, verb) in Participles)
         {
-            if (!phrase.EndsWith(participle, StringComparison.Ordinal))
+            if (!phrase.EndsWith(participle, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var head = phrase[..^participle.Length].TrimEnd();
@@ -224,7 +258,7 @@ internal static partial class ThisWay
         (" died", TouchVerb.Died),
     ];
 
-    /// <summary>Reads the noun in front of the participle into the filter's types, or null.</summary>
+    /// <summary>Reads the noun in front of the participle into the filter's nouns, or null.</summary>
     /// <remarks>
     /// The type words come from <c>EffectPhrase.TypesOfCardNoun</c>, which is the same two-table
     /// lookup the pile counter uses — a permanent table for the compounds and a graveyard table
@@ -259,101 +293,191 @@ internal static partial class ThisWay
         // "Card" on its own names any card at all, and it is also the word every type noun is
         // written in front of - "creature card" is a creature. Stripping it once leaves the type
         // word, or leaves nothing, and nothing means anything.
-        if (text.EndsWith(" card", StringComparison.Ordinal))
-            text = text[..^" card".Length].TrimEnd();
-        else if (text.Equals("card", StringComparison.Ordinal))
+        if (text.Equals("card", StringComparison.OrdinalIgnoreCase))
             text = string.Empty;
+        else if (text.EndsWith(" card", StringComparison.OrdinalIgnoreCase))
+            text = text[..^" card".Length].TrimEnd();
 
         if (text.Length == 0)
             return filter with { Excluded = excluded.ToImmutable() };
 
-        var alternatives = ImmutableList.CreateBuilder<ImmutableArray<CardType>>();
+        // "A permanent card from among the cards milled this way". CR 110.4a lists six permanent
+        // card types and the shared type table spells the word as an *empty* list of demands -
+        // which admits every card there is, instants included, because nothing is being asked.
+        // Read as the exclusion it actually is, through the negation the filter already has,
+        // rather than as a seventh mask restated here beside the two the engine already keeps.
+        // Only as the whole noun: inside an alternation the exclusion would silently narrow the
+        // other alternatives too, so there it falls through and the phrase goes unread.
+        if (text.Equals("permanent", StringComparison.OrdinalIgnoreCase))
+        {
+            excluded.Add(CardType.Instant);
+            excluded.Add(CardType.Sorcery);
+            return filter with { Excluded = excluded.ToImmutable() };
+        }
+
+        var alternatives = ImmutableList.CreateBuilder<TouchNoun>();
 
         // "Artifact or land card" is either, which is how the pile counter reads the same words.
         // Juxtaposition is the opposite - "artifact creature card" is both - and the type table
         // answers those compounds itself.
         foreach (var part in OrJoin().Split(text))
         {
-            var word = Singular(part.Trim());
-            if (word.EndsWith(" card", StringComparison.Ordinal))
-                word = word[..^" card".Length].TrimEnd();
-
-            if (word.Length == 0)
+            if (Alternative(part) is not { } alternative)
                 return null;
 
-            if (EffectPhrase.TypesOfCardNoun(word) is not { } types)
-                return null;
-
-            alternatives.Add([.. types]);
+            alternatives.Add(alternative);
         }
 
         return filter with
         {
-            Types = alternatives.ToImmutable(),
+            Nouns = alternatives.ToImmutable(),
             Excluded = excluded.ToImmutable(),
         };
     }
 
+    /// <summary>
+    /// One alternative of the noun — its card types and at most one subtype (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// A capitalised word is a subtype, which is how every other reader in this compiler tells
+    /// one from an adjective. The type table is asked <em>first</em>, because a sentence may
+    /// begin with the noun and put a capital on a word that is a card type: "Creature cards
+    /// milled this way" read the other way round would demand the Creature subtype, which no card
+    /// in the game has, and the card would quietly do nothing.
+    /// <para>
+    /// Which card type the subtype belongs to comes from the shared table rather than being
+    /// assumed to be creature, for the reason written up beside that table: "Equipment" asked as
+    /// a creature type matches nothing and reports itself understood.
+    /// </para>
+    /// </remarks>
+    private static TouchNoun? Alternative(string part)
+    {
+        var word = Singular(part.Trim());
+
+        if (word.EndsWith(" card", StringComparison.OrdinalIgnoreCase))
+            word = word[..^" card".Length].TrimEnd();
+
+        if (word.Length == 0)
+            return null;
+
+        string? subtype = null;
+        var rest = new List<string>();
+
+        foreach (var piece in word.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (piece.Length > 1
+                && char.IsUpper(piece[0])
+                && EffectPhrase.TypesOfCardNoun(Singular(piece).ToLowerInvariant()) is null)
+            {
+                // Two capitalised words is a noun this cannot read - "Zombie Wizard card" wants
+                // both subtypes and one slot holds one. Refused rather than taking the first.
+                if (subtype is not null)
+                    return null;
+
+                subtype = piece;
+                continue;
+            }
+
+            rest.Add(piece.ToLowerInvariant());
+        }
+
+        if (subtype is null)
+        {
+            // The whole noun in one lookup, because the table answers compounds - "artifact
+            // creature" is one entry and not two words to be intersected here.
+            return EffectPhrase.TypesOfCardNoun(word.ToLowerInvariant()) is { Count: > 0 } types
+                ? new TouchNoun { Types = [.. types] }
+                : null;
+        }
+
+        if (rest.Count == 0)
+            return new TouchNoun
+            {
+                Types = [EffectPhrase.SubtypeSetOf(subtype)],
+                Subtype = subtype,
+            };
+
+        return EffectPhrase.TypesOfCardNoun(string.Join(' ', rest)) is { Count: > 0 } narrowed
+            ? new TouchNoun { Types = [.. narrowed], Subtype = subtype }
+            : null;
+    }
+
     /// <summary>One card-type word, for the negated form in front of a noun.</summary>
     private static CardType? TypeWord(string word) =>
-        EffectPhrase.TypesOfCardNoun(Singular(word.Trim())) is [var only] ? only : null;
+        EffectPhrase.TypesOfCardNoun(Singular(word.Trim()).ToLowerInvariant()) is [var only]
+            ? only
+            : null;
 
     /// <summary>The singular of a noun this reader might be handed.</summary>
     /// <remarks>
-    /// Only the "-s" strip, because every noun that reaches here is a card type or the word
-    /// "card": there is no creature-type vocabulary in this phrase to need the irregular table
-    /// the target grammar keeps.
+    /// Only the "-s" strip, because every noun that reaches here is a card type, a subtype or the
+    /// word "card": there is no irregular-plural vocabulary in this phrase to need the table the
+    /// target grammar keeps.
     /// </remarks>
     private static string Singular(string word) =>
-        word.EndsWith('s') && !word.EndsWith("ss", StringComparison.Ordinal)
+        word.EndsWith('s') && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase)
             ? word[..^1]
             : word;
 
-    /// <summary>Lower-cased, with the printed spacing collapsed, so every table reads alike.</summary>
+    /// <summary>
+    /// The printed spacing collapsed, so every table reads alike.
+    /// </summary>
+    /// <remarks>
+    /// Case is deliberately <em>kept</em>. It is the only thing on the page that separates a
+    /// subtype from an adjective — "Desert" from "land", "Lesson" from "instant" — and the
+    /// comparisons below all ask for it to be ignored where it does not matter. Lower-casing here
+    /// was what made the subtypes unreadable, and it made them unreadable in a way that looked
+    /// like a missing vocabulary rather than a missing distinction.
+    /// </remarks>
     private static string Normalise(string phrase) =>
-        RepeatedSpace()
-            .Replace(phrase.Replace('’', '\'').Trim(), " ")
-            .ToLowerInvariant();
+        RepeatedSpace().Replace(phrase.Replace('\u2019', '\'').Trim(), " ");
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex RepeatedSpace();
 
-    [GeneratedRegex(@"^non-?(?<type>[a-z]+)\b", RegexOptions.CultureInvariant)]
+    /// <summary>"... from among the cards milled this way" — the noun and its set, interposed.</summary>
+    [GeneratedRegex(
+        @"\s+from among (the |those )?cards?\s+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FromAmong();
+
+    [GeneratedRegex(
+        @"^non-?(?<type>[A-Za-z]+)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex NegatedType();
 
-    [GeneratedRegex(@"\s+or\s+", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\s+or\s+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex OrJoin();
 
     /// <summary>A possessive naming somebody other than the resolution's own controller.</summary>
     [GeneratedRegex(
         @"\b(they|that player|an opponent|each player|its owner|their owner) (controlled|owned)$",
-        RegexOptions.CultureInvariant)]
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex OtherPossessive();
 
     /// <summary>A clause comparing the things with each other rather than counting them.</summary>
     [GeneratedRegex(
         @"\b(that share|sharing|with the (greatest|least|highest|lowest)|of the chosen"
             + @"|among (them|the cards)|named)\b",
-        RegexOptions.CultureInvariant)]
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex RelationClause();
 
     /// <summary>A clause whose subject is one particular object the sentence already named.</summary>
     [GeneratedRegex(
-        @"^(it|they|that|those|this|these)\b", RegexOptions.CultureInvariant)]
+        @"^(it|they|that|those|this|these)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PronounSubject();
 
     /// <summary>"A creature card is exiled", "at least one land card was milled".</summary>
     [GeneratedRegex(
         @"^(?<many>an?|at least one|one or more|two or more|three or more|another) "
-            + @"(?<noun>[a-z' -]+?) (is|are|was|were) (?<verb>[a-z' ]+)$",
-        RegexOptions.CultureInvariant)]
+            + @"(?<noun>[A-Za-z' -]+?) (is|are|was|were) (?<verb>[A-Za-z' ]+)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PassiveClause();
 
     /// <summary>"You exiled a land card", the same fact with the actor in front.</summary>
     [GeneratedRegex(
         @"^you (?<verb>exiled|milled|destroyed|returned|drew) "
             + @"(?<many>an?|at least one|one or more|two or more|three or more) "
-            + @"(?<noun>[a-z' -]+)$",
-        RegexOptions.CultureInvariant)]
+            + @"(?<noun>[A-Za-z' -]+)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ActiveClause();
 }

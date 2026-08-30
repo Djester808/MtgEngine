@@ -3937,6 +3937,13 @@ public sealed class Game
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
                 break;
 
+            case ChoiceKind.TakeFromTouched:
+                ResolveTouchedChoice(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
             case ChoiceKind.Connive:
                 ResolveConnive(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
@@ -4758,6 +4765,9 @@ public sealed class Game
     private readonly List<CreatureTypeChoiceRequested> _creatureTypeChoicesOwed = [];
     private readonly List<ConniveRequested> _connivesOwed = [];
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
+
+    /// <summary>Picks from what a resolution touched, owed until the next settle (CR 608.2c).</summary>
+    private readonly List<TouchedChoiceRequested> _touchedChoicesOwed = [];
     private readonly List<PopulateRequested> _populatesOwed = [];
     private readonly List<ExploitRequested> _exploitsOwed = [];
 
@@ -7046,6 +7056,91 @@ public sealed class Game
             // is the whole of the rest and not only the second card.
             Emit(new ObjectMoved(
                 id, ObjectId.New(), Zone.Library, Zone.Graveyard, owed.ChooserId, MoveCause.Mill));
+        }
+    }
+
+    private TouchedChoiceRequested? _touchedChoiceBeingAsked;
+
+    /// <summary>
+    /// Asks which of the cards this resolution touched to move (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// Only the candidates still where the sentence left them. Between the resolution ending and
+    /// this question being asked, a replacement or another player's trigger may have moved one,
+    /// and a menu naming a card that is somewhere else is a menu with a wrong answer on it.
+    /// <para>
+    /// Nothing left to offer is the card working rather than a stalled game: a mill that turned up
+    /// no permanent card offers nothing and takes nothing, which is what the card says.
+    /// </para>
+    /// </remarks>
+    private bool AskOwedTouchedChoice()
+    {
+        if (_touchedChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _touchedChoicesOwed[0];
+        _touchedChoicesOwed.RemoveAt(0);
+
+        var still = owed.Candidates
+            .Where(id => State.TryGetObject(id, out var card) && card.Zone == owed.From)
+            .ToList();
+
+        if (still.Count == 0)
+            return false;
+
+        _touchedChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"take-from-touched:{owed.ChooserId:N}",
+            PlayerId = owed.ChooserId,
+            Kind = ChoiceKind.TakeFromTouched,
+            Prompt = owed.Least == 0
+                ? $"You may choose up to {Math.Min(owed.Most, still.Count)} to move to your {owed.To}."
+                : $"Choose up to {Math.Min(owed.Most, still.Count)} to move to your {owed.To}.",
+            Options = [.. still.Select(id => new ChoiceOption(
+                id.Value.ToString("N"), State.GetObject(id).Card.Name))],
+            MinPicks = Math.Min(owed.Least, still.Count),
+            MaxPicks = Math.Min(owed.Most, still.Count),
+        });
+
+        return true;
+    }
+
+    /// <summary>Moves what was picked, and nothing else (CR 608.2c).</summary>
+    /// <remarks>
+    /// Each pick is checked against the candidates the question was built from as well as against
+    /// where it is now. The answer arrives as ids from outside the engine, and an id that was
+    /// never on the menu is not made legal by naming a card in the right zone.
+    /// <para>
+    /// A card goes to its <em>owner's</em> hand, not the chooser's (CR 400.3). Every card this
+    /// reads about today was milled from the chooser's own library, so the two are the same
+    /// player - which is exactly why taking the chooser would look right for ever.
+    /// </para>
+    /// </remarks>
+    private void ResolveTouchedChoice(IReadOnlyList<string> picks)
+    {
+        if (_touchedChoiceBeingAsked is not { } owed)
+            return;
+
+        _touchedChoiceBeingAsked = null;
+
+        foreach (var pick in picks)
+        {
+            if (!Guid.TryParse(pick, out var chosen))
+                continue;
+
+            var id = new ObjectId(chosen);
+
+            if (!owed.Candidates.Contains(id)
+                || !State.TryGetObject(id, out var card)
+                || card.Zone != owed.From)
+            {
+                continue;
+            }
+
+            Emit(new ObjectMoved(
+                id, ObjectId.New(), owed.From, owed.To, card.OwnerId, owed.Cause));
         }
     }
 
@@ -9494,6 +9589,9 @@ public sealed class Game
                 return true;
 
             if (AskOwedManifestDread())
+                return true;
+
+            if (AskOwedTouchedChoice())
                 return true;
 
             if (AskOwedConnive())
@@ -12871,11 +12969,26 @@ public sealed class Game
     /// Falls back to the card behind an id the state no longer knows, which is how a token that
     /// has already ceased to exist is still named by the sweep that killed it.
     /// </para>
+    /// <para>
+    /// The size comes off the <em>computed</em> characteristics while the object is on a
+    /// battlefield and off the card everywhere else, which is what CR 608.2h means by last known
+    /// information: a 2/2 with three +1/+1 counters on it that gets exiled was a 5/5, and a card
+    /// sitting in a graveyard has no layers applied to it at all.
+    /// </para>
     /// </remarks>
-    private CardDefinition? CardMoving(ObjectId id) =>
-        State.TryGetObject(id, out var live)
-            ? Characteristics.CardOf(State, _abilities, live)
-            : CardBehind(id);
+    private LastKnown? CardMoving(ObjectId id)
+    {
+        if (!State.TryGetObject(id, out var live))
+            return CardBehind(id) is { } gone ? new LastKnown(gone, gone.Power, gone.Toughness) : null;
+
+        var card = Characteristics.CardOf(State, _abilities, live);
+
+        if (live.Zone != Zone.Battlefield)
+            return new LastKnown(card, card.Power, card.Toughness);
+
+        var now = Characteristics.Of(State, _abilities, live);
+        return new LastKnown(card, now.Power, now.Toughness);
+    }
 
     /// <summary>Notes a scry or surveil the moment its effect asks for it.</summary>
     private void NoteLook(GameEvent e)
@@ -12970,6 +13083,9 @@ public sealed class Game
 
         if (e is ManifestDreadRequested dreading)
             _manifestDreadsOwed.Add(dreading);
+
+        if (e is TouchedChoiceRequested taking)
+            _touchedChoicesOwed.Add(taking);
 
         if (e is PopulateRequested populating)
             _populatesOwed.Add(populating);

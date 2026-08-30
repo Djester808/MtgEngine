@@ -45,6 +45,20 @@ public enum TouchVerb
     PutOntoBattlefield,
 }
 
+/// <summary>
+/// What an object was as it left, for the record to keep (CR 608.2h).
+/// </summary>
+/// <remarks>
+/// One type rather than three lookups, because every field of it is read at the same instant and
+/// off the same object: the moment before a batch of moves is applied, while the old id still
+/// names something. Splitting them would be three walks of the state per moved card and three
+/// chances for one of them to be taken a step later than the others.
+/// </remarks>
+/// <param name="Card">The card it was, through the computed characteristics (CR 613.2c).</param>
+/// <param name="Power">Its power as it left, or null when it had none.</param>
+/// <param name="Toughness">Its toughness as it left, or null when it had none.</param>
+public sealed record LastKnown(CardDefinition Card, int? Power, int? Toughness);
+
 /// <summary>One thing an earlier effect of this same resolution did to one object (CR 608.2c).</summary>
 /// <remarks>
 /// The id is the one the object has <em>after</em> the move, because a card that changes zones
@@ -68,6 +82,24 @@ public sealed record Touch(
     MoveCause Cause,
     Guid? Controller)
 {
+    /// <summary>What it last had for power, as it left (CR 608.2h).</summary>
+    /// <remarks>
+    /// Last known information rather than the printed number, because "X is the power of the
+    /// creature exiled this way" is asked about a creature that is no longer on the battlefield
+    /// and whose counters and pumps counted right up until it left. The card alone answers the
+    /// printed value, which is a different number on every creature this engine has ever pumped -
+    /// and one that would be wrong in silence, since the sentence still compiles and still plays.
+    /// <para>
+    /// Null when the card has none, which is every noncreature. It is the card's own value for an
+    /// object that was never on a battlefield, where there are no layers to apply and the printed
+    /// characteristics are the real ones (CR 108.3).
+    /// </para>
+    /// </remarks>
+    public int? Power { get; init; }
+
+    /// <summary>What it last had for toughness, as it left (CR 608.2h).</summary>
+    public int? Toughness { get; init; }
+
     /// <summary>Whether this is one of the things a printed participle names.</summary>
     /// <remarks>
     /// One place, asked by both readers, so a count and a condition can never disagree about what
@@ -132,10 +164,10 @@ public sealed record ResolutionRecord
     /// rather than a looser gather here.
     /// </remarks>
     public ResolutionRecord Following(
-        IReadOnlyList<GameEvent> emitted, Func<ObjectId, CardDefinition?> cardOf)
+        IReadOnlyList<GameEvent> emitted, Func<ObjectId, LastKnown?> was)
     {
         ArgumentNullException.ThrowIfNull(emitted);
-        ArgumentNullException.ThrowIfNull(cardOf);
+        ArgumentNullException.ThrowIfNull(was);
 
         var added = Touches;
 
@@ -144,16 +176,22 @@ public sealed record ResolutionRecord
             if (e is not ObjectMoved moved)
                 continue;
 
-            // The card is read off the id the object had *before* the move, because that is the
-            // id the state still knows: the new object does not exist until the event is applied,
-            // and this runs while the batch is being built.
+            // Read off the id the object had *before* the move, because that is the id the state
+            // still knows: the new object does not exist until the event is applied, and this
+            // runs while the batch is being built.
+            var leaving = was(moved.OldId);
+
             added = added.Add(new Touch(
                 moved.NewId,
-                cardOf(moved.OldId),
+                leaving?.Card,
                 moved.From,
                 moved.To,
                 moved.Cause,
-                moved.LeavingControllerId ?? moved.ControllerId));
+                moved.LeavingControllerId ?? moved.ControllerId)
+            {
+                Power = leaving?.Power,
+                Toughness = leaving?.Toughness,
+            });
         }
 
         return added == Touches ? this : this with { Touches = added };
@@ -175,8 +213,8 @@ public sealed record ResolutionRecord
 /// </remarks>
 public sealed record TouchFilter(TouchVerb Verb)
 {
-    /// <summary>Card types the object must have, as alternatives; empty means any card.</summary>
-    public ImmutableList<ImmutableArray<CardType>> Types { get; init; } = [];
+    /// <summary>What the object must be, as alternatives; empty means any card.</summary>
+    public ImmutableList<TouchNoun> Nouns { get; init; } = [];
 
     /// <summary>Types the object must <em>not</em> have - "nonland card", "noncreature card".</summary>
     public ImmutableList<CardType> Excluded { get; init; } = [];
@@ -205,24 +243,107 @@ public sealed record TouchFilter(TouchVerb Verb)
         // Counting it would be guessing, and a count that comes out too big is the same class of
         // bug as one that comes out too small.
         if (touch.Card is not { } card)
-            return Types.IsEmpty && Excluded.IsEmpty;
+            return Nouns.IsEmpty && Excluded.IsEmpty;
 
         if (Excluded.Exists(type => card.CardTypes.HasFlag(type)))
             return false;
 
-        return Types.IsEmpty
-            || Types.Exists(set => set.All(type => card.CardTypes.HasFlag(type)));
+        return Nouns.IsEmpty || Nouns.Exists(noun => noun.Admits(card));
     }
 
-    /// <summary>How many of this resolution's touches the phrase names.</summary>
-    public int In(ResolutionContext context)
+    /// <summary>This resolution's touches that the phrase names, in the order they happened.</summary>
+    /// <remarks>
+    /// The order matters to the effects that act on the set rather than count it: the choice a
+    /// player is offered lists the cards in the order the game put them there, which is the order
+    /// they went into the graveyard and the order the log will replay them in.
+    /// </remarks>
+    public IEnumerable<Touch> Matching(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         var you = context.ControllerId;
 
-        return context.Record.Touches.Count(
+        return context.Record.Touches.Where(
             touch => Admits(touch) && (!YoursOnly || touch.Controller == you));
+    }
+
+    /// <summary>How many of this resolution's touches the phrase names.</summary>
+    public int In(ResolutionContext context) => Matching(context).Count();
+
+    /// <summary>
+    /// A characteristic of the one thing the phrase names, or zero (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// "X is the mana value of the permanent exiled this way" is written in the singular and
+    /// means it: the sentence before exiled exactly one thing. Zero when nothing was touched -
+    /// which is a spell whose target had gone, and what those cards do - and zero again when
+    /// several were, because a phrase that says "the permanent" has not said which one and any
+    /// answer this picked would be a guess. Fail-closed in the same direction the verb list is:
+    /// the number a card gets is one it could have printed, not one this reader invented.
+    /// </remarks>
+    public int StatIn(ResolutionContext context, TouchStat stat)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Matching(context).ToList() is not [var only])
+            return 0;
+
+        return stat switch
+        {
+            TouchStat.Power => only.Power ?? 0,
+            TouchStat.Toughness => only.Toughness ?? 0,
+            TouchStat.ManaValue => only.Card?.Cmc ?? 0,
+            _ => 0,
+        };
+    }
+}
+
+/// <summary>Which characteristic of a recorded object a sentence asks for (CR 608.2h).</summary>
+/// <remarks>
+/// A closed list for the reason <c>VariableIsStatLine</c>'s is: the three the corpus prints, with
+/// no arithmetic tail. "Its power minus 1" read as the bare stat is a card that plays a bigger
+/// number than it prints.
+/// </remarks>
+public enum TouchStat
+{
+    Power,
+    Toughness,
+    ManaValue,
+}
+
+/// <summary>
+/// One alternative of what a printed noun may be - "artifact creature card or Vehicle card".
+/// </summary>
+/// <remarks>
+/// The types and the subtype are one alternative rather than two lists side by side, because they
+/// are a conjunction where they appear together and a disjunction where they do not. Read as two
+/// lists, "Zombie creature card exiled this way" would count every Zombie <em>or</em> every
+/// creature, and on a sweeper that is nearly every card in the graveyard.
+/// <para>
+/// A subtype carries the card type it belongs to, taken from the shared table rather than assumed
+/// to be a creature: "for each Equipment put into a graveyard this way" wants an artifact, and the
+/// same assumption made one reader over is written up in <c>Specs.SubtypeCardType</c> as a card
+/// that reported itself completely understood while matching nothing at all.
+/// </para>
+/// </remarks>
+public sealed record TouchNoun
+{
+    /// <summary>Card types the object must have, all of them; empty means any card.</summary>
+    public ImmutableArray<CardType> Types { get; init; } = [];
+
+    /// <summary>A subtype the object must have as well, or null (CR 205.3).</summary>
+    public string? Subtype { get; init; }
+
+    /// <summary>Whether one card answers to this alternative.</summary>
+    public bool Admits(CardDefinition card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        if (!Types.All(type => card.CardTypes.HasFlag(type)))
+            return false;
+
+        return Subtype is null
+            || card.Subtypes.Contains(Subtype, StringComparer.OrdinalIgnoreCase);
     }
 }
 
@@ -256,6 +377,116 @@ public sealed record OnlyIfTouched(
         var events = new List<GameEvent>();
         foreach (var effect in Effects)
             events.AddRange(effect.Resolve(context));
+
+        return events;
+    }
+}
+
+/// <summary>
+/// "Put a permanent card from among the cards milled this way into your hand" - the recorded set
+/// as the thing an effect acts on (CR 608.2c).
+/// </summary>
+/// <remarks>
+/// The other half of the family the count and the condition read. Those two ask how many and
+/// whether; this one names them, which is what a sentence needs when the cards themselves are the
+/// object of the verb rather than the size of the pile.
+/// <para>
+/// It asks rather than moving, because which card is a decision the player makes and this engine
+/// never stops a resolution to take one - the request is settled afterwards like every other owed
+/// question. <b>That is why nothing may be recorded from the answer.</b> A sentence later in the
+/// same line asking "if you returned a card to your hand this way" would be asking about a move
+/// that has not happened yet, and would answer nought for ever; the reader refuses those by name,
+/// which is what keeps Cache Grab's second sentence unread rather than silently false.
+/// </para>
+/// <para>
+/// The candidates are worked out here, while the record still exists, and travel in the event.
+/// One that has moved on in between is dropped when the question is asked: a choice offering a
+/// card that is not there any more is not a choice.
+/// </para>
+/// </remarks>
+/// <param name="Filter">Which of the resolution's touches the phrase named.</param>
+/// <param name="To">Where the chosen cards go.</param>
+/// <param name="Cause">Why they move, which is what the triggers watching will see.</param>
+/// <param name="Most">The ceiling on the answer - "up to two", or one for the singular form.</param>
+/// <param name="Optional">
+/// Whether taking none is allowed. "You may put" offers nothing when the player declines; "return
+/// a creature card milled this way to your hand" is an instruction and takes one if there is one
+/// to take (CR 608.2). The two differ only here, so they are one effect and not two.
+/// </param>
+public sealed record TakeFromTouched(
+    TouchFilter Filter, Zone To, MoveCause Cause, int Most, bool Optional) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        Zone? from = null;
+        var candidates = ImmutableArray.CreateBuilder<ObjectId>();
+
+        foreach (var touch in Filter.Matching(context))
+        {
+            // Where the participle put it, which is where it must still be. A card the rest of
+            // this resolution has already moved on is no longer the thing the sentence named.
+            if (!context.State.TryGetObject(touch.Id, out var still) || still.Zone != touch.To)
+                continue;
+
+            from = touch.To;
+            candidates.Add(touch.Id);
+        }
+
+        if (from is not { } zone || candidates.Count == 0)
+            return [];
+
+        var most = Math.Min(Most, candidates.Count);
+
+        return
+        [
+            new TouchedChoiceRequested(
+                context.ControllerId,
+                candidates.ToImmutable(),
+                zone,
+                To,
+                Cause,
+                Optional ? 0 : Math.Min(1, most),
+                most),
+        ];
+    }
+}
+
+/// <summary>
+/// "You may play cards exiled this way until the end of your next turn" (CR 601.3e).
+/// </summary>
+/// <remarks>
+/// The same permission the impulse-draw idiom grants, given to the recorded set instead of to the
+/// cards one adjacent sentence exiled. That is not a rewording of the same reader: "this way"
+/// points at whatever exiled them, which may be two sentences back, may be a loop, and on
+/// Heartless Conscription is a sweeper. Reading it as the pair would need the two sentences to be
+/// next to each other and would silently take the wrong cards when they are not.
+/// <para>
+/// Nothing is asked and nothing is chosen, so this one carries no risk of the deferred-answer
+/// trap: the permission lands on every card the phrase named, as it resolves.
+/// </para>
+/// </remarks>
+/// <param name="ThroughOwnersNextTurn">
+/// Whether the window runs to the end of the owner's next turn rather than to the end of this one
+/// - two different durations, and the longer one cannot be written as a turn number.
+/// </param>
+public sealed record MayPlayTouched(TouchFilter Filter, bool ThroughOwnersNextTurn) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var events = new List<GameEvent>();
+
+        foreach (var touch in Filter.Matching(context))
+        {
+            if (!context.State.TryGetObject(touch.Id, out var still) || still.Zone != touch.To)
+                continue;
+
+            events.Add(new CardMayBePlayed(
+                touch.Id, context.State.TurnNumber, ThroughOwnersNextTurn));
+        }
 
         return events;
     }

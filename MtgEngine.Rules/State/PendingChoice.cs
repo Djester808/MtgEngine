@@ -284,6 +284,16 @@ public enum ChoiceKind
 
     /// <summary>Which of the cards you looked at go to the graveyard (CR 701.25, surveil).</summary>
     Surveil,
+
+    /// <summary>
+    /// Which of the cards this resolution just touched to move (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The options are named by what an earlier sentence of the same instruction did - "a
+    /// permanent card from among the cards milled this way" - rather than by a zone or a filter
+    /// over the board, which is why the request carries the cards themselves.
+    /// </remarks>
+    TakeFromTouched,
 }
 
 /// <summary>One thing a player may pick.</summary>

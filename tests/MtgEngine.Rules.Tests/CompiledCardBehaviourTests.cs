@@ -47858,6 +47858,480 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(24, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- "This way" as an object: the set, a member, and its size (CR 608.2c, 608.2h) ----
+
+    /// <summary>
+    /// A member of what this resolution just did, chosen from the record and not from the zone.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the family: the count and the condition ask how many and whether, and
+    /// this asks for the things themselves. "From among the cards milled this way" is a set the
+    /// board cannot answer for — the cards are in a graveyard that also holds everything else
+    /// that ever went there, and a reader that offered the graveyard would offer a card this
+    /// spell never touched.
+    /// <para>
+    /// The noun narrows what may be taken and the rest of the mill still happens: three of the
+    /// five are permanents and two are not, so a menu of five would be a card that takes what it
+    /// does not say it may.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_member_of_the_recorded_set_is_offered_and_the_noun_narrows_it()
+    {
+        var harvest = Card(
+            "Set Harvest Test",
+            "Mill five cards. You may put a permanent card from among the cards milled this way "
+                + "into your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(harvest);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Most recently created is on top, so this is the fifth card down first.
+        game.Create(alice, Card("Set Harvest Ritual", string.Empty, CardType.Sorcery), Zone.Library);
+        game.Create(alice, Card("Set Harvest Bolt", string.Empty), Zone.Library);
+        game.Create(alice, Card("Set Harvest Waste", string.Empty, CardType.Land), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Harvest Ox", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Harvest Bear", 2, 2), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, harvest), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.TakeFromTouched });
+
+        var asked = game.State.Choice!;
+
+        Assert.Equal(
+            ["Set Harvest Bear", "Set Harvest Ox", "Set Harvest Waste"],
+            asked.Options.Select(o => o.Label).OrderBy(l => l, StringComparer.Ordinal));
+
+        // "You may" is the whole difference between this and its instructed twin below.
+        Assert.Equal(0, asked.MinPicks);
+        Assert.Equal(1, asked.MaxPicks);
+
+        game.Choose(
+            asked.PlayerId,
+            [asked.Options.Single(o => o.Label == "Set Harvest Bear").Id]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Set Harvest Bear");
+
+        // The four not taken are where the mill left them. Named one at a time rather than
+        // counted by prefix, because the spell itself is in that graveyard too.
+        var buried = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Contains("Set Harvest Ox", buried);
+        Assert.Contains("Set Harvest Waste", buried);
+        Assert.Contains("Set Harvest Bolt", buried);
+        Assert.Contains("Set Harvest Ritual", buried);
+        Assert.DoesNotContain("Set Harvest Bear", buried);
+    }
+
+    /// <summary>
+    /// Only what this sentence touched, not everything of that kind sitting in the zone.
+    /// </summary>
+    /// <remarks>
+    /// The failure this guards is the tempting one: a graveyard is right there, it holds cards of
+    /// the right kind, and reading it would make the card look like it works. Cache Grab on an
+    /// eight-card graveyard would offer all eight.
+    /// </remarks>
+    [Fact]
+    public void The_set_is_what_the_sentence_did_and_not_what_the_zone_holds()
+    {
+        var dowser = Card(
+            "Set Dowser Test",
+            "Mill a card. You may put a permanent card milled this way into your hand.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(dowser).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.Creature("Set Dowser Buried", 3, 3), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Set Dowser Milled", 2, 2), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, dowser), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.TakeFromTouched });
+
+        var asked = game.State.Choice!;
+        Assert.Equal(["Set Dowser Milled"], asked.Options.Select(o => o.Label));
+    }
+
+    /// <summary>
+    /// An instruction takes one; only "you may" offers none (CR 608.2, 118.3).
+    /// </summary>
+    /// <remarks>
+    /// One effect for both wordings, so the minimum is the only thing that moves. A reader that
+    /// made every one of these optional would give the player a decline the card never printed,
+    /// and one that made them all mandatory would take a card Wasteful Harvest lets them leave.
+    /// </remarks>
+    [Fact]
+    public void An_instruction_over_the_set_has_no_declining_option()
+    {
+        var manual = Card(
+            "Set Manual Test",
+            "Mill five cards, then return a creature card milled this way to your hand.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(manual).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Set Manual Ox", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Manual Bear", 2, 2), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, manual), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.TakeFromTouched });
+
+        Assert.Equal(1, game.State.Choice!.MinPicks);
+        Assert.Equal(1, game.State.Choice!.MaxPicks);
+    }
+
+    /// <summary>
+    /// "Up to two" raises the ceiling and lowers the floor at once (CR 601.2d, 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The printed ceiling is a ceiling and not a quantity: taking fewer is allowed, and taking
+    /// none is a legal answer to "up to". Asserted on its own because Stitcher Geralf is the only
+    /// card in the corpus printing this arm and it stays incomplete for a reason two sentences
+    /// further on — so nothing else would ever exercise the multi-pick path.
+    /// </remarks>
+    [Fact]
+    public void Up_to_two_of_the_set_is_a_ceiling_and_not_a_quantity()
+    {
+        var geralf = Card(
+            "Set Geralf Test",
+            "Mill three cards. Exile up to two creature cards put into graveyards this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(geralf);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Card("Set Geralf Waste", string.Empty, CardType.Land), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Geralf Ox", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Geralf Bear", 2, 2), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, geralf), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.TakeFromTouched });
+
+        var asked = game.State.Choice!;
+        Assert.Equal(0, asked.MinPicks);
+        Assert.Equal(2, asked.MaxPicks);
+        Assert.Equal(
+            ["Set Geralf Bear", "Set Geralf Ox"],
+            asked.Options.Select(o => o.Label).OrderBy(l => l, StringComparer.Ordinal));
+
+        game.Choose(asked.PlayerId, [.. asked.Options.Select(o => o.Id)]);
+        Settle(game);
+
+        Assert.Equal(
+            2,
+            game.State.Exile.Count(
+                id => game.State.GetObject(id).Card.Name.StartsWith(
+                    "Set Geralf ", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// A set with nothing in it asks nothing and stops nothing (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// A mill that turns up no card of the named kind is the card working, not a game waiting on
+    /// an answer with no options — and a question raised with an empty menu is a hung game rather
+    /// than a wrong one, which is why this half is asserted at all.
+    /// </remarks>
+    [Fact]
+    public void A_set_with_no_member_of_the_named_kind_asks_nothing()
+    {
+        var dowser = Card(
+            "Set Empty Test",
+            "Mill two cards. You may put an instant or sorcery card milled this way into your hand.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(dowser).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Set Empty Ox", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Empty Bear", 2, 2), Zone.Library);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, dowser), []);
+        Settle(game);
+
+        Assert.Null(game.State.Choice);
+
+        // The card cast came from the hand and went back to a count of nothing gained: no member
+        // of the named kind was there to take, so nothing was put anywhere.
+        Assert.Equal(before, game.State.GetPlayer(alice).Hand.Count);
+
+        var buried = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.Contains("Set Empty Bear", buried);
+        Assert.Contains("Set Empty Ox", buried);
+    }
+
+    /// <summary>
+    /// The set as a permission rather than a move — "you may play cards exiled this way".
+    /// </summary>
+    /// <remarks>
+    /// The same window the impulse-draw pair grants, given to the cards the record names instead
+    /// of to the cards one adjacent sentence exiled. Nothing is chosen, so this arm of the family
+    /// carries none of the deferred-answer difficulty the taking arm does.
+    /// </remarks>
+    [Fact]
+    public void The_recorded_set_can_be_given_a_window_to_be_played_in()
+    {
+        var escape = Card(
+            "Set Escape Test",
+            "Exile the top three cards of your library. You may play cards exiled this way "
+                + "until the end of your next turn.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(escape);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Set Escape Third", 1, 1), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Escape Second", 2, 2), Zone.Library);
+        game.Create(alice, TestCards.Creature("Set Escape First", 3, 3), Zone.Library);
+
+        var turn = game.State.TurnNumber;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, escape), []);
+        Settle(game);
+
+        var exiled = game.State.Exile
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.Name.StartsWith("Set Escape ", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(3, exiled.Count);
+        Assert.All(exiled, o => Assert.Equal(turn, o.MayPlayThroughOwnersNextTurn));
+    }
+
+    /// <summary>
+    /// An amount that is a characteristic of the one thing touched, not a count of them.
+    /// </summary>
+    /// <remarks>
+    /// "Where X is the mana value of the permanent exiled this way" is the fourth grammar of this
+    /// family and the only one that is not a number of things. It is written in the singular and
+    /// answered in the singular: nothing touched and several touched both come to zero, because a
+    /// phrase saying "the permanent" has not said which one.
+    /// </remarks>
+    [Fact]
+    public void An_amount_reads_a_characteristic_of_the_one_thing_touched()
+    {
+        var intrusion = Card(
+            "Set Intrusion Test",
+            "Exile target artifact or enchantment. Put X +1/+1 counters on target creature you "
+                + "control, where X is the mana value of the permanent exiled this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(intrusion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var relic = game.Create(
+            alice,
+            new CardDefinition
+            {
+                OracleId = "oracle-set-intrusion-relic",
+                Name = "Set Intrusion Relic",
+                CardTypes = CardType.Artifact,
+                ManaCostRaw = "{3}",
+                Cmc = 3,
+            },
+            Zone.Battlefield);
+
+        var bear = game.Create(alice, TestCards.Creature("Set Intrusion Bear", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, intrusion),
+            [Target.ToPermanent(relic), Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(
+            3,
+            game.State.GetObject(bear).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// The characteristic is what it last had, not what it printed (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The object is gone by the time the sentence asks, so the record has to have kept the
+    /// answer — and the answer is last known information, which on a battlefield means after the
+    /// layers. A record that kept the printed card and read the number off that would give three
+    /// counters here rather than five, on a card that compiles and plays and looks right.
+    /// </remarks>
+    [Fact]
+    public void The_characteristic_asked_of_the_record_is_the_last_one_it_had()
+    {
+        var thirst = Card(
+            "Set Thirst Test",
+            "Exile target creature. Put X +1/+1 counters on target creature you control, "
+                + "where X is the power of the creature exiled this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(thirst);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice,
+            Card("Set Thirst Anthem", "Creatures you control get +2/+0.", CardType.Enchantment),
+            Zone.Battlefield);
+
+        var doomed = game.Create(alice, TestCards.Creature("Set Thirst Doomed", 3, 3), Zone.Battlefield);
+        var kept = game.Create(alice, TestCards.Creature("Set Thirst Kept", 1, 1), Zone.Battlefield);
+
+        // Five under the anthem, three on the card. The whole point of the test.
+        Assert.Equal(5, Characteristics.Of(game.State, Pool, game.State.GetObject(doomed)).Power);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, thirst),
+            [Target.ToPermanent(doomed), Target.ToPermanent(kept)]);
+        Settle(game);
+
+        Assert.Equal(
+            5,
+            game.State.GetObject(kept).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// A subtype in the noun is read, and narrows what the clause is about (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// Both answers are asserted, because a filter that ignored the word would draw the card on
+    /// every creature and would look exactly like a card that works. The Bear is the control: it
+    /// is exiled by the same sentence, so the only thing that can tell the two runs apart is the
+    /// subtype.
+    /// </remarks>
+    [Fact]
+    public void A_subtype_in_the_noun_narrows_what_the_clause_asks_about()
+    {
+        var ruse = Card(
+            "Set Ruse Test",
+            "Exile target creature you control, then return that card to the battlefield under "
+                + "its owner's control. If a Pirate was exiled this way, draw a card.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(ruse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One game per answer. Two casts in one game would put a draw step between them, and a
+        // hand count is only evidence while nothing else is filling the hand.
+        Assert.Equal(1, Drawn(blinked: "Set Ruse Pirate", subtype: "Pirate", card: ruse));
+        Assert.Equal(0, Drawn(blinked: "Set Ruse Bear", subtype: "Bear", card: ruse));
+
+        static int Drawn(string blinked, string subtype, CardDefinition card)
+        {
+            var (game, alice, _) = InMainPhase();
+
+            var creature = game.Create(
+                alice,
+                Card(blinked, string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, subtype),
+                Zone.Battlefield);
+
+            var held = TestCards.PutInHand(game, alice, card);
+            var before = game.State.GetPlayer(alice).Hand.Count;
+
+            game.CastSpell(alice, held, [Target.ToPermanent(creature)]);
+            Settle(game);
+
+            // The card cast has left the hand, so anything above that count was drawn.
+            return game.State.GetPlayer(alice).Hand.Count - (before - 1);
+        }
+    }
+
+    /// <summary>
+    /// A capitalised word is a subtype unless it is a card type (CR 205.2a, 205.3).
+    /// </summary>
+    /// <remarks>
+    /// The capital is the only thing on the page that marks a subtype, and the first word of a
+    /// sentence carries one whether it is a subtype or not. Read the other way round, "Land card
+    /// milled this way" would ask for the Land <em>subtype</em> — which no card in the game has,
+    /// so the clause would answer no for ever on a card that compiles clean.
+    /// </remarks>
+    [Fact]
+    public void A_capitalised_card_type_is_still_a_card_type()
+    {
+        var reaper = Card(
+            "Set Capital Test",
+            "Mill two cards. If at least one Land card is milled this way, you gain 4 life.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(reaper).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Set Capital Bear", 2, 2), Zone.Library);
+        game.Create(alice, Card("Set Capital Waste", string.Empty, CardType.Land), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reaper), []);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A sentence asking about the taking is refused, because the taking has not happened.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed line the whole family is drawn on, one step further out than the verb
+    /// list. Which card to take is a decision, and this engine settles decisions <em>after</em>
+    /// the resolution — so a later sentence of the same instruction asking what was taken is
+    /// asking about an event that does not exist yet, and would answer no for ever.
+    /// <para>
+    /// Cache Grab prints exactly this and is left unread for it, while Sparring Dummy's second
+    /// sentence asks about the mill instead and is answerable. Nothing downstream could tell a
+    /// card that answers wrongly from one that answers.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_clause_asking_about_the_deferred_taking_is_left_unread()
+    {
+        var grab = Card(
+            "Set Grab Test",
+            "Mill four cards. You may put a permanent card from among the cards milled this way "
+                + "into your hand. If you returned a card to your hand this way, you gain 2 life.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(grab).IsComplete);
+    }
+
+    /// <summary>
+    /// A rider the permission cannot express takes the sentence with it (CR 601.3e, 118.5).
+    /// </summary>
+    /// <remarks>
+    /// "Without paying their mana costs" is not a longer window, it is a different permission, and
+    /// the window this grants would let the cards be played only for their costs. A reader that
+    /// took the part it understood would print a strictly worse card than the one on the page and
+    /// count it as read.
+    /// </remarks>
+    [Fact]
+    public void A_permission_with_a_cost_rider_is_left_unread()
+    {
+        var harvest = Card(
+            "Set Rider Test",
+            "Exile the top three cards of your library. Until end of turn, you may cast cards "
+                + "exiled this way without paying their mana costs.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(harvest).IsComplete);
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

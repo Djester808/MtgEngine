@@ -206,6 +206,7 @@ public static class GameReducer
             CreatureTypeChoiceRequested => state,
             ConniveRequested => state,
             ManifestDreadRequested => state,
+            TouchedChoiceRequested => state,
             PopulateRequested => state,
             ExploitRequested => state,
             SoulbondPairRequested => state,
