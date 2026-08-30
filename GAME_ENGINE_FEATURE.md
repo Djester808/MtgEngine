@@ -574,8 +574,9 @@ rather than offering every card in the game.
 `ChosenName` is null until the question is answered, and null has to mean **matches nothing**.
 Read the other way a Meddling Mage entering makes every spell in the game uncastable, and the
 bug looks like the card working. Three things ask it — the cast ban, the activation ban and the
-cost modifiers — through one `Bans.NameMatches`, and there is a test whose fixture is a
-permanent printing the ban with nothing that ever names.
+cost modifiers — and all three converge on one private `Bans.NamesTheSame` (the modifiers
+reach it through the public `Bans.NameMatches`), so no caller can decide the null for itself.
+There is a test whose fixture is a permanent printing the ban with nothing that ever names.
 
 #### The offer is narrowed twice, and the second narrowing is the card text
 
