@@ -7109,6 +7109,16 @@ public sealed class Game
 
         var count = Math.Min(owed.Count, hand.Count);
 
+        // Discarding nothing is not a decision, and asking anyway is not merely noise: the
+        // options offered are the whole hand while the range is 0..0, so a player who answers
+        // the question the game put to them is refused for answering it. "Discards a card for
+        // each time it was kicked" on an unkicked spell is the printed shape that reaches this
+        // (Bloodhusk Ritualist), and it broke three soak tables before this guard existed. The
+        // two sibling sites - the mulligan bottom and the cleanup discard - have carried the
+        // same guard all along; this one was written without it.
+        if (count == 0)
+            return false;
+
         if (owed.AtRandom)
         {
             // CR 701.9b: the card is chosen at random, which is the game's decision and not the

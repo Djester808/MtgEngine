@@ -47542,6 +47542,68 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>Anavolver's printed text, minus the reminder (CR 702.33b, 702.33f).</summary>
+    /// <summary>
+    /// A multikicker clause that resolves to nothing asks nothing (CR 601.2b, 702.33c).
+    /// </summary>
+    /// <remarks>
+    /// "Target player discards a card for each time it was kicked" on a spell nobody kicked is a
+    /// discard of zero cards, and the engine used to stop and ask for it: the options offered
+    /// were the whole hand while the range was 0..0, so a player who answered the question the
+    /// game had put to them was refused for answering it. It broke three soak tables and no
+    /// unit test, because the shape only appears when a real multikicker card is played unkicked
+    /// — Bloodhusk Ritualist is the printing.
+    /// <para>
+    /// The two sibling deferred questions — the mulligan bottom and the cleanup discard — have
+    /// always guarded their zero case. This asserts the third one does, from both ends: the
+    /// spell resolves, the hand is untouched, and the game is not left waiting.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_unkicked_spell_that_would_discard_nothing_asks_nothing()
+    {
+        var ritualist = Card(
+            "Bloodhusk Ritualist Test",
+            "Multikicker {1}{B}\n"
+                + "When ~ enters, target player discards a card for each time it was kicked.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(ritualist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, ritualist);
+
+        // Cards in both hands, so whichever player the trigger picks, the question it would have
+        // asked had options to offer - which is the shape that crashed. A hand that is empty
+        // takes the other exit and proves nothing.
+        TestCards.PutInHand(game, bob, TestCards.Creature("Discard Bait One"));
+        TestCards.PutInHand(game, bob, TestCards.Creature("Discard Bait Two"));
+        TestCards.PutInHand(game, alice, TestCards.Creature("Discard Bait Three"));
+
+        TapForMana(game, alice, "Swamp");
+        TapForMana(game, alice, "Swamp");
+
+        // Counted rather than assumed: both players are holding their opening hands as well.
+        var bobHeld = game.State.GetPlayer(bob).Hand.Count;
+        var aliceHeld = game.State.GetPlayer(alice).Hand.Count - 1;
+
+        // No targets on the spell: the creature does not target, its enters trigger does, and
+        // Settle answers that question the way a player would.
+        game.CastSpell(alice, card);
+        Settle(game);
+
+        // Unkicked, so nobody discards - whoever the trigger named. Before the guard, the game
+        // stopped here and asked for a choice of zero cards out of a full hand.
+        Assert.Equal(bobHeld, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Equal(aliceHeld, game.State.GetPlayer(alice).Hand.Count);
+        Assert.False(game.State.IsWaitingForChoice);
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Bloodhusk Ritualist Test");
+    }
+
     private static CardDefinition Anavolver() => Card(
         "Anavolver Test",
         "Kicker {1}{U} and/or {B}\n"
