@@ -360,6 +360,7 @@ public static partial class CardCompiler
         var costModifiers = ImmutableList.CreateBuilder<CostModifier>();
         var showsTop = false;
         var noHandLimit = false;
+        var handLimits = ImmutableList.CreateBuilder<HandLimitReduction>();
         var chooses = ChoiceOnEntry.None;
         var devour = 0;
         var amplify = 0;
@@ -673,6 +674,21 @@ public static partial class CardCompiler
             if (NoMaximumHandSizeLine().IsMatch(line))
             {
                 noHandLimit = true;
+                continue;
+            }
+
+            // "Your maximum hand size is reduced by three" — the other direction of the same
+            // rule, and the one the engine could not say at all: the limit was a bool, so a card
+            // that moved the number rather than removing it had nowhere to land.
+            if (HandLimitReductionLine().Match(line) is { Success: true } handLimit)
+            {
+                handLimits.Add(new HandLimitReduction(
+                    NumberWordOrDigits(handLimit.Groups["n"].Value),
+                    handLimit.Groups["who"].Value.StartsWith(
+                        "your", StringComparison.OrdinalIgnoreCase)
+                        ? PlayerScope.You
+                        : PlayerScope.EachOpponent));
+
                 continue;
             }
 
@@ -1769,6 +1785,7 @@ public static partial class CardCompiler
             CostModifiers = costModifiers.ToImmutable(),
             ShowsTopOfLibrary = showsTop,
             RemovesHandLimit = noHandLimit,
+            HandLimitReductions = handLimits.ToImmutable(),
             ChoosesOnEntry = chooses,
             DevourCount = devour,
             AmplifyCount = amplify,
@@ -2912,6 +2929,7 @@ public static partial class CardCompiler
         && section.DevourCount == 0
         && !section.ShowsTopOfLibrary
         && !section.RemovesHandLimit
+        && section.HandLimitReductions.IsEmpty
         && section.ChoosesOnEntry == ChoiceOnEntry.None
         && section.ExtraLandDrops == 0
         && !section.MayDeclineUntap
@@ -7373,6 +7391,19 @@ public static partial class CardCompiler
         KeywordAbility? keywords = null;
         string? wardCost = null;
 
+        // The removal arm, read the same way and refused the same way: a list this cannot name
+        // leaves the line unread rather than dropping the half it did not understand. Ward is not
+        // offered here because nothing takes a ward away, and admitting it would be a branch no
+        // card can reach.
+        KeywordAbility? lost = null;
+        if (m.Groups["lost"].Success)
+        {
+            if (EffectPhrase.Keywords(m.Groups["lost"].Value) is not { } gone)
+                return false;
+
+            lost = gone;
+        }
+
         // A keyword the engine cannot grant leaves the whole line unread: an Equipment that gave
         // the bonus but not the ability would look implemented and play as a weaker card. Ward
         // is the one entry in this slot that is not a flag — it carries a cost — so the list is
@@ -7481,6 +7512,22 @@ public static partial class CardCompiler
                 Layer = EffectLayer.Ability,
                 Applies = OnTheHost,
                 Apply = (_, _, builder) => builder.Keywords |= granted,
+            });
+        }
+
+        // "Equipped creature gets +10/+10 and loses flying" — Colossus Hammer. Taking an ability
+        // away is layer 6 like granting one (CR 613.1f), and the two arms sit in the same slot of
+        // the same sentence, so this is the grant with the bits cleared instead of set. A keyword
+        // the reader cannot name leaves the whole line unread, exactly as the grant does: a
+        // Hammer that gave +10/+10 and left the flying on is a strictly better card.
+        if (lost is { } removed)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = "attached:loses:" + GenerativeEffects.GrantId(removed),
+                Layer = EffectLayer.Ability,
+                Applies = OnTheHost,
+                Apply = (_, _, builder) => builder.Keywords &= ~removed,
             });
         }
 
@@ -7930,6 +7977,21 @@ public static partial class CardCompiler
             Applies = Applies,
             Apply = (_, _, builder) => builder.DoesNotUntap = true,
         });
+
+        // "…and its activated abilities can't be activated" (CR 602.5c). A second effect rather
+        // than a second flag on the first, because they are two continuous effects that happen to
+        // share a sentence — and the same subject test decides both, so an Aura that has fallen
+        // off silences nothing exactly as it holds nothing down.
+        if (m.Groups["silenced"].Success)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"no-activate:{card.Name}:{(onSelf ? "self" : "attached")}",
+                Layer = EffectLayer.Ability,
+                Applies = Applies,
+                Apply = (_, _, builder) => builder.AbilitiesCantBeActivated = true,
+            });
+        }
 
         return true;
     }
@@ -10769,18 +10831,31 @@ public static partial class CardCompiler
         if (atUpkeep is null)
             return false;
 
+        // "{W} or {U}" is a hybrid symbol written the long way (CR 107.4e), and folding it into
+        // one is what lets the existing per-counter charge say it: the cost is asked once per age
+        // counter, and each of those payments is independently either colour, which is what
+        // repeating {W/U} means. Only the plain coloured pair folds - anything else with an "or"
+        // in it leaves the line unread rather than being guessed at.
+        var printed = m.Groups["cost"].Success
+            ? m.Groups["cost"].Value
+            : $"{m.Groups["a"].Value} or {m.Groups["b"].Value}";
+
+        var charged = m.Groups["cost"].Success
+            ? m.Groups["cost"].Value
+            : $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}";
+
         into.Add(new TriggeredAbilityDefinition
         {
             Id = "cumulative-upkeep",
             Text = $"At the beginning of your upkeep, put an age counter on {card.Name}, then "
-                + $"sacrifice it unless you pay {m.Groups["cost"].Value} for each age counter "
+                + $"sacrifice it unless you pay {printed} for each age counter "
                 + $"on it.",
             Triggers = atUpkeep,
             Effects =
             [
                 new PutCountersOnSource(AgeCounter, 1),
                 new MayPay(
-                    ManaCostSpec.Parse(m.Groups["cost"].Value),
+                    ManaCostSpec.Parse(charged),
                     IfYouDo: [],
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
@@ -14743,8 +14818,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^(?<what>[A-Za-z][A-Za-z ]*?)cycling (?<cost>(\{[^}]+\})+)$")]
     private static partial Regex TypecyclingLine();
 
+    /// <remarks>
+    /// The three-word "adjective or adjective noun" form leads the alternation because it has to
+    /// beat the two-word one: alternation is ordered, so "red or green creature" matched
+    /// "red or green" and left the noun with nowhere to go — every Aura restricted to two colours
+    /// was unread over that. The noun is not listed here; the phrase goes to the target grammar,
+    /// which already knows "red or green creature" and refuses whatever it cannot read.
+    /// </remarks>
     [GeneratedRegex(
-        @"^enchant (?<what>[a-z]+ or [a-z]+|[a-z]+ [a-z]+|[a-z]+)"
+        @"^enchant (?<what>[a-z]+ or [a-z]+ [a-z]+|[a-z]+ or [a-z]+|[a-z]+ [a-z]+|[a-z]+)"
             + @"(?<own> you control| an opponent controls)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EnchantLine();
@@ -14785,6 +14867,7 @@ public static partial class CardCompiler
         @"^(enchanted|equipped) " + AttachedSubject + " "
             + @"(gets (?<p>[+-]\d+)/(?<tough>[+-]\d+)"
             + @"( and (has (?<kw>[a-z0-9{} ,]+?)"
+            + @"|loses (?<lost>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)))?"
@@ -15558,9 +15641,16 @@ public static partial class CardCompiler
         @"^(?<kw>Morph|Megamorph|Disguise) (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex MorphLine();
 
+    /// <remarks>
+    /// The silencing tail is the same clause <see cref="AttachedBuffLine"/> already reads on the
+    /// pacifism family, printed here on the other half of the sentence: "doesn't untap … and its
+    /// activated abilities can't be activated" is one line and two continuous effects. Without it
+    /// the whole line was unread, which loses the holding-down half as well as the silence.
+    /// </remarks>
     [GeneratedRegex(
         @"^(?<who>~|(enchanted|equipped) " + AttachedSubject + @") doesn't untap during "
             + @"(your|its controller's|their controller's) untap step"
+            + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"( if (?<when>[^.]+))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DoesNotUntapLine();
@@ -15805,8 +15895,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@"\btarget\b", RegexOptions.IgnoreCase)]
     private static partial Regex TargetWord();
 
+    /// <remarks>
+    /// The "or" form leads the alternation because alternation is ordered and the plain one would
+    /// otherwise match the first symbol and leave " or {U}" behind. What it means is a hybrid
+    /// symbol (CR 107.4e): "cumulative upkeep {W} or {U}" charges a choice of two colours once per
+    /// age counter, which is exactly what one {W/U} charged once per counter is.
+    /// </remarks>
     [GeneratedRegex(
-        @"^Cumulative upkeep (?<cost>(\{[^}]+\})+)\.?$", RegexOptions.IgnoreCase)]
+        @"^Cumulative upkeep ((?<a>\{[WUBRG]\}) or (?<b>\{[WUBRG]\})|(?<cost>(\{[^}]+\})+))\.?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex CumulativeUpkeepLine();
 
     /// <remarks>
@@ -16050,6 +16147,16 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^you have no maximum hand size\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex NoMaximumHandSizeLine();
+
+    /// <remarks>
+    /// Only the two subjects that are printed. "Each player's maximum hand size is reduced by N"
+    /// exists on no card in the corpus, and a scope admitted for a card that does not exist is a
+    /// rule nothing can reach sitting beside two that fire.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>your|each opponent's) maximum hand size is reduced by (?<n>[a-z]+|\d+)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HandLimitReductionLine();
 
     [GeneratedRegex(
         @"^as (~|it) enters, choose a (?<what>color|creature type)\.?$",
@@ -16376,6 +16483,11 @@ public sealed record CompiledCard
     /// </summary>
     public bool RemovesHandLimit { get; init; }
 
+    /// <summary>
+    /// How much this permanent takes off somebody's maximum hand size (CR 402.2).
+    /// </summary>
+    public ImmutableList<HandLimitReduction> HandLimitReductions { get; init; } = [];
+
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     public ChoiceOnEntry ChoosesOnEntry { get; init; }
 
@@ -16421,6 +16533,7 @@ public sealed record CompiledCard
         || !CostModifiers.IsEmpty
         || ShowsTopOfLibrary
         || RemovesHandLimit
+        || !HandLimitReductions.IsEmpty
         || ChoosesOnEntry != ChoiceOnEntry.None
         || DevourCount > 0
         || AmplifyCount > 0

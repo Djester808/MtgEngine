@@ -16259,6 +16259,9 @@ public sealed class CompiledCardBehaviourTests
 
         public bool RemovesHandLimit(CardDefinition card) => _compiled.RemovesHandLimit(card);
 
+        public IReadOnlyList<HandLimitReduction> HandLimitReductionsOf(CardDefinition card) =>
+            _compiled.HandLimitReductionsOf(card);
+
         public ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => _compiled.ChoosesOnEntry(card);
 
         public int ExtraLandDrops(CardDefinition card) => _compiled.ExtraLandDrops(card);
@@ -46622,6 +46625,458 @@ public sealed class CompiledCardBehaviourTests
 
         Assert.True(wall.IsComplete, string.Join(" | ", wall.Unhandled));
         Assert.Single(wall.Replacements);
+    }
+
+    // ---- Round thirteen, sweep B: ranks 51-100 of the work queue --------------
+
+    /// <summary>
+    /// "Enchant red or green creature" restricts the Aura to the two colours it names (CR 303.4a).
+    /// </summary>
+    /// <remarks>
+    /// The enchant line is a targeting restriction and nothing else, so getting it wrong does not
+    /// look like a bug - the Aura still attaches and still does what it says, just to creatures it
+    /// may not legally go on. The refusal is the whole assertion.
+    /// <para>
+    /// The pattern read "red or green" and then had nowhere to put "creature", so the line matched
+    /// nothing and the whole card stayed unread. The target grammar beside it has known this
+    /// phrase for a long time; only the enchant matcher could not reach it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Enchant_naming_two_colours_refuses_a_creature_of_neither()
+    {
+        var ice = Card(
+            "Encase Test",
+            "Enchant red or green creature" + "\n"
+                + "Enchanted creature doesn't untap during its controller's untap step.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(ice);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.Spell!.Targets);
+
+        var (game, alice, bob) = InMainPhase();
+        var drake = game.Create(bob, Coloured("Encase Drake Test", ManaColor.Blue), Zone.Battlefield);
+        var goblin = game.Create(bob, Coloured("Encase Goblin Test", ManaColor.Red), Zone.Battlefield);
+
+        var wrong = TestCards.PutInHand(game, alice, ice);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToPermanent(drake)]));
+
+        game.CastSpell(alice, wrong, [Target.ToPermanent(goblin)]);
+        Settle(game);
+
+        // Found by name rather than by the id it had in hand: a spell that resolves into a
+        // permanent is a new object (CR 400.7).
+        var attached = game.State.Battlefield.Single(
+            id => game.State.GetObject(id).Card.Name == "Encase Test");
+
+        Assert.Equal(goblin, game.State.GetObject(attached).Permanent!.AttachedTo);
+    }
+
+    /// <summary>
+    /// One sentence holding a permanent down and silencing it is two continuous effects
+    /// (CR 613.1f, 602.5c).
+    /// </summary>
+    /// <remarks>
+    /// Encrust prints both halves in one line, and the untap reader stopped at the untap step -
+    /// so the line matched nothing at all and the Aura did neither. Reading only the first half
+    /// would have been worse than that: a card that taps a creature down and leaves its abilities
+    /// switched on is a different, weaker card that no test on the untap half would notice.
+    /// </remarks>
+    [Fact]
+    public void An_aura_that_stops_the_untap_can_also_stop_the_activations()
+    {
+        var encrust = Card(
+            "Encrust Test",
+            "Enchant artifact or creature" + "\n"
+                + "Enchanted permanent doesn't untap during its controller's untap step and its "
+                + "activated abilities can't be activated.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(encrust);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Statics.Count);
+
+        var engine = Card("Encrust Engine Test", "{T}: Draw a card.", CardType.Creature, 1, 1);
+        var ability = CardCompiler.Compile(engine).Activated.Single().Id;
+
+        var (game, alice, _) = InMainPhase();
+        var machine = game.Create(alice, engine, Zone.Battlefield);
+
+        // Past the summoning sickness (CR 302.6), so the refusal below is the Aura's doing and
+        // not some other reason the ability was never available.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        game.ActivateAbility(alice, machine, ability);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(machine).Permanent!.IsTapped);
+
+        var aura = game.Create(alice, encrust, Zone.Battlefield);
+        game.Attach(aura, machine);
+        Settle(game);
+
+        var held = Characteristics.Of(game.State, Pool, game.State.GetObject(machine));
+        Assert.True(held.DoesNotUntap);
+        Assert.True(held.AbilitiesCantBeActivated);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, machine, ability));
+
+        // And the holding half really holds: the creature tapped for that activation is still
+        // tapped after its controller's untap step has come round again.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 5 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.True(game.State.GetObject(machine).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// "Cumulative upkeep {W} or {U}" is a hybrid symbol written the long way (CR 107.4e, 702.24a).
+    /// </summary>
+    /// <remarks>
+    /// The equivalence is exact rather than convenient. The cost is charged once per age counter
+    /// and each of those payments is independently either colour, which is precisely what
+    /// repeating one {W/U} means - so folding the two symbols into one is the same cost, not a
+    /// cheaper one. Both colours are played through the game here because a fold that quietly
+    /// picked the first colour would still compile, still charge one mana, and still pass any
+    /// test that only ever paid with white.
+    /// </remarks>
+    [Fact]
+    public void Cumulative_upkeep_of_two_colours_is_paid_with_either_of_them()
+    {
+        var keeper = Card(
+            "Owl Keeper Test",
+            "Cumulative upkeep {W} or {U}",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(keeper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var charged = Assert.IsType<MayPay>(compiled.Triggers.Single().Effects[1]);
+        var symbol = Assert.Single(charged.Cost.Symbols);
+        Assert.True(symbol.IsHybrid);
+        Assert.Contains(ManaColor.White, symbol.Colors);
+        Assert.Contains(ManaColor.Blue, symbol.Colors);
+
+        foreach (var basic in (string[])["Plains", "Island"])
+        {
+            var (game, alice, _) = InMainPhase();
+            game.Create(alice, keeper, Zone.Battlefield);
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+
+            TestCards.PassUntil(
+                game,
+                () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.Upkeep);
+
+            game.ActivateAbility(alice, land, "mana");
+            Settle(game);
+
+            for (var guard = 0; guard < 10 && game.State.Choice is { } choice; guard++)
+                game.Choose(choice.PlayerId, [choice.Options[0].Id]);
+
+            Settle(game);
+
+            // Paid with one colour or the other, so it is alive and carrying its first age
+            // counter rather than sitting in the graveyard.
+            var alive = game.State.Battlefield.Single(
+                id => game.State.GetObject(id).Card.Name == "Owl Keeper Test");
+
+            Assert.Equal(
+                1,
+                game.State.GetObject(alive).Permanent?.Counters.GetValueOrDefault("age", 0));
+        }
+    }
+
+    /// <summary>
+    /// "Your maximum hand size is reduced by three" moves the number rather than removing it
+    /// (CR 402.2).
+    /// </summary>
+    /// <remarks>
+    /// The engine could say "no maximum hand size" and nothing in between, because the limit was a
+    /// bool: a card that shrinks it had nowhere to land. It is deliberately not a continuous
+    /// effect - CR 613 orders changes to <em>objects</em>, and this one is about a seat - so it
+    /// travels the way a cost reducer does, as a fact about a permanent that the cleanup step
+    /// looks up and subtracts.
+    /// </remarks>
+    [Fact]
+    public void A_reduced_maximum_hand_size_is_what_its_controller_discards_to()
+    {
+        var eater = Card(
+            "Thought Eater Test",
+            "Your maximum hand size is reduced by three.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(eater);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, eater, Zone.Battlefield);
+
+        for (var i = 0; i < 12; i++)
+        {
+            TestCards.PutInHand(game, alice, TestCards.Creature($"Eater Alice {i} Test", 1, 1));
+            TestCards.PutInHand(game, bob, TestCards.Creature($"Eater Bob {i} Test", 1, 1));
+        }
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Seven less three, and not seven: a reduction that failed to reach the cleanup step
+        // would leave this at 7 with everything else about the card looking correct.
+        Assert.Equal(4, game.State.GetPlayer(alice).Hand.Count);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // Bob's own limit is untouched - the sentence says "your".
+        Assert.Equal(7, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Each opponent's maximum hand size is reduced by two" points the same rule the other way.
+    /// </summary>
+    /// <remarks>
+    /// Which players a reduction reaches is decided by who controls the permanent, not by the
+    /// reduction naming them - so the two directions are one mechanism read twice. Asserting the
+    /// controller's own hand is untouched is the half that catches a scope applied to everybody.
+    /// </remarks>
+    [Fact]
+    public void A_reduction_aimed_at_opponents_leaves_its_controllers_own_limit_alone()
+    {
+        var miser = Card(
+            "Gnat Miser Test",
+            "Each opponent's maximum hand size is reduced by two.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(miser);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, miser, Zone.Battlefield);
+
+        for (var i = 0; i < 12; i++)
+        {
+            TestCards.PutInHand(game, alice, TestCards.Creature($"Miser Alice {i} Test", 1, 1));
+            TestCards.PutInHand(game, bob, TestCards.Creature($"Miser Bob {i} Test", 1, 1));
+        }
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(7, game.State.GetPlayer(alice).Hand.Count);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(5, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Defending player gets a poison counter" as a sentence, not as a keyword (CR 122.1, 704.5c).
+    /// </summary>
+    /// <remarks>
+    /// The poison effect had been in the engine since toxic was read, and toxic was the only thing
+    /// that could produce one: the keyword assembles its ability inside the compiler instead of
+    /// going through a sentence, so every card printing the instruction outright was unread. The
+    /// sentence reaches spells, activated abilities and triggers at once, which is why fixing one
+    /// three-card row moved fifteen cards.
+    /// </remarks>
+    [Fact]
+    public void An_unblocked_attacker_can_poison_the_player_it_got_through_to()
+    {
+        var cobra = Card(
+            "Crypt Cobra Test",
+            "Whenever ~ attacks and isn't blocked, defending player gets a poison counter.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(cobra);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var snake = game.Create(alice, cobra, Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Cobra Wall Test", 0, 4), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [snake] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [snake] = [wall] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Blocked, so nothing got through and the trigger did not fire. Asserting this first is
+        // what separates the template from "whenever ~ attacks".
+        Assert.Equal(0, game.State.GetPlayer(bob).PoisonCounters);
+
+        PassTo(game, 5, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [snake] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetPlayer(bob).PoisonCounters);
+    }
+
+    /// <summary>
+    /// "Equipped creature gets +10/+10 and loses flying" takes an ability away in layer 6
+    /// (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The removal sits in the same slot of the same sentence as the grant beside it, so it is the
+    /// grant with the bits cleared instead of set. The line was unread whole, and the tempting
+    /// half-reading is the dangerous one: a Colossus Hammer that gives +10/+10 and leaves the
+    /// flying on is a strictly better card than the one printed, which is the failure the compiler
+    /// refuses by leaving a line it cannot fully read alone.
+    /// </remarks>
+    [Fact]
+    public void Equipment_that_pumps_and_takes_flying_away_does_both()
+    {
+        var hammer = Card(
+            "Colossus Hammer Test",
+            "Equipped creature gets +10/+10 and loses flying." + "\n" + "Equip {8}",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(hammer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var drake = game.Create(
+            alice,
+            TestCards.WithKeyword("Hammer Drake Test", KeywordAbility.Flying, 2, 2),
+            Zone.Battlefield);
+
+        var before = Characteristics.Of(game.State, Pool, game.State.GetObject(drake));
+        Assert.True(before.Has(KeywordAbility.Flying));
+
+        var equipment = game.Create(alice, hammer, Zone.Battlefield);
+        game.Attach(equipment, drake);
+        Settle(game);
+
+        var after = Characteristics.Of(game.State, Pool, game.State.GetObject(drake));
+        Assert.Equal(12, after.Power);
+        Assert.Equal(12, after.Toughness);
+        Assert.False(after.Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// "Target player shuffles their graveyard into their library" (CR 701.23).
+    /// </summary>
+    /// <remarks>
+    /// The untargeted form - "shuffle your graveyard into your library" after a search - has been
+    /// read for a long time, and this is the same instruction pointed at somebody else. Kept as a
+    /// matcher of its own rather than widened into that one, because the untargeted pattern is
+    /// anchored on "shuffle" as the sentence's first word and would sooner drop the target than
+    /// refuse it: a spell that quietly shuffled the caster's own graveyard is worse than one
+    /// left unread.
+    /// </remarks>
+    [Fact]
+    public void A_targeted_graveyard_shuffle_empties_the_graveyard_it_was_aimed_at()
+    {
+        var reminisce = Card(
+            "Reminisce Test",
+            "Target player shuffles their graveyard into their library.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reminisce);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        for (var i = 0; i < 3; i++)
+        {
+            game.Create(bob, TestCards.Creature($"Reminisce Bob {i} Test", 1, 1), Zone.Graveyard);
+            game.Create(alice, TestCards.Creature($"Reminisce Alice {i} Test", 1, 1), Zone.Graveyard);
+        }
+
+        var bobLibrary = game.State.GetPlayer(bob).Library.Count;
+        var aliceGraveyard = game.State.GetPlayer(alice).Graveyard.Count;
+
+        var card = TestCards.PutInHand(game, alice, reminisce);
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Equal(bobLibrary + 3, game.State.GetPlayer(bob).Library.Count);
+
+        // Alice's own graveyard is untouched apart from the spell that just resolved into it,
+        // which is what "target player" buys over the untargeted sentence.
+        Assert.Equal(aliceGraveyard + 1, game.State.GetPlayer(alice).Graveyard.Count);
+    }
+
+    /// <summary>
+    /// "Discard all the cards in your hand, then draw that many cards" is one effect (CR 608.2).
+    /// </summary>
+    /// <remarks>
+    /// Not a discard followed by a draw. The instructions of an ability resolve one at a time
+    /// against the state the one before it left, so by the time a draw could ask how big the hand
+    /// was, the hand is empty and "that many" is zero - a card that compiled into two effects
+    /// would discard everything and draw nothing while looking perfectly well read. The count is
+    /// taken once, before either half happens.
+    /// </remarks>
+    [Fact]
+    public void Discarding_a_whole_hand_draws_back_as_many_cards_as_it_held()
+    {
+        var winds = Card(
+            "Tolarian Winds Test",
+            "Discard all the cards in your hand, then draw that many cards.");
+
+        var compiled = CardCompiler.Compile(winds);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, winds);
+        game.CastSpell(alice, card, []);
+
+        // Taken with the spell already on the stack, so this is the hand the effect will see.
+        // The names are read now rather than afterwards: a card that changes zone becomes a new
+        // object (CR 400.7), and the ids held here name nothing once the discard has happened.
+        var thrown = game.State.GetPlayer(alice).Hand.ToList();
+        var names = thrown.Select(id => game.State.GetObject(id).Card.Name).ToList();
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        Assert.NotEmpty(thrown);
+        Settle(game);
+
+        var now = game.State.GetPlayer(alice).Hand;
+
+        Assert.Equal(thrown.Count, now.Count);
+        Assert.Equal(library - thrown.Count, game.State.GetPlayer(alice).Library.Count);
+
+        // Every card is a different card: the hand was emptied and refilled, not left alone.
+        Assert.Empty(now.Intersect(thrown));
+
+        var graveyard = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id).Card.Name)
+            .ToList();
+
+        Assert.All(names, name => Assert.Contains(name, graveyard));
     }
 
     // ---- Cases (CR 719) ------------------------------------------------------

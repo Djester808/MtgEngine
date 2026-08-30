@@ -1964,6 +1964,23 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target player shuffles their graveyard into their library" — the same instruction as
+        // the one below, aimed. Read before it because the untargeted pattern is anchored on
+        // "shuffle" as the first word and would never see this one; kept as its own matcher for
+        // the same reason every targeted twin here is, so a target that cannot be read loses the
+        // line rather than quietly shuffling the caster's own graveyard.
+        var yardShuffle = TargetShuffleGraveyardLine().Match(sentence);
+        if (yardShuffle.Success
+            && Specs.Parse(yardShuffle.Groups["t"].Value.Trim()) is
+            { Kind: TargetKind.Player } shuffler)
+        {
+            targets.Add(shuffler);
+            effects.Add(new ShuffleLibrary(
+                GraveyardFirst: true, TargetIndex: targets.Count - 1));
+
+            return true;
+        }
+
         m = ShuffleLine().Match(sentence);
         if (m.Success)
         {
@@ -2271,6 +2288,20 @@ public static partial class EffectPhrase
             effects.Add(new DiscardCards(
                 0, ScopeOf(dumping.Groups["who"].Value), WholeHand: true));
 
+            return true;
+        }
+
+        // "…, then draw that many cards" — the second half of Tolarian Winds, arriving as its own
+        // sentence because the splitter cuts on ", then". It is read by folding the two into one
+        // effect rather than by adding a draw beside the discard: "that many" is the size of a
+        // hand that no longer exists once the discard has resolved. Accepted only directly after
+        // a whole-hand discard, so a stray "draw that many cards" with nothing to count stays
+        // unread instead of drawing zero.
+        if (DrawThatManyLine().IsMatch(sentence)
+            && effects.Count > 0
+            && effects[^1] is DiscardCards { WholeHand: true, TargetIndex: null } emptied)
+        {
+            effects[^1] = new DiscardHandThenDraw(emptied.Scope);
             return true;
         }
 
@@ -4202,6 +4233,20 @@ public static partial class EffectPhrase
             effects.Add(new GainExperience(
                 Number(experience.Groups["n"].Value),
                 ScopeOf(experience.Groups["who"].Value)));
+
+            return true;
+        }
+
+        // "Defending player gets a poison counter" (CR 122.1, 704.5c). The effect has been in
+        // the engine since toxic was read, and toxic was the only thing that could produce one:
+        // the keyword assembles the ability in the compiler rather than going through a
+        // sentence, so every card that prints the sentence outright was unread.
+        var poison = GetPoisonLine().Match(sentence);
+        if (poison.Success)
+        {
+            effects.Add(new GivePoisonCounters(
+                Number(poison.Groups["n"].Value),
+                ScopeOf(poison.Groups["who"].Value)));
 
             return true;
         }
@@ -9322,6 +9367,12 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleLine();
 
+    /// <summary>"Target player shuffles their graveyard into their library" (CR 701.23).</summary>
+    [GeneratedRegex(
+        @"^(?<t>target (player|opponent)) shuffles their graveyard into their library$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TargetShuffleGraveyardLine();
+
     [GeneratedRegex(
         @"^(then )?shuffle and put (it|that card) on top( of your library)?$",
         RegexOptions.IgnoreCase)]
@@ -9581,9 +9632,19 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex DiscardLine();
 
+    /// <remarks>
+    /// "Discard all the cards in your hand" is the long spelling of the same instruction and the
+    /// wording every card in the Tolarian Winds family uses. Reading it here rather than as its
+    /// own matcher is what keeps one meaning behind one effect.
+    /// </remarks>
     [GeneratedRegex(
-        @"^" + WOPT + @"discards? (your|their) hand$", RegexOptions.IgnoreCase)]
+        @"^" + WOPT + @"discards? (all the cards in (your|their) hand|(your|their) hand)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex DiscardHandLine();
+
+    /// <summary>"…, then draw that many cards" — only ever after a whole hand has gone.</summary>
+    [GeneratedRegex(@"^" + WOPT + @"draws? that many cards$", RegexOptions.IgnoreCase)]
+    private static partial Regex DrawThatManyLine();
 
     [GeneratedRegex(
         @"^(?<who>that player|each player|each opponent) draws? " + N
@@ -10446,6 +10507,16 @@ public static partial class EffectPhrase
             + @"(?<n>an|one|two|three|\d+) experience counters?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GetExperienceLine();
+
+    /// <summary>"Defending player gets a poison counter" (CR 122.1, 704.5c).</summary>
+    /// <remarks>
+    /// The whole player vocabulary rather than the three words energy takes, because this
+    /// sentence is printed with a combat subject far more often than with "you": it is nearly
+    /// always the defender or the player a trigger was about who takes the counter.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + W + @" gets? " + N + @" poison counters?$", RegexOptions.IgnoreCase)]
+    private static partial Regex GetPoisonLine();
 
     /// <remarks>
     /// "Otherwise" would be a correct synonym for "if you lose the flip" — CR 705.2 gives a flip
@@ -11822,10 +11893,20 @@ public static partial class TriggerConditions
         {
             // CR 509.1h: unblocked-ness is settled by the declaration of blockers, so that is the
             // event to watch — not the attack, which happens a step earlier and cannot know yet.
+            //
+            // Read off the *event* and not off the state, which is the half this had wrong.
+            // Trigger conditions are asked against the game as it was before the event applied
+            // (CR 603.6), and before a declaration of blockers nothing is blocked — so the state
+            // question answered "unblocked" for every attacker in the batch and the ability fired
+            // whether or not somebody had just blocked it. Nothing noticed because no card using
+            // this condition had ever compiled: the effect sentence beside it was unread, so the
+            // whole family sat in the work queue with a trigger that would have played the cards
+            // strictly better than printed.
             return (e, state, source) =>
-                e is BlockersDeclared
+                e is BlockersDeclared declared
                 && state.Combat.Attackers.ContainsKey(source.Id)
-                && !state.Combat.Blocked.Contains(source.Id);
+                && !(declared.Blockers.TryGetValue(source.Id, out var stoppedBy)
+                    && !stoppedBy.IsEmpty);
         }
 
         var dealsDamage = DealsDamageTo().Match(condition);

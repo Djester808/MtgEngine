@@ -442,12 +442,42 @@ public sealed class Game
     /// permanent enters or leaves, and a number written into the cleanup step would go on being
     /// seven while the card that says otherwise sat on the battlefield doing nothing.
     /// </remarks>
-    private int? HandLimitFor(Guid playerId) =>
-        State.Battlefield
-            .Select(State.GetObject)
-            .Any(o => ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card))
-            ? null
-            : MaxHandSize;
+    private int? HandLimitFor(Guid playerId)
+    {
+        var board = State.Battlefield.Select(State.GetObject).ToList();
+
+        if (board.Any(o => ControllerOf(o) == playerId && _abilities.RemovesHandLimit(o.Card)))
+            return null;
+
+        // "Your maximum hand size is reduced by three" and "each opponent's … by two" are the
+        // same rule pointed two ways, so the permanent's controller decides which players its
+        // reduction reaches rather than the reduction naming them. Several of them add up
+        // (CR 402.2) and the total stops at zero — a negative limit would ask for more cards than
+        // a player has and there is no such discard.
+        var reduction = 0;
+
+        foreach (var permanent in board)
+        {
+            var controller = ControllerOf(permanent);
+
+            foreach (var less in _abilities.HandLimitReductionsOf(permanent.Card))
+            {
+                var reaches = less.Who switch
+                {
+                    PlayerScope.You => controller == playerId,
+                    PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer =>
+                        controller != playerId,
+                    PlayerScope.EachPlayer => true,
+                    _ => false,
+                };
+
+                if (reaches)
+                    reduction += less.Amount;
+            }
+        }
+
+        return Math.Max(0, MaxHandSize - reduction);
+    }
 
     /// <summary>
     /// Asks a player over their maximum hand size which cards to discard (CR 514.1).

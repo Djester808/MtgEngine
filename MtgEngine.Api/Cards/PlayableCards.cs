@@ -124,6 +124,9 @@ public sealed class PlayableCards : IAbilitySource
 
     public bool RemovesHandLimit(CardDefinition card) => For(card).RemovesHandLimit(card);
 
+    public IReadOnlyList<HandLimitReduction> HandLimitReductionsOf(CardDefinition card) =>
+        For(card).HandLimitReductionsOf(card);
+
     public ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => For(card).ChoosesOnEntry(card);
 
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops(card);

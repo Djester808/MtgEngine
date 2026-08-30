@@ -294,6 +294,17 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>Whether this permanent removes its controller's hand limit (CR 402.2).</summary>
     bool RemovesHandLimit(CardDefinition card) => false;
 
+    /// <summary>
+    /// How much this permanent takes off somebody's maximum hand size (CR 402.2).
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="RemovesHandLimit"/>, and a list rather than a number because
+    /// the two directions are different questions: "your maximum hand size is reduced by three"
+    /// moves the controller's limit and "each opponent's maximum hand size is reduced by two"
+    /// moves everybody else's, and one card could print both.
+    /// </remarks>
+    IReadOnlyList<HandLimitReduction> HandLimitReductionsOf(CardDefinition card) => [];
+
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => ChoiceOnEntry.None;
 

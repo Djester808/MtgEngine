@@ -126,6 +126,9 @@ public sealed class CompiledPool : IAbilitySource
 
     public bool RemovesHandLimit(CardDefinition card) => For(card).RemovesHandLimit;
 
+    public IReadOnlyList<HandLimitReduction> HandLimitReductionsOf(CardDefinition card) =>
+        For(card).HandLimitReductions;
+
     public Abilities.ChoiceOnEntry ChoosesOnEntry(CardDefinition card) =>
         For(card).ChoosesOnEntry;
 

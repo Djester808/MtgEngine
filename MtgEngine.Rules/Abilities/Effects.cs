@@ -3592,6 +3592,47 @@ public sealed record DiscardCards(
 }
 
 /// <summary>
+/// Discards a whole hand and draws back as many as it held (CR 701.8, 121.3).
+/// </summary>
+/// <remarks>
+/// One effect rather than a discard followed by a draw, because "that many" is a number that
+/// stops existing the moment the first half happens: effects in an ability resolve one at a time
+/// against the state the one before it left (CR 608.2), so by the time a draw could ask how big
+/// the hand was, it is empty. The count is taken once, here, before either instruction runs.
+/// <para>
+/// The draw reads the library and the discard reads the hand, so both sets of events can be
+/// worked out from the same state without either seeing the other's — which is what lets this be
+/// one resolution rather than a deferred question.
+/// </para>
+/// </remarks>
+public sealed record DiscardHandThenDraw(PlayerScope Scope = PlayerScope.You) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var events = new List<GameEvent>();
+
+        foreach (var who in PlayerScopes.Resolve(Scope, context))
+        {
+            var hand = context.State.GetPlayer(who).Hand;
+
+            // Nothing to choose: the whole hand goes, so there is no discard to ask about and
+            // the cards can move here the way an emptied hand does everywhere else.
+            foreach (var card in hand)
+            {
+                events.Add(new ObjectMoved(
+                    card, ObjectId.New(), Zone.Hand, Zone.Graveyard, who, MoveCause.Discard));
+            }
+
+            events.AddRange(Drawing.From(context, who, hand.Count));
+        }
+
+        return events;
+    }
+}
+
+/// <summary>
 /// Puts the top cards of a library into its owner's graveyard (CR 701.17).
 /// </summary>
 /// <remarks>
@@ -4115,21 +4156,35 @@ public sealed record ShuffleSourceIntoLibrary : IEffect
     }
 }
 
+/// <param name="TargetIndex">
+/// The one player the sentence named, or null when it named a group instead.
+/// </param>
+/// <remarks>
+/// A named target wins outright over the scope, the way it does for drawing and discarding: the
+/// sentence named one player and the scope named none. "Target player shuffles their graveyard
+/// into their library" is the same instruction as the untargeted one pointed somewhere else, and
+/// a target that has gone leaves nothing to shuffle rather than falling back to the controller.
+/// </remarks>
 public sealed record ShuffleLibrary(
-    PlayerScope Whose = PlayerScope.You, bool GraveyardFirst = false) : IEffect
+    PlayerScope Whose = PlayerScope.You,
+    bool GraveyardFirst = false,
+    int? TargetIndex = null) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        IEnumerable<Guid> whose = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed ? [aimed.Player] : []
+            : PlayerScopes.Resolve(Whose, context);
+
         return
         [
-            .. PlayerScopes.Resolve(Whose, context)
-                .Select(who => new ShuffleRequested(
-                    who,
-                    GraveyardFirst
-                        ? context.State.GetPlayer(who).Graveyard
-                        : [])),
+            .. whose.Select(who => new ShuffleRequested(
+                who,
+                GraveyardFirst
+                    ? context.State.GetPlayer(who).Graveyard
+                    : [])),
         ];
     }
 }

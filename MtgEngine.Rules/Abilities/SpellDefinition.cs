@@ -806,6 +806,24 @@ public sealed record TapToPay(TargetSpec What, bool ColorMatters);
 public sealed record CostReducer(string FilterId, int Amount);
 
 /// <summary>
+/// How much a permanent takes off somebody's maximum hand size (CR 402.2).
+/// </summary>
+/// <param name="Amount">How many cards come off the limit, never below zero in total.</param>
+/// <param name="Who">Whose limit moves — the controller's, or every opponent's.</param>
+/// <remarks>
+/// Not a continuous effect in the CR 613 sense and so not a <see cref="ContinuousEffectDefinition"/>:
+/// the subject is a player, and the layers order changes to <em>objects</em>. It is not a
+/// <see cref="PlayerQualityDefinition"/> either, because that carries a keyword flag and this
+/// carries a number. The nearest thing already here is <see cref="CostReducer"/> — a fact about a
+/// permanent that a rule elsewhere asks for and subtracts.
+/// <para>
+/// Reductions from several permanents add up, and the sum is floored at zero: a player with a
+/// maximum hand size of "minus one" discards to nothing and no further (CR 402.2).
+/// </para>
+/// </remarks>
+public sealed record HandLimitReduction(int Amount, PlayerScope Who);
+
+/// <summary>
 /// One separately castable half of a card that has more than one (CR 709.4, 712.4).
 /// </summary>
 /// <remarks>
