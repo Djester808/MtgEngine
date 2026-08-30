@@ -261,6 +261,13 @@ public static class EffectTargets
             (e, n) => e.Subject == EffectSubject.Target
                 ? e with { TargetIndex = e.TargetIndex + n }
                 : e);
+        // The same shape as PutCounters, and about the same thing: doubling is aimed at a target
+        // only when the sentence named one.
+        Add<DoubleCounters>(
+            e => e.Subject == EffectSubject.Target ? e.TargetIndex : null,
+            (e, n) => e.Subject == EffectSubject.Target
+                ? e with { TargetIndex = e.TargetIndex + n }
+                : e);
         // Only when it is about a target, for the same reason PutCounters is: "it gets -1/-0"
         // in a trigger names the object the trigger was about, and the index it carries then
         // means nothing.
@@ -334,6 +341,12 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
 
+        // Nullable for the same reason ChangeLife's is: the sentence names a scope far more
+        // often than it targets a player.
+        Add<LoseHalfLife>(
+            e => e.TargetIndex,
+            (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
+
         Add<ShuffleLibrary>(
             e => e.TargetIndex,
             (e, n) => e.TargetIndex is { } i ? e with { TargetIndex = i + n } : e);
@@ -350,6 +363,10 @@ public static class EffectTargets
             e => e.TargetIndex,
             (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
+        // The index names the creature whose *controller* is damaged, not the creature - but it
+        // is still read off the target list, so it shifts with everything else.
+        Add<DamageTargetsController>(
+            e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<ChangeLifeOfTargetsController>(
             e => e.TargetIndex,
             (e, n) => e with { TargetIndex = e.TargetIndex + n });

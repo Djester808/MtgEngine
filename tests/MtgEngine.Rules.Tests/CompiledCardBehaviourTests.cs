@@ -47842,6 +47842,623 @@ public sealed class CompiledCardBehaviourTests
         Assert.All(names, name => Assert.Contains(name, graveyard));
     }
 
+    // ---- Round fourteen: seven queue rows, five causes ------------------------
+
+    /// <summary>
+    /// "Each creature you control can block an additional creature each combat" (CR 509.1a).
+    /// </summary>
+    /// <remarks>
+    /// The single-creature form has been read for a long time, and the reason the group form was
+    /// not is worth keeping: its reader knows three subjects — "~", enchanted, equipped — and
+    /// nothing else, so a line naming a group fell straight through. The allowance now comes off
+    /// the same mass-static grammar the lords use, which is what makes the second half of this
+    /// work possible: "each creature you control with a +1/+1 counter on it" is a filter that
+    /// vocabulary already had, and no reader had to learn it twice.
+    /// <para>
+    /// The assertion about Alice's creature is the one that matters. A group reader that ignored
+    /// the ownership clause would pass every line about the enchantment's own side and quietly
+    /// hand the allowance to the whole table — the failure this compiler has recorded before,
+    /// where the card reads as complete and applies to half the board.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_extra_block_can_be_given_to_a_whole_side_of_the_board()
+    {
+        var sands = Card(
+            "Test Brave the Sands",
+            "Each creature you control can block an additional creature each combat.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sands);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var wall = game.Create(bob, TestCards.Creature("Test Sands Wall", 1, 6), Zone.Battlefield);
+        var theirs = game.Create(
+            alice, TestCards.Creature("Test Sands Interloper", 1, 6), Zone.Battlefield);
+
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(wall)).ExtraBlocks);
+
+        game.Create(bob, sands, Zone.Battlefield);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(wall)).ExtraBlocks);
+
+        // Bob's enchantment, so Alice's creature is not one of "each creature you control".
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(theirs)).ExtraBlocks);
+
+        var first = game.Create(alice, TestCards.Creature("Test Sands Raider", 2, 2), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.Creature("Test Sands Rider", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [first] = AttackTarget.Player(bob),
+                [second] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+            {
+                [first] = [wall],
+                [second] = [wall],
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(4, game.State.GetObject(wall).Permanent!.DamageMarked);
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// The group's filter is the lords' filter, so a counter narrows who may block twice.
+    /// </summary>
+    /// <remarks>
+    /// Cenn's Tactician's wording, and the whole argument for putting the allowance in the mass
+    /// static reader rather than widening the single-creature one: nothing here was written for
+    /// counters. A creature that picks one up joins the group and one that never had one does
+    /// not, because the filter is asked of the permanent every time the characteristics are
+    /// computed.
+    /// </remarks>
+    [Fact]
+    public void The_group_that_gets_the_extra_block_can_be_narrowed_by_a_counter()
+    {
+        var tactician = Card(
+            "Test Cenn's Tactician",
+            "Each creature you control with a +1/+1 counter on it can block an additional "
+                + "creature each combat.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(tactician);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, tactician, Zone.Battlefield);
+
+        var marked = game.Create(alice, TestCards.Creature("Test Tactician Marked", 2, 2), Zone.Battlefield);
+        var plain = game.Create(alice, TestCards.Creature("Test Tactician Plain", 2, 2), Zone.Battlefield);
+
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(marked)).ExtraBlocks);
+
+        game.AddCounters(marked, CounterKinds.PlusOnePlusOne, 1);
+
+        Assert.Equal(
+            1, Characteristics.Of(game.State, Pool, game.State.GetObject(marked)).ExtraBlocks);
+
+        Assert.Equal(
+            0, Characteristics.Of(game.State, Pool, game.State.GetObject(plain)).ExtraBlocks);
+    }
+
+    /// <summary>
+    /// A number word the compiler cannot count leaves the line unread rather than meaning one.
+    /// </summary>
+    /// <remarks>
+    /// The fail-open this project keeps finding, in the one reader that still had it: the number
+    /// in "can block an additional seven creatures each combat" went through a helper that
+    /// answers 1 to any word it does not know, so Hundred-Handed One's "ninety-nine" would have
+    /// compiled into a permission to block one more creature — a complete card, a legal card, and
+    /// not the printed one. The cardinal is checked before it is read, so the seven is read and
+    /// the ninety-nine is refused.
+    /// </remarks>
+    [Fact]
+    public void A_number_of_extra_blocks_is_read_only_when_the_word_can_be_counted()
+    {
+        var spider = Card(
+            "Test Watcher in the Web",
+            "~ can block an additional seven creatures each combat.",
+            CardType.Creature,
+            2,
+            5);
+
+        Assert.True(CardCompiler.Compile(spider).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var web = game.Create(alice, spider, Zone.Battlefield);
+
+        Assert.Equal(
+            7, Characteristics.Of(game.State, Pool, game.State.GetObject(web)).ExtraBlocks);
+
+        var hundred = Card(
+            "Test Hundred-Handed Guard",
+            "~ can block an additional ninety-nine creatures each combat.",
+            CardType.Creature,
+            3,
+            5);
+
+        // Unread rather than read as one. The refusal is the point: a card blocking one more is
+        // a different card from one blocking ninety-nine more.
+        Assert.False(CardCompiler.Compile(hundred).IsComplete);
+    }
+
+    /// <summary>
+    /// "Target permanent becomes white until end of turn" (CR 105.2, 613.1e).
+    /// </summary>
+    /// <remarks>
+    /// Becoming a colour <em>sets</em> the colours rather than adding to them, which is the half
+    /// worth asserting: the Elf under this ability stops being green. Reading it as an addition
+    /// would leave every "protection from green" and every "green creatures get +1/+1" still
+    /// applying to it, on a card that says otherwise.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_told_to_become_a_colour_stops_being_the_colour_it_was()
+    {
+        var kestrel = Card(
+            "Test Cloudchaser Kestrel",
+            "{W}: Target permanent becomes white until end of turn.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(kestrel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bird = game.Create(alice, kestrel, Zone.Battlefield);
+        var elf = game.Create(alice, Coloured("Test Kestrel Elf", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Contains(
+            ManaColor.Green,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(elf)).Colors);
+
+        game.AddMana(alice, ManaColor.White);
+        game.ActivateAbility(
+            alice, bird, compiled.Activated.Single().Id, [Target.ToPermanent(elf)]);
+
+        Settle(game);
+
+        var painted = Characteristics.Of(game.State, Pool, game.State.GetObject(elf));
+
+        Assert.Contains(ManaColor.White, painted.Colors);
+        Assert.DoesNotContain(ManaColor.Green, painted.Colors);
+
+        // CR 514.2: the effect ends in the cleanup step, and the Elf is green again.
+        TestCards.PassUntil(game, () => game.State.TurnNumber >= 2);
+
+        Assert.Contains(
+            ManaColor.Green,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(elf)).Colors);
+    }
+
+    /// <summary>
+    /// A recolouring with no stated duration is refused rather than made to expire.
+    /// </summary>
+    /// <remarks>
+    /// The lace cycle — "Target spell or permanent becomes red" — changes a colour for good. The
+    /// effect this template builds ends in the cleanup step, so reading those words here would
+    /// give a card that undoes itself while counting towards coverage. Same refusal the animation
+    /// reader makes, and made for the same reason.
+    /// </remarks>
+    [Fact]
+    public void A_recolouring_without_a_duration_is_left_unread()
+    {
+        var lace = Card("Test Purelace", "Target permanent becomes white.");
+
+        Assert.False(CardCompiler.Compile(lace).IsComplete);
+    }
+
+    /// <summary>
+    /// "Double the number of +1/+1 counters on ~" (CR 121.3).
+    /// </summary>
+    /// <remarks>
+    /// Doubling is putting on as many as are already there, so it needs no event of its own — and
+    /// the count has to be taken when the ability resolves rather than when the card compiles,
+    /// which is what the second activation here proves: the same ability doubles a different
+    /// number the second time.
+    /// <para>
+    /// The permanent with no counters is the guard against the obvious wrong reading. "Double"
+    /// on nothing is nothing; a reader that put one on would look right on every card that
+    /// already had some.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Doubling_counters_adds_as_many_as_are_already_there()
+    {
+        // A 1/1 rather than the printed 0/0: Solarion is kept alive by the sunburst counters it
+        // enters with, and a 0/0 with none of them is put into a graveyard by a state-based
+        // action before it can be tapped for anything (CR 704.5f).
+        var hydra = Card(
+            "Test Solarion",
+            "{T}: Double the number of +1/+1 counters on ~.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(hydra);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var sun = game.Create(alice, hydra, Zone.Battlefield);
+
+        // CR 302.6: the tap is part of the cost, so nothing can be doubled until the creature has
+        // been under its controller's command since the turn began.
+        PassToMainPhaseOfTurn(game, 3);
+
+        // Nothing to double yet, and doubling nothing is nothing.
+        game.ActivateAbility(alice, sun, compiled.Activated.Single().Id);
+        Settle(game);
+
+        Assert.Equal(
+            0,
+            game.State.GetObject(sun).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        game.AddCounters(sun, CounterKinds.PlusOnePlusOne, 3);
+        PassToMainPhaseOfTurn(game, 5);
+
+        game.ActivateAbility(alice, sun, compiled.Activated.Single().Id);
+        Settle(game);
+
+        Assert.Equal(
+            6,
+            game.State.GetObject(sun).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+        Assert.Equal(
+            7, Characteristics.Of(game.State, Pool, game.State.GetObject(sun)).Power);
+    }
+
+    /// <summary>
+    /// "Double the number of each kind of counter on target permanent" (CR 121.3).
+    /// </summary>
+    /// <remarks>
+    /// Not the named form with the noun left out. This one doubles every kind the permanent is
+    /// carrying, which is a set the compiler cannot know — it is a fact of the board when the
+    /// ability resolves — and that is why the two wordings are told apart in the reader rather
+    /// than folded together with a nullable name.
+    /// </remarks>
+    [Fact]
+    public void Doubling_every_kind_of_counter_doubles_each_of_them()
+    {
+        var bairn = Card(
+            "Test Gilder Bairn",
+            "{2}: Double the number of each kind of counter on target permanent.",
+            CardType.Creature,
+            1,
+            3);
+
+        var compiled = CardCompiler.Compile(bairn);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ouphe = game.Create(alice, bairn, Zone.Battlefield);
+        var relic = game.Create(alice, TestCards.Creature("Test Bairn Relic", 1, 1), Zone.Battlefield);
+
+        game.AddCounters(relic, CounterKinds.PlusOnePlusOne, 2);
+        game.AddCounters(relic, "charge", 3);
+
+        game.AddMana(alice, null, 2);
+        game.ActivateAbility(
+            alice, ouphe, compiled.Activated.Single().Id, [Target.ToPermanent(relic)]);
+
+        Settle(game);
+
+        var counters = game.State.GetObject(relic).Permanent!.Counters;
+
+        Assert.Equal(4, counters[CounterKinds.PlusOnePlusOne]);
+        Assert.Equal(6, counters["charge"]);
+    }
+
+    /// <summary>
+    /// "~ deals 4 damage to target creature and 2 damage to that creature's controller."
+    /// </summary>
+    /// <remarks>
+    /// The player is decided by the first half of the same sentence and is not a target: nothing
+    /// about the words chooses them, so hexproof has nothing to say and the board must not offer
+    /// them as a second pick. The spell is cast with one target here, which is the assertion the
+    /// call itself makes.
+    /// <para>
+    /// It is damage rather than life loss, and the difference is not cosmetic — it is dealt by
+    /// the source, so it can be prevented, and it is what lifelink and every "whenever this deals
+    /// damage" trigger watch. A card of this shape compiled as life loss would be wrong in all
+    /// three ways while reading as complete.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Damage_to_a_creature_can_carry_damage_to_whoever_controls_it()
+    {
+        var outrage = Card(
+            "Test Chandra's Outrage",
+            "~ deals 4 damage to target creature and 2 damage to that creature's controller.");
+
+        var compiled = CardCompiler.Compile(outrage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Test Outrage Bear", 5, 5), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, outrage);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(4, game.State.GetObject(bear).Permanent!.DamageMarked);
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // Alice is not "that creature's controller", and nothing chose her.
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The creature can be dead by the time its controller is damaged, and still names them.
+    /// </summary>
+    /// <remarks>
+    /// The awkward half, and the reason this reuses the ownership reader the life and draw
+    /// clauses already share. Effects in one resolution each see what the previous left behind
+    /// (CR 608.2c), so a creature killed by the first half of the sentence is a card in a
+    /// graveyard under a new id by the time the second half runs (CR 400.7) — and a lookup on the
+    /// battlefield finds nothing. Whose it was is still a fact about the game, so the controller
+    /// is followed back through the log.
+    /// </remarks>
+    [Fact]
+    public void A_creature_killed_by_the_first_half_still_names_its_controller()
+    {
+        var volley = Card(
+            "Test First Volley",
+            "~ deals 1 damage to target creature and 1 damage to that creature's controller.");
+
+        Assert.True(CardCompiler.Compile(volley).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var mite = game.Create(bob, TestCards.Creature("Test Volley Mite", 1, 1), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, volley);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(mite)]);
+        Settle(game);
+
+        Assert.Empty(game.State.Battlefield);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "When ~ enters, target opponent exiles a card from their hand" (CR 609.4).
+    /// </summary>
+    /// <remarks>
+    /// Two rows of the work queue that look nothing alike — this one and "target player exiles a
+    /// card from their graveyard" — and one cause between them: a player other than the
+    /// controller is told to pick one of their own cards, which is the choice-on-resolution
+    /// machinery a sacrifice already uses, pointed at a zone it had never been pointed at.
+    /// <para>
+    /// The assertion about who is asked is the rule. The opponent chooses, not the caster, and a
+    /// hand is hidden — what keeps it hidden is that a pending choice's options are projected
+    /// only to the player being asked, and the player being asked here is the one whose hand it
+    /// is.
+    /// </para>
+    /// <para>
+    /// And it is an exile, not a discard: the card never reaches a graveyard, so nothing watching
+    /// for a discard fires and madness never gets its chance to apply.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_opponent_exiles_a_card_of_their_own_choosing_from_their_hand()
+    {
+        var agent = Card(
+            "Test Unscrupulous Agent",
+            "When ~ enters, target opponent exiles a card from their hand.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(agent);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, bob, TestCards.Creature("Test Agent Hostage", 3, 3));
+
+        var held = game.State.GetPlayer(bob).Hand.Count;
+        var card = TestCards.PutInHand(game, alice, agent);
+
+        // The creature spell targets nothing; its trigger does (CR 603.3d), and the target is
+        // chosen when the trigger goes on the stack rather than when the card is cast.
+        game.CastSpell(alice, card, []);
+
+        for (var guard = 0; guard < 40; guard++)
+        {
+            if (game.State.Choice is { Kind: ChoiceKind.ChoosePermanent })
+                break;
+
+            if (game.State.Choice is { } pending)
+            {
+                game.Choose(
+                    pending.PlayerId,
+                    [.. pending.Options.Take(Math.Max(pending.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        var asked = game.State.Choice!;
+        Assert.Equal(bob, asked.PlayerId);
+
+        game.Choose(bob, [asked.Options[0].Id]);
+        Settle(game);
+
+        Assert.Equal(held - 1, game.State.GetPlayer(bob).Hand.Count);
+        Assert.Single(game.State.Exile);
+
+        // Exiled, not discarded: nothing of Bob's reached a graveyard.
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    /// <summary>
+    /// The same sentence asked of a graveyard (CR 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The other row, and the reason to write both: one reader, two zones, and the zone is the
+    /// only thing that differs. A graveyard is public where a hand is not, which changes nothing
+    /// about who is asked — the card says "target player exiles", and the player exiling is the
+    /// one who chooses.
+    /// </remarks>
+    [Fact]
+    public void A_player_exiles_a_card_of_their_own_choosing_from_their_graveyard()
+    {
+        var claws = Card(
+            "Test Scrabbling Claws",
+            "{T}: Target player exiles a card from their graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(claws);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var tool = game.Create(alice, claws, Zone.Battlefield);
+        game.Create(bob, TestCards.Creature("Test Claws Corpse", 2, 2), Zone.Graveyard);
+
+        game.ActivateAbility(
+            alice, tool, compiled.Activated.Single().Id, [Target.ToPlayer(bob)]);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.Choice is { Kind: ChoiceKind.ChoosePermanent });
+
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+        game.Choose(bob, [game.State.Choice!.Options[0].Id]);
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+        Assert.Single(game.State.Exile);
+    }
+
+    /// <summary>
+    /// "You lose half your life, rounded up" (CR 119.3, 107.15).
+    /// </summary>
+    /// <remarks>
+    /// The reason this could not be written as an amount, played out: the number is taken from
+    /// the player when the effect resolves, so the same printed sentence takes ten from a player
+    /// on twenty and four from one on seven. Anything the compiler could have worked out in
+    /// advance would be wrong for one of them.
+    /// <para>
+    /// The odd total is the assertion that separates the two roundings. Seven rounded up is four
+    /// and rounded down is three, and every card that prints this sentence says which — so a
+    /// reader that picked one would be right on half the corpus and quietly wrong on the rest.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Losing_half_your_life_takes_a_number_read_from_the_player()
+    {
+        var contract = Card(
+            "Test Infernal Contract",
+            "Draw four cards. You lose half your life, rounded up.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(contract);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, contract);
+        var hand = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // Twenty, halved and rounded up.
+        Assert.Equal(10, game.State.GetPlayer(alice).Life);
+
+        // The spell left the hand and four cards arrived, which is the other half of the line.
+        Assert.Equal(hand - 1 + 4, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The trigger's subject is halved, and the rounding is the card's rather than the reader's.
+    /// </summary>
+    /// <remarks>
+    /// Quietus Spike's wording against Raving Dead's: one sentence, one word apart, and on an odd
+    /// life total they take a different number. Both are played, because the pair is the control -
+    /// a reader that defaulted the rounding would pass whichever of these it happened to agree
+    /// with and this test would only find it if the other one ran too.
+    /// </remarks>
+    [Fact]
+    public void The_two_roundings_of_half_a_life_total_take_different_numbers()
+    {
+        static int LifeLeftAfterOneHit(CardDefinition attacker)
+        {
+            var compiled = CardCompiler.Compile(attacker);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+            var (game, alice, bob) = InMainPhase();
+            var carrier = game.Create(alice, attacker, Zone.Battlefield);
+
+            PassTo(game, 3, TurnStep.DeclareAttackers);
+            game.DeclareAttackers(
+                alice,
+                new Dictionary<ObjectId, AttackTarget> { [carrier] = AttackTarget.Player(bob) });
+
+            TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+            Settle(game);
+
+            return game.State.GetPlayer(bob).Life;
+        }
+
+        var up = Card(
+            "Test Quietus Spike",
+            "Whenever ~ deals combat damage to a player, that player loses half their life, "
+                + "rounded up.",
+            CardType.Creature,
+            1,
+            1);
+
+        var down = Card(
+            "Test Raving Dead",
+            "Whenever ~ deals combat damage to a player, that player loses half their life, "
+                + "rounded down.",
+            CardType.Creature,
+            1,
+            1);
+
+        // One combat damage takes Bob to 19. Half of nineteen rounded up is ten, leaving nine;
+        // rounded down it is nine, leaving ten. The whole family turns on that one word.
+        Assert.Equal(9, LifeLeftAfterOneHit(up));
+        Assert.Equal(10, LifeLeftAfterOneHit(down));
+    }
+
+    /// <summary>
+    /// A halving with no rounding printed in the sentence is left unread.
+    /// </summary>
+    /// <remarks>
+    /// CR 107.15 leaves the direction to the card, and several cards put it a clause away —
+    /// "Each player loses half their life, then discards half the cards in their hand … Round up
+    /// each time." Reading the first clause alone would pick a direction the card did not say,
+    /// on a card whose other clauses are unread anyway.
+    /// </remarks>
+    [Fact]
+    public void A_halving_that_does_not_say_which_way_it_rounds_is_left_unread()
+    {
+        var vague = Card("Test Vague Halving", "Each player loses half their life.");
+
+        Assert.False(CardCompiler.Compile(vague).IsComplete);
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>
