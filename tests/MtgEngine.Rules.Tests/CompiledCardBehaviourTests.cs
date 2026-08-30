@@ -37489,17 +37489,50 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(summon).IsComplete);
     }
 
+    /// <summary>
+    /// A granted keyword the flags cannot carry becomes a line of the token's own text.
+    /// </summary>
+    /// <remarks>
+    /// Half-implementing it would be worse than not reading it - a 1/1 with "banding" compiled as
+    /// a plain 1/1 looks finished and plays as a different card - and for a long while the reader
+    /// therefore refused every word missing from its keyword table. It did not have to: a token
+    /// <em>is</em> a card definition, the compiler has read a bare keyword line on a card's own
+    /// text since long before this, and a printed token card says "Banding" in its text box
+    /// exactly that way. So the word goes where the quoted abilities go, and the promise is kept
+    /// by the same probe: the minted token has to compile completely or the line stays unread.
+    /// <para>
+    /// Toxic is the word that pays for this - 15 corpus cards mint a Phyrexian Mite "with toxic 1
+    /// and 'this creature can't block'", and toxic has never been a flag in this engine. It is a
+    /// trigger the compiler builds from the word, which no keyword table could have held.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void A_token_with_a_keyword_the_engine_cannot_grant_leaves_the_line_unread()
+    public void A_token_keyword_the_flags_cannot_carry_becomes_a_line_of_the_tokens_own_text()
     {
-        // Half-implementing it would be worse than not reading it: a 1/1 with "banding" compiled
-        // as a plain 1/1 looks finished and plays as a different card.
         var odd = Card("Odd Token Test", "Create a 1/1 white Soldier creature token with banding.");
 
         var compiled = CardCompiler.Compile(odd);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Single(compiled.Unhandled);
+        var (game, alice, _) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, odd), []);
+        Settle(game);
+
+        var soldier = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Soldier");
+
+        // Off the computed characteristics, which is the only reading that means anything: the
+        // word reached the token as rules text and came back out as the keyword.
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(soldier))
+            .Has(KeywordAbility.Banding));
+
+        // And the refusal is still there for a word nothing can read. Invented, so that
+        // implementing a real mechanic can never turn this half green by accident.
+        var nonsense = Card(
+            "Odder Token Test",
+            "Create a 1/1 white Soldier creature token with frobnication.");
+
+        Assert.False(CardCompiler.Compile(nonsense).IsComplete);
     }
 
     [Fact]
@@ -51110,18 +51143,25 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// An exception the grammar cannot read leaves the whole card unread (CR 707.9b).
+    /// The exception's quoted ability is the token's own, so "sacrifice this token" means the
+    /// token (CR 707.9b).
     /// </summary>
     /// <remarks>
-    /// Electroduplicate's clause, and the direction this family has to fail in. A copy that
-    /// silently dropped "it has haste and this quoted ability" would be strictly better than the
-    /// card printed - a hasty token that never sacrifices itself - and coverage would count it as
-    /// a win. Seven corpus cards sit behind this refusal and they are declined on purpose: the
-    /// quotation is an ability granted to the token, a token's abilities come from the card it
-    /// copies, and that card's text may not be edited without giving it an identity of its own.
+    /// Electroduplicate's clause, which was declined for a round because the quotation had
+    /// nowhere to go - a token's abilities come from the card it copies, and that card's text
+    /// cannot be edited without giving it an identity of its own. Now that the grant re-keys the
+    /// definition, it goes exactly where it belongs and the pronoun stops being ambiguous: the
+    /// ability is <em>on the token</em>, so its "this token" is the token and nothing else.
+    /// <para>
+    /// That is worth asserting from the other end. The same sentence printed <em>outside</em> the
+    /// quotation - Kiki-Jiki's "Sacrifice it at the beginning of the next end step" - is still
+    /// refused, because there "it" is read by the pronoun ladder and answers with the creature
+    /// that was copied. Two sentences with the same words, one of which the engine can attribute
+    /// and one of which it cannot; the test below this one holds the refusal.
+    /// </para>
     /// </remarks>
     [Fact]
-    public void An_exception_naming_a_quoted_ability_leaves_the_card_unread()
+    public void An_exception_naming_a_quoted_ability_puts_it_on_the_token_it_names()
     {
         var duplicate = Card(
             "Token Copy Quoted Test",
@@ -51129,15 +51169,27 @@ public sealed class CompiledCardBehaviourTests
                 + "and \"At the beginning of the end step, sacrifice this token.\"");
 
         var compiled = CardCompiler.Compile(duplicate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
-        Assert.False(compiled.IsComplete);
-        Assert.Contains(
-            compiled.Unhandled,
-            line => line.Contains("token that's a copy", StringComparison.Ordinal));
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Token Copy Quoted Bear Test", 3, 3), Zone.Battlefield);
 
-        // And the compiler did not quietly keep the half it understood: nothing was emitted for
-        // the line at all, so no deck may contain the card and no game can play it as a blank.
-        Assert.Null(compiled.Spell);
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, duplicate), [Target.ToPermanent(bear)]);
+
+        Settle(game);
+
+        var token = TokenNamed(game, "Token Copy Quoted Bear Test");
+        Assert.NotEqual(default, token);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        // The token sacrificed itself and the creature it copied is still standing - which is the
+        // whole difference between a granted ability and a sentence beside the copy clause.
+        Assert.DoesNotContain(token, game.State.Battlefield);
+        Assert.Contains(bear, game.State.Battlefield);
     }
 
     /// <summary>
@@ -51257,6 +51309,328 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id) is { } o
                 && o.Card.Name == name
                 && o.Card.CardTypes.HasFlag(CardType.Token));
+
+    /// <summary>
+    /// A count naming a seat the sentence chose is refused, not taken off the whole board
+    /// (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// Found by the invariant suite, from one card this round completed. Curious Herd is
+    /// "Choose target opponent. You create X 3/3 green Beast creature tokens, where X is the
+    /// number of artifacts <em>that player</em> controls", and the moment it compiled the
+    /// structural check said its target was chosen and never used. It was right, and the cause
+    /// was older and wider than the line that exposed it: a counted group's filter is handed one
+    /// player - the controller of what is counting - so a clause naming a seat only the
+    /// resolution knows had nothing to compare against, and the filter answered true for
+    /// <em>every</em> permanent.
+    /// <para>
+    /// <strong>Four cards were complete and playing a strictly better version of themselves.</strong>
+    /// Anathemancer dealt damage equal to every nonbasic land on the battlefield rather than its
+    /// target's; Emissary of Hope gained life for every artifact in play; Terra Ravager and
+    /// Coastline Marauders each got +X/+0 for every land anybody controlled. All four now leave
+    /// the line unread, which is this codebase's standing trade: a card that compiles and plays
+    /// wrongly is worse than one a deck check can refuse.
+    /// </para>
+    /// <para>
+    /// The refusal is exactly as wide as the defect. "An opponent controls" is answerable from
+    /// the controller alone and still counts; only the two clauses that name a seat the sentence
+    /// picked are refused.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_naming_a_seat_the_sentence_chose_is_left_unread()
+    {
+        var herd = Card(
+            "Seat Count Herd Test",
+            "Choose target opponent. You create X 3/3 green Beast creature tokens, "
+                + "where X is the number of artifacts that player controls.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(herd).IsComplete);
+
+        var ravager = Card(
+            "Seat Count Ravager Test",
+            "Whenever ~ attacks, it gets +X/+0 until end of turn, where X is the number of "
+                + "lands defending player controls.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.False(CardCompiler.Compile(ravager).IsComplete);
+
+        // And the clauses a count *can* answer are untouched, which is what keeps this a refusal
+        // of the unanswerable rather than of the possessive.
+        var opponents = Card(
+            "Seat Count Opponents Test",
+            "You create X 3/3 green Beast creature tokens, where X is the number of artifacts "
+                + "an opponent controls.",
+            CardType.Sorcery);
+
+        var counted = CardCompiler.Compile(opponents);
+        Assert.True(counted.IsComplete, string.Join(" | ", counted.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        for (var i = 0; i < 3; i++)
+        {
+            game.Create(
+                bob,
+                Card(
+                    "Seat Count Relic " + i.ToString(CultureInfo.InvariantCulture),
+                    string.Empty,
+                    CardType.Artifact),
+                Zone.Battlefield);
+        }
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, opponents), []);
+        Settle(game);
+
+        Assert.Equal(
+            3,
+            game.State.Battlefield.Select(game.State.GetObject).Count(o => o.Card.Name == "Beast"));
+    }
+
+    // ---- A token that carries the abilities its card granted it (CR 111.10, 707.9b) ----
+
+    /// <summary>
+    /// A token's granted abilities live on the token's own card definition, and nowhere else.
+    /// </summary>
+    /// <remarks>
+    /// Three separate rounds arrived at this wall from three directions - a frame round that could
+    /// read "As long as …, ~ has 'Q'" and declined the token frames, a copy round that could read
+    /// every printed exception except the one granting a quoted ability, and a prohibition round
+    /// that found its "can't block" family blocked by the token line rather than by the
+    /// prohibition. All three wanted the same thing: somewhere on a token to put an ability the
+    /// card gave it.
+    /// <para>
+    /// The answer is that there was already somewhere, and only half of it was reachable. A token
+    /// <em>is</em> a <see cref="CardDefinition"/> and the pool compiles its text, so a granted
+    /// ability is rules text - which is how a printed token card says it too. What was missing was
+    /// a slot that could hold a keyword list <em>and</em> a quotation rather than one or the other,
+    /// and, for a token that is a copy, an id that could tell the granted card from the card it
+    /// copied. <c>CompiledPool</c> throws when two cards share an id with different text, which is
+    /// exactly right, and is why the grant re-keys the definition.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_minted_token_plays_both_the_keyword_and_the_quoted_ability_it_was_granted()
+    {
+        var roost = Card(
+            "Granted Token Roost Test",
+            "When ~ enters, create a 1/1 white Bird creature token with flying and "
+                + "\"Whenever this creature attacks, you gain 2 life.\"",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(roost);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, roost, Zone.Battlefield);
+        Settle(game);
+
+        var bird = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Bird");
+
+        // The keyword half, off the computed characteristics rather than off the printed card:
+        // an ability the sentence granted has to survive the whole layer pass to mean anything.
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(bird))
+            .Has(KeywordAbility.Flying));
+
+        // And the quoted half, by playing it. A token carrying the words and not the ability
+        // would pass every characteristic check and do nothing at the only moment it matters.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [bird] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Two quotations after one token are two abilities, not one (CR 111.10).
+    /// </summary>
+    /// <remarks>
+    /// Pursued Whale's Pirate is printed this way - with "this creature can't block" and
+    /// "Creatures you control attack each combat if able" - and a slot holding one quotation would
+    /// have taken half the card while reporting the line read. Both halves are asserted from the
+    /// game rather than from the parse: the prohibition off the computed characteristics, the
+    /// trigger by attacking.
+    /// </remarks>
+    [Fact]
+    public void A_token_granted_two_quoted_abilities_carries_both_of_them()
+    {
+        var whale = Card(
+            "Granted Token Whale Test",
+            "When ~ enters, create a 1/1 red Pirate creature token with "
+                + "\"This creature can't block.\" and "
+                + "\"Whenever this creature attacks, you gain 2 life.\"",
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(whale);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, whale, Zone.Battlefield);
+        Settle(game);
+
+        var pirate = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Pirate");
+
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(pirate))
+            .Has(KeywordAbility.CantBlock));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [pirate] = AttackTarget.Player(bob) });
+
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Except it has haste and 'Q'" grants the quotation to the copy (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The clause that had nowhere to go. A token copy keeps the copied card's oracle id on
+    /// purpose, so that an ability source keyed by it serves abilities already compiled rather
+    /// than compiling a second, equal card - and that is precisely what stopped the quotation
+    /// being appended to the copy's rules text, because two cards under one id with different text
+    /// is the one thing <c>CompiledPool</c> refuses. The grant therefore re-keys the card, and the
+    /// assertions below are both halves of that: the token plays the granted trigger, and the card
+    /// it copied still compiles as itself.
+    /// <para>
+    /// The clause splitter had to learn the rule three readers have now learnt: <strong>a join
+    /// inside a quotation is not a join.</strong> It was cutting this exception into "it has
+    /// haste" and two sentence fragments, none of which is a clause.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_except_clause_granting_a_quoted_ability_puts_it_on_the_token()
+    {
+        var duplicator = Card(
+            "Granted Copy Duplicator Test",
+            "{T}: Create a token that's a copy of target creature you control, except it has "
+                + "haste and \"Whenever this creature attacks, you gain 2 life.\"",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(duplicator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var bearCard = TestCards.Creature("Granted Copy Bear Test", 3, 3);
+
+        var (game, alice, bob) = InMainPhase();
+        var mirror = game.Create(alice, duplicator, Zone.Battlefield);
+        var bear = game.Create(alice, bearCard, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var ability = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(mirror)));
+
+        game.ActivateAbility(alice, mirror, ability.Id, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var token = TokenNamed(game, "Granted Copy Bear Test");
+
+        // The copy is a card of its own as far as the pool is concerned, which is what lets it
+        // carry text the card it copied does not have - and the card it copied is untouched.
+        Assert.NotEqual(bearCard.OracleId, game.State.GetObject(token).Card.OracleId);
+        Assert.Empty(Pool.TriggersOf(bearCard));
+        Assert.Single(Pool.TriggersOf(game.State.GetObject(token).Card));
+
+        // Both halves of the exception, played rather than read: haste lets it attack the turn it
+        // was made, and the granted trigger is what pays for the attack.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [token] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A granted token may itself be copied, and its card has to survive the log (CR 707.3).
+    /// </summary>
+    /// <remarks>
+    /// The journey a token definition has to make, end to end: it is minted with an ability its
+    /// card granted it, copied - so the grant has to be one of the copy's copiable values, which
+    /// it is because it lives on the definition rather than beside it - and folded back out of the
+    /// event log. <c>AsToken</c> has been caught dropping a field on this journey once already,
+    /// and the field it dropped (the faces) was invisible until a token could not turn over; a
+    /// dropped grant would be invisible until a token quietly stopped triggering.
+    /// <para>
+    /// The round trip goes through <see cref="EventLogSerializer"/> rather than through
+    /// <c>GameReducer.Replay</c> alone, because the two fail differently: a replay reads objects
+    /// this process built, and only the serializer proves the definition survives being written
+    /// down and read back.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_granted_token_keeps_its_ability_when_it_is_copied_and_when_the_log_is_reread()
+    {
+        var roost = Card(
+            "Granted Token Reread Test",
+            "When ~ enters, create a 1/1 white Bird creature token with flying and "
+                + "\"Whenever this creature attacks, you gain 2 life.\"",
+            CardType.Enchantment);
+
+        var cloner = Card(
+            "Granted Token Cloner Test",
+            "{T}: Create a token that's a copy of target creature you control.",
+            CardType.Creature,
+            1,
+            1);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, roost, Zone.Battlefield);
+        var mimic = game.Create(alice, cloner, Zone.Battlefield);
+        Settle(game);
+
+        var bird = game.State.Battlefield
+            .Single(id => game.State.GetObject(id).Card.Name == "Bird");
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var ability = Assert.Single(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(mimic)));
+
+        game.ActivateAbility(alice, mimic, ability.Id, [Target.ToPermanent(bird)]);
+        Settle(game);
+
+        var birds = game.State.Battlefield
+            .Where(id => game.State.GetObject(id).Card.Name == "Bird")
+            .ToList();
+
+        Assert.Equal(2, birds.Count);
+
+        // CR 707.3: the copy is made from what the permanent is now, and what it is now includes
+        // the ability its card was granted - so both Birds trigger.
+        PassTo(game, 5, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            birds.ToDictionary(id => id, _ => AttackTarget.Player(bob)));
+
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        // Written down and read back: the token's whole definition, granted text and re-keyed id,
+        // has to come back the card it was or the replay is a different game.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
 
     // ---- Cases (CR 719) ------------------------------------------------------
 

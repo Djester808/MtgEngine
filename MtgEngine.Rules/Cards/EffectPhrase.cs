@@ -7578,20 +7578,40 @@ public static partial class EffectPhrase
                 return null;
         }
 
-        var keywords = KeywordAbility.None;
-        if (m.Groups["kw"].Success)
-        {
-            if (Keywords(m.Groups["kw"].Value) is not { } granted)
-                return null;
-
-            keywords = granted;
-        }
-
         // A token with a quoted ability needs no new machinery at all: a token *is* a card
         // definition, so the quoted text becomes its rules text and the pool compiles it on
         // demand like any other card. Anything the compiler cannot read in there leaves the
         // whole sentence unread, which is the same promise every other template makes.
-        var text = m.Groups["text"].Success ? m.Groups["text"].Value.Trim() : string.Empty;
+        //
+        // Everything the sentence grants goes to the same place, and the keyword flags are only
+        // the cheaper route for the words they can carry. "Toxic 1" is a real printed grant with
+        // no flag behind it - the engine reads it as a line of a card's rules text and always
+        // has - so it becomes a line of the token's text rather than refusing the sentence, which
+        // is also how the printed token card says it. An unreadable word still costs the line,
+        // because the completeness probe below is what decides.
+        var keywords = KeywordAbility.None;
+        var granted = new List<string>();
+
+        foreach (var word in m.Groups["kw"].Value
+            .Split([" and ", ","], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = word.Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            if (GrantableKeywords.TryGetValue(trimmed, out var flag))
+                keywords |= flag;
+            else
+                granted.Add(char.ToUpperInvariant(trimmed[0]) + trimmed[1..] + ".");
+        }
+
+        // Every quotation, not the first: "with '~ can't block' and 'Creatures you control attack
+        // each combat if able'" grants two abilities, and a slot that held one would have taken
+        // half the card.
+        foreach (Capture quoted in m.Groups["text"].Captures)
+            granted.Add(quoted.Value.Trim());
+
+        var text = string.Join('\n', granted);
 
         var subtypes = m.Groups["subtypes"].Value
             .Split([" ", "and"], StringSplitOptions.RemoveEmptyEntries)
@@ -9505,6 +9525,24 @@ public static partial class EffectPhrase
                 });
         }
 
+        // A group filter is handed one player - the controller of what is counting - so a clause
+        // naming a seat the *sentence* chose has nothing to compare against, and the filter then
+        // answers true for every permanent instead of for that player's. Curious Herd is the card
+        // that proved it: "You create X Beast tokens, where X is the number of artifacts that
+        // player controls" counted every artifact on the battlefield, its own controller's
+        // included, and the card compiled as fully read.
+        //
+        // The pile counts one branch above refuse exactly these phrases through Reaches; the
+        // battlefield count had no such refusal at all, so it answered a question it could not
+        // hear. Refused rather than answered wrongly, which is the rule this whole vocabulary is
+        // built on - and the invariant suite is what found it, because a spell that chooses a
+        // target no effect ever reads is the visible shape of a count that ignored one.
+        if (SeatRelativeOwnership.Any(
+            clause => phrase.Contains(clause, StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+
         if (Specs.ParseGroup(phrase) is not { Kind: TargetKind.Permanent } counted)
             return null;
 
@@ -9512,6 +9550,20 @@ public static partial class EffectPhrase
             id => counted.ObjectFilter?.Invoke(
                 state, abilities, state.GetObject(id), you) != false);
     }
+
+    /// <summary>
+    /// The ownership clauses a board count cannot answer (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// Taken from <see cref="OwnershipClauses"/> by hand rather than derived, because the split is
+    /// not a property of the words: "an opponent controls" and "another player controls" are
+    /// answerable from the controller alone, and these two name a seat only the resolution knows.
+    /// Reading them <em>is</em> possible and is the measured pass the counting vocabulary has
+    /// wanted for three rounds - a filter that can be handed a player rather than only the
+    /// controller. Until it exists, the phrase is left unread.
+    /// </remarks>
+    private static readonly string[] SeatRelativeOwnership =
+        ["that player controls", "defending player controls"];
 
     /// <summary>The colours a devotion phrase names, or null when it names one this cannot read.</summary>
     /// <remarks>
@@ -14441,14 +14493,25 @@ public static partial class EffectPhrase
     /// creature type from an ordinary word: "white Soldier creature token" has exactly one
     /// subtype in it and no vocabulary of type names is needed to find it. The cost is that the
     /// verb has to spell out both cases, since the sentence may open a line or follow a trigger.
+    /// <para>
+    /// <strong>The ability slot is a keyword list <em>and</em> any number of quotations, not one
+    /// or the other.</strong> It was an alternation, so "with flying and '~ can block only
+    /// creatures with flying'" — the shape three quarters of this family is printed in — matched
+    /// neither arm and the whole line went unread. A prohibition round measured the cost of that
+    /// alternation from the other side and found the same wall: swapping the prohibition inside
+    /// the quotation for a keyword completed nothing, because what refused the line was never the
+    /// prohibition.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent"
-            + @"|[Ii]ts controller|[Tt]hat [a-z]+'s controller|[Tt]he subject's controller) "
+            + @"|[Ii]ts controller|[Tt]hat [a-z]+'s controller|[Tt]he subject's controller"
+            + @"|[Yy]ou) "
             + @"creates?|[Cc]reate) " + N
             + @" (?<tapped>tapped )?(?<p>\d+)/(?<tough>\d+) (?<colours>[a-z, ]*?)\s*"
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
-            + @"(?: with (?<kw>[a-z ,]+?)|(?: with)? ""(?<text>[^""]+)"")?"
+            + @"(?: with (?<kw>[a-z][a-z0-9 ,]*?))?"
+            + @"(?:(?:,? and)?(?: with)? ""(?<text>[^""]+)"")*"
             + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.None)]
     private static partial Regex CreatureTokenLine();

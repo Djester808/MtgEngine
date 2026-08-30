@@ -2668,6 +2668,71 @@ internal static class TokenCards
             ImageUriArtCrop = card.ImageUriArtCrop,
             ImageUriNormalBack = card.ImageUriNormalBack,
         };
+
+    /// <summary>
+    /// The same card carrying rules text something granted it, under an id of its own.
+    /// </summary>
+    /// <remarks>
+    /// A token's abilities come from its <see cref="Domain.Models.CardDefinition"/>, and the pool
+    /// compiles that definition's text - so text a card grants a token it creates has exactly one
+    /// place to live, which is the definition. That is how the plain
+    /// <c>create a 1/1 Rat token with "~ can't block"</c> has always worked; what had nowhere to
+    /// go was a grant onto a token whose definition is somebody else's card, because
+    /// <c>CompiledPool</c> refuses two cards sharing an id with different text and a copy keeps
+    /// the copied card's id on purpose.
+    /// <para>
+    /// So the grant re-keys the definition. The id is the copied card's plus a stable hash of the
+    /// granted text, which makes the amended card a card of its own for the pool while leaving
+    /// the id of an ungranted copy exactly where it was. The hash is
+    /// <see cref="Cards.EffectPhrase.StableHash"/> - the same arithmetic the minted tokens fold
+    /// into their own ids - because this id reaches the event log and a log replayed in a later
+    /// process has to name the same card.
+    /// </para>
+    /// <para>
+    /// Empty text returns the card untouched rather than an id nobody asked for: a copy with no
+    /// exception, and a token with nothing quoted after it, must still be the definition they
+    /// were.
+    /// </para>
+    /// </remarks>
+    public static Domain.Models.CardDefinition Granting(
+        Domain.Models.CardDefinition card,
+        string granted)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        if (string.IsNullOrWhiteSpace(granted))
+            return card;
+
+        return new Domain.Models.CardDefinition
+        {
+            OracleId = card.OracleId + "-granted-" + Cards.EffectPhrase.StableHash(granted),
+            Name = card.Name,
+            ManaCost = card.ManaCost,
+            ManaCostRaw = card.ManaCostRaw,
+            Cmc = card.Cmc,
+            CardTypes = card.CardTypes,
+            Subtypes = card.Subtypes,
+            Supertypes = card.Supertypes,
+            OracleText = card.OracleText.Length == 0
+                ? granted
+                : card.OracleText + "\n" + granted,
+            Power = card.Power,
+            Toughness = card.Toughness,
+            StartingLoyalty = card.StartingLoyalty,
+            Keywords = card.Keywords,
+            ColorIdentity = card.ColorIdentity,
+            Colors = card.Colors,
+
+            // Kept for the same reason AsToken keeps them: a copy that lost its faces comes back
+            // with one side and can never turn over, and nothing about it looks wrong.
+            Faces = card.Faces,
+            ImageUriNormal = card.ImageUriNormal,
+            ImageUriLarge = card.ImageUriLarge,
+            ImageUriSmall = card.ImageUriSmall,
+            ImageUriArtCrop = card.ImageUriArtCrop,
+            ImageUriNormalBack = card.ImageUriNormalBack,
+        };
+    }
 }
 
 /// <summary>

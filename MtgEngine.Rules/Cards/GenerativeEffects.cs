@@ -176,7 +176,7 @@ public static partial class GenerativeEffects
 
         var colours = Recolour(card.Colors, except);
 
-        return new CardDefinition
+        var amended = new CardDefinition
         {
             OracleId = card.OracleId,
             Name = card.Name,
@@ -208,6 +208,12 @@ public static partial class GenerativeEffects
             ImageUriArtCrop = card.ImageUriArtCrop,
             ImageUriNormalBack = card.ImageUriNormalBack,
         };
+
+        // CR 707.9b: an ability the exception grants is one of the copy's own copiable values, so
+        // it goes on the card the copy is made from rather than onto the permanent afterwards -
+        // which is also the only place a token's abilities are ever read from. Applied last so
+        // the id it re-keys is the id of the fully excepted card.
+        return Abilities.TokenCards.Granting(amended, string.Join('\n', except.GrantedText));
     }
 
     /// <summary>The copy's colours, or null when the clause did not mention any (CR 707.9b).</summary>
@@ -1304,6 +1310,22 @@ public sealed record CopyException
 
     /// <summary>Keywords the clause grants — "except it has haste".</summary>
     public KeywordAbility AddKeywords { get; init; }
+
+    /// <summary>
+    /// Rules text the clause grants — "except it has 'At the beginning of the end
+    /// step, sacrifice this token'" (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// A quoted ability is not a keyword and there is no flag for it, so it travels as the words
+    /// the card printed and is compiled from the amended card's own text, exactly as the quoted
+    /// ability on a minted token is. <see cref="Abilities.TokenCards.Granting"/> is what puts it
+    /// there, and why the amended card needs an id of its own.
+    /// <para>
+    /// Held as lines rather than one string because a clause may grant more than one ability, and
+    /// a card's rules text is a list of lines everywhere else in this compiler.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> GrantedText { get; init; } = [];
 
     /// <summary>Colours added by "in addition to its other colors and types".</summary>
     public IReadOnlyList<ManaColor> AddColors { get; init; } = [];
