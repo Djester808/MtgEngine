@@ -1265,6 +1265,44 @@ public readonly record struct ManaRestriction(ManaPurpose Purposes, Domain.Enums
             || (types & Types) != default);
 }
 
+/// <summary>
+/// The whole of what one "spend this mana only" clause says (CR 106.6).
+/// </summary>
+/// <remarks>
+/// <see cref="ManaRestriction"/> is the half that fits in a type mask, and it was the reader's
+/// only output for a long time - so every clause naming a tribe, a supertype, a colour, a zone or
+/// a commander was refused outright and the whole line went unread. The state side has been able
+/// to hold all five since <see cref="Mana.RestrictedMana"/> gained its extra fields; this is what
+/// the reader hands back so those fields can be filled.
+/// <para>
+/// Refusing was the right failure while nothing could carry the answer: mana that quietly lost
+/// its restriction is strictly better than the mana printed, and a land that taps for
+/// unrestricted mana is a different and better card than the one in the deck. A caller that still
+/// cannot carry the extra fields has to keep refusing, which is what <see cref="IsNarrow"/> is
+/// for.
+/// </para>
+/// </remarks>
+public readonly record struct ManaSpendLimit(ManaRestriction Restriction)
+{
+    /// <summary>A card filter in the shared vocabulary, or null for "any card of the right type".</summary>
+    public string? FilterId { get; init; }
+
+    /// <summary>The zone a spell has to be cast from, or null for anywhere (CR 400.1).</summary>
+    public Zone? FromZone { get; init; }
+
+    /// <summary>Whether it may only pay for the player's own commander (CR 903.3).</summary>
+    public bool CommanderOnly { get; init; }
+
+    /// <summary>Whether anything beyond the type mask is being said.</summary>
+    /// <remarks>
+    /// Asked by <c>EffectPhrase.RestrictionFor</c>, whose signature can only return the mask.
+    /// Handing back the type half of a clause that also named a tribe would widen the
+    /// restriction rather than narrow it, and a restriction wider than printed is the silent
+    /// direction of wrong — so that overload reports nothing at all instead.
+    /// </remarks>
+    public bool IsNarrow => FilterId is not null || FromZone is not null || CommanderOnly;
+}
+
 /// <summary>What a permanent chooses as it enters, if anything (CR 614.12).</summary>
 public enum ChoiceOnEntry
 {
@@ -1297,6 +1335,25 @@ public readonly record struct ManaProduction(
     bool FromChosenColor = false,
     bool FromCounterCost = false)
 {
+    /// <summary>
+    /// A card filter the restriction names beyond the card types, or null for none (CR 106.6).
+    /// </summary>
+    /// <remarks>
+    /// The half of a "spend this mana only" clause a <see cref="ManaRestriction"/> cannot hold.
+    /// Its type mask answers "which card types", and the corpus asks four more questions on top:
+    /// a tribe ("only to cast Dragon spells"), a supertype ("legendary spells"), a colour
+    /// ("colorless spells") and a negation ("noncreature spells"). All four are already sayable
+    /// in the shared filter vocabulary, and <see cref="Mana.RestrictedMana.FilterId"/> already
+    /// asks it of the card being paid for - so this is the wire between the two, not a new idea.
+    /// </remarks>
+    public string? RestrictedTo { get; init; }
+
+    /// <summary>The zone a spell has to be cast from, or null for anywhere (CR 400.1).</summary>
+    public Zone? RestrictedToZone { get; init; }
+
+    /// <summary>Whether the mana may only pay for the player's own commander (CR 903.3).</summary>
+    public bool RestrictedToCommander { get; init; }
+
     /// <summary>
     /// Mana of whatever colour the permanent named as it entered (CR 614.12).
     /// </summary>
