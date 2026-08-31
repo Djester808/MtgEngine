@@ -244,7 +244,14 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The production gate asks PlayableCards.Refuses, which admits all of them and
     // is held by PlayableCardsTests; this row documents the naive question's gap, and the
     // ratchet stays because it forces exactly the investigation that wrote this comment.
-    private const int CompiledGateRefusesComplete = 468;
+    // Re-recorded 468 -> 475 for round twenty, investigated rather than bumped: the seven
+    // newcomers are exactly the chosen-name cards - Meddling Mage, Nevermore, Pithing Needle,
+    // Phyrexian Revoker, Voidstone Gargoyle, Council of the Absolute, Disruptor Flute - whose
+    // whole text compiles to a StaticBans.ChosenNameBan and so populates none of the five
+    // collections this naive question counts. Nothing left the list, so the rise is purely
+    // additive. The production gate asks CompiledPool.Refuses, which is !IsComplete and admits
+    // all seven; they are playable, and this row measures only the naive question s blind spot.
+    private const int CompiledGateRefusesComplete = 475;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
@@ -346,7 +353,11 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // fully read. The two times it caught something real - 48 sticker sheets that are not
     // cards, and four reversible printings arriving with no type at all - both showed up
     // in that bucket, which is why the failure message names its residents card by card.
-    private const int SoakSelectsNeither = 814;
+    // 814 -> 826 for round twenty: the twelve newcomers are the lands that became fully read
+    // when CR 305.6 moved the intrinsic mana ability off the printed card. Checked rather than
+    // assumed - all 826 print Land and the typeless bucket stays empty. A card counted here is
+    // unverified, not broken, and the soaks cannot reach it: see SoakPermanent.
+    private const int SoakSelectsNeither = 826;
 
     /// <summary>
     /// The cards no soak selects, put into real games to find out what they do.
