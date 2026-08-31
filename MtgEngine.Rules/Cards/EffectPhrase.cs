@@ -6772,6 +6772,38 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Open an Attraction" (CR 701.51), the venture's twin one supplementary deck along:
+        // twenty-one corpus lines say it, twelve of them as the identical "When ~ enters, open
+        // an Attraction", and none of them says where the Attraction comes from - CR 717.2 puts
+        // the deck in the command zone and Attractions.cs reads it from there.
+        if (OpenAttractionLine().Match(sentence) is { Success: true } opened)
+        {
+            effects.Add(new OpenAttraction(
+                opened.Groups["n"].Value.ToLowerInvariant() switch
+                {
+                    "two" => 2,
+                    "three" => 3,
+                    _ => 1,
+                }));
+
+            return true;
+        }
+
+        // "Roll to visit your Attractions" (CR 701.52a). A d6 whose only results table is one row
+        // covering every number: which Attractions the roll visits is not a striation of the
+        // table, it is a question about the board asked with the number in hand. Built out of the
+        // roll machinery rather than beside it so the number reaches the log as its outcome and
+        // a replay reads it instead of rolling again.
+        if (RollToVisitLine().IsMatch(sentence))
+        {
+            effects.Add(new RollDice(
+                Attractions.DieSides,
+                [new RollBranch(1, null, [new VisitAttractions()])],
+                effects.Count));
+
+            return true;
+        }
+
         // "You become the monarch" (CR 725.3). A designation rather than a counter or a token,
         // and the commonest sentence in the family by a wide margin - thirty-five cards say it
         // and nothing else about the monarch.
@@ -17160,6 +17192,25 @@ public static partial class EffectPhrase
         @"^venture into (the dungeon|(?<named>Undercity))$", RegexOptions.IgnoreCase)]
     private static partial Regex VentureLine();
 
+    /// <summary>"Open an Attraction", "open two Attractions" (CR 701.51).</summary>
+    /// <remarks>
+    /// Anchored at both ends the way the venture is, and the count is an alternation of the words
+    /// the corpus actually prints rather than a general number: an opening is a fixed instruction
+    /// on every card that gives one, and a pattern loose enough to admit "X Attractions" would be
+    /// admitting a sentence no card says while looking implemented.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^open (?<n>an|a|two|three) attractions?$", RegexOptions.IgnoreCase)]
+    private static partial Regex OpenAttractionLine();
+
+    /// <summary>"Roll to visit your Attractions" (CR 701.52).</summary>
+    /// <remarks>
+    /// Only your own: the turn-based action and both cards that print the sentence are about the
+    /// rolling player's Attractions (CR 701.52a, 717.4), and no card asks anybody else to roll.
+    /// </remarks>
+    [GeneratedRegex(@"^roll to visit your attractions$", RegexOptions.IgnoreCase)]
+    private static partial Regex RollToVisitLine();
+
     /// <summary>"Creature cards in your graveyard" - counting a zone rather than the board.</summary>
     /// <remarks>
     /// The library is here beside the hand and the graveyard because it is the same question
@@ -19760,6 +19811,34 @@ public static partial class TriggerConditions
                     : rolled.Result == wanted || rolled.Result == orAlso);
         }
 
+        // "Whenever you visit ~" - the visit ability every Attraction prints, which CR 702.159a
+        // spells out as exactly this trigger. It is written about the Attraction itself and not
+        // about the roll, because an Attraction is visited only when the result is one of *its*
+        // lit numbers (CR 701.52a) and the event says which ones those were.
+        if (VisitsSelfCondition().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is AttractionVisited visited && visited.AttractionId == source.Id;
+        }
+
+        // "Whenever you visit an Attraction" - the same event asked about the player rather than
+        // about one Attraction, which is what a card watching somebody else's visit says.
+        if (VisitsAnyCondition().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is AttractionVisited visited && visited.PlayerId == source.ControllerId;
+        }
+
+        // "Whenever you open an Attraction" (CR 701.51c). The move's cause is the only thing that
+        // tells this from a commander or a dungeon leaving the command zone, which is why the
+        // opening carries one.
+        if (OpensAttractionCondition().IsMatch(condition))
+        {
+            return (e, _, source) =>
+                e is ObjectMoved { Cause: MoveCause.OpenAttraction } opened
+                && opened.ControllerId == source.ControllerId;
+        }
+
         if (TryZoneChange(condition) is { } zoneChange)
             return zoneChange;
 
@@ -22005,6 +22084,26 @@ public static partial class TriggerConditions
         @"^you roll a (?<n>\d+)( or (?<m>\d+)| or (?<dir>higher|greater))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex RollsNumberCondition();
+
+    /// <summary>
+    /// "Whenever you visit ~" — an Attraction's own visit ability (CR 702.159a).
+    /// </summary>
+    /// <remarks>
+    /// Written about <c>~</c> and nothing else. CR 702.159a expands "Visit — [effect]" into
+    /// "whenever you roll to visit your Attractions, if the result is equal to a number that is
+    /// lit up on <em>this</em> Attraction", and a pattern that also admitted "an Attraction"
+    /// would give every Attraction on the table the ability printed on one of them.
+    /// </remarks>
+    [GeneratedRegex(@"^you visit ~$", RegexOptions.IgnoreCase)]
+    private static partial Regex VisitsSelfCondition();
+
+    /// <summary>"Whenever you visit an Attraction" (CR 701.52a).</summary>
+    [GeneratedRegex(@"^you visit an attraction$", RegexOptions.IgnoreCase)]
+    private static partial Regex VisitsAnyCondition();
+
+    /// <summary>"Whenever you open an Attraction" (CR 701.51c).</summary>
+    [GeneratedRegex(@"^you open an attraction$", RegexOptions.IgnoreCase)]
+    private static partial Regex OpensAttractionCondition();
 
     [GeneratedRegex(
         @"^~ and at least (?<n>\d+|one|two|three|four|five) other creatures attack$",

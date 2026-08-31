@@ -11743,3 +11743,103 @@ Soulsinger, Willow Satyr, Orcish Farmer and Power of Persuasion.
   battlefield` spelled the other way and worth nothing until the `becomes` verbs take a tail;
   Graceful Antelope, its only sole-blocked card, needs both.
 - **The four families that are not duration work at all — 0 each**, as measured above.
+
+### Round twenty-one: Attractions, which were never data-blocked
+
+**The decline was wrong for four rounds, and the correction is now built.** "46 Attractions missing
+`attraction_lights`" was a text match on cards that *open* Attractions. There are 22 Attractions in
+the playable corpus and all 22 carry their lights; so do all 50 objects in the dump. Nothing about
+this family was ever blocked on missing data, and saying so had kept it off every work queue.
+
+**Measured before and after on the same binary: 18,419 complete of 32,717 (56.3%) → 18,444
+(56.4%). +25 cards, and all 25 of them are in this family** — 46 corpus cards touch Attractions and
+none of them compiled whole before this round.
+
+#### The three precedents were all the same precedent
+
+CR 717.2 says where an Attraction deck lives in as many words: *"a supplementary Attraction deck
+that exists in the command zone."* So there is **no new zone, and no new state field** — the deck
+is that player's Attraction cards sitting in `Zone.Command` in order, exactly as a dungeon card
+sits there (CR 309.2b) and an emblem does, and the top of the deck is the first of them. They
+arrive as one `ObjectCreated` per card in the shuffled order, so the log carries the shuffle's
+result the way `LibraryShuffled` does and a resumed game opens the deck the original opened.
+
+Opening one (CR 701.51b) is an `ObjectMoved` from that zone to the battlefield with a new
+`MoveCause`. The cause is the whole of what CR 701.51c's "whenever you open an Attraction" has to
+watch: a commander and a dungeon leave the command zone too, and a trigger that asked only about
+the zones would count both.
+
+A visit is a d6 (CR 701.52a), and **the roll machinery already did everything a visit needs**. The
+turn-based action at the start of a precombat main phase (CR 505.5, 717.4) rolls in the engine
+beside the Saga's lore counter, because a turn-based action has no card behind it for the deferred
+locator to find. The two cards that print "roll to visit your Attractions" compile to an ordinary
+`RollDice` whose results table is **one row covering every number** — which Attractions the result
+visits is not a striation of the table but a question about the board asked with the number in
+hand, and the row reads it out of `SubjectAmount` exactly as "you gain life equal to the result"
+does. Both routes then go through one `Attractions.VisitEvents`, for the reason every venture in
+the engine goes through one method.
+
+`AttractionVisited` is the one new event and it changes no state — it says which Attraction the
+number lit so that Attraction's visit ability can trigger, the way `CombatDamageDealt` says what
+happened at once. The lights are deliberately **not** on it: which Attraction was visited is the
+whole fact, and a copy of the numbers here could disagree with the card.
+
+`Visit — [effect]` then needs no new ability shape at all. CR 702.159a writes it out as a trigger,
+so the compiler rewrites the line into `Whenever you visit ~, [effect]` and the shared sentence
+grammar reads the rest — which is why the family's payoff is 25 cards rather than the one or two a
+new effect vocabulary would have bought.
+
+#### The one place data decides whether a card compiles
+
+**An Attraction with no lights keeps its `Visit —` line unread.** The numbers are printed beside
+the text box and appear in no sentence, so a card that reached the compiler without them is one no
+result could ever match: it would open, sit on the battlefield and do nothing on every roll for the
+rest of the game while counting as a card the engine had fully read. All 22 playable Attractions
+carry theirs, so nothing in the corpus takes that arm — it is there because the alternative is the
+exact defect three audits this round were built to find, and because the harness had to learn to
+read the field at all. `CardParser` reads it too, so the game the app plays sees the same card the
+coverage figure counted.
+
+CR 717.6 came with it. A destroyed Attraction goes to its owner's junkyard **in the command zone**,
+not to a graveyard — which is what the reminder text printed on Draconian Gate-Bot and Down for
+Repairs says, and what a graveyard would have quietly got wrong: the card could then be counted,
+recurred and targeted by everything that has never been able to see an Attraction. It is a rewrite
+of the move's destination rather than a replacement candidate, so the permanent still leaves the
+battlefield and everything watching it leave still sees it.
+
+#### The three measurements, on the 21 cards still short
+
+| control | cards |
+|---|---:|
+| excision — delete the remaining attraction and visit lines | **18** |
+| substitution — those lines become "Draw a card." | **2** |
+| line control — drop a *different* unread line on a family card | **1** of 3 eligible |
+
+**Substitution against excision is 2 against 18, and that is the verdict on what is left.** What
+still blocks these cards is the rest of their sentences: "the lowest toughness among creatures you
+don't control", "a card at random from your graveyard", "until any player rolls a 1", "phases out
+until you roll a 3 or less", an extra combat phase, "claim the prize". The one card the line
+control completes is Monitor Monitor, whose other unread line is a dice reroll — which is the point
+of running it: a naive control that dropped any line at all completes 1,340 cards corpus-wide and
+measures nothing, while a control that drops a different unread line *on the same card* says
+whether this family's lines were the ones doing the blocking.
+
+#### Still declined, with counts
+
+- **"The number of Attractions you've visited this turn" — 4 cards** (Black Hole, Squirrel
+  Squatters, Storybook Ride, and Soul Swindler's "as long as you've visited an Attraction this
+  turn"). A per-turn tally on the player, which is a new state field plus a clause in two grammars
+  — the board-condition reader and the counting vocabulary — for four cards. Bounded and cheap, and
+  it is the next thing here rather than part of this.
+- **"Claim the prize" — 6 cards.** CR 702.159b makes the `Prize —` paragraph part of the same visit
+  ability, reached by a keyword action nothing performs. `Prize` stays a structural prefix and
+  those cards keep an unread line rather than compiling a visit that silently drops half of what it
+  says.
+- **Six Attractions blocked by their own effects — 1 each.** Bounce Chamber's superlative filter,
+  Hall of Mirrors' group copy, Haunted House, Tunnel of Love, Swinging Ship's extra combat phase,
+  Trash Bin's "at random". Each is its own family and none is about Attractions.
+- **Sticker — 47 cards, 63 lines, 53 distinct spellings, 42 by excision, 3 by substitution.**
+  Re-measured, and the decline holds: swap the sticker phrase out and **44 of the 47 are still
+  unread**. The third substitution is new this round and is not a sticker result — Costume Shop is
+  an Attraction, and it moved from 2 to 3 only because its `Visit —` line now reads. The 48 sheets
+  stay excluded on the type line for the reason tokens are.

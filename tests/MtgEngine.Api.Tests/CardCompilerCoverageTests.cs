@@ -235,6 +235,14 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
             // number is on the front face and the face answers for the card - the same fallback
             // the cost and the power use.
             Defense = Stat(front, "defense"),
+
+            // The numbers lit up on an Attraction (CR 717.1). Read here for the reason the
+            // battle's defense is: it is a printed characteristic that appears in no sentence,
+            // and a harness that left it blank would hand the compiler a card whose visit
+            // ability can never fire while production hands it one that can. The claim that 46
+            // Attractions were missing this field was a text match on cards that *open*
+            // Attractions - all 22 playable Attractions carry it, and so do all 50 in the dump.
+            AttractionLights = LightsOf(json),
             Supertypes = SupertypesOf(typeLine),
             Subtypes = SubtypesOf(typeLine),
             Faces = FacesOf(json, keywords),
@@ -251,6 +259,31 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     /// keywords the card actually has, so "Flying, protection from red" went unread as a line
     /// even though both halves were understood.
     /// </remarks>
+    /// <summary>An Attraction's lit numbers, as the bulk data records them (CR 717.1).</summary>
+    private static IReadOnlyList<int> LightsOf(JsonElement json)
+    {
+        if (!json.TryGetProperty("attraction_lights", out var lights)
+            || lights.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var lit = new List<int>();
+        foreach (var light in lights.EnumerateArray())
+        {
+            if (light.ValueKind == JsonValueKind.Number && light.TryGetInt32(out var number))
+                lit.Add(number);
+            else if (light.ValueKind == JsonValueKind.String
+                && int.TryParse(
+                    light.GetString(), CultureInfo.InvariantCulture, out var parsed))
+            {
+                lit.Add(parsed);
+            }
+        }
+
+        return lit;
+    }
+
     private static KeywordAbility ProtectionsIn(string oracleText)
     {
         var found = KeywordAbility.None;

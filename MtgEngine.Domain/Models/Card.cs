@@ -34,6 +34,27 @@ public sealed class CardDefinition
     /// answers for the card.
     /// </remarks>
     public int? Defense { get; init; }
+
+    /// <summary>
+    /// The numbers lit up on an Attraction, from the column on the right of its text box
+    /// (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// Empty for everything that is not an Attraction, the way <see cref="Defense"/> is null off
+    /// a battle. It is not in the rules text and cannot be derived from it — two Attractions with
+    /// the same English name are printed with different numbers lit (CR 717.1) — so it is a
+    /// printed characteristic that only the data carries. Scryfall's <c>attraction_lights</c>, on
+    /// all 22 playable Attractions and all 50 in the bulk file.
+    /// <para>
+    /// <b>An empty list is what makes a visit ability unreadable, deliberately.</b> A roll only
+    /// visits an Attraction whose lights hold the result (CR 701.52a), so an Attraction that
+    /// arrived without them could be opened, sit on the battlefield, and never do anything on any
+    /// roll — a card reading perfectly and doing something other than it says. The compiler
+    /// refuses the <c>Visit —</c> line rather than compiling a trigger that can never fire.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<int> AttractionLights { get; init; } = [];
+
     public KeywordAbility Keywords { get; init; }
 
     // Scryfall image URIs and metadata -- populated by ScryfallService

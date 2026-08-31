@@ -24,6 +24,22 @@ public sealed record PlayerSetup(
     /// command zone before the game begins (CR 903.6) rather than shuffled into the library.
     /// </remarks>
     public string? CommanderOracleId { get; init; }
+
+    /// <summary>
+    /// This player's Attraction deck, if they brought one (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// Empty for every player who did not, which is nearly all of them. Attraction cards do not
+    /// begin the game in a deck and do not count towards its size (CR 717.2) — they are a
+    /// supplementary deck that exists in the command zone — so they arrive here beside the deck
+    /// rather than inside it, the way a commander arrives as an id inside it.
+    /// <para>
+    /// It reaches the log as one <see cref="ObjectCreated"/> per card, in the shuffled order, so
+    /// the deck a resumed game opens from is the deck the original opened from. Nothing about it
+    /// is a state field: the cards are objects in a zone the reducer already folds.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardDefinition> AttractionDeck { get; init; } = [];
 }
 
 /// <summary>
@@ -152,6 +168,30 @@ public sealed class Game
             var inCommandZone = game.Move(inLibrary, Zone.Command, MoveCause.Other, setup.PlayerId);
             game.Emit(new CommanderDesignated(
                 setup.PlayerId, setup.CommanderOracleId, inCommandZone));
+        }
+
+        // CR 717.2: a player playing with Attractions begins with a supplementary Attraction
+        // deck that exists in the command zone, shuffled before the game begins (CR 103.3a).
+        // No new zone and no new state field: the deck is that player's Attraction cards sitting
+        // in the command zone in order, exactly as a dungeon card sits there (CR 309.2b), and
+        // the top card of the deck is the first of them. The shuffle's result goes into the log
+        // as the order the cards were created in, which is the same promise LibraryShuffled
+        // makes - a resumed game opens the deck the original opened.
+        foreach (var setup in setups)
+        {
+            if (setup.AttractionDeck.Count == 0)
+                continue;
+
+            foreach (var attraction in random.Shuffle(setup.AttractionDeck))
+            {
+                game.Emit(new ObjectCreated(
+                    ObjectId.New(),
+                    attraction,
+                    setup.PlayerId,
+                    setup.PlayerId,
+                    Zone.Command,
+                    ZonePosition.Bottom));
+            }
         }
 
         foreach (var seat in seats)
@@ -2736,6 +2776,44 @@ public sealed class Game
 
             Emit(new CountersChanged(id, CounterKinds.Lore, 1));
         }
+    }
+
+    /// <summary>
+    /// Rolls the active player's visit die and visits what it lit (CR 505.5, 701.52a, 717.4).
+    /// </summary>
+    /// <remarks>
+    /// The roll happens here rather than through <see cref="RollDice"/> because a turn-based
+    /// action has no card behind it: the deferred path finds its table by looking up
+    /// (source, ability, effect index) in a compiled card, and this instruction is printed in the
+    /// rules rather than on anything. What it shares with that path is the part that matters -
+    /// the number goes into the log as <see cref="DiceRolled"/>, so a replay reads the result
+    /// instead of rolling again, and the visits are computed from it by the same
+    /// <see cref="Attractions.VisitEvents"/> the card-printed roll uses.
+    /// <para>
+    /// Skipped entirely when the active player controls no Attraction, which is CR 717.4's own
+    /// condition and not an optimisation: a die rolled for nobody would still be a number in the
+    /// log, and every "whenever you roll one or more dice" card in the corpus would trigger on
+    /// each of their main phases for the rest of the game.
+    /// </para>
+    /// </remarks>
+    private void RollToVisitAttractions()
+    {
+        var active = State.ActivePlayerId;
+
+        var controlsOne = State.Battlefield.Any(id =>
+            State.TryGetObject(id, out var obj)
+            && obj.Permanent is not null
+            && Attractions.Is(obj.Card)
+            && Characteristics.ControllerOf(State, _abilities, obj) == active);
+
+        if (!controlsOne)
+            return;
+
+        var result = _random.Choose([.. Enumerable.Range(1, Attractions.DieSides)]);
+        Emit(new DiceRolled(active, Attractions.DieSides, result, result));
+
+        foreach (var visit in Attractions.VisitEvents(State, _abilities, active, result))
+            Emit(visit);
     }
 
     /// <summary>
@@ -12245,6 +12323,12 @@ public sealed class Game
                 // anyone has priority and does not use the stack - the chapter ability it sets
                 // off does.
                 AdvanceSagas();
+
+                // CR 505.5, 717.4: third, if the active player controls one or more Attractions
+                // and it is their precombat main phase, they roll to visit them. A turn-based
+                // action beside the Saga's lore counter, and like it, it does not use the stack -
+                // the visit abilities it sets off do.
+                RollToVisitAttractions();
                 break;
 
             case TurnStep.DeclareAttackers:
@@ -14165,6 +14249,27 @@ public sealed class Game
         // it against a board that has moved on.
         if (e is ObjectMoved { From: Zone.Battlefield, LeavingControllerId: null } leaving)
             e = leaving with { LeavingControllerId = ControllerOf(State.GetObject(leaving.OldId)) };
+
+        // CR 717.6: a card with an Astrotorium back that would be put into any zone other than
+        // the battlefield, exile or the command zone goes to the command zone instead - the pile
+        // the reminder text on Draconian Gate-Bot and Down for Repairs calls a "junkyard", which
+        // CR 717.6a is explicit is not a zone of its own. Without it a destroyed Attraction lands
+        // in a graveyard, where it can be counted, recurred and targeted by cards that have never
+        // been able to see one, and the reminder text printed on the card destroying it would be
+        // describing something the engine does not do.
+        //
+        // A rewrite of the destination rather than a replacement candidate, and that is the whole
+        // difference: the move still happens and everything watching a permanent leave the
+        // battlefield still sees it leave. Only where it lands changes, which is what the rule
+        // says. It sits on the one path every event takes, because a removal effect builds its
+        // own ObjectMoved and there is no single caller to correct.
+        if (e is ObjectMoved astrotorium
+            && astrotorium.To is not (Zone.Battlefield or Zone.Exile or Zone.Command)
+            && State.TryGetObject(astrotorium.OldId, out var junked)
+            && Attractions.Is(junked.Card))
+        {
+            e = astrotorium with { To = Zone.Command, ControllerId = junked.OwnerId };
+        }
 
         // CR 730.3: "if a merged permanent leaves the battlefield, one permanent leaves the
         // battlefield and each of the individual components are put into the appropriate zone."

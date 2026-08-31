@@ -61,6 +61,19 @@ public enum MoveCause
     Exile,
     Return,
     StateBasedAction,
+
+    /// <summary>
+    /// An Attraction moved from its owner's Attraction deck onto the battlefield (CR 701.51b).
+    /// </summary>
+    /// <remarks>
+    /// A cause rather than an event of its own, for the reason
+    /// <see cref="DestroyNoRegeneration"/> is one: the move already says everything that
+    /// happened, and "whenever you open an Attraction" (CR 701.51c) is the only thing in the game
+    /// that has to tell this move from any other card leaving the command zone. A commander
+    /// returning to the battlefield from the command zone is not an opening, and without the
+    /// cause nothing could see the difference.
+    /// </remarks>
+    OpenAttraction,
 }
 
 /// <summary>Which end of an ordered zone an object arrives at (CR 400.5).</summary>
@@ -862,6 +875,28 @@ public sealed record DiceRolled(Guid PlayerId, int Sides, int Natural, int Resul
     public override string Rule => "706.2";
 
     public override string Describe() => $"{PlayerId:N} rolled a d{Sides}: {Result}.";
+}
+
+/// <summary>
+/// One Attraction was visited by a roll that matched a number lit up on it (CR 701.52a).
+/// </summary>
+/// <remarks>
+/// It changes no state and exists so a visit ability can trigger, which is the same reason
+/// <see cref="CombatDamageDealt"/> exists: the roll is one <see cref="DiceRolled"/> and the
+/// question each Attraction asks — "is <em>my</em> light the one that came up" — cannot be
+/// answered from it without every Attraction's trigger re-deriving the lights, the controller and
+/// the board from a number. Said once, per Attraction, by the thing that knows.
+/// <para>
+/// The lights are <em>not</em> on this event. Which Attraction was visited is the whole of the
+/// fact; the numbers behind it are printed on the card the id names, and a copy here could
+/// disagree with them.
+/// </para>
+/// </remarks>
+public sealed record AttractionVisited(Guid PlayerId, ObjectId AttractionId) : GameEvent
+{
+    public override string Rule => "701.52a";
+
+    public override string Describe() => $"{PlayerId:N} visited {AttractionId}.";
 }
 
 /// <summary>Energy counters gained or spent by a player (CR 122.1, 107.14).</summary>
