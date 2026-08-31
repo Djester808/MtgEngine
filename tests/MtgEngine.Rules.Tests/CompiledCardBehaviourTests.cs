@@ -67969,6 +67969,279 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(arc.IsComplete);
     }
 
+    // ---- A full stop inside a quotation, and what undying spells out ---------
+
+    /// <summary>
+    /// An offer's branches run past a full stop that is inside a quotation — Digsite Engineer.
+    /// </summary>
+    /// <remarks>
+    /// The third time this codebase has paid for the same rule: <strong>a sentence boundary
+    /// inside a quotation is not a sentence boundary.</strong> The clause splitter learned it
+    /// about the comma, the exception's quote tally learned it needed its own cursor, and this is
+    /// the full stop where a <em>regex</em> does the cutting — <c>[^.]+</c> stopped one character
+    /// short of the closing quote, so the anchor could never be reached and the whole offer went
+    /// unread on cards whose every part the engine can already play.
+    /// <para>
+    /// The token's own size is the assertion that earns its place. A reader that took the offer
+    /// and dropped the quoted text would mint a 0/0 Construct, which state-based actions bury
+    /// before anybody looks at it — so the number proves the words inside the quotation marks
+    /// arrived, were compiled, and are being applied.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_offer_reads_past_the_full_stop_inside_its_own_quotation()
+    {
+        var engineer = Card(
+            "Quoted Offer Test",
+            "Whenever you cast an artifact spell, you may pay {2}. If you do, create a 0/0"
+                + " colorless Construct artifact creature token with \"~ gets +1/+1 for each"
+                + " artifact you control.\"",
+            CardType.Creature,
+            power: 2,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(engineer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, engineer, Zone.Battlefield);
+
+        // Mana floated before the cast: an offer the player plainly cannot take is skipped
+        // without asking, which would hide the very thing being measured.
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var relic = TestCards.PutInHand(
+            game, alice, Card("Quoted Offer Relic Test", string.Empty, CardType.Artifact));
+
+        game.CastSpell(alice, relic);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        var construct = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name.StartsWith("Construct", StringComparison.Ordinal)
+                || o.Card.Subtypes.Contains("Construct"));
+
+        // Two artifacts on the board — the Relic that was cast and the Construct itself — so the
+        // quoted static makes the 0/0 a 2/2. Printed as 0/0 it would not have survived to here.
+        var now = Characteristics.Of(game.State, Pool, construct);
+        Assert.Equal(2, now.Power);
+        Assert.Equal(2, now.Toughness);
+    }
+
+    /// <summary>
+    /// A Clone's exception may grant a whole ability, and the copy can use it — Machine God's
+    /// Effigy (CR 707.9b).
+    /// </summary>
+    /// <remarks>
+    /// The clause reader has been able to carry a granted ability since the token copies learned
+    /// it, and <see cref="GenerativeEffects.Excepting"/> is the same call on both paths — but the
+    /// line's own pattern still refused any exception containing a full stop, which is every
+    /// exception that quotes one. The refusal outlived the thing it was protecting.
+    /// <para>
+    /// The mana in the pool is the assertion that matters. A copy carrying the ability in name
+    /// only would answer every characteristic question correctly and do nothing at the one moment
+    /// a player notices, which is this family's standing failure mode.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_clone_can_be_excepted_into_having_a_quoted_ability()
+    {
+        var effigy = Card(
+            "Quoted Clone Test",
+            "You may have this creature enter as a copy of any creature on the battlefield,"
+                + " except it's an artifact and it has \"{T}: Add {U}.\"",
+            CardType.Creature,
+            0,
+            0);
+
+        var compiled = CardCompiler.Compile(effigy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Quoted Clone Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        var arrived = game.Create(alice, effigy, Zone.Battlefield);
+        SettleCopying(game, "Quoted Clone Bear Test");
+
+        var now = Characteristics.Of(game.State, Pool, game.State.GetObject(arrived));
+        Assert.Equal("Quoted Clone Bear Test", now.Name);
+        Assert.Equal(2, now.Power);
+
+        // The exception's other clause, which is what proves the two are read together rather
+        // than the quoted half quietly replacing the rest.
+        Assert.True(now.CardTypes.HasFlag(CardType.Artifact));
+
+        Assert.Contains(
+            Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(arrived)),
+            a => a.Id == "mana");
+
+        // The copy is a creature and the ability costs {T}, so it has to have been under its
+        // controller's command since their turn began (CR 302.6).
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        // Asserted before anything settles: a mana ability does not use the stack (CR 605.3a)
+        // and the pool empties at the end of the step (CR 500.4).
+        game.ActivateAbility(alice, arrived, "mana");
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "When this creature dies, return it to the battlefield tapped under its owner's control" —
+    /// undying's own sentence, written out, and handed to something else for a turn.
+    /// </summary>
+    /// <remarks>
+    /// The commonest thing printed inside a one-turn grant, on nine corpus cards that were each a
+    /// single line short: Supernatural Stamina, Feign Death, Undying Malice, Demonic Gifts,
+    /// Abnormal Endurance and their kin. The frame — <c>target creature gains "…" until end of
+    /// turn</c> — has read for a round; the words inside the quotation had no reader at all, and a
+    /// grant only reaches as far as its own text can be parsed back.
+    /// <para>
+    /// The whole test is what happens after the creature dies. A grant that was present and inert
+    /// leaves a graveyard with a Bear in it and every other assertion here still green, so the
+    /// board is asserted rather than the parse tree — and it is asserted <em>tapped</em>, because
+    /// the word is the only thing separating this sentence from the keyword the engine already
+    /// had.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_granted_dies_trigger_brings_the_creature_back_tapped()
+    {
+        var stamina = Card(
+            "Quoted Stamina Test",
+            "Until end of turn, target creature gets +2/+0 and gains \"When ~ dies, return it to"
+                + " the battlefield tapped under its owner's control.\"",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(stamina);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Quoted Stamina Bear Test", 2, 2), Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, stamina);
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        // The pump is layer 7c and the ability is layer 6: one sentence, two effects, and both
+        // have to have landed before the creature dies.
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        game.Move(bear, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        // Back, and it is a new object: the id that died named nothing once it left (CR 400.7).
+        var returned = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Quoted Stamina Bear Test");
+
+        Assert.NotEqual(bear, returned.Id);
+        Assert.True(returned.Permanent!.IsTapped);
+
+        // The graveyard is empty of it, which is the half a "return" that merely made a token
+        // would leave behind.
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Quoted Stamina Bear Test");
+
+        // And the grant is gone with the turn: the creature that came back is the printed one,
+        // not a 4/2 carrying a second life.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, returned).Power);
+    }
+
+    /// <summary>
+    /// Undying still comes back untapped and with its counter (CR 702.92a).
+    /// </summary>
+    /// <remarks>
+    /// The keyword and the printed sentence are now one effect, so the keyword is what says the
+    /// sentence did not quietly change it: undying prints no "tapped" and brings a counter, and
+    /// this is the arm that would break if the new flag or the new counter guard were wrong.
+    /// </remarks>
+    [Fact]
+    public void Undying_returns_the_creature_untapped_with_its_counter()
+    {
+        var ghoul = Card(
+            "Quoted Undying Test",
+            "Undying",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(ghoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var dying = game.Create(alice, ghoul, Zone.Battlefield);
+
+        game.Move(dying, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var back = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Quoted Undying Test");
+
+        Assert.False(back.Permanent!.IsTapped);
+        Assert.Equal(1, back.Permanent!.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// Three neighbouring sentences this reader must not take, each for its own reason.
+    /// </summary>
+    /// <remarks>
+    /// The effect fetches the card from its owner's <em>graveyard</em>, and every refusal here is
+    /// a sentence that means somewhere else or someone else:
+    /// <list type="bullet">
+    /// <item>"under your control" is a different player — the card would go home to the wrong
+    /// side of the table on nine corpus lines.</item>
+    /// <item>"at the beginning of the next end step" is a delayed ability, and a reader loose
+    /// enough to take it would fire the return immediately.</item>
+    /// <item>"exile this creature, then return it to the battlefield" is a blink. The card is in
+    /// exile, not in a graveyard, so this effect would find nothing — a card that compiles clean
+    /// and does nothing at all, which is worth strictly less than an unread line. It is refused
+    /// from outside the sentence because the two halves of an offer are parsed one at a time and
+    /// neither can see the other.</item>
+    /// </list>
+    /// </remarks>
+    [Fact]
+    public void The_neighbouring_returns_this_reader_must_refuse_stay_unread()
+    {
+        Assert.False(CardCompiler.Compile(Card(
+            "Quoted Return Wrong Player Test",
+            "When ~ dies, return it to the battlefield under your control.",
+            CardType.Creature,
+            2,
+            2)).IsComplete);
+
+        Assert.False(CardCompiler.Compile(Card(
+            "Quoted Return Later Test",
+            "When ~ dies, return it to the battlefield tapped under its owner's control at the"
+                + " beginning of the next end step.",
+            CardType.Creature,
+            2,
+            2)).IsComplete);
+
+        Assert.False(CardCompiler.Compile(Card(
+            "Quoted Return Blink Test",
+            "Exile ~, then return it to the battlefield tapped under its owner's control.",
+            CardType.Instant)).IsComplete);
+
+        Assert.False(CardCompiler.Compile(Card(
+            "Quoted Return Offered Blink Test",
+            "At the beginning of your upkeep, you may exile ~. If you do, return it to the"
+                + " battlefield under its owner's control.",
+            CardType.Enchantment)).IsComplete);
+    }
+
     // ---- Rooms (CR 709.5) ----------------------------------------------------
 
     /// <summary>A Room, printed the way the real ones are: two doors, each with a cost.</summary>

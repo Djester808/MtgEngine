@@ -620,6 +620,101 @@ the one that can.
   number of cards named ~ in your graveyard" (108) and token naming (90). `SearchFilters`
   already has `name:` and reads the single-zone search; what blocks these is the zone list, the
   counting, and conjure — not the name.
+Coverage is **54.3% of playable cards fully read** (17,772 of 32,717), 70.0% of lines.
+
+### Round twenty: a full stop inside a quotation, and the sentence undying spells out
+
+Round nineteen wrote the rule down — **a join inside a quotation is not a join** — and left its
+sibling measured but unbuilt: the same thing said about the **full stop**, in the readers one level
+out. `MayPayLine` and `IfYouDidLine` cut each branch of an offer at `[^.]+`, which stops one
+character short of the closing quote on any consequence carrying a quoted ability, so the anchor
+could never be reached and the whole line went unread.
+
+It is one shared pattern now, `EffectPhrase.SENTENCE` — a run of anything that is neither a stop
+nor a quote, *or* a whole quoted span. The two alternatives are disjoint on their first character,
+so the run is linear and there is nothing to backtrack over; an unbalanced quotation matches
+neither and simply ends the run, which is the fail-closed answer.
+
+**The count the decline carried was right and its examples were not.** Three cards were named;
+three landed, and only one of them was on the list — Minion Reflector, plus Digsite Engineer and
+Indoctrination Attendant. Hofri Ghostforge and Giant Inheritance are blocked by something else
+again, and Brenard, Ginger Sculptor gained its whole second ability while staying one line short.
+
+**The same stop was refusing the Clone family, and that refusal had outlived its reason.**
+`EntersAsACopyLine` documented `[^.]` as deliberate — "a granted ability is not something an
+exception clause can express here" — which stopped being true when the token copies taught
+`CopyException` to carry `GrantedText`. `GenerativeEffects.Excepting` is the same call on both
+paths, so Copycrook, Phantasmal Image, Mercurial Pretender and Machine God's Effigy needed nothing
+but the pattern. The clause reader still refuses an ability it cannot compile, which is where the
+fail-closed promise actually lives.
+
+#### The one-shot grant was not the gap; the words inside the quotation were
+
+The decline said "19 cards wanting a floating layer-6 effect with a duration". Re-measured, the
+frame reads and has for a round: `Until end of turn, target creature gains "{T}: Add {G}"` compiles
+today. **44 corpus cards are one line short with that frame**, and every one of them is blocked by
+the ability inside the quotation marks — which is why a duration would have bought nothing.
+
+Nine of the 44 print the same inner sentence, and it is one the engine already had under another
+name: **"When this creature dies, return it to the battlefield tapped under its owner's control"**
+is undying with the counter taken out and the word *tapped* put in. `ReturnSourceFromGraveyard` was
+reachable only through the keywords; it now has a `Tapped` flag, emits its counter only when there
+is one, and `EffectPhrase` reads the printed sentence into it.
+
+**Three refusals sit around that reader, and the third is the interesting one.**
+
+- "Under **your** control" is a different player. Nine corpus lines say it, and this effect returns
+  the card to whoever's graveyard it found it in.
+- "...**at the beginning of the next end step**" is a delayed ability; a pattern loose enough to
+  take it would fire the return immediately.
+- "**Exile ~, then return it to the battlefield**" is a *blink*. The card is in exile, not in a
+  graveyard, so the effect would find nothing — a card that compiles clean and does nothing, which
+  is worth strictly less than an unread line. Both cards that print it (Ojutai Exemplars, Estrid's
+  Invocation) completed before the guard went in.
+
+  The guard is on the **whole phrase**, not on the sentence, and it has to be: the free branch of
+  an offer and its "if you do" are parsed one at a time and neither can see the other, and the
+  offer leaves `TryParse` by its own early return long before the sentence loop ends. So `TryParse`
+  is now a wrapper — `TryRead` does the reading, and the refusals that can only be seen from
+  outside sit around it. Nothing legitimate is caught by this one: a permanent in exile is not a
+  permanent in a graveyard, so no printed card does both.
+
+#### Result
+
+**17,757 → 17,772 complete cards, +15, none lost.** Diffed as a set and again as a per-card
+fingerprint of every compiled ability: **17 cards moved**, the 15 plus two that gained an ability
+while staying incomplete — Bail Out reads its grant and is still short its Overload line, Brenard,
+Ginger Sculptor reads its whole dying-copy trigger. Nothing lost a clause inside a card that stayed
+complete.
+
+#### Declined, with the measurement behind each
+
+The quoted-frame quadrant, re-measured after this round by swapping a known-readable ability into
+every quotation on the card and separately compiling each quoted ability as a card of its own:
+**571 cards one line short whose blocker carries a quotation** — 16 where both halves read, 142
+where the frame reads and the inner does not, 232 where the inner reads and the frame does not, 181
+neither.
+
+**All sixteen of the "both readable" cards want one thing: a quoted ability that is a *static*.**
+`TryQuotedAbility` takes a trigger, an activated ability or a mana ability, and nothing else, so
+`Equipped creature has "Equipped creature has lifelink."`, `All Sliver creatures have "~ gets +1/+1
+as long as you control a Swamp."` and `Enchanted creature has "Cumulative upkeep {1}."` are refused
+at the frame. It is also what most of the 232 want, and what the two families round nineteen listed
+want — `~ crews Vehicles as though its power were 2 greater` (17 cards touching, 6 sole) and `~
+can't block or be blocked by non-Spirit creatures` (4) are both statics with no reader at all, so
+the quotation is not what blocks them. A granted static is a real piece of engine work: the
+receiving permanent needs the effect in the layer the static belongs to, which is not layer 6, and
+`CharacteristicsBuilder` has no slot for one.
+
+**Group nouns: the decline is stale, and what is left is not `TryGrantedAbility`'s.** Round
+nineteen's `ReadGroupFilter` extraction landed and that reader asks it. Of the frame-blocked
+remainder, **7 lines** name a group the shared filter cannot spell — "Each land and Ally you
+control", "Creatures you control with flying", "Creatures and enchantments you control" — which is
+compound and with-clause vocabulary in the group filter itself, shared by every lord.
+
+**Emblems are the largest single missing frame in the quadrant: 23 cards** print `−N: You get an
+emblem with "Q"`, plus 2 for an opponent and 5 for Alchemy's one-time boon. CR 114's emblem is an
+object in the command zone that the engine has no notion of.
 
 ### Round nineteen: the recorded set as an object, and the second fail-closed line
 

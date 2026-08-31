@@ -18374,15 +18374,17 @@ public static partial class CardCompiler
     private static partial Regex ShocklandLine();
 
     /// <remarks>
-    /// No dot inside either group, which is what refuses every exception carrying a quoted
-    /// ability — "except it has \"{X}: This creature has base power and toughness X/X.\"" ends a
-    /// sentence inside the quotation marks, and a granted ability is not something an exception
-    /// clause can express here. Those lines stay unread rather than compiling to a copy that
-    /// quietly lacks the ability.
+    /// A stop inside a quotation is not a stop — <see cref="EffectPhrase.SENTENCE"/>. This
+    /// refused every exception carrying a quoted ability for as long as <see cref="CopyException"/>
+    /// had nowhere to put one; it has had <c>GrantedText</c> since the token copies learned it,
+    /// and <see cref="GenerativeEffects.Excepting"/> is the same call on both paths, so the
+    /// refusal outlived what it was protecting. The clause reader still refuses an ability it
+    /// cannot compile, which is where the fail-closed promise actually lives.
     /// </remarks>
     [GeneratedRegex(
-        @"^You may have ~ enter (?<tapped>tapped )?as a copy of (?<what>[^.]+?)"
-            + @"(?:, except (?<except>[^.]+))?\.$",
+        @"^You may have ~ enter (?<tapped>tapped )?as a copy of (?<what>"
+            + EffectPhrase.SENTENCE + @"+?)"
+            + @"(?:, except (?<except>" + EffectPhrase.SENTENCE + @"+))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EntersAsACopyLine();
 
