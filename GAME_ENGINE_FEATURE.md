@@ -846,6 +846,43 @@ your graveyard", which is an activation from a zone the ability does not functio
 in the corpus changed — no card gained or lost a trigger, static or replacement, and the set of
 complete cards is identical.
 
+#### Four mutations, four tests
+
+Each of the nine tests was checked by breaking the thing it is about and confirming that it, and
+nothing else, went red.
+
+| the mechanism broken | what failed |
+|---|---|
+| the discard cost stops naming a colour | the refusal test only — the five abilities collapse into a free choice of version |
+| leaving the battlefield keeps the specialized card | the graveyard test only |
+| the fail-closed guard on "six versions or nothing" is dropped | the orphan-line test only |
+| `CollectTriggers` no longer reconsiders the specialized permanent | the Zombie count only |
+
+The last of those is not hypothetical: it is the state the first implementation was actually in,
+and the Zombie count is what found it.
+
+#### What is declined, with counts
+
+- **Imoen's printed cost reduction (1).** "Specialize {5}. This ability costs {3} less to activate
+  if there are two or more instant or sorcery cards in your graveyard."
+  `ActivatedAbilityDefinition.CostReduction` exists and would hold it, but the sentence is printed
+  *inside* the keyword line and the whole-line reader that gathers it is never offered this one.
+  One card, and reading it would still leave Imoen five unread version lines short.
+- **Karlach's graveyard activation (1).** "You may also activate this ability if ~ is in your
+  graveyard." `FunctionsFrom` is a single zone, not a set, and a second ability keyed to the
+  graveyard would also have to specialize a card that is not a permanent — Karlach's versions
+  print "when this creature specializes **from your graveyard**, return it to the battlefield",
+  which is a different action from the one built here. Ten unread version lines behind it.
+- **Unspecializing as a printed action (5).** "When ~ dies, it unspecializes. If it unspecializes
+  this way, return it to the battlefield tapped" — Lukamina's five versions. The reducer can
+  already do it (version zero) and the zone change already does it; what is unread is the
+  sentence, and its second clause is a return-from-graveyard rider on a trigger whose subject is
+  the object that just died.
+- **Wiring the production pool (0 cards).** `CardParser` reads one bulk object at a time and has
+  no cross-card index, so linking `all_parts` there means a second pass in `BulkDataService`. It
+  is worth nothing today: none of the nineteen compiles whole, so `CompiledPool.Refuses` turns
+  every one of them away from a deck either way.
+
 #### One correction to the numbering
 
 Specialize is an Alchemy mechanic and is in **none** of the printed Comprehensive Rules. The
