@@ -8844,6 +8844,224 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Which object a stat amount is measured on ---------------------------
+
+    [Fact]
+    public void A_quantity_that_says_the_source_by_name_is_measured_on_the_source()
+    {
+        // The sentence names two objects and takes its number from one of them. Nothing about
+        // the words "create a number of tokens equal to ~'s power" says which permanent on the
+        // board is meant - it is the card's own name in front of the possessive that does - so
+        // the board is arranged with a 5/5 source and a 2/2 target and the two answers differ.
+        // A reader that took the head's target would make two tokens.
+        var caller = Card(
+            "Stat Source Test",
+            "{T}: Tap target creature. Create a number of 1/1 white Soldier creature tokens "
+                + "equal to ~'s power.",
+            CardType.Creature,
+            5,
+            5,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(caller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, caller, Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Source Bear Test", 2, 2), Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, mine, compiled.Activated.Single().Id, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(theirs).Permanent!.IsTapped);
+        Assert.Equal(
+            5,
+            game.State.Battlefield
+                .Select(game.State.GetObject)
+                .Count(o => o.Card.Name == "Soldier"));
+    }
+
+    [Fact]
+    public void A_person_standing_between_the_source_and_the_quantity_is_not_an_antecedent()
+    {
+        // "Its power" cannot mean a player: a player has no power and no toughness (CR 107.3).
+        // So the words "each opponent" between the source and the quantity name nobody the
+        // possessive could be pointing at, and the pronoun still means the card - which is what
+        // lets Gregor, Shrewd Magistrate and Imperious Mindbreaker be read at all.
+        var miller = Card(
+            "Stat Person Test",
+            "When ~ enters, each opponent mills cards equal to its power.",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(miller);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        var spell = TestCards.PutInHand(game, alice, miller);
+        game.CastSpell(alice, spell);
+        Settle(game);
+
+        Assert.Equal(before - 5, game.State.GetPlayer(bob).Library.Count);
+
+        // And the twin, one word apart, where the thing in between *is* an object: there the
+        // pronoun means the creature that entered and not the card with the ability, so the line
+        // is left unread rather than measured on the wrong permanent.
+        var other = Card(
+            "Stat Object Test",
+            "Whenever another creature you control enters, each opponent mills cards equal to "
+                + "its power.",
+            CardType.Creature,
+            5,
+            5);
+
+        Assert.Contains(
+            CardCompiler.Compile(other).Unhandled,
+            line => line.Contains("mills cards equal to its power", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_stat_read_off_something_this_spell_has_already_moved_is_its_last_known_size()
+    {
+        // Swords to Plowshares. "Its" is the creature the sentence in front exiled, and by the
+        // time the life is gained that creature is a card in exile - where it answers its
+        // *printed* power and is short by every counter that was on it (CR 608.2h). The board
+        // makes the two numbers differ: a printed 2/2 carrying three +1/+1 counters left the
+        // battlefield as a 5/5, so five life is the right answer, two is the printed card, and
+        // nought is what reading the trigger's subject would give a spell that has no trigger.
+        var plowshares = Card(
+            "Stat Exile Test",
+            "Exile target creature. Its controller gains life equal to its power.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(plowshares);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Exile Ox Test", 2, 2), Zone.Battlefield);
+        game.AddCounters(theirs, CounterKinds.PlusOnePlusOne, 3);
+
+        var spell = TestCards.PutInHand(game, alice, plowshares);
+        game.CastSpell(alice, spell, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Empty(game.State.Battlefield);
+
+        // Whose life it is, is the other half of the same pronoun: the creature's controller,
+        // not the caster.
+        Assert.Equal(25, game.State.GetPlayer(bob).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_spell_with_no_trigger_measures_the_target_it_named()
+    {
+        // Divine Offering's shape. There is no triggering event at all, so the fallback this
+        // family used to take answered with nothing and the card gained no life whatever it
+        // destroyed. The target is the only object the sentence names, and mana value is a fact
+        // about the card, so it survives the trip to the graveyard intact (CR 202.3b).
+        var offering = Card(
+            "Stat Mana Test",
+            "Destroy target creature. You gain life equal to its mana value.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(offering);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(
+            bob, TestCards.Costed("Stat Mana Golem Test", "{3}{G}", 4), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, offering);
+        game.CastSpell(alice, spell, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_damage_sentence_still_measures_the_source_and_not_what_it_is_aimed_at()
+    {
+        // The refusal this whole family was declined for, kept as a guard. "~ deals damage equal
+        // to its power to target creature" is read whole by a matcher that already knows what the
+        // pronoun means; rewriting the amount into a clause would hand that clause a head with a
+        // target in it and the number would become the target's. A 5/5 source and a 2/6 target
+        // are three damage apart, and the wrong reading leaves two marks instead of five.
+        var slinger = Card(
+            "Stat Damage Test",
+            "{T}: ~ deals damage equal to its power to target creature.",
+            CardType.Creature,
+            5,
+            5,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(slinger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, slinger, Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Stat Damage Wall Test", 2, 6), Zone.Battlefield);
+
+        game.ActivateAbility(
+            alice, mine, compiled.Activated.Single().Id, [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        Assert.Equal(5, game.State.GetObject(theirs).Permanent!.DamageMarked);
+    }
+
+    [Fact]
+    public void A_source_the_sentence_has_already_buried_leaves_the_quantity_unread()
+    {
+        // Goldvein Hydra and Termagant Swarm are printed 0/0s that live entirely on the counters
+        // they enter with, and both ask how big they were *after* saying they died. The number is
+        // read as the effect resolves, so there is no permanent left to measure and a card in a
+        // graveyard answers its printed power: read that way the card would compile, resolve and
+        // make nothing at all, for ever. Unread is the honest answer.
+        var hydra = Card(
+            "Stat Buried Test",
+            "When ~ dies, create a number of tapped Treasure tokens equal to its power.",
+            CardType.Creature,
+            0,
+            0);
+
+        Assert.Contains(
+            CardCompiler.Compile(hydra).Unhandled,
+            line => line.Contains("equal to its power", StringComparison.Ordinal));
+
+        // The card spelling its own name instead of the pronoun is refused for the same reason,
+        // and it is a different reason: naming the object settles which one is meant and says
+        // nothing at all about whether it is still there to be measured.
+        var swarm = Card(
+            "Stat Buried Named Test",
+            "When ~ dies, create a number of 1/1 green Tyranid creature tokens equal to ~'s power.",
+            CardType.Creature,
+            0,
+            0);
+
+        Assert.Contains(
+            CardCompiler.Compile(swarm).Unhandled,
+            line => line.Contains("equal to ~'s power", StringComparison.Ordinal));
+
+        // While the same sentence on a trigger that leaves the source where it is reads, which is
+        // what says the refusal above is about the burial and not about the words.
+        var alive = Card(
+            "Stat Standing Test",
+            "Whenever ~ attacks, create a number of tapped Treasure tokens equal to its power.",
+            CardType.Creature,
+            3,
+            3);
+
+        var standing = CardCompiler.Compile(alive);
+        Assert.True(standing.IsComplete, string.Join(" | ", standing.Unhandled));
+    }
+
     // ---- Auras and equipment -------------------------------------------------
 
     [Fact]
