@@ -401,7 +401,17 @@ internal static partial class ThisWay
     /// a creature type matches nothing and reports itself understood.
     /// </para>
     /// </remarks>
-    private static TouchNoun? Alternative(string part)
+    /// <remarks>
+    /// Internal rather than private because it is not really about "this way" at all: it is the
+    /// compiler's one reader for "what kind of card does this noun name", and the pile counter in
+    /// <see cref="EffectPhrase"/> asks the same question about a graveyard. That counter had its
+    /// own answer, built on the card-type table alone, and so read "creature cards in your
+    /// graveyard" while refusing "Elf cards in your graveyard" — a gap that looked like a missing
+    /// vocabulary and was a missing <em>distinction</em>, the same one written up above. Two
+    /// readers for one question is what this codebase has paid for four times over, so there is
+    /// one, here, and the count asks it.
+    /// </remarks>
+    internal static TouchNoun? Alternative(string part)
     {
         var word = Singular(part.Trim());
 

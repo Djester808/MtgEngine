@@ -5748,6 +5748,166 @@ public sealed class CompiledCardBehaviourTests
             line => line.Contains("the sacrificed creature's power", StringComparison.Ordinal));
     }
 
+    // ---- Counting a pile by subtype, and adding two counts (CR 107.3) --------
+
+    /// <remarks>
+    /// Two holes in the shared counting vocabulary, found from one sentence and closed in one
+    /// place, because a count read in one position has to read the same in all of them.
+    /// <para>
+    /// The first is a missing <em>distinction</em> rather than a missing vocabulary. The pile
+    /// counter read its noun through the card-type table alone, so "creature cards in your
+    /// graveyard" counted and "Elf cards in your graveyard" — one capital letter apart — was
+    /// refused. The compiler already had a reader that tells a subtype from a type, written for
+    /// the objects a resolution moves, and it asks the type table first so that a sentence
+    /// opening with "Creature cards" is still the card type and not a creature type no card in
+    /// the game has. The count asks that reader now instead of keeping a second answer.
+    /// </para>
+    /// <para>
+    /// The second is "the number of A plus the number of B". A constant added to a count was
+    /// already read; a second count where the constant is was not, and both halves want the whole
+    /// vocabulary — one of these cards adds a battlefield group to a graveyard pile. So the sum
+    /// recurses through the same entry point rather than growing a grammar for the right-hand
+    /// side, and a phrase either half cannot count refuses the whole sum: half an answer is a
+    /// card that plays a smaller number than it prints.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pile_count_reads_a_subtype_and_not_only_a_card_type()
+    {
+        var eulogist = Card(
+            "Subtype Pile Test",
+            "{T}: You gain X life, where X is the number of Elf cards in your graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(eulogist);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, eulogist, Zone.Battlefield);
+
+        foreach (var n in new[] { "One", "Two", "Three" })
+        {
+            game.Create(
+                alice,
+                Card(
+                    "Subtype Pile Elf " + n + " Test",
+                    string.Empty,
+                    CardType.Creature,
+                    1,
+                    1,
+                    subtypes: "Elf"),
+                Zone.Graveyard);
+        }
+
+        // Two cards in the same graveyard that are not Elves: a creature and an instant. The
+        // answer is three and not five, which is what a noun read as "any card at all" would say,
+        // and not nought, which is what this phrase used to compile to nothing at all for.
+        game.Create(alice, TestCards.Creature("Subtype Pile Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, Card("Subtype Pile Bolt Test", "Draw a card."), Zone.Graveyard);
+
+        // And an Elf on the battlefield, so a count that walked the wrong zone would say four.
+        game.Create(
+            alice,
+            Card(
+                "Subtype Pile Standing Elf Test",
+                string.Empty,
+                CardType.Creature,
+                1,
+                1,
+                subtypes: "Elf"),
+            Zone.Battlefield);
+
+        game.ActivateAbility(alice, artifact, "a");
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void Two_counts_added_together_are_both_counted_and_in_different_zones()
+    {
+        var ripper = Card(
+            "Summed Count Test",
+            "{T}: You gain X life, where X is the number of Elves you control "
+                + "plus the number of Elf cards in your graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(ripper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, ripper, Zone.Battlefield);
+
+        // Two on the battlefield and three in the graveyard, so five is the only right answer:
+        // not two, not three, and not the four cards the graveyard holds.
+        foreach (var n in new[] { "One", "Two" })
+        {
+            game.Create(
+                alice,
+                Card(
+                    "Summed Elf " + n + " Test",
+                    string.Empty,
+                    CardType.Creature,
+                    1,
+                    1,
+                    subtypes: "Elf"),
+                Zone.Battlefield);
+        }
+
+        foreach (var n in new[] { "Three", "Four", "Five" })
+        {
+            game.Create(
+                alice,
+                Card(
+                    "Summed Elf " + n + " Test",
+                    string.Empty,
+                    CardType.Creature,
+                    1,
+                    1,
+                    subtypes: "Elf"),
+                Zone.Graveyard);
+        }
+
+        game.Create(alice, TestCards.Creature("Summed Bear Test", 2, 2), Zone.Graveyard);
+
+        game.ActivateAbility(alice, artifact, "a");
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_count_of_permanent_cards_in_a_graveyard_leaves_the_instants_out()
+    {
+        var tide = Card(
+            "Permanent Pile Test",
+            "{T}: You gain X life, where X is the number of permanent cards in your graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(tide);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, tide, Zone.Battlefield);
+
+        // CR 110.4a lists six permanent card types and an instant is not one of them. The shared
+        // type table spells "permanent" as an empty list of demands, which admits every card
+        // there is — so the word is read as the exclusion it actually is, which is how the
+        // recorded-set counter has always read it.
+        game.Create(alice, TestCards.Creature("Permanent Pile Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Graveyard);
+        game.Create(alice, Card("Permanent Pile Bolt Test", "Draw a card."), Zone.Graveyard);
+        game.Create(
+            alice,
+            Card("Permanent Pile Ritual Test", "Draw a card.", CardType.Sorcery),
+            Zone.Graveyard);
+
+        game.ActivateAbility(alice, artifact, "a");
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
     // ---- A card referred to by its literal printed name (CR 201.2a) ----------
 
     /// <remarks>

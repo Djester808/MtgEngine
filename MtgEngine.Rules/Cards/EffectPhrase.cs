@@ -11520,7 +11520,35 @@ public static partial class EffectPhrase
             : string.Empty;
 
         if (AdditiveCountTerm().Match(phrase[lead.Length..]) is not { Success: true } more)
+        {
+            // "The number of Caves you control plus the number of Cave cards in your graveyard" -
+            // the constant arm's sibling, with a second count where the constant was. It is read
+            // here rather than beside the constant because the two have to be tried in this
+            // order: "1 plus the number of lands you control" matches both patterns, and the sum
+            // reading of it would hand "1" to the group grammar, get nothing, and refuse a phrase
+            // that reads perfectly today.
+            //
+            // Both halves go back through this same method, so each summand gets the whole
+            // counting vocabulary - zones, colours, domain, the possessives, and the constant arm
+            // above it - rather than a second grammar written for the right-hand side. A phrase
+            // either half cannot count refuses the sum: half an answer here is a card that plays
+            // a smaller number than it prints, which is the fail-open this vocabulary exists to
+            // avoid, and Seize the Storm is left unread by exactly that rule.
+            if (SummedCountTerm().Match(phrase[lead.Length..]) is { Success: true } summed)
+            {
+                var left = Counting(lead + summed.Groups["first"].Value.Trim(), hasSource, seats);
+                var right = Counting(lead + summed.Groups["second"].Value.Trim(), hasSource, seats);
+
+                if (left is not null && right is not null)
+                {
+                    return (state, abilities, you, source, players) =>
+                        left(state, abilities, you, source, players)
+                        + right(state, abilities, you, source, players);
+                }
+            }
+
             return CountedGroup(phrase, hasSource, seats);
+        }
 
         if (AdditiveNumber(more.Groups["n"].Value) is not { } extra)
             return null;
@@ -11877,6 +11905,21 @@ public static partial class EffectPhrase
     /// guess in the one place that cannot check it.
     /// </para>
     /// </remarks>
+    /// <summary>One alternative of a pile count's noun — a card type, or a subtype (CR 205.3).</summary>
+    /// <remarks>
+    /// The shared reader first, so a capitalised subtype is finally counted, and the card-type
+    /// table behind it, so nothing this counted before stops counting. The two disagree on
+    /// exactly one thing: a noun the type table answers with an <em>empty</em> list of demands -
+    /// "permanent" is the only one - which the shared reader refuses and this arm has always read
+    /// as "any card at all". Keeping the fallback keeps that reading rather than quietly
+    /// unreading four corpus cards to fix a fifth.
+    /// </remarks>
+    private static TouchNoun? PileNoun(string part) =>
+        ThisWay.Alternative(part)
+        ?? (TypesOfCardNoun(Singular(part).ToLowerInvariant()) is { } known
+            ? new TouchNoun { Types = [.. known] }
+            : null);
+
     private static SetFn? MatchedSet(string phrase, string people, CountSeats seats)
     {
         // "The number of creature cards in your graveyard", "the number of cards in your hand" -
@@ -11893,28 +11936,44 @@ public static partial class EffectPhrase
             // the conjunctive reading counts nothing at all. Juxtaposition is the opposite:
             // "artifact creature cards" does mean both. The printed word "and" is what separates
             // the two, which is why the split is on that word rather than on the type list.
+            // Through the same reader the recorded-set counter uses, rather than through the card
+            // type table on its own. A capitalised word is a subtype and a lower-case one is a
+            // type, and that distinction is the whole difference between "creature cards in your
+            // graveyard" - which this counted for as long as it has existed - and "Elf cards in
+            // your graveyard", which it refused. Twelve corpus cards were one such phrase short,
+            // and the shared reader already knew the answer: it asks the type table first, so
+            // "Creature cards" at the start of a sentence is still the card type and not a
+            // creature type no card in the game has.
             var alternatives = AndSplit()
                 .Split(noun)
                 .Select(part => part.Trim())
                 .Where(part => part.Length > 0)
-                .Select(TypesOfCardNoun)
+                .Select(PileNoun)
                 .ToList();
 
-            List<Domain.Enums.CardType[]> types;
+            // "Permanent cards in your graveyard" is CR 110.4a's six card types, and the shared
+            // type table spells the word as an *empty* list of demands - which admits every card
+            // there is, instants included. Read as the exclusion it actually is, exactly as the
+            // recorded-set counter reads it, and only as the whole noun: inside an alternation
+            // the exclusion would silently narrow the other alternatives too.
+            var permanents = noun.Equals("permanent", StringComparison.OrdinalIgnoreCase)
+                || noun.Equals("permanents", StringComparison.OrdinalIgnoreCase);
 
-            if (noun.Length == 0)
+            List<TouchNoun> nouns;
+
+            if (noun.Length == 0 || permanents)
             {
-                types = [[]];
+                nouns = [new TouchNoun()];
             }
-            else if (alternatives.Count == 0 || alternatives.Exists(set => set is null))
+            else if (alternatives.Count == 0 || alternatives.Exists(one => one is null))
             {
-                // A noun the type table does not know leaves the phrase unread rather than
-                // counting everything: "the number of Zombie cards" is not "the number of cards".
+                // A noun neither table knows leaves the phrase unread rather than counting
+                // everything: "the number of Zombie cards" is not "the number of cards".
                 return null;
             }
             else
             {
-                types = [.. alternatives.Select(set => set!.ToArray())];
+                nouns = [.. alternatives.Select(one => one!)];
             }
 
             // Whose pile, through the shared possessive vocabulary rather than through a
@@ -11958,8 +12017,10 @@ public static partial class EffectPhrase
                     return zone
                         .Where(id =>
                             state.TryGetObject(id, out var card)
-                            && types.Exists(set => set.All(
-                                type => card.Card.CardTypes.HasFlag(type)))
+                            && nouns.Exists(one => one.Admits(card.Card))
+                            && (!permanents
+                                || !(card.Card.CardTypes.HasFlag(Domain.Enums.CardType.Instant)
+                                    || card.Card.CardTypes.HasFlag(Domain.Enums.CardType.Sorcery)))
 
                             // The printed name, not a computed one. CR 400.7 keeps a new
                             // object in a new zone and the continuous effects that could
@@ -12338,6 +12399,23 @@ public static partial class EffectPhrase
         @"^(?<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten) plus ",
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditiveCountTerm();
+
+    /// <summary>"… plus the number of …" — two counts added together (CR 107.3).</summary>
+    /// <remarks>
+    /// The join is the literal words "plus the number of", which is the only spelling the corpus
+    /// prints for this and the only one that can be told from a group with the word "plus" in it.
+    /// The second count keeps those words and the first does not, because the wrappers upstream
+    /// have already eaten the first "the number of" before anything reaches the group grammar —
+    /// so the two halves arrive spelled differently and are put back into one shape here.
+    /// <para>
+    /// Non-greedy on the left, so a phrase with two joins folds from the left and each summand is
+    /// read whole. Nothing in the corpus prints three, and a fourth would work the same way.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<first>.+?) plus the number of (?<second>.+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SummedCountTerm();
 
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
     /// <remarks>
