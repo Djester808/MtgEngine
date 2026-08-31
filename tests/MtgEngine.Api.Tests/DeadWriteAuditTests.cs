@@ -66,39 +66,7 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
     [Fact]
     public void No_marker_is_written_by_the_engine_and_read_by_nothing()
     {
-        var index = IlIndex.Build();
-        var findings = new List<Finding>();
-
-        foreach (var type in TypesOf(typeof(CardCompiler).Assembly))
-        {
-            if (!IsEngineMarker(type))
-                continue;
-
-            foreach (var property in type.GetProperties(
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-            {
-                if (property.Name is "EqualityContract" || property.GetMethod is not { } getter)
-                    continue;
-
-                var readers = index.CallersOf(getter, property).ToList();
-                var consuming = readers.Where(r => Role(r, type) is CallerRole.Consuming).ToList();
-                if (consuming.Count > 0)
-                    continue;
-
-                var writers = index.WritersOf(property).ToList();
-                if (writers.Count == 0)
-                    continue;
-
-                findings.Add(new Finding(
-                    $"{type.Name}.{property.Name}",
-                    Describe(property),
-                    writers.Select(Where).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
-                    readers.Select(r => $"{Role(r, type)}:{Where(r)}")
-                        .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()));
-            }
-        }
-
-        findings = [.. findings.OrderBy(f => f.Marker, StringComparer.Ordinal)];
+        var findings = Findings();
 
         output.WriteLine($"{findings.Count} markers written with no consuming read");
         foreach (var finding in findings)
@@ -189,6 +157,147 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
              """);
     }
 
+    /// <summary>Every marker the engine writes and no engine code reads.</summary>
+    private static List<Finding> Findings()
+    {
+        var index = IlIndex.Build();
+        var findings = new List<Finding>();
+
+        foreach (var type in TypesOf(typeof(CardCompiler).Assembly))
+        {
+            if (!IsEngineMarker(type))
+                continue;
+
+            foreach (var property in type.GetProperties(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            {
+                if (property.Name is "EqualityContract" || property.GetMethod is not { } getter)
+                    continue;
+
+                var readers = index.CallersOf(getter, property).ToList();
+                if (readers.Any(r => Role(r, type) is CallerRole.Consuming))
+                    continue;
+
+                var writers = index.WritersOf(property).ToList();
+                if (writers.Count == 0)
+                    continue;
+
+                findings.Add(new Finding(
+                    $"{type.Name}.{property.Name}",
+                    Describe(property),
+                    writers.Select(Where).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
+                    readers.Select(r => $"{Role(r, type)}:{Where(r)}")
+                        .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList()));
+            }
+        }
+
+        return [.. findings.OrderBy(f => f.Marker, StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// How many real cards produce each dead write, so the list has an order to work down.
+    /// </summary>
+    /// <remarks>
+    /// Asserts nothing - the fact above is the gate. This is the ranking, and it is the number
+    /// that decides which finding is worth a day: a marker no card ever sets is a tidy-up, and one
+    /// eighty-seven cards set is a feature that has never worked. The stun counter was the latter
+    /// and looked like the former from every angle the project could see.
+    /// </remarks>
+    [Fact]
+    public void Dead_writes_are_ranked_by_the_cards_that_produce_them()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present - skipping.");
+            return;
+        }
+
+        var markers = Findings().Select(f => f.Marker).ToHashSet(StringComparer.Ordinal);
+        var cards = new Dictionary<string, int>(StringComparer.Ordinal);
+        var examples = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var card in corpus)
+        {
+            var setHere = new HashSet<string>(StringComparer.Ordinal);
+            Visit(CardCompiler.Compile(card), 0, [], node =>
+            {
+                var type = node.GetType();
+                foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    var marker = $"{type.Name}.{property.Name}";
+                    if (!markers.Contains(marker) || property.GetIndexParameters().Length > 0)
+                        continue;
+
+                    if (IsSet(Read(node, property)))
+                        setHere.Add(marker);
+                }
+            });
+
+            foreach (var marker in setHere)
+            {
+                cards[marker] = cards.GetValueOrDefault(marker) + 1;
+                examples.TryAdd(marker, card.Name);
+            }
+        }
+
+        output.WriteLine($"{markers.Count} markers, of which {cards.Count} are set by at least one real card");
+        foreach (var (marker, count) in cards.OrderByDescending(c => c.Value))
+            output.WriteLine($"  {count,6} cards  {marker}   e.g. {examples[marker]}");
+
+        foreach (var marker in markers.Where(m => !cards.ContainsKey(m)).Order(StringComparer.Ordinal))
+            output.WriteLine($"       0 cards  {marker}   (written during play, not by the compiler)");
+    }
+
+    private static object? Read(object node, PropertyInfo property)
+    {
+        try
+        {
+            return property.GetValue(node);
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsSet(object? value) => value switch
+    {
+        null => false,
+        string text => text.Length > 0,
+        ICollection collection => collection.Count > 0,
+        _ => !value.GetType().IsValueType || !value.Equals(Activator.CreateInstance(value.GetType())),
+    };
+
+    /// <summary>Every object anywhere inside a compiled card.</summary>
+    private static void Visit(object? node, int depth, HashSet<object> seen, Action<object> visit)
+    {
+        if (node is null || depth > 10 || node is string or Delegate || node.GetType().IsPrimitive)
+            return;
+
+        if (node is IEnumerable sequence)
+        {
+            foreach (var item in sequence)
+                Visit(item, depth + 1, seen, visit);
+
+            return;
+        }
+
+        if (node.GetType().Namespace?.StartsWith("MtgEngine.", StringComparison.Ordinal) != true)
+            return;
+
+        if (!node.GetType().IsValueType && !seen.Add(node))
+            return;
+
+        visit(node);
+
+        foreach (var property in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetIndexParameters().Length == 0)
+                Visit(Read(node, property), depth + 1, seen, visit);
+        }
+    }
+
     /// <summary>Whether a type is somewhere the engine keeps a marker, rather than a wire shape.</summary>
     /// <remarks>
     /// The engine assembly only. The API's DTOs and the per-player <c>GameView</c> are read by a
@@ -229,11 +338,14 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
         if (owner.Assembly != declaring.Assembly && owner.Assembly.GetName().Name?.EndsWith(".Tests", StringComparison.Ordinal) == true)
             return CallerRole.Test;
 
-        if (owner.Name is "EventLogSerializer")
-            return CallerRole.Serialization;
-
+        // Its own type first: the serializer declares the wire records it reads back, and
+        // rebuilding one of those from the log is the whole point of having written it.
         if (owner != Outermost(declaring))
-            return CallerRole.Consuming;
+        {
+            return owner.Name is "EventLogSerializer"
+                ? CallerRole.Serialization
+                : CallerRole.Consuming;
+        }
 
         // Inside the declaring type. Only the generated members are boilerplate; a real method
         // on the same record that reads its own field is a genuine read.
