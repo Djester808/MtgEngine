@@ -11164,6 +11164,16 @@ public static partial class EffectPhrase
 
             var named = pile.Groups["zone"].Value.ToLowerInvariant();
 
+            // "The number of cards named Accumulated Knowledge in all graveyards" - a count of
+            // one printed name rather than of a type (CR 201.2a). It is asked here and not
+            // through the noun vocabulary above for the reason the target grammar lifts the same
+            // clause off before its own noun reader: that vocabulary reads a capitalised word as
+            // a subtype, and "Accumulated Knowledge" is not one.
+            var pileName = pile.Groups["name"].Success
+                ? pile.Groups["name"].Value.Trim()
+                : null;
+            var notNamed = pile.Groups["not"].Success;
+
             return (state, _, you, _, players) =>
                 (players is null ? PlayerScopes.Around(whose, state, you) : players(whose))
                 .Sum(who =>
@@ -11180,7 +11190,17 @@ public static partial class EffectPhrase
                     return zone.Count(id =>
                         state.TryGetObject(id, out var card)
                         && types.Exists(set => set.All(
-                            type => card.Card.CardTypes.HasFlag(type))));
+                            type => card.Card.CardTypes.HasFlag(type)))
+
+                        // The printed name, not a computed one. CR 400.7 keeps a new object in
+                        // a new zone and the continuous effects that could rename one apply on
+                        // the battlefield and the stack; a card in a graveyard, a hand or a
+                        // library is its printed self.
+                        && (pileName is null
+                            || string.Equals(
+                                card.Card.Name,
+                                pileName,
+                                StringComparison.OrdinalIgnoreCase) != notNamed));
                 });
         }
 
@@ -11434,7 +11454,15 @@ public static partial class EffectPhrase
     private static partial Regex ColorsAmongLine();
 
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
-    [GeneratedRegex(@"\s+on the battlefield$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// A name clause may follow it - "each other creature on the battlefield named Relentless
+    /// Rats" - and the anchor at the end could not see past one, so the two cards printing that
+    /// word order kept three words the group grammar has no reading for. The lookahead keeps the
+    /// clause as narrow as the anchor was: these words come off where a count already knows it
+    /// is looking at the battlefield, and nowhere else.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s+on the battlefield(?=\s+(?:not )?named\s|$)", RegexOptions.IgnoreCase)]
     private static partial Regex OnTheBattlefieldTail();
 
     /// <summary>"Artifact and/or enchantment" - alternatives, written with a slash.</summary>
@@ -12286,6 +12314,23 @@ public static partial class EffectPhrase
 
             var text = phrase.Trim().TrimEnd('.');
 
+            // "Creature named Relentless Rats", "permanent not named Clever Conjurer" - a
+            // filter on the object's *name* (CR 201.2a), and the one filter in this grammar
+            // that must never reach the noun vocabulary. A name is capitalised and so is a
+            // subtype, and every reader in this compiler tells those two apart by the capital
+            // letter alone: left in the phrase, "each land you control named Wastes" asks for
+            // a land with the land type Wastes - which no card has - and the card compiles,
+            // passes the deck gate and counts nothing. That failure has been made here before
+            // with "All Mountains are Plains", which became a lord for the creature type
+            // Mountain. So the clause comes off first, before any of that vocabulary runs, and
+            // goes back on as a test of its own that is told it is about a name.
+            if (NamedTail().Match(text) is { Success: true } byName
+                && Parse(text[..byName.Index]) is { Kind: TargetKind.Permanent } thing)
+            {
+                return WithPrintedName(
+                    thing, byName.Groups["name"].Value.Trim(), byName.Groups["not"].Success);
+            }
+
             // "Up to one target creature" is an ordinary target that may be left unchosen
             // (CR 115.1). Read here rather than by each verb, because it is on more than six
             // hundred cards and every one says it in front of a phrase this method understands -
@@ -12786,6 +12831,15 @@ public static partial class EffectPhrase
         /// </remarks>
         internal static string FoldPlural(string text)
         {
+            // A card's name is printed as it is printed. "Each land you control named Wastes"
+            // names the card Wastes; the fold below takes the "s" off the last word of a
+            // capitalised run, which would ask for a land named "Waste" - a name no card has,
+            // and a count that comes out as nought on a card that compiled. Held back here
+            // rather than in each caller, because BoardConditions folds a noun before it parses
+            // one too and both would have had it.
+            if (NamedTail().Match(text) is { Success: true } named)
+                return FoldPlural(text[..named.Index]) + text[named.Index..];
+
             var folded = PluralNoun().Replace(text, "$1");
 
             var words = folded.Split(' ');
@@ -12882,6 +12936,66 @@ public static partial class EffectPhrase
         /// </remarks>
         [GeneratedRegex(@",\s+(?:and\s+|or\s+)?|\s+(?:and|or)\s+", RegexOptions.IgnoreCase)]
         private static partial Regex UnionJoin();
+
+        /// <summary>
+        /// The same set, narrowed to the objects carrying one printed name (CR 201.2a).
+        /// </summary>
+        /// <remarks>
+        /// Layered onto whatever the phrase already asked for rather than replacing it, the way
+        /// the "other" exclusion is: a name is one more thing the set is, not the only thing.
+        /// <para>
+        /// The comparison is against the <em>computed</em> name, because a name is a copiable
+        /// value (CR 707.2): a permanent that has become a copy of Relentless Rats answers to
+        /// that name, and a Relentless Rats that has been made a copy of something else does
+        /// not. This is the same correction every read of <c>obj.Card</c> where a characteristic
+        /// was meant has had to make.
+        /// </para>
+        /// </remarks>
+        private static TargetSpec WithPrintedName(TargetSpec spec, string name, bool negated)
+        {
+            var already = spec.ObjectFilter;
+
+            return spec with
+            {
+                Description = spec.Description + (negated ? " not named " : " named ") + name,
+                ObjectFilter = (state, abilities, obj, controller) =>
+                    already?.Invoke(state, abilities, obj, controller) != false
+                    && IsNamed(state, abilities, obj, name) != negated,
+            };
+        }
+
+        /// <summary>Whether one object answers to a name right now (CR 201.2a).</summary>
+        /// <remarks>
+        /// A face-down permanent has no name at all (CR 708.2), and CR 201.2a says an object
+        /// with no name does not have the same name as any other object - so it answers no
+        /// here, and yes to the negated form, which is what falls out of asking once. Reading
+        /// the card underneath would answer with a name no player at the table can see.
+        /// </remarks>
+        internal static bool IsNamed(
+            GameState state, IAbilitySource abilities, GameObject obj, string name)
+        {
+            ArgumentNullException.ThrowIfNull(obj);
+
+            if (obj.Permanent?.IsFaceDown == true)
+                return false;
+
+            return string.Equals(
+                Characteristics.Of(state, abilities, obj).Name,
+                name,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>"...named Relentless Rats", "...not named Wastes" - a name clause (CR 201.2a).</summary>
+        /// <remarks>
+        /// Case-sensitive, deliberately, and that capital is the only thing separating a name
+        /// from an ordinary word: the compiler puts a card's own name back after "named" before
+        /// any reader sees the line, so what follows the word is always a printed name and
+        /// always starts with one. Anchored at the end because that is where every printed one
+        /// sits - "creatures you control named ~", "a creature named Bogbrew Witch" - and a
+        /// clause taken from the middle would cut a noun phrase in half.
+        /// </remarks>
+        [GeneratedRegex(@"(?<not>\s+not)?\s+named\s+(?<name>[A-Z][^.]*?)\s*$")]
+        private static partial Regex NamedTail();
 
         [GeneratedRegex(@"^(all|each|every)\s+", RegexOptions.IgnoreCase)]
         private static partial Regex GroupOpener();
@@ -15445,8 +15559,17 @@ public static partial class EffectPhrase
     /// hidden information the count could leak: any player may count any library at any time
     /// (CR 401.3), and it is the order and the faces that are hidden, not the size.
     /// </remarks>
+    /// <remarks>
+    /// The name clause is case-sensitive inside a pattern that is not, which is what the
+    /// inline <c>(?-i:...)</c> is for: <c>IgnoreCase</c> makes <c>[A-Z]</c> match a lowercase
+    /// letter too, and the capital is the only thing telling "cards named Kindle" from a noun.
+    /// Without it the clause would claim "cards in your graveyard" phrases that never said
+    /// "named" at all.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<noun>[a-z ]*?) ?cards? in " + WHOSE + @" (?<zone>hand|graveyard|library)s?$",
+        @"^(?<noun>[a-z ]*?) ?cards?"
+            + @"(?:(?<not> not)? named (?<name>(?-i:[A-Z])[^.]*?))? in "
+            + WHOSE + @" (?<zone>hand|graveyard|library)s?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CardsInZoneLine();
 
@@ -16774,8 +16897,23 @@ public static partial class EffectPhrase
             + @"|the subject's controller may )?"
             + @"searche?s? (?<whose>your|their) library for "
             + @"(an?|up to (?<n>one|two|three|four|five)|(?<any>any number of)) "
-            + @"(?<what>[A-Za-z, ]+? )?cards?"
-            + @"( named (?<named>[^,.]+?))?"
+            // Lazy-optional, not greedy-optional, and that is what lets the name clause below be
+            // seen at all. The character class takes a comma and a space, so a greedy attempt
+            // swallows the whole of "card named Welkin Hawk, reveal that " and then matches the
+            // *second* printed "card" - a parse that succeeds, captures a noun no filter
+            // vocabulary knows, and leaves the line unread. It only ever fired once the name
+            // stopped being blanked to "~", because "~" is not in the class and could not be
+            // crossed. Skipping the group first asks the question the sentence is actually
+            // written to answer, and a real "a creature card" still backtracks into it.
+            + @"(?<what>[A-Za-z, ]+? )??cards?"
+            // The name may not run past a second "named". "A card named Alpine Watchdog or a
+            // card named Igneous Cur" is two names and this reader builds one filter, so an
+            // untempered capture takes the whole clause as a single name - a filter that
+            // matches no card in any library, on a card that reports itself fully read. That
+            // is the failure this compiler treats as worse than an unread line, and refusing
+            // to cross the word is what leaves the two-name family unread until somebody
+            // builds it a filter that can hold two.
+            + @"( named (?<named>(?:(?! named )[^,.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"(,? reveal (it|that card|them|those cards))?"
             + @"(,? put (it|that card|them|those cards) "
@@ -16794,8 +16932,23 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^seeks? (an?|(?<n>two|three|four|five)) "
-            + @"(?<what>[A-Za-z, ]+? )?cards?"
-            + @"( named (?<named>[^,.]+?))?"
+            // Lazy-optional, not greedy-optional, and that is what lets the name clause below be
+            // seen at all. The character class takes a comma and a space, so a greedy attempt
+            // swallows the whole of "card named Welkin Hawk, reveal that " and then matches the
+            // *second* printed "card" - a parse that succeeds, captures a noun no filter
+            // vocabulary knows, and leaves the line unread. It only ever fired once the name
+            // stopped being blanked to "~", because "~" is not in the class and could not be
+            // crossed. Skipping the group first asks the question the sentence is actually
+            // written to answer, and a real "a creature card" still backtracks into it.
+            + @"(?<what>[A-Za-z, ]+? )??cards?"
+            // The name may not run past a second "named". "A card named Alpine Watchdog or a
+            // card named Igneous Cur" is two names and this reader builds one filter, so an
+            // untempered capture takes the whole clause as a single name - a filter that
+            // matches no card in any library, on a card that reports itself fully read. That
+            // is the failure this compiler treats as worse than an unread line, and refusing
+            // to cross the word is what leaves the two-name family unread until somebody
+            // builds it a filter that can hold two.
+            + @"( named (?<named>(?:(?! named )[^,.])+?))?"
             + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
             + @"( (and|then) put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield)(?<tapped> tapped)?)?\.?$",

@@ -3277,6 +3277,21 @@ public static partial class CardCompiler
             foreach (var self in selfNames)
                 cleaned = cleaned.Replace(self, "~", StringComparison.Ordinal);
 
+            // The word "named" governs a *name*, and the substitution above cannot tell a name
+            // from a self-reference. CR 201.5 is the self-reference: "Relentless Rats gets +1/+1"
+            // means that particular object, which is exactly what "~" says. CR 201.2a is the name:
+            // "each other creature named Relentless Rats" asks every object whether it has that
+            // name, and a Clone that copied one does - so "~" is the wrong token there and the
+            // right one is the name itself.
+            //
+            // Blanking it left the corpus writing one family two ways: "cards named ~" where a
+            // card names itself and "cards named Dragon's Approach" where it names another. A
+            // reader taught either shape read half the family, and the census counted them as
+            // two rows. The printed name goes back exactly where "named" governs it, so every
+            // name filter downstream sees one shape and never has to ask which card it is
+            // compiling.
+            cleaned = SelfNamed().Replace(cleaned, _ => "named " + card.Name);
+
             // Cards printed since 2022 refer to themselves as "this creature" rather than by
             // name, and older ones were errata'd to match. Both spellings mean the source, so
             // both become "~" and one template covers the card whichever wording it carries.
@@ -18414,6 +18429,16 @@ public static partial class CardCompiler
 
     private static Regex SelfReference() => SelfReferenceRegex;
 
+    /// <summary>The token the self-name substitution leaves where a *name* was (CR 201.2a).</summary>
+    /// <remarks>
+    /// Anchored on the word "named" and nothing else, so the "~" that means the source is left
+    /// exactly where it is. Everything after the word is left alone too: "named ~'s Coil" is a
+    /// token whose name is built from this card's, and putting the printed name back in front of
+    /// the possessive gives the token the name the card prints.
+    /// </remarks>
+    [GeneratedRegex(@"\bnamed ~")]
+    private static partial Regex SelfNamed();
+
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
 
@@ -19719,7 +19744,14 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(
         @"^(~ can be your commander"
-            + @"|A deck can have any number of cards named ~"
+            // The name is whatever the card prints, not "~". These lines name the card they
+            // are on and the self-name substitution used to blank it, so the pattern was
+            // written around the blank; now that the name is put back where "named" governs
+            // it (CR 201.2a) the pattern reads the name instead. The bounded form is the same
+            // deck-construction permission with a ceiling - CR 100.2a's "any number" against
+            // Seven Dwarves and Nazgul, which print their own limit - and it is settled before
+            // a game starts exactly as the unbounded one is, so it is recorded and not built.
+            + @"|A deck can have (any number of|up to [a-z]+) cards named .+"
             + @"|Draft ~ face up)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DeckConstructionLine();
