@@ -1375,11 +1375,22 @@ for the same reason. Two decisions in it are the correctness:
 **A group can now be forbidden something - 15 cards.** `MassStaticLine` could grant a keyword and
 could not forbid anything, so "Creatures you control can't attack", "Black creatures can't block"
 and "Boars you control can't be blocked by more than one creature" were unread while every
-single-creature spelling of the same rule worked. Each maps to a keyword the declaration checks
-already read off the computed characteristics - defender *is* "can't
-attack" (CR 702.3b), and "can't be blocked by more than one creature" *is* menace (CR 702.111a) -
-so a granted one is enforced by the code that enforces a printed one. The switch fails closed: a
+single-creature spelling of the same rule worked. Most map to a keyword the declaration checks
+already read off the computed characteristics - defender *is* "can't attack" (CR 702.3b) - so a
+granted one is enforced by the code that enforces a printed one. The switch fails closed: a
 spelling it cannot map leaves the line unread rather than forbidding the nearest thing it knows.
+
+**One of them was mapped to the wrong rule, and stayed wrong for four rounds.** This passage used
+to say that "can't be blocked by more than one creature" *is* menace. It is the opposite of
+menace: CR 702.111b is "can't be blocked except by two or more creatures", a **floor** of two
+blockers, and the sentence is a **ceiling** of one. Both the group reader and the keyword synonym
+table made the same substitution, so Charging Rhino, Bristling Boar, Stalking Tiger, Familiar
+Ground and sixteen others were unblockable by a lone creature when their card says a lone
+creature is the only thing that may block them. Every one of them compiled **complete**, which is
+why nothing noticed: a card read as the wrong rule is indistinguishable from a card read
+correctly in any count of coverage, and only the per-card effect diff separates them. The
+sentence now builds `MaxBlockers`, the mirror of the `MinBlockers` that generalises menace, and
+the group and single-creature spellings write the same characteristic.
 
 **"Can't attack" was missing from the one-shot vocabulary that already had "can't block" - 8
 cards.** `CantLine` read `be blocked` and `block` and not `attack` or `attack or block`, so Off

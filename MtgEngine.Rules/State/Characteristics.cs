@@ -139,6 +139,15 @@ public sealed record ComputedCharacteristics
     /// <summary>The fewest creatures that may block this one, as menace generalises (CR 509.1b).</summary>
     public int MinBlockers { get; init; }
 
+    /// <summary>The most creatures that may block this one at once, or 0 for no limit (CR 509.1b).</summary>
+    /// <remarks>
+    /// The mirror of <see cref="MinBlockers"/> and not its opposite: a card can print both, and
+    /// "can't be blocked by more than one creature" on a creature with menace is a creature that
+    /// cannot be blocked at all. Zero is the absence of the restriction rather than a limit of
+    /// none, because every creature that has never been told otherwise has no maximum.
+    /// </remarks>
+    public int MaxBlockers { get; init; }
+
     /// <summary>
     /// Whether every creature able to block this one has to (CR 509.1c) - a lure.
     /// </summary>

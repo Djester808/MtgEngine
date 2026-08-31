@@ -5583,6 +5583,275 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(SearchFilters.Matches("creature&counter:+1/+1", ground));
     }
 
+    // ---- A ceiling on blockers, and the keyword it is not (CR 509.1b) --------
+
+    /// <summary>
+    /// "~ can't be blocked by more than one creature" is a maximum, not menace (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The sentence read as <see cref="KeywordAbility.Menace"/> for four rounds, and menace is the
+    /// opposite restriction: CR 702.111b is "can't be blocked except by two or more creatures", a
+    /// floor of two, while this is a ceiling of one. Twenty cards - Charging Rhino, Bristling Boar,
+    /// Stalking Tiger and Familiar Ground among them - compiled <em>complete</em> and played the
+    /// rule backwards, which is why no census saw it: a card read as the wrong rule is
+    /// indistinguishable from a card read correctly in any count of coverage.
+    /// <para>
+    /// Both halves are asserted, because either alone passes under the old reading as easily as
+    /// the new one: two blockers are refused, and - the half that tells this from menace - one
+    /// blocker is allowed.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Cant_be_blocked_by_more_than_one_creature_is_a_ceiling_and_not_menace()
+    {
+        var rhino = Card(
+            "Test Ceiling Rhino",
+            "~ can't be blocked by more than one creature.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(rhino);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, rhino, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Test Ceiling Guard", 1, 6), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Test Ceiling Watch", 1, 6), Zone.Battlefield);
+
+        Assert.Equal(1, Now(game, attacker).MaxBlockers);
+        Assert.False(Now(game, attacker).Has(KeywordAbility.Menace));
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] }));
+
+        Assert.Contains("509.1b", ex.Message, StringComparison.Ordinal);
+
+        // The control, and the half menace would have refused: one blocker is legal.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(4, game.State.GetObject(first).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The same ceiling said by an Equipment, which reaches its bearer and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Vorrac Battlehorns' shape, and the reason the attached spelling is worth its own test: the
+    /// effect is built with an <c>Applies</c> that asks whether the permanent being computed is
+    /// the one the source is attached to, so a bug that dropped that condition would hold every
+    /// creature on the board to one blocker and still pass a test that only looked at the bearer.
+    /// </remarks>
+    [Fact]
+    public void An_equipment_holds_only_its_bearer_to_one_blocker()
+    {
+        var horns = Card(
+            "Test Ceiling Horns",
+            "Equipped creature has trample and can't be blocked by more than one creature.\nEquip {1}",
+            CardType.Artifact,
+            null,
+            null,
+            KeywordAbility.None,
+            "Equipment");
+
+        var compiled = CardCompiler.Compile(horns);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var gear = game.Create(alice, horns, Zone.Battlefield);
+        var bearer = game.Create(alice, TestCards.Creature("Test Ceiling Bearer", 2, 2), Zone.Battlefield);
+        var beside = game.Create(alice, TestCards.Creature("Test Ceiling Beside", 2, 2), Zone.Battlefield);
+
+        game.Attach(gear, bearer);
+
+        Assert.Equal(1, Now(game, bearer).MaxBlockers);
+        Assert.True(Now(game, bearer).Has(KeywordAbility.Trample));
+
+        // The control: the creature beside it carries neither half of the sentence.
+        Assert.Equal(0, Now(game, beside).MaxBlockers);
+        Assert.False(Now(game, beside).Has(KeywordAbility.Trample));
+    }
+
+    /// <summary>
+    /// The group spelling reaches the same characteristic, not the keyword (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Familiar Ground and Yuan Shao say it about a group, and that reader made the same
+    /// substitution the keyword table did - so their own creatures came out unblockable by a lone
+    /// blocker, which is what their card forbids happening to them rather than what it grants.
+    /// </remarks>
+    [Fact]
+    public void A_group_held_to_one_blocker_is_not_given_menace()
+    {
+        var ground = Card(
+            "Test Ceiling Ground",
+            "Creatures you control can't be blocked by more than one creature.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(ground);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, ground, Zone.Battlefield);
+        var mine = game.Create(alice, TestCards.Creature("Test Ceiling Mine", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.Creature("Test Ceiling Theirs", 2, 2), Zone.Battlefield);
+
+        Assert.Equal(1, Now(game, mine).MaxBlockers);
+        Assert.False(Now(game, mine).Has(KeywordAbility.Menace));
+
+        // The control: the ownership clause is read, so the opponent's creature is untouched.
+        Assert.Equal(0, Now(game, theirs).MaxBlockers);
+    }
+
+    /// <summary>
+    /// Menace and a ceiling of one on the same creature leave nothing that may block it.
+    /// </summary>
+    /// <remarks>
+    /// CR 509.1b says different evasion restrictions are cumulative, and this is the pair that
+    /// proves the two are separate rules rather than one rule spelled twice: a floor of two and a
+    /// ceiling of one cannot both be obeyed. Reading either as the other would make this creature
+    /// ordinary.
+    /// </remarks>
+    [Fact]
+    public void Menace_and_a_one_blocker_ceiling_leave_a_creature_unblockable()
+    {
+        // Menace arrives as the printed keyword rather than as a line of text, because that
+        // is where the blocking rules read it from; the ceiling is the sentence under test.
+        var brute = Card(
+            "Test Ceiling Brute",
+            "~ can't be blocked by more than one creature.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3,
+            keywords: KeywordAbility.Menace);
+
+        var compiled = CardCompiler.Compile(brute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, brute, Zone.Battlefield);
+        var first = game.Create(bob, TestCards.Creature("Test Ceiling Wall", 0, 4), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Test Ceiling Gate", 0, 4), Zone.Battlefield);
+
+        Assert.True(Now(game, attacker).Has(KeywordAbility.Menace));
+        Assert.Equal(1, Now(game, attacker).MaxBlockers);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first] }));
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [first, second] }));
+
+        // Declaring no blockers is the only legal answer, and the damage says so.
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "~ becomes colorless until end of turn" takes every colour away (CR 105.2c, 613.1e).
+    /// </summary>
+    /// <remarks>
+    /// Colorless is the absence of colour and not a sixth colour, which is the whole of what this
+    /// asserts: the computed colour list comes out <em>empty</em> rather than holding
+    /// <see cref="ManaColor.Colorless"/>. A permanent carrying the enum value would answer "no" to
+    /// every colour question by accident, and would start answering differently the moment
+    /// anything read the list rather than tested it.
+    /// </remarks>
+    [Fact]
+    public void A_creature_that_becomes_colorless_has_no_colour_at_all()
+    {
+        var spirit = new CardDefinition
+        {
+            OracleId = "oracle-test-colorless-spirit",
+            Name = "Test Colorless Spirit",
+            OracleText = "{0}: ~ becomes colorless until end of turn.",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [ManaColor.Red],
+            ColorIdentity = [ManaColor.Red],
+        };
+
+        var compiled = CardCompiler.Compile(spirit);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var painted = game.Create(alice, spirit, Zone.Battlefield);
+
+        Assert.Contains(ManaColor.Red, Now(game, painted).Colors);
+
+        game.ActivateAbility(alice, painted, compiled.Activated[0].Id);
+        Settle(game);
+
+        Assert.Empty(Now(game, painted).Colors);
+        Assert.DoesNotContain(ManaColor.Colorless, Now(game, painted).Colors);
+    }
+
+    /// <summary>
+    /// "Enchanted permanent is legendary" - a supertype an Aura confers (CR 205.4a, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// In Bolas's Clutches, whose whole point is the state-based action the supertype turns on
+    /// (CR 704.5j). It goes to the flag the computed characteristics already keep for the Ring
+    /// rather than into the card types, so the legend rule reads one answer however a permanent
+    /// came by it.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_make_its_host_legendary()
+    {
+        var clutches = Card(
+            "Test Legendary Clutches",
+            "Enchant permanent\nEnchanted permanent is legendary.",
+            CardType.Enchantment,
+            null,
+            null,
+            KeywordAbility.None,
+            "Aura");
+
+        var compiled = CardCompiler.Compile(clutches);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(alice, TestCards.Creature("Test Legendary Host", 2, 2), Zone.Battlefield);
+        var beside = game.Create(alice, TestCards.Creature("Test Legendary Beside", 2, 2), Zone.Battlefield);
+
+        Assert.False(Now(game, host).IsLegendary);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, clutches), [Target.ToPermanent(host)]);
+        Settle(game);
+
+        Assert.True(Now(game, host).IsLegendary);
+
+        // The control: the Aura reaches its host and nothing else on the same battlefield.
+        Assert.False(Now(game, beside).IsLegendary);
+    }
+
     // ---- Flicker (CR 400.7) --------------------------------------------------
 
     [Fact]
@@ -36166,13 +36435,15 @@ public sealed class CompiledCardBehaviourTests
     // ---- Keywords written out longhand ---------------------------------------
 
     [Fact]
-    public void Cant_be_blocked_by_more_than_one_creature_is_menace()
+    public void Cant_be_blocked_by_more_than_one_creature_holds_it_to_one_blocker()
     {
-        // Cards printed before the keyword existed say it in full, and it is the same rule
-        // (CR 702.111a) rather than an approximation of it - so it has to reach the same flag
-        // the blocking rules already ask for.
+        // This test asserted the opposite until round twenty-one, when it read "can't be blocked
+        // by more than one creature" as a longhand spelling of menace and demanded that a lone
+        // blocker be refused. Menace is a floor of two blockers (CR 702.111b); this sentence is a
+        // ceiling of one. The test restated the compiler's mistake, so it went green over the
+        // whole four rounds the twenty cards printing it played the rule backwards.
         var rider = Card(
-            "Longhand Menace Test",
+            "Longhand Ceiling Test",
             "~ can't be blocked by more than one creature.",
             CardType.Creature, 2, 2);
 
@@ -36182,6 +36453,7 @@ public sealed class CompiledCardBehaviourTests
         var (game, alice, bob) = InMainPhase();
         var attacker = game.Create(alice, rider, Zone.Battlefield);
         var blocker = game.Create(bob, TestCards.Creature("Lone Wall Test", 0, 4), Zone.Battlefield);
+        var beside = game.Create(bob, TestCards.Creature("Second Wall Test", 0, 4), Zone.Battlefield);
 
         TestCards.PassToTurn(game, 3);
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
@@ -36194,7 +36466,14 @@ public sealed class CompiledCardBehaviourTests
         Assert.Throws<InvalidOperationException>(
             () => game.DeclareBlockers(
                 bob,
-                new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] }));
+                new Dictionary<ObjectId, IReadOnlyList<ObjectId>>
+                {
+                    [attacker] = [blocker, beside],
+                }));
+
+        // And the declaration menace would have refused is the legal one.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [blocker] });
     }
 
     [Fact]
@@ -62521,17 +62800,18 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "Boars you control can't be blocked by more than one creature" is menace (CR 702.111a).
+    /// "Boars you control can't be blocked by more than one creature" is a ceiling (CR 509.1b).
     /// </summary>
     /// <remarks>
-    /// The spelling menace was made a keyword for, said about a group. It is the same flag rather
-    /// than a second rule, so the count is enforced where every printed menace is - and the
-    /// difference between menace and being unblockable is the whole of what this asserts: one
-    /// blocker is refused, two are allowed, and a card read as "can't be blocked" would let
-    /// neither through while looking exactly as complete.
+    /// The group spelling of the sentence, and this test asserted it was menace until round
+    /// twenty-one - one blocker refused, two allowed - which is the restriction turned round.
+    /// Menace is a floor of two (CR 702.111b) and this is a ceiling of one, so Rocksteady's Boars
+    /// were being made harder to block by a card that says they are easier. What separates the two
+    /// readings is the same pair of declarations, with the answers swapped: two blockers refused,
+    /// one allowed.
     /// </remarks>
     [Fact]
-    public void A_group_that_cant_be_blocked_by_more_than_one_creature_is_menace_and_not_evasion()
+    public void A_group_that_cant_be_blocked_by_more_than_one_creature_is_held_to_one_blocker()
     {
         var rocksteady = Card(
             "Test Rocksteady",
@@ -62553,13 +62833,18 @@ public sealed class CompiledCardBehaviourTests
         var first = game.Create(bob, TestCards.Creature("Test Rocksteady Guard", 1, 4), Zone.Battlefield);
         var second = game.Create(bob, TestCards.Creature("Test Rocksteady Watch", 1, 4), Zone.Battlefield);
 
-        Assert.True(Characteristics
+        Assert.Equal(
+            1,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(boar)).MaxBlockers);
+
+        Assert.False(Characteristics
             .Of(game.State, Pool, game.State.GetObject(boar))
             .Has(KeywordAbility.Menace));
 
-        Assert.False(Characteristics
-            .Of(game.State, Pool, game.State.GetObject(bear))
-            .Has(KeywordAbility.Menace));
+        // The control: the tribe clause is read, so the Bear beside the Boar is untouched.
+        Assert.Equal(
+            0,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).MaxBlockers);
 
         PassTo(game, 3, TurnStep.DeclareAttackers);
         game.DeclareAttackers(
@@ -62569,13 +62854,14 @@ public sealed class CompiledCardBehaviourTests
         TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
 
         var ex = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
-            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first] }));
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first, second] }));
 
-        Assert.Contains("702.111b", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("509.1b", ex.Message, StringComparison.Ordinal);
 
-        // The control, and the half that tells menace from evasion: two creatures may block it.
+        // The control, and the half that tells a ceiling from menace: one creature may block it.
         game.DeclareBlockers(
-            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first, second] });
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [boar] = [first] });
 
         Settle(game);
 

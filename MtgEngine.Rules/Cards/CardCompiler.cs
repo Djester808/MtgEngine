@@ -7930,6 +7930,7 @@ public static partial class CardCompiler
             || TryExtraBlocks(line, card, statics)
             || TryMustBeBlocked(line, card, statics)
             || TryMinimumBlockers(line, card, statics)
+            || TryMaximumBlockers(line, card, statics)
             || TryCantBeTheTargetOf(line, card, statics)
             || TryHexproofFrom(line, card, statics)
             || TryCantBeBlockedExceptBy(line, card, statics)
@@ -7942,6 +7943,7 @@ public static partial class CardCompiler
             || TryAttachedCountedBuff(line, statics)
             || TryAttachedAnimation(line, statics)
             || TryAttachedTypeAddition(line, statics)
+            || TryAttachedLegendary(line, statics)
             || TryGrantedAbility(line, card, statics)
             || TryDefinedPowerToughness(line, card, statics)
             || TryCountingStatic(line, card, statics)
@@ -8350,6 +8352,40 @@ public static partial class CardCompiler
             Layer = EffectLayer.Type,
             Applies = OnTheHost,
             Apply = (_, _, builder) => builder.CardTypes |= added,
+        });
+
+        return true;
+    }
+
+    /// <summary>"Enchanted permanent is legendary" - a supertype in layer 4 (CR 205.4a, 613.1d).</summary>
+    /// <remarks>
+    /// A supertype and not a card type, so it goes to the flag the computed characteristics
+    /// already keep for it rather than into <c>CardTypes</c>: the Ring makes its bearer
+    /// legendary the same way, and the legend rule reads that one flag. The card that prints it
+    /// is In Bolas's Clutches, whose whole point is the state-based action the flag turns on
+    /// (CR 704.5j) - stealing a permanent and then making it legendary kills the copy its
+    /// original controller still has.
+    /// <para>
+    /// Only "legendary" is admitted. The other supertypes a sentence could name are a different
+    /// amount of work each: nothing in the engine computes snow or basic, so "enchanted land is
+    /// snow" would set a flag no reader consults - every snow test still reads the printed card -
+    /// and would be coverage bought with a lie. It stays in the work queue.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedLegendary(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedLegendaryLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = "attached:supertype:legendary",
+            Layer = EffectLayer.Type,
+            Applies = (_, source, target) =>
+                source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host,
+            Apply = (_, _, builder) => builder.IsLegendary = true,
         });
 
         return true;
@@ -8913,6 +8949,60 @@ public static partial class CardCompiler
             Layer = EffectLayer.Ability,
             Applies = (_, source, target) => source is not null && target.Subject.Id == source.Id,
             Apply = (_, _, builder) => builder.MinBlockers = fewest,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "~ can't be blocked by more than one creature" - a ceiling on the block, not a floor
+    /// (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="TryMinimumBlockers"/>, and it needs its own characteristic for
+    /// the reason that one does: the sentence is a count and not a filter, so the block
+    /// restriction vocabulary - which asks a yes/no question of one blocker at a time - has no
+    /// way to express it.
+    /// <para>
+    /// It was not an unread line. The keyword synonym table read it as <b>menace</b>, which is
+    /// the opposite rule - CR 702.111b is a floor of two blockers and this sentence is a
+    /// ceiling of one - so twenty cards compiled complete and played it backwards, and the
+    /// coverage census counted every one of them as done. That is the shape of defect a
+    /// complete/incomplete count cannot show and an effect diff can: the cards did not gain
+    /// an ability when this landed, they gained the right one in place of a wrong one.
+    /// </para>
+    /// <para>
+    /// The subject words are the pair the two block-restriction readers beside it take, so an
+    /// Aura or an Equipment saying it about its host arrives supported. The group spellings -
+    /// "Each creature you control can't be blocked by more than one creature" - are deliberately
+    /// not here: they are the mass-static grammar's sentence, and reading them with a private
+    /// copy of a group vocabulary is the drift this file has paid for before.
+    /// </para>
+    /// </remarks>
+    private static bool TryMaximumBlockers(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = MaximumBlockersLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var most = NumberWordOrDigits(m.Groups["n"].Value);
+        if (most < 1)
+            return false;
+
+        var who = m.Groups["who"].Value.Trim().ToLowerInvariant();
+        var onSelf = who == "~";
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            Id = $"max-blockers:{card.Name}:{most}",
+            Layer = EffectLayer.Ability,
+            Applies = (_, source, target) =>
+                source is not null
+                && (onSelf
+                    ? target.Subject.Id == source.Id
+                    : source.Permanent?.AttachedTo == target.Subject.Id),
+            Apply = (_, _, builder) => builder.RestrictBlockersTo(most),
         });
 
         return true;
@@ -11285,27 +11375,40 @@ public static partial class CardCompiler
         // A spelling this cannot map leaves the whole line unread. A prohibition read too
         // broadly makes a board unattackable or a creature unblockable and looks like coverage
         // while it does it, so the switch fails closed rather than defaulting.
+        var mostBlockers = 0;
+
         if (m.Groups["cant"].Success)
         {
-            var forbidden = m.Groups["cant"].Value.ToLowerInvariant() switch
+            var prohibited = m.Groups["cant"].Value.ToLowerInvariant();
+
+            // The one prohibition in this list that is not a keyword. It read as menace until
+            // round twenty-one, which is the opposite rule: menace is a floor of two blockers
+            // (CR 702.111b) and this is a ceiling of one, so Familiar Ground made its own
+            // creatures unblockable by a lone blocker when the card says only a lone blocker
+            // may block them. It goes to the same characteristic the single-creature reader
+            // writes, so the group and the individual spelling cannot disagree.
+            if (prohibited == "be blocked by more than one creature")
             {
-                "attack" => KeywordAbility.Defender,
-                "block" => KeywordAbility.CantBlock,
-                "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
-                "be blocked" => KeywordAbility.CantBeBlocked,
+                mostBlockers = 1;
+            }
+            else
+            {
+                var forbidden = prohibited switch
+                {
+                    "attack" => KeywordAbility.Defender,
+                    "block" => KeywordAbility.CantBlock,
+                    "attack or block" => KeywordAbility.Defender | KeywordAbility.CantBlock,
+                    "be blocked" => KeywordAbility.CantBeBlocked,
+                    _ => KeywordAbility.None,
+                };
 
-                // Menace is this rule with a minimum of two (CR 702.111a), and the cards that
-                // spell it out print exactly that number.
-                "be blocked by more than one creature" => KeywordAbility.Menace,
-                _ => KeywordAbility.None,
-            };
+                if (forbidden == KeywordAbility.None)
+                    return false;
 
-            if (forbidden == KeywordAbility.None)
-                return false;
-
-            keywords = keywords is { } alreadyForbidden
-                ? alreadyForbidden | forbidden
-                : forbidden;
+                keywords = keywords is { } alreadyForbidden
+                    ? alreadyForbidden | forbidden
+                    : forbidden;
+            }
         }
 
         // "Creatures you control can't be the targets of blue spells or abilities from blue
@@ -11472,6 +11575,17 @@ public static partial class CardCompiler
                     source is null
                         ? builder.ControllerId
                         : Characteristics.ControllerOf(state, builder.Abilities, source))),
+            });
+        }
+
+        if (mostBlockers > 0)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:max-blockers:{mostBlockers}",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (_, _, builder) => builder.RestrictBlockersTo(mostBlockers),
             });
         }
 
@@ -18796,10 +18910,14 @@ public static partial class CardCompiler
             ["Whenever ~ deals damage, you gain that much life."] = KeywordAbility.Lifelink,
             ["Whenever ~ deals damage, you gain that much life"] = KeywordAbility.Lifelink,
 
-            // Menace, spelled out. Cards printed before the keyword existed say it in full,
-            // and it is the same rule (CR 702.111a) rather than an approximation of it.
-            ["~ can't be blocked by more than one creature."] = KeywordAbility.Menace,
-            ["~ can't be blocked by more than one creature"] = KeywordAbility.Menace,
+            // "~ can't be blocked by more than one creature" was here as a spelling of menace
+            // until round twenty-one, and it is the opposite restriction. CR 702.111b makes
+            // menace "can't be blocked except by two or more creatures" - a floor of two -
+            // while this sentence is a ceiling of one, so Charging Rhino and nineteen others
+            // compiled complete and played the rule backwards: unblockable by a lone creature
+            // instead of blockable only by one. Nothing caught it because a wrong keyword is
+            // still coverage. The sentence is now read by TryMaximumBlockers, which builds
+            // the characteristic the rule actually needs.
             ["~ attacks each combat if able."] = KeywordAbility.MustAttack,
             ["~ attacks each combat if able"] = KeywordAbility.MustAttack,
             ["~ can't block and can't be blocked."] =
@@ -19288,6 +19406,17 @@ public static partial class CardCompiler
             + @" is an? (?<what>[A-Za-z][A-Za-z'-]*) in addition to its other types\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedTypeAdditionLine();
+
+    /// <summary>"Enchanted permanent is legendary" (CR 205.4a).</summary>
+    /// <remarks>
+    /// The noun is a run of words rather than a fixed list because the subject of an attached
+    /// sentence is whatever the Aura enchants - permanent, creature, land - and the sentence
+    /// means the same thing whichever it is. What is fixed is the supertype: see
+    /// <see cref="TryAttachedLegendary"/> for why the others are not here.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:enchanted|equipped) [a-z]+ is legendary\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedLegendaryLine();
 
     /// <remarks>
     /// The same sentence without the clause, which is what makes it CR 205.1a rather than 205.1b.
@@ -20528,6 +20657,18 @@ public static partial class CardCompiler
             + @"or more creatures\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MinimumBlockersLine();
+
+    /// <summary>"…can't be blocked by more than N creatures" (CR 509.1b).</summary>
+    /// <remarks>
+    /// "Creature" is allowed to stay singular because the printed line almost always names
+    /// one - "can't be blocked by more than one creature" - and a pattern that demanded the
+    /// plural would read none of them.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>~|enchanted creature|equipped creature) can't be blocked by more than "
+            + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) creatures?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MaximumBlockersLine();
 
     [GeneratedRegex(@"^creatures? with greater power$", RegexOptions.IgnoreCase)]
     private static partial Regex GreaterPowerBlockers();

@@ -552,6 +552,12 @@ public static partial class GenerativeEffects
     public static string GainsCreatureTypeId(string type) =>
         string.Create(CultureInfo.InvariantCulture, $"gains-type:{type}");
 
+    /// <summary>The id for "becomes blue until end of turn" (CR 105.2, layer 5).</summary>
+    /// <remarks>
+    /// <c>ManaColor.Colorless</c> is a legal argument and means what CR 105.2c says: the
+    /// effect sets the colours to none. The id spells it out - <c>becomes-color:colorless</c> -
+    /// rather than being an empty list, so a stored id always names what it does.
+    /// </remarks>
     public static string BecomesColorId(ManaColor colour) =>
         string.Create(CultureInfo.InvariantCulture, $"becomes-color:{Named(colour)}");
 
@@ -1091,17 +1097,32 @@ public static partial class GenerativeEffects
         {
             var become = new List<ManaColor>();
             var readable = true;
+            var named = 0;
 
             foreach (var name in recoloured.Groups["c"].Value.Split(
                 ',', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (Enum.TryParse<ManaColor>(name, true, out var one))
-                    become.Add(one);
-                else
+                if (!Enum.TryParse<ManaColor>(name, true, out var one))
+                {
                     readable = false;
+                    continue;
+                }
+
+                named++;
+
+                // CR 105.2c: colorless is the absence of colour, not a sixth one. The word
+                // reaches here because every reader that takes a colour word takes it, and
+                // this is the one place that has to know the difference - dropping it from
+                // the set is what makes the Clear() below the whole effect. Putting
+                // ManaColor.Colorless into a Colors list instead would leave a permanent
+                // answering "yes" to a question no card asks and "no" to every colour, which
+                // is the same answer by accident and a different one the moment anything
+                // reads the list rather than testing it.
+                if (one != ManaColor.Colorless)
+                    become.Add(one);
             }
 
-            if (readable && become.Count > 0)
+            if (readable && named > 0)
             {
                 return new ContinuousEffectDefinition
                 {

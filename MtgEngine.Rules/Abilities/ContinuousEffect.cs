@@ -193,6 +193,21 @@ public sealed class CharacteristicsBuilder
     /// </remarks>
     public int MinBlockers { get; set; }
 
+    /// <summary>
+    /// The most creatures that may block this one at once, or 0 for no limit (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Use <see cref="RestrictBlockersTo"/> to write it rather than assigning: CR 509.1b makes
+    /// evasion restrictions cumulative, so two effects each naming a maximum leave the smaller
+    /// of the two, and a plain assignment would let the looser one that applied second undo the
+    /// tighter one.
+    /// </remarks>
+    public int MaxBlockers { get; set; }
+
+    /// <summary>Applies a maximum-blockers restriction cumulatively (CR 509.1b).</summary>
+    public void RestrictBlockersTo(int most) =>
+        MaxBlockers = MaxBlockers == 0 ? most : Math.Min(MaxBlockers, most);
+
     /// <summary>Whether every creature able to block this one has to (CR 509.1c).</summary>
     public bool MustBeBlockedByAll { get; set; }
 
@@ -436,6 +451,7 @@ public sealed class CharacteristicsBuilder
             ControllerId = ControllerId,
             ExtraBlocks = ExtraBlocks,
             MinBlockers = MinBlockers,
+            MaxBlockers = MaxBlockers,
             MustBeBlockedByAll = MustBeBlockedByAll,
             MustBeBlocked = MustBeBlocked,
             MustBlock = MustBlock,
@@ -489,6 +505,7 @@ public sealed class CharacteristicsBuilder
         TargetRestrictions = [.. TargetRestrictions],
         ExtraBlocks = ExtraBlocks,
         MinBlockers = MinBlockers,
+        MaxBlockers = MaxBlockers,
         MustBeBlockedByAll = MustBeBlockedByAll,
         MustBeBlocked = MustBeBlocked,
         MustBlock = MustBlock,

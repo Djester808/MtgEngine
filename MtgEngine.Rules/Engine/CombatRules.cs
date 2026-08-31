@@ -393,6 +393,17 @@ public static class CombatRules
                     + $"{attacker.MinBlockers} creatures (CR 509.1b)";
             }
 
+            // The restriction pointing the other way - "can't be blocked by more than one
+            // creature". It is checked beside the minimum rather than instead of it because a
+            // creature can carry both, and a creature with menace that is also held to one
+            // blocker cannot legally be blocked at all. That is what the two rules say together,
+            // and neither is the one to drop.
+            if (attacker.MaxBlockers > 0 && blockers.Ids.Count > attacker.MaxBlockers)
+            {
+                return $"{state.GetObject(attackerId).Card.Name} cannot be blocked by more than "
+                    + $"{attacker.MaxBlockers} creatures (CR 509.1b)";
+            }
+
             // CR 509.1b: an evasion restriction is about one blocker at a time, so each is asked
             // separately — unlike menace, which is about how many there are.
             if (attacker.BlockRestrictions.IsEmpty)
