@@ -1311,7 +1311,7 @@ public enum SelfCost
     /// only which zone the source is in: Feldon's Cane exiles itself off the battlefield, a
     /// scavenge cost exiles the card out of the graveyard. Both are a cost, which is the whole
     /// of why these cards work - the permanent has left by the time the ability resolves, so an
-    /// opponent cannot respond by sacrificing it and keeping the effect (CR 601.2h, 117.7c).
+    /// opponent cannot respond by sacrificing it and keeping the effect (CR 601.2h, 117.7).
     /// <para>
     /// What comes back is a <em>new object</em> in exile (CR 400.7), so nothing the ability then
     /// says about the source may be resolved against the id that was paid: the id names nothing

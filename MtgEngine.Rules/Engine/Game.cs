@@ -2472,7 +2472,7 @@ public sealed class Game
             // FunctionsFrom has already refused an activation from anywhere else. Paid here with
             // the rest of the cost, on activation, so the permanent is in exile before the
             // ability is on the stack: an opponent given priority afterwards has nothing left to
-            // sacrifice in response (CR 601.2h, 117.7c).
+            // sacrifice in response (CR 601.2h, 117.7).
             Move(sourceId, Zone.Exile, MoveCause.Exile, playerId);
         }
         else if (ability.SelfCost is SelfCost.ReturnSelfToHand)
