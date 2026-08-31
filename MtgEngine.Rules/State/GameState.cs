@@ -67,6 +67,18 @@ public sealed record BattlefieldDeparture(
     public override int GetHashCode() => HashCode.Combine(base.GetHashCode(), To);
 }
 
+/// <summary>One Attraction a player visited this turn (CR 701.52a).</summary>
+/// <remarks>
+/// Both halves are needed and neither is derivable from the other. The player is who rolled, and
+/// the count is always asked as "Attractions <em>you've</em> visited"; the Attraction is which
+/// one, and it is the identity that makes the count a count of Attractions rather than of visits
+/// — CR 701.52a says an Attraction whose number came up "has been visited", so an Attraction that
+/// two rolls in one turn both lit is still one Attraction you have visited. Storing the id rather
+/// than a running total is what lets the count say that, and it costs nothing: a turn holds a
+/// handful of these.
+/// </remarks>
+public sealed record AttractionVisit(Guid PlayerId, ObjectId AttractionId);
+
 /// <summary>
 /// The whole game at one instant. Immutable: every event folds into a new one.
 /// </summary>
@@ -305,6 +317,41 @@ public sealed record GameState
     /// </para>
     /// </remarks>
     public ImmutableList<BattlefieldDeparture> DeparturesThisTurn { get; init; } = [];
+
+    /// <summary>
+    /// Every Attraction visited this turn, oldest first (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// Recorded rather than derived, for the reason <see cref="DeparturesThisTurn"/> is: the
+    /// Attraction the question is about may not be on the battlefield to be asked. Pick-a-Beeble
+    /// sacrifices itself on a visit and Attractions are destroyed like any other artifact, so a
+    /// sweep of the battlefield for "visited" permanents would answer a smaller number than the
+    /// card says, and would answer it differently depending on when it was asked.
+    /// <para>
+    /// Kept here and not on the seat because a visit names both a player and an Attraction, and
+    /// the two cards that read it ask about different halves — "the number of Attractions you've
+    /// visited this turn" counts one player's, and CR 701.52a's rule is written about the
+    /// Attraction. A per-seat integer could answer the first and never the second.
+    /// </para>
+    /// </remarks>
+    public ImmutableList<AttractionVisit> AttractionVisitsThisTurn { get; init; } = [];
+
+    /// <summary>
+    /// How many Attractions this player has visited this turn (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// Distinct Attractions, not visits. "The number of Attractions you've visited this turn" is
+    /// a count of Attractions, and CR 701.52a makes visiting a thing that happens <em>to</em> an
+    /// Attraction — one that two rolls in a turn both lit has been visited, once, and is one
+    /// Attraction. Counting the rolls instead would make the same board answer differently for
+    /// no reason a player could see on it.
+    /// </remarks>
+    public int AttractionsVisitedThisTurn(Guid playerId) =>
+        AttractionVisitsThisTurn
+            .Where(visit => visit.PlayerId == playerId)
+            .Select(visit => visit.AttractionId)
+            .Distinct()
+            .Count();
 
     /// <summary>Whether a creature has gone to a graveyard from the battlefield this turn.</summary>
     /// <remarks>
@@ -672,6 +719,7 @@ public sealed record GameState
         Structural.Same(ArmedStateTriggers, other.ArmedStateTriggers) &&
         Structural.Same(ArrivalsThisTurn, other.ArrivalsThisTurn) &&
         Structural.Same(DeparturesThisTurn, other.DeparturesThisTurn) &&
+        Structural.Same(AttractionVisitsThisTurn, other.AttractionVisitsThisTurn) &&
         MonarchId == other.MonarchId &&
         InitiativeId == other.InitiativeId &&
         IsDay == other.IsDay &&

@@ -76,6 +76,23 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
     private static readonly ObjectId StackId =
         new(Guid.Parse("cccccccc-1111-1111-1111-111111111111"));
 
+    /// <summary>A second copy of the ability's own card, on the battlefield beside it.</summary>
+    /// <remarks>
+    /// The board every scene is built on holds a dozen copies of the <em>probe</em> and exactly
+    /// one of the card under test, because the boards are built once from a filler and only the
+    /// object at <see cref="SourceId"/> is swapped for the candidate. So no board this battery
+    /// could produce ever held two of one card, and "if you control another creature named ~"
+    /// was answered no on every one of them — Faerie Miscreant was reported inert for that and
+    /// for nothing else. The twin is planted where the candidate is known rather than in
+    /// <c>Board</c>, which only ever sees the filler.
+    /// </remarks>
+    private static readonly ObjectId TwinId =
+        new(Guid.Parse("dddddddd-1111-1111-1111-111111111111"));
+
+    /// <summary>And a third in the graveyard, for "another card named ~ in your graveyard".</summary>
+    private static readonly ObjectId TwinInGraveyardId =
+        new(Guid.Parse("dddddddd-2222-2222-2222-222222222222"));
+
     /// <summary>The zone pairs a card can actually move between, both directions of each.</summary>
     private static readonly (Zone From, Zone To)[] ZoneMoves =
     [
@@ -571,6 +588,26 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
     /// source moved to that zone as well, because a predicate reading the source out of the state
     /// would otherwise find it in play when the card says it is in a graveyard.
     /// </remarks>
+    /// <summary>The same board with the candidate's own twins on it, if this world has any.</summary>
+    private static GameState WithTwins(GameState board, IReadOnlyList<GameObject> twins)
+    {
+        var state = board;
+
+        foreach (var twin in twins)
+        {
+            state = state with { Objects = state.Objects.SetItem(twin.Id, twin) };
+
+            state = twin.Zone == Zone.Battlefield
+                ? state with { Battlefield = state.Battlefield.Add(twin.Id) }
+                : WithSeat(
+                    state,
+                    twin.ControllerId,
+                    p => p with { Graveyard = p.Graveyard.Add(twin.Id) });
+        }
+
+        return state;
+    }
+
     private static GameState WithSource(GameState board, GameObject source)
     {
         var state = board with { Objects = board.Objects.SetItem(source.Id, source) };
@@ -1224,9 +1261,23 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
         };
         var subject = new TriggerSource(source, NoAbilities.Instance);
 
+        // Two more of the same card on the same side, on every board that is not deliberately
+        // empty. A name clause — "another creature named ~", "another card named ~ in your
+        // graveyard" — can only mean this card's name, and until now no board held two of it.
+        // Left off the bare worlds on purpose: those exist to answer the opposite question
+        // ("if you control exactly one creature", "if you have no creatures"), and a twin
+        // planted there would silence them.
+        var twins = world.Bare
+            ? []
+            : new List<GameObject>
+            {
+                At(TwinId, card, Mine, Zone.Battlefield, 15, world),
+                At(TwinInGraveyardId, card, Mine, Zone.Graveyard, 16, world),
+            };
+
         foreach (var scene in battery)
         {
-            var state = WithSource(scene.State, source);
+            var state = WithSource(WithTwins(scene.State, twins), source);
 
             foreach (var happened in scene.Events)
             {

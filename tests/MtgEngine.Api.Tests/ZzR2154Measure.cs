@@ -84,6 +84,16 @@ public sealed class ZzR2154Measure(ITestOutputHelper output)
         var compiled = corpus.Select(c => (Card: c, Result: CardCompiler.Compile(c))).ToList();
         output.WriteLine($"CONTROL corpus {corpus.Count} complete {compiled.Count(c => c.Result.IsComplete)}");
 
+        var dump = Environment.GetEnvironmentVariable("R2154_DUMP");
+        if (!string.IsNullOrEmpty(dump))
+        {
+            File.WriteAllLines(
+                dump,
+                compiled.Where(c => c.Result.IsComplete)
+                    .Select(c => c.Card.Name + "	" + c.Card.OracleId)
+                    .Order(StringComparer.Ordinal));
+        }
+
         var incomplete = compiled.Where(c => AttractionFamily(c.Card) && !c.Result.IsComplete).ToList();
         output.WriteLine($"attraction family incomplete: {incomplete.Count}");
 
@@ -298,6 +308,64 @@ public sealed class ZzR2154Measure(ITestOutputHelper output)
 
             var r = CardCompiler.Compile(WithVersions(card, texts));
             output.WriteLine($"  {card.Name}: complete={r.IsComplete} residual={string.Join(" | ", r.Unhandled)}");
+        }
+    }
+
+    [Fact]
+    public void Shape_probe()
+    {
+        (string Type, string Text)[] texts =
+        [
+            ("Instant", "Target creature gains lifelink and gets +2/+0 until end of turn."),
+            ("Instant", "Target creature gets +2/+0 and gains lifelink until end of turn."),
+            ("Instant", "Target creature gains lifelink until end of turn."),
+            ("Creature", "Whenever ~ attacks, another target attacking creature gains lifelink and gets +2/+0 until end of turn."),
+            ("Creature", "Whenever ~ attacks, another target attacking creature gets +2/+0 and gains lifelink until end of turn."),
+            ("Sorcery", "Destroy target creature and up to X other target creatures, where X is the number of creatures you control."),
+            ("Sorcery", "Destroy target creature and up to X other target creatures, where X is the number of Attractions you’ve visited this turn."),
+            ("Sorcery", "Draw X cards, where X is the number of creatures you control."),
+            ("Sorcery", "Draw X cards, where X is the number of Attractions you’ve visited this turn."),
+            ("Sorcery", "Create a 1/1 green Squirrel creature token for each creature you control."),
+            ("Sorcery", "Create a 1/1 green Squirrel creature token for each Attraction you’ve visited this turn."),
+            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking for each creature you control."),
+            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking for each Attraction you’ve visited this turn."),
+            ("Creature", "As long as you’ve visited an Attraction this turn, ~ has indestructible."),
+            ("Creature", "Whenever you visit ~, exile the top X cards of your library, where X is the number of Attractions you’ve visited this turn."),
+            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking."),
+            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token for each creature you control."),
+            ("Sorcery", "Destroy target creature and up to two other target creatures."),
+            ("Sorcery", "Destroy up to X target creatures, where X is the number of creatures you control."),
+            ("Instant", "Target creature gains flying and gets +1/+1 until end of turn."),
+            ("Instant", "Target creature you control gains trample and gets +3/+3 until end of turn."),
+            ("Creature", "Whenever ~ attacks, another target attacking creature gains menace and gets +X/+0 until end of turn, where X is ~'s power."),
+        ];
+
+        foreach (var (type, text) in texts)
+        {
+            var kind = type switch
+            {
+                "Instant" => MtgEngine.Domain.Enums.CardType.Instant,
+                "Sorcery" => MtgEngine.Domain.Enums.CardType.Sorcery,
+                _ => MtgEngine.Domain.Enums.CardType.Creature,
+            };
+
+            var card = new CardDefinition
+            {
+                OracleId = "probe-" + text.GetHashCode(StringComparison.Ordinal)
+                    .ToString(CultureInfo.InvariantCulture),
+                Name = "Probe",
+                OracleText = text,
+                CardTypes = kind,
+                Subtypes = kind == MtgEngine.Domain.Enums.CardType.Creature ? ["Attraction"] : [],
+                AttractionLights = kind == MtgEngine.Domain.Enums.CardType.Creature ? [2, 6] : [],
+                Power = kind == MtgEngine.Domain.Enums.CardType.Creature ? 3 : null,
+                Toughness = kind == MtgEngine.Domain.Enums.CardType.Creature ? 3 : null,
+            };
+
+            var r = CardCompiler.Compile(card);
+            output.WriteLine($"{(r.IsComplete ? "OK  " : "BAD ")} [{type}] {text}");
+            foreach (var l in r.Unhandled)
+                output.WriteLine("        << " + l);
         }
     }
 }

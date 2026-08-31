@@ -1518,6 +1518,21 @@ public static partial class BoardConditions
                 seat => state.GetPlayer(seat).DealtCombatDamageToPlayerThisTurn);
         }
 
+        // "As long as you've visited an Attraction this turn" (CR 701.52a) - the same fact the
+        // count beside it reads, asked as a yes or no. One card prints it and it is a static's
+        // "as long as", but it goes through the shared reader like everything else here, so the
+        // trigger's intervening if and the activation restriction get it for nothing if a later
+        // card spells it either of those ways.
+        var visited = VisitedAnAttractionThisTurnLine().Match(text);
+        if (visited.Success)
+        {
+            if (ReadWhose(visited.Groups["who"].Value, aboutASeat) is not { } visitorSeats)
+                return null;
+
+            return (state, _, source, subject) => visitorSeats.Of(
+                state, source, subject, seat => state.AttractionsVisitedThisTurn(seat) > 0);
+        }
+
         // "If you attacked this turn" - a fact about the player, not about any creature that
         // did the attacking. Asked by eighty-odd lines, and answered from the flag the reducer
         // sets when attackers are declared, so it stays true after every one of them has died.
@@ -2924,6 +2939,18 @@ public static partial class BoardConditions
             + @"|(?<nobody>no creatures attacked) this turn)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttackedThisTurnLine();
+
+    /// <summary>"You've visited an Attraction this turn" (CR 701.52a), with either apostrophe.</summary>
+    /// <remarks>
+    /// One printed card says it — Soul Swindler — and it says it about itself. The subject is read
+    /// through the shared vocabulary anyway, because the yes-or-no and the count beside it are the
+    /// same fact and a second card asking an opponent's would otherwise need this pattern rewritten
+    /// rather than reused.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WHO + @"(?:(?:'|’)ve| have| has)? visited an attraction this turn$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VisitedAnAttractionThisTurnLine();
 
     /// <remarks>
     /// The negative is the same record read the other way round rather than a reader of its own,

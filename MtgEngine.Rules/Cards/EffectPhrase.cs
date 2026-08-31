@@ -12033,6 +12033,14 @@ public static partial class EffectPhrase
         if (CardsDrawnThisTurnLine().IsMatch(people))
             return (state, _, you, _, _) => state.GetPlayer(you).CardsDrawnThisTurn;
 
+        // "For each Attraction you've visited this turn" (CR 701.52a). Read here rather than by
+        // the noun grammar beside it for the reason the death count is: the group is not on the
+        // battlefield to be swept. Pick-a-Beeble sacrifices itself on the visit that claims its
+        // prize, so a board sweep would answer one less than the card says on the very turn the
+        // card is played, and answer it differently depending on when in the turn it was asked.
+        if (AttractionsVisitedThisTurnLine().IsMatch(people))
+            return (state, _, you, _, _) => state.AttractionsVisitedThisTurn(you);
+
         // "For each creature that died this turn" (CR 700.4) - battlefield to graveyard and
         // nothing else, so a creature exiled or bounced this turn is not counted. Game-wide and
         // not "yours": no corpus card asking this names a player, and narrowing it to one would
@@ -12823,6 +12831,18 @@ public static partial class EffectPhrase
         @"^(?<nontoken>nontoken )?creatures? that (?:died|have died|has died) this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex CreaturesDiedThisTurnLine();
+
+    /// <summary>"Attractions you've visited this turn" (CR 701.52a), with either apostrophe.</summary>
+    /// <remarks>
+    /// The trailing part is optional because Storybook Ride prints "(including this one)" and the
+    /// reminder stripper takes the bracket away, leaving a stray space before the full stop that
+    /// the sentence splitter hands on. Anchoring on "this turn" with the tail allowed to be blank
+    /// reads both spellings; without it the one card the parenthesis is printed on is the one
+    /// card this cannot read.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^attractions? you(?:'|’)ve visited this turn\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex AttractionsVisitedThisTurnLine();
 
     /// <summary>"Creatures in your party" (CR 700.8).</summary>
     [GeneratedRegex(@"^creatures? in your party$", RegexOptions.IgnoreCase)]
@@ -15571,6 +15591,19 @@ public static partial class EffectPhrase
     // and the target grammar refuses anything it cannot read, so a comma that does separate
     // clauses still loses the card rather than compiling into the wrong target.
     private const string T = @"(?<t>[A-Za-z0-9'’ ,-]+)";
+
+    /// <summary>The same target class read lazily, for a sentence a greedy one would eat.</summary>
+    /// <remarks>
+    /// "Target creature gains lifelink and gets +2/+0 until end of turn" defeated the greedy
+    /// class outright, and did it silently: the target group can hold letters and spaces, so it
+    /// swallowed "Target creature gains lifelink and" and left the pattern a clean "gets +2/+0
+    /// until end of turn" to finish on. The match <em>succeeded</em> and the target phrase then
+    /// failed to parse, so the sentence fell through to the readers below and was reported
+    /// unread — a shape refused not by any rule but by which end of the sentence the engine
+    /// started from. Read lazily the same sentence yields the shortest target that lets the rest
+    /// match, which is the one the card printed.
+    /// </remarks>
+    private const string TLazy = @"(?<t>[A-Za-z0-9'’ ,-]+?)";
 
     /// <remarks>
     /// The hyphen in the target class is load-bearing: "target non-Dragon creature an opponent
@@ -19047,17 +19080,27 @@ public static partial class EffectPhrase
     private static partial Regex LoseLife();
 
     /// <summary>
-    /// "[Target] gets +N/+N and/or gains [keywords] until end of turn" — all four shapes at once.
+    /// "[Target] gets +N/+N and/or gains [keywords] until end of turn" — all four shapes at once,
+    /// in either printed order.
     /// </summary>
     /// <remarks>
     /// One regex rather than a pump one and a grant one, because the card prints them as one
     /// sentence with either half optional and a separate matcher for each combination is three
     /// matchers that must agree about the target phrase.
+    /// <para>
+    /// <b>Both orders, because the card prints both.</b> "Gets +X/+0 and gains trample" was read
+    /// and "gains trample and gets +X/+0" was not, on the same sentence with the same two halves —
+    /// which is the mass pump's 192-line omission one grammar along. It is what left Skanos,
+    /// Dragon Vassal short on four of its five specialized versions and Sarevok the Usurper short
+    /// on three, each printing the keyword first, while the base card of each printed the pump
+    /// alone and read. The duplicate group names are how .NET spells one capture reachable from
+    /// two arms; the alternation is exclusive, so only one of each pair can ever be set.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^" + T + @" (gets " + PT
+        @"^" + TLazy + @" (gets " + PT
             + @"( and gains (?<kw>[a-z ,]+?))?"
-            + @"|gains (?<kw>[a-z ,]+?)) until end of turn$",
+            + @"|gains (?<kw>[a-z ,]+?)( and gets " + PT + @")?) until end of turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PumpOrGrantLine();
 
@@ -20318,9 +20361,15 @@ public static partial class TriggerConditions
             var gaining = life.Groups["verb"].Value.StartsWith("gain", StringComparison.OrdinalIgnoreCase);
             var mine = life.Groups["who"].Value.StartsWith("you", StringComparison.OrdinalIgnoreCase);
 
-            return (e, _, source) =>
+            // "During your turn" is a question about the turn and not about the event, so it is
+            // asked of the state the change folded into. The controller's turn and not the
+            // trigger subject's: the words are printed on a permanent talking about itself.
+            var onlyOnYourTurn = life.Groups["yours"].Success;
+
+            return (e, state, source) =>
                 e is LifeChanged changed
                 && (gaining ? changed.Delta > 0 : changed.Delta < 0)
+                && (!onlyOnYourTurn || state.ActivePlayerId == source.ControllerId)
                 && (mine
                     ? changed.PlayerId == source.ControllerId
                     : changed.PlayerId != source.ControllerId);
@@ -22475,8 +22524,17 @@ public static partial class TriggerConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex CastSpellTargeting();
 
+    /// <remarks>
+    /// The trailing "during your turn" is one printed restriction on the same trigger rather
+    /// than a trigger of its own (CR 603.2b): the event is the same life change, and the extra
+    /// clause is a fact about whose turn it is when it happens. Reading it here rather than as a
+    /// condition of its own is what keeps the four spellings of Shadowheart, Sharran Cleric on
+    /// one matcher - each of her five specialized versions prints these words in front of a
+    /// different effect, and nothing else about any of them was unread.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent|a player)\s+(?<verb>gains?|loses?)\s+life$",
+        @"^(?<who>you|an opponent|a player)\s+(?<verb>gains?|loses?)\s+life"
+            + @"(?<yours> during your turn)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GainsOrLosesLife();
 
