@@ -1568,14 +1568,17 @@ public sealed class CompiledCardBehaviourTests
     /// A price whose symbols the mana parser drops is refused (CR 107.4c).
     /// </summary>
     /// <remarks>
-    /// <c>ManaCostSpec.Parse</c> keeps the symbols it understands and drops the rest, so "{E}"
-    /// and "{S}" both parse to an <em>empty</em> cost — and an offer costing nothing is one every
-    /// player takes. "Tap this creature unless you pay {E}" compiled clean and never tapped
-    /// anything. Every printed symbol has to survive the parse or the line stays unread, which
-    /// costs one snow cumulative upkeep and is the right side to be wrong on.
+    /// <c>ManaCostSpec.Parse</c> keeps the symbols it understands and drops the rest, so a snow
+    /// or an untap symbol parses to an <em>empty</em> cost — and an offer costing nothing is one
+    /// every player takes. Every printed symbol has to survive the parse or the line stays
+    /// unread, which costs one snow cumulative upkeep and is the right side to be wrong on.
+    /// <para>
+    /// Energy was the third symbol in this hole and is not here any more: the offer can take
+    /// payment in it, so it is read rather than refused — see the energy pair above.
+    /// </para>
     /// </remarks>
     [Theory]
-    [InlineData("At the beginning of your upkeep, tap ~ unless you pay {E}.")]
+    [InlineData("At the beginning of your upkeep, tap ~ unless you pay {Q}.")]
     [InlineData("At the beginning of your upkeep, sacrifice ~ unless you pay {S}.")]
     public void A_price_the_mana_parser_cannot_keep_whole_is_refused(string line)
     {
@@ -1584,6 +1587,81 @@ public sealed class CompiledCardBehaviourTests
 
         var compiled = CardCompiler.Compile(card);
         Assert.False(compiled.IsComplete);
+    }
+
+    /// <summary>
+    /// "Sacrifice this creature unless you pay {E}{E}" — a price in energy (CR 107.4c).
+    /// </summary>
+    /// <remarks>
+    /// The offer has taken payment in energy since it was written, and the price reader could not
+    /// see it: its energy pattern wants the printed word "pay", and a keyword's price arrives as
+    /// the symbols alone. So <c>ManaCostSpec.Parse</c> dropped the {E}s, the offer came out free,
+    /// and Lathnu Hellion was a 4/4 haste nobody ever had to sacrifice — a card several classes
+    /// better than the one printed, reported as fully read.
+    /// </remarks>
+    [Fact]
+    public void An_energy_price_is_charged_out_of_the_energy_a_player_has()
+    {
+        var hellion = Card(
+            "Energy Price Hellion Test",
+            "At the beginning of your upkeep, sacrifice ~ unless you pay {E}{E}.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(hellion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice,
+            Card("Energy Price Battery Test", "When ~ enters, you get {E}{E}.", CardType.Artifact),
+            Zone.Battlefield);
+
+        var beast = game.Create(alice, hellion, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, game.State.GetPlayer(alice).Energy);
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        game.Choose(alice, ["yes"]);
+        Settle(game);
+
+        Assert.Contains(beast, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetPlayer(alice).Energy);
+    }
+
+    /// <summary>The same price one energy short: the creature really goes (CR 118.3).</summary>
+    [Fact]
+    public void An_energy_price_one_counter_short_is_never_offered()
+    {
+        var hellion = Card(
+            "Short Energy Hellion Test",
+            "At the beginning of your upkeep, sacrifice ~ unless you pay {E}{E}.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice,
+            Card("Short Energy Battery Test", "When ~ enters, you get {E}.", CardType.Artifact),
+            Zone.Battlefield);
+
+        var beast = game.Create(alice, hellion, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).Energy);
+
+        PassTo(game, 3, TurnStep.Upkeep);
+        Settle(game);
+
+        Assert.DoesNotContain(beast, game.State.Battlefield);
+        Assert.Equal(1, game.State.GetPlayer(alice).Energy);
     }
 
     // ---- An Aura's buff and its rider (CR 613.1f) ----------------------------

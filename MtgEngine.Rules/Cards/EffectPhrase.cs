@@ -1884,7 +1884,8 @@ public static partial class EffectPhrase
         if (!m.Success)
             return false;
 
-        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not var (charged, life, chosen, counted))
+        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not
+            var (charged, life, chosen, counted, energy))
             return false;
 
         // The consequence is what happens when they *decline*, so it is parsed as the "if you
@@ -1938,6 +1939,7 @@ public static partial class EffectPhrase
             IfYouDont: [.. scratchEffects.Select(e => EffectTargets.Shift(e, offset))],
             EffectIndex: effects.Count,
             AskTargetController: asksTheTarget ? offset : null,
+            EnergyCost: energy,
             LifeCost: life,
             ChosenKind: chosen?.Kind,
             ChosenCount: chosen?.Count ?? 1,
@@ -3577,7 +3579,7 @@ public static partial class EffectPhrase
             // shared reader knows arrives with the guard: the counted price, the announced X,
             // and the refusal of a price that parses to nothing.
             if (CardCompiler.OfferedCost(m.Groups["cost"].Value) is not
-                var (price, owed, chosenCost, countedPrice))
+                var (price, owed, chosenCost, countedPrice, owedEnergy))
             {
                 return false;
             }
@@ -3587,6 +3589,7 @@ public static partial class EffectPhrase
                 IfYouDo: [],
                 IfYouDont: [new SacrificeSource()],
                 effects.Count,
+                EnergyCost: owedEnergy,
                 LifeCost: owed,
                 ChosenKind: chosenCost?.Kind,
                 ChosenCount: chosenCost?.Count ?? 1,

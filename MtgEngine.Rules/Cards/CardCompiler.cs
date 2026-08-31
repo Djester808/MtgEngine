@@ -3734,7 +3734,7 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (mana, life, chosen, counted))
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (mana, life, chosen, counted, energy))
             return false;
 
         into.Add(WardTrigger(
@@ -3747,7 +3747,8 @@ public static partial class CardCompiler
             chosen?.Kind,
             chosen?.Count ?? 1,
             chosen?.What,
-            counted));
+            counted,
+            energy));
 
         return true;
     }
@@ -3771,7 +3772,8 @@ public static partial class CardCompiler
         ChosenCostKind? kind = null,
         int count = 1,
         TargetSpec? what = null,
-        Amount? counted = null)
+        Amount? counted = null,
+        int energy = 0)
     {
         // CR 702.21a: only an opponent's spell taxes. Your own targeting is free, which is what
         // makes ward a defensive ability rather than a drawback. For a granted ward the source
@@ -3796,6 +3798,7 @@ public static partial class CardCompiler
                     IfYouDont: [new CounterSubjectSpell()],
                     EffectIndex: 0,
                     AskSubjectPlayer: true,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: kind,
                     ChosenCount: count,
@@ -6521,7 +6524,7 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (cost, life, chosen, counted))
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (cost, life, chosen, counted, energy))
             return false;
 
         replacements.Add(new ReplacementEffectDefinition
@@ -6563,6 +6566,7 @@ public static partial class CardCompiler
                     IfYouDo: [],
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: chosen?.Kind,
                     ChosenCount: chosen?.Count ?? 1,
@@ -12334,10 +12338,20 @@ public static partial class CardCompiler
     /// Leaving the line unread is the direction that costs nothing.
     /// </para>
     /// </remarks>
-    internal static (ManaCostSpec Mana, int Life, ChosenCost? Chosen, Amount? Generic)?
+    internal static
+        (ManaCostSpec Mana, int Life, ChosenCost? Chosen, Amount? Generic, int Energy)?
         OfferedCost(string cost)
     {
         ArgumentNullException.ThrowIfNull(cost);
+
+        // Energy, which is a price an offer can take and the cost reader cannot see: its energy
+        // pattern wants the printed word "pay", and a keyword's price arrives as the symbols
+        // alone. Read before the guard below, because {E} is exactly the symbol that guard is
+        // there to refuse - the mana parser drops it, and "sacrifice this unless you pay {E}{E}"
+        // became a Lathnu Hellion nobody ever had to sacrifice.
+        var energy = EnergyPrice().Match(cost.Trim());
+        if (energy.Success)
+            return (ManaCostSpec.Free, 0, null, null, energy.Groups["e"].Captures.Count);
 
         // A mana symbol the parser does not know is *dropped*, not refused - {E} and {S} both
         // are - so a price made of nothing but symbols can come back as no price at all, and an
@@ -12370,7 +12384,7 @@ public static partial class CardCompiler
             if (EffectPhrase.CountingAmount(new Amount(each), "each " + phrase) is not { } scaled)
                 return null;
 
-            return (ManaCostSpec.Free, 0, null, scaled);
+            return (ManaCostSpec.Free, 0, null, scaled, 0);
         }
 
         // "{X}, where X is your devotion to blue" - the same computation said the other way
@@ -12389,7 +12403,7 @@ public static partial class CardCompiler
 
             return EffectPhrase.CountingAmount(new Amount(1), phrase) is not { } sized
                 ? null
-                : (ManaCostSpec.Free, 0, null, sized);
+                : (ManaCostSpec.Free, 0, null, sized, 0);
         }
 
         // A bare "{X}" is the value the payer's opponent announced as they cast this
@@ -12399,7 +12413,7 @@ public static partial class CardCompiler
         // in a printed offer came to before this, it made every X counterspell in the game a
         // spell the opponent escaped for free.
         if (BareVariablePrice().IsMatch(cost.Trim()))
-            return (ManaCostSpec.Free, 0, null, Amount.X);
+            return (ManaCostSpec.Free, 0, null, Amount.X, 0);
 
         if (ReadKeywordCost(cost) is not { } paid || paid.Chosen.Count > 1)
             return null;
@@ -12412,7 +12426,7 @@ public static partial class CardCompiler
             return null;
 
         if (paid.Chosen.Count == 0)
-            return (paid.Mana, paid.Life, null, null);
+            return (paid.Mana, paid.Life, null, null, 0);
 
         var chosen = paid.Chosen[0];
 
@@ -12431,8 +12445,12 @@ public static partial class CardCompiler
         // exclusion cannot even be re-derived. Refused rather than widened.
         return chosen.ExcludesSource || chosen.MinTotalPower > 0
             ? null
-            : (paid.Mana, paid.Life, chosen, null);
+            : (paid.Mana, paid.Life, chosen, null, 0);
     }
+
+    /// <summary>"{E}{E}" — a price paid out of the energy counters a player has (CR 107.4c).</summary>
+    [GeneratedRegex(@"^(?<e>\{E\})+$", RegexOptions.IgnoreCase)]
+    private static partial Regex EnergyPrice();
 
     /// <summary>A price that is nothing but mana symbols, symbol by symbol.</summary>
     [GeneratedRegex(@"^(?<s>\{[^}]+\})+$")]
@@ -13461,9 +13479,10 @@ public static partial class CardCompiler
                 $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}"),
                 0,
                 (ChosenCost?)null,
-                (Amount?)null);
+                (Amount?)null,
+                0);
 
-        if (priced is not var (charged, life, chosen, counted))
+        if (priced is not var (charged, life, chosen, counted, energy))
             return false;
 
         into.Add(new TriggeredAbilityDefinition
@@ -13483,6 +13502,7 @@ public static partial class CardCompiler
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
                     TimesCounter: AgeCounter,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: chosen?.Kind,
                     ChosenCount: chosen?.Count ?? 1,
