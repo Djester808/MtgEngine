@@ -10859,3 +10859,69 @@ corpus is exactly those 8 rows and nothing else.
 gathers no continuous effects at all — counters and the face-down rules still apply, a granted
 keyword does not. And a *spell on the stack* is still asked of its printed card, deliberately:
 the object is a card, and the readers that describe one say so.
+
+### A shield that computed characteristics with no abilities to compute from (CR 613)
+
+The round above made `SearchFilters.Matches` ask the permanent instead of the printed card and
+named the one path it would not widen blind: **the static-shield family passed
+`EmptyAbilities.Instance` into `Preventions.Watches`/`Covers`**, and the layer walk gathers its
+candidates *through* that source. With an empty one it gathers none. Counters and the face-down
+rules still applied — those are read off the object rather than produced by an effect — and
+nothing else did. So "creatures with first strike" meant creatures with first strike printed on
+them, and Tresserhorn Skyknight read the wrong half of the board with an Aura sitting next to it.
+
+The same argument reaches the controller. `Bind` asks `Characteristics.ControllerOf` so that a
+stolen shield follows the theft (CR 613.1b), and that reader gathers control effects through the
+ability source too — so asked with an empty one it always answered the stored controller, which
+is where control *started*. The fix for the stolen-lord defect was in place and could not fire.
+
+**The widening is the recorded one and it is the whole of the change.**
+`ReplacementEffectDefinition.Applies` now takes an `IAbilitySource` as its third argument, the
+way `Branches` already did. Thirty-two construction sites in the engine gained a parameter and
+thirty of them ignore it; fifteen more in the tests; `Game` passes the game's own source at both
+call sites. `Replace`, `Decline` and `Branches` are untouched.
+
+**Where an empty source is right, and it is not a detail.** A *continuous* effect's `Applies`
+runs from inside the layer walk, and a board condition asked from there must not compute anything
+else's characteristics — that is CR 613.8's hazard, and the two sites that pass `EmptyAbilities`
+inside one (`while:`'s conditional wrapper and living metal) are deliberate and stay. A
+*replacement's* `Applies` runs from the replacement loop, outside any computation, and there the
+same argument says the opposite. The line between the two is which side of the layer walk the
+predicate is on, and it is the only thing that decides it.
+
+**It cannot recurse.** The two readers the shield reaches are each bounded the way CR 613.8b
+bounds a dependency loop it cannot order: a nested filter ask is answered from the printed card,
+a nested control ask from the stored controller. Both fallbacks were **neutered in turn** to see
+whether the new tests reach them, and they do not — no continuous effect in the engine today
+asks a board filter or a control question about a permanent other than the one being computed
+from inside its own predicate. They are a guarantee about a shape one card away, not a behaviour
+anything reaches. Worth knowing before someone writes the card that gets there.
+
+**Measured: no card completes and 24 already-complete cards change behaviour.** The complete
+count is 18,144 before and after, and the per-card compiled-effect diff over the whole corpus is
+**byte-identical** — which is the honest reading of that instrument rather than a null result: a
+predicate is a closure and the diff cannot see inside one. 43 complete cards carry a static
+shield; **21** name a filter the board decides on one side of the sentence or the other, and
+**13** name a player scope, which is the half `ControllerOf` answers. Twenty-four distinct cards
+are in one set or the other.
+
+The filter twenty-one: Argothian Pixies, Argothian Treefolk, Armored Transport, Artifact Ward,
+Blessed Sanctuary, Bubble Matrix, Champion Lancer, Crystal Barricade, Dolmen Gate, Goblin
+Furrier, Indentured Oaf, Inner Sanctum, Light of Sanction, Mark of Asylum, Rescue Retriever,
+Statecraft, Tajic Legion's Edge, The Wanderer, Tresserhorn Skyknight, Uncle Istvan, Wall of
+Vapor. The scoped thirteen add Glacial Chasm, Personal Sanctuary and Solitary Confinement.
+
+**The pattern was not in one place, and the sweep found two more.** Both are board conditions on
+a replacement's `Applies`, and each was one token: bloodthirst's "an opponent was dealt damage
+this turn" (19 complete cards) and enters-tapped's `unless` clause (4 — Barad-dûr, Mines of
+Moria, Rivendell and The Shire, all reading "unless you control a legendary creature").
+Bloodthirst's condition arm ignores its ability source outright, so those nineteen are corrected
+for uniformity and change nothing today; the four lands read a controlled-permanent count that
+does use it.
+
+**What is still asked with an empty source, and why it was left.** The damage-amount
+replacements — Furnace of Rath and its 36 relatives — read their dealer and victim through local
+delegates typed `(GameState, GameObject, ObjectId)`, so threading abilities there means widening
+two more signatures and measuring a different card family. `Replace` and `Decline` still take no
+ability source at all; no reader inside them needs one yet. Both are this same fix, one family
+further out.

@@ -6333,9 +6333,18 @@ public sealed class CompiledCardBehaviourTests
     /// lord's filter would compute the other without bottom.
     /// <para>
     /// It is bounded the way CR 613.8b bounds a dependency loop it cannot order, and by two
-    /// separate guards rather than one: a nested filter question is answered from the printed
-    /// card, and a nested control question from the stored controller. Neither guard was
-    /// reachable from a shield before, because an empty ability source gathered nothing to nest.
+    /// separate fallbacks rather than one: a nested filter question is answered from the printed
+    /// card, and a nested control question from the stored controller.
+    /// </para>
+    /// <para>
+    /// <strong>Neither fallback fires on this board, and that was measured rather than assumed.</strong>
+    /// Each was neutered in turn - the filter flag never set, the control flag never set - and
+    /// this test went on passing, because no continuous effect in the engine today asks a board
+    /// filter or a control question about a permanent other than the one being computed from
+    /// inside its own predicate. The fallbacks are a guarantee about a shape that is one card
+    /// away, not a behaviour anything reaches. What this test does prove is that the shield's
+    /// question terminates and answers correctly on the deepest board the engine can currently
+    /// build, and it fails outright when the shield goes back to an empty ability source.
     /// </para>
     /// <para>
     /// The two lands are here for the same reason: they retype each other, so the layer walk the
