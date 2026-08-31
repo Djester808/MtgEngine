@@ -38,6 +38,8 @@ public sealed class R2108Measure(ITestOutputHelper output)
         var samples = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         var excision = new Dictionary<string, int>(StringComparer.Ordinal);
         var control = new Dictionary<string, int>(StringComparer.Ordinal);
+        var substitute = new Dictionary<string, int>(StringComparer.Ordinal);
+        var winners = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
         foreach (var card in corpus)
         {
@@ -65,6 +67,15 @@ public sealed class R2108Measure(ITestOutputHelper output)
                 if (list.Count < 45)
                     list.Add($"{card.Name} [{compiled.Unhandled.Count} short] :: {hits[0]}");
 
+                if (Substituted(card) is { } rewritten && CardCompiler.Compile(rewritten).IsComplete)
+                {
+                    substitute[name] = substitute.GetValueOrDefault(name) + 1;
+                    if (!winners.TryGetValue(name, out var won))
+                        winners[name] = won = [];
+
+                    won.Add(card.Name);
+                }
+
                 if (Recompiles(card, pattern))
                     excision[name] = excision.GetValueOrDefault(name) + 1;
 
@@ -80,8 +91,12 @@ public sealed class R2108Measure(ITestOutputHelper output)
             output.WriteLine(
                 $"{name}: lines={lineCount.GetValueOrDefault(name)} cards={cardCount.GetValueOrDefault(name)}"
                 + $" sole={soleCount.GetValueOrDefault(name)} excision={excision.GetValueOrDefault(name)}"
-                + $" control={control.GetValueOrDefault(name)}");
+                + $" control={control.GetValueOrDefault(name)}"
+                + $" substitute={substitute.GetValueOrDefault(name)}");
         }
+
+        foreach (var (name, won) in winners)
+            output.WriteLine($"WON {name}: {string.Join(" | ", won)}");
 
         foreach (var (name, list) in samples)
         {
@@ -133,4 +148,29 @@ public sealed class R2108Measure(ITestOutputHelper output)
         Colors = card.Colors,
         Faces = card.Faces,
     };
+    private static readonly (Regex From, string To)[] Rewrites =
+    [
+        (new Regex(@"pays? \{1\} for each [^.""]+", RegexOptions.IgnoreCase), "pays {1}"),
+        (new Regex(@"pays? \{[2-9]\} for each [^.""]+", RegexOptions.IgnoreCase), "pays {1}"),
+        (new Regex(@"pays? \{X\}, where X is [^.]+", RegexOptions.IgnoreCase), "pays {1}"),
+        (new Regex(@"pays? \{X\}", RegexOptions.IgnoreCase), "pays {1}"),
+        (new Regex(@"costs \{X\} less to cast this way, where X is [^.]+", RegexOptions.IgnoreCase), "costs {1} less to cast for each creature you control"),
+        (new Regex(@"costs \{X\} less to cast, where X is [^.]+", RegexOptions.IgnoreCase), "costs {1} less to cast for each creature you control"),
+        (new Regex(@"costs \{X\} less to cast", RegexOptions.IgnoreCase), "costs {1} less to cast for each creature you control"),
+        (new Regex(@"costs \{X\} less to activate, where X is [^.]+", RegexOptions.IgnoreCase), "costs {1} less to activate for each creature you control"),
+    ];
+
+    private static CardDefinition? Substituted(CardDefinition card)
+    {
+        if (card.Faces.Count > 1)
+            return null;
+
+        var text = card.OracleText ?? string.Empty;
+        var before = text;
+
+        foreach (var (from, to) in Rewrites)
+            text = from.Replace(text, to);
+
+        return string.Equals(text, before, StringComparison.Ordinal) ? null : Retext(card, text);
+    }
 }

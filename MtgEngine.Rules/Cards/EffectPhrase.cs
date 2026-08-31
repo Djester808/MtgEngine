@@ -1876,7 +1876,7 @@ public static partial class EffectPhrase
         if (!m.Success)
             return false;
 
-        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not var (charged, life, chosen))
+        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not var (charged, life, chosen, counted))
             return false;
 
         // The consequence is what happens when they *decline*, so it is parsed as the "if you
@@ -1910,11 +1910,19 @@ public static partial class EffectPhrase
         // is one player said twice. Read off the consequence rather than assumed, because
         // NamedPlayer would find nobody there — the trigger is about a creature, not a seat — and
         // an offer nobody is asked is a punisher that never offers the way out.
+        //
+        // "Unless *you* pay" is the fourth payer and the only one that redirects nothing: the
+        // offer goes where an offer goes when nobody says otherwise, which is the controller of
+        // the ability making it — the same seat echo and cumulative upkeep charge. It has to be
+        // said out loud all the same, because the target arm below would otherwise claim it and
+        // charge whoever the consequence was aimed at: "destroy target creature unless you pay
+        // {2}" would tax the creature's controller, which is the opposite of the printed card.
         var payer = m.Groups["who"].Value.ToLowerInvariant();
+        var itself = payer is "you";
         var pronoun = payer is "that player" or "they";
         var relation = pronoun && ControllerRelation().IsMatch(m.Groups["effect"].Value);
         var named = pronoun && !relation;
-        var asksTheTarget = !named && !relation && scratchTargets.Count == 1;
+        var asksTheTarget = !itself && !named && !relation && scratchTargets.Count == 1;
 
         effects.Add(new MayPay(
             charged,
@@ -1927,9 +1935,10 @@ public static partial class EffectPhrase
             ChosenCount: chosen?.Count ?? 1,
             ChosenWhat: chosen?.What)
         {
-            AskScope = asksTheTarget
+            AskScope = itself || asksTheTarget
                 ? null
                 : named ? PlayerScope.NamedPlayer : PlayerScope.SubjectController,
+            VariablePrice = counted,
         });
 
         return true;
@@ -1945,8 +1954,12 @@ public static partial class EffectPhrase
     /// </remarks>
     private static string PrintedPrice(Match m)
     {
+        // The counted tail travels *with* the price rather than being read here. A tax whose
+        // amount is worked out is still one price, and the reader that prices ward and echo is
+        // where the corpus's one counted spelling belongs - so a second counted form learnt
+        // there is learnt by all four at once.
         if (m.Groups["cost"].Success)
-            return m.Groups["cost"].Value.Trim();
+            return (m.Groups["cost"].Value + m.Groups["each"].Value).Trim();
 
         if (m.Groups["life"].Success)
             return "Pay " + m.Groups["life"].Value.Trim() + " life";
@@ -10254,7 +10267,7 @@ public static partial class EffectPhrase
         Resolution,
     }
 
-    private static Amount? CountingAmount(Amount each, string groupPhrase)
+    internal static Amount? CountingAmount(Amount each, string groupPhrase)
     {
         // "For each creature card exiled this way", "equal to the number of creatures destroyed
         // this way" - a count of what this resolution has already done rather than of the board
@@ -16092,8 +16105,9 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<effect>.+?) unless (?<who>" + ItsController + @"|that player|they) "
-            + @"(?:pays? (?:(?<cost>(\{[^}]+\})+)|(?<life>\d+) life)"
+        @"^(?<effect>.+?) unless (?<who>" + ItsController + @"|that player|they|you) "
+            + @"(?:pays? (?:(?<cost>(\{[^}]+\})+)"
+            + @"(?<each> for each [^.]+?|,? where X is [^.]+?)?|(?<life>\d+) life)"
             + @"|(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
             + @"(?: of their choice)?)\.?$",
         RegexOptions.IgnoreCase)]

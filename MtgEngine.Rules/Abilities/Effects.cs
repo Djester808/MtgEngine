@@ -6093,6 +6093,34 @@ public sealed record MayPay(
     /// </remarks>
     public PlayerScope? AskScope { get; init; }
 
+    /// <summary>
+    /// The generic part of the price, when the card prints a computation instead of a number
+    /// (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// "Counter target spell unless its controller pays {1} for each card in your graveyard" is
+    /// the same offer as "pays {2}" with the number worked out rather than printed, and
+    /// <see cref="Cost"/> is a fixed <see cref="Mana.ManaCostSpec"/> that cannot hold one. So the
+    /// computed half rides beside it as an <see cref="Amount"/> — the vocabulary every other
+    /// counted quantity in the compiler already uses — and is added to the generic part when the
+    /// offer is made.
+    /// <para>
+    /// <b>Worked out at the moment of asking, and then it is text.</b> The number goes into
+    /// <see cref="OptionalPaymentRequested.CostText"/> exactly the way cumulative upkeep's
+    /// repetition does, which is what makes it survive a replay: by the time the answer arrives
+    /// the graveyard it was counted from may be a different graveyard, and the price a player was
+    /// quoted may not be the price today's board implies. The event is the authority.
+    /// </para>
+    /// <para>
+    /// A phrase the counting vocabulary cannot read is refused at compile time rather than
+    /// answered with nought — a price that quietly comes to zero is a ward nobody pays and a
+    /// counterspell that counters nothing, which is the direction this compiler may not be wrong
+    /// in. Zero reached by <em>counting</em> is a different thing and is charged as printed: an
+    /// empty graveyard really does make "for each card in your graveyard" free.
+    /// </para>
+    /// </remarks>
+    public Amount? VariablePrice { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -6147,7 +6175,14 @@ public sealed record MayPay(
         // Cumulative upkeep asks for its cost once per counter (CR 702.24a). The mana travels
         // to the player as printed text, so charging it several times is the printed cost written
         // out several times - which is also how the card reads it aloud.
-        var asking = Cost.ToString();
+        // The counted half of the price, worked out now and folded into the printed cost the
+        // player is quoted. Generic, because a counted tax is written "{1} for each ..." and a
+        // number of anything is paid with anything (CR 107.4b).
+        var charged = VariablePrice is { } computed
+            ? Cost.PlusGeneric(Math.Max(0, computed.In(context)))
+            : Cost;
+
+        var asking = charged.ToString();
         var times = 1;
 
         if (TimesCounter is { } kind)
