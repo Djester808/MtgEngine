@@ -741,6 +741,24 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         }
 
         output.WriteLine(string.Empty);
+        output.WriteLine("mana abilities that also do something else, and did not add what they said:");
+        foreach (var (why, names) in found.RiderMana.OrderByDescending(p => p.Value.Count))
+        {
+            output.WriteLine($"  {names.Count,5}  {why}");
+            foreach (var name in names.Take(6))
+                output.WriteLine($"           {name}");
+        }
+
+        output.WriteLine(string.Empty);
+        output.WriteLine("abilities whose production the game decides, which decided on none:");
+        foreach (var (why, names) in found.AddedNothing.OrderByDescending(p => p.Value.Count))
+        {
+            output.WriteLine($"  {names.Count,5}  {why}");
+            foreach (var name in names.Take(6))
+                output.WriteLine($"           {name}");
+        }
+
+        output.WriteLine(string.Empty);
         output.WriteLine("lands that lost a basic land type's intrinsic ability (CR 305.6):");
         foreach (var (why, names) in found.LostBasicMana.OrderByDescending(p => p.Value.Count))
         {
@@ -866,6 +884,12 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         public HashSet<string> NoManaAbility { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, List<string>> WrongMana { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Divergences on an ability that also does something else. Reported, not asserted.</summary>
+        public Dictionary<string, List<string>> RiderMana { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Abilities whose production the game decides, which decided on none.</summary>
+        public Dictionary<string, List<string>> AddedNothing { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, List<string>> LostBasicMana { get; } =
             new(StringComparer.Ordinal);
@@ -1176,25 +1200,38 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         {
             var got = Pool(before, after);
             var promised = Promised(ability);
+            var said = $"said {promised}, added {(got.Length == 0 ? "nothing" : got)}"
+                + $"   [{Shorten(ability.Text)}]";
 
             if (promised is null)
             {
                 // "Add one mana of the chosen color", "add {C} for each counter removed this
                 // way". What it produces is decided in the game rather than printed, so there is
-                // no exact claim to check - only that something came out when the game said so.
+                // no exact claim to check - only whether anything came out at all, which is
+                // reported because both answers are legitimate: a land that has not yet named a
+                // colour produces nothing, correctly (CR 106.5).
                 found.Unreadable++;
+
+                if (got.Length == 0)
+                    Note(found.AddedNothing, $"[{Shorten(ability.Text)}]", card.Name);
             }
             else if (string.Equals(got, promised, StringComparison.Ordinal))
             {
                 found.Exact++;
             }
+            else if (!ability.Effects.IsEmpty)
+            {
+                // The rider is the other half of a line like "{T}: Add {C}{C}. This land doesn't
+                // untap during your next untap step", and it resolves with the ability
+                // (CR 605.3b). Almost none of them touch the pool, but one that did would read
+                // exactly like a broken promise - so a divergence here is reported rather than
+                // asserted, and the bucket exists so that "the rider added mana" and "the mana
+                // was wrong" are never the same finding.
+                Note(found.RiderMana, said, card.Name);
+            }
             else
             {
-                Note(
-                    found.WrongMana,
-                    $"said {promised}, added {(got.Length == 0 ? "nothing" : got)}"
-                        + $"   [{Shorten(ability.Text)}]",
-                    card.Name);
+                Note(found.WrongMana, said, card.Name);
             }
         }
 
@@ -1250,13 +1287,6 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
     /// </summary>
     private static string? Promised(ActivatedAbilityDefinition ability)
     {
-        // The rider is the other half of a line like "{T}: Add {C}{C}. This land doesn't untap
-        // during your next untap step" and it resolves with the ability (CR 605.3b). Most riders
-        // do not touch the pool, but one that does would read here as mana the promise never
-        // named - so an ability carrying one makes no exact claim at all.
-        if (!ability.Effects.IsEmpty)
-            return null;
-
         var coloured = new Dictionary<ManaColor, int>();
         var colourless = 0;
         var restricted = 0;
