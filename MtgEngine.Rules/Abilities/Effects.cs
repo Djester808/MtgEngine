@@ -8733,6 +8733,31 @@ public sealed record CostModifier
     public bool ChosenName { get; init; }
 
     /// <summary>
+    /// Which spell of its kind this turn the modifier applies to, or null for every one.
+    /// </summary>
+    /// <remarks>
+    /// "The first creature spell you cast each turn costs {2} less to cast" (CR 601.2f). One
+    /// field rather than a second filter, because the sentence uses <em>one</em> description
+    /// twice: the spells it counts are exactly the spells it discounts, so a card counting
+    /// creature spells and discounting instants is not a card anybody prints and not one this
+    /// can express. <see cref="FilterId"/> is that description, and this is the position in it.
+    /// <para>
+    /// One-based, as the card counts: 1 is "the first", 2 is "the second". The modifier applies
+    /// when the payer has already cast exactly <c>Nth - 1</c> spells this turn that answer
+    /// <see cref="FilterId"/> — asked of
+    /// <see cref="State.PlayerState.SpellCardsCastThisTurn"/>, which keeps the cards rather than
+    /// a tally precisely so a description can be asked of them afterwards.
+    /// </para>
+    /// <para>
+    /// <strong>Exactly, not at least.</strong> "The second spell you cast each turn costs {1}
+    /// less" discounts the second and nothing after it, so a comparison written <c>&gt;=</c>
+    /// would discount every spell from the second onwards — a card strictly better than the one
+    /// printed, which is the direction a cost must never be wrong in.
+    /// </para>
+    /// </remarks>
+    public int? Nth { get; init; }
+
+    /// <summary>
     /// Printed symbols an increase adds, for a tax that is not generic mana (CR 601.2f).
     /// </summary>
     /// <remarks>

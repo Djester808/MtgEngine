@@ -1246,6 +1246,16 @@ public sealed class Game
                 $"{card.Card.Name} cannot be cast: {naming.Card.Name} named it (CR 601.3).");
         }
 
+        // CR 601.3 once more, with the prohibition describing the spell in printed words rather
+        // than by a name somebody chose - "your opponents can't cast spells during your turn".
+        // Beside its two neighbours and before anything is spent or moved, for their reason.
+        if (Bans.CastingBanned(State, _abilities, card.Card, playerId) is { } forbidding)
+        {
+            throw new InvalidOperationException(
+                $"{card.Card.Name} cannot be cast: {forbidding.Card.Name} forbids it "
+                    + "(CR 601.3).");
+        }
+
         // CR 702.37b: a card with morph may be cast face down as a 2/2 creature spell for {3}.
         // Nothing else about the card applies while it is being cast that way — not its targets,
         // not its modes, not its cost — because the spell on the stack is not that card's spell.
@@ -2334,6 +2344,17 @@ public sealed class Game
             throw new InvalidOperationException(
                 $"{source.Card.Name}'s activated abilities can't be activated: "
                     + $"{forbidding.Card.Name} named it (CR 602.5).");
+        }
+
+        // CR 602.5 again, said about what the permanent *is* rather than what it is called -
+        // "during your turn, your opponents can't ... activate abilities of artifacts or
+        // creatures or enchantments". Asked of the computed card, because a creature that has
+        // become an artifact is one.
+        if (Bans.ActivatingBanned(State, _abilities, source, playerId) is { } banning)
+        {
+            throw new InvalidOperationException(
+                $"{source.Card.Name}'s activated abilities can't be activated: "
+                    + $"{banning.Card.Name} forbids it (CR 602.5).");
         }
 
         // CR 702.18a: while a spell with split second is on the stack, only mana abilities may
@@ -3587,6 +3608,18 @@ public sealed class Game
                 if (modifier.FromZone is { } only && only != castFrom)
                     continue;
 
+                // "The first creature spell you cast each turn costs {2} less to cast": the
+                // spells it counts are the spells it discounts, so the same filter answers both
+                // halves and the position is all this has to check. Exactly Nth - 1 already
+                // cast, never at least - "the second" discounts one spell a turn, and a
+                // >= comparison would discount every spell from the second onwards.
+                if (modifier.Nth is { } nth
+                    && State.GetPlayer(payerId).SpellCardsCastThisTurn.Count(
+                        already => SearchFilters.Matches(modifier.FilterId, already)) != nth - 1)
+                {
+                    continue;
+                }
+
                 // "Spells with the chosen name cost {3} more to cast" - the subject is a name
                 // a player picked as this permanent entered, so it is asked of the permanent
                 // rather than of the modifier, and a permanent that has not been asked yet
@@ -3776,7 +3809,17 @@ public sealed class Game
             && onTop == cardId
             && CastPermissions.MayPlayFromTopOfLibrary(State, _abilities, playerId, card.Card);
 
-        if (card.Zone != Zone.Hand && !loosed && !fromLibraryTop)
+        // CR 601.3 once more: and from a graveyard, while something on the battlefield says so -
+        // Crucible of Worlds. The land drop is still spent and the timing is still sorcery
+        // speed, both checked below: the permission buys the zone and nothing else. The card's
+        // own graveyard is asked rather than the permission's, for the reason the library arm
+        // above gives - where a card is belongs to the engine, what a permanent permits belongs
+        // to the permission.
+        var fromGraveyard = card.Zone == Zone.Graveyard
+            && State.GetPlayer(playerId).Graveyard.Contains(cardId)
+            && CastPermissions.MayPlayLandsFromGraveyard(State, _abilities, playerId);
+
+        if (card.Zone != Zone.Hand && !loosed && !fromLibraryTop && !fromGraveyard)
             throw new InvalidOperationException("A land is played from hand.");
 
         if (!card.Card.CardTypes.HasFlag(CardType.Land))

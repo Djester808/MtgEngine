@@ -355,6 +355,20 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
         Domain.Models.CardDefinition card) => [];
 
     /// <summary>
+    /// Whether this card's static abilities let its controller play lands from their graveyard
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A list rather than a bool so that a card printing the sentence twice - or a permanent
+    /// that has become a copy of one that does - says it once as far as the engine is concerned,
+    /// and so that the shape matches the two permissions beside it. See
+    /// <see cref="State.GraveyardPlayPermission"/> for why it is not a zone on
+    /// <see cref="LibraryTopPermissionsOf"/>.
+    /// </remarks>
+    IReadOnlyList<State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        Domain.Models.CardDefinition card) => [];
+
+    /// <summary>
     /// What a card's static abilities forbid outright — prevention, and life gain
     /// (CR 119.7, 615.12).
     /// </summary>

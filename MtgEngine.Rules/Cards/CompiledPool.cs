@@ -111,6 +111,9 @@ public sealed class CompiledPool : IAbilitySource
     public IReadOnlyList<State.LibraryTopPermission> LibraryTopPermissionsOf(
         CardDefinition card) => For(card).LibraryTopPermissions;
 
+    public IReadOnlyList<State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        CardDefinition card) => For(card).GraveyardPlayPermissions;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 

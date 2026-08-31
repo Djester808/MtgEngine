@@ -457,8 +457,12 @@ public static partial class CardCompiler
         var noCounter = ImmutableList.CreateBuilder<CounterBan>();
         var flashPermissions = ImmutableList.CreateBuilder<FlashPermission>();
         var libraryTopPermissions = ImmutableList.CreateBuilder<LibraryTopPermission>();
+        var graveyardPlayPermissions =
+            ImmutableList.CreateBuilder<GraveyardPlayPermission>();
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
+        var noCasting = ImmutableList.CreateBuilder<CastBan>();
+        var noActivating = ImmutableList.CreateBuilder<ActivationBan>();
         var combatTaxes = ImmutableList.CreateBuilder<CombatTax>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
@@ -1625,11 +1629,24 @@ public static partial class CardCompiler
             if (!isSpell && TryLibraryTopPermission(line, libraryTopPermissions))
                 continue;
 
+            // The third permission of the family, beside the two above and refused on an instant
+            // or sorcery for their reason: the sentence a spell prints has a duration in front
+            // of it, and one filed here would be a zone nothing ever closed again.
+            if (!isSpell && TryGraveyardPlayPermission(line, graveyardPlayPermissions))
+                continue;
+
             // The two prohibitions whose parameter is a name a player chose rather than
             // anything printed. Refused on an instant or sorcery beside their neighbours and
             // for the same reason: Conjurer's Ban says these words with "until your next
             // turn" in front of them, and a ban filed here would be one nothing takes down.
             if (!isSpell && TryChosenNameBans(line, noCastingNamed, noActivatingNamed))
+                continue;
+
+            // The same two prohibitions said about what a spell or a permanent *is* rather than
+            // about a name a player chose. Beside them and refused on an instant or sorcery for
+            // their reason: "target player can't cast spells this turn" is a one-shot with a
+            // duration, and a ban filed here would be one nothing ever takes down.
+            if (!isSpell && TryPrintedBans(line, noCasting, noActivating))
                 continue;
 
             if (TryDamageAmount(line, replacements))
@@ -2024,6 +2041,7 @@ public static partial class CardCompiler
             PlayerQualities = playerQualities.ToImmutable(),
             FlashPermissions = flashPermissions.ToImmutable(),
             LibraryTopPermissions = libraryTopPermissions.ToImmutable(),
+            GraveyardPlayPermissions = graveyardPlayPermissions.ToImmutable(),
             Bans = new StaticBans
             {
                 Unpreventable = unpreventable.ToImmutable(),
@@ -2031,6 +2049,8 @@ public static partial class CardCompiler
                 NoCounter = noCounter.ToImmutable(),
                 NoCastingNamed = noCastingNamed.ToImmutable(),
                 NoActivatingNamed = noActivatingNamed.ToImmutable(),
+                NoCasting = noCasting.ToImmutable(),
+                NoActivating = noActivating.ToImmutable(),
                 CombatTaxes = combatTaxes.ToImmutable(),
             },
             GrantedKeywords = grantedKeywords,
@@ -6137,6 +6157,14 @@ public static partial class CardCompiler
             return true;
         }
 
+        // "The first creature spell you cast each turn costs {2} less to cast" - the same
+        // reduction with a position in front of it. Read before the general spell pattern
+        // because that pattern's subject group would swallow "The first creature" as a
+        // description and discount every creature spell, which is six cards' worth of a much
+        // better card than the printed one.
+        if (OrdinalSpellCostModifierLine().Match(line) is { Success: true } ordinal)
+            return ReadOrdinalCostModifier(ordinal, into);
+
         if (SpellCostModifierLine().Match(line) is { Success: true } spell)
             return ReadSpellCostModifier(spell, into);
 
@@ -6151,6 +6179,56 @@ public static partial class CardCompiler
             return ReadAbilityCostModifier(ability, into);
 
         return false;
+    }
+
+    /// <summary>
+    /// "The second spell you cast each turn costs {1} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// One description doing two jobs, which is why this needs no second filter: the spells the
+    /// sentence counts are the spells it discounts. "The first <em>creature</em> spell you cast
+    /// each turn" counts creature spells and takes the discount off a creature spell, and the
+    /// bare "the second spell" counts every spell and discounts any of them.
+    /// <para>
+    /// Always <see cref="PlayerScope.You"/>: every printing in the corpus says "you cast", and a
+    /// subject this could not read would have to become everybody's, which is a different card.
+    /// The pattern therefore spells the subject out rather than leaving it open.
+    /// </para>
+    /// <para>
+    /// A description the shared vocabulary cannot name leaves the line unread rather than
+    /// widening to "spells" - "the first legendary creature spell" read loosely is a discount on
+    /// every creature spell, and a cost read too low is the direction that makes a card strictly
+    /// better than printed.
+    /// </para>
+    /// </remarks>
+    private static bool ReadOrdinalCostModifier(
+        Match m, ImmutableList<CostModifier>.Builder into)
+    {
+        if (CostFilterFor(m.Groups["what"].Value) is not { } filter)
+            return false;
+
+        var nth = m.Groups["ord"].Value.ToLowerInvariant() switch
+        {
+            "first" => 1,
+            "second" => 2,
+            "third" => 3,
+            _ => 0,
+        };
+
+        if (nth == 0)
+            return false;
+
+        into.Add(new CostModifier
+        {
+            FilterId = filter,
+            Amount = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture),
+            Change = CostChange.Reduction,
+            Kind = CostModifierKind.Spells,
+            Who = PlayerScope.You,
+            Nth = nth,
+        });
+
+        return true;
     }
 
     /// <summary>"Creature spells you cast cost {1} less to cast" and its five siblings.</summary>
@@ -15508,6 +15586,155 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "Your opponents can't cast spells during your turn" and its siblings (CR 601.3, 602.5).
+    /// </summary>
+    /// <remarks>
+    /// The printed-subject half of the family <see cref="TryChosenNameBans"/> reads the chosen
+    /// half of. Grand Abolisher prints both a cast ban and an activation ban in one sentence and
+    /// neither implies the other, so one line can produce two records.
+    /// <para>
+    /// <strong>Everything this cannot name, it refuses</strong>, and the direction matters more
+    /// here than anywhere else in this file. A prohibition read one word too wide stops spells
+    /// the printed card never stopped — a different card that no coverage number can see, since
+    /// the line was read either way. So:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>The subject is one of four printed words and nothing else. A subject that could not
+    /// be read must never become "everybody".</item>
+    /// <item>The spells are described by the shared filter vocabulary, and the pattern ends
+    /// immediately after "spells" — so "spells with the chosen name", "spells of the chosen
+    /// color", "spells with the same name as the exiled card" and "spells from anywhere other
+    /// than their hands" never reach here at all. Each of those is a narrower card, and each
+    /// read loosely is a total ban on casting.</item>
+    /// <item>The window is one of the two the corpus prints beside these words. "This turn" is
+    /// refused outright by the pattern: it is a duration on a one-shot, and a permanent holding
+    /// up a ban that was meant to end at cleanup is a card nobody printed.</item>
+    /// </list>
+    /// <para>
+    /// The two-ban sentence is matched by its own pattern rather than by making the activation
+    /// clause optional in the first, because the halves have different subjects to describe -
+    /// one names spells and the other names sources - and one pattern with two optional tails
+    /// would match a line that named neither and compile to a ban forbidding nothing.
+    /// </para>
+    /// </remarks>
+    private static bool TryPrintedBans(
+        string line,
+        ImmutableList<CastBan>.Builder noCasting,
+        ImmutableList<ActivationBan>.Builder noActivating)
+    {
+        if (BothPrintedBansLine().Match(line) is { Success: true } both)
+        {
+            // "artifacts or creatures or enchantments" - plural nouns, and the filter
+            // vocabulary names kinds in the singular, so a plural left as printed would be read
+            // as a subtype nothing has: the ban would compile, the card would look finished and
+            // no ability would ever be stopped.
+            var sources = PrintedBanFilter(both.Groups["sources"].Value, plural: true);
+            if (sources is null)
+                return false;
+
+            var whose = BanSubject(both.Groups["who"].Value);
+
+            noCasting.Add(new CastBan
+            {
+                Id = "no-cast:any:hosts-turn",
+                Who = whose,
+                Window = BanWindow.HostControllersTurn,
+            });
+
+            noActivating.Add(new ActivationBan
+            {
+                Id = "no-activate:" + sources + ":hosts-turn",
+                Who = whose,
+                SourceFilter = sources,
+                Window = BanWindow.HostControllersTurn,
+            });
+
+            return true;
+        }
+
+        var m = PrintedCastBanLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var what = m.Groups["what"].Value.Trim();
+        string? filter = null;
+
+        if (what.Length > 0)
+        {
+            filter = PrintedBanFilter(what, plural: false);
+            if (filter is null)
+                return false;
+        }
+
+        var window = m.Groups["window"].Value.Trim().ToLowerInvariant() switch
+        {
+            "" => BanWindow.Always,
+            "during your turn" => BanWindow.HostControllersTurn,
+            "during combat" => BanWindow.Combat,
+            _ => (BanWindow?)null,
+        };
+
+        // Unreachable while the pattern names both windows, and written as a refusal anyway: a
+        // window this switch could not place must not fall through to the standing ban, which is
+        // the strictly stronger card.
+        if (window is not { } when)
+            return false;
+
+        noCasting.Add(new CastBan
+        {
+            Id = "no-cast:" + (filter ?? "any") + ":" + when,
+            Who = BanSubject(m.Groups["who"].Value),
+            SpellFilter = filter,
+            Window = when,
+        });
+
+        return true;
+    }
+
+    /// <summary>Whose casting or activating a printed ban forbids (CR 613.1b).</summary>
+    /// <remarks>
+    /// "You" and "your opponents" are read around whoever controls the permanent now; "players"
+    /// and "each player" name the whole table and are the one case with no scope at all, which
+    /// is what stops Basandra sparing its own controller.
+    /// </remarks>
+    private static PlayerScope? BanSubject(string printed) =>
+        printed.Trim().ToLowerInvariant() switch
+        {
+            "you" => PlayerScope.You,
+            "your opponents" => PlayerScope.EachOpponent,
+            _ => null,
+        };
+
+    /// <summary>What a printed ban says it covers, in the shared filter vocabulary.</summary>
+    /// <remarks>
+    /// The vocabulary's own "or" is what joins a list, so "artifacts or creatures or
+    /// enchantments" is three descriptions of one card rather than three readers. Plural nouns
+    /// are singularised first for the reason <see cref="ReadAbilityCostModifier"/> gives about
+    /// its own template: a plural handed to the vocabulary is read as a subtype nothing has.
+    /// </remarks>
+    private static string? PrintedBanFilter(string phrase, bool plural)
+    {
+        var parts = phrase.Split(
+            " or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var named = new List<string>(parts.Length);
+
+        foreach (var part in parts)
+        {
+            var one = plural
+                ? EffectPhrase.SearchFilterFor(Singular(part)) ?? EffectPhrase.SearchFilterFor(part)
+                : EffectPhrase.SearchFilterFor(part);
+
+            if (one is null)
+                return null;
+
+            named.Add(one);
+        }
+
+        return string.Join('|', named);
+    }
+
     /// <summary>"~ enters tapped. As it enters, choose a color."</summary>
     /// <remarks>
     /// Two facts the compiler already reads, printed on one line — the thirteen colour-fixing
@@ -15999,6 +16226,38 @@ public static partial class CardCompiler
             SpellFilter = filter,
         });
 
+        return true;
+    }
+
+    /// <summary>
+    /// "You may play lands from your graveyard" — Crucible of Worlds (CR 601.3, 305.1).
+    /// </summary>
+    /// <remarks>
+    /// Read as a permission a permanent holds up, for the reason its two neighbours are: nothing
+    /// here changes a characteristic, so CR 613's layers have nothing to order, and the
+    /// permission has to close the moment the permanent leaves without anything sweeping it.
+    /// <para>
+    /// <strong>Lands, unqualified, and nothing else.</strong> The pattern will not read a
+    /// qualified noun, a condition, a duration, or the spell half of the sentence:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>"You may play lands and cast spells from among cards in your graveyard you've
+    /// surveilled this turn" carries a condition this record cannot keep, and read without it
+    /// the card casts <em>anything</em> out of a graveyard forever.</item>
+    /// <item>"As long as you control a Giant, you may cast ~ from your graveyard" is a card's
+    /// own static about itself, not a permission over a zone.</item>
+    /// <item>"Until end of turn, you may play lands from your graveyard" is a one-shot window,
+    /// and filed here it would be one nothing ever took down — the mistake this whole family of
+    /// readers is anchored against.</item>
+    /// </list>
+    /// </remarks>
+    private static bool TryGraveyardPlayPermission(
+        string line, ImmutableList<GraveyardPlayPermission>.Builder into)
+    {
+        if (!GraveyardLandPermissionLine().IsMatch(line))
+            return false;
+
+        into.Add(new GraveyardPlayPermission { Id = "graveyard-play:lands" });
         return true;
     }
 
@@ -21305,6 +21564,19 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex WholeLibraryTopPermissionLine();
 
+    /// <summary>"You may play lands from your graveyard" (CR 601.3).</summary>
+    /// <remarks>
+    /// Anchored at both ends, and the subject is "You" and nothing else — every printing in the
+    /// corpus says it, and a permission whose seat could not be read must not become everybody's.
+    /// The noun is bare for the reason the library permission's is: a qualified land names a
+    /// family this record has no slot for, so a qualified printing falls through unread rather
+    /// than being widened into permission to play any land.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^You may play lands from your graveyard\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GraveyardLandPermissionLine();
+
     /// <summary>"…can't be blocked except by X" — only X may block it (CR 509.1b).</summary>
     [GeneratedRegex(
         @"^(?<who>~|enchanted creature|equipped creature) can't be blocked except by (?<what>[^.]+?)\.?$",
@@ -22012,11 +22284,67 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex ChosenNameCastBanLine();
 
+    /// <summary>
+    /// "The first creature spell you cast each turn costs {2} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Anchored at both ends and the subject spelled out, for the reason every other permission
+    /// and prohibition in this compiler is: a window or a subject that could not be read must
+    /// never become the unconditional form.
+    /// <para>
+    /// "Each turn" is required. "The first spell you cast this turn costs {1} less" is a
+    /// one-shot a sentence grants, not a standing modifier a permanent prints, and reading one
+    /// as the other would leave the discount up for the rest of the game.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^The (?<ord>first|second|third) (?<what>[A-Za-z][^.]*? )?spell you cast each turn "
+            + @"costs \{(?<n>\d+)\} less to cast\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OrdinalSpellCostModifierLine();
+
     [GeneratedRegex(
         @"^activated abilities of sources with the chosen name can't be activated"
             + @"(?<mana> unless they're mana abilities)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ChosenNameActivationBanLine();
+
+    /// <summary>
+    /// "Your opponents can't cast blue creature spells" (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Anchored so that the line ends immediately after "spells" and an optional window. Every
+    /// qualifier that follows the noun - "with the chosen name", "of the chosen color", "with
+    /// the same name as the exiled card", "with mana value 3 or less", "from anywhere other than
+    /// their hands" - therefore falls through unread, which is the intended refusal: each of
+    /// those is a narrower card than a total ban on casting, and each read loosely becomes one.
+    /// <para>
+    /// The two windows are named outright rather than captured loosely, and "this turn" appears
+    /// in neither: a duration belongs to the sentence parser, and a permanent holding up a ban
+    /// meant to end at cleanup is a card nobody printed.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>You|Your opponents|Players|Each player) can't cast "
+            + @"(?<what>[A-Za-z][^.]*? )?spells"
+            + @"(?<window> during your turn| during combat)?\s*\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PrintedCastBanLine();
+
+    /// <summary>
+    /// Grand Abolisher's sentence: a cast ban and an activation ban at once (CR 601.3, 602.5).
+    /// </summary>
+    /// <remarks>
+    /// Its own pattern rather than an optional tail on the one above, for the reason the whole
+    /// library-top permission has one: two optional halves in one pattern match a line that
+    /// names neither, and that line would compile to a ban forbidding nothing at all - read,
+    /// counted, and silently doing nothing.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^During your turn, (?<who>you|your opponents|players|each player) can't cast spells "
+            + @"or activate abilities of (?<sources>[A-Za-z][^.]*?)\s*\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex BothPrintedBansLine();
 
     /// <summary>
     /// The two sentences the colour-fixing lands print as one line, captured separately so each
@@ -22401,6 +22729,16 @@ public sealed record CompiledCard
     /// </remarks>
     public ImmutableList<LibraryTopPermission> LibraryTopPermissions { get; init; } = [];
 
+    /// <summary>
+    /// Whether this card lets its controller play lands out of their graveyard (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A third list beside the two permissions above rather than a zone on the second, for the
+    /// reason <see cref="GraveyardPlayPermission"/> gives: a library permission is answered
+    /// together with "and is this the top card", and a graveyard has no top.
+    /// </remarks>
+    public ImmutableList<GraveyardPlayPermission> GraveyardPlayPermissions { get; init; } = [];
+
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
     /// <summary>
@@ -22514,5 +22852,6 @@ public sealed record CompiledCard
         || !Bans.IsEmpty
         || !FlashPermissions.IsEmpty
         || !LibraryTopPermissions.IsEmpty
+        || !GraveyardPlayPermissions.IsEmpty
         || AttacksOnlyIfDefenderControls is not null;
 }
