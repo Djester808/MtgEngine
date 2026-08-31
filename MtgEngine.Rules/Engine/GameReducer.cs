@@ -629,6 +629,7 @@ public static class GameReducer
 
             // The asking changes nothing; the NameChosen that answers it does.
             CardNameChoiceRequested => state,
+            SearchAftermathRequested => state,
             SeekRequested => state,
             ProliferateRequested => state,
             ChoosePermanentRequested => state,

@@ -88,6 +88,7 @@ public static partial class EffectPhrase
         // Timetwister dealt six players a hand each and drew for one. The subject is carried
         // over here, where the sentence is still whole.
         text = CarrySubjectAcrossThen(text);
+        text = CarryThatPlayerAcrossThen(text);
 
         var effects = ImmutableList.CreateBuilder<IEffect>();
         var targets = ImmutableList.CreateBuilder<TargetSpec>();
@@ -540,6 +541,8 @@ public static partial class EffectPhrase
             if (!TryOne(sentences[i], targets, effects, objectNamedByTrigger))
                 return false;
 
+            DeferIfItCountsWhatASearchMoved(sentences[i], effects, lastSentenceStart);
+
             previousTargets = targetsHere;
         }
 
@@ -552,6 +555,46 @@ public static partial class EffectPhrase
             Effects = effects.ToImmutable(),
         };
         return true;
+    }
+
+    /// <summary>
+    /// Hands a sentence that counts what a search moved to the settle that runs after it
+    /// (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The one place in this file that knows both halves: the search is an effect already
+    /// compiled from an earlier sentence of the same line, and the count is the sentence just
+    /// read. Neither half can see the other from inside its own reader, which is why this sits in
+    /// the loop beside the other decisions made across a sentence boundary.
+    /// <para>
+    /// <b>Why it has to move at all.</b> A search is a question, and this engine settles every
+    /// question after the resolution that asked it. So when the counting sentence runs in place,
+    /// nothing has been exiled yet: the record is empty, the tally is nought, and the card reads
+    /// complete while drawing nothing for ever. Deferred, it runs once the cards have moved,
+    /// against what the search wrote down.
+    /// </para>
+    /// <para>
+    /// <b>Three gates, and each of them is the fail-closed direction.</b> The sentence must name
+    /// the zone it counts out of - a bare "exiled this way" after a search would also mean
+    /// whatever an earlier sentence exiled, and the record the settle seeds holds only the
+    /// search's, so it would come out short in silence. There must be a search in front of it in
+    /// this same line, or "this way" points at something else entirely. And the sentence must
+    /// have compiled to something, since there is nothing to defer otherwise.
+    /// </para>
+    /// </remarks>
+    private static void DeferIfItCountsWhatASearchMoved(
+        string sentence, ImmutableList<IEffect>.Builder effects, int from)
+    {
+        if (effects.Count <= from || !ThisWay.NamesASourceZone(sentence))
+            return;
+
+        if (!EffectTree.Flatten(effects.Take(from)).Any(e => e is SearchLibrary))
+            return;
+
+        var counted = effects.Skip(from).ToImmutableList();
+
+        effects.RemoveRange(from, effects.Count - from);
+        effects.Add(new AfterSearching(counted, EffectIndex: from));
     }
 
     /// <summary>
@@ -673,6 +716,37 @@ public static partial class EffectPhrase
     /// </remarks>
     private static string CarrySubjectAcrossThen(string text) =>
         EachThenLine().Replace(text, "${who} ${head}. ${who} ${tail}");
+
+    /// <summary>
+    /// Repeats "that player" over a ", then" clause that counts what this resolution did
+    /// (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The same carry <see cref="CarrySubjectAcrossThen"/> makes for a group, made for the
+    /// pronoun. "That player shuffles, then draws a card for each card exiled from their hand
+    /// this way" is one subject over two clauses, and the splitter hands the second half out with
+    /// nobody in front of it - so the draw came out as the caster's, which on this family is the
+    /// opposite player from the one printed. Unmoored Ego drawing for its own controller is a
+    /// strictly better card than Unmoored Ego.
+    /// <para>
+    /// It is spelled "they" rather than "that player" because the two words compile to different
+    /// scopes and only one of them is right here: "that player" answers the subject of a
+    /// triggering event, which a spell has none of, while "they" answers the player the text has
+    /// already named - the target first, and the subject behind it. Both halves of this family
+    /// are then right at once and neither needs the reader to know which it is looking at.
+    /// Unmoored Ego names a target player; Test of Talents names a target spell, and the player
+    /// is whoever the search settled on.
+    /// </para>
+    /// <para>
+    /// <b>Only where the tail counts something "this way", which is narrower than the carry
+    /// deserves.</b> Thirty-odd other lines in the corpus print "that player A, then Bs", and the
+    /// general carry would move every one of them - some into readings they do not have today,
+    /// some out of readings they do. That is its own change with its own measurement; widening it
+    /// here would hide those movements inside this one's number.
+    /// </para>
+    /// </remarks>
+    private static string CarryThatPlayerAcrossThen(string text) =>
+        ThatPlayerThenLine().Replace(text, "${who} ${head}. they ${tail}");
 
     /// <summary>
     /// Rewrites a granted ability printed as its own sentence into the inline form.
@@ -7298,9 +7372,18 @@ public static partial class EffectPhrase
         var drawScope = ScopedDrawLine().Match(sentence);
         if (drawScope.Success)
         {
+            // The counted tail is read and not dropped, exactly as the imperative form below
+            // reads its own: "they draw a card for each card exiled from their hand this way"
+            // taken as a bare number is a card that draws one for ever. CountedBy refuses a
+            // group the shared counting vocabulary cannot read, so the widening fails closed.
+            if (CountedBy(Number(drawScope.Groups["n"].Value), drawScope.Groups["foreach"])
+                is not { } scopedDraw)
+            {
+                return false;
+            }
+
             effects.Add(new DrawCards(
-                Number(drawScope.Groups["n"].Value),
-                Scope: ScopeOf(drawScope.Groups["who"].Value)));
+                scopedDraw, Scope: ScopeOf(drawScope.Groups["who"].Value)));
 
             return true;
         }
@@ -15833,6 +15916,20 @@ public static partial class EffectPhrase
         RegexOptions.None)]
     private static partial Regex EachThenLine();
 
+    /// <summary>
+    /// "That player [does A], then [does B this way]" - one subject over two clauses.
+    /// </summary>
+    /// <remarks>
+    /// The tail has to be a third-person verb and must not open with a pronoun of its own: "that
+    /// player draws ..., then this enchantment deals damage ..." is two subjects and not one, and
+    /// "this" happens to end in an s.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<who>[Tt]hat player) (?<head>[^.]+?), then "
+            + @"(?<tail>(?!this|that|those|these|it)[a-z]+s\b[^.]*\bthis way\b[^.]*)",
+        RegexOptions.None)]
+    private static partial Regex ThatPlayerThenLine();
+
     [GeneratedRegex(@"^spend this mana only to (?<what>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex SpendOnlyLine();
 
@@ -16461,7 +16558,7 @@ public static partial class EffectPhrase
     /// second matcher for it would be two readings of one sentence.
     /// </remarks>
     [GeneratedRegex(
-        @"^" + WThem + @" draws? " + N + @" (additional )?cards?$",
+        @"^" + WThem + @" draws? " + N + @" (additional )?cards?" + FOREACH + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ScopedDrawLine();
 
