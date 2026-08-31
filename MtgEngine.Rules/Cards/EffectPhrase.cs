@@ -795,17 +795,24 @@ public static partial class EffectPhrase
 
     /// <summary>Which "for as long as" condition a gain-control clause printed (CR 611.2b).</summary>
     /// <remarks>
-    /// Three spellings of one mechanism rather than three mechanisms: the effect, the definition
+    /// Four spellings of one mechanism rather than four mechanisms: the effect, the definition
     /// and the sweep that ends it are shared, and only the question differs. "Remains on the
     /// battlefield" asks nothing beyond what every one of them already asks - the source has to
     /// still be there for the effect to mean anything - which is why it is the plain case.
+    /// <para>
+    /// The conjoined arm is asked first because it is the narrowest: a sentence that printed both
+    /// clauses answers the single-clause groups too, and taking either of those would end the
+    /// effect later than the card says.
+    /// </para>
     /// </remarks>
     private static GenerativeEffects.ControlHeldWhile WhileNamed(Match m) =>
-        m.Groups["until2"].Success
-            ? m.Groups["until2"].Value.StartsWith("tapped", StringComparison.OrdinalIgnoreCase)
-                ? GenerativeEffects.ControlHeldWhile.Tapped
-                : GenerativeEffects.ControlHeldWhile.OnBattlefield
-            : GenerativeEffects.ControlHeldWhile.Controlled;
+        m.Groups["both"].Success
+            ? GenerativeEffects.ControlHeldWhile.ControlledAndTapped
+            : m.Groups["until2"].Success
+                ? m.Groups["until2"].Value.StartsWith("tapped", StringComparison.OrdinalIgnoreCase)
+                    ? GenerativeEffects.ControlHeldWhile.Tapped
+                    : GenerativeEffects.ControlHeldWhile.OnBattlefield
+                : GenerativeEffects.ControlHeldWhile.Controlled;
 
     /// <summary>
     /// "[A]. If [condition], [B] instead." — B replaces A rather than happening beside it.
@@ -3750,9 +3757,19 @@ public static partial class EffectPhrase
             && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } bothTo)
         {
             var (bothId, bothSize) = PumpSizeOf(m);
+            var bothUntil = UntilNextTurn(m);
 
-            effects.Add(new PumpGroup(bothId, bothTo) { Size = bothSize });
-            effects.Add(new PumpGroup(GenerativeEffects.GrantId(alsoGranted), bothTo));
+            effects.Add(new PumpGroup(bothId, bothTo)
+            {
+                Size = bothSize,
+                UntilYourNextTurn = bothUntil,
+            });
+
+            effects.Add(new PumpGroup(GenerativeEffects.GrantId(alsoGranted), bothTo)
+            {
+                UntilYourNextTurn = bothUntil,
+            });
+
             return true;
         }
 
@@ -3764,7 +3781,11 @@ public static partial class EffectPhrase
             && Keywords(m.Groups["kw"].Value) is { } givenToGroup
             && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } grantedTo)
         {
-            effects.Add(new PumpGroup(GenerativeEffects.GrantId(givenToGroup), grantedTo));
+            effects.Add(new PumpGroup(GenerativeEffects.GrantId(givenToGroup), grantedTo)
+            {
+                UntilYourNextTurn = UntilNextTurn(m),
+            });
+
             return true;
         }
 
@@ -3783,7 +3804,11 @@ public static partial class EffectPhrase
                 return false;
             }
 
-            effects.Add(new PumpGroup(GenerativeEffects.GrantAbilityId(massText), massTo));
+            effects.Add(new PumpGroup(GenerativeEffects.GrantAbilityId(massText), massTo)
+            {
+                UntilYourNextTurn = UntilNextTurn(massGrant),
+            });
+
             return true;
         }
 
@@ -3797,7 +3822,12 @@ public static partial class EffectPhrase
         {
             var (groupId, groupSize) = PumpSizeOf(m);
 
-            effects.Add(new PumpGroup(groupId, pumpedGroup) { Size = groupSize });
+            effects.Add(new PumpGroup(groupId, pumpedGroup)
+            {
+                Size = groupSize,
+                UntilYourNextTurn = UntilNextTurn(m),
+            });
+
             return true;
         }
 
@@ -5652,10 +5682,19 @@ public static partial class EffectPhrase
         if (!m.Success)
             m = GainControlLine().Match(sentence);
 
+        // Which of the two durations the card printed. Read off the match rather than assumed,
+        // because the untargeted spelling (GainControlLine) names none at all and answers false —
+        // a theft with no printed duration is a permanent one and never reaches here.
+        var stolenFor = m.Groups["long"].Success;
+
         if (m.Success && Specs.Parse(m.Groups["t"].Value) is { } stolen)
         {
             targets.Add(stolen);
-            effects.Add(new GainControlUntilEndOfTurn(targets.Count - 1));
+            effects.Add(new GainControlUntilEndOfTurn(targets.Count - 1)
+            {
+                UntilEndOfYourNextTurn = stolenFor,
+            });
+
             return true;
         }
 
@@ -5666,7 +5705,11 @@ public static partial class EffectPhrase
         // target index and a pronoun meaning the trigger's subject has nowhere to go.
         if (PronounObject(m, targets, objectNamedByTrigger) is { } seized)
         {
-            effects.Add(new GainControlUntilEndOfTurn(seized));
+            effects.Add(new GainControlUntilEndOfTurn(seized)
+            {
+                UntilEndOfYourNextTurn = stolenFor,
+            });
+
             return true;
         }
 
@@ -5678,10 +5721,19 @@ public static partial class EffectPhrase
 
         if (m.Success && Keywords(m.Groups["kw"].Value) is { } itGains)
         {
+            // "It gains haste until your next turn" is the reanimation tail, and the two spellings
+            // are one sentence apart on the cards that print it: the group is absent on
+            // ItGainsLine, which has no duration at all, and a Group nobody named answers false.
+            var itsDuration = UntilNextTurn(m);
+
             if (targets.Count > 0)
             {
                 effects.Add(new PumpUntilEndOfTurn(
-                    GenerativeEffects.GrantId(itGains), targets.Count - 1));
+                    GenerativeEffects.GrantId(itGains), targets.Count - 1)
+                {
+                    UntilYourNextTurn = itsDuration,
+                });
+
                 return true;
             }
 
@@ -5694,7 +5746,10 @@ public static partial class EffectPhrase
             {
                 effects.Add(new PumpUntilEndOfTurn(
                     GenerativeEffects.GrantId(itGains),
-                    Subject: EffectSubject.TriggerSubject));
+                    Subject: EffectSubject.TriggerSubject)
+                {
+                    UntilYourNextTurn = itsDuration,
+                });
 
                 return true;
             }
@@ -6226,9 +6281,14 @@ public static partial class EffectPhrase
         // that retypes a land *for good* ("{T}, Sacrifice a green creature: Target land becomes a
         // Forest.") would be read as something that undoes itself, and would read as a complete
         // card while doing it. Those stay in the work queue instead.
+        //
+        // "Until its controller's next untap step" is the third spelling and the one that needed
+        // the duration to be read around somebody other than the caster: it is the land's
+        // controller, not the spell's, and the two are hardly ever the same player on the card
+        // that prints it (CR 611.2b).
         m = LandRetypeLine().Match(sentence);
         if (m.Success
-            && (m.Groups["pre"].Success || m.Groups["ueot"].Success)
+            && (m.Groups["pre"].Success || m.Groups["ueot"].Success || m.Groups["untap"].Success)
             && Specs.IsBasicLandType(m.Groups["what"].Value)
             && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } retyped)
         {
@@ -6238,7 +6298,10 @@ public static partial class EffectPhrase
                 m.Groups["add"].Success
                     ? GenerativeEffects.GainsCreatureTypeId(m.Groups["what"].Value)
                     : GenerativeEffects.BecomesCreatureTypeId(m.Groups["what"].Value),
-                targets.Count - 1));
+                targets.Count - 1)
+            {
+                UntilSubjectsNextTurn = m.Groups["untap"].Success,
+            });
 
             return true;
         }
@@ -6650,17 +6713,25 @@ public static partial class EffectPhrase
 
             // "Gets +2/+2 and gains ..." is two effects, because changing power and adding an
             // ability are different layers and one effect cannot be in both.
+            var grantedFor = UntilNextTurn(granting);
+
             if (granting.Groups["p"].Success)
             {
                 effects.Add(new PumpUntilEndOfTurn(
                     GenerativeEffects.PumpId(
                         Signed(granting.Groups["p"].Value),
                         Signed(granting.Groups["tough"].Value)),
-                    gainerIndex));
+                    gainerIndex)
+                {
+                    UntilYourNextTurn = grantedFor,
+                });
             }
 
             effects.Add(new PumpUntilEndOfTurn(
-                GenerativeEffects.GrantAbilityId(abilityText), gainerIndex));
+                GenerativeEffects.GrantAbilityId(abilityText), gainerIndex)
+            {
+                UntilYourNextTurn = grantedFor,
+            });
 
             return true;
         }
@@ -15132,10 +15203,41 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^each (player|opponent)$", RegexOptions.IgnoreCase)]
     private static partial Regex PlayerWords();
 
+    /// <summary>
+    /// The two turn-boundary durations a printed continuous effect can carry (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// One fragment rather than the words written out at each matcher, because the readers that
+    /// spelled "until end of turn" literally are exactly the readers that could not see the other
+    /// one — five cards whose whole sentence was otherwise understood, refused over three words.
+    /// <para>
+    /// The distinction is not cosmetic and the engine already keeps it apart:
+    /// <see cref="State.FloatingEffect.UntilEndOfTurn"/> comes off in the cleanup step of the
+    /// turn it was made in (CR 514.2), while <see cref="State.FloatingEffect.UntilTurnOf"/> runs
+    /// through every other player's turn and ends as that player's untap step begins. Reading the
+    /// second as the first would take a Saga's mana ability away four turns early; reading the
+    /// first as the second hands every combat trick in the game an extra turn cycle, which is the
+    /// direction that makes a card better than printed.
+    /// </para>
+    /// <para>
+    /// <c>next</c> is captured rather than the whole phrase, and the same group name is used
+    /// wherever the fragment appears twice in one pattern — .NET collects both positions into one
+    /// group, so a duration printed at either end of a sentence answers the same question.
+    /// </para>
+    /// </remarks>
+    private const string DUR = @"until (end of turn|your (?<next>next turn))";
+
+    /// <summary>Whether the duration a matcher found was "until your next turn".</summary>
+    private static bool UntilNextTurn(Match m)
+    {
+        ArgumentNullException.ThrowIfNull(m);
+        return m.Groups["next"].Success;
+    }
+
     [GeneratedRegex(
         @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
-            + @" " + PT + @" until end of turn$",
+            + @" " + PT + @" " + DUR + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassPumpLine();
 
@@ -15154,7 +15256,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gains"
             + @"|" + G + @" gain)"
-            + @" (?<kw>[a-z ,]+?) until end of turn$",
+            + @" (?<kw>[a-z ,]+?) " + DUR + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassGrantLine();
 
@@ -15167,7 +15269,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^((?<t>(all|each|every) [A-Za-z0-9'’ -]+?) gets"
             + @"|" + G + @" get)"
-            + @" " + PT + @" and gains? (?<kw>[a-z ,]+?) until end of turn$",
+            + @" " + PT + @" and gains? (?<kw>[a-z ,]+?) " + DUR + @"$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassPumpAndGrantLine();
 
@@ -15926,7 +16028,9 @@ public static partial class EffectPhrase
     /// drift over which phrases they accept.
     /// </remarks>
     [GeneratedRegex(
-        @"^(you )?gain control of " + T + @" until end of turn$", RegexOptions.IgnoreCase)]
+        @"^(you )?gain control of " + T
+            + @" until (end of turn|(?<long>the end of your next turn))$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex GainControlUntilLine();
 
     /// <summary>
@@ -15937,8 +16041,15 @@ public static partial class EffectPhrase
     /// duration agree about what it says. <see cref="WhileNamed"/> reads the two groups, and a
     /// second copy of the tail would be a second chance for them to disagree.
     /// </remarks>
+    /// <remarks>
+    /// The conjoined spelling is first, and the order is load-bearing: .NET alternation is
+    /// leftmost-first, so "you control ~" would otherwise take the head of "you control ~ and ~
+    /// remains tapped" and leave the second clause to be refused by the anchor — a card unread
+    /// rather than misread, but unread for the wrong reason and invisible to anyone measuring it.
+    /// </remarks>
     private const string HELD =
-        @" for as long as (you control (?<until>~|this [a-z]+)"
+        @" for as long as (you control (~|this [a-z]+) and (~|this [a-z]+) remains (?<both>tapped)"
+            + @"|you control (?<until>~|this [a-z]+)"
             + @"|(~|this [a-z]+) remains (?<until2>tapped|on the battlefield))";
 
     /// <summary>"Gain control of X for as long as you control [this]" (CR 611.2b).</summary>
@@ -16202,7 +16313,7 @@ public static partial class EffectPhrase
     private static partial Regex GainControlLine();
 
     [GeneratedRegex(
-        @"^(it|that creature) gains (?<kw>[a-z ,]+?) until end of turn$", RegexOptions.IgnoreCase)]
+        @"^(it|that creature) gains (?<kw>[a-z ,]+?) " + DUR + @"$", RegexOptions.IgnoreCase)]
     private static partial Regex ItGainsUntilLine();
 
     [GeneratedRegex(@"^(it|that creature) gains (?<kw>[a-z ,]+)$", RegexOptions.IgnoreCase)]
@@ -17069,17 +17180,17 @@ public static partial class EffectPhrase
     /// is captured: this reader only ever makes the until-end-of-turn kind.
     /// </remarks>
     [GeneratedRegex(
-        @"^(until end of turn, )?(?<t>[A-Za-z0-9'’~ ,-]+?)"
+        @"^(" + DUR + @", )?(?<t>[A-Za-z0-9'’~ ,-]+?)"
             + @"( gets (?<p>[+-](\d+|X))/(?<tough>[+-](\d+|X)) and)? gains "
             + "\"(?<ability>[^\"]+)\""
-            + @"( until end of turn)?\.?$",
+            + @"( " + DUR + @")?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GrantsQuotedAbilityLine();
 
     [GeneratedRegex(
-        @"^(until end of turn, )?(?<t>[A-Za-z0-9'’~ ,-]+?) gain "
+        @"^(" + DUR + @", )?(?<t>[A-Za-z0-9'’~ ,-]+?) gain "
             + "\"(?<ability>[^\"]+)\""
-            + @"( until end of turn)?\.?$",
+            + @"( " + DUR + @")?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MassGrantsQuotedAbilityLine();
 
@@ -17197,7 +17308,8 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?" + T + @" [Bb]ecomes an? (?<what>[A-Z][a-z']+)"
             + @"(?<add> in addition to its other types)?"
-            + @"(?<ueot> until end of turn)?$",
+            + @"( (?<ueot>until end of turn)"
+            + @"| until (?<untap>its controller['’]s next untap step))?$",
         RegexOptions.None)]
     private static partial Regex LandRetypeLine();
 

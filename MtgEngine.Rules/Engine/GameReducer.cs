@@ -1049,6 +1049,7 @@ public static class GameReducer
                 Timestamp = timestamp,
                 UntilEndOfTurn = e.UntilEndOfTurn,
                 UntilTurnOf = e.UntilTurnOf,
+                UntilEndOfTurnOf = e.UntilEndOfTurnOf,
             }),
         };
     }

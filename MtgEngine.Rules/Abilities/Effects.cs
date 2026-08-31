@@ -3887,6 +3887,26 @@ public sealed record PumpUntilEndOfTurn(
     public bool UntilYourNextTurn { get; init; }
 
     /// <summary>
+    /// Whether it lasts until the <em>subject's</em> controller's next untap step (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The same moment <see cref="UntilYourNextTurn"/> names — the untap step is where CR 611.2b's
+    /// turn boundary is swept — read around a different player. "Target land becomes a Swamp until
+    /// its controller's next untap step" is a land somebody else usually controls, and reading
+    /// "its controller" as the effect's controller would end the retyping on the wrong turn — a
+    /// turn late at two players, and up to three turns late at four, which is a strictly better
+    /// card than the printed one every time.
+    /// <para>
+    /// The player is read when the effect resolves and stored as an identity, exactly as
+    /// <see cref="State.PreventionEffect.Source"/> is: control is layer 2 and moves, so a
+    /// duration re-derived from the permanent later would follow the permanent to a new
+    /// controller and end on their turn instead. A subject that cannot be read produces no effect
+    /// at all rather than one with no duration — an unreadable window must not become permanent.
+    /// </para>
+    /// </remarks>
+    public bool UntilSubjectsNextTurn { get; init; }
+
+    /// <summary>
     /// Whether the effect ends at cleanup, or lasts for as long as the game does (CR 611.2).
     /// </summary>
     /// <remarks>
@@ -3918,15 +3938,33 @@ public sealed record PumpUntilEndOfTurn(
         if (Subjects.Resolve(context, Subject, TargetIndex) is not { } subject)
             return [];
 
+        Guid? endsOnTurnOf = null;
+
+        if (UntilSubjectsNextTurn)
+        {
+            // Fail closed: no readable subject, no effect. The alternative reading - create it
+            // with no duration - is the one failure this family may never have, because a window
+            // that could not be read would become a permanent retyping.
+            if (!context.State.TryGetObject(subject, out var affected))
+                return [];
+
+            endsOnTurnOf = State.Characteristics.ControllerOf(
+                context.State, context.Abilities, affected);
+        }
+        else if (UntilYourNextTurn)
+        {
+            endsOnTurnOf = context.ControllerId;
+        }
+
         return
         [
             new ContinuousEffectCreated(
                 Guid.NewGuid(),
                 Size?.DefinitionIdIn(context) ?? DefinitionId,
                 [subject],
-                UntilYourNextTurn || !ForTheTurn ? null : context.State.TurnNumber)
+                endsOnTurnOf is not null || !ForTheTurn ? null : context.State.TurnNumber)
             {
-                UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
+                UntilTurnOf = endsOnTurnOf,
             },
         ];
     }
@@ -7177,6 +7215,22 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
     /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
     public VariablePumpSize? Size { get; init; }
 
+    /// <summary>
+    /// Whether the bonus lasts "until your next turn" rather than until end of turn (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The flag <see cref="PumpUntilEndOfTurn.UntilYourNextTurn"/> already carries on the aimed
+    /// form of the same effect, on the group form, for the same reason: what differs between the
+    /// two durations is one field on the event.
+    /// <para>
+    /// It changes nothing about CR 611.2c. The set is still fixed here, as the affected list is
+    /// built - "creatures your opponents control get -3/-0 until your next turn" does not shrink
+    /// a creature that arrives during the turn cycle, and a longer duration makes that more
+    /// visible rather than less.
+    /// </para>
+    /// </remarks>
+    public bool UntilYourNextTurn { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -7203,7 +7257,10 @@ public sealed record PumpGroup(string DefinitionId, TargetSpec What, int? PeerIn
                     Guid.NewGuid(),
                     Size?.DefinitionIdIn(context) ?? DefinitionId,
                     affected,
-                    context.State.TurnNumber),
+                    UntilYourNextTurn ? null : context.State.TurnNumber)
+                {
+                    UntilTurnOf = UntilYourNextTurn ? context.ControllerId : null,
+                },
             ];
     }
 }
@@ -9400,6 +9457,17 @@ public sealed record HoldsWhileSourceHolds(
 
 public sealed record GainControlUntilEndOfTurn(int TargetIndex = 0) : IEffect
 {
+    /// <summary>
+    /// Whether the theft lasts until the end of the thief's <em>next</em> turn (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// A flag rather than a second record, exactly as <see cref="PumpUntilEndOfTurn"/>'s longer
+    /// duration is: what differs is one field on the event. The difference it makes to the card
+    /// is not small — a creature stolen until end of turn on somebody else's turn is a creature
+    /// that never attacks, and the whole point of the printed sentence is that it does.
+    /// </remarks>
+    public bool UntilEndOfYourNextTurn { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -9409,11 +9477,17 @@ public sealed record GainControlUntilEndOfTurn(int TargetIndex = 0) : IEffect
 
         return
         [
+            // The turn number goes on in both cases, and means something different in each: on
+            // its own it is the deadline, and beside a player it is the turn the window opened
+            // on, which the sweep needs in order to let this turn's cleanup pass.
             new ContinuousEffectCreated(
                 Guid.NewGuid(),
                 Cards.GenerativeEffects.ControlId(context.ControllerId),
                 [target.Subject],
-                context.State.TurnNumber),
+                context.State.TurnNumber)
+            {
+                UntilEndOfTurnOf = UntilEndOfYourNextTurn ? context.ControllerId : null,
+            },
         ];
     }
 }
