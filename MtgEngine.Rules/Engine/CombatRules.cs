@@ -23,12 +23,19 @@ public static class CombatRules
     /// about the defender's board cannot be checked without one, so a caller that has no defender
     /// in hand skips it rather than guessing (CR 506.3).
     /// </param>
+    /// <param name="target">
+    /// What is being attacked, when the caller knows. A prohibition that names a player and
+    /// their planeswalkers separates the two, and a battle is attacked through its protector
+    /// rather than being attacked at all (CR 310.9b) - none of which the defending player's id
+    /// can say on its own.
+    /// </param>
     public static string? CannotAttack(
         GameState state,
         IAbilitySource abilities,
         GameObject creature,
         Guid attackingPlayer,
-        Guid? defendingPlayer = null)
+        Guid? defendingPlayer = null,
+        AttackTarget? target = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(creature);
@@ -97,6 +104,14 @@ public static class CombatRules
             return "it is goaded and must attack somebody else (CR 701.15b)";
         }
 
+        // CR 506.3: a restriction another permanent puts on this one about *whom* it may attack
+        // - "Enchanted creature ... can't attack you or planeswalkers you control". Asked only
+        // once a defender is known, because it forbids one player and leaves every other one
+        // alone: a Vow'd creature is still perfectly able to attack somebody else, and answering
+        // it without a defender would take the creature out of combat altogether.
+        if (defendingPlayer is { } shielded && Forbids(state, abilities, computed, shielded, target))
+            return $"it can't attack {state.GetPlayer(shielded).Name} (CR 506.3)";
+
         // CR 506.3: an attack restriction that reads the defender's board. Checked with the same
         // helper landwalk uses, and for the same reason: land types are changed by real cards, so
         // it has to ask what the lands are now rather than what they were printed as.
@@ -113,6 +128,39 @@ public static class CombatRules
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether a prohibition on this creature covers what is being attacked (CR 506.3).
+    /// </summary>
+    /// <remarks>
+    /// Two sets rather than one, because the corpus prints two sentences: "can't attack you" and
+    /// "can't attack you or planeswalkers you control". Asked of the target and not only of the
+    /// defending player, because that id is the same in three different situations - the player
+    /// themselves, a planeswalker they control, and a battle they merely protect.
+    /// <para>
+    /// <strong>A battle is not covered by either sentence.</strong> It is attacked through its
+    /// protector (CR 310.9b), so an attack on one is an attack on neither the player nor a
+    /// planeswalker they control - and refusing it would make every one of these cards quietly
+    /// stronger than the card that was printed.
+    /// </para>
+    /// </remarks>
+    private static bool Forbids(
+        GameState state,
+        IAbilitySource abilities,
+        ComputedCharacteristics computed,
+        Guid defendingPlayer,
+        AttackTarget? target)
+    {
+        if (target is not { IsPlaneswalker: true } aimed)
+            return computed.CantAttackPlayers.Contains(defendingPlayer);
+
+        return state.TryGetObject(aimed.Planeswalker, out var permanent)
+            && permanent.Zone == Zone.Battlefield
+            && Characteristics.CardOf(state, abilities, permanent).CardTypes
+                .HasFlag(CardType.Planeswalker)
+            && Characteristics.ControllerOf(state, abilities, permanent) == defendingPlayer
+            && computed.CantAttackPlaneswalkersOf.Contains(defendingPlayer);
     }
 
     /// <summary>
@@ -322,9 +370,19 @@ public static class CombatRules
             if (!computed.Has(KeywordAbility.MustAttack))
                 continue;
 
-            // Only required when it could have attacked at all.
-            if (CannotAttack(state, abilities, obj, attackingPlayer) is null)
+            // Only required when it could have attacked at all - and "at all" has to include
+            // somebody to attack. A creature under a Vow at a table of two is forbidden from the
+            // only defender there is, and a requirement read without that leaves the player with
+            // no legal declaration in either direction: refused for leaving it at home, and
+            // refused for sending it (CR 506.3, 508.1d).
+            if (CannotAttack(state, abilities, obj, attackingPlayer) is null
+                && state.TurnOrder.Any(defender =>
+                    defender != attackingPlayer
+                    && !state.GetPlayer(defender).HasLost
+                    && CannotAttack(state, abilities, obj, attackingPlayer, defender) is null))
+            {
                 return $"{obj.Card.Name} attacks each combat if able (CR 508.1d)";
+            }
         }
 
         return null;

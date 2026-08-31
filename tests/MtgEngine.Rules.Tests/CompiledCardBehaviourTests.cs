@@ -13196,6 +13196,236 @@ public sealed class CompiledCardBehaviourTests
     }
 
 
+    // ---- A grant list whose last conjunct names a player (CR 506.3, 613.1b) ----
+
+    /// <summary>
+    /// The Vow cycle: a pump, a keyword and an attack restriction, all in one sentence.
+    /// </summary>
+    /// <remarks>
+    /// The census that found this family called the three-way join the thing that was missing.
+    /// It was not: the fold that joins clauses about an attached permanent has been backtracking
+    /// over spans for rounds, and it offered "can't attack you or planeswalkers you control" to
+    /// every static reader there is. None of them had a sentence for a restriction that names a
+    /// <em>player</em>, so all six Vows stayed one conjunct short - and a card read one conjunct
+    /// short is a permanent doing most of what it says, which no coverage count can see.
+    /// <para>
+    /// So this asserts all three at once and in play: the pump as damage that lands, the keyword
+    /// as a creature that attacks and stays untapped, and the restriction as a declaration the
+    /// engine actually refuses. The unenchanted bear beside it does none of the three, which is
+    /// what separates "the Aura works" from "the board would have done that anyway".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_vow_pumps_grants_its_keyword_and_refuses_the_attack_all_at_once()
+    {
+        var vow = Card(
+            "Vow Of Duty Test",
+            "Enchant creature\nEnchanted creature gets +2/+2, has vigilance, and can't attack "
+                + "you or planeswalkers you control.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(vow);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Three seats, because the whole point of the cycle is that it buys off one player and
+        // leaves the creature free to go at everybody else. At two, "can't attack you" and
+        // "can't attack" are the same card.
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+        var sworn = game.Create(bob, TestCards.Creature("Vow Sworn Bear Test", 2, 2), Zone.Battlefield);
+        var free = game.Create(bob, TestCards.Creature("Vow Free Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, vow, Zone.Battlefield);
+        game.Attach(aura, sworn);
+        Settle(game);
+
+        var enchanted = Characteristics.Of(game.State, Pool, game.State.GetObject(sworn));
+        Assert.Equal(4, enchanted.Power);
+        Assert.Equal(4, enchanted.Toughness);
+        Assert.True(enchanted.Has(KeywordAbility.Vigilance));
+
+        var control = Characteristics.Of(game.State, Pool, game.State.GetObject(free));
+        Assert.Equal(2, control.Power);
+        Assert.Equal(2, control.Toughness);
+        Assert.False(control.Has(KeywordAbility.Vigilance));
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+
+        // The restriction, asked of each pair. Alice controls the Aura, so Alice is the one
+        // player this creature may not be declared against - and the bear standing next to it
+        // may be declared against her all day.
+        Assert.Contains(
+            "506.3",
+            CombatRules.CannotAttack(
+                game.State, Pool, game.State.GetObject(sworn), bob, alice, AttackTarget.Player(alice))
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(sworn), bob, carol, AttackTarget.Player(carol)));
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(free), bob, alice, AttackTarget.Player(alice)));
+
+        // And the engine refuses the declaration itself, not merely the advice about it: the
+        // board asking first is a courtesy, and the rule has to hold where the action is taken.
+        var refused = Assert.Throws<InvalidOperationException>(() => game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [sworn] = AttackTarget.Player(alice),
+                [free] = AttackTarget.Player(alice),
+            }));
+
+        Assert.Contains("506.3", refused.Message, StringComparison.Ordinal);
+
+        // Nothing was spent on the refusal: the declaration that follows is the first one this
+        // combat, and it stands.
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [sworn] = AttackTarget.Player(carol),
+                [free] = AttackTarget.Player(carol),
+            });
+
+        // Vigilance used rather than merely held (CR 702.20b).
+        Assert.False(game.State.GetObject(sworn).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(free).Permanent!.IsTapped);
+
+        PassTo(game, 2, TurnStep.EndOfCombat);
+
+        // Four from the enchanted bear and two from the other: the pump is what landed, not a
+        // number on a card somewhere.
+        Assert.Equal(14, game.State.GetPlayer(carol).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Two Vows are two restrictions, and each one stops when its Aura does (CR 611.2c).
+    /// </summary>
+    /// <remarks>
+    /// The reason the restriction is a set of players rather than a flag. A creature wearing Vows
+    /// from two seats may attack neither of them and is still free to attack anybody else, and
+    /// taking one Aura off has to give back exactly one player - a flag would give back both or
+    /// neither.
+    /// </remarks>
+    [Fact]
+    public void Each_vow_shields_its_own_controller_and_stops_when_it_leaves()
+    {
+        var vow = Card(
+            "Vow Pair Test",
+            "Enchant creature\nEnchanted creature gets +1/+1 and can't attack you or "
+                + "planeswalkers you control.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(vow);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob, carol) = InMainPhaseAtThreeSeats();
+        var bear = game.Create(bob, TestCards.Creature("Vow Pair Bear Test", 2, 2), Zone.Battlefield);
+        var hers = game.Create(alice, vow, Zone.Battlefield);
+        var theirs = game.Create(carol, vow, Zone.Battlefield);
+        game.Attach(hers, bear);
+        game.Attach(theirs, bear);
+        Settle(game);
+
+        // Both bonuses are on it, which is what says both Auras are speaking.
+        Assert.Equal(4, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, alice, AttackTarget.Player(alice)));
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, carol, AttackTarget.Player(carol)));
+
+        // One Aura goes to the graveyard and one player comes back (CR 611.2c). The other is
+        // still shielded, which is the assertion a single flag could not survive.
+        game.Move(hers, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, alice, AttackTarget.Player(alice)));
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bear), bob, carol, AttackTarget.Player(carol)));
+    }
+
+    /// <summary>
+    /// "You" and "you or planeswalkers you control" are two sentences (CR 506.3, 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Both are printed: the Vows shield the player and their planeswalkers, and Fealty to the
+    /// Realm - whose line also carries the requirement this fold has read for rounds - shields
+    /// only the player. Read into one restriction, the narrower card starts guarding
+    /// planeswalkers its text never mentions, which is a card strictly better than the one
+    /// printed and invisible to any count of lines.
+    /// </remarks>
+    [Fact]
+    public void A_ban_on_attacking_you_leaves_your_planeswalker_alone_unless_it_says_otherwise()
+    {
+        var vow = Card(
+            "Vow Walker Test",
+            "Enchant creature\nEnchanted creature can't attack you or planeswalkers you control.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var fealty = Card(
+            "Fealty Walker Test",
+            "Enchant creature\nEnchanted creature attacks each combat if able and can't attack you.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        foreach (var enchantment in new[] { vow, fealty })
+        {
+            var read = CardCompiler.Compile(enchantment);
+            Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+        }
+
+        var (game, alice, bob, _) = InMainPhaseAtThreeSeats();
+        var sworn = game.Create(bob, TestCards.Creature("Vow Walker Bear Test", 2, 2), Zone.Battlefield);
+        var bound = game.Create(bob, TestCards.Creature("Fealty Walker Bear Test", 2, 2), Zone.Battlefield);
+        game.Attach(game.Create(alice, vow, Zone.Battlefield), sworn);
+        game.Attach(game.Create(alice, fealty, Zone.Battlefield), bound);
+
+        var walker = game.Create(
+            alice, Walker("Vow Walker Target Test", 4, "+1: You gain 2 life."), Zone.Battlefield);
+        Settle(game);
+
+        // The other conjunct of the second line is in force too, which is what makes this a test
+        // of the whole sentence rather than of the clause that was added.
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bound))
+                .Has(KeywordAbility.MustAttack));
+
+        PassTo(game, 2, TurnStep.DeclareAttackers);
+
+        // Neither may attack Alice.
+        foreach (var creature in new[] { sworn, bound })
+        {
+            Assert.NotNull(CombatRules.CannotAttack(
+                game.State,
+                Pool,
+                game.State.GetObject(creature),
+                bob,
+                alice,
+                AttackTarget.Player(alice)));
+        }
+
+        // Her planeswalker is a different question, and the two cards answer it differently.
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(sworn), bob, alice, AttackTarget.At(alice, walker)));
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(bound), bob, alice, AttackTarget.At(alice, walker)));
+
+        // And the engine takes that declaration, which is the half a legality check cannot prove
+        // on its own.
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [bound] = AttackTarget.At(alice, walker) });
+
+        Assert.Equal(walker, game.State.Combat.Attackers[bound].Planeswalker);
+    }
     // ---- Infect ---------------------------------------------------------------
 
     [Fact]

@@ -289,6 +289,38 @@ public sealed record ComputedCharacteristics
     /// </remarks>
     public ImmutableHashSet<Guid> GoadedBy { get; init; } = [];
 
+    /// <summary>The players this creature may not be declared as attacking (CR 506.3).</summary>
+    /// <remarks>
+    /// The Vow cycle: "Enchanted creature gets +2/+2, has vigilance, and can't attack you or
+    /// planeswalkers you control". It is a restriction on the declaration rather than a keyword,
+    /// because the sentence names a <em>player</em> - and which player it names is read off
+    /// whoever controls the Aura now (CR 613.1b), so a stolen Vow guards the thief.
+    /// <para>
+    /// A set of players and not a flag, for the reason <see cref="GoadedBy"/> is one: two Vows
+    /// from two seats are two restrictions, and a creature carrying both may attack neither of
+    /// them while still being free to attack anybody else.
+    /// </para>
+    /// <para>
+    /// <strong>Not cleared by losing all abilities.</strong> What an Aura says about the
+    /// permanent it is attached to is the <em>Aura's</em> ability, so CR 613.1f takes nothing
+    /// here - which is what <see cref="CharacteristicsBuilder.LoseAllAbilities"/> already says
+    /// about the combat restrictions beside it.
+    /// </para>
+    /// </remarks>
+    public ImmutableHashSet<Guid> CantAttackPlayers { get; init; } = [];
+
+    /// <summary>
+    /// The players whose planeswalkers this creature may not attack (CR 506.3, 508.1b).
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="CantAttackPlayers"/> because the corpus prints both halves and
+    /// they are not the same sentence: the Vows say "you or planeswalkers you control" and Fealty
+    /// to the Realm says only "you". Folded into one set, the narrower printing would start
+    /// shielding planeswalkers nobody wrote about - a card strictly better than the one printed,
+    /// and invisible to a coverage count.
+    /// </remarks>
+    public ImmutableHashSet<Guid> CantAttackPlaneswalkersOf { get; init; } = [];
+
     /// <summary>Which attacker this creature may not block (CR 509.1b).</summary>
     /// <remarks>
     /// The mirror of <see cref="MustBlockAttacker"/> and a restriction rather than a
