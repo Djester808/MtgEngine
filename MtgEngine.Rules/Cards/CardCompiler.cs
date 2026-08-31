@@ -18417,6 +18417,21 @@ public static partial class CardCompiler
                     : produces,
                 Effects = rider,
                 MaxActivationsPerTurn = manaLimit,
+
+                // CR 602.5 again, and this path had no arm for it at all: a mana ability whose
+                // cost exiles the card from a hand or a graveyard is an ability of the card in
+                // that zone, and left on the battlefield it compiles perfectly and can never be
+                // activated by anybody. That is the exact shape this compiler's worst failures
+                // take - a card that counts as covered, offers nothing, and does nothing - so
+                // the two zones are named here rather than defaulted, as the general activated
+                // path already names them.
+                FunctionsFrom = paid.SelfCost switch
+                {
+                    SelfCost.ExileSelfFromHand => Zone.Hand,
+                    SelfCost.ExileSelfFromGraveyard => Zone.Graveyard,
+                    SelfCost.DiscardSelf => Zone.Hand,
+                    _ => Zone.Battlefield,
+                },
             });
         }
 
