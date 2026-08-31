@@ -7602,6 +7602,30 @@ public sealed class CompiledCardBehaviourTests
     }
 
     [Fact]
+    public void The_reveal_into_hand_rider_is_read_where_it_is_printed_whole()
+    {
+        // Written down because the shape is easy to mis-count as this row's population, and it
+        // was: 45 unread lines in the corpus print "reveal it, put it into your hand, then
+        // shuffle" and 35 of them are the only line their card is short, which reads like 35
+        // cards' worth of rider. It is not one card's worth. The tutor grammar has read that
+        // whole clause since it was written — what defeats those 35 is the filter in front of
+        // it: "a land card with a basic land type", "an instant card or a card with flash", "a
+        // creature card with power 2 or less", "a basic land card or Gate card".
+        //
+        // The rider only ever costs a card when the ", then" splitter cuts it away from its
+        // search, which is what the tests above are about and what the substitution control
+        // measured: rewriting the rider alone completes 25 of the 471 cards that print one,
+        // while dropping the whole line completes 302. Those two numbers are different rows of
+        // the work queue, and the difference is the filter vocabulary.
+        var whole = Card(
+            "Rider Printed Whole Test",
+            "Search your library for a basic land card, reveal it, put it into your hand, "
+                + "then shuffle.");
+
+        Assert.True(CardCompiler.Compile(whole).IsComplete);
+    }
+
+    [Fact]
     public void A_destination_rider_may_not_amend_a_search_it_did_not_follow()
     {
         // The guard, and the reason the amend looks at the immediately preceding effect rather
