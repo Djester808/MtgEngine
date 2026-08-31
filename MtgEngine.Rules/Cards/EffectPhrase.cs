@@ -2963,6 +2963,61 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "..., where X is your life total", "..., where X is the amount of life you gained
+        // this turn", "..., where X is the number of colors of mana spent to cast ~" - the same
+        // definition clause once more, naming the third kind of thing it can name. The two arms
+        // above read a count of a group and one permanent's own history; these name a record the
+        // state already keeps, about the controller or about the source itself.
+        //
+        // Read before the count, as the mutation clause is and for the same reason: "the number
+        // of colors of mana spent to cast ~" starts with the counting clause's own words, so the
+        // group grammar would take it as a group called "colors of mana spent to cast ~", which
+        // is nothing, and the whole sentence would go unread rather than reaching this.
+        //
+        // Nothing here has a pronoun to work out, which is what makes them admissible where
+        // "that creature's power" is still refused below. "You" is the controller (CR 608.2) and
+        // "~" is the card's own name, put there by the compiler before any of this runs, so it
+        // names the source and nothing else. The phrases are spelled out rather than described
+        // because each is one record: a looser shape would take "the amount of life you gained"
+        // - no "this turn" on it, and a different question - as this one.
+        //
+        // Colours *spent*, not colours in the cost (CR 106.1b): a generic symbol paid with a
+        // green mana is a green mana spent, and one paid with colourless is no colour at all, so
+        // a spell cast entirely with colourless has X = 0. That is the same record sunburst
+        // reads, and it survives the move to the battlefield, which is what lets a permanent's
+        // enters trigger ask about the mana that paid for it.
+        var byRecord = VariableIsRecordLine().Match(sentence);
+        if (byRecord.Success)
+        {
+            var recorded = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(byRecord.Groups["head"].Value.Trim(), targets, recorded, objectNamedByTrigger))
+                return false;
+
+            var record = byRecord.Groups["what"].Value.ToLowerInvariant();
+
+            Func<ResolutionContext, int> reading;
+
+            if (record.StartsWith("the number of colors", StringComparison.Ordinal))
+            {
+                reading = context => context.State.TryGetObject(context.PhysicalSourceId, out var cast)
+                    ? cast.ManaSpent.Colored.Count(each => each.Value > 0)
+                    : 0;
+            }
+            else if (record.StartsWith("your life total", StringComparison.Ordinal))
+            {
+                reading = context => context.State.GetPlayer(context.ControllerId).Life;
+            }
+            else
+            {
+                reading = context => context.State.GetPlayer(context.ControllerId).LifeGainedThisTurn;
+            }
+
+            effects.Add(new WithCountedVariable(reading, recorded.ToImmutable()));
+            return true;
+        }
+
+
         var defining = VariableIsCountLine().Match(sentence);
         if (defining.Success)
         {
@@ -14894,6 +14949,23 @@ public static partial class EffectPhrase
         @"^(?<head>.+?), where X is the number of times ~ has mutated$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsMutationsLine();
+
+    /// <summary>
+    /// "..., where X is your life total" - X read off a record the state already keeps.
+    /// </summary>
+    /// <remarks>
+    /// Three phrases and not a shape, because each names one record and the records have nothing
+    /// in common but the clause they arrive in. Spelled out for the same reason the stat list a
+    /// few readers down is closed: "the amount of life you gained" without "this turn" is a
+    /// different question, and admitting the looser wording would answer it with this one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is (?<what>the number of colors of mana spent to cast ~"
+            + @"|the amount of life you(?:'ve)? gained this turn"
+            + @"|your life total)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsRecordLine();
+
 
     /// <summary>
     /// "…, where X is its power" — X measured on one permanent rather than counted (CR 107.3).
