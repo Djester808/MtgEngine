@@ -6764,6 +6764,174 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
     }
 
+    // ---- Readers that claimed a conjunction they could not read ------------------
+    //
+    // Three readers recognised a line, found a conjunction their own vocabulary was short of,
+    // and refused it - which ends the line, because the matcher chain stops at the first reader
+    // that claims. Each had a one-noun twin that read perfectly one sentence away, and each was
+    // found by ranking every whole-line reader by the cards its claim leaves one line short
+    // (ReaderClaimAuditTests). The tests are here rather than in the compiler suite because the
+    // claim being made is that the card plays, not that the line parses.
+
+    /// <summary>
+    /// "Protection from black and from red" grants both halves (CR 702.16f).
+    /// </summary>
+    /// <remarks>
+    /// The noun is printed once and the keyword vocabulary split on " and ", so the second half
+    /// arrived as "from red" - a keyword in no table, which makes the whole list null and leaves
+    /// the line unread. The compiler read the same words perfectly as a line of their own, so an
+    /// Aura saying it about its host did less than a creature saying it about itself.
+    /// </remarks>
+    [Fact]
+    public void An_aura_granting_two_protections_with_the_noun_printed_once_grants_both()
+    {
+        var ward = Card(
+            "Twofold Ward Test",
+            "Enchant creature\nEnchanted creature has protection from black and from red.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(ward);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Twofold Bear Test", 2, 2), Zone.Battlefield);
+        var aura = game.Create(alice, ward, Zone.Battlefield);
+        game.Attach(aura, bear);
+        Settle(game);
+
+        foreach (var colour in new[] { ManaColor.Black, ManaColor.Red })
+        {
+            var blocker = game.Create(
+                bob, Coloured($"Twofold {colour} Test", colour), Zone.Battlefield);
+
+            var why = CombatRules.CannotBlock(
+                game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(bear), bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // A colour the Aura did not name still gets through, which is what shows the grant is
+        // two protections rather than a blanket one.
+        var green = game.Create(bob, Coloured("Twofold Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(bear), bob));
+    }
+
+    /// <summary>
+    /// "Elemental spells and Warrior spells you cast cost {1} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The template prints the noun twice, so the filter arrived as "Elemental spells and
+    /// Warrior" and the reader refused it. Read as <em>one</em> disjunctive filter rather than
+    /// two modifiers, because two would be a different card: a spell that is both an Elemental
+    /// and a Warrior would come down for two mana less than printed, and nothing about that
+    /// failure is visible from the outside.
+    /// </remarks>
+    [Fact]
+    public void A_cost_modifier_naming_two_kinds_of_spell_discounts_each_of_them_once()
+    {
+        var lord = Card(
+            "Twofold Discount Test",
+            "Elemental spells and Warrior spells you cast cost {1} less to cast.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(lord);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // One modifier, not two. A spell answering to both nouns is reduced once, and a second
+        // modifier is exactly how it would come down for two mana less than printed.
+        Assert.Single(compiled.CostModifiers);
+
+        foreach (var tribe in new[] { "Elemental", "Warrior" })
+        {
+            var (game, alice, _) = InMainPhase();
+            game.Create(alice, lord, Zone.Battlefield);
+
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+
+            // {1}{G} discounted to {G}: the one Forest pays for it and would not otherwise.
+            var spell = new CardDefinition
+            {
+                OracleId = "oracle-twofold-" + tribe.ToLowerInvariant() + "-test",
+                Name = "Twofold " + tribe + " Test",
+                CardTypes = CardType.Creature,
+                Subtypes = [tribe],
+                ManaCostRaw = "{1}{G}",
+                Cmc = 2,
+                Power = 2,
+                Toughness = 2,
+            };
+
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, spell));
+            Settle(game);
+
+            Assert.Contains(
+                game.State.Battlefield,
+                id => game.State.GetObject(id).Card.Name == spell.Name);
+        }
+    }
+
+    /// <summary>
+    /// "Can't be blocked except by creatures with flying or reach" (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The phrase after "except by" went whole to the target grammar, which reads one description
+    /// and not a list of them, so the reader claimed the line and left it unread - on cards whose
+    /// one-quality twin ("can't be blocked by creatures with flying") plays. The second half
+    /// leaves the noun out, so the head is distributed into it; and the list is cut from the
+    /// right, because "power 2 or less or Walls" has an "or" that is part of a comparison.
+    /// </remarks>
+    [Fact]
+    public void Can_t_be_blocked_except_by_reads_a_list_of_two_descriptions()
+    {
+        var elusive = Keyworded(
+            "Twofold Evasion Test",
+            "~ can't be blocked except by creatures with flying or reach.");
+
+        var compiled = CardCompiler.Compile(elusive);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, elusive, Zone.Battlefield);
+
+        var flier = game.Create(
+            bob,
+            Card("Twofold Flier Test", "Flying", CardType.Creature, 2, 2, KeywordAbility.Flying),
+            Zone.Battlefield);
+
+        var reacher = game.Create(
+            bob,
+            Card("Twofold Reacher Test", "Reach", CardType.Creature, 2, 2, KeywordAbility.Reach),
+            Zone.Battlefield);
+
+        var ground = game.Create(bob, TestCards.Creature("Twofold Ground Test", 2, 2), Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [attacker] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        // A creature answering to neither description is turned away. A refused declaration is
+        // not a declaration, so the legal one below is still this combat's only one.
+        Assert.NotNull(TryBlock(game, bob, attacker, ground));
+
+        // And both halves of the list are permission, declared together because a combat has one
+        // declaration: reading only the first would refuse the creature with reach.
+        game.DeclareBlockers(
+            bob,
+            new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [attacker] = [flier, reacher] });
+
+        var blocking = game.State.Combat!.BlockersOf(attacker);
+        Assert.Contains(flier, blocking);
+        Assert.Contains(reacher, blocking);
+    }
+
     // ---- Renown ------------------------------------------------------------------
 
     [Fact]
