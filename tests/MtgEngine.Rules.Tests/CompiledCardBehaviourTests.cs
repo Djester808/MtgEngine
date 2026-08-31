@@ -8844,6 +8844,170 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- A card-type list of three or more (CR 109.4) ------------------------
+
+    /// <summary>
+    /// "Counter target enchantment, instant, or sorcery spell" - Swan Song's third kind.
+    /// </summary>
+    /// <remarks>
+    /// Every reader in the compiler that reads a list of kinds splits on " or ", so a card
+    /// naming two read and the same card naming three did not - defeated by the comma in front
+    /// of the last one and nothing else. The list is normalised before any reader sees it, which
+    /// is why this test is about the <em>last</em> member: it is the one the comma hid.
+    /// </remarks>
+    [Fact]
+    public void A_counter_naming_three_kinds_of_spell_stops_the_last_one()
+    {
+        var song = Card(
+            "Swan Song List Test", "Counter target enchantment, instant, or sorcery spell.");
+
+        var compiled = CardCompiler.Compile(song);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A sorcery is sorcery speed, so Bob needs his own main phase with an empty stack.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == bob);
+
+        // The control, first: a creature spell is not one of the three kinds the card names, and
+        // aiming at it is refused outright rather than fizzling later (CR 601.2c). A list read as
+        // "every spell" would take this one, which is the direction the comma could have failed in.
+        var refused = TestCards.PutInHand(game, alice, song);
+        var bear = TestCards.PutInHand(game, bob, TestCards.Creature("Sung Bear List Test"));
+        game.CastSpell(bob, bear, targets: null);
+        game.PassPriority(bob);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, refused, [Target.ToSpell(game.State.Stack.Single())]));
+
+        // Let the bear through, so the counter below is answering an empty board's worth of
+        // stack rather than two spells at once.
+        game.PassPriority(alice);
+        Assert.Empty(game.State.Stack);
+
+        var held = game.State.GetPlayer(bob).Hand.Count;
+        var wrath = TestCards.PutInHand(
+            game, bob, Card("Sung Sorcery List Test", "Draw a card.", CardType.Sorcery));
+
+        game.CastSpell(bob, wrath, targets: null);
+        game.PassPriority(bob);
+
+        var answer = TestCards.PutInHand(game, alice, song);
+        game.CastSpell(alice, answer, [Target.ToSpell(game.State.Stack.Single())]);
+        Settle(game);
+
+        // The third kind was a legal target and the spell never resolved: it is in the graveyard
+        // and Bob drew nothing. The count is taken against the hand as it stood before the
+        // sorcery was dealt, so a card that was countered is one card down, not level.
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Sung Sorcery List Test");
+
+        Assert.Equal(held, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Return target artifact, enchantment, or planeswalker card from your graveyard to the
+    /// battlefield" - Repair and Recharge, whose last kind was hidden the same way.
+    /// </summary>
+    [Fact]
+    public void A_graveyard_target_naming_three_kinds_takes_the_last_one()
+    {
+        var repair = Card(
+            "Repair List Test",
+            "Return target artifact, enchantment, or planeswalker card from your graveyard to "
+                + "the battlefield. Create a tapped Powerstone token.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(repair);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        var walker = game.Create(
+            alice, Walker("Repaired Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        var bear = game.Create(
+            alice, TestCards.Creature("Repaired Bear List Test"), Zone.Graveyard);
+
+        // The control: a creature card is not one of the three kinds, and the card in the
+        // graveyard beside the planeswalker is what proves the filter is still a filter.
+        var wrong = TestCards.PutInHand(game, alice, repair);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(bear)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, repair), [Target.ToCard(walker)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Repaired Walker List Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Repaired Bear List Test");
+    }
+
+    /// <summary>
+    /// "Return all artifact, enchantment, and planeswalker cards from your graveyard to the
+    /// battlefield" - Triumphant Reckoning, where the list is joined by "and" and still means
+    /// any one of them (CR 109.4).
+    /// </summary>
+    /// <remarks>
+    /// The printed conjunction is put back between every pair rather than normalised to "or",
+    /// because a group reader collects with "and" and a target reader chooses with "or". This is
+    /// the "and" half; the two tests above are the "or" half.
+    /// </remarks>
+    [Fact]
+    public void A_group_return_naming_three_kinds_takes_all_three_and_nothing_else()
+    {
+        var reckoning = Card(
+            "Reckoning List Test",
+            "Return all artifact, enchantment, and planeswalker cards from your graveyard to "
+                + "the battlefield.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(
+            alice, Card("Reckoned Relic List Test", string.Empty, CardType.Artifact), Zone.Graveyard);
+
+        game.Create(
+            alice,
+            Card("Reckoned Ward List Test", string.Empty, CardType.Enchantment),
+            Zone.Graveyard);
+
+        game.Create(alice, Walker("Reckoned Walker List Test", 3, string.Empty), Zone.Graveyard);
+
+        // The control: a creature card, named by nothing in the list, in the same graveyard the
+        // spell empties. A list read as "every permanent card" would take it too.
+        game.Create(alice, TestCards.Creature("Reckoned Bear List Test"), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reckoning), targets: null);
+        Settle(game);
+
+        var back = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Select(o => o.Card.Name)
+            .ToList();
+
+        Assert.Contains("Reckoned Relic List Test", back);
+        Assert.Contains("Reckoned Ward List Test", back);
+        Assert.Contains("Reckoned Walker List Test", back);
+        Assert.DoesNotContain("Reckoned Bear List Test", back);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Reckoned Bear List Test");
+    }
+
     // ---- Auras and equipment -------------------------------------------------
 
     [Fact]

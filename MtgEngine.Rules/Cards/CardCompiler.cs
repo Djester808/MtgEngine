@@ -3453,6 +3453,39 @@ public static partial class CardCompiler
             // of the compiler's vocabularies a sentence happened to reach.
             cleaned = AndOrSlash().Replace(cleaned, " or ");
 
+            // "Artifact, creature, or land" is three alternatives written the way English writes
+            // a list of three, and every reader in this compiler that reads alternatives splits
+            // on " or " (or on " and ") alone. So a card naming two kinds read and the same card
+            // naming three did not - not because the third kind was hard, but because the comma
+            // in front of it was never taken off. **102 incomplete cards print a card-type list
+            // of three or more**, across eight different readers: the target grammar, the cast
+            // trigger, the graveyard tutor, the sacrifice cost, the Aura's enchant clause, the
+            // group filter, the damage target and the counter target. Normalised here, beside
+            // "and/or", so all eight read it at once rather than eight patterns growing a comma.
+            //
+            // **Card-type words only.** The list members are matched against the printed type
+            // words and nothing else, so "Enchanted creature gets +2/+2, has vigilance, and can't
+            // attack you" - a comma list of clauses that happens to start with the word
+            // "creature" - is not touched: the word after its comma is not a type. A list whose
+            // members this cannot name is left exactly as printed, which leaves the line in the
+            // queue rather than reading it as a shorter list than the card prints.
+            //
+            // The printed conjunction is put back between every pair rather than normalised to
+            // "or", because the two are not the same sentence downstream: "each artifact,
+            // creature, and enchantment" is a group the readers collect with "and" and "target
+            // artifact, creature, or land" is one choice among three.
+            cleaned = TypeListCommas().Replace(
+                cleaned,
+                m =>
+                {
+                    var join = " " + m.Groups["j"].Value + " ";
+                    var flat = m.Groups["a"].Value;
+                    foreach (Capture mid in m.Groups["m"].Captures)
+                        flat = flat + join + mid.Value;
+
+                    return flat + join + m.Groups["z"].Value;
+                });
+
             cleaned = Whitespace().Replace(cleaned, " ").Trim();
 
             // "It deals 4 damage to any target" is "~ deals 4 damage to any target" - the same
@@ -19732,6 +19765,32 @@ public static partial class CardCompiler
     /// </remarks>
     [GeneratedRegex(@"(?<!\})\s+and/or\s+(?!\{)", RegexOptions.IgnoreCase)]
     private static partial Regex AndOrSlash();
+
+    /// <summary>The printed card types, as a list member may spell one (CR 205.2a).</summary>
+    /// <remarks>
+    /// Deliberately the printed words and not <see cref="CardType"/>: this is a rewrite over
+    /// text, and what it has to recognise is the spelling. Plurals are here because a group
+    /// names its kinds in the plural - "artifacts, creatures, and lands you control".
+    /// </remarks>
+    private const string TypeListWord =
+        "artifacts?|creatures?|enchantments?|lands?|planeswalkers?|instants?|sorceries|sorcery|battles?";
+
+    /// <summary>"Artifact, creature, or land" - a list of three or more kinds (CR 109.4).</summary>
+    /// <remarks>
+    /// The comma is the whole of the difference between a list this compiler reads and one it
+    /// does not, exactly as the slash was for "and/or", so it is taken off in the same place.
+    /// The trailing comma before the conjunction is optional because both spellings are printed.
+    /// <para>
+    /// Anchored on a word boundary at each end so a type word inside a longer one - "Island",
+    /// "nonartifact" - is never a member, and every member is a type word so a comma list of
+    /// anything else is left alone.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?<a>" + TypeListWord + @")(?:, (?<m>" + TypeListWord + @"))+,? "
+            + @"(?<j>or|and) (?<z>" + TypeListWord + @")\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TypeListCommas();
 
     [GeneratedRegex(
         @"^(~'s|~’s) (?<stat>power and toughness are each|power is|toughness is) "
