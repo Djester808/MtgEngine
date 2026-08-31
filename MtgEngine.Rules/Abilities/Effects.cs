@@ -3772,6 +3772,13 @@ public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
 public sealed record PumpHostUntilEndOfTurn(string DefinitionId) : IEffect
 {
     /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
+    /// <remarks>
+    /// Read here for the reason <see cref="PumpUntilEndOfTurn.Size"/> gives: a variable pump's
+    /// <see cref="DefinitionId"/> is a placeholder built from nothing, and the real id is not
+    /// knowable until X is. This was the one of the five pump effects that never read it, so a
+    /// host pump of +X/+X created the placeholder instead - a continuous effect of +0/+0, which
+    /// is a pump that resolves and does nothing at all.
+    /// </remarks>
     public VariablePumpSize? Size { get; init; }
 
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
@@ -3787,7 +3794,10 @@ public sealed record PumpHostUntilEndOfTurn(string DefinitionId) : IEffect
         return
         [
             new ContinuousEffectCreated(
-                Guid.NewGuid(), DefinitionId, [host], context.State.TurnNumber),
+                Guid.NewGuid(),
+                Size?.DefinitionIdIn(context) ?? DefinitionId,
+                [host],
+                context.State.TurnNumber),
         ];
     }
 }

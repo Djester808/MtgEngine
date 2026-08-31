@@ -9189,6 +9189,14 @@ public sealed class Game
         if (!_triggerModes.TryGetValue(key, out var list))
             _triggerModes[key] = list = [];
 
+        // Taking fewer than the maximum is an answer, and it has to be remembered: without it
+        // the question is asked again the moment the trigger is looked at, for ever.
+        if (string.Equals(pick, NoFurtherMode, StringComparison.Ordinal))
+        {
+            _triggerModesClosed.Add(key);
+            return;
+        }
+
         if (int.TryParse(
             pick,
             System.Globalization.NumberStyles.Integer,
@@ -9198,6 +9206,24 @@ public sealed class Game
             list.Add(index);
         }
     }
+
+    /// <summary>The most modes a trigger may be given (CR 700.2d).</summary>
+    /// <remarks>
+    /// Almost every modal ability prints one number and takes exactly that many, and those
+    /// compile with a maximum equal to the count. A maximum below the count would be a card that
+    /// asks for more modes than it allows, so the larger of the two is the honest reading.
+    /// </remarks>
+    private static int ModeCeiling(TriggeredAbilityDefinition ability) =>
+        Math.Max(ability.ModesToChoose, ability.ModesMax);
+
+    /// <summary>The option id that means "I have taken all the modes I want".</summary>
+    /// <remarks>
+    /// Not a number, so it can never collide with a mode index however many modes a card prints.
+    /// </remarks>
+    private const string NoFurtherMode = "no-further-mode";
+
+    /// <summary>Triggers whose controller has said they want no more modes.</summary>
+    private readonly HashSet<string> _triggerModesClosed = new(StringComparer.Ordinal);
 
     /// <summary>Records one answered target and keeps the rest of the question open.</summary>
     private void RecordTriggerTarget(PendingChoice choice, string pick)
@@ -10341,9 +10367,33 @@ public sealed class Game
 
                 // CR 603.3c: modes are chosen as the ability goes on the stack, and before its
                 // targets - the modes decide what there is to target at all.
+                //
+                // CR 700.2d: "choose one or both" is a range, not a count, and the ability
+                // carries both ends of it. Only the lower end was ever read here, so a trigger
+                // offering a range asked for its minimum and stopped: the second half of "choose
+                // one or both" could not be taken at all, on a card that compiled cleanly and
+                // played without complaint. ModesMax was written by the compiler and read by
+                // nothing, which is why nothing noticed.
                 if (modal is { ModesToChoose: > 0 } offering
-                    && pickedModes.Count < offering.ModesToChoose)
+                    && pickedModes.Count < ModeCeiling(offering)
+                    && !_triggerModesClosed.Contains(modeKey))
                 {
+                    // Past the minimum every further mode is optional, so there has to be a way
+                    // to stop. Offered as an option rather than as a wider MaxPicks because the
+                    // modes are picked one at a time and the order they were picked in is what
+                    // slices the targets below (CR 601.2c).
+                    var modeOptions = offering.Modes
+                        .Select((one, index) => (Mode: one, Index: index))
+                        .Where(one => !pickedModes.Contains(one.Index))
+                        .Select(one => new ChoiceOption(
+                            one.Index.ToString(
+                                System.Globalization.CultureInfo.InvariantCulture),
+                            one.Mode.Text))
+                        .ToList();
+
+                    if (pickedModes.Count >= offering.ModesToChoose)
+                        modeOptions.Add(new ChoiceOption(NoFurtherMode, "Choose no more modes."));
+
                     Ask(new PendingChoice
                     {
                         Id = "trigger-modes:" + modeKey + ":" + pickedModes.Count.ToString(
@@ -10351,16 +10401,7 @@ public sealed class Game
                         PlayerId = trigger.ControllerId,
                         Kind = ChoiceKind.ChooseTriggerMode,
                         Prompt = trigger.Text,
-                        Options =
-                        [
-                            .. offering.Modes
-                                .Select((one, index) => (Mode: one, Index: index))
-                                .Where(one => !pickedModes.Contains(one.Index))
-                                .Select(one => new ChoiceOption(
-                                    one.Index.ToString(
-                                        System.Globalization.CultureInfo.InvariantCulture),
-                                    one.Mode.Text)),
-                        ],
+                        Options = [.. modeOptions],
                         MinPicks = 1,
                         MaxPicks = 1,
                     });
@@ -10453,6 +10494,7 @@ public sealed class Game
                             });
                             _triggerTargets.Remove(key);
                             _triggerModes.Remove(modeKey);
+                            _triggerModesClosed.Remove(modeKey);
                             continue;
                         }
 
@@ -10499,6 +10541,7 @@ public sealed class Game
                     });
                     _triggerTargets.Remove(key);
                     _triggerModes.Remove(modeKey);
+                    _triggerModesClosed.Remove(modeKey);
                     continue;
                 }
 
@@ -10518,6 +10561,7 @@ public sealed class Game
                 });
 
                 _triggerModes.Remove(modeKey);
+                _triggerModesClosed.Remove(modeKey);
             }
         }
     }
