@@ -317,6 +317,25 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     IReadOnlyList<PlayerQualityDefinition> PlayerQualitiesOf(CardDefinition card) => [];
 
     /// <summary>
+    /// Which spells this card's static abilities let somebody cast at instant speed (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// A fourth list beside <see cref="StaticsOf"/>, <see cref="PlayerQualitiesOf"/> and
+    /// <see cref="BansOf"/>, and apart from all three for reasons that do not overlap. It is not
+    /// a static because a timing permission changes no characteristic and so has no layer to be
+    /// applied in (CR 613.1); it is not a player quality because the thing described is a
+    /// *spell*, not a seat; and it is not a ban because a ban refuses and this allows — filed
+    /// among the refusals, one wrong <c>IsEmpty</c> would make a permanent forbid what it was
+    /// printed to permit.
+    /// <para>
+    /// Asked of the battlefield at the moment a cast's timing is checked, which is what makes
+    /// the window close the instant the permanent leaves (CR 611.2c) with nothing to sweep.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<State.FlashPermission> FlashPermissionsOf(Domain.Models.CardDefinition card) =>
+        [];
+
+    /// <summary>
     /// What a card's static abilities forbid outright — prevention, and life gain
     /// (CR 119.7, 615.12).
     /// </summary>

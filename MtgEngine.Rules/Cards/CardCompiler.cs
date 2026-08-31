@@ -431,6 +431,7 @@ public static partial class CardCompiler
         var unpreventable = ImmutableList.CreateBuilder<UnpreventableStatic>();
         var noLifeGain = ImmutableList.CreateBuilder<PlayerScope>();
         var noCounter = ImmutableList.CreateBuilder<CounterBan>();
+        var flashPermissions = ImmutableList.CreateBuilder<FlashPermission>();
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
 
@@ -1569,6 +1570,14 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain, noCounter))
                 continue;
 
+            // The permission a permanent holds up beside those bans, and refused on an instant
+            // or sorcery for exactly their reason: "You may cast spells this turn as though they
+            // had flash" is a one-shot, and filed here it would be a window nothing ever closed.
+            // The pattern refuses the words "this turn" outright, so the refusal is doubled -
+            // this is the family where a window that cannot be read must never become permanent.
+            if (!isSpell && TryFlashPermission(line, flashPermissions))
+                continue;
+
             // The two prohibitions whose parameter is a name a player chose rather than
             // anything printed. Refused on an instant or sorcery beside their neighbours and
             // for the same reason: Conjurer's Ban says these words with "until your next
@@ -1966,6 +1975,7 @@ public static partial class CardCompiler
             CastLimits = castLimits.ToImmutable(),
             Statics = statics.ToImmutable(),
             PlayerQualities = playerQualities.ToImmutable(),
+            FlashPermissions = flashPermissions.ToImmutable(),
             Bans = new StaticBans
             {
                 Unpreventable = unpreventable.ToImmutable(),
@@ -14898,6 +14908,95 @@ public static partial class CardCompiler
     /// is the direction a prohibition must never fail in.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// "You may cast creature spells as though they had flash" — a timing permission a permanent
+    /// holds up for a described set of spells (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// Read as a <see cref="FlashPermission"/> rather than as a continuous effect granting the
+    /// flash keyword, and the difference is a rule and not a preference: CR 613.1 orders the
+    /// effects that change objects' characteristics, and this changes none. The card in hand is
+    /// exactly the card it was; what moved is when its controller is allowed to cast it. See
+    /// <see cref="FlashPermission"/> for what compiling it as a keyword grant would have broken.
+    /// <para>
+    /// <strong>Everything this reader cannot name, it refuses.</strong> A timing permission read
+    /// one word too wide lets a player cast sorceries on an opponent's turn — a strictly better
+    /// card than the printed one, and one that a coverage number scores as a win. So:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>The subject is "You" or "Any player" and nothing else. "During each opponent's end
+    /// step, you may cast spells as though they had flash" and "As long as this is tapped, ..."
+    /// are windows this cannot read, and a window that cannot be read must not become a
+    /// permanent permission.</item>
+    /// <item>The spells are described by the same filter vocabulary every other card description
+    /// in this compiler uses, and a qualifier it cannot name leaves the line unread rather than
+    /// widening to "spells". "Aura spells with enchant creature" is the printing that makes the
+    /// difference concrete - read loosely it would hand instant speed to every Aura.</item>
+    /// <item>The plural "spells" is required, which is what keeps the self-permission family -
+    /// "You may cast this spell as though it had flash if you control a Human" - out. Those are
+    /// a static ability of a card in a hand, which is a different mechanism with a condition
+    /// attached, and reading them here would grant the permission and drop the condition.</item>
+    /// <item>"This turn" cannot appear, because a permanent holds this up for as long as it is
+    /// there and a turn-long grant is a one-shot the sentence parser owns.</item>
+    /// </list>
+    /// <para>
+    /// "Dragon spells and artifact spells" repeats the noun, which makes the join unambiguously
+    /// a disjunction: one card answers either description, never both at once. Split on the
+    /// repeated noun and joined with the vocabulary's own bar, so each half is read by the same
+    /// reader as a phrase standing alone.
+    /// </para>
+    /// </remarks>
+    private static bool TryFlashPermission(
+        string line, ImmutableList<FlashPermission>.Builder into)
+    {
+        var m = FlashPermissionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // "You" is the permanent's controller; "Any player" is the whole table and is the one
+        // case with no scope at all. There is no third reading and no default - a subject this
+        // does not recognise never reaches here, because the pattern names both outright.
+        PlayerScope? caster =
+            m.Groups["who"].Value.Equals("You", StringComparison.OrdinalIgnoreCase)
+                ? PlayerScope.You
+                : null;
+
+        var what = m.Groups["what"].Value.Trim();
+
+        // "Spells" on its own asks nothing of the spell, which is Leyline of Anticipation. Every
+        // other printing names a quality, and one this vocabulary cannot name leaves the line
+        // unread rather than becoming the unfiltered permission.
+        string? filter = null;
+
+        if (what.Length > 0)
+        {
+            var parts = what.Split(
+                " spells and ",
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var named = new List<string>(parts.Length);
+
+            foreach (var part in parts)
+            {
+                if (EffectPhrase.SearchFilterFor(part) is not { } one)
+                    return false;
+
+                named.Add(one);
+            }
+
+            filter = string.Join('|', named);
+        }
+
+        into.Add(new FlashPermission
+        {
+            Id = "flash-permission:" + (filter ?? "any") + ":" + (caster?.ToString() ?? "anyone"),
+            SpellFilter = filter,
+            Caster = caster,
+        });
+
+        return true;
+    }
+
     private static bool TryStaticBans(
         string line,
         ImmutableList<UnpreventableStatic>.Builder unpreventable,
@@ -19300,6 +19399,39 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex CantBeCounteredGroupLine();
 
+    /// <summary>
+    /// "You may cast <em>&lt;kind&gt;</em> spells as though they had flash" (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// Anchored at both ends, and every anchor is load-bearing.
+    /// <para>
+    /// The subject is spelled out rather than left open, so "During each opponent's end step,
+    /// you may cast spells as though they had flash" and "As long as Quicksilver is tapped, ..."
+    /// fall through: those name a window, and a permission read out of one of them would be
+    /// permanent when the card says it is not.
+    /// </para>
+    /// <para>
+    /// "Spells" is required in the plural and immediately before "as though", which is what
+    /// separates this from three other families that share most of these words. "You may cast
+    /// this spell as though it had flash" is a card's own static, read from a hand rather than
+    /// from the battlefield. "You may cast spells this turn as though they had flash" is a
+    /// one-shot. "You may cast Aura spells with enchant creature as though they had flash"
+    /// qualifies the spells after the noun, where this reader has already stopped looking - so
+    /// it is left unread rather than widened into a permission for every Aura.
+    /// </para>
+    /// <para>
+    /// The kind is a lazy run and not a list of words: what it captures is handed to the same
+    /// filter vocabulary the rest of this compiler writes, which refuses what it cannot name. A
+    /// list here would be that vocabulary restated one file further out, and would drift from it
+    /// the first time either of them learned a word.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>You|Any player) may cast (?<what>[A-Za-z][^.]*? )?spells "
+            + @"as though they had flash\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex FlashPermissionLine();
+
     /// <summary>"…can't be blocked except by X" — only X may block it (CR 509.1b).</summary>
     [GeneratedRegex(
         @"^(?<who>~|enchanted creature|equipped creature) can't be blocked except by (?<what>[^.]+?)\.?$",
@@ -20365,6 +20497,15 @@ public sealed record CompiledCard
     /// </remarks>
     public StaticBans Bans { get; init; } = StaticBans.None;
 
+    /// <summary>
+    /// Which spells this card lets somebody cast at instant speed (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// Its own list rather than a member of <see cref="Bans"/>, because a permission among
+    /// prohibitions is the one mistake that fails open. See <see cref="FlashPermission"/>.
+    /// </remarks>
+    public ImmutableList<FlashPermission> FlashPermissions { get; init; } = [];
+
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
     /// <summary>
@@ -20476,5 +20617,6 @@ public sealed record CompiledCard
         || MayBeginOnBattlefield
         || !CastLimits.IsEmpty
         || !Bans.IsEmpty
+        || !FlashPermissions.IsEmpty
         || AttacksOnlyIfDefenderControls is not null;
 }

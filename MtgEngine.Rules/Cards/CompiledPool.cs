@@ -105,6 +105,9 @@ public sealed class CompiledPool : IAbilitySource
 
     public State.StaticBans BansOf(CardDefinition card) => For(card).Bans;
 
+    public IReadOnlyList<State.FlashPermission> FlashPermissionsOf(CardDefinition card) =>
+        For(card).FlashPermissions;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 
