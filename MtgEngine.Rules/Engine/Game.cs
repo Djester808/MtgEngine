@@ -9178,10 +9178,12 @@ public sealed class Game
     /// <returns>Whether anything happened, so the sweep goes round rather than returning.</returns>
     /// <remarks>
     /// <b>It waits for the search rather than assuming it has happened.</b> Both are queued by
-    /// the same resolution and the search is asked earlier in this same sweep, so reaching here
-    /// with a search still owed means the sweep turned back at the question - and counting then
-    /// would answer nought on a card whose search is about to find four cards. The queue is left
-    /// alone and the next sweep asks again.
+    /// the same resolution, and this step deliberately sits <em>in front of</em> the two that
+    /// settle them: the wait is the guard below, so it holds wherever in the sweep this is
+    /// called from. Counting a search that has not run yet answers nought on a card whose search
+    /// is about to find four cards, and there is no assertion about the finished board that can
+    /// tell that apart from a search that found nothing - so the ordering is stated here rather
+    /// than left to be inferred from a position that any later edit could change.
     /// <para>
     /// The record is taken and cleared together. What one search moved answers one sentence; a
     /// second sentence reaching an already-counted record would count the same cards twice, and a
@@ -10549,6 +10551,18 @@ public sealed class Game
                 continue;
             }
 
+            // A sentence counting what a search moved, run once that search has happened.
+            // Deliberately in front of the two steps it waits for rather than behind them: what
+            // orders it is its own guard on their queues, which is a fact this method states,
+            // and not its position in a sweep of thirty steps, which is a fact a future edit
+            // could move without noticing. Settles rather than asks, so the sweep goes round
+            // again - the cards it drew can have triggered something.
+            if (SettleOwedSearchAftermath())
+            {
+                didSomething = true;
+                continue;
+            }
+
             // Before the search, and that order is the whole mechanism: the extraction family
             // prints "Choose a nonland card name." and then searches for cards with that name,
             // and the search is queued holding a sentinel the answer fills in. Asked the other
@@ -10559,17 +10573,6 @@ public sealed class Game
 
             if (AskOwedSearch())
                 return true;
-
-            // After the search, and that order is the whole mechanism a second time: the
-            // sentence counts what the search moved, so it cannot run until the search has. It
-            // is only reached at all when nothing above it asked, which is precisely when the
-            // last owed search has been settled. Settles rather than asks, so the sweep goes
-            // round again - the cards it drew can have triggered something.
-            if (SettleOwedSearchAftermath())
-            {
-                didSomething = true;
-                continue;
-            }
 
             // A seek asks nobody anything, so it is performed here and the sweep goes round
             // again: the cards it moved can have triggered something, and a settle that returned
