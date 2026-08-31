@@ -976,10 +976,23 @@ public sealed class Game
         }
 
         // A prepared spell's timing is its own face's, not the creature's that is holding it.
+        //
+        // CR 702.8b: the third arm is a permission somebody else is holding up - "You may cast
+        // creature spells as though they had flash" - rather than anything this card has. It is
+        // asked here, of the board as it is at the moment of the cast, because that is what the
+        // permanent's static ability means: the window closes the instant the Vedalken Orrery
+        // leaves, and there is no state anywhere recording that it was ever open.
+        //
+        // It grants timing and nothing else. Every other question this method asks - which zone
+        // the card may be cast from, what it costs, whether it may be cast at all - is settled
+        // above and below without consulting it, which is the line between a timing permission
+        // and a free cast.
         var isInstant = sneaked || withFlash || (prepared
             ? _abilities.PreparedIsInstantOf(card.Card)
             : card.Card.CardTypes.HasFlag(CardType.Instant)
-                || Characteristics.Of(State, _abilities, card).Has(KeywordAbility.Flash));
+                || Characteristics.Of(State, _abilities, card).Has(KeywordAbility.Flash)
+                || CastPermissions.MayCastAsThoughItHadFlash(
+                    State, _abilities, playerId, card.Card));
         // An offer made during a resolution is not bound by sorcery timing (CR 702.85a): cascade
         // hands you a sorcery while the spell that cascaded is still on the stack, and the whole
         // mechanic depends on your being allowed to cast it there.

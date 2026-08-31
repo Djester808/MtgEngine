@@ -216,12 +216,33 @@ public static class Bans
                 continue;
 
             var bans = abilities.BansOf(host.Card);
-            if (bans.IsEmpty || Characteristics.Of(state, abilities, host).HasLostAllAbilities)
+            if (bans.IsEmpty || !StillSpeaks(state, abilities, host))
                 continue;
 
             yield return (host, Characteristics.ControllerOf(state, abilities, host), bans);
         }
     }
+
+    /// <summary>
+    /// Whether this permanent's static abilities still say anything (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// One method rather than a condition written twice, because the two callers must agree:
+    /// <see cref="InPlay"/> asks it of what a permanent forbids and
+    /// <see cref="CastPermissions"/> asks it of what a permanent permits, and a permanent that
+    /// has lost all its abilities has to fall silent in both directions at once. Written
+    /// separately in each place, the day one of them learned about a new way to lose abilities
+    /// would be the day the other stopped agreeing with it.
+    /// <para>
+    /// Its callers ask it <em>after</em> checking that the permanent has something to say, and
+    /// that order is deliberate: this computes a full set of characteristics, and the scans it
+    /// serves run over every permanent on the board at moments the engine passes through
+    /// constantly.
+    /// </para>
+    /// </remarks>
+    internal static bool StillSpeaks(
+        GameState state, Abilities.IAbilitySource abilities, GameObject host) =>
+        !Characteristics.Of(state, abilities, host).HasLostAllAbilities;
 
     /// <summary>Whether this spell on the stack can't be countered (CR 701.6a).</summary>
     /// <remarks>
@@ -385,5 +406,122 @@ public static class Bans
         return ban.Player == playerId
             || (ban.Players is { } scope
                 && PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId));
+    }
+}
+
+/// <summary>
+/// Spells a permanent lets somebody cast any time they could cast an instant (CR 702.8b).
+/// </summary>
+/// <remarks>
+/// **A timing permission is not a characteristic, so it is not a continuous effect in CR 613's
+/// sense.** "You may cast creature spells as though they had flash" changes nothing about the
+/// cards it names — a creature card in hand under a Vedalken Orrery has no more abilities than
+/// it had a moment ago, and if it is countered, exiled or discarded it takes nothing with it.
+/// What the permanent changes is a *rule of play*, and CR 613.1 orders only the effects that
+/// modify objects' characteristics. Compiled as a layer-6 keyword grant it would have been a
+/// lie that happened to work: the flash keyword would show up wherever a card in hand is asked
+/// what it is, and a card that gained flash would keep it on the stack and on the battlefield,
+/// where the printed permission says nothing at all.
+/// <para>
+/// So it is read the way <see cref="CounterBan"/> is read — off the battlefield, at the one
+/// moment the question is asked, from whatever is there right then. That is also what makes it
+/// stop dead when the permanent leaves (CR 611.2c), with no state anywhere to sweep, and it is
+/// the same treatment <see cref="GameObject.MayCastFree"/> gives the other half of the
+/// offer-a-cast family: a permission is a fact about the moment, not an act performed inside a
+/// resolution.
+/// </para>
+/// <para>
+/// It is a list of its own rather than a member of <see cref="StaticBans"/> because the
+/// polarity is the whole difference. Everything in that record refuses something, and a
+/// permission filed among refusals is one wrong <c>IsEmpty</c> away from a permanent that
+/// forbids what it was printed to allow.
+/// </para>
+/// </remarks>
+public sealed record FlashPermission
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// A filter the spell has to answer — "creature", "Spirit", "artifact|enchantment".
+    /// </summary>
+    /// <remarks>
+    /// Null only for the unfiltered printing, "You may cast spells as though they had flash",
+    /// which is Leyline of Anticipation and asks nothing of the spell. A qualifier the filter
+    /// vocabulary cannot name leaves the whole line unread rather than widening to null — a
+    /// permission that covers more spells than the card names is strictly better than the
+    /// printed card, and this one would let a player cast sorceries on an opponent's turn.
+    /// </remarks>
+    public string? SpellFilter { get; init; }
+
+    /// <summary>Whose casting it permits, or null for anybody's — "Any player may cast".</summary>
+    /// <remarks>
+    /// There is no default that means "guess". Quick Sliver and Vernal Equinox hand the window
+    /// to the whole table and every other printing hands it to one seat, so a missing subject
+    /// is a line this reader does not understand rather than a scope it picks.
+    /// </remarks>
+    public PlayerScope? Caster { get; init; }
+}
+
+/// <summary>Whether something on the battlefield permits a cast (CR 601.3, 702.8b).</summary>
+/// <remarks>
+/// The mirror image of <see cref="Bans"/> and kept beside it deliberately: both answer a
+/// question about one moment by walking the battlefield, and both have to agree about which
+/// permanents are still speaking (CR 613.1f). That agreement is <see cref="Bans.StillSpeaks"/>,
+/// which is one method rather than two copies of a condition.
+/// </remarks>
+public static class CastPermissions
+{
+    /// <summary>
+    /// Whether anything on the battlefield lets this player cast this card as though it had
+    /// flash (CR 702.8b).
+    /// </summary>
+    /// <remarks>
+    /// The card is asked by its printed characteristics, exactly as <see cref="Bans"/> asks a
+    /// spell it might protect: the object is in a hand, and CR 613's layers describe permanents.
+    /// <para>
+    /// **It grants timing and nothing else.** The zone the card may be cast from, its cost, and
+    /// whether it may be cast at all are all decided elsewhere in <c>Game.CastSpell</c> and none
+    /// of them consults this. A permission that answered any of those questions would be a free
+    /// cast wearing a timing permission's clothes.
+    /// </para>
+    /// </remarks>
+    public static bool MayCastAsThoughItHadFlash(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        Guid casterId,
+        Domain.Models.CardDefinition casting)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(casting);
+
+        foreach (var id in state.Battlefield)
+        {
+            if (!state.TryGetObject(id, out var host))
+                continue;
+
+            var granted = abilities.FlashPermissionsOf(host.Card);
+            if (granted.Count == 0 || !Bans.StillSpeaks(state, abilities, host))
+                continue;
+
+            foreach (var said in granted)
+            {
+                if (said.SpellFilter is { } filter && !SearchFilters.Matches(filter, casting))
+                    continue;
+
+                // CR 613.1b: "you" is whoever controls the permanent now, not whoever cast it,
+                // which is why the scope is resolved here and not when the card was compiled -
+                // a stolen Vedalken Orrery hands its window to the thief.
+                if (said.Caster is not { } scope
+                    || PlayerScopes.Around(
+                            scope, state, Characteristics.ControllerOf(state, abilities, host))
+                        .Contains(casterId))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
