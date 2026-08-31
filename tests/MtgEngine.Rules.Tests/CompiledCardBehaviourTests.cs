@@ -6911,6 +6911,289 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.GetPlayer(alice).Graveyard);
     }
 
+    // ---- A printed name where the card prints it (CR 201.2a) -----------------
+
+    // Every test in this section names things "Wall", which is a creature type as well as a
+    // name. That is not decoration. Everywhere else in this compiler a capitalised word beside a
+    // type line *is* a subtype, and the way this family fails is that a name gets read as one:
+    // "all Mountains are Plains" once compiled to a lord for the creature type Mountain -
+    // complete, legal, castable, and matching nothing on any board. So each test below puts a
+    // permanent that *is* a Wall next to one that is *called* Wall and insists that only the
+    // second one answers.
+
+    [Fact]
+    public void A_token_named_after_its_keywords_is_called_that_and_is_not_that_type()
+    {
+        // The printed word order this reader did not have. A token's name follows its keyword
+        // list as often as it precedes one, and thirteen cards - Hornet Cannon, The Hive, Wall
+        // of Kelp, Jungle Patrol - were one line short for that alone.
+        var cannon = Card(
+            "Boulder Cannon Test",
+            "{2}, {T}: Create a 1/1 colorless Insect artifact creature token with flying "
+                + "named Wall.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(cannon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The two questions this family gets wrong, asked of the same board: one card asks for
+        // the *name* and the other for the *type*, and the token answers exactly one of them.
+        var caller = Card(
+            "Wall Caller Test",
+            "~ gets +2/+2 as long as you control a creature named Wall.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var watcher = Card(
+            "Wall Watcher Test",
+            "~ gets +2/+2 as long as you control a Wall.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        Assert.True(CardCompiler.Compile(caller).IsComplete);
+        Assert.True(CardCompiler.Compile(watcher).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var gun = game.Create(alice, cannon, Zone.Battlefield);
+        var byName = game.Create(alice, caller, Zone.Battlefield);
+        var byType = game.Create(alice, watcher, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power!.Value;
+
+        // Nothing called Wall and nothing that is one: both conditions are false, which is the
+        // baseline that makes the two assertions after the token arrives mean something.
+        Assert.Equal(2, PowerOf(byName));
+        Assert.Equal(2, PowerOf(byType));
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, swamp, "mana");
+        game.ActivateAbility(alice, gun, "a");
+        Settle(game);
+
+        var token = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.CardTypes.HasFlag(CardType.Token));
+
+        // The name the card printed, and the keyword that stood in front of it - the two things
+        // the old word order could not hold at once.
+        Assert.Equal("Wall", token.Card.Name);
+        Assert.True(token.Card.Keywords.HasFlag(KeywordAbility.Flying));
+
+        // And the name went nowhere near the type line. A token called Wall is an Insect.
+        Assert.Equal(["Insect"], token.Card.Subtypes);
+
+        // The collision control, asked of a live board: matched once by name, not twice by type.
+        Assert.Equal(4, PowerOf(byName));
+        Assert.Equal(2, PowerOf(byType));
+    }
+
+    [Fact]
+    public void A_name_filters_a_target_in_a_graveyard_and_the_type_does_not()
+    {
+        // "Return target card named Groffskithur from your graveyard to your hand" - a name with
+        // the zone printed behind it. The end-anchored name clause never matched one, because a
+        // card outside the battlefield says where it is after saying what it is.
+        var recall = Card(
+            "Named Recall Test",
+            "Return target card named Wall from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(recall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Called Wall, and a Bear. This is the card the spell is for.
+        var named = game.Create(
+            alice,
+            Card("Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear"),
+            Zone.Graveyard);
+
+        // A Wall, and called something else. The collision control: a filter that had read the
+        // capitalised word as a subtype would take this one and refuse the one above.
+        var typed = game.Create(
+            alice,
+            Card(
+                "Palisade Test",
+                string.Empty,
+                CardType.Creature,
+                power: 0,
+                toughness: 4,
+                subtypes: "Wall"),
+            Zone.Graveyard);
+
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var swamp = game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.ActivateAbility(alice, swamp, "mana");
+
+        var wrong = TestCards.PutInHand(game, alice, recall);
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, wrong, [Target.ToCard(typed)]));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, recall), [Target.ToCard(named)]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Wall");
+
+        // The Wall stayed where it was, which is the half a type-reading filter would have got
+        // backwards.
+        Assert.Contains(game.State.GetPlayer(alice).Graveyard, id => id == typed);
+    }
+
+    [Fact]
+    public void One_clause_naming_two_creatures_asks_for_one_of_each()
+    {
+        // The three Workers and the three Empires artifacts. A single name capture here reads
+        // "Wall and Bear" as one name, compiles, plays, and the ability never once turns on -
+        // which is worse than the unread line it replaces, because a deck check cannot see it.
+        var worker = Card(
+            "Two Name Worker Test",
+            "{1}: You gain 1 life. If you control creatures named Wall and Bear, "
+                + "you gain 3 life instead.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(worker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // Each one is called after the other one's creature type, so a reader that had confused
+        // the two would still see two permanents and answer yes to the wrong question.
+        var calledWall = Card(
+            "Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear");
+
+        var calledBear = Card(
+            "Bear", string.Empty, CardType.Creature, power: 2, toughness: 2, subtypes: "Wall");
+
+        // One board per question, because the answer is a life total and a board that has been
+        // added to is a board two questions have been asked of.
+        int LifeAfterActivating(params CardDefinition[] board)
+        {
+            var (game, alice, _) = InMainPhase();
+            var machine = game.Create(alice, worker, Zone.Battlefield);
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+            foreach (var card in board)
+                game.Create(alice, card, Zone.Battlefield);
+
+            game.ActivateAbility(alice, forest, "mana");
+            game.ActivateAbility(alice, machine, "a");
+            Settle(game);
+
+            return game.State.GetPlayer(alice).Life;
+        }
+
+        // A Wall and a Bear on the board, and neither of them *called* one. The type-collision
+        // control, and it has to answer no or the assertion below proves nothing.
+        var typedWall = Card(
+            "Palisade Guard Test",
+            string.Empty,
+            CardType.Creature,
+            power: 0,
+            toughness: 4,
+            subtypes: "Wall");
+
+        Assert.Equal(21, LifeAfterActivating(TestCards.Creature("Grizzly Test"), typedWall));
+
+        // One of the two names is not both of them.
+        Assert.Equal(21, LifeAfterActivating(calledWall));
+        Assert.Equal(21, LifeAfterActivating(calledBear));
+
+        // Three, not one: both names are answered, by two different permanents. A single capture
+        // would be looking for one permanent called "Wall and Bear" and would stop at one here.
+        Assert.Equal(23, LifeAfterActivating(calledWall, calledBear));
+    }
+
+    [Fact]
+    public void The_negation_spelled_with_the_verb_asks_about_the_name()
+    {
+        // Kookus, Rufus Shinra, Tatsunari, Jiang Yanggu, and every amass card asking whether you
+        // have an Army yet. "You don't control a creature named X" is the question "you control
+        // no creature named X" has answered all along, in the words the cards print.
+        var lonely = Card(
+            "Lonely Beast Test",
+            "At the beginning of your upkeep, if you don't control a creature named Wall, "
+                + "you lose 1 life.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(lonely);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, lonely, Zone.Battlefield);
+
+        // A Wall, called something else. It must not answer the question, or the loss below
+        // stops for the wrong reason.
+        game.Create(
+            alice,
+            Card(
+                "Palisade Sentry Test",
+                string.Empty,
+                CardType.Creature,
+                power: 0,
+                toughness: 4,
+                subtypes: "Wall"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        // Now something that is *called* Wall, and is a Bear.
+        game.Create(
+            alice,
+            Card("Wall", string.Empty, CardType.Creature, power: 0, toughness: 4, subtypes: "Bear"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 5 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // The condition is false now, so the trigger did nothing on turn five's upkeep.
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void A_phrase_naming_two_cards_stays_unread_rather_than_naming_one()
+    {
+        // Alpine Houndmaster's shape, and the failure this whole section is built to avoid: read
+        // with one capture the phrase becomes a single filter naming both cards at once, which
+        // is complete, castable, and searching for a card no library holds. Two audits this
+        // round found dozens of exactly that kind already compiled.
+        var both = Card(
+            "Two Named Recall Test",
+            "Return target card named Wall or a card named Bear from your graveyard to "
+                + "your hand.",
+            CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(both).IsComplete);
+
+        // The control: the same sentence carrying one name reads perfectly, so the refusal above
+        // is about the second name and not about the shape of the phrase.
+        var one = Card(
+            "One Named Recall Test",
+            "Return target card named Wall from your graveyard to your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(one);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
     // ---- A filter naming a subtype and a type (CR 109.4) ---------------------
 
     [Fact]

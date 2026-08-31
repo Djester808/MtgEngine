@@ -70,7 +70,86 @@ public static partial class BoardConditions
         if (text.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
             text = text["if ".Length..];
 
-        return Single(text, aboutASeat) ?? Joined(text, aboutASeat);
+        text = SpellOutEachName(text);
+
+        return Single(text, aboutASeat)
+            ?? Joined(text, aboutASeat)
+            ?? ControlsNoneOfThem(text, aboutASeat);
+    }
+
+    /// <summary>
+    /// "You don't control a creature named Darkstar" — the negation spelled with the verb
+    /// (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The same question as "you control no creature named Darkstar", which has been read all
+    /// along, in the words the cards happen to print: an amass card asks whether you have an
+    /// Army yet, and Kookus, Rufus Shinra, Tatsunari and Jiang Yanggu ask whether their partner
+    /// is on the board. It arrives here rather than as a reader because the negation belongs in
+    /// exactly one place, and the noun keeps going through the one filter vocabulary — which is
+    /// what carries the name clause into it for free.
+    /// <para>
+    /// Asked only once every other reader has refused the clause, so a phrase that already reads
+    /// cannot start reading as this instead, and a rewrite that produces nonsense costs nothing
+    /// the card was not already losing.
+    /// </para>
+    /// </remarks>
+    private static BoardCondition? ControlsNoneOfThem(string text, bool aboutASeat)
+    {
+        var negated = DoesNotControlLine().Match(text);
+
+        return negated.Success
+            ? Single(
+                negated.Groups["who"].Value
+                    + (negated.Groups["one"].Value.Equals("es not", StringComparison.Ordinal)
+                        || negated.Groups["one"].Value.Equals("esn't", StringComparison.Ordinal)
+                        ? " controls no "
+                        : " control no ")
+                    + negated.Groups["what"].Value,
+                aboutASeat)
+            : null;
+    }
+
+    /// <summary>
+    /// "You control creatures named Mine Worker and Tower Worker" — one clause, two names
+    /// (CR 201.2a).
+    /// </summary>
+    /// <remarks>
+    /// <strong>A single name capture here compiles a filter that can never be true.</strong> The
+    /// obvious reading takes everything after "named" as the name and asks for one permanent
+    /// called "Mine Worker and Tower Worker", which no card is: the card compiles, plays, and
+    /// its ability never turns on. That failure is the one this round has had to fix twice
+    /// already, and it is worse than the unread line it replaces, because a deck check cannot
+    /// see it.
+    /// <para>
+    /// What the sentence says is a conjunction — one permanent per name — so it is rewritten
+    /// into the elided form the combinator beneath already reads, and each name goes through the
+    /// ordinary singular reader with its own filter. The rewrite is the whole of the fix; no
+    /// reader learns a second name.
+    /// </para>
+    /// <para>
+    /// Names in the list may not carry a comma, and that is not a simplification: "A, B, and C"
+    /// and a name with a comma in it are the same characters, and nothing in the sentence tells
+    /// them apart. A list this cannot cut stays unread rather than being cut in the wrong place.
+    /// </para>
+    /// </remarks>
+    private static string SpellOutEachName(string text)
+    {
+        var listed = EachNamedLine().Match(text);
+        if (!listed.Success)
+            return text;
+
+        var noun = EffectPhrase.Specs.FoldPlural(listed.Groups["what"].Value.Trim());
+        var names = NameJoin().Split(listed.Groups["names"].Value);
+        if (names.Length < 2)
+            return text;
+
+        var subject = listed.Groups["who"].Value;
+
+        return string.Join(
+            " and ",
+            names.Select((one, i) =>
+                (i == 0 ? subject + " " : string.Empty) + "a " + noun + " named " + one.Trim()));
     }
 
     /// <summary>One condition, with no "and" or "or" holding two of them together.</summary>
@@ -3009,6 +3088,37 @@ public static partial class BoardConditions
         RegexOptions.IgnoreCase)]
     private static partial Regex OnBattlefieldLine();
 
+    /// <summary>"You control creatures named A and B" — a plural noun with a list of names.</summary>
+    /// <remarks>
+    /// Case-sensitive on the names for the reason the whole name grammar is: a capital is what
+    /// tells a printed name from an ordinary word. The noun is required to be plural, which is
+    /// what says the sentence is about more than one permanent — "you control a creature named
+    /// Bogbrew Witch" is the singular form and is read where it stands.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>[Yy]ou control|[Aa]n opponent controls|[Aa] player controls) "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*?) named "
+            + @"(?<names>[A-Z][A-Za-z0-9'’ -]*(?:, [A-Z][A-Za-z0-9'’ -]*)*,? and [A-Z][A-Za-z0-9'’ -]*)$",
+        RegexOptions.None)]
+    private static partial Regex EachNamedLine();
+
+    /// <summary>"You don't control a Zombie", "that player doesn't control a creature".</summary>
+    /// <remarks>
+    /// The determiner is required and is only ever "a", "an" or "any": "you don't control two
+    /// creatures" is a different question — it is false with three of them — and rewriting it as
+    /// "control no" would answer the wrong one. The subject list is the same one every other
+    /// reader here uses, so a seat this file cannot resolve is refused before the rewrite runs.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WHO + @" do(?<one>n't|es not|esn't) control (?:an?|any) "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*(?: named [A-Z][A-Za-z0-9 ,'’-]*)?)$",
+        RegexOptions.None)]
+    private static partial Regex DoesNotControlLine();
+
+    /// <summary>The commas and the "and" a printed list of names is joined by.</summary>
+    [GeneratedRegex(@",? and |, ")]
+    private static partial Regex NameJoin();
+
     /// <summary>The cards' "and/or", which the shared filter vocabulary spells "or" (CR 109.4).</summary>
     [GeneratedRegex(@"\s*\band/or\b\s*", RegexOptions.IgnoreCase)]
     private static partial Regex Either();
@@ -3017,10 +3127,19 @@ public static partial class BoardConditions
     /// "You control no creatures" is the same question asked backwards, so it shares the pattern
     /// rather than getting one of its own — and getting the negation wrong is the sort of thing
     /// that reads correctly and plays inverted.
+    /// <para>
+    /// <strong>A printed name is punctuated and a noun is not.</strong> The noun slot admits
+    /// letters, digits and spaces, which is everything a type line can hold and not everything a
+    /// name can: "you control a permanent named Guan Yu, Sainted Warrior" failed on the comma,
+    /// and so did every legend whose name carries one — which is most of them. The extra
+    /// characters are admitted only after the word "named" and only where a capital follows it,
+    /// so a comma still ends the clause everywhere a comma means the end of a clause.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^((?<anyone>an?y? ?player)|" + WHO + @") controls? "
-            + @"(an?|(?<none>no)|(?<another>another)) (?<what>[A-Za-z][A-Za-z0-9 ]*)$",
+            + @"(an?|(?<none>no)|(?<another>another)) "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*(?: named [A-Z][A-Za-z0-9 ,'’-]*)?)$",
         RegexOptions.None)]
     private static partial Regex ControlsAnyLine();
 

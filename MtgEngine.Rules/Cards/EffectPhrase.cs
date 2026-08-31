@@ -12737,11 +12737,38 @@ public static partial class EffectPhrase
             // with "All Mountains are Plains", which became a lord for the creature type
             // Mountain. So the clause comes off first, before any of that vocabulary runs, and
             // goes back on as a test of its own that is told it is about a name.
+            //
+            // <strong>One name per phrase, or none.</strong> The capture cannot cross a second
+            // "named", but refusing to cross one is not enough on its own: the match simply
+            // moves to the later clause, and "target card named Boulderfoot Merc or a card named
+            // Igneous Cur" came back as one spec demanding both names at once - a card that
+            // compiles, plays, and can never find anything. Two audits this round found dozens
+            // of that kind already in the tree, and this is how they get made. So a head that
+            // still holds the word is refused and the line stays unread, which is the honest
+            // answer until the grammar can hold two names.
             if (NamedTail().Match(text) is { Success: true } byName
-                && Parse(text[..byName.Index]) is { Kind: TargetKind.Permanent } thing)
+                && !HoldsAnotherName(text[..byName.Index])
+                && Parse(text[..byName.Index]) is { } thing
+                && thing.Kind is TargetKind.Permanent or TargetKind.CardInGraveyard)
             {
                 return WithPrintedName(
                     thing, byName.Groups["name"].Value.Trim(), byName.Groups["not"].Success);
+            }
+
+            // "Target card named Groffskithur from your graveyard" - the same clause with the
+            // zone printed after it rather than before. The tail above is anchored at the end of
+            // the phrase because that is where a name usually sits; a card outside the
+            // battlefield says where it is *after* saying what it is, so the name is in the
+            // middle and that anchor never matched one. The zone clause is lifted off with the
+            // name and put straight back, so the noun grammar sees the phrase it already reads
+            // and the name arrives as its own test - exactly the order the battlefield form uses.
+            if (NamedZoneTail().Match(text) is { Success: true } inZone
+                && !HoldsAnotherName(text[..inZone.Index])
+                && Parse(text[..inZone.Index] + inZone.Groups["zone"].Value) is { } filed
+                && filed.Kind is TargetKind.Permanent or TargetKind.CardInGraveyard)
+            {
+                return WithPrintedName(
+                    filed, inZone.Groups["name"].Value.Trim(), inZone.Groups["not"].Success);
             }
 
             // "Up to one target creature" is an ordinary target that may be left unchosen
@@ -13377,6 +13404,17 @@ public static partial class EffectPhrase
             };
         }
 
+        /// <summary>Whether a phrase still names a second printed name (CR 201.2a).</summary>
+        /// <remarks>
+        /// Asked of what is left once one name clause has been lifted off. A spec holds one name
+        /// test, so a second name in the residue can only be folded into the first one's filter,
+        /// and a filter demanding two names at once matches nothing at any table. The line is
+        /// worth more unread than read that way: unread, a deck check refuses the card; read, it
+        /// is a card that plays and quietly does nothing.
+        /// </remarks>
+        private static bool HoldsAnotherName(string head) =>
+            head.Contains(" named ", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>Whether one object answers to a name right now (CR 201.2a).</summary>
         /// <remarks>
         /// A face-down permanent has no name at all (CR 708.2), and CR 201.2a says an object
@@ -13407,8 +13445,33 @@ public static partial class EffectPhrase
         /// sits - "creatures you control named ~", "a creature named Bogbrew Witch" - and a
         /// clause taken from the middle would cut a noun phrase in half.
         /// </remarks>
-        [GeneratedRegex(@"(?<not>\s+not)?\s+named\s+(?<name>[A-Z][^.]*?)\s*$")]
+        /// <remarks>
+        /// <strong>A name may not run through a second "named".</strong> "A card named Boulderfoot
+        /// Merc or a card named Igneous Cur" is two names, and a capture that crossed the second
+        /// word produced one filter naming both - a complete card searching for a card no library
+        /// holds. That is the worst failure this compiler has, because it looks like coverage.
+        /// The lookahead is what refuses the phrase instead.
+        /// </remarks>
+        [GeneratedRegex(@"(?<not>\s+not)?\s+named\s+(?<name>[A-Z](?:(?!\snamed\s)[^.])*?)\s*$")]
         private static partial Regex NamedTail();
+
+        /// <summary>
+        /// "…named Groffskithur from your graveyard" - a name with the zone printed behind it.
+        /// </summary>
+        /// <remarks>
+        /// The determiner list is what keeps the name whole. A printed name may itself contain
+        /// the word "from" - Rise from the Grave - and the only thing telling that apart from
+        /// the zone clause is what follows: a zone is spelled "from <em>your</em> graveyard",
+        /// "in <em>a</em> graveyard", never "from the grave". So the tail must open with one of
+        /// the determiners a zone clause uses and end on a zone word, and the name is free to
+        /// run through anything else. Both runs are lazy, so a name that swallowed the clause
+        /// would leave the anchor unmatched and the engine gives the words back.
+        /// </remarks>
+        [GeneratedRegex(
+            @"(?<not>\s+not)?\s+named\s+(?<name>[A-Z](?:(?!\snamed\s)[^.])*?)"
+                + @"(?<zone>\s+(?:from|in)\s+(?:a|an|any|your|their|each|its owner's)\s+"
+                + @"(?:\w+\s+)?(?:graveyard|exile|library|hand)s?)\s*$")]
+        private static partial Regex NamedZoneTail();
 
         [GeneratedRegex(@"^(all|each|every)\s+", RegexOptions.IgnoreCase)]
         private static partial Regex GroupOpener();
@@ -17183,6 +17246,16 @@ public static partial class EffectPhrase
     /// the quotation for a keyword completed nothing, because what refused the line was never the
     /// prohibition.
     /// </para>
+    /// <para>
+    /// <strong>The name has two seats, because the printed card puts it in two places.</strong>
+    /// "A 1/1 green Wolf creature token named Wolves of the Hunt" names the token before its
+    /// abilities and "a 1/1 colorless Insect artifact creature token with flying named Hornet"
+    /// names it after them, and both are the same instruction. Only the first seat existed, so
+    /// every token whose card printed a keyword in front of the name went unread — Hornet
+    /// Cannon, The Hive, Wall of Kelp, Jungle Patrol and ten more, each of them one line short.
+    /// The second seat is optional and anchored on the end of the line, so the lazy keyword list
+    /// gives back exactly the words "named …" needs and no more.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent"
@@ -17194,6 +17267,7 @@ public static partial class EffectPhrase
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
             + @"(?: named " + TOKENNAME + @")?"
             + @"(?: with (?<kw>[a-z][a-z0-9 ,]*?))?"
+            + @"(?: named " + TOKENNAME + @")?"
             + @"(?:(?:,? and)?(?: with)? ""(?<text>[^""]+)"")*"
             + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.None)]
