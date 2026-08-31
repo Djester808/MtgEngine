@@ -5879,13 +5879,37 @@ public static partial class CardCompiler
     /// </remarks>
     private static string? CostFilterFor(string phrase)
     {
-        var what = phrase.Trim();
+        ArgumentNullException.ThrowIfNull(phrase);
+
+        // "Elemental spells and Warrior spells you cast cost {1} less to cast" prints the noun
+        // twice, and the template's "what" group therefore arrives as "Elemental spells and
+        // Warrior" - a phrase the filter vocabulary cannot read, so the reader recognised the
+        // line, refused it and left it unread on thirteen cards whose one-noun twin
+        // ("Elemental spells you cast cost {1} less") reads perfectly.
+        //
+        // The repeat is taken out rather than the line read as two modifiers, because two would
+        // be a different card: "Red spells and white spells you cast cost {1} less" takes one
+        // generic off a red-and-white spell, not two, and a disjunctive filter is what says so.
+        // The vocabulary already reads "Red or white", so this is one rewrite in front of it
+        // rather than a second grammar beside it.
+        var what = RepeatedCostNoun().Replace(phrase.Trim(), " ${join} ");
 
         return what.Length == 0
             ? SearchFilters.AnyCard
             : EffectPhrase.SearchFilterFor(
                 what.Replace(" and ", " or ", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>The noun printed twice in "Elemental spells and Warrior spells".</summary>
+    /// <remarks>
+    /// Only between two halves of one conjunction, and only for the nouns these templates put
+    /// there. "Spells you cast and abilities you activate" is not this shape - the words either
+    /// side are not the same noun - and does not match.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s+spells\s+(?<join>and|or)\s+",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex RepeatedCostNoun();
 
     /// <summary>The same phrase with its last word singular, for a template printed plural.</summary>
     private static string Singular(string phrase) =>
@@ -9453,13 +9477,80 @@ public static partial class CardCompiler
         if (EffectPhrase.Specs.Parse($"target {singular}") is not
             { Kind: Abilities.TargetKind.Permanent } spec)
         {
-            return null;
+            return ReadBlockRestrictionList(phrase);
         }
 
         // The filter is asked about the blocker with the blocker's own controller, because the
         // phrase describes a creature and not a creature belonging to anybody in particular.
         return (state, abilities, _, blocker) =>
             spec.ObjectFilter?.Invoke(state, abilities, blocker, blocker.ControllerId) != true;
+    }
+
+    /// <summary>
+    /// "Creatures with flying or reach", "artifact creatures or white creatures" - a list.
+    /// </summary>
+    /// <remarks>
+    /// The phrase after "blocked by" is one description on most cards and a disjunction on a
+    /// dozen, and the disjunction is what defeated the reader above: it recognised the line,
+    /// handed the whole phrase to the target grammar, got nothing back and left the line unread.
+    /// Nothing else claims that line, so the refusal was the end of it - "~ can't be blocked
+    /// except by creatures with flying or reach" is printed on cards whose one-quality twin
+    /// ("can't be blocked by creatures with flying") reads perfectly.
+    /// <para>
+    /// A <see cref="BlockRestriction"/> answers "may this creature block", so a disjunction of
+    /// forbidden descriptions is the <em>conjunction</em> of the two answers: a blocker is
+    /// allowed only if it is neither. The "except by" caller negates the whole thing, which
+    /// turns it back into "one of the two may block" - the printed meaning of both spellings.
+    /// </para>
+    /// <para>
+    /// <strong>Split from the right.</strong> "Creatures with power 2 or less or Walls" contains
+    /// two "or"s and only the last one joins the list; cutting at the first would leave
+    /// "creatures with power 2", which the target grammar reads happily and which means
+    /// something else. Taking the rightmost split that leaves two readable halves is what keeps
+    /// the comparison forms intact.
+    /// </para>
+    /// <para>
+    /// The second half is offered twice: as printed, and with the first half's noun in front of
+    /// it. "Creatures with flying or reach" leaves the noun out of the second description
+    /// (CR 509.1b puts no requirement on the wording), and "reach" describes nothing on its own.
+    /// Distributing the head is the whole of that reading, and it is tried only after the bare
+    /// form has failed, so "artifact creatures or white creatures" is still two descriptions.
+    /// </para>
+    /// </remarks>
+    private static BlockRestriction? ReadBlockRestrictionList(string phrase)
+    {
+        const string Join = " or ";
+
+        for (var cut = phrase.LastIndexOf(Join, StringComparison.OrdinalIgnoreCase);
+             cut > 0;
+             cut = phrase.LastIndexOf(Join, cut - 1, StringComparison.OrdinalIgnoreCase))
+        {
+            var head = phrase[..cut].Trim();
+            var tail = phrase[(cut + Join.Length)..].Trim();
+
+            if (head.Length == 0 || tail.Length == 0)
+                continue;
+
+            if (ReadBlockRestriction(head) is not { } first)
+                continue;
+
+            var second = ReadBlockRestriction(tail) ?? Distributed(head, tail);
+            if (second is null)
+                continue;
+
+            return (state, abilities, attacker, blocker) =>
+                first(state, abilities, attacker, blocker)
+                && second(state, abilities, attacker, blocker);
+        }
+
+        return null;
+    }
+
+    /// <summary>The second half of a list read with the first half's noun put back in front.</summary>
+    private static BlockRestriction? Distributed(string head, string tail)
+    {
+        var at = head.LastIndexOf(" with ", StringComparison.OrdinalIgnoreCase);
+        return at < 0 ? null : ReadBlockRestriction(head[..(at + " with ".Length)] + tail);
     }
 
     /// <summary>

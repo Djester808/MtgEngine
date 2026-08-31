@@ -7116,17 +7116,14 @@ public static partial class EffectPhrase
         // built from the vocabulary every other group reader shares. A dead reader with its own
         // private effect is a second implementation waiting for a reordering to wake it up.
 
-        // "Enchanted creature gets +0/+1 until end of turn" — an Aura pumping what it is on,
-        // on demand rather than continuously. It names no target: "enchanted creature" is
-        // whatever the Aura is already attached to.
-        m = HostPumpLine().Match(sentence);
-        if (m.Success)
-        {
-            var (hostId, hostSize) = PumpSizeOf(m);
-
-            effects.Add(new PumpHostUntilEndOfTurn(hostId) { Size = hostSize });
-            return true;
-        }
+        // "Enchanted creature gets +0/+1 until end of turn" had a reader of its own here, with a
+        // private effect behind it, and it could never run: AttachedSubjectFirstLine claims the
+        // same sentence 1,400 lines earlier, rewrites it to "target creature gets +0/+1 until
+        // end of turn" and wraps the ordinary targeted pump in an OnAttached. Nothing in the
+        // corpus ever reached this, which is how it was found - no compiled card carried the
+        // effect it built. The general route is also the better one: it inherits every size,
+        // every duration and every rider the targeted pump learns, where this had to be widened
+        // by hand and once was not.
 
         // "~ can't be blocked this turn" — the same self-grant written as a rule rather than a
         // keyword. It reaches the same flag the blocking rules already ask for, because the two
@@ -8806,7 +8803,19 @@ public static partial class EffectPhrase
     /// </remarks>
     internal static KeywordAbility? Keywords(string words)
     {
+        ArgumentNullException.ThrowIfNull(words);
+
         var all = KeywordAbility.None;
+
+        // "Protection from black and from red" is two protection abilities with the word
+        // "protection" printed once (CR 702.16f), and the split below reads the second half as
+        // the keyword "from red" - which is in no table, so the whole list came back null and
+        // the line went unread. The word is put back before anything is split, in the one place
+        // every granting reader asks, because the compiler already had a reader for the
+        // conjunction as a whole line (ProtectionConjunctionLine) and the two disagreed: a card
+        // printing "Protection from black and from red" on its own line read perfectly while the
+        // same words after "Enchanted creature has" did not.
+        words = ElidedProtection().Replace(words, " and protection from ");
 
         foreach (var word in words.Split([" and ", ","], StringSplitOptions.RemoveEmptyEntries))
         {
@@ -8822,6 +8831,16 @@ public static partial class EffectPhrase
 
         return all == KeywordAbility.None ? null : all;
     }
+
+    /// <summary>The repeat in "protection from black and from red", with the noun left out.</summary>
+    /// <remarks>
+    /// Anchored on a preceding "protection from [quality]" so that the words are only put back
+    /// where they were taken out. "Hexproof from black and from red" is a different ability with
+    /// its own reader (CR 702.11f) and does not match, because the lookbehind names the noun.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<=\bprotection from [A-Za-z]+),? and from ", RegexOptions.IgnoreCase)]
+    private static partial Regex ElidedProtection();
 
     private static readonly Dictionary<string, KeywordAbility> GrantableKeywords =
         new(StringComparer.OrdinalIgnoreCase)
@@ -17452,12 +17471,6 @@ public static partial class EffectPhrase
             + @" and can't (?<what>be blocked|block) this turn\.",
         RegexOptions.None)]
     private static partial Regex ConjoinedProhibitionLine();
-
-    [GeneratedRegex(
-        @"^enchanted (creature|permanent) gets " + PT + @" "
-            + @"until end of turn$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex HostPumpLine();
 
     [GeneratedRegex(
         @"^return it to its owner's hand$", RegexOptions.IgnoreCase)]

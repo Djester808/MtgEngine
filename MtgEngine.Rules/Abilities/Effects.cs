@@ -3810,47 +3810,6 @@ public sealed record PumpSourceUntilEndOfTurn(string DefinitionId) : IEffect
 }
 
 /// <summary>
-/// Pumps whatever the source is attached to, until end of turn (CR 701.3c).
-/// </summary>
-/// <remarks>
-/// The activated twin of "enchanted creature gets +2/+2", which is a static. An Aura that can
-/// pump on demand names no target - "enchanted creature" is whatever it is already on, and an
-/// Aura attached to nothing is on its way to the graveyard anyway (CR 704.5m).
-/// </remarks>
-public sealed record PumpHostUntilEndOfTurn(string DefinitionId) : IEffect
-{
-    /// <summary>The size, when the card wrote it as X rather than a number (CR 613.4c).</summary>
-    /// <remarks>
-    /// Read here for the reason <see cref="PumpUntilEndOfTurn.Size"/> gives: a variable pump's
-    /// <see cref="DefinitionId"/> is a placeholder built from nothing, and the real id is not
-    /// knowable until X is. This was the one of the five pump effects that never read it, so a
-    /// host pump of +X/+X created the placeholder instead - a continuous effect of +0/+0, which
-    /// is a pump that resolves and does nothing at all.
-    /// </remarks>
-    public VariablePumpSize? Size { get; init; }
-
-    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        if (!context.State.TryGetObject(context.PhysicalSourceId, out var aura)
-            || aura.Permanent?.AttachedTo is not { } host)
-        {
-            return [];
-        }
-
-        return
-        [
-            new ContinuousEffectCreated(
-                Guid.NewGuid(),
-                Size?.DefinitionIdIn(context) ?? DefinitionId,
-                [host],
-                context.State.TurnNumber),
-        ];
-    }
-}
-
-/// <summary>
 /// Attaches the source permanent to a target permanent (CR 701.3).
 /// </summary>
 /// <remarks>
