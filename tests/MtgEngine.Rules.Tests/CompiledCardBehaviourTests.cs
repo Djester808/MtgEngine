@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Globalization;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;

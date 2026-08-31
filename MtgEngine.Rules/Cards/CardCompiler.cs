@@ -3251,6 +3251,15 @@ public static partial class CardCompiler
             _ => "tap",
         };
 
+        // Exactly one object-taking cost on the whole licence, and it has to be the one the
+        // sentence names. The engine records what a cost took only when the cost took a single
+        // object, so "{1}, Discard a card, Sacrifice a creature:" would record nothing at all and
+        // the clause behind it would settle at nought - a card that reads and does nothing, which
+        // is the failure this licence exists to prevent. Counting the mentions here is what keeps
+        // the compiler's rule and the engine's rule the same rule.
+        if (CostVerbMention().Count(charged) != 1)
+            return false;
+
         return SingularCostVerb().Matches(charged)
             .Any(paid => paid.Groups["verb"].Value.Equals(verb, StringComparison.OrdinalIgnoreCase));
     }
@@ -19335,6 +19344,18 @@ public static partial class CardCompiler
         @"\b(?<verb>sacrifice|exile|discard|return|tap) (?:a|an|another)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex SingularCostVerb();
+
+    /// <summary>Any cost that takes an object at all, however many it takes (CR 601.2f).</summary>
+    /// <remarks>
+    /// Counted rather than matched: what the licence needs to know is that there is exactly one
+    /// of these, so the object the engine records is the object the sentence is about. A second
+    /// one - a discard beside a sacrifice - is a cost that took two, and the engine records
+    /// nothing for those on purpose.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?:sacrifice|exile|discard|return|tap)\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CostVerbMention();
 
     /// <summary>"As an additional cost to cast this spell, sacrifice a creature." (CR 601.2f).</summary>
     [GeneratedRegex(
