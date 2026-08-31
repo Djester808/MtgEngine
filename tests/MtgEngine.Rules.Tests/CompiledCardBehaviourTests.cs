@@ -1525,6 +1525,498 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(marshal)));
     }
 
+    // ---- What a prevention shield filters on: combat state (CR 506.1, 509.1h) ----
+
+    /// <summary>
+    /// "By attacking creatures" is a question about the game, not about the card (CR 508.1g).
+    /// </summary>
+    /// <remarks>
+    /// The commonest of the shapes this round read, and the one whose failure looks most like
+    /// success: <c>SourceFilter</c> is a <see cref="SearchFilters"/> id asked of a printed card,
+    /// so a reader that let the adjective fall through would compile Harmless Assault as "prevent
+    /// all combat damage that would be dealt this turn by creatures" — a plain fog, and a
+    /// strictly better card than the printed one.
+    /// <para>
+    /// The control is in the same combat damage step, under the same shield: the attacker's
+    /// damage is prevented and the blocker's <em>arrives</em>. Nothing but the combat state
+    /// separates the two, so a shield that had lost the word would show zero on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_shield_on_attacking_creatures_lets_the_blockers_damage_through()
+    {
+        var fog = Card(
+            "Attacker Fog Test",
+            "Prevent all combat damage that would be dealt this turn by attacking creatures.");
+
+        var compiled = CardCompiler.Compile(fog);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ox = game.Create(
+            alice, TestCards.Creature("Fogged Ox Test", 2, 6), Zone.Battlefield);
+        var guard = game.Create(
+            bob, TestCards.Creature("Fogged Guard Test", 3, 6), Zone.Battlefield);
+
+        // On the turn it has to work on: "this turn" ends the shield at cleanup (CR 514.2),
+        // so a fog cast two turns early is gone before any of this.
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, fog), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [ox] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [ox] = [guard] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The attacker is attacking, so its damage is prevented.
+        Assert.Equal(0, game.State.GetObject(guard).Permanent?.DamageMarked);
+
+        // The blocker is not, so its damage arrives. This is the assertion that fails if the
+        // adjective was dropped.
+        Assert.Equal(3, game.State.GetObject(ox).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "By unblocked creatures" separates two attackers in one combat (CR 509.1h).
+    /// </summary>
+    /// <remarks>
+    /// Snag. Both sources are attacking creatures dealing combat damage in the same step, and the
+    /// only thing between them is whether blockers were declared for them — so this is the arm
+    /// that a shield reading merely "attacking" would get wrong, as well as one reading
+    /// "creatures".
+    /// </remarks>
+    [Fact]
+    public void A_shield_on_unblocked_creatures_lets_the_blocked_attacker_through()
+    {
+        var snag = Card(
+            "Unblocked Snag Test",
+            "Prevent all combat damage that would be dealt by unblocked creatures this turn.");
+
+        var compiled = CardCompiler.Compile(snag);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var free = game.Create(
+            alice, TestCards.Creature("Snag Runner Test", 3, 6), Zone.Battlefield);
+        var stopped = game.Create(
+            alice, TestCards.Creature("Snag Charger Test", 2, 6), Zone.Battlefield);
+        var wall = game.Create(
+            bob, TestCards.Creature("Snag Wall Test", 0, 6), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, snag), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [free] = AttackTarget.Player(bob),
+                [stopped] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [stopped] = [wall] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The unblocked attacker is prevented: Bob is untouched by a creature that got through.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+
+        // The blocked one is not, and its damage arrives on the blocker.
+        Assert.Equal(2, game.State.GetObject(wall).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// A static shield reading "attacking creatures you control" (CR 611.2c, 508.1g).
+    /// </summary>
+    /// <remarks>
+    /// Dolmen Gate, and the victim side of the same question. The control is the same creature
+    /// one turn later, in the other half of a combat: blocking is not attacking, so the shield
+    /// has to let that damage through. A Gate read without the adjective makes every creature its
+    /// controller has invulnerable, at home, for as long as it is on the battlefield — which no
+    /// assertion about the attacking case alone would notice.
+    /// </remarks>
+    [Fact]
+    public void A_static_shield_on_attacking_creatures_leaves_its_own_blocker_unshielded()
+    {
+        var gate = Card(
+            "Attack Gate Test",
+            "Prevent all combat damage that would be dealt to attacking creatures you control.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(gate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, gate, Zone.Battlefield);
+        // Vigilance so the ox is still untapped on the turn it has to block: attacking taps it
+        // (CR 508.1f) and its controller's next untap step is two turns away.
+        var ox = game.Create(
+            alice,
+            Card("Gate Ox Test", "Vigilance", CardType.Creature, 2, 6, KeywordAbility.Vigilance),
+            Zone.Battlefield);
+        var guard = game.Create(bob, TestCards.Creature("Gate Guard Test", 3, 6), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [ox] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [ox] = [guard] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Attacking, so shielded — and the damage it deals still arrives, so this is a shield
+        // rather than a combat that did not happen.
+        Assert.Equal(0, game.State.GetObject(ox).Permanent?.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(guard).Permanent?.DamageMarked);
+
+        // The same creature, the next turn, blocking instead. The Gate is still on the
+        // battlefield and still Alice's; the only thing that changed is what the ox is doing.
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [guard] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [guard] = [ox] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(ox).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "By creatures blocking it" is a relation to one permanent, not a description (CR 509.1g).
+    /// </summary>
+    /// <remarks>
+    /// Armored Transport. No card filter can say this: the set is whichever creatures were
+    /// declared as blockers for one particular permanent, and it changes twice a turn.
+    /// <para>
+    /// The control is the mirror image, and it is the whole reason there are two fields rather
+    /// than one. The next turn the Transport <em>blocks</em>, so the creature dealing it combat
+    /// damage is one it is blocking rather than one blocking it — and that damage has to arrive.
+    /// A shield that had the relation the wrong way round passes the first half of this test and
+    /// fails here; one that read the phrase as the bare "creatures" it leaves behind passes both
+    /// halves of the first and fails here too.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_shield_naming_the_creatures_blocking_it_does_not_cover_the_ones_it_blocks()
+    {
+        var transport = Card(
+            "Blocked Transport Test",
+            "Vigilance\nPrevent all combat damage that would be dealt to ~ by creatures "
+                + "blocking it.",
+            CardType.Creature,
+            power: 2,
+            toughness: 8,
+
+            // Vigilance for the same reason the Gate's ox has it: this test needs the same
+            // permanent attacking on one turn and blocking on the next.
+            keywords: KeywordAbility.Vigilance);
+
+        var compiled = CardCompiler.Compile(transport);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var truck = game.Create(alice, transport, Zone.Battlefield);
+        var guard = game.Create(
+            bob, TestCards.Creature("Transport Guard Test", 3, 8), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [truck] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [truck] = [guard] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Blocked by the guard, so the guard's damage is prevented — and the Transport's own
+        // damage still lands, so the combat happened.
+        Assert.Equal(0, game.State.GetObject(truck).Permanent?.DamageMarked);
+        Assert.Equal(2, game.State.GetObject(guard).Permanent?.DamageMarked);
+
+        // The mirror: now the guard attacks and the Transport blocks it. The guard is a creature
+        // the Transport is blocking, which is the other relation, so its damage arrives.
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob, new Dictionary<ObjectId, AttackTarget> { [guard] = AttackTarget.Player(alice) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [guard] = [truck] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(truck).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "By creatures it's blocking" is the other relation, and it is not the same one (CR 509.1g).
+    /// </summary>
+    /// <remarks>
+    /// Wall of Vapor. The positive case alone tells the two apart: the Wall is not an attacker, so
+    /// a shield asking "is the source one of my blockers" finds nothing to match and lets the
+    /// damage through. The pinger is the control for the description as opposed to the relation —
+    /// it is a creature, it is Bob's, and the Wall is not blocking it, so its point of damage has
+    /// to arrive and stay on the Wall through a combat that prevents three more.
+    /// </remarks>
+    [Fact]
+    public void A_shield_naming_the_creatures_it_is_blocking_is_the_mirror_of_that()
+    {
+        var wall = Card(
+            "Vapor Wall Test",
+            "Prevent all damage that would be dealt to ~ by creatures it's blocking.",
+            CardType.Creature,
+            power: 0,
+            toughness: 8,
+            keywords: KeywordAbility.Defender);
+
+        var compiled = CardCompiler.Compile(wall);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var vapor = game.Create(alice, wall, Zone.Battlefield);
+        var charger = game.Create(
+            bob, TestCards.Creature("Vapor Charger Test", 3, 8), Zone.Battlefield);
+        var runner = game.Create(
+            bob, TestCards.Creature("Vapor Runner Test", 3, 8), Zone.Battlefield);
+        var pinger = game.Create(bob, Pinger("Vapor Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 4, TurnStep.PrecombatMain);
+
+        // A creature the Wall is not blocking, dealing it damage before any of this: the control
+        // for "creature" as a description against "creature it is blocking" as a relation.
+        TapLands(game, bob, 1);
+        game.ActivateAbility(bob, pinger, "a", [Target.ToPermanent(vapor)]);
+        ResolveStack(game);
+        Assert.Equal(1, game.State.GetObject(vapor).Permanent?.DamageMarked);
+
+        PassTo(game, 4, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            bob,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [charger] = AttackTarget.Player(alice),
+                [runner] = AttackTarget.Player(alice),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            alice, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [charger] = [vapor] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Still one, not four: the charger is a creature the Wall is blocking and the pinger is
+        // not.
+        Assert.Equal(1, game.State.GetObject(vapor).Permanent?.DamageMarked);
+
+        // And the other attacker got through, so this is a shield round one permanent rather
+        // than a fog.
+        Assert.Equal(17, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A shield whose victim is the creature the sentence in front of it chose (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// Djeru's Resolve. The pronoun is read only because a permanent target stands behind it in
+    /// the same ability; the second half of this test is the same words with nothing behind them,
+    /// which mean the permanent the ability is printed on and are left unread rather than guessed
+    /// at. Favored Hoplite and Ignoble Soldier both print that and both stay unread.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_shield_follows_the_creature_the_sentence_already_chose()
+    {
+        var resolve = Card(
+            "Pronoun Resolve Test",
+            "Untap target creature. Prevent all damage that would be dealt to it this turn.");
+
+        var compiled = CardCompiler.Compile(resolve);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var orphan = CardCompiler.Compile(
+            Card(
+                "Orphan Pronoun Test",
+                "Prevent all damage that would be dealt to it this turn."));
+
+        // Nothing behind the pronoun, so nothing to point at, so no shield at all.
+        Assert.False(orphan.IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var shielded = game.Create(
+            alice, TestCards.Creature("Resolve Shielded Test", 2, 4), Zone.Battlefield);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Resolve Bystander Test", 2, 4), Zone.Battlefield);
+        var pinger = game.Create(alice, Pinger("Resolve Pinger Test"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, resolve),
+            [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(shielded)]);
+        ResolveStack(game);
+        Assert.Equal(0, game.State.GetObject(shielded).Permanent?.DamageMarked);
+
+        // The creature the sentence did not name takes the same point of damage.
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(bystander)]);
+        ResolveStack(game);
+        Assert.Equal(1, game.State.GetObject(bystander).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// "~" in the victim slot of an activated ability is the permanent, not a description.
+    /// </summary>
+    /// <remarks>
+    /// Trained Pronghorn and Stonewise Fortifier. It reads
+    /// <see cref="ResolutionContext.PhysicalSourceId"/>, because what resolves is the ability and
+    /// the shield goes round the creature — the same field the both-ways reader has used since
+    /// Maze of Ith, now reachable from the ordinary "to …" clause.
+    /// </remarks>
+    [Fact]
+    public void A_shield_around_the_permanent_that_printed_it_covers_that_permanent_alone()
+    {
+        var guard = Card(
+            "Self Guard Test",
+            "{1}: Prevent all damage that would be dealt to ~ this turn.",
+            CardType.Creature,
+            power: 2,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(guard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var mine = game.Create(alice, guard, Zone.Battlefield);
+        var other = game.Create(
+            alice, TestCards.Creature("Self Guard Bystander Test", 2, 4), Zone.Battlefield);
+        var pinger = game.Create(alice, Pinger("Self Guard Pinger Test"), Zone.Battlefield);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, mine, "a");
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(mine)]);
+        ResolveStack(game);
+        Assert.Equal(0, game.State.GetObject(mine).Permanent?.DamageMarked);
+
+        // Everything else on the same board takes it, which is what "~" alone means.
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(other)]);
+        ResolveStack(game);
+        Assert.Equal(1, game.State.GetObject(other).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// Unblocked is a fact that does not exist until blockers have been declared (CR 509.1h).
+    /// </summary>
+    /// <remarks>
+    /// An attacker in the declare attackers step is neither blocked nor unblocked, and answering
+    /// "unblocked" for it would apply the shield for half a combat phase it was never meant to
+    /// reach. The evidence is a life total that goes down before the declaration and stops going
+    /// down after it, with the same source, the same shield and the same ability.
+    /// </remarks>
+    [Fact]
+    public void An_unblocked_shield_says_nothing_until_blockers_are_declared()
+    {
+        var snag = Card(
+            "Early Snag Test",
+            "Prevent all damage that would be dealt by unblocked creatures this turn.");
+
+        var compiled = CardCompiler.Compile(snag);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Early Snag Pinger Test"), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, snag), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [pinger] = AttackTarget.Player(bob) });
+
+        // Attacking, but nobody has declared blockers yet, so it is not an unblocked creature and
+        // the shield does not cover it. The damage arrives.
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>>());
+
+        // Declared with nothing blocking it: now it is unblocked, and the same ability is
+        // prevented.
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// One adjective is read; a disjunction of two is left unread (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// The shield has one slot for a combat state, and "attacking or blocking creatures" is two.
+    /// Collapsing it to either half is a different card, and collapsing it to neither is a fog, so
+    /// the line stays unread — the fail-closed direction this family is judged by.
+    /// <para>
+    /// The positive half asserts the compiled shield <em>carries</em> the role rather than merely
+    /// that the line was accepted. "Read the words and dropped one" and "read the words" produce
+    /// the same coverage number, and only one of them is a card.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_combat_state_the_shield_has_no_slot_for_leaves_the_line_unread()
+    {
+        var both = CardCompiler.Compile(
+            Card(
+                "Both Roles Test",
+                "Prevent all combat damage that would be dealt this turn by attacking or "
+                    + "blocking creatures."));
+
+        Assert.False(both.IsComplete);
+
+        var one = CardCompiler.Compile(
+            Card(
+                "One Role Test",
+                "Prevent all combat damage that would be dealt this turn by attacking "
+                    + "creatures."));
+
+        Assert.True(one.IsComplete, string.Join(" | ", one.Unhandled));
+
+        var shield = Assert.IsType<PreventDescribedDamage>(one.Spell?.Effects.Single());
+        Assert.Equal(CombatRole.Attacking, shield.SourceCombat);
+        Assert.NotNull(shield.SourceFilter);
+    }
+
     // ---- "That many" (CR 603.2) ----------------------------------------------
 
     [Fact]

@@ -4332,6 +4332,22 @@ public sealed record PreventDescribedDamage : IEffect
     public PlayerScope? SourceController { get; init; }
 
     /// <summary>
+    /// What the permanents it shields have to be doing in combat — "to attacking creatures".
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="PermanentFilter"/> rather than inside it, because a filter is a
+    /// <see cref="SearchFilters"/> id asked of a printed card and no card says whether it is
+    /// attacking. Both are carried through to the shield unchanged; the predicate that reads
+    /// them is one copy in <see cref="State.Preventions"/>, shared with the static spelling.
+    /// </remarks>
+    public State.CombatRole? PermanentCombat { get; init; }
+
+    /// <summary>
+    /// What the damage's source has to be doing in combat — "by unblocked creatures".
+    /// </summary>
+    public State.CombatRole? SourceCombat { get; init; }
+
+    /// <summary>
     /// Whether it ends as the turn does (CR 514.2), which is what "this turn" means.
     /// </summary>
     /// <remarks>
@@ -4444,11 +4460,13 @@ public sealed record PreventDescribedDamage : IEffect
             Permanent = permanent,
             PermanentFilter = PermanentFilter,
             PermanentController = PermanentController,
+            PermanentCombat = PermanentCombat,
             Player = player,
             Players = Players,
             Source = dealer,
             SourceFilter = SourceFilter,
             SourceController = SourceController,
+            SourceCombat = SourceCombat,
             UntilEndOfTurn = ForTheTurn ? context.State.TurnNumber : null,
             OnlyOnce = OnlyOnce,
         };
@@ -4495,6 +4513,16 @@ public sealed record PreventDescribedDamage : IEffect
 
             if (SourceFilter is { } filter && !SearchFilters.Matches(filter, candidate.Card))
                 continue;
+
+            // The menu and the shield ask the same questions, which is CR 615.9's whole point:
+            // the properties are rechecked when the damage would happen, so a source that was
+            // offered because it was attacking and has since left combat is not prevented. Two
+            // lists built from different questions would disagree about that.
+            if (SourceCombat is { } role
+                && !State.Preventions.InCombatState(role, context.State, id))
+            {
+                continue;
+            }
 
             if (SourceController is { } scope
                 && !PlayerScopes.Around(scope, context.State, context.ControllerId)
