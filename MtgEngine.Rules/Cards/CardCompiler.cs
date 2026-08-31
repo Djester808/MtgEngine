@@ -5598,10 +5598,16 @@ public static partial class CardCompiler
     /// </item>
     /// <item>
     /// "This ability costs {1} less to activate", which <see cref="CostModifier.SourceOnly"/>
-    /// exists for. Every printing of it in the corpus carries a counted or conditional tail —
-    /// "for each Shrine you control", "if you control a legendary creature" — and the bare
-    /// sentence the flag models is printed on no card at all, so it stays unread rather than
-    /// being read off a line that says something else.
+    /// exists for. It is not read <em>here</em>, and the reason is not the one recorded when it
+    /// was first measured. Every printing carries a counted or conditional tail — "for each
+    /// Shrine you control", "if you control a legendary creature" — and the bare sentence the
+    /// flag models is indeed printed on no card; but neither is the tailed sentence ever a line
+    /// of its own. All 56 cards print it <em>inside</em> the ability it discounts, which this
+    /// whole-line reader is never offered, so the modifier grid was never where it could be
+    /// read. <see cref="TryLiftSelfCostReduction"/> lifts it off the ability's own text instead,
+    /// and the counted amount is why it lands on
+    /// <see cref="ActivatedAbilityDefinition.CostReduction"/> rather than in a
+    /// <see cref="CostModifier"/>, whose <see cref="CostModifier.Amount"/> is a fixed number.
     /// </item>
     /// </list>
     /// </remarks>
@@ -11531,7 +11537,24 @@ public static partial class CardCompiler
     private static bool TryEquip(
         string line, ImmutableList<ActivatedAbilityDefinition>.Builder into)
     {
-        var m = EquipLine().Match(line);
+        // "Equip {3}. This ability costs {1} less to activate for each other Equipment you
+        // control." Equip is the one activated ability printed without a colon, so it never
+        // reaches the reader that lifts this sentence for every other one — and both patterns
+        // below are anchored whole, deliberately, so the tail leaves them matching nothing at
+        // all. Lifted here first, which keeps that anchoring honest rather than loosening it: a
+        // restriction this does not recognise still ends the line unread.
+        var text = line;
+        if (!TryLiftSelfCostReduction(ref text, out var discount))
+            return false;
+
+        // What is left is a sentence rather than the bare phrase the pattern below is anchored
+        // to: "Equip {3}. This ability costs …" leaves "Equip {3}." with the full stop that
+        // separated the two. Trimmed only when something was actually lifted, so a line that
+        // reached here unchanged still meets exactly the pattern it always did.
+        if (discount is not null)
+            text = text.TrimEnd().TrimEnd('.');
+
+        var m = EquipLine().Match(text);
         var narrowed = string.Empty;
         PaidCost paid;
 
@@ -11556,7 +11579,7 @@ public static partial class CardCompiler
             //
             // A cost paid with the Equipment itself is refused: SelfCost decides which zone an
             // ability functions from, and an equip ability functions from the battlefield.
-            var priced = EquipCostLine().Match(line);
+            var priced = EquipCostLine().Match(text);
             if (!priced.Success
                 || ReadCost(priced.Groups["cost"].Value.Trim()) is not { } read
                 || read.SelfCost is not SelfCost.None)
@@ -11587,6 +11610,7 @@ public static partial class CardCompiler
                 ? "equip"
                 : "equip-" + narrowed.Replace(' ', '-').ToLowerInvariant(),
             Text = line,
+            CostReduction = discount,
             RequiresTap = paid.RequiresTap,
             ManaCost = paid.Mana,
             LifeCost = paid.Life,
@@ -16420,6 +16444,84 @@ public static partial class CardCompiler
             string.Equals(f.DefinitionId, GenerativeEffects.BecomesAuraId(), StringComparison.Ordinal)
             && f.AffectedIds.Contains(source.Id));
 
+    /// <summary>
+    /// Lifts "This ability costs {1} less to activate …" off the end of an ability's own text
+    /// (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The sentence is not a line. Every one of the fifty-six corpus cards printing it writes it
+    /// <em>inside</em> the ability it discounts — "{5}{W}: Tap target creature. This ability costs {1}
+    /// less to activate for each Shrine you control." — so the whole-line reader that gathers
+    /// <see cref="CostModifier"/>s is never offered it, and <see cref="CostModifier.SourceOnly"/>,
+    /// built for exactly this wording, has never had a line to read. A previous round measured
+    /// that and recorded it as "printed on no card at all"; what is printed on no card is the
+    /// sentence <em>standing alone</em>, which is a different fact. This is where it actually lives.
+    /// <para>
+    /// A <see cref="CostModifier"/> still could not hold it: that record carries a fixed
+    /// <see cref="CostModifier.Amount"/> and every printing of this carries a counted or a
+    /// conditional tail, so what has to be stored is the question. It goes on the ability as
+    /// <see cref="ActivatedAbilityDefinition.CostReduction"/> and is folded back in beside the
+    /// board's modifiers when the ability is activated.
+    /// </para>
+    /// <para>
+    /// The count goes through <see cref="EffectPhrase.Counting"/> — the shared vocabulary, asked
+    /// rather than copied — with <c>hasSource: true</c>, because an activation has the permanent
+    /// in hand. That is the whole difference from the spell-side reader beside this one, which
+    /// reaches the same vocabulary through <c>DefinedCount</c> with no source and so cannot
+    /// answer "for each oil counter on this creature". Domain, party, devotion, every zone and
+    /// every counter arrive here already working, and none of them is spelled out twice.
+    /// </para>
+    /// <para>
+    /// Returns false when the sentence is there and cannot be read, so the caller files the whole
+    /// line unread. Reading the ability and dropping its discount would charge more than the card
+    /// prints, which is the safe direction but still a card that plays differently from its text.
+    /// </para>
+    /// </remarks>
+    private static bool TryLiftSelfCostReduction(
+        ref string text,
+        out Func<GameState, IAbilitySource, GameObject, Guid, int>? reduction)
+    {
+        reduction = null;
+
+        if (SelfCountedCostReductionLine().Match(text) is { Success: true } counted)
+        {
+            // No seats beyond the board: an activation is not a resolution, so there are no
+            // targets and no trigger subject for a possessive to name. Asking for more than the
+            // caller can answer is how a count comes back as a quiet nought (CR 109.5).
+            if (EffectPhrase.Counting(
+                    counted.Groups["what"].Value.Trim(), hasSource: true) is not { } count)
+            {
+                return false;
+            }
+
+            var each = int.Parse(counted.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+            reduction = (state, abilities, source, you) =>
+                Math.Max(0, each * count(state, abilities, you, source.Id, null));
+
+            text = SelfCountedCostReductionLine().Replace(text, string.Empty).Trim();
+            return true;
+        }
+
+        if (SelfConditionalCostReductionLine().Match(text) is { Success: true } conditional)
+        {
+            if (BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is not { } holds)
+                return false;
+
+            var less = int.Parse(conditional.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+            // The condition is asked of the permanent whose ability this is, which is what the
+            // board reader wants and what "you control" means here (CR 109.5). Unlike the spell
+            // form beside it, no stand-in has to be invented: the source is on the battlefield.
+            reduction = (state, abilities, source, _) => holds(state, abilities, source) ? less : 0;
+
+            text = SelfConditionalCostReductionLine().Replace(text, string.Empty).Trim();
+            return true;
+        }
+
+        return true;
+    }
+
     /// <summary>Any other activated ability: "[cost]: [effect]" (CR 602.1).</summary>
     private static bool TryActivatedAbility(
         string line,
@@ -16487,6 +16589,18 @@ public static partial class CardCompiler
             effectText = ActivationTimingLine().Replace(effectText, string.Empty).Trim();
         }
 
+        // "This ability costs {1} less to activate for each Shrine you control" — the ability's
+        // own discount, printed as a sentence at the end of the effect exactly like the two
+        // restrictions above, and lifted the same way (CR 601.2f, 602.2b). Lifted *after* them
+        // because all three are anchored to the end of the line and the corpus prints them in
+        // that order: "… This ability costs {1} less to activate for each pressure counter on ~.
+        // Activate only as a sorcery."
+        if (!TryLiftSelfCostReduction(ref effectText, out var discount))
+        {
+            unhandled.Add(line);
+            return true;
+        }
+
         // A cost is a comma-separated list of items (CR 601.2f), and only some of them are mana.
         // Each recognised item is lifted out; whatever is left has to be mana and tap symbols,
         // because an ability whose cost is not fully charged is a free ability — a worse outcome
@@ -16527,6 +16641,7 @@ public static partial class CardCompiler
             MaxActivationsPerTurn = limit,
             Timing = timing,
             ActivateOnlyIf = onlyIf,
+            CostReduction = discount,
             AnyPlayerMayActivate = anyone,
             // CR 602.5: an ability paid for by exiling the card from the graveyard is an ability
             // of the card in the graveyard, so that is where it has to function from. The two
@@ -18411,6 +18526,42 @@ public static partial class CardCompiler
     [GeneratedRegex(
         @"\s*Activate only (?<when>[^.]+?)\.?\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex ActivationTimingLine();
+
+    /// <summary>
+    /// "This ability costs {1} less to activate for each Shrine you control" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// A single generic symbol and nothing else, which is what refuses the two cards printing a
+    /// <em>coloured</em> reduction — "costs {1}{U} less to activate". CR 118.7c makes that a
+    /// different arithmetic from generic: it takes a blue pip off first and only the remainder
+    /// off the generic, and <see cref="Mana.ManaCostSpec.WithoutGeneric"/> cannot express it.
+    /// Read as {1} generic the card would be dearer than printed; read as two generic it would be
+    /// cheaper. Neither is the card, so it stays unread.
+    /// <para>
+    /// It also refuses "costs {X} less to activate, where X is …" — five cards whose amount is a
+    /// defined variable rather than a printed number, and whose sentence continues past the point
+    /// this one ends.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s*This ability costs \{(?<n>\d+)\} less to activate for each (?<what>[^.]+?)\.?\s*$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfCountedCostReductionLine();
+
+    /// <summary>
+    /// "This ability costs {2} less to activate if you control a legendary creature" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// "If it targets …" is excluded rather than left to fail, the same way the spell-side
+    /// conditional reader excludes it: that condition is about the ability's chosen targets and
+    /// this reduction is not handed any, so a reader that admitted the phrase could only answer
+    /// it about the board — which is a different question with a different answer.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s*This ability costs \{(?<n>\d+)\} less to activate if (?!it targets)"
+            + @"(?<cond>[^.]+?)\.?\s*$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfConditionalCostReductionLine();
 
     [GeneratedRegex(
         @"\s*Any player may activate this ability\.?\s*$", RegexOptions.IgnoreCase)]

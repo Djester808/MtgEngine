@@ -962,6 +962,45 @@ public sealed record ActivatedAbilityDefinition
     }
 
     /// <summary>
+    /// How much generic mana comes off this ability's own activation cost (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// "This ability costs {1} less to activate for each Shrine you control." The exact analogue
+    /// of <see cref="SpellDefinition.CostReduction"/>, and the half that did not exist: an
+    /// ability's own printed discount had nowhere to live, so all fifty-six corpus cards carrying
+    /// one were unread — not because the sentence was hard, but because it is printed
+    /// <em>inside</em> the ability's line rather than on a line of its own, and the whole-line reader that
+    /// gathers <see cref="CostModifier"/>s is never offered it.
+    /// <para>
+    /// Distinct from a <see cref="CostModifier"/> with <see cref="CostModifier.SourceOnly"/> for
+    /// the reason that flag has never been reachable: a modifier carries a fixed
+    /// <see cref="CostModifier.Amount"/>, and every printing of this sentence carries a counted
+    /// or conditional tail. The number is not known until the ability is activated, so what is
+    /// stored is the question rather than the answer. The two compose — this is folded in beside
+    /// the modifiers the board contributes and shares CR 601.2f's ordering and its floor at {0}.
+    /// </para>
+    /// <para>
+    /// Handed the source permanent as well as the board, because the sentence reads it: "for each
+    /// oil counter on this creature" and "for each quest counter on this enchantment" count what
+    /// is on the permanent whose ability this is. Handed the activating player too rather than
+    /// deriving them, because "you" on an activated ability is its controller (CR 109.5) and that
+    /// is who activated it — which is not the permanent's controller on an ability anyone may
+    /// activate.
+    /// </para>
+    /// <para>
+    /// Not given the chosen targets, unlike the spell's. Four corpus cards want them — "if it
+    /// targets a creature with power 3 or less", "for each color of the creature it targets" —
+    /// and a fourth parameter carried for four cards, on a delegate whose every other caller
+    /// would pass an empty list, is a worse trade than leaving those four unread.
+    /// </para>
+    /// </remarks>
+    public Func<State.GameState, IAbilitySource, State.GameObject, Guid, int>? CostReduction
+    {
+        get;
+        init;
+    }
+
+    /// <summary>
     /// Life paid as part of the cost (CR 118.8, 601.2h).
     /// </summary>
     /// <remarks>

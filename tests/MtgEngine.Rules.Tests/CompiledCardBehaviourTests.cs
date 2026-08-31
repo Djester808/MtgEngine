@@ -52603,6 +52603,315 @@ public sealed class CompiledCardBehaviourTests
             GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
     }
 
+    // ---- An ability's own cost reduction (CR 601.2f, 602.2b) ------------------
+
+    /// <summary>
+    /// "This ability costs {1} less to activate for each Island you control" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The sentence is not a line. Every one of the fifty-six corpus cards printing it writes it
+    /// <em>inside</em> the ability it discounts, so the whole-line reader that gathers
+    /// <c>CostModifier</c>s - which has read the rest of that grid for several rounds - is never
+    /// offered it, and all fifty-six were unread. <c>CostModifier.SourceOnly</c> was built for
+    /// exactly this wording and had never had a line to read.
+    /// <para>
+    /// Bob's Island is on the board to fail the reading that counts every Island there is. "You
+    /// control" is the whole of the difference, and a discount that took his in would make the
+    /// ability a mana cheaper than the card prints - which coverage scores as a win.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_counted_activation_discount_counts_only_what_its_controller_has()
+    {
+        var scroll = Card(
+            "Costs Less Scroll Test",
+            "{6}, {T}: Draw a card. This ability costs {1} less to activate for each Island you "
+                + "control.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(scroll);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var artifact = game.Create(alice, scroll, Zone.Battlefield);
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        // {6} less two Islands is {4}, so three mana is one short. The refusal is the half that
+        // matters: a discount read too widely still pays, and only the failure tells them apart.
+        TapForestsFor(game, alice, 3);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, artifact, "a"));
+
+        TapForestsFor(game, alice, 1);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, artifact, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// The discount is the ability's own, and reaches no other permanent (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The failure this file exists to catch: read as "abilities you activate cost {1} less to
+    /// activate" the sentence would discount everything its controller has, which is a strictly
+    /// better card than the printed one and compiles just as cleanly. Two permanents with the
+    /// same printed activation cost, one carrying the sentence and one not, is the smallest board
+    /// that can tell those two readings apart.
+    /// </remarks>
+    [Fact]
+    public void A_counted_activation_discount_reaches_no_other_permanents_ability()
+    {
+        var discounted = Card(
+            "Costs Less Ledger Test",
+            "{4}, {T}: Draw a card. This ability costs {1} less to activate for each Island you "
+                + "control.",
+            CardType.Artifact);
+
+        var plain = Card("Costs Less Neighbour Test", "{4}, {T}: Draw a card.", CardType.Artifact);
+
+        Assert.True(CardCompiler.Compile(discounted).IsComplete);
+        Assert.True(CardCompiler.Compile(plain).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var ledger = game.Create(alice, discounted, Zone.Battlefield);
+        var neighbour = game.Create(alice, plain, Zone.Battlefield);
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        // {4} less two Islands is {2}, and the ledger pays it exactly.
+        TapForestsFor(game, alice, 2);
+        game.ActivateAbility(alice, ledger, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        // The permanent beside it prints the same {4} and no discount, so two mana is two short.
+        TapForestsFor(game, alice, 2);
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, neighbour, "a"));
+
+        TapForestsFor(game, alice, 2);
+        game.ActivateAbility(alice, neighbour, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "This ability costs {1} less to activate for each page counter on this artifact."
+    /// </summary>
+    /// <remarks>
+    /// The count that says which vocabulary this reader reaches. <c>EffectPhrase.Counting</c> is
+    /// asked with a source, because an activation has the permanent in hand - and that is the
+    /// whole difference from the spell-side reader beside it, which goes through
+    /// <c>DefinedCount</c> with none and so cannot answer a phrase that points at a permanent at
+    /// all. Four corpus cards count counters on themselves this way; a private copy of the
+    /// counting vocabulary would have had to learn it again.
+    /// </remarks>
+    [Fact]
+    public void A_counted_activation_discount_reads_the_sources_own_counters()
+    {
+        var diary = Card(
+            "Costs Less Diary Test",
+            "~ enters with three page counters on it.\n"
+                + "{5}, {T}: Draw a card. This ability costs {1} less to activate for each page "
+                + "counter on ~.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(diary);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // The counters are a replacement rather than a trigger (CR 614.1c), so they are on
+        // the permanent the moment it arrives and nothing has to resolve first.
+        var book = game.Create(alice, diary, Zone.Battlefield);
+        Assert.Equal(3, game.State.GetObject(book).Permanent!.Counters["page"]);
+
+        // {5} less three counters is {2}. One mana is one short of that.
+        TapForestsFor(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, book, "a"));
+
+        TapForestsFor(game, alice, 1);
+        game.ActivateAbility(alice, book, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "This ability costs {2} less to activate if you control a legendary creature."
+    /// </summary>
+    /// <remarks>
+    /// Fourteen corpus cards put a board question where the counted ones put a count, and the
+    /// condition goes through the same <c>BoardConditions</c> vocabulary an "activate only if"
+    /// restriction does. Both arms are played on one board: a condition that never held would
+    /// pass the first half and a condition always true would pass the second.
+    /// </remarks>
+    [Fact]
+    public void A_conditional_activation_discount_applies_only_while_the_condition_holds()
+    {
+        var herald = Card(
+            "Costs Less Herald Test",
+            "{4}, {T}: Draw a card. This ability costs {2} less to activate if you control a "
+                + "legendary creature.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var legend = new CardDefinition
+        {
+            OracleId = "oracle-costs-less-legend-test",
+            Name = "Costs Less Legend Test",
+            CardTypes = CardType.Creature,
+            Supertypes = ["Legendary"],
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(alice, herald, Zone.Battlefield);
+        var second = game.Create(alice, herald, Zone.Battlefield);
+
+        // No legendary creature yet, so the printed {4} stands and three mana is one short.
+        TapForestsFor(game, alice, 3);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, first, "a"));
+
+        TapForestsFor(game, alice, 1);
+        game.ActivateAbility(alice, first, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        // With one on the battlefield the same ability costs {2}, and one mana is one short.
+        game.Create(alice, legend, Zone.Battlefield);
+
+        TapForestsFor(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, second, "a"));
+
+        TapForestsFor(game, alice, 1);
+        game.ActivateAbility(alice, second, "a");
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Equip {3}. This ability costs {1} less to activate for each other Equipment you control."
+    /// </summary>
+    /// <remarks>
+    /// Equip is the one activated ability printed without a colon, so it never reaches the reader
+    /// that lifts this sentence for every other one - and both equip patterns are anchored whole,
+    /// deliberately, so the trailing sentence left them matching nothing at all.
+    /// <para>
+    /// "Other" is the half this asserts. A count that took the Equipment itself in would discount
+    /// the equip by a mana on an empty board, which is the printed card minus one - and the board
+    /// with a second Equipment on it would still pay, so only the first half fails.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_equip_ability_carries_its_own_discount_and_does_not_count_itself()
+    {
+        var plate = Card(
+            "Costs Less Plate Test",
+            "Equip {3}. This ability costs {1} less to activate for each other Equipment you "
+                + "control.",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(plate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var spare = Card(
+            "Costs Less Spare Plate Test", "Equip {1}", CardType.Artifact, subtypes: "Equipment");
+
+        var (game, alice, _) = InMainPhase();
+        var armour = game.Create(alice, plate, Zone.Battlefield);
+        var bearer = game.Create(
+            alice, TestCards.Creature("Costs Less Bearer Test", 2, 2), Zone.Battlefield);
+
+        // Nothing else on the board, so the Equipment must not count itself: {3} stands and two
+        // mana is one short.
+        TapForestsFor(game, alice, 2);
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, armour, "equip", [Target.ToPermanent(bearer)]));
+
+        // One other Equipment takes it to {2}, which the two mana already in the pool pay.
+        game.Create(alice, spare, Zone.Battlefield);
+        game.ActivateAbility(alice, armour, "equip", [Target.ToPermanent(bearer)]);
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+        Settle(game);
+
+        Assert.Equal(bearer, game.State.GetObject(armour).Permanent!.AttachedTo);
+    }
+
+    /// <summary>
+    /// A reduction takes generic mana and stops at {0} (CR 601.2f, 118.7a).
+    /// </summary>
+    /// <remarks>
+    /// The two ways a discount can be wrong in the direction that makes a card cheaper than it
+    /// prints, on one board. Five Islands against a {2}{W} ability is a reduction larger than the
+    /// generic there is to take: the {2} goes, the {W} may not (CR 118.7a), and the remainder is
+    /// not carried anywhere - a cost cannot be reduced below {0}.
+    /// <para>
+    /// Asserted from an empty pool first, because that is the assertion a cost wrongly floored at
+    /// {0} fails and nothing else does; then with green mana, which cannot pay a white pip; then
+    /// with white, which pays it exactly and leaves the green untouched.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_activation_discount_cannot_take_a_coloured_pip_or_pass_below_zero()
+    {
+        var pip = Card(
+            "Costs Less Pip Test",
+            "{2}{W}, {T}: Draw a card. This ability costs {1} less to activate for each Island "
+                + "you control.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(pip);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(alice, pip, Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 5))
+            game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        // Five off {2}{W} is not {0}: the pip survives, so an empty pool cannot pay it.
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, relic, "a"));
+
+        // Nor can green.
+        TapForestsFor(game, alice, 1);
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, relic, "a"));
+
+        var plains = game.Create(alice, TestCards.BasicLand("Plains"), Zone.Battlefield);
+        game.ActivateAbility(alice, plains, "mana");
+        game.ActivateAbility(alice, relic, "a");
+
+        // Exactly the white was spent. The green is still there, which is what says the total
+        // was {W} and not {W} plus whatever the reduction failed to take off.
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool.Total);
+        Settle(game);
+    }
+
+    /// <summary>Creates that many Forests and taps each of them for {G}.</summary>
+    /// <remarks>
+    /// The cost tests above are about what a price comes to, so the mana behind them has to be
+    /// exact and countable. Making the land here rather than up front keeps each test's board to
+    /// the permanents it is actually about.
+    /// </remarks>
+    private static void TapForestsFor(Game game, Guid who, int howMany)
+    {
+        foreach (var _ in Enumerable.Range(0, howMany))
+        {
+            var forest = game.Create(who, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(who, forest, "mana");
+        }
+    }
+
     // ---- Cases (CR 719) ------------------------------------------------------
 
     /// <summary>
