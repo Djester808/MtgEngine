@@ -307,6 +307,175 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
         "has", "have", "loses", "lose",
     ];
 
+    /// <summary>
+    /// An effect that changes a card in a hand, a library or a graveyard, measured three ways.
+    /// </summary>
+    /// <remarks>
+    /// The perpetual row was ranked at 193 by excision and 4 by substitution, and the reading
+    /// offered for the gap was that its 241 remaining lines want a grammar for <em>cards in
+    /// non-battlefield zones</em>. That reading is a claim about a shape rather than a word, so
+    /// it is measured as a shape: every unread line whose subject is "&lt;filter&gt; card(s) in
+    /// &lt;somebody's&gt; hand/library/graveyard" and whose verb is a continuous one — gets,
+    /// gains, has, have, becomes, costs.
+    /// <para>
+    /// <b>Excision</b> cuts those lines, as every family measurement here does. <b>Substitution</b>
+    /// is the one that answers the question: it moves the same sentence's subject onto the
+    /// battlefield ("creature cards in your graveyard get +1/+1" → "creatures you control get
+    /// +1/+1") and leaves every other word standing, so what it counts is the cards for which the
+    /// zone was the <em>only</em> thing missing. The <b>line control</b> drops a different unread
+    /// line on a carrier that has one, which is the control a naive "drop any line anywhere" is
+    /// not: it asks whether these particular cards are one line short of anything at all.
+    /// </para>
+    /// <para>
+    /// Reported rather than asserted, like everything else in this file.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void What_an_effect_on_a_card_outside_the_battlefield_would_be_worth()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        var compiled = corpus
+            .Select(card => (Card: card, Result: CardCompiler.Compile(card)))
+            .ToList();
+
+        var carriers = compiled
+            .Where(c => !c.Result.IsComplete && c.Result.Unhandled.Any(IsZoneScoped))
+            .ToList();
+
+        var lines = carriers.Sum(c => c.Result.Unhandled.Count(IsZoneScoped));
+        var printed = compiled.Count(c => CardCompiler.Lines(c.Card).Any(IsZoneScoped));
+        var alreadyComplete = compiled.Count(
+            c => c.Result.IsComplete && CardCompiler.Lines(c.Card).Any(IsZoneScoped));
+
+        var excised = 0;
+        var substituted = new List<string>();
+        var controlPool = 0;
+        var controlWon = 0;
+
+        foreach (var (card, result) in carriers)
+        {
+            var mine = result.Unhandled.Where(IsZoneScoped).ToList();
+            var whole = CardCompiler.Lines(card).ToList();
+
+            var cut = string.Join("\n", whole.Where(l => !mine.Contains(l, StringComparer.Ordinal)));
+            if (CardCompiler.Compile(Rewritten(card, cut)).IsComplete)
+                excised++;
+
+            var swapped = string.Join(
+                "\n",
+                whole.Select(l => mine.Contains(l, StringComparer.Ordinal) ? OntoTheBattlefield(l) : l));
+            if (CardCompiler.Compile(Rewritten(card, swapped)).IsComplete)
+                substituted.Add(card.Name);
+
+            // The line control has to drop a *different* unread line on a card in this same
+            // family. Dropping any line from any card completes 1,340 corpus-wide and measures
+            // nothing about this shape.
+            var others = result.Unhandled
+                .Where(l => !mine.Contains(l, StringComparer.Ordinal))
+                .ToList();
+
+            if (others.Count == 0)
+                continue;
+
+            controlPool++;
+            foreach (var other in others)
+            {
+                var dropped = string.Join(
+                    "\n", whole.Where(l => !string.Equals(l, other, StringComparison.Ordinal)));
+
+                if (CardCompiler.Compile(Rewritten(card, dropped)).IsComplete)
+                {
+                    controlWon++;
+                    break;
+                }
+            }
+        }
+
+        output.WriteLine($"corpus {corpus.Count}, complete {compiled.Count(c => c.Result.IsComplete)}");
+        output.WriteLine(
+            $"the shape is printed on {printed} cards, of which {alreadyComplete} already compile "
+                + $"whole; {carriers.Count} carriers, {lines} unread lines");
+        output.WriteLine($"EXCISED      {excised}");
+        output.WriteLine($"SUBSTITUTED  {substituted.Count}  [{string.Join(", ", substituted)}]");
+        output.WriteLine($"LINE CONTROL {controlWon} of {controlPool} carriers with another unread line");
+    }
+
+    /// <summary>The subject of the sentence is a card in a hand, a library or a graveyard.</summary>
+    [GeneratedRegex(
+        @"(?<lead>[A-Za-z' ]{0,24}?)(?<subject>\b(?:[A-Za-z'\-]+ ){0,6}cards?)"
+        + @"(?: (?:in|from) (?:your|their|a|each|all|an opponent's|any|its owner's"
+        + @"|that player's|each player's)(?: [A-Za-z']+){0,2}? "
+        + @"(?<zone>hand|graveyard|library)s?)"
+        + @"(?<rest> (?:perpetually )?[A-Za-z']+)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ZoneScopedSubject();
+
+    /// <summary>...and the verb after it changes that card rather than counting it.</summary>
+    /// <remarks>
+    /// Without this the match is 780 lines and most of them are "the number of cards in your
+    /// graveyard" — a count, which the compiler reads perfectly well and which has nothing to do
+    /// with an effect reaching into a zone.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^ (?:perpetually )?(?:gets?|gains?|have|has|lose|loses|becomes?|are|is|costs?|can't|may)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ContinuousVerb();
+
+    /// <summary>A question about the zone rather than an effect on it — "if a card ... has".</summary>
+    [GeneratedRegex(
+        @"(number|amount) of $|\bif $|\bif an? $|\bif the $|\bwhenever $|\bwhenever an? $",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AskingRatherThanGranting();
+
+    private static bool IsZoneScoped(string line) => ZoneScopedSubject().Matches(line).Any(Grants);
+
+    private static bool Grants(Match m) =>
+        ContinuousVerb().IsMatch(m.Groups["rest"].Value)
+        && !AskingRatherThanGranting().IsMatch(m.Groups["lead"].Value);
+
+    /// <summary>The same sentence with its subject standing on the battlefield instead.</summary>
+    /// <remarks>
+    /// Mechanical on purpose: strip the word "card", pluralise if the subject was plural, and add
+    /// "you control". A cleverer rewrite would be measuring the rewrite. Where it produces a
+    /// phrase no card prints — "target instant or sorcery you control" — the substitution fails
+    /// for a reason that is not the zone, and those lines are named in the report so the number
+    /// can be read with that in mind.
+    /// </remarks>
+    private static string OntoTheBattlefield(string line) =>
+        ZoneScopedSubject().Replace(line, m =>
+        {
+            if (!Grants(m))
+                return m.Value;
+
+            var subject = m.Groups["subject"].Value;
+            var plural = subject.EndsWith("cards", StringComparison.OrdinalIgnoreCase);
+            var head = subject[..^(plural ? 6 : 5)].TrimEnd();
+
+            if (head.Length == 0)
+                head = "permanent";
+
+            if (head.EndsWith("nonland", StringComparison.OrdinalIgnoreCase))
+                head += " permanent";
+
+            if (plural)
+            {
+                var words = head.Split(' ');
+                var last = words[^1];
+                words[^1] = last.EndsWith('s') ? last
+                    : last.EndsWith('y') ? last[..^1] + "ies"
+                    : last + "s";
+                head = string.Join(' ', words);
+            }
+
+            return m.Groups["lead"].Value + head + " you control" + m.Groups["rest"].Value;
+        });
+
     /// <summary>The same card with different words on it, for a control run.</summary>
     private static Domain.Models.CardDefinition Rewritten(
         Domain.Models.CardDefinition card, string text) => new()

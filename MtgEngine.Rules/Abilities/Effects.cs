@@ -3805,10 +3805,18 @@ internal static class Subjects
 
         return subject switch
         {
-            EffectSubject.Target =>
-                context.TargetAt(targetIndex) is { Kind: TargetKind.Permanent } target
-                    ? target.Subject
-                    : null,
+            EffectSubject.Target => context.TargetAt(targetIndex) switch
+            {
+                { Kind: TargetKind.Permanent } permanent => permanent.Subject,
+
+                // The pronoun after a card that was never on the battlefield. CR 400.7 makes the
+                // card the player chose and the permanent that arrives two different objects, so
+                // the id on the target names nothing by the time the next sentence runs - which
+                // is why "return target creature card from your graveyard to the battlefield. It
+                // gains haste" put the haste nowhere at all, on every card that prints it.
+                { Kind: TargetKind.CardInGraveyard } card => Landed(context, card.Subject),
+                _ => null,
+            },
 
             EffectSubject.AttachedHost => Attachment.HostOf(context),
 
@@ -3829,6 +3837,63 @@ internal static class Subjects
 
             _ => context.PhysicalSourceId,
         };
+    }
+
+    /// <summary>
+    /// Where a card this same resolution moved has landed, or null (CR 400.7j).
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a move this resolution made.</b> CR 400.7j is a narrow exception to CR 400.7 —
+    /// "if an effect causes an object to move to a public zone, other parts of that effect can
+    /// find that object" — and everything outside it stays under the general rule. So a target
+    /// the resolution did not move answers null rather than answering itself: Feldon of the Third
+    /// Path targets a creature card in a graveyard, <em>copies</em> it, and says "it gains haste"
+    /// about the token, and a resolver that fell back to the targeted card would put the haste on
+    /// the corpse. Nothing in the record can tell a created object from a moved one, so the
+    /// honest answer is the one <see cref="EffectSubject.TriggeringObject"/> already gives —
+    /// nothing, rather than a guess.
+    /// <para>
+    /// <b>And only to a public zone</b>, which is the rule's own word and not a caution added on
+    /// top. A card returned to a hand or shuffled into a library is gone as far as the rest of
+    /// the sentence is concerned, and an engine that followed it there would be holding an id for
+    /// a hidden card — the one thing a continuous effect on a non-battlefield object must never
+    /// become a route to.
+    /// </para>
+    /// <para>
+    /// The chain is walked rather than looked up once, because one resolution can move the same
+    /// card twice ("exile it, then return it") and each hop is a fresh object under a fresh id.
+    /// The loop is bounded by the number of moves recorded, so a cycle cannot spin.
+    /// </para>
+    /// </remarks>
+    private static ObjectId? Landed(ResolutionContext context, ObjectId targeted)
+    {
+        var touches = context.Record.Touches;
+        var current = targeted;
+        var found = false;
+
+        for (var hop = 0; hop < touches.Count; hop++)
+        {
+            var moved = false;
+
+            foreach (var touch in touches)
+            {
+                if (touch.OldId != current)
+                    continue;
+
+                if (touch.To.IsHidden())
+                    return null;
+
+                current = touch.Id;
+                moved = true;
+                found = true;
+                break;
+            }
+
+            if (!moved)
+                break;
+        }
+
+        return found ? current : null;
     }
 }
 
