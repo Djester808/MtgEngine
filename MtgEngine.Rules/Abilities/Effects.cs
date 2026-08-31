@@ -7458,6 +7458,33 @@ public sealed record MoveTargetedCard(
 /// Records that the search is owed rather than performing it, like a scry: which card is found is
 /// the player's choice, and a choice halts the game.
 /// </remarks>
+/// <summary>
+/// What a card put onto the battlefield by a search arrives attached to (CR 701.3c).
+/// </summary>
+/// <remarks>
+/// Three relations and no more, because these are the three the corpus prints and each of them
+/// names its host without asking anybody anything: the source ("put it onto the battlefield
+/// attached to this creature" — Boonweaver Giant, Runed Crown), a targeted permanent (Arachnus
+/// Spinner), and a targeted player, which is what a Curse enchants (Bitterheart Witch, CR
+/// 303.4b).
+/// <para>
+/// "Attach it to a creature you control" is deliberately absent. That is a choice made as the
+/// search resolves and there is nobody to put it to yet, so those two cards stay in the work
+/// queue rather than attaching to whichever permanent happened to be first.
+/// </para>
+/// </remarks>
+public enum SearchAttachment
+{
+    /// <summary>The permanent whose ability searched — "attached to this creature".</summary>
+    Source,
+
+    /// <summary>The permanent this spell or ability targets.</summary>
+    TargetPermanent,
+
+    /// <summary>The player this spell or ability targets, which is what a Curse enchants.</summary>
+    TargetPlayer,
+}
+
 /// <summary>Who does the searching, when it is not the controller.</summary>
 public enum SearchWho
 {
@@ -7577,6 +7604,24 @@ public sealed record SearchLibrary(
     /// </remarks>
     int TargetIndex = 0) : IEffect
 {
+    /// <summary>
+    /// What the card found arrives attached to, for a search that puts an Aura or an Equipment
+    /// onto the battlefield already on something (CR 701.3c).
+    /// </summary>
+    /// <remarks>
+    /// An init property rather than another positional parameter, so every search already
+    /// written stays the search it was.
+    /// <para>
+    /// When it names a target it reuses <see cref="TargetIndex"/> rather than carrying a second
+    /// one, because the two readings cannot both apply: <see cref="Whose"/> reads that index to
+    /// find out whose zones are being searched, and no card in the corpus searches somebody
+    /// else's zones <em>and</em> attaches what it finds. One index is also all
+    /// <see cref="EffectTargets"/> can shift when an effect is spliced into a bigger list, so a
+    /// second one would be a target nothing could renumber.
+    /// </para>
+    /// </remarks>
+    public SearchAttachment? Attaches { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -7655,6 +7700,40 @@ public sealed record SearchLibrary(
             zonesOf = found;
         }
 
+        // What the find arrives attached to, settled here where the source and the targets are
+        // known so the event carries an object rather than a relation to re-derive on replay -
+        // the same reason the mana-value bounds are settled a few lines above.
+        ObjectId? attachTo = null;
+        Guid? attachToPlayer = null;
+
+        switch (Attaches)
+        {
+            case null:
+                break;
+
+            case SearchAttachment.Source:
+                attachTo = context.PhysicalSourceId;
+                break;
+
+            case SearchAttachment.TargetPermanent:
+                // CR 608.2b: no host, no instruction. Putting the Aura onto the battlefield
+                // attached to nothing would be an enchantment that falls off to a state-based
+                // action the moment it arrives, which is a search that did nothing and said it
+                // did something.
+                if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Permanent } host)
+                    return [];
+
+                attachTo = host.Subject;
+                break;
+
+            default:
+                if (context.TargetAt(TargetIndex) is not { Kind: TargetKind.Player } enchanted)
+                    return [];
+
+                attachToPlayer = enchanted.Player;
+                break;
+        }
+
         return
         [
             new LibrarySearchRequested(
@@ -7663,6 +7742,8 @@ public sealed record SearchLibrary(
             {
                 Zones = Zones,
                 ZonesOf = zonesOf == searcher ? null : zonesOf,
+                AttachTo = attachTo,
+                AttachToPlayer = attachToPlayer,
             },
         ];
     }

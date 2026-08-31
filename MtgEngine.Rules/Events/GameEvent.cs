@@ -583,6 +583,20 @@ public sealed record LibrarySearchRequested(
     /// </remarks>
     public Guid? ZonesOf { get; init; }
 
+    /// <summary>
+    /// The permanent a card found by this search arrives attached to (CR 701.3c).
+    /// </summary>
+    /// <remarks>
+    /// Settled into an object here rather than left as the relation the card printed, so a
+    /// replayed search attaches to the same permanent it attached to the first time. Init
+    /// properties for the same reason <see cref="Zones"/> is one: every log already written
+    /// reads back as the search it was.
+    /// </remarks>
+    public ObjectId? AttachTo { get; init; }
+
+    /// <summary>The player a card found by this search arrives attached to (CR 303.4b).</summary>
+    public Guid? AttachToPlayer { get; init; }
+
     /// <summary>Whose cards are being looked through.</summary>
     public Guid Searched => ZonesOf ?? PlayerId;
 

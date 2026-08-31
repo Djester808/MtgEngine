@@ -9033,6 +9033,190 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(alone).IsComplete);
     }
 
+    [Fact]
+    public void A_search_that_attaches_its_find_to_the_source_puts_the_aura_on_it()
+    {
+        // Boonweaver Giant and Runed Crown: "put it onto the battlefield attached to this
+        // creature". The destination is the whole phrase, not the first half of it — an Aura put
+        // onto the battlefield enchanting nothing is put into its owner's graveyard by a
+        // state-based action (CR 704.5m), so reading only "onto the battlefield" is a tutor whose
+        // find is in the graveyard a moment later.
+        var giant = Card(
+            "Rider Attach Source Test",
+            "When ~ enters, search your library for an Aura card and put it onto the battlefield "
+                + "attached to ~. If you searched your library this way, shuffle.",
+            CardType.Creature,
+            3,
+            3);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card(
+                "Rider Sought Aura",
+                "Enchant creature\nEnchanted creature gets +1/+1.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Attach Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, giant);
+
+        var host = game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Sought Aura");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        var giantOnBoard = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Attach Source Test");
+
+        var aura = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Sought Aura");
+
+        Assert.Equal(giantOnBoard.Id, aura.Permanent!.AttachedTo);
+        Assert.NotEqual(host, aura.Id);
+
+        // The control: the differently-named card the filter refused stayed in the library.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_search_that_attaches_its_find_to_a_target_puts_the_aura_on_that_target()
+    {
+        // Arachnus Spinner's shape, and the one that was compiling wrong rather than unread: the
+        // name capture ran on through "and put it onto the battlefield attached to target
+        // creature" because nothing after the name could match, and the arm beside it then read
+        // the leftovers as a plain tutor for any card into hand — a strictly better card than the
+        // printed one. Reading the attachment is what stops the name at the name.
+        var spinner = Card(
+            "Rider Attach Target Test",
+            "Search your graveyard and/or library for a card named Rider Web "
+                + "and put it onto the battlefield attached to target creature. "
+                + "If you searched your library this way, shuffle.");
+
+        var compiled = CardCompiler.Compile(spinner);
+        Assert.True(compiled.IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Rider Attach Host", 2, 2), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card(
+                "Rider Web",
+                "Enchant creature\nEnchanted creature gets -1/-0.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var decoy = game.Create(
+            alice,
+            Card(
+                "Rider Other Web",
+                "Enchant creature\nEnchanted creature gets -1/-0.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var card = TestCards.PutInHand(game, alice, spinner);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        // The name filter offers the one card it names and nothing else — the failure this test
+        // is really about is the search that offered the whole library.
+        var choice = game.State.Choice!;
+        Assert.Single(choice.Options!);
+        Assert.Equal("Rider Web", choice.Options![0].Label);
+        game.Choose(alice, [choice.Options[0].Id]);
+        Settle(game);
+
+        var aura = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Web");
+
+        Assert.Equal(bear, aura.Permanent!.AttachedTo);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Rider Web");
+
+        // The control: the differently-named Aura in the same library was left where it was.
+        Assert.Contains(decoy, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_curse_search_attaches_what_it_finds_to_the_player_it_targeted()
+    {
+        // Bitterheart Witch. A Curse enchants a player (CR 303.4b), so the host is a seat rather
+        // than a permanent and the event has to carry it as one.
+        var witch = Card(
+            "Rider Curse Test",
+            "Search your library for a Curse card, put it onto the battlefield "
+                + "attached to target player, then shuffle.");
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(
+            alice,
+            Card(
+                "Rider Sought Curse",
+                "Enchant player",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura",
+                "Curse"),
+            Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Curse Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, witch);
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Sought Curse");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        var curse = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Sought Curse");
+
+        Assert.Equal(bob, curse.Permanent!.AttachedToPlayer);
+        Assert.Null(curse.Permanent.AttachedTo);
+
+        // The control: the differently-named card in the same library was left alone.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_search_that_attaches_to_a_creature_you_control_is_left_unread()
+    {
+        // Quest for the Holy Relic and Stonehewer Giant. "Attach it to a creature you control" is
+        // a choice made while the search resolves, and there is nobody to put it to: the search
+        // asks its question, the answer comes back, and the attachment would have to ask a second
+        // one. Attaching to whichever permanent happened to be first is not the card, so the two
+        // stay in the work queue — the same refusal the third-person rider gets above.
+        var quest = Card(
+            "Rider Attach Choice Test",
+            "Search your library for an Equipment card, put it onto the battlefield, "
+                + "attach it to a creature you control, then shuffle.");
+
+        Assert.False(CardCompiler.Compile(quest).IsComplete);
+    }
+
     // ---- Basic lands ----------------------------------------------------------
 
     [Fact]

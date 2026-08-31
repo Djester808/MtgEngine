@@ -322,15 +322,14 @@ public static class EffectTargets
         Add<CounterTargetSpell>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
         Add<MoveTargetedCard>(e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
-        // A search reads a target only when it is somebody else's zones being searched: the
-        // extraction family names the player through the thing it countered or exiled. An
-        // ordinary tutor carries the index and never looks at it, so it is reported as null -
-        // the same shape as the three pronoun effects above, and for the same reason.
+        // A search reads a target for either of two reasons and never for both at once: the
+        // extraction family names the player whose zones are searched through the thing it
+        // countered or exiled, and the Aura family names the permanent or player what it finds
+        // arrives attached to. An ordinary tutor does neither, carries the index and never looks
+        // at it, so it is reported as null - the same shape as the three pronoun effects above.
         Add<SearchLibrary>(
-            e => e.Whose == SearchWhoseZones.Searcher ? null : e.TargetIndex,
-            (e, n) => e.Whose == SearchWhoseZones.Searcher
-                ? e
-                : e with { TargetIndex = e.TargetIndex + n });
+            e => SearchReadsATarget(e) ? e.TargetIndex : null,
+            (e, n) => SearchReadsATarget(e) ? e with { TargetIndex = e.TargetIndex + n } : e);
         Add<GainControlUntilEndOfTurn>(
             e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
 
@@ -577,4 +576,15 @@ public static class EffectTargets
 
         return table.ToImmutable();
     }
+
+    /// <summary>Whether a search's target index names anything (CR 601.2c).</summary>
+    /// <remarks>
+    /// One index answering two questions, which is safe only because no card asks both: a search
+    /// of somebody else's zones reads the target to find out whose they are, and a search that
+    /// attaches what it finds reads it to find the host. A card doing both would need two, and
+    /// this table can shift one.
+    /// </remarks>
+    private static bool SearchReadsATarget(SearchLibrary search) =>
+        search.Whose != SearchWhoseZones.Searcher
+        || search.Attaches is SearchAttachment.TargetPermanent or SearchAttachment.TargetPlayer;
 }

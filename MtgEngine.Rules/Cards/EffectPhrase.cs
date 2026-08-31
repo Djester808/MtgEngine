@@ -6023,9 +6023,11 @@ public static partial class EffectPhrase
             // filter carries one. Read as a single name it compiles to a search that matches
             // nothing at all - a card that reads, passes the deck gate and then quietly finds
             // nothing, which this compiler treats as worse than a line it refuses outright.
-            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase)
-            && !RunsOnPastTheName(m.Groups["named"].Value))
+            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase))
         {
+            if (!TryAttachment(m, targets, out var attaches, out var attachIndex))
+                return false;
+
             // A name is a filter of its own and cannot be combined with a kind here: "a Goblin
             // card named X" would need both, and the one card printing that shape is not worth
             // a filter grammar that can be got wrong.
@@ -6045,7 +6047,11 @@ public static partial class EffectPhrase
                 // "Up to three cards named ~" and "any number of cards named ~" are one search
                 // that finds several, and this arm was reading every one of them as a search for
                 // one card - the same half-a-tutor the plural filter arm below was fixed for.
-                Count: m.Groups["any"].Success ? AnyNumber : SearchCount(m.Groups["n"].Value)));
+                Count: m.Groups["any"].Success ? AnyNumber : SearchCount(m.Groups["n"].Value),
+                TargetIndex: attachIndex)
+            {
+                Attaches = attaches,
+            });
 
             return true;
         }
@@ -6063,6 +6069,9 @@ public static partial class EffectPhrase
                 ? SearchWho.SubjectController
                 : SearchWho.You;
 
+            if (!TryAttachment(m, targets, out var attaches, out var attachIndex))
+                return false;
+
             effects.Add(new SearchLibrary(
                 filter,
                 m.Groups["ontop"].Success ? Zone.Library : SearchDestination(m.Groups["where"].Value),
@@ -6079,7 +6088,12 @@ public static partial class EffectPhrase
                 MaxManaValue: m.Groups["dir"].Success
                     && !m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
                         ? ManaValueBound(m)
-                        : null));
+                        : null,
+                TargetIndex: attachIndex)
+            {
+                Attaches = attaches,
+            });
+
             return true;
         }
 
@@ -6126,8 +6140,7 @@ public static partial class EffectPhrase
         m = SeekLine().Match(sentence);
         if (m.Success
             && m.Groups["named"].Success
-            && !m.Groups["what"].Success
-            && !RunsOnPastTheName(m.Groups["named"].Value))
+            && !m.Groups["what"].Success)
         {
             effects.Add(new Seek(
                 NamedFilter(m.Groups["named"].Value),
@@ -9562,26 +9575,6 @@ public static partial class EffectPhrase
     /// worth more than one that happens to be right about the current printing.
     /// </para>
     /// </remarks>
-    /// <summary>Whether a captured name has run on into the sentence around it.</summary>
-    /// <remarks>
-    /// A card name is a name, not a clause. Arachnus Spinner searches "for a card named Arachnus
-    /// Web <em>and put it onto the battlefield attached to target creature</em>", and the capture
-    /// took the rider with the name - so the card compiled complete and searched every library
-    /// for a card called all of that, which is nothing. That is the failure this compiler treats
-    /// as worse than an unread line, and it is the same shape as the two-name search refused
-    /// beside it.
-    /// <para>
-    /// This is a guard, not a reader: what these lines actually want is the rider lifted off
-    /// before the name is captured, the way <c>SearchToTopLine</c> already amends a search. Until
-    /// then the line stays in the work queue, which is the honest place for it.
-    /// </para>
-    /// </remarks>
-    private static bool RunsOnPastTheName(string named) =>
-        named.Contains(" and put ", StringComparison.OrdinalIgnoreCase)
-        || named.Contains(" attached to ", StringComparison.OrdinalIgnoreCase)
-        || named.Contains(" target ", StringComparison.OrdinalIgnoreCase)
-        || named.Contains(" onto the ", StringComparison.OrdinalIgnoreCase);
-
     private static string NamedFilter(string printed)
     {
         var named = printed.Trim();
@@ -10553,6 +10546,53 @@ public static partial class EffectPhrase
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// What a search's "attached to …" tail names, and the target slot it needs (CR 701.3c).
+    /// </summary>
+    /// <remarks>
+    /// The host is one of three printed phrases and the pattern admits no others, so this reads a
+    /// closed list rather than a grammar — "attach it to a creature you control" is a choice made
+    /// while the search resolves and is not among them.
+    /// <para>
+    /// It adds the target itself, because a search that attaches to one has to declare it, and it
+    /// is called from inside the arm that is about to build the effect rather than from the guard
+    /// in front of it — so a line this refuses never leaves a target chosen with nothing reading
+    /// it. False means the tail said something this cannot build and the whole line is unread.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachment(
+        Match m,
+        ImmutableList<TargetSpec>.Builder targets,
+        out SearchAttachment? attaches,
+        out int targetIndex)
+    {
+        attaches = null;
+        targetIndex = 0;
+
+        if (!m.Groups["attach"].Success)
+            return true;
+
+        var host = m.Groups["host"].Value;
+
+        if (host is "~")
+        {
+            attaches = SearchAttachment.Source;
+            return true;
+        }
+
+        if (Specs.Parse(host) is not { } spec)
+            return false;
+
+        targetIndex = targets.Count;
+        targets.Add(spec);
+
+        attaches = host.EndsWith("player", StringComparison.OrdinalIgnoreCase)
+            ? SearchAttachment.TargetPlayer
+            : SearchAttachment.TargetPermanent;
+
+        return true;
     }
 
     /// <summary>Where a search puts what it found (CR 701.23).</summary>
@@ -17879,6 +17919,19 @@ public static partial class EffectPhrase
             + @"(,? (then |and )?(put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield|into (your|their) hand|into your graveyard)"
             + @"(?<tapped> tapped)?"
+            // "Attached to this creature", "attached to target creature", "attached to target
+            // player" - an Aura or Equipment that arrives already on something (CR 701.3c). It
+            // belongs in the tail rather than in a reader of its own because it is a destination:
+            // "onto the battlefield attached to X" is one place to put the card, and reading only
+            // the first half of it would put an Aura onto the battlefield enchanting nothing,
+            // where a state-based action puts it straight into the graveyard (CR 704.5m).
+            //
+            // Reading it is also what stops the name capture above swallowing it. "A card named
+            // Arachnus Web and put it onto the battlefield attached to target creature" was one
+            // name as far as the lazy capture was concerned, because nothing after the name could
+            // match and the only way left to reach the anchor was to keep going - so Arachnus
+            // Spinner compiled complete and searched every library for a card called all of that.
+            + @"(?<attach> attached to (?<host>~|target creature|target player))?"
             + @"|(?<where>exile (it|that card|them|those cards))))?"
             + @"(,? (then |and )?shuffle"
             // "In any order" is what CR 401.4 already grants whenever an effect puts two or more

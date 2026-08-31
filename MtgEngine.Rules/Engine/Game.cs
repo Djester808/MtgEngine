@@ -8855,6 +8855,17 @@ public sealed class Game
 
             if (owed.Tapped && owed.Destination == Zone.Battlefield)
                 Emit(new PermanentTapped(landed));
+
+            // CR 701.3c: a card put onto the battlefield attached to something arrives on it.
+            // Emitted here, in the same step as the move and before any state-based action can
+            // run, because an Aura on the battlefield attached to nothing is put into its
+            // owner's graveyard the moment one does (CR 704.5m) - so this whole family has to
+            // land already attached rather than be attached afterwards.
+            if (owed.Destination == Zone.Battlefield
+                && (owed.AttachTo is not null || owed.AttachToPlayer is not null))
+            {
+                Emit(new PermanentAttached(landed, owed.AttachTo, owed.AttachToPlayer));
+            }
         }
 
         // CR 701.23e shuffles what was searched, and only if a library was: "if you search your
