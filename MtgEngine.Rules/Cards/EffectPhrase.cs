@@ -10841,6 +10841,23 @@ public static partial class EffectPhrase
         PlayerLookup? players);
 
     /// <summary>
+    /// The objects a counted group phrase names, before anything is asked about them.
+    /// </summary>
+    /// <remarks>
+    /// The same five arguments a <see cref="CountFn"/> takes and for the same reasons - a set can
+    /// need the source to exclude ("other creatures you control") and the seats to find a pile
+    /// ("cards in that player's hand") exactly as a count can. It exists so that "how many" and
+    /// "how much, totalled" are one question about the group and two folds over the answer,
+    /// rather than two group grammars that would drift on which permanents they admit.
+    /// </remarks>
+    internal delegate IEnumerable<GameObject> SetFn(
+        GameState state,
+        IAbilitySource abilities,
+        Guid you,
+        ObjectId source,
+        PlayerLookup? players);
+
+    /// <summary>
     /// The players a scope names, answered by whoever is asking the count (CR 109.5).
     /// </summary>
     /// <remarks>
@@ -11220,6 +11237,62 @@ public static partial class EffectPhrase
             };
         }
 
+        // "The greatest power among creatures you control", "the total mana value of Dragons you
+        // control" - an *aggregate* over a group rather than a tally of it. The set is the same
+        // set the count beside it walks; only the fold differs, so this asks the same vocabulary
+        // for the members and adds a fold rather than growing a second group grammar.
+        //
+        // It cannot be read as a tally, and that is the whole reason these lines were left
+        // unread rather than approximated. Three Dragons costing {5} are a total mana value of
+        // fifteen and a count of three; on "~ costs {X} less to cast" the tally reading is a card
+        // twelve mana dearer than it prints, and coverage scores a card that compiles as a win
+        // either way. Only a reader that knows the difference may claim the sentence.
+        //
+        // Placed above the two set arms rather than below them so that the aggregate's own group
+        // - "creatures you control" inside "the greatest power among creatures you control" - is
+        // offered to those arms as a group, which is what it is.
+        var aggregate = AggregateOverGroupLine().Match(people);
+        if (aggregate.Success)
+        {
+            var over = aggregate.Groups["group"].Value.Trim();
+
+            if (MatchedSet("each " + over, over, seats) is not { } members)
+                return null;
+
+            var fold = aggregate.Groups["how"].Value.ToLowerInvariant();
+            var field = aggregate.Groups["field"].Value.ToLowerInvariant();
+
+            return (state, abilities, you, source, players) => Folded(
+                fold,
+                field,
+                state,
+                abilities,
+                members(state, abilities, you, source, players));
+        }
+
+        return MatchedSet(phrase, people, seats) is not { } counted
+            ? null
+            : (state, abilities, you, source, players) =>
+                counted(state, abilities, you, source, players).Count();
+    }
+
+    /// <summary>
+    /// The objects a counted group phrase names, or null when it names a set this cannot find.
+    /// </summary>
+    /// <remarks>
+    /// The tail of <see cref="Counting"/>, lifted out whole so that the tally and the aggregate
+    /// fold over one answer to "which objects?" rather than two. Every refusal below is a refusal
+    /// of the <em>set</em>, and both folds inherit it: a phrase the tally would not count is a
+    /// phrase the aggregate may not total either.
+    /// <para>
+    /// Two arguments for one phrase because the two arms want it spelled differently - the pile
+    /// arm reads the bare noun run and the group grammar wants the "each" in front - and the
+    /// caller already has both spellings in hand. Deriving one from the other here would put the
+    /// guess in the one place that cannot check it.
+    /// </para>
+    /// </remarks>
+    private static SetFn? MatchedSet(string phrase, string people, CountSeats seats)
+    {
         // "The number of creature cards in your graveyard", "the number of cards in your hand" -
         // counting a *zone* rather than the battlefield, which is the same question about a
         // different pile and had no answer at all. The battlefield count below walks
@@ -11285,7 +11358,7 @@ public static partial class EffectPhrase
 
             return (state, _, you, _, players) =>
                 (players is null ? PlayerScopes.Around(whose, state, you) : players(whose))
-                .Sum(who =>
+                .SelectMany(who =>
                 {
                     var player = state.GetPlayer(who);
 
@@ -11296,20 +11369,22 @@ public static partial class EffectPhrase
                         _ => player.Graveyard,
                     };
 
-                    return zone.Count(id =>
-                        state.TryGetObject(id, out var card)
-                        && types.Exists(set => set.All(
-                            type => card.Card.CardTypes.HasFlag(type)))
+                    return zone
+                        .Where(id =>
+                            state.TryGetObject(id, out var card)
+                            && types.Exists(set => set.All(
+                                type => card.Card.CardTypes.HasFlag(type)))
 
-                        // The printed name, not a computed one. CR 400.7 keeps a new object in
-                        // a new zone and the continuous effects that could rename one apply on
-                        // the battlefield and the stack; a card in a graveyard, a hand or a
-                        // library is its printed self.
-                        && (pileName is null
-                            || string.Equals(
-                                card.Card.Name,
-                                pileName,
-                                StringComparison.OrdinalIgnoreCase) != notNamed));
+                            // The printed name, not a computed one. CR 400.7 keeps a new
+                            // object in a new zone and the continuous effects that could
+                            // rename one apply on the battlefield and the stack; a card in a
+                            // graveyard, a hand or a library is its printed self.
+                            && (pileName is null
+                                || string.Equals(
+                                    card.Card.Name,
+                                    pileName,
+                                    StringComparison.OrdinalIgnoreCase) != notNamed))
+                        .Select(state.GetObject);
                 });
         }
 
@@ -11336,9 +11411,9 @@ public static partial class EffectPhrase
 
         if (counted.SourceFilter is null)
         {
-            return (state, abilities, you, _, _) => state.Battlefield.Count(
-                id => counted.ObjectFilter?.Invoke(
-                    state, abilities, state.GetObject(id), you) != false);
+            return (state, abilities, you, _, _) => state.Battlefield
+                .Select(state.GetObject)
+                .Where(obj => counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false);
         }
 
         // "For each other Equipment you control". <see cref="Specs.ParseGroup"/> reads the word
@@ -11353,19 +11428,98 @@ public static partial class EffectPhrase
         // fourteen "gets +1/+1 for each other attacking Goblin" cards, whose count is made by a
         // floating effect that genuinely has no source to exclude - a real defect, but a
         // different one from this, and one this arm is not where you fix.
-        return (state, abilities, you, source, _) => state.Battlefield.Count(
-            id =>
-            {
-                var obj = state.GetObject(id);
+        return (state, abilities, you, source, _) => state.Battlefield
+            .Select(state.GetObject)
+            .Where(obj =>
+                counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false
+                && counted.SourceFilter(
+                    state,
+                    abilities,
+                    obj,
+                    state.TryGetObject(source, out var itself) ? itself : null,
+                    you));
+    }
 
-                return counted.ObjectFilter?.Invoke(state, abilities, obj, you) != false
-                    && counted.SourceFilter(
-                        state,
-                        abilities,
-                        obj,
-                        state.TryGetObject(source, out var itself) ? itself : null,
-                        you);
-            });
+    /// <summary>
+    /// An aggregate over a matched set: the total, the greatest or the least of one field.
+    /// </summary>
+    /// <remarks>
+    /// Zero for an empty set, which is what the rules say a value that cannot be determined is
+    /// (CR 107.2) and what every printed "the greatest power among creatures you control" comes
+    /// to when you control none.
+    /// <para>
+    /// Clamped at zero on the way out (CR 107.1b): a game value may be negative - a 3/4 that has
+    /// been given -5/-0 has power -2 - but a calculation that decides the result of an effect
+    /// uses zero instead when it comes out below it. The rule's carve-out is for effects that
+    /// double, triple or <em>set</em> a life total or a creature's power and toughness, and no
+    /// aggregate this reads reaches one: the P/T-defining cards that print an aggregate all
+    /// print a mana value, which cannot be negative.
+    /// </para>
+    /// </remarks>
+    private static int Folded(
+        string fold,
+        string field,
+        GameState state,
+        IAbilitySource abilities,
+        IEnumerable<GameObject> members)
+    {
+        var values = new List<int>();
+
+        foreach (var member in members)
+        {
+            if (FieldOf(state, abilities, member, field) is { } value)
+                values.Add(value);
+        }
+
+        if (values.Count == 0)
+            return 0;
+
+        var answer = fold switch
+        {
+            "total" => values.Sum(),
+            "least" or "lowest" => values.Min(),
+            _ => values.Max(),
+        };
+
+        return Math.Max(0, answer);
+    }
+
+    /// <summary>One object's power, toughness or mana value, or null when it has none.</summary>
+    /// <remarks>
+    /// Null is not zero here. A permanent that is not a creature has no power at all, and
+    /// folding it in as a zero would drag "the least power among creatures you control" down to
+    /// nought the moment the group admitted an artifact - so it is left out of the fold instead.
+    /// <para>
+    /// A card outside the battlefield is read off the printed card and not through the layers:
+    /// continuous effects apply to permanents, and a card in a graveyard has the characteristics
+    /// its printing gives it (CR 613.1, CR 202.3). A printed star is nought everywhere but the
+    /// battlefield (CR 208.2b), which is exactly what the missing value means here.
+    /// </para>
+    /// </remarks>
+    private static int? FieldOf(
+        GameState state, IAbilitySource abilities, GameObject obj, string field)
+    {
+        if (obj.Permanent is null)
+        {
+            return field switch
+            {
+                "power" => obj.Card.Power ?? 0,
+                "toughness" => obj.Card.Toughness ?? 0,
+                _ => obj.Card.Cmc,
+            };
+        }
+
+        var now = Characteristics.Of(state, abilities, obj);
+
+        return field switch
+        {
+            "power" => now.Power,
+            "toughness" => now.Toughness,
+
+            // The *computed* card, not the printed one: a permanent that has become a copy of
+            // something else has that card's mana cost, and its mana value with it (CR 707.2).
+            _ => now.Card.Cmc,
+        };
     }
 
     /// <summary>
@@ -11561,6 +11715,30 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         @"^colou?rs? among (?<group>[A-Za-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
     private static partial Regex ColorsAmongLine();
+
+    /// <summary>
+    /// "Greatest power among creatures you control", "total mana value of Dragons you control".
+    /// </summary>
+    /// <remarks>
+    /// The fold and the field are captured separately because they are independent: every one of
+    /// the three folds is printed on every one of the three fields somewhere in the corpus, and a
+    /// pattern per printed phrase would be nine.
+    /// <para>
+    /// "Highest" and "lowest" are the same two folds under the words a handful of cards prefer -
+    /// "the highest mana value among cards in your library" is "the greatest" - so they are read
+    /// here rather than left to a second reader that would have to agree with this one.
+    /// </para>
+    /// <para>
+    /// "Of" and "among" are interchangeable in the printed lines and neither narrows the group:
+    /// the corpus writes "the total power <em>of</em> creatures you control" and "the greatest
+    /// power <em>among</em> creatures you control" about the same set.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<how>total|greatest|least|highest|lowest) (?<field>power|toughness|mana value) "
+            + @"(?:of|among) (?<group>.+)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AggregateOverGroupLine();
 
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
     /// <remarks>
