@@ -316,28 +316,14 @@ public sealed class ZzR2154Measure(ITestOutputHelper output)
     {
         (string Type, string Text)[] texts =
         [
-            ("Instant", "Target creature gains lifelink and gets +2/+0 until end of turn."),
-            ("Instant", "Target creature gets +2/+0 and gains lifelink until end of turn."),
-            ("Instant", "Target creature gains lifelink until end of turn."),
-            ("Creature", "Whenever ~ attacks, another target attacking creature gains lifelink and gets +2/+0 until end of turn."),
-            ("Creature", "Whenever ~ attacks, another target attacking creature gets +2/+0 and gains lifelink until end of turn."),
-            ("Sorcery", "Destroy target creature and up to X other target creatures, where X is the number of creatures you control."),
-            ("Sorcery", "Destroy target creature and up to X other target creatures, where X is the number of Attractions you’ve visited this turn."),
-            ("Sorcery", "Draw X cards, where X is the number of creatures you control."),
-            ("Sorcery", "Draw X cards, where X is the number of Attractions you’ve visited this turn."),
-            ("Sorcery", "Create a 1/1 green Squirrel creature token for each creature you control."),
-            ("Sorcery", "Create a 1/1 green Squirrel creature token for each Attraction you’ve visited this turn."),
-            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking for each creature you control."),
-            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking for each Attraction you’ve visited this turn."),
-            ("Creature", "As long as you’ve visited an Attraction this turn, ~ has indestructible."),
-            ("Creature", "Whenever you visit ~, exile the top X cards of your library, where X is the number of Attractions you’ve visited this turn."),
-            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token that’s tapped and attacking."),
-            ("Creature", "Whenever ~ attacks, create a 1/1 green Squirrel creature token for each creature you control."),
-            ("Sorcery", "Destroy target creature and up to two other target creatures."),
-            ("Sorcery", "Destroy up to X target creatures, where X is the number of creatures you control."),
-            ("Instant", "Target creature gains flying and gets +1/+1 until end of turn."),
-            ("Instant", "Target creature you control gains trample and gets +3/+3 until end of turn."),
-            ("Creature", "Whenever ~ attacks, another target attacking creature gains menace and gets +X/+0 until end of turn, where X is ~'s power."),
+            ("Creature", "Whenever you visit ~, exile the top X cards of your library, where X is the number of Attractions you’ve visited this turn. You may play those cards this turn. At the beginning of the next end step, if any of those cards remain exiled, put them on the bottom of your library in any order."),
+            ("Creature", "Whenever you visit ~, exile the top two cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of those cards remain exiled, put them on the bottom of your library in any order."),
+            ("Creature", "Whenever you visit ~, exile the top two cards of your library. You may play those cards this turn."),
+            ("Sorcery", "Exile the top two cards of your library. You may play those cards this turn."),
+            ("Sorcery", "Exile the top two cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of those cards remain exiled, put them on the bottom of your library in any order."),
+            ("Creature", "Whenever you visit ~, draw a card for each Attraction you’ve visited this turn."),
+            ("Creature", "Whenever you visit ~, you gain 1 life for each Attraction you’ve visited this turn."),
+            ("Creature", "Whenever you visit ~, ~ deals damage equal to the number of Attractions you’ve visited this turn to target creature."),
         ];
 
         foreach (var (type, text) in texts)

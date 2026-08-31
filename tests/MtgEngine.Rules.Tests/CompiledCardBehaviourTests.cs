@@ -4484,6 +4484,304 @@ public sealed class CompiledCardBehaviourTests
         return named;
     }
 
+    // ---- "Attractions you've visited this turn" (CR 701.52a) ------------------
+
+    /// <summary>
+    /// An Attraction whose visit ability counts the Attractions this turn has visited, including
+    /// the one being visited (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// The counted phrase is Squirrel Squatters' and Storybook Ride's, verbatim; the effect in
+    /// front of it is a life gain rather than either card's own, because both of those are blocked
+    /// by a second shape that has nothing to do with the count - Squirrel Squatters by "a token
+    /// that's tapped and attacking" and Storybook Ride by "at the beginning of the next end step,
+    /// if any of those cards remain exiled". Life is what makes the number legible on the board.
+    /// </remarks>
+    private static CardDefinition TallyBooth() =>
+        AttractionCard(
+            "Tally Booth Test",
+            "Visit — You gain 1 life for each Attraction you've visited this turn.",
+            2,
+            3,
+            6);
+
+    /// <summary>
+    /// Soul Swindler, whose indestructibility lasts as long as a visit has happened this turn.
+    /// </summary>
+    private static CardDefinition SoulSwindler() =>
+        Card(
+            "Soul Swindler Test",
+            "As long as you've visited an Attraction this turn, this creature has indestructible."
+                + "\nWhen this creature enters, open an Attraction.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+    /// <summary>
+    /// A visit counts itself and every Attraction the same turn has already visited (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// Two Attractions and one roll, so the count under test is a number the roll decides rather
+    /// than one the test picked: Clown Extruder is lit on 2 and 6, Tally Booth on 2, 3 and 6, so a
+    /// 3 visits the Booth alone and it gains one life, a 2 or a 6 visits both and it gains two,
+    /// and a 1, 4 or 5 visits neither and nothing happens. The "including this one" half is the
+    /// interesting one and it is what the 3 asserts: the Booth is counting a visit that is still
+    /// resolving.
+    /// <para>
+    /// The number is read out of the log rather than rolled again, and the seeds are swept until
+    /// all three answers have been seen — without that a dozen unlucky seeds could all miss and
+    /// the test would pass having never once counted anything.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_visit_counts_itself_and_the_attractions_visited_before_it_this_turn()
+    {
+        var booth = TallyBooth();
+        var compiled = CardCompiler.Compile(booth);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var seen = new HashSet<int>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed, ClownExtruder(), booth);
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+            Settle(game);
+            Assert.Equal(2, AttractionsOut(game, alice).Count);
+
+            PassTo(game, 3, TurnStep.PrecombatMain);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            var extruderLit = rolled.Result is 2 or 6;
+            var boothLit = rolled.Result is 2 or 3 or 6;
+            var visited = (extruderLit ? 1 : 0) + (boothLit ? 1 : 0);
+            seen.Add(visited);
+
+            // The tally the fold keeps, and then the life the card gained from reading it. The
+            // second is the one that says the grammar reached the engine; the first says the
+            // engine had the number to give it.
+            Assert.Equal(visited, game.State.AttractionsVisitedThisTurn(alice));
+            Assert.Equal(20 + (boothLit ? visited : 0), game.State.GetPlayer(alice).Life);
+        }
+
+        Assert.Equal([0, 1, 2], seen.Order().ToList());
+    }
+
+    /// <summary>
+    /// "As long as you've visited an Attraction this turn" is a question about the turn, not about
+    /// the board (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// Soul Swindler printed whole, and it is the fail-closed half of this round: a static that
+    /// compiled and always answered no would be a creature that reads as indestructible and dies
+    /// to the first removal spell every time, which no test comparing compiled structure could
+    /// see. So the Swindler is played into a real Murder on a turn the roll visited an Attraction
+    /// and on one it did not, and the two boards have to differ.
+    /// </remarks>
+    [Fact]
+    public void An_indestructible_that_waits_for_a_visit_reads_the_roll_that_happened()
+    {
+        var swindler = SoulSwindler();
+        var compiled = CardCompiler.Compile(swindler);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var murder = Card("Swindler Murder Test", "Destroy target creature.");
+        var survived = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed, ClownExtruder());
+            var body = game.Create(alice, swindler, Zone.Battlefield);
+            Settle(game);
+
+            // Its own enter trigger put the Attraction on the table; opening one is not visiting
+            // one, so nothing is indestructible yet.
+            Assert.Single(AttractionsOut(game, alice));
+            Assert.False(Now(game, body).Has(KeywordAbility.Indestructible));
+
+            PassTo(game, 3, TurnStep.PrecombatMain);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            var lit = rolled.Result is 2 or 6;
+            survived.Add(lit);
+
+            Assert.Equal(lit, Now(game, body).Has(KeywordAbility.Indestructible));
+
+            // Settling the visit leaves priority with the other seat, so the game is played on to
+            // the next point in Alice's own turn where she holds it. Murder is an instant and the
+            // tally is a fact about the turn, so neither the cast nor the static moves.
+            TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+            game.CastSpell(
+                alice, TestCards.PutInHand(game, alice, murder), [Target.ToPermanent(body)]);
+            Settle(game);
+
+            Assert.Equal(lit, game.State.Battlefield.Contains(body));
+        }
+
+        Assert.Equal([false, true], survived.Order().ToList());
+    }
+
+    /// <summary>
+    /// The tally is a per-turn fact, and it is folded from the log rather than kept beside it
+    /// (CR 701.52a).
+    /// </summary>
+    /// <remarks>
+    /// Two things at once, because they are the same claim. The count is empty again on the next
+    /// player's turn — a visit does not carry, and a card counting "this turn" on somebody else's
+    /// turn has to answer zero. And a game rebuilt from its own events, with a different random,
+    /// has to reach the identical board: the new state field is filled by the reducer from the
+    /// visit event, so a tally the engine kept on the side instead would show up here as a state
+    /// that no longer replays.
+    /// </remarks>
+    [Fact]
+    public void The_visit_tally_empties_at_the_turn_boundary_and_folds_from_the_log()
+    {
+        var (game, alice, bob) = WithAttractions(4, ClownExtruder(), TallyBooth());
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+        var visited = (rolled.Result is 2 or 6 ? 1 : 0) + (rolled.Result is 2 or 3 or 6 ? 1 : 0);
+
+        Assert.Equal(visited, game.State.AttractionsVisitedThisTurn(alice));
+        Assert.Equal(visited, game.Log.OfType<AttractionVisited>().Count());
+
+        // Bob's turn. He controls no Attraction, so CR 717.4 rolls nothing for him — and Alice's
+        // count is zero not because nobody rolled but because the turn began.
+        PassTo(game, 4, TurnStep.PrecombatMain);
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<DiceRolled>());
+        Assert.Equal(0, game.State.AttractionsVisitedThisTurn(alice));
+        Assert.Equal(0, game.State.AttractionsVisitedThisTurn(bob));
+
+        var resumed = Game.Resume([.. game.Log], new GameRandom(987654), Pool);
+        Assert.Equal(game.State, resumed.State);
+    }
+
+    // ---- A keyword granted in front of the pump it shares a sentence with -----
+
+    /// <summary>
+    /// "Gains [keyword] and gets +N/+N until end of turn" is the same sentence as "gets +N/+N and
+    /// gains [keyword]", printed the other way round (CR 613.1f, 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// Skanos, Dragon Vassal's four coloured versions, and the shape that left every one of them
+    /// unread while the base card — the same sentence with the keyword taken out — compiled. The
+    /// failure was not a missing rule but a greedy target class: it ate "another target attacking
+    /// creature gains flying and", matched a clean "gets +X/+0 until end of turn" on what was
+    /// left, and then failed to parse the target it had invented.
+    /// <para>
+    /// Both halves are asserted because they are different layers and a single continuous effect
+    /// cannot be in both: the keyword is layer 6 and the size is layer 7c, so a reading that
+    /// produced one effect would give the creature its wings and none of the power, or the power
+    /// and no wings, and would still compile.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_keyword_granted_in_front_of_its_pump_reads_as_one_sentence()
+    {
+        var skanos = Card(
+            "Skanos Vassal Test",
+            "Whenever ~ attacks, another target attacking creature gains flying and gets +X/+0"
+                + " until end of turn, where X is ~'s power.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(skanos);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var dragon = game.Create(alice, skanos, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Vassal Bear Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [dragon] = AttackTarget.Player(bob),
+                [bear] = AttackTarget.Player(bob),
+            });
+
+        Settle(game);
+
+        // The other attacker, and only the other one: "another" is what keeps the dragon from
+        // pumping itself.
+        Assert.True(Now(game, bear).Has(KeywordAbility.Flying));
+        Assert.Equal(6, PowerNow(game, bear));
+        Assert.False(Now(game, dragon).Has(KeywordAbility.Flying));
+        Assert.Equal(4, PowerNow(game, dragon));
+    }
+
+    // ---- "Whenever you lose life during your turn" (CR 603.2b) ----------------
+
+    /// <summary>
+    /// A life-loss trigger with "during your turn" on it fires on its controller's turn and on
+    /// nobody else's (CR 603.2b).
+    /// </summary>
+    /// <remarks>
+    /// Shadowheart, Sharran Cleric's version wording, which all five of hers share in front of a
+    /// different effect. The restriction is the whole test: read as the plain "whenever you lose
+    /// life" beside it, the card would compile, play, and be strictly better than printed — and a
+    /// suite that only cast the spell on the controller's own turn would never notice, because
+    /// both readings agree there. So the same spell is cast at the same player on both turns.
+    /// </remarks>
+    [Fact]
+    public void A_life_loss_trigger_restricted_to_your_turn_ignores_the_other_players_turn()
+    {
+        var cleric = Card(
+            "Sharran Cleric Test",
+            "Whenever you lose life during your turn, put a +1/+1 counter on ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(cleric);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var drain = Card("Sharran Drain Test", "Target player loses 2 life.");
+        Assert.True(CardCompiler.Compile(drain).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var her = game.Create(alice, cleric, Zone.Battlefield);
+
+        // Alice's own turn: her life goes down and the counter goes on.
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drain), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(alice).Life);
+        Assert.Equal(
+            1,
+            game.State.GetObject(her).Permanent?.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        // Bob's turn, the same life leaving the same player. The trigger watches the same event
+        // and the same seat; what it may not do is fire.
+        PassTo(game, 2, TurnStep.PrecombatMain);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == bob);
+
+        game.CastSpell(bob, TestCards.PutInHand(game, bob, drain), [Target.ToPlayer(alice)]);
+        Settle(game);
+
+        Assert.Equal(16, game.State.GetPlayer(alice).Life);
+        Assert.Equal(
+            1,
+            game.State.GetObject(her).Permanent?.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+        Assert.Equal(3, PowerNow(game, her));
+    }
+
     // ---- "The basic land type of your choice" (CR 305.6, 305.7) --------------
 
     [Fact]
