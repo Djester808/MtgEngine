@@ -104,6 +104,21 @@ public sealed class ZzShapesR2158Tests(ITestOutputHelper output)
             "The first creature spell you cast each turn costs {2} less to cast.",
             "The first instant or sorcery spell you cast each turn costs {3} less to cast.",
             "The first legendary creature spell you cast each turn costs {2} less to cast.",
+            "~ costs {6} less to cast if an opponent has no cards in hand.",
+            "~ costs {6} less to cast if there are ten or more creature cards total in all graveyards.",
+            "~ costs {6} less to cast if you weren't the starting player.",
+            "~ costs {6} less to cast if an opponent controls seven or more lands.",
+            "~ costs {6} less to cast if an opponent controls at least four more creatures than you.",
+            "~ costs {6} less to cast if you have 3 or less life.",
+            "~ costs {6} less to cast if you've cast another spell this turn.",
+            "~ costs {6} less to cast if you've gained 3 or more life this turn.",
+            "~ costs {6} less to cast if you've sacrificed a permanent this turn.",
+            "~ costs {6} less to cast if there are no land cards in your hand.",
+            "~ costs {1} less to cast for each creature that attacked this turn.",
+            "~ costs {1} less to cast for each permanent sacrificed this turn.",
+            "~ costs {1} less to cast for each spell your opponents have cast this turn.",
+            "~ costs {1} less to cast for each opponent you're attacking.",
+            "~ costs {1} less to cast for each card you've cycled or discarded this turn.",
         ];
 
         foreach (var probe in probes)

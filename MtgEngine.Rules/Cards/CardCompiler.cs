@@ -12765,7 +12765,15 @@ public static partial class CardCompiler
         CardDefinition card,
         ref Func<GameState, Guid, IReadOnlyList<Target>, int>? into)
     {
+        // The same sentence with its two halves the other way round - "If an opponent controls
+        // seven or more lands, ~ costs {6} less to cast", the Avatar cycle. Read here rather
+        // than by a reader of its own, because the two orderings differ in word order and in
+        // nothing else: one condition vocabulary, one discount, one place where a condition
+        // that cannot be read leaves the line unread.
         var m = ConditionalCostReductionLine().Match(line);
+        if (!m.Success)
+            m = LeadingConditionalCostReductionLine().Match(line);
+
         if (!m.Success)
             return false;
 
@@ -18742,6 +18750,12 @@ public static partial class CardCompiler
             {
                 SelfCost.ExileSelfFromGraveyard => Zone.Graveyard,
 
+                // CR 701.13a with the card in a hand: "Exile ~ from your hand: Add {R}" is an
+                // ability of the card in hand, and the only zone it can be activated from. On
+                // the battlefield it would compile cleanly and never be offered, which is the
+                // silent failure the graveyard arm above exists to prevent.
+                SelfCost.ExileSelfFromHand => Zone.Hand,
+
                 // CR 701.13a: a permanent exiles itself from the battlefield, which is also the
                 // default - said out loud so the arm below cannot claim it. That arm sends an
                 // ability whose effect returns the source to the battlefield to the graveyard,
@@ -18817,6 +18831,15 @@ public static partial class CardCompiler
         {
             self = SelfCost.ExileSelfFromGraveyard;
             Lift(ExileSelfFromGraveyardCost());
+        }
+        else if (ExileSelfFromHandCost().IsMatch(remaining))
+        {
+            // Beside the graveyard form and before the bare one for its reason: read in the
+            // other order the bare pattern lifts "Exile ~" and leaves "from your hand" behind,
+            // which is not mana - so the whole cost is refused and the line goes unread. That is
+            // exactly what happened to both Spirit Guides.
+            self = SelfCost.ExileSelfFromHand;
+            Lift(ExileSelfFromHandCost());
         }
         else if (DiscardSelfCost().IsMatch(remaining))
         {
@@ -21080,6 +21103,15 @@ public static partial class CardCompiler
     [GeneratedRegex(@",?\s*exile ~ from your graveyard\s*,?", RegexOptions.IgnoreCase)]
     private static partial Regex ExileSelfFromGraveyardCost();
 
+    /// <summary>"Exile ~ from your hand" as an activation cost (CR 601.2f, 701.13a).</summary>
+    /// <remarks>
+    /// Its own pattern rather than a zone alternation on the graveyard one, because the two
+    /// answer different questions downstream: the zone in the words is the zone the ability
+    /// functions from, and one pattern matching both would have to hand back which it saw.
+    /// </remarks>
+    [GeneratedRegex(@",?\s*exile ~ from your hand\s*,?", RegexOptions.IgnoreCase)]
+    private static partial Regex ExileSelfFromHandCost();
+
     /// <summary>
     /// "Exile ~" as an activation cost, with the source on the battlefield.
     /// </summary>
@@ -21480,6 +21512,25 @@ public static partial class CardCompiler
         @"^~ costs \{(?<n>\d+)\} less to cast if (?!it targets)(?<cond>[^.]+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalCostReductionLine();
+
+    /// <summary>
+    /// "If you have 3 or less life, ~ costs {6} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The condition-first ordering of the sentence beside it, and a pattern of its own
+    /// rather than an optional lead on that one: an optional prefix would let the "cond"
+    /// group match nothing at all, and a discount whose condition is the empty string is an
+    /// unconditional discount - strictly better than the printed card, on eight cards.
+    /// <para>
+    /// The condition may not contain a comma, which is what stops the group swallowing the
+    /// comma that separates the two halves and reaching the board reader with the discount
+    /// still attached.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^If (?<cond>[^,.]+), ~ costs \{(?<n>\d+)\} less to cast\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingConditionalCostReductionLine();
 
     /// <remarks>
     /// The amount is the variable and the sentence goes on to define it, which is the whole of
