@@ -6065,6 +6065,59 @@ public sealed record LoseHalfLife(
 }
 
 /// <summary>
+/// "Target player mills half their library, rounded down" (CR 701.13a, 107.15).
+/// </summary>
+/// <remarks>
+/// The library half of <see cref="LoseHalfLife"/>, and it is a separate effect for the identical
+/// reason: half a library is a different number for every player the sentence names and is only
+/// known when the effect resolves, so no <see cref="Amount"/> the compiler could work out is
+/// right for more than one of them. "Any number of target players each mill half their library"
+/// at forty cards and at six is twenty and three.
+/// <para>
+/// The rounding is read from the card and never defaulted, because CR 107.15 leaves it to the
+/// card to say and the two answers differ on every odd library - a sentence that does not say
+/// stays in the work queue.
+/// </para>
+/// <para>
+/// The milling itself goes through <see cref="Milling"/> like every other mill, so a player who
+/// cannot mill that many mills what they have and does not lose for it (CR 701.13b).
+/// </para>
+/// </remarks>
+public sealed record MillHalfLibrary(
+    PlayerScope Scope = PlayerScope.You,
+    bool RoundUp = true,
+    int? TargetIndex = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // A named target wins outright over a scope, the same way it does for the ordinary mill
+        // beside this: the sentence named one player and the scope named none.
+        var told = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Player } aimed
+                ? (IEnumerable<Guid>)[aimed.Player]
+                : []
+            : PlayerScopes.Resolve(Scope, context);
+
+        var milled = new List<GameEvent>();
+
+        foreach (var who in told)
+        {
+            var library = context.State.GetPlayer(who).Library.Count;
+            var half = RoundUp ? (library + 1) / 2 : library / 2;
+
+            if (half <= 0)
+                continue;
+
+            milled.AddRange(Milling.From(context, who, half));
+        }
+
+        return milled;
+    }
+}
+
+/// <summary>
 /// Shuffles a library, optionally taking a graveyard with it (CR 701.24a).
 /// </summary>
 /// <remarks>
@@ -6280,28 +6333,51 @@ public sealed record ReturnSourceToHand : IEffect
 /// stolen permanent goes home to the deck it came from.
 /// </para>
 /// </remarks>
-public sealed record PutSourceOnLibrary(ZonePosition Position = ZonePosition.Top) : IEffect
+public sealed record PutSourceOnLibrary(
+    ZonePosition Position = ZonePosition.Top,
+
+    /// <summary>
+    /// Which object the sentence meant - "put <em>~</em>" or "put <em>it</em>".
+    /// </summary>
+    /// <remarks>
+    /// The two are not the same permanent. "When this creature dies, put it on top of its
+    /// owner's library" is about the source, and "whenever a creature you control dies, put it on
+    /// the bottom of its owner's library" is about whatever died - so the pronoun goes through
+    /// the shared reader that already tells those apart rather than being assumed to mean the
+    /// card it is printed on.
+    /// </remarks>
+    EffectSubject Subject = EffectSubject.Source) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var sourceId = context.PhysicalSourceId;
-
-        if (!context.State.TryGetObject(sourceId, out var permanent)
-            || permanent.Zone != Zone.Battlefield)
-        {
+        if (Subjects.Resolve(context, Subject, 0) is not { } sourceId)
             return [];
-        }
+
+        // A death trigger resolves after the permanent has become a card in a graveyard, and CR
+        // 400.7 makes that a different object under a different id - so the id is followed
+        // forward when it no longer names anything, exactly as ReturnSourceToHand does. Without
+        // it every "when this dies, put it on top of its owner's library" compiled and moved
+        // nothing, which is the one failure coverage cannot see.
+        var moving = context.State.TryGetObject(sourceId, out var live)
+            ? live
+            : context.ObjectBehind?.Invoke(sourceId);
+
+        // Both zones are public, which is what makes following the id legal at all (CR 400.7j).
+        // Anywhere else - a hand, a library - the card is gone as far as this sentence is
+        // concerned and doing nothing is the honest answer.
+        if (moving is not { Zone: Zone.Battlefield or Zone.Graveyard })
+            return [];
 
         return
         [
             new ObjectMoved(
-                sourceId,
+                moving.Id,
                 ObjectId.New(),
-                Zone.Battlefield,
+                moving.Zone,
                 Zone.Library,
-                permanent.OwnerId,
+                moving.OwnerId,
                 MoveCause.Return,
                 Position),
         ];
@@ -9198,7 +9274,31 @@ public sealed record ChooseAndMove(
     int EffectIndex = 0,
     PlayerScope Scope = PlayerScope.You,
     int? TargetIndex = null,
-    Zone From = Zone.Battlefield) : IEffect
+    Zone From = Zone.Battlefield,
+
+    /// <summary>
+    /// Which end of the library a card sent to one arrives at (CR 401.1).
+    /// </summary>
+    /// <remarks>
+    /// Meaningless for every other destination and load-bearing for this one: "put a card from
+    /// your hand on top of your library" and "on the bottom" are the same sentence and opposite
+    /// cards. Defaulted to the top so nothing that already asked this question changes.
+    /// </remarks>
+    ZonePosition Position = ZonePosition.Top,
+
+    /// <summary>How many cards the sentence asks for - "put <em>two</em> cards from your hand".</summary>
+    int Count = 1,
+
+    /// <summary>
+    /// Whether the game picks rather than the player (CR 701.9b's rule, one zone over).
+    /// </summary>
+    /// <remarks>
+    /// "Return a creature card <em>at random</em> from your graveyard to your hand" is not a
+    /// choice at all, and offering it as one would be a strictly better card. The roll is made
+    /// by the engine through its seeded source so a replay agrees, which is why this is a flag
+    /// here and an early return there rather than an effect that picks for itself.
+    /// </remarks>
+    bool AtRandom = false) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {

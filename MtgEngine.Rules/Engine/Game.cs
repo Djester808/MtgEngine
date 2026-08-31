@@ -8404,6 +8404,27 @@ public sealed class Game
         if (eligible.Count == 0)
             return false;
 
+        // Fewer eligible cards than the sentence asks for is not a stall: the effect does as
+        // much as it can (CR 608.2b is about targets, not about choices made on resolution), so
+        // the question is asked for what is there.
+        var wanted = Math.Min(Math.Max(1, effect.Count), eligible.Count);
+
+        // "At random" is not a choice, and offering it as one would be a strictly better card
+        // than the printed one. The roll goes through the seeded source, like the random discard
+        // it copies, so a replay reaches the same cards.
+        if (effect.AtRandom)
+        {
+            _permanentChoiceBeingAsked = null;
+
+            AsOneBatch(() =>
+            {
+                foreach (var id in _random.Shuffle(eligible).Take(wanted))
+                    Move(id, effect.Destination, effect.Cause, owed.PlayerId, effect.Position);
+            });
+
+            return false;
+        }
+
         _permanentChoiceBeingAsked = (owed, effect);
 
         Ask(new PendingChoice
@@ -8414,8 +8435,8 @@ public sealed class Game
             Prompt = $"Choose {owed.Prompt}.",
             Options = [.. eligible.Select(id => new ChoiceOption(
                 id.Value.ToString("N"), State.GetObject(id).Card.Name))],
-            MinPicks = 1,
-            MaxPicks = 1,
+            MinPicks = wanted,
+            MaxPicks = wanted,
         });
 
         return true;
@@ -8585,13 +8606,23 @@ public sealed class Game
         if (picks.Count == 0)
             return;
 
+        // Every pick, not just the first: "put two cards from your hand on top of your library"
+        // asks one question with two answers, and moving only the head of the list left the
+        // other card where it was on a sentence that says it moved.
+        //
         // Checked against the zone the effect asked about rather than against the battlefield.
         // The card must still be where it was when it was offered — it can have moved while the
         // question stood — but which zone that is belongs to the effect: a sacrifice asks about
         // the battlefield and a reanimation asks about a graveyard.
-        var id = new ObjectId(Guid.ParseExact(picks[0], "N"));
-        if (State.TryGetObject(id, out var chosen) && chosen.Zone == effect.From)
-            Move(id, effect.Destination, effect.Cause, owed.PlayerId);
+        AsOneBatch(() =>
+        {
+            foreach (var pick in picks)
+            {
+                var id = new ObjectId(Guid.ParseExact(pick, "N"));
+                if (State.TryGetObject(id, out var chosen) && chosen.Zone == effect.From)
+                    Move(id, effect.Destination, effect.Cause, owed.PlayerId, effect.Position);
+            }
+        });
     }
 
     /// <summary>
