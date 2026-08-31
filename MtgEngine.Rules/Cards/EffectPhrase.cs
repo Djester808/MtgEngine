@@ -4830,6 +4830,61 @@ public static partial class EffectPhrase
         // "Create [N] [tapped] token(s) that's a copy of ..." — of this permanent, of something
         // targeted, or of whatever the sentence before named. Three sources, one effect, because
         // the only thing that differs is which permanent's card is taken.
+        // "Conjure a duplicate of X into your hand" (CR 701.55, 701.56) - the reachable half of
+        // Alchemy's conjure, and it is the token-copy reader with a zone instead of a mint. The
+        // three ways of naming X are the same three, read by the same code path, because the
+        // difference between the two families is where the object lands and whether it is a
+        // token - never who is copied.
+        var conjured = ConjureDuplicateLine().Match(sentence);
+        if (conjured.Success && ConjuredZone(conjured.Groups["into"].Value) is { } into)
+        {
+            var of = conjured.Groups["of"].Value.Trim().TrimEnd('.');
+
+            if (of == "~")
+            {
+                effects.Add(new ConjureDuplicate(into));
+                return true;
+            }
+
+            if (Specs.Parse(of) is
+                { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard } duplicated)
+            {
+                targets.Add(duplicated);
+                effects.Add(new ConjureDuplicate(
+                    into,
+                    targets.Count - 1,
+                    CopiesACard: duplicated.Kind is TargetKind.CardInGraveyard));
+
+                return true;
+            }
+
+            if (ConjuredPronouns.Contains(of, StringComparer.OrdinalIgnoreCase))
+            {
+                if (targets.Count == 0)
+                {
+                    effects.Add(new ConjureDuplicate(
+                        into, Subject: EffectSubject.TriggeringObject));
+
+                    return true;
+                }
+
+                // Told nothing, the effect would take the pronoun for a permanent and find it
+                // somewhere else - the same silent blank the token copy was caught doing.
+                var kind = targets[^1].Kind;
+                if (kind is not (TargetKind.Permanent or TargetKind.CardInGraveyard))
+                    return false;
+
+                effects.Add(new ConjureDuplicate(
+                    into,
+                    targets.Count - 1,
+                    CopiesACard: kind is TargetKind.CardInGraveyard));
+
+                return true;
+            }
+
+            return false;
+        }
+
         var tokenCopy = TokenCopyLine().Match(sentence);
         if (tokenCopy.Success)
         {
@@ -15757,6 +15812,21 @@ public static partial class EffectPhrase
         ["it", "that creature", "that permanent", "that artifact", "that token"];
 
     /// <summary>
+    /// The pronouns a conjure sentence points at what it duplicates (CR 701.56a).
+    /// </summary>
+    /// <remarks>
+    /// The shared <see cref="Pronouns"/> plus the two spellings the conjure family uses and
+    /// nothing else does in this position - "that card", because what a conjure duplicates is
+    /// usually a card rather than a permanent, and "that spell", because two of them duplicate
+    /// something on the stack. Kept local rather than widened into the shared list: "that card"
+    /// after a search or a reveal names something the token-copy reader would then take for a
+    /// permanent, which is the silent-blank failure that list is already documented as having
+    /// had once.
+    /// </remarks>
+    private static readonly string[] ConjuredPronouns =
+        [.. Pronouns, "that card", "that spell"];
+
+    /// <summary>
     /// The keywords a printed "can't ..." names (CR 509.1b, 702.3b).
     /// </summary>
     /// <remarks>
@@ -15983,6 +16053,36 @@ public static partial class EffectPhrase
             + @"(?<of>.+?)(?:,? except (?<except>.+))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex TokenCopyLine();
+
+    /// <summary>Where a conjured duplicate lands (CR 701.55a).</summary>
+    /// <remarks>
+    /// A closed list rather than a parse, and it fails closed for the reason the whole family
+    /// does: a duplicate that arrived in the wrong zone is a card better or worse than the one
+    /// printed, and an unread line is the cheaper failure. The library forms - "into your
+    /// library, then shuffle", "into the top five cards of your library at random" - are
+    /// deliberately absent, because where in the library is the whole of what those sentences say.
+    /// </remarks>
+    private static State.Zone? ConjuredZone(string into) => into.ToLowerInvariant() switch
+    {
+        "into your hand" => State.Zone.Hand,
+        "into your graveyard" => State.Zone.Graveyard,
+        "into exile" => State.Zone.Exile,
+        "onto the battlefield" => State.Zone.Battlefield,
+        _ => null,
+    };
+
+    /// <remarks>
+    /// Deliberately narrower than <see cref="TokenCopyLine"/>: no count, because every printed
+    /// conjure of a duplicate makes exactly one, and no "except" clause, because none of them
+    /// carries one. Widening either without a card that says it would be a template guessing at
+    /// wording, which this compiler has been caught doing and pays for in cards that read and
+    /// play as something else.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^conjure a duplicate of (?<of>.+?) "
+            + @"(?<into>into your hand|into your graveyard|into exile|onto the battlefield)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ConjureDuplicateLine();
 
     [GeneratedRegex(
         @"^(?<who>you|each opponent|each player) (?<verb>gains?|loses?) "

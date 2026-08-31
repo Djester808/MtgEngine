@@ -6611,6 +6611,137 @@ public sealed class CompiledCardBehaviourTests
             o => o.Card.Name == "White Bear Test");
     }
 
+    // ---- A conjured duplicate (CR 701.55, 701.56) ----------------------------
+
+    [Fact]
+    public void A_conjured_duplicate_arrives_in_hand_as_a_card_and_not_as_a_token()
+    {
+        // CR 701.55a: conjuring creates a *card*. The distinction is the whole point of the
+        // mechanic - a token that left the battlefield would cease to exist (CR 111.7), and a
+        // conjured duplicate in a hand is meant to be castable like anything else there.
+        var mirror = Card(
+            "Conjured Mirror Test",
+            "Conjure a duplicate of target creature into your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Conjured Bear Test", 2, 2), Zone.Battlefield);
+
+        var handBefore = game.State.GetPlayer(alice).Hand.Count;
+        var spell = TestCards.PutInHand(game, alice, mirror);
+        game.CastSpell(alice, spell, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var made = game.State.GetPlayer(alice).Hand
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Conjured Bear Test");
+
+        Assert.Equal(Zone.Hand, made.Zone);
+        Assert.Equal(alice, made.OwnerId);
+
+        // Not a token, and not a permanent either: it is in a hand, so nothing about it is on
+        // the battlefield yet.
+        Assert.False(made.Card.CardTypes.HasFlag(CardType.Token));
+        Assert.Null(made.Permanent);
+
+        // The original is untouched - a duplicate copies, it does not move.
+        Assert.Equal(Zone.Battlefield, game.State.GetObject(bear).Zone);
+
+        // One card gained, over and above the spell leaving the hand.
+        Assert.Equal(handBefore + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    [Fact]
+    public void A_conjured_duplicate_is_read_from_what_the_permanent_is_now()
+    {
+        // CR 707.3 through CR 701.56a: a duplicate is of the copiable values, which is the
+        // copied card when something has already made the permanent a copy of something else.
+        // The same reading CreateTokenCopy makes, and it has to be the same or the two halves of
+        // the copy family would disagree about what a copy is.
+        var mirror = Card(
+            "Conjured Echo Test",
+            "Conjure a duplicate of target creature into your graveyard.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(mirror);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var ogre = game.Create(
+            alice, TestCards.Creature("Conjured Ogre Test", 4, 4), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, mirror);
+        game.CastSpell(alice, spell, [Target.ToPermanent(ogre)]);
+        Settle(game);
+
+        var made = game.State.GetPlayer(alice).Graveyard
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Conjured Ogre Test");
+
+        Assert.Equal(Zone.Graveyard, made.Zone);
+        Assert.Equal(4, made.Card.Power);
+        Assert.Equal(4, made.Card.Toughness);
+
+        // A duplicate of a card is that card, so it keeps the oracle id: the compiled pool has to
+        // serve it the same behaviour, and a re-keyed duplicate would be a second card in the log
+        // that no deck ever contained.
+        Assert.Equal(game.State.GetObject(ogre).Card.OracleId, made.Card.OracleId);
+    }
+
+    [Fact]
+    public void Each_of_two_targets_is_duplicated_once()
+    {
+        // Sinister Reflections is the printed card, and this is the assertion the round it
+        // landed in nearly got wrong: "each of up to two target creatures" is normalised to two
+        // targets and one effect apiece by the shared grammar, so the conjure reader must *not*
+        // do its own counting. One duplicate per target, and one only.
+        var reflections = Card(
+            "Conjured Reflections Test",
+            "Conjure a duplicate of each of up to two target creatures you control into your hand.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reflections);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Spell!.Targets.Count);
+
+        var (game, alice, _) = InMainPhase();
+        var one = game.Create(alice, TestCards.Creature("Conjured Scout Test", 1, 1), Zone.Battlefield);
+        var two = game.Create(alice, TestCards.Creature("Conjured Herald Test", 3, 3), Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(game, alice, reflections);
+        game.CastSpell(alice, spell, [Target.ToPermanent(one), Target.ToPermanent(two)]);
+        Settle(game);
+
+        var hand = game.State.GetPlayer(alice).Hand.Select(game.State.GetObject).ToList();
+        Assert.Single(hand, o => o.Card.Name == "Conjured Scout Test");
+        Assert.Single(hand, o => o.Card.Name == "Conjured Herald Test");
+    }
+
+    [Fact]
+    public void A_conjure_wording_the_reader_does_not_know_is_refused_rather_than_guessed()
+    {
+        // The half of conjure this round did not build, kept in front of the next one. A named
+        // card needs a name-to-definition lookup MtgEngine.Rules does not have, and a library
+        // destination needs *where* in the library; both are left unread rather than read as
+        // something near enough, because a card that compiles and plays as a different card is
+        // the failure this compiler exists to avoid.
+        foreach (var text in new[]
+        {
+            "Conjure a card named Lightning Bolt into your hand.",
+            "Conjure a duplicate of target creature into your library.",
+            "Conjure a duplicate of target creature into the top five cards of your library at random.",
+        })
+        {
+            var card = Card("Conjured Refusal Test " + text.Length, text, CardType.Sorcery);
+            Assert.False(
+                CardCompiler.Compile(card).IsComplete,
+                $"'{text}' compiled; it should have been refused.");
+        }
+    }
+
     // ---- Mana that may only be spent on some things (CR 106.6) ---------------
 
     [Fact]
