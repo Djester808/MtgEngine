@@ -1,0 +1,104 @@
+Test run for C:\Users\John\Documents\Projects\MtgEngine\.claude\worktrees\agent-a91829c37ca0f87c9\tests\MtgEngine.Api.Tests\bin\Debug\net10.0\MtgEngine.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+C:\Users\John\Documents\Projects\MtgEngine\.claude\worktrees\agent-a91829c37ca0f87c9\tests\MtgEngine.Api.Tests\bin\Debug\net10.0\MtgEngine.Api.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.14]   Discovering: MtgEngine.Api.Tests
+[xUnit.net 00:00:00.32]   Discovered:  MtgEngine.Api.Tests
+[xUnit.net 00:00:00.36]   Starting:    MtgEngine.Api.Tests
+[xUnit.net 00:00:40.96]     MtgEngine.Api.Tests.CardCompilerInvariantTests.Every_filter_a_complete_card_names_selects_some_card [FAIL]
+[xUnit.net 00:00:40.96]       18 filters select no card in the corpus, so every card carrying one is complete, playable and inert:
+  'Colorless' selects no card at all (Herald of Kozilek)
+  'Colorless&Eldrazi' selects no card at all (Eye of Ugin)
+  'Historic' selects no card at all (Jhoira's Familiar)
+  'Multicolored' selects no card at all (Urza's Filter)
+  'basic&Forest' selects no card at all (Field Trip, Neverwinter Dryad, Gaea's Touch, Boseiju Reaches Skyward // Branch of Boseiju)
+  'basic&Mountain' selects no card at all (Koth, Fire of Resistance, Molten Man, Inferno Incarnate)
+  'basic&Plains' selects no card at all (Scouting Hawk, The Birth of Meletis, Gloryheath Lynx, Sunblade Samurai, Ambitious Farmhand // Seasoned Cathar, Loyal Warhound)
+  'basic&Swamp' selects no card at all (Plasmancer)
+  'basic-land' selects no card at all (Escape Tunnel, Solemn Simulacrum, Blighted Woodland, Prismatic Vista, Ecologist's Terrarium, Absorb Vis)
+  'legendary' selects no card at all (Captain Sisay, Thalia's Lancers)
+  'legendary&Spirit' selects no card at all (Lifespinner)
+  'legendary&creature' selects no card at all (The Arkenstone // Seek the Heart, Time of Need, The Seriema, War of the Last Alliance, War of the Last Alliance)
+  'name:Dragonstorm Globe or Boulderborn Dragon' selects no card at all (Dragonstorm Forecaster)
+  'name:Festering Newt or Bubbling Cauldron' selects no card at all (Bogbrew Witch)
+  'name:Heart-Piercer Bow or Vial of Dragonfire' selects no card at all (Renowned Weaponsmith)
+  'name:~' selects no card at all (Squadron Hawk, Screaming Seahawk, Growth-Chamber Guardian, Llanowar Sentinel, Avarax, Nesting Wurm)
+  'snow' selects no card at all (Glacial Revelation)
+  'snow&land' selects no card at all (Into the North, Spirit of the Aldergard)
+[xUnit.net 00:00:40.96]       Stack Trace:
+[xUnit.net 00:00:40.96]         C:\Users\John\Documents\Projects\MtgEngine\.claude\worktrees\agent-a91829c37ca0f87c9\tests\MtgEngine.Api.Tests\CardCompilerInvariantTests.Inert.cs(109,0): at MtgEngine.Api.Tests.CardCompilerInvariantTests.Every_filter_a_complete_card_names_selects_some_card()
+[xUnit.net 00:00:40.96]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+[xUnit.net 00:00:40.96]            at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:40.96]       Output:
+[xUnit.net 00:00:40.96]         distinct filters on complete cards: 194
+[xUnit.net 00:00:40.96]           'Colorless' selects no card at all (Herald of Kozilek)
+[xUnit.net 00:00:40.96]           'Colorless&Eldrazi' selects no card at all (Eye of Ugin)
+[xUnit.net 00:00:40.96]           'Historic' selects no card at all (Jhoira's Familiar)
+[xUnit.net 00:00:40.96]           'Multicolored' selects no card at all (Urza's Filter)
+[xUnit.net 00:00:40.96]           'basic&Forest' selects no card at all (Field Trip, Neverwinter Dryad, Gaea's Touch, Boseiju Reaches Skyward // Branch of Boseiju)
+[xUnit.net 00:00:40.96]           'basic&Mountain' selects no card at all (Koth, Fire of Resistance, Molten Man, Inferno Incarnate)
+[xUnit.net 00:00:40.96]           'basic&Plains' selects no card at all (Scouting Hawk, The Birth of Meletis, Gloryheath Lynx, Sunblade Samurai, Ambitious Farmhand // Seasoned Cathar, Loyal Warhound)
+[xUnit.net 00:00:40.96]           'basic&Swamp' selects no card at all (Plasmancer)
+[xUnit.net 00:00:40.96]           'basic-land' selects no card at all (Escape Tunnel, Solemn Simulacrum, Blighted Woodland, Prismatic Vista, Ecologist's Terrarium, Absorb Vis)
+[xUnit.net 00:00:40.96]           'legendary' selects no card at all (Captain Sisay, Thalia's Lancers)
+[xUnit.net 00:00:40.96]           'legendary&Spirit' selects no card at all (Lifespinner)
+[xUnit.net 00:00:40.96]           'legendary&creature' selects no card at all (The Arkenstone // Seek the Heart, Time of Need, The Seriema, War of the Last Alliance, War of the Last Alliance)
+[xUnit.net 00:00:40.96]           'name:Dragonstorm Globe or Boulderborn Dragon' selects no card at all (Dragonstorm Forecaster)
+[xUnit.net 00:00:40.96]           'name:Festering Newt or Bubbling Cauldron' selects no card at all (Bogbrew Witch)
+[xUnit.net 00:00:40.96]           'name:Heart-Piercer Bow or Vial of Dragonfire' selects no card at all (Renowned Weaponsmith)
+[xUnit.net 00:00:40.96]           'name:~' selects no card at all (Squadron Hawk, Screaming Seahawk, Growth-Chamber Guardian, Llanowar Sentinel, Avarax, Nesting Wurm)
+[xUnit.net 00:00:40.96]           'snow' selects no card at all (Glacial Revelation)
+[xUnit.net 00:00:40.96]           'snow&land' selects no card at all (Into the North, Spirit of the Aldergard)
+[xUnit.net 00:00:41.01]   Finished:    MtgEngine.Api.Tests
+  Failed MtgEngine.Api.Tests.CardCompilerInvariantTests.Every_filter_a_complete_card_names_selects_some_card [40 s]
+  Error Message:
+   18 filters select no card in the corpus, so every card carrying one is complete, playable and inert:
+  'Colorless' selects no card at all (Herald of Kozilek)
+  'Colorless&Eldrazi' selects no card at all (Eye of Ugin)
+  'Historic' selects no card at all (Jhoira's Familiar)
+  'Multicolored' selects no card at all (Urza's Filter)
+  'basic&Forest' selects no card at all (Field Trip, Neverwinter Dryad, Gaea's Touch, Boseiju Reaches Skyward // Branch of Boseiju)
+  'basic&Mountain' selects no card at all (Koth, Fire of Resistance, Molten Man, Inferno Incarnate)
+  'basic&Plains' selects no card at all (Scouting Hawk, The Birth of Meletis, Gloryheath Lynx, Sunblade Samurai, Ambitious Farmhand // Seasoned Cathar, Loyal Warhound)
+  'basic&Swamp' selects no card at all (Plasmancer)
+  'basic-land' selects no card at all (Escape Tunnel, Solemn Simulacrum, Blighted Woodland, Prismatic Vista, Ecologist's Terrarium, Absorb Vis)
+  'legendary' selects no card at all (Captain Sisay, Thalia's Lancers)
+  'legendary&Spirit' selects no card at all (Lifespinner)
+  'legendary&creature' selects no card at all (The Arkenstone // Seek the Heart, Time of Need, The Seriema, War of the Last Alliance, War of the Last Alliance)
+  'name:Dragonstorm Globe or Boulderborn Dragon' selects no card at all (Dragonstorm Forecaster)
+  'name:Festering Newt or Bubbling Cauldron' selects no card at all (Bogbrew Witch)
+  'name:Heart-Piercer Bow or Vial of Dragonfire' selects no card at all (Renowned Weaponsmith)
+  'name:~' selects no card at all (Squadron Hawk, Screaming Seahawk, Growth-Chamber Guardian, Llanowar Sentinel, Avarax, Nesting Wurm)
+  'snow' selects no card at all (Glacial Revelation)
+  'snow&land' selects no card at all (Into the North, Spirit of the Aldergard)
+  Stack Trace:
+     at MtgEngine.Api.Tests.CardCompilerInvariantTests.Every_filter_a_complete_card_names_selects_some_card() in C:\Users\John\Documents\Projects\MtgEngine\.claude\worktrees\agent-a91829c37ca0f87c9\tests\MtgEngine.Api.Tests\CardCompilerInvariantTests.Inert.cs:line 109
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Standard Output Messages:
+ distinct filters on complete cards: 194
+   'Colorless' selects no card at all (Herald of Kozilek)
+   'Colorless&Eldrazi' selects no card at all (Eye of Ugin)
+   'Historic' selects no card at all (Jhoira's Familiar)
+   'Multicolored' selects no card at all (Urza's Filter)
+   'basic&Forest' selects no card at all (Field Trip, Neverwinter Dryad, Gaea's Touch, Boseiju Reaches Skyward // Branch of Boseiju)
+   'basic&Mountain' selects no card at all (Koth, Fire of Resistance, Molten Man, Inferno Incarnate)
+   'basic&Plains' selects no card at all (Scouting Hawk, The Birth of Meletis, Gloryheath Lynx, Sunblade Samurai, Ambitious Farmhand // Seasoned Cathar, Loyal Warhound)
+   'basic&Swamp' selects no card at all (Plasmancer)
+   'basic-land' selects no card at all (Escape Tunnel, Solemn Simulacrum, Blighted Woodland, Prismatic Vista, Ecologist's Terrarium, Absorb Vis)
+   'legendary' selects no card at all (Captain Sisay, Thalia's Lancers)
+   'legendary&Spirit' selects no card at all (Lifespinner)
+   'legendary&creature' selects no card at all (The Arkenstone // Seek the Heart, Time of Need, The Seriema, War of the Last Alliance, War of the Last Alliance)
+   'name:Dragonstorm Globe or Boulderborn Dragon' selects no card at all (Dragonstorm Forecaster)
+   'name:Festering Newt or Bubbling Cauldron' selects no card at all (Bogbrew Witch)
+   'name:Heart-Piercer Bow or Vial of Dragonfire' selects no card at all (Renowned Weaponsmith)
+   'name:~' selects no card at all (Squadron Hawk, Screaming Seahawk, Growth-Chamber Guardian, Llanowar Sentinel, Avarax, Nesting Wurm)
+   'snow' selects no card at all (Glacial Revelation)
+   'snow&land' selects no card at all (Into the North, Spirit of the Aldergard)
+
+
+
+Test Run Failed.
+Total tests: 1
+     Failed: 1
+ Total time: 42.0794 Seconds

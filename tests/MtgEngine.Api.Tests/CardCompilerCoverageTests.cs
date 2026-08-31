@@ -235,6 +235,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
             // number is on the front face and the face answers for the card - the same fallback
             // the cost and the power use.
             Defense = Stat(front, "defense"),
+            Supertypes = SupertypesOf(typeLine),
             Subtypes = SubtypesOf(typeLine),
             Faces = FacesOf(json, keywords),
         };
@@ -361,6 +362,7 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                 ManaCostRaw = Text(face, "mana_cost"),
                 TypeLine = line,
                 CardTypes = types,
+                Supertypes = SupertypesOf(line),
                 Subtypes = SubtypesOf(line),
                 OracleText = Text(face, "oracle_text"),
                 Power = Stat(face, "power"),
@@ -424,6 +426,35 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
                 .Select(word => word.Trim()),
         ];
     }
+
+    /// <summary>
+    /// The supertypes printed on a card's front face (CR 205.4).
+    /// </summary>
+    /// <remarks>
+    /// This loader never read them, and the field is not decorative: <c>SearchFilters.Matches</c>
+    /// answers "basic", "legendary" and "snow" out of it, and the legend rule (CR 704.5j) is a
+    /// state-based action on it. So in every measurement this suite has ever taken, no card was
+    /// basic, legendary or snow - "search your library for a basic land card" selected nothing on
+    /// Solemn Simulacrum and 40 cards beside it, and every one of them read as complete. Nothing
+    /// failed, because the harness and the thing it measures agreed on a false answer.
+    /// <para>
+    /// Production's <c>CardParser.ParseSupertypes</c> has read them all along, from the same type
+    /// line, with the same four words. The instrument was the only thing that could not see them -
+    /// which is the same defect this file already carries two notes about, for the oracle text of
+    /// 853 two-faced cards and for the keyword list that had drifted from production's.
+    /// </para>
+    /// </remarks>
+    private static ImmutableList<string> SupertypesOf(string typeLine)
+    {
+        // Only the front face, for the reason the subtypes are: a card whose back face alone is
+        // legendary is not legendary on the front, and reading past the "//" makes it so.
+        var front = typeLine.Split("//", StringSplitOptions.None)[0];
+
+        return [.. Supertypes.Where(word => front.Contains(word, StringComparison.Ordinal))];
+    }
+
+    /// <summary>The four supertypes, exactly as production spells them (CR 205.4a).</summary>
+    private static readonly string[] Supertypes = ["Legendary", "Basic", "Snow", "World"];
 
     /// <summary>
     /// One of the two colour lists the bulk data carries, by name.

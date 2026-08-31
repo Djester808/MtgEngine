@@ -81,8 +81,7 @@ public sealed partial class CardCompilerInvariantTests
                 if (!carriers.TryGetValue(filter, out var who))
                     carriers[filter] = who = [];
 
-                if (who.Count < 6)
-                    who.Add(card.Name);
+                who.Add(card.Name);
             }
         }
 
@@ -99,7 +98,10 @@ public sealed partial class CardCompilerInvariantTests
             if (corpus.Any(card => SearchFilters.Matches(filter, card)))
                 continue;
 
-            dead.Add($"'{filter}' selects no card at all ({string.Join(", ", who)})");
+            var names = who.Distinct(StringComparer.Ordinal).ToList();
+            dead.Add(
+                $"'{filter}' selects no card at all — {names.Count} cards: "
+                    + string.Join(", ", names.Take(8)));
         }
 
         output.WriteLine($"distinct filters on complete cards: {carriers.Count}");
