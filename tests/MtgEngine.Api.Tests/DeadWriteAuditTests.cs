@@ -50,7 +50,77 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
     /// had to justify it.
     /// </remarks>
     private static readonly ImmutableDictionary<string, string> AcceptedDeadWrites =
-        ImmutableDictionary<string, string>.Empty;
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            // --- Written to the log, read back out of it by a JSON serializer -------------
+            //
+            // EventLogSerializer writes events through System.Text.Json, which reads every
+            // property by reflection and leaves no call for a call graph to find. So each of
+            // these IS persisted and IS replayed; what none of them has is a reducer, rule or
+            // view that acts on it. That is a record rather than a defect - but only because
+            // somebody checked, one at a time, which is the point of naming them here.
+            ["CascadeRequested.SourceId"] =
+                "log record; the choice that answers it is found by its own id, not by source",
+            ["ChoiceMade.ChoiceId"] =
+                "log record of which question was answered; the reducer folds the answer",
+            ["CommanderDamageDealt.Amount"] =
+                "the increment; the reducer folds Total, which is the number CR 903.10a asks for",
+            ["CommanderDesignated.CardId"] =
+                "log record; the designation the reducer keeps is the oracle id, not the object",
+            ["DiscoverRequested.SourceId"] =
+                "log record; the discover choice is resumed from the choice id",
+            ["FizzledForIllegalTargets.StackId"] =
+                "log record of what fizzled; the object is already off the stack when it is written",
+            ["ObjectCeasedToExist.From"] =
+                "log record; CR 111.7 removes the object wherever it was, so nothing branches on it",
+            ["StackObjectResolved.StackId"] =
+                "log record; the reducer pops the stack rather than looking the object up",
+            ["TriggerRemovedForNoTargets.ControllerId"] =
+                "log record of whose trigger it was (CR 603.3d); nothing is owed to them",
+
+            // --- A mirror in state of something the log already says ----------------------
+            //
+            // Both are real dead writes with no card behind them, and both are the same gap:
+            // PlayerViewProjector does not carry them, so a client learns the outcome from the
+            // GameEnded and PlayerLost events instead. Worth closing when the board next needs
+            // an end-of-game screen; not worth a wire change on its own.
+            ["GameState.WinnerId"] =
+                "mirror of GameEnded.WinnerId, which the reducer does read; not projected to a view",
+            ["PlayerState.LossReason"] =
+                "mirror of PlayerLost.Reason; not projected, so the client reads the event",
+
+            // --- An identity nothing looks anything up by ---------------------------------
+            //
+            // These records all carry a required Id in the house style, and the bans are
+            // gathered by sweeping the battlefield rather than by id, so no lookup exists to
+            // read one. ContinuousEffectDefinition.Id is the same field on the type where the
+            // lookup does exist, which is why the convention is not itself the finding.
+            ["ChosenNameBan.Id"] = "identity only; StaticBans are gathered, never looked up by id",
+            ["CounterBan.Id"] = "identity only; StaticBans are gathered, never looked up by id",
+            ["LifeGainBan.Id"] = "identity only; the ban is cleared wholesale, not by id",
+            ["PlayerQualityDefinition.Id"] =
+                "identity only; player qualities are applied where they are gathered",
+            ["UnpreventableStatic.Id"] =
+                "identity only; StaticBans are gathered, never looked up by id",
+
+            // --- Read by a person, not by the engine ---------------------------------------
+            ["CardHalf.Name"] =
+                "the printed name of a split half; the engine casts a half by index",
+            ["CompiledCard.Name"] =
+                "diagnostic - every failure message in the compiler suites is built from it",
+            ["ConditionalModes.Rule"] = "the CR citation the clause came from, carried for a reader",
+
+            // --- Deliberately recorded and deliberately not acted on ------------------------
+            ["CompiledCard.DeckRules"] =
+                "CR 903.3a and friends are settled before a game and do nothing during one; "
+                    + "the field exists so the fact is not lost, and CompiledCard says so",
+            ["DelayedTrigger.TurnCreated"] =
+                "Game.FireDelayedTriggers explains it: the ordering makes the arithmetic "
+                    + "unnecessary, and a stated duration (CR 603.7b) will need it",
+            ["SpellDefinition.FaceDownWard"] =
+                "disguise's ward is delivered by the disguise-ward trigger, which carries "
+                    + "FunctionsFaceDown (CR 702.168a); this is a second record of the same fact",
+        }.ToImmutableDictionary(StringComparer.Ordinal);
 
     /// <summary>
     /// Counter kinds the corpus puts on permanents that no engine code names.
