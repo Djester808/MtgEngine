@@ -3807,7 +3807,15 @@ internal static class Subjects
         {
             EffectSubject.Target => context.TargetAt(targetIndex) switch
             {
-                { Kind: TargetKind.Permanent } permanent => permanent.Subject,
+                // CR 400.7j is written about any object an effect moves to a public zone, not
+                // only about a card chosen in a graveyard. A permanent this same resolution
+                // blinked - "exile target creature you control, then return that card to the
+                // battlefield ... it gains first strike" - is two objects along by the time the
+                // pronoun runs, and handing back the id it was chosen under names nothing.
+                // Followed where it landed when it moved, and left alone when it did not, which
+                // is every other card that says "it" about a permanent it is still standing on.
+                { Kind: TargetKind.Permanent } permanent =>
+                    Landed(context, permanent.Subject) ?? permanent.Subject,
 
                 // The pronoun after a card that was never on the battlefield. CR 400.7 makes the
                 // card the player chose and the permanent that arrives two different objects, so

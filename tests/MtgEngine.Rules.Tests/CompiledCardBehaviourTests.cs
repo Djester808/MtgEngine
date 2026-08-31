@@ -1823,6 +1823,251 @@ public sealed class CompiledCardBehaviourTests
             "the pronoun named the token, and a fallback to the targeted card would land here");
     }
 
+    // ---- Round twenty-one, played: the mechanisms, off their authors' boards ----
+
+    /// <summary>
+    /// An Attraction that came back from a stored log still has its lights (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// The lights are the only thing that makes an Attraction do anything, they are printed
+    /// beside the text box rather than in a sentence, and a game that is put away and taken out
+    /// again is rebuilt from <see cref="EventLogSerializer"/> alone — so a field that log does
+    /// not carry is a field the resumed game does not have. An Attraction whose lights came back
+    /// empty is not an error anywhere: it is still an Attraction, it still sits on the
+    /// battlefield, the precombat main phase still rolls the die for it, and
+    /// <c>Attractions.IsLit</c> answers no to all six faces for the rest of the game.
+    /// <para>
+    /// The existing replay test resumes from <c>game.Log</c> in memory, where the
+    /// <see cref="CardDefinition"/> objects are the very same instances, so it cannot see this.
+    /// The round trip through the serializer is the whole difference, and it is the trip a
+    /// persisted game actually takes.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_stored_game_can_still_visit_the_attractions_it_came_back_with()
+    {
+        var lit = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed, ClownExtruder(), KiddieCoaster());
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+            Settle(game);
+            Assert.Equal(2, AttractionsOut(game, alice).Count);
+
+            var stored = Game.Resume(
+                EventLogSerializer.Read(EventLogSerializer.Write(game.Log)),
+                new GameRandom(seed),
+                Pool);
+
+            Assert.All(
+                stored.State.Battlefield
+                    .Select(stored.State.GetObject)
+                    .Where(o => Attractions.Is(o.Card)),
+                o => Assert.NotEmpty(o.Card.AttractionLights));
+
+            PassTo(stored, 3, TurnStep.PrecombatMain);
+            Settle(stored);
+
+            var rolled = Assert.Single(stored.Log.OfType<DiceRolled>());
+            var extruderLit = rolled.Result is 2 or 6;
+            lit.Add(extruderLit);
+
+            Assert.Equal(extruderLit ? 1 : 0, RobotsOut(stored));
+        }
+
+        // Twelve unlucky seeds that all missed would pass every assertion above having shown
+        // nothing, which is the shape of the defect rather than a proof against it.
+        Assert.Equal([false, true], lit.Order().ToList());
+    }
+
+    /// <summary>
+    /// A junked Attraction is a pile beside the deck, not the top of it (CR 717.6a).
+    /// </summary>
+    /// <remarks>
+    /// CR 717.6 sends a destroyed Attraction to the command zone, and CR 717.6a says in as many
+    /// words that what lands there is "kept in a single face-up pile separate from any player's
+    /// Attraction deck". The command zone is where both live, so a deck read as "every Attraction
+    /// its owner has in the command zone" reads the junkyard as deck — and because the move
+    /// carries the default position, the card that was just destroyed goes to the front of it.
+    /// The next opening puts it straight back onto the battlefield, and the same Attraction can
+    /// be destroyed and re-opened for the rest of the game.
+    /// </remarks>
+    [Fact]
+    public void A_junked_attraction_is_not_the_top_of_the_deck_again()
+    {
+        var wrecker = Card(
+            "Down for Repairs Test",
+            "Destroy target Attraction. (It's put into its owner's junkyard.)",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(wrecker).IsComplete);
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        // The deck is shuffled before the game begins (CR 717.2), so which of the two came up
+        // first is not the test's to choose - only that the other one is what is left.
+        var first = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject), o => Attractions.Is(o.Card));
+
+        var untouched = string.Equals(
+            first.Card.Name, "Information Booth Test", StringComparison.Ordinal)
+            ? "Clown Extruder Test"
+            : "Information Booth Test";
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, wrecker),
+            [Target.ToPermanent(first.Id)]);
+
+        Settle(game);
+
+        // What is left to open is the one card that has never been opened.
+        Assert.Equal(
+            [untouched],
+            Attractions.DeckOf(game.State, alice).Select(o => o.Card.Name).ToList());
+
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal([untouched], AttractionsOut(game, alice));
+
+        // And the junked card is still in the command zone, where CR 717.6 put it.
+        Assert.Contains(
+            game.State.Command.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, first.Card.Name, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A pronoun follows a permanent this same resolution blinked (CR 400.7j).
+    /// </summary>
+    /// <remarks>
+    /// The graveyard half of this rule was built and played; the battlefield half was not. CR
+    /// 400.7j is written about any object an effect moves to a public zone, and the resolver read
+    /// it for one target kind only — a card chosen in a graveyard. A creature chosen on the
+    /// battlefield takes the other arm and is handed back the id it was chosen under, which
+    /// CR 400.7 stopped naming anything the moment the exile happened. So the printings of
+    /// "exile target creature you control, then return that card to the battlefield … it gains
+    /// X" put their X nowhere, exactly as the reanimation family did, and for the same reason.
+    /// <para>
+    /// Proved by attacking rather than by reading a keyword: the permanent that comes back is a
+    /// new object that entered this turn (CR 302.6), so a declaration it survives is a
+    /// declaration only real haste can have allowed. The control below is the same spell with the
+    /// pronoun sentence taken off.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_follows_the_permanent_this_resolution_blinked()
+    {
+        var portal = Card(
+            "Blink Portal Haste Test",
+            "Exile target creature you control, then return that card to the battlefield under"
+                + " its owner's control. It gains haste until end of turn.");
+
+        var compiled = CardCompiler.Compile(portal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Blink Portal Bear Test", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, portal), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var arrived = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Blink Portal Bear Test", StringComparison.Ordinal));
+
+        // CR 400.7: what came back is a new object, which is the whole difficulty.
+        Assert.NotEqual(bear, arrived.Id);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [arrived.Id] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>The same spell without the pronoun leaves the arrival summoning sick.</summary>
+    /// <remarks>
+    /// The excision control for the test above. Without it a blink that granted haste to
+    /// everything it touched — or a harness that declared an attack no rule permitted — would
+    /// pass just as well.
+    /// </remarks>
+    [Fact]
+    public void A_blink_with_no_pronoun_leaves_the_arrival_summoning_sick()
+    {
+        var plain = Card(
+            "Blink Portal Plain Test",
+            "Exile target creature you control, then return that card to the battlefield under"
+                + " its owner's control.");
+
+        Assert.True(CardCompiler.Compile(plain).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Blink Plain Bear Test", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, plain), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var arrived = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Blink Plain Bear Test", StringComparison.Ordinal));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.DeclareAttackers(
+                alice,
+                new Dictionary<ObjectId, AttackTarget>
+                {
+                    [arrived.Id] = AttackTarget.Player(bob),
+                }));
+    }
+
+    /// <summary>
+    /// The keyword the printed card actually names lands on the permanent that arrived.
+    /// </summary>
+    /// <remarks>
+    /// Justiciar's Portal's own words. Haste is what an attack can prove, and first strike is
+    /// what the card says, so both are asked: the mechanism is the pronoun and the keyword is
+    /// only what it is carrying.
+    /// </remarks>
+    [Fact]
+    public void The_printed_blink_grants_its_keyword_to_the_object_that_arrived()
+    {
+        var portal = Card(
+            "Justiciars Portal Test",
+            "Exile target creature you control, then return that card to the battlefield under"
+                + " its owner's control. It gains first strike until end of turn.");
+
+        var compiled = CardCompiler.Compile(portal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Justiciar Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, portal), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        var arrived = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, "Justiciar Bear Test", StringComparison.Ordinal));
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, arrived).Has(KeywordAbility.FirstStrike),
+            "the keyword went to the id the spell was aimed at, which stopped existing");
+    }
+
     // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
 
     /// <summary>

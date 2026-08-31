@@ -571,6 +571,25 @@ public sealed record GameObject
     public int? DiscardedOnTurn { get; init; }
 
     /// <summary>
+    /// Whether this Attraction card is in its owner's junkyard rather than in their Attraction
+    /// deck (CR 717.6a).
+    /// </summary>
+    /// <remarks>
+    /// Both piles are the command zone — CR 717.6a says in as many words that the junkyard "is
+    /// not its own zone" — so the only thing that tells them apart is how the card got there, and
+    /// that is a fact of the move. Stamped from it here for the reason
+    /// <see cref="DiscardedOnTurn"/> above is: the card in the command zone is a new object
+    /// (CR 400.7) and the fact belongs to it, not to a list somebody has to keep in step.
+    /// <para>
+    /// Without it a destroyed Attraction is read back as a card in the Attraction deck, and
+    /// because a move carries <see cref="ZonePosition.Top"/> unless it says otherwise it is read
+    /// back as the <em>top</em> one — so the next opening puts the card that was just destroyed
+    /// straight back onto the battlefield, for as many times as anybody cares to destroy it.
+    /// </para>
+    /// </remarks>
+    public bool IsJunked { get; init; }
+
+    /// <summary>
     /// The colour or creature type chosen as this permanent entered (CR 614.12).
     /// </summary>
     /// <remarks>
@@ -1083,6 +1102,7 @@ public sealed record GameObject
         WarpedOnTurn == other.WarpedOnTurn &&
         OnAdventure == other.OnAdventure &&
         DiscardedOnTurn == other.DiscardedOnTurn &&
+        IsJunked == other.IsJunked &&
         string.Equals(Chosen, other.Chosen, StringComparison.Ordinal) &&
         string.Equals(ChosenName, other.ChosenName, StringComparison.Ordinal) &&
         SuspendedBy == other.SuspendedBy &&

@@ -88,6 +88,12 @@ public static class Attractions
     /// the order of the deck and the first entry is its top card. Filtered by owner rather than
     /// controller: a deck belongs to the player who brought it, and an Attraction another player
     /// has gained control of on the battlefield is not in anybody's deck.
+    /// <para>
+    /// And filtered by <see cref="GameObject.IsJunked"/>, which is the other pile the same zone
+    /// holds (CR 717.6a). A junked Attraction that counted as deck would be re-opened by the next
+    /// card that says "open an Attraction" — off the top, because a move carries
+    /// <see cref="ZonePosition.Top"/> — so destroying one would put it back rather than take it
+    /// away.
     /// </remarks>
     public static IReadOnlyList<GameObject> DeckOf(GameState state, Guid playerId)
     {
@@ -97,8 +103,13 @@ public static class Attractions
 
         foreach (var id in state.Command)
         {
-            if (state.TryGetObject(id, out var card) && card.OwnerId == playerId && Is(card.Card))
+            if (state.TryGetObject(id, out var card)
+                && card.OwnerId == playerId
+                && !card.IsJunked
+                && Is(card.Card))
+            {
                 deck.Add(card);
+            }
         }
 
         return deck;
