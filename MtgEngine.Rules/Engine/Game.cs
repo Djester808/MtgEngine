@@ -5153,7 +5153,12 @@ public sealed class Game
             || !CouldPayMidResolution(owed.PlayerId, CostOwed(owed, offer)))
         {
             RunDeferredBranch(
-                owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
+                owed.SourceId,
+                offer.IfYouDont,
+                aimedAt,
+                owed.SubjectObject,
+                owed.AbilityId,
+                subjectPlayer: owed.SubjectPlayer);
             return false;
         }
 
@@ -5173,7 +5178,12 @@ public sealed class Game
             if (payable.Count < owedCount)
             {
                 RunDeferredBranch(
-                    owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
+                    owed.SourceId,
+                    offer.IfYouDont,
+                    aimedAt,
+                    owed.SubjectObject,
+                    owed.AbilityId,
+                    subjectPlayer: owed.SubjectPlayer);
                 return false;
             }
 
@@ -5280,7 +5290,8 @@ public sealed class Game
         ImmutableList<Target> aimedAt,
         ObjectId? subjectObject,
         string? abilityId = null,
-        int? subjectAmount = null)
+        int? subjectAmount = null,
+        Guid? subjectPlayer = null)
     {
         if (branch.IsEmpty)
             return;
@@ -5310,14 +5321,14 @@ public sealed class Game
 
         if (State.TryGetObject(sourceId, out var source))
         {
-            RunEffects(branch, Wearing(source), subjectObject, subjectAmount);
+            RunEffects(branch, Wearing(source), subjectObject, subjectAmount, subjectPlayer);
             return;
         }
 
         if (_resolvedSources.TryGetValue(sourceId, out var moved)
             && State.TryGetObject(moved, out var landed))
         {
-            RunEffects(branch, Wearing(landed), subjectObject, subjectAmount);
+            RunEffects(branch, Wearing(landed), subjectObject, subjectAmount, subjectPlayer);
         }
     }
 
@@ -5377,12 +5388,22 @@ public sealed class Game
                 TakeChosenPayment(owed.PlayerId, chosen, picks);
 
             RunDeferredBranch(
-                owed.SourceId, offer.IfYouDo, aimedAt, owed.SubjectObject, owed.AbilityId);
+                owed.SourceId,
+                offer.IfYouDo,
+                aimedAt,
+                owed.SubjectObject,
+                owed.AbilityId,
+                subjectPlayer: owed.SubjectPlayer);
             return;
         }
 
         RunDeferredBranch(
-            owed.SourceId, offer.IfYouDont, aimedAt, owed.SubjectObject, owed.AbilityId);
+            owed.SourceId,
+            offer.IfYouDont,
+            aimedAt,
+            owed.SubjectObject,
+            owed.AbilityId,
+            subjectPlayer: owed.SubjectPlayer);
     }
 
     /// <summary>
@@ -12857,7 +12878,8 @@ public sealed class Game
         ImmutableList<IEffect> effects,
         GameObject source,
         ObjectId? subjectObject = null,
-        int? subjectAmount = null)
+        int? subjectAmount = null,
+        Guid? subjectPlayer = null)
     {
         if (effects.Count == 0)
             return;
@@ -12877,7 +12899,7 @@ public sealed class Game
             Targets = source.Targets,
             VariableValue = source.VariableValue,
             Division = source.Division,
-            SubjectPlayer = source.Ability?.SubjectPlayer,
+            SubjectPlayer = subjectPlayer ?? source.Ability?.SubjectPlayer,
             SubjectAmount = about,
             SubjectObject = subjectObject ?? source.Ability?.SubjectObject,
             ControllerBehind = ControllerBehind,

@@ -12059,7 +12059,7 @@ public static partial class CardCompiler
     /// Leaving the line unread is the direction that costs nothing.
     /// </para>
     /// </remarks>
-    private static (ManaCostSpec Mana, int Life, ChosenCost? Chosen)? OfferedCost(string cost)
+    internal static (ManaCostSpec Mana, int Life, ChosenCost? Chosen)? OfferedCost(string cost)
     {
         if (ReadKeywordCost(cost) is not { } paid || paid.Chosen.Count > 1)
             return null;

@@ -1480,12 +1480,34 @@ public static partial class EffectPhrase
     }
 
     /// <summary>
-    /// "[Do something] to target [thing] unless its controller pays [cost]" (CR 601.2b).
+    /// "[Do something] unless [that player] pays [cost]" — the punisher (CR 601.2b).
     /// </summary>
     /// <remarks>
-    /// The counterspell tax. It is the ordinary optional payment with the offer redirected to the
-    /// other player, which is the whole difference — everything else about it, including how the
-    /// branch is found again when the answer arrives, is the same machinery.
+    /// The counterspell tax and everything shaped like it. It is the ordinary optional payment
+    /// with the offer redirected to the other player, which is the whole difference — everything
+    /// else about it, including how the branch is found again when the answer arrives, is the
+    /// same machinery.
+    /// <para>
+    /// It read exactly one card in the corpus for a long time: "counter|destroy|exile target
+    /// [thing] unless <em>its controller</em> pays {N}". Three verbs, one target shape, one
+    /// payer word and mana only. Everything the cards actually print around it — "that player
+    /// loses 2 life unless they pay {2}", "target player discards their hand unless they pay 7
+    /// life", "that player sacrifices a permanent of their choice unless they pay {1}" — was a
+    /// sentence with the same two halves and stayed unread, 83 lines of it.
+    /// </para>
+    /// <para>
+    /// So both halves are handed to vocabularies that already exist rather than being widened in
+    /// place. The consequence is read by <see cref="TryOne"/>, which is every sentence the
+    /// compiler knows; the price by <c>CardCompiler.OfferedCost</c>, which is what ward, echo and
+    /// cumulative upkeep are charged through, so "sacrifice a permanent" and "pay 3 life" arrive
+    /// working and a price none of them can ask as one question is refused in all four places at
+    /// once.
+    /// </para>
+    /// <para>
+    /// <b>A group is refused, not approximated.</b> "Each opponent loses 3 life unless they pay
+    /// {2}" is one question per opponent and <see cref="MayPay"/> asks one; the guard below keeps
+    /// it unread rather than charging the first opponent on everybody's behalf.
+    /// </para>
     /// </remarks>
     private static bool TryUnlessTheyPay(
         string text,
@@ -1496,33 +1518,107 @@ public static partial class EffectPhrase
         if (!m.Success)
             return false;
 
-        if (Specs.Parse(m.Groups["t"].Value) is not { } aimed)
+        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not var (charged, life, chosen))
             return false;
 
         // The consequence is what happens when they *decline*, so it is parsed as the "if you
         // don't" branch of an offer nobody made.
-        var sentence = $"{m.Groups["verb"].Value} {m.Groups["t"].Value}";
         var scratchTargets = ImmutableList.CreateBuilder<TargetSpec>();
         var scratchEffects = ImmutableList.CreateBuilder<IEffect>();
 
-        if (!TryOne(sentence, scratchTargets, scratchEffects) || scratchTargets.Count != 1)
+        if (!TryOne(m.Groups["effect"].Value.Trim(), scratchTargets, scratchEffects)
+            || scratchEffects.Count == 0
+            || scratchTargets.Count > 1)
+        {
+            return false;
+        }
+
+        // A consequence aimed at a group is a group of offers, which this cannot make.
+        if (NamesAGroupOfPlayers().IsMatch(m.Groups["effect"].Value))
             return false;
 
         // The scratch effects were built against a list of one and index target zero. Read as a
         // whole phrase that is also the real index; read as one sentence among several it is not,
         // so they are shifted the same way every other borrowed parse is.
         var offset = targets.Count;
-        targets.Add(aimed);
+        targets.AddRange(scratchTargets);
+
+        // "Its controller" points at the thing the sentence is aimed at, and only a sentence with
+        // a target has one; the named forms point at a player the text has picked out, which is
+        // what PlayerScope.NamedPlayer means everywhere else in the compiler.
+        //
+        // A *pronoun* names whoever the consequence just named, and half the time that is itself
+        // a controller relation: "that creature's controller loses 2 life unless they pay {2}"
+        // is one player said twice. Read off the consequence rather than assumed, because
+        // NamedPlayer would find nobody there — the trigger is about a creature, not a seat — and
+        // an offer nobody is asked is a punisher that never offers the way out.
+        var payer = m.Groups["who"].Value.ToLowerInvariant();
+        var pronoun = payer is "that player" or "they";
+        var relation = pronoun && ControllerRelation().IsMatch(m.Groups["effect"].Value);
+        var named = pronoun && !relation;
+        var asksTheTarget = !named && !relation && scratchTargets.Count == 1;
 
         effects.Add(new MayPay(
-            Mana.ManaCostSpec.Parse(m.Groups["cost"].Value),
+            charged,
             IfYouDo: [],
             IfYouDont: [.. scratchEffects.Select(e => EffectTargets.Shift(e, offset))],
             EffectIndex: effects.Count,
-            AskTargetController: offset));
+            AskTargetController: asksTheTarget ? offset : null,
+            LifeCost: life,
+            ChosenKind: chosen?.Kind,
+            ChosenCount: chosen?.Count ?? 1,
+            ChosenWhat: chosen?.What)
+        {
+            AskScope = asksTheTarget
+                ? null
+                : named ? PlayerScope.NamedPlayer : PlayerScope.SubjectController,
+        });
 
         return true;
     }
+
+    /// <summary>The price as an activation cost would spell it, for the shared cost reader.</summary>
+    /// <remarks>
+    /// "Pays {1}", "pays 3 life" and "sacrifices a permanent of their choice" are one price in
+    /// three grammars: a card conjugates the verb for whoever is paying and adds "of their
+    /// choice" because a cost is chosen by the player paying it (CR 601.2h) — neither says
+    /// anything the cost itself does not. Normalised here rather than given a second cost
+    /// vocabulary, which is how the two would come to disagree.
+    /// </remarks>
+    private static string PrintedPrice(Match m)
+    {
+        if (m.Groups["cost"].Success)
+            return m.Groups["cost"].Value.Trim();
+
+        if (m.Groups["life"].Success)
+            return "Pay " + m.Groups["life"].Value.Trim() + " life";
+
+        var verb = m.Groups["verb"].Value.ToLowerInvariant().TrimEnd('s');
+        return char.ToUpperInvariant(verb[0]) + verb[1..] + " " + m.Groups["what"].Value.Trim();
+    }
+
+    /// <summary>The group half of the shared player vocabulary — every seat at once.</summary>
+    /// <remarks>
+    /// Held here rather than restated inside the pattern, so the words this refuses are the same
+    /// words <see cref="WhoElse"/> and <see cref="WhoseElse"/> understand. A group word added to
+    /// those and not to this would be a punisher that charges one player on everybody's behalf,
+    /// which is the failure the reader above exists to refuse.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(each opponent|each other player|each player|all players|your opponents|each of "
+            + @"your opponents)('s)?\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex NamesAGroupOfPlayers();
+
+    /// <summary>"Its controller" anywhere in a sentence, rather than as its subject.</summary>
+    /// <remarks>
+    /// <see cref="SubjectControllerPhrase"/> is the same words anchored, because as a subject
+    /// they name a player and in the middle of a sentence they usually qualify something else.
+    /// This one is asked a narrower question — did the clause in front of an "unless" name a
+    /// controller? — where either position is the same answer.
+    /// </remarks>
+    [GeneratedRegex(ItsController, RegexOptions.IgnoreCase)]
+    private static partial Regex ControllerRelation();
 
     /// <summary>
     /// "Flip a coin. If you win the flip, ... If you lose the flip, ..." (CR 705.2).
@@ -8492,6 +8588,14 @@ public static partial class EffectPhrase
         "each other player" => PlayerScope.EachOtherPlayer,
         "each player" => PlayerScope.EachPlayer,
         "that player" => PlayerScope.TriggerSubject,
+
+        // The pronoun spelling of "the player this sentence has already named", and it answers
+        // NamedPlayer rather than TriggerSubject for the reason PossessiveScopeOf gives: a
+        // pronoun points back at whoever the text picked out, and half the lines carrying one are
+        // on spells with no trigger at all - "target player discards their hand. Then they lose 2
+        // life". NamedPlayer is the target first and the trigger's subject behind it, which is
+        // both readings in one word.
+        "they" or "them" => PlayerScope.NamedPlayer,
         "defending player" => PlayerScope.DefendingPlayer,
         "enchanted player" => PlayerScope.EnchantedPlayer,
         SubjectControllerWord => PlayerScope.SubjectController,
@@ -12901,7 +13005,7 @@ public static partial class EffectPhrase
     /// </remarks>
     internal const string WhoElse =
         @"each opponent|each other player|each player|that player|defending player"
-            + @"|enchanted player|the subject's controller";
+            + @"|enchanted player|the subject's controller|they|them";
 
     /// <summary>The same group with "you" left out.</summary>
     private const string WThem = @"(?<who>" + WhoElse + @")";
@@ -14923,9 +15027,24 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^investigate$", RegexOptions.IgnoreCase)]
     private static partial Regex InvestigateLine();
 
+    /// <remarks>
+    /// The payer words are <see cref="ItsController"/> plus the two spellings of "the player this
+    /// sentence has already named", and they are the same list the rest of the compiler reads —
+    /// the "its controller" alternation is literally the one the sentence-level rewrite produces,
+    /// so this pattern recognises the phrase whether or not that rewrite has been over the line.
+    /// <para>
+    /// The price is captured rather than parsed: mana, life and a chosen cost are three grammars
+    /// on the printed card and one question at the table, and which of them a card prints is
+    /// <c>CardCompiler.OfferedCost</c>'s business rather than this pattern's. "Of their choice" is
+    /// matched and dropped for the same reason — a cost is chosen by whoever pays it (CR 601.2h),
+    /// so the words add nothing the offer does not already say.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<verb>counter|destroy|exile) (?<t>target [a-z0-9'’ ]+?) unless its controller pays "
-            + @"(?<cost>(\{[^}]+\})+)\.?$",
+        @"^(?<effect>.+?) unless (?<who>" + ItsController + @"|that player|they) "
+            + @"(?:pays? (?:(?<cost>(\{[^}]+\})+)|(?<life>\d+) life)"
+            + @"|(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
+            + @"(?: of their choice)?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex UnlessTheyPayLine();
 

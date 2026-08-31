@@ -5639,6 +5639,32 @@ public sealed record MayPay(
     int ChosenCount = 1,
     TargetSpec? ChosenWhat = null) : IEffect
 {
+    /// <summary>
+    /// Which seat the offer goes to when the sentence <em>names</em> a player rather than
+    /// pointing at a target's controller — "that player loses 2 life unless they pay {2}".
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AskTargetController"/> answers one relation, "whoever controls the thing this
+    /// is aimed at", which is the counterspell tax and nothing else. A punisher names the player
+    /// outright, and the two ways cards do that — the player a trigger was about, and the player
+    /// a target slot chose — are already one word in the shared vocabulary
+    /// (<see cref="PlayerScope.NamedPlayer"/>). So the offer takes a scope rather than growing a
+    /// flag per relation, and a word that vocabulary learns is a word this offer can address.
+    /// <para>
+    /// A scope naming nobody is <em>not paid</em> rather than not asked: a cost no player can pay
+    /// is not paid (CR 118.3), so the "unless" fails and the printed consequence happens. The
+    /// other direction — doing nothing at all — is a punisher that never punishes, which is a
+    /// strictly better card than the one printed and the one way this compiler may not be wrong.
+    /// </para>
+    /// <para>
+    /// A scope naming <em>several</em> players is refused at compile time and never reaches here.
+    /// "Each opponent loses 3 life unless they pay {2}" is a separate question per player and
+    /// this record asks one; charging the first opponent for all of them would be worse than
+    /// leaving the line unread.
+    /// </para>
+    /// </remarks>
+    public PlayerScope? AskScope { get; init; }
+
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -5661,6 +5687,19 @@ public sealed record MayPay(
             }
 
             asked = subject;
+        }
+
+        if (AskScope is { } scope)
+        {
+            // Nobody to ask means nobody paid, so the decline branch runs. See the remarks on
+            // AskScope: the alternative is a card that quietly stops working.
+            if (PlayerScopes.Resolve(scope, context).ToList() is not [var named]
+                || !context.State.Players.ContainsKey(named))
+            {
+                return [.. IfYouDont.SelectMany(e => e.Resolve(context))];
+            }
+
+            asked = named;
         }
 
         if (AskTargetController is { } index)
@@ -5704,6 +5743,11 @@ public sealed record MayPay(
             {
                 Targets = context.Targets,
                 SubjectObject = context.SubjectObject,
+
+                // Carried for the reason the object beside it is: the branch this offer defers
+                // runs against the permanent, long after the ability that knew whose trigger it
+                // was has left the stack.
+                SubjectPlayer = context.SubjectPlayer,
                 YesLabel = YesLabel,
                 NoLabel = NoLabel,
 
