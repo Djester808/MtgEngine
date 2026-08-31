@@ -173,4 +173,64 @@ public sealed class R2108Measure(ITestOutputHelper output)
 
         return string.Equals(text, before, StringComparison.Ordinal) ? null : Retext(card, text);
     }
+    [Fact]
+    public void Dump()
+    {
+        var into = Environment.GetEnvironmentVariable("R2108_DUMP");
+        if (into is null)
+            return;
+
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+            return;
+
+        var lines = new List<string>(corpus.Count);
+
+        foreach (var card in corpus)
+        {
+            var compiled = CardCompiler.Compile(card);
+            var parts = new List<string> { compiled.IsComplete ? "COMPLETE" : "SHORT" };
+
+            foreach (var spell in new[] { compiled.Spell, compiled.Adventure, compiled.PreparedSpell })
+            {
+                if (spell is null)
+                    continue;
+
+                foreach (var e in spell.Effects)
+                    parts.Add("spell:" + e);
+
+                foreach (var mode in spell.Modes)
+                {
+                    foreach (var e in mode.Effects)
+                        parts.Add("mode:" + e);
+                }
+            }
+
+            foreach (var t in compiled.Triggers)
+            {
+                parts.Add("trigger:" + t.Text);
+                foreach (var e in t.Effects)
+                    parts.Add("  " + e);
+            }
+
+            foreach (var a in compiled.Activated)
+            {
+                parts.Add("activated:" + a.Text);
+                foreach (var e in a.Effects)
+                    parts.Add("  " + e);
+            }
+
+            foreach (var st in compiled.Statics)
+                parts.Add("static:" + st.Id);
+
+            foreach (var u in compiled.Unhandled)
+                parts.Add("unread:" + u);
+
+            var text = string.Join(" ~~ ", parts).Replace((char)10, ' ').Replace((char)13, ' ');
+            lines.Add(card.Name + "|" + text);
+        }
+
+        lines.Sort(StringComparer.Ordinal);
+        File.WriteAllLines(into, lines);
+    }
 }

@@ -1866,6 +1866,14 @@ public static partial class EffectPhrase
     /// {2}" is one question per opponent and <see cref="MayPay"/> asks one; the guard below keeps
     /// it unread rather than charging the first opponent on everybody's behalf.
     /// </para>
+    /// <para>
+    /// <b>"You" is a payer on the paying arm only.</b> "Sacrifice this creature unless you
+    /// discard a card" is already read, by a matcher built for exactly that sentence
+    /// (<c>SacrificeSourceUnlessPaid</c>), and a general reader that also matched it would
+    /// silently take those twenty-eight cards off a purpose-built path onto this one - a change
+    /// nothing asked for and nothing would have noticed. The payer word is admitted where this
+    /// reader is the only one that reads the sentence and refused where it is not.
+    /// </para>
     /// </remarks>
     private static bool TryUnlessTheyPay(
         string text,
@@ -16105,10 +16113,12 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<effect>.+?) unless (?<who>" + ItsController + @"|that player|they|you) "
-            + @"(?:pays? (?:(?<cost>(\{[^}]+\})+)"
+        @"^(?<effect>.+?) unless "
+            + @"(?:(?<who>" + ItsController + @"|that player|they|you) "
+            + @"pays? (?:(?<cost>(\{[^}]+\})+)"
             + @"(?<each> for each [^.]+?|,? where X is [^.]+?)?|(?<life>\d+) life)"
-            + @"|(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
+            + @"|(?<who>" + ItsController + @"|that player|they) "
+            + @"(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
             + @"(?: of their choice)?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex UnlessTheyPayLine();

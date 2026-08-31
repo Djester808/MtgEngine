@@ -12339,6 +12339,17 @@ public static partial class CardCompiler
     {
         ArgumentNullException.ThrowIfNull(cost);
 
+        // A mana symbol the parser does not know is *dropped*, not refused - {E} and {S} both
+        // are - so a price made of nothing but symbols can come back as no price at all, and an
+        // offer that costs nothing is one every player takes. "Tap this creature unless you pay
+        // {E}" compiled clean and never tapped anything. Every printed symbol has to survive the
+        // parse or the line stays unread.
+        if (PureManaPrice().Match(cost.Trim()) is { Success: true } printed
+            && ManaCostSpec.Parse(cost).Symbols.Count != printed.Groups["s"].Captures.Count)
+        {
+            return null;
+        }
+
         // A price that is a computation rather than a number, lifted off before the cost reader
         // sees it. It is done *here*, in the one reader every keyword's price already goes
         // through, so ward, echo, cumulative upkeep and the punisher learn the counted form
@@ -12422,6 +12433,10 @@ public static partial class CardCompiler
             ? null
             : (paid.Mana, paid.Life, chosen, null);
     }
+
+    /// <summary>A price that is nothing but mana symbols, symbol by symbol.</summary>
+    [GeneratedRegex(@"^(?<s>\{[^}]+\})+$")]
+    private static partial Regex PureManaPrice();
 
     /// <summary>"{1} for each card in your graveyard" — a price with a count in it (CR 107.3).</summary>
     /// <remarks>
