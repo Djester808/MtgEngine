@@ -504,7 +504,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         var faulted = broken.Sum(p => p.Value.Count);
 
         output.WriteLine(
-            $"played {played} card-games over {table.Count} cards the soaks never select "
+            $"played {played} card-games over {table.Count} lands and battles "
                 + $"({table.Count / PerGame} tables created on the battlefield, "
                 + $"{table.Count / PerHandGame} played from hand)");
         output.WriteLine($"land drops actually taken:         {drops}");
