@@ -7571,7 +7571,7 @@ public static class SearchFilters
     /// happens to be.
     /// <para>
     /// Deliberately not a word: a card name is capitalised by definition, and a capital is how
-    /// <see cref="Matches"/> tells a subtype from everything else. A sentinel that could be read
+    /// <see cref="Matches(string, Domain.Models.CardDefinition)"/> tells a subtype from everything else. A sentinel that could be read
     /// as a name would be one more capitalised word in a type table, which this codebase has been
     /// bitten by seven times.
     /// </para>
