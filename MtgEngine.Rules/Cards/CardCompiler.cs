@@ -6621,7 +6621,7 @@ public static partial class CardCompiler
             FunctionsFrom = null,
             Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
-                && bloodied(state, EmptyAbilities.Instance, source, null),
+                && bloodied(state, abilities, source, null),
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -14881,7 +14881,7 @@ public static partial class CardCompiler
                 // CR 614.1c: the replacement simply does not apply when the condition is met, so
                 // the land arrives upright and nothing has to untap it afterwards.
                 && (unless is null
-                    || !unless(state, EmptyAbilities.Instance, source, null)),
+                    || !unless(state, abilities, source, null)),
             Replace = (e, _, source) => [e, new PermanentTapped(Arriving(e, source)!.Value)],
         });
 
@@ -15623,12 +15623,22 @@ public static partial class CardCompiler
     /// </para>
     /// <para>
     /// The controller is read through the control-only layer reader so that a stolen permanent
-    /// shields its new controller's creatures (CR 613.1b). It is asked with no ability source,
-    /// which is the compiler's standing compromise everywhere a replacement predicate needs one:
-    /// <see cref="ReplacementEffectDefinition.Applies"/> is handed a state and an object and no
-    /// abilities, so a control effect <em>granted</em> to a permanent rather than printed on it
-    /// is invisible here. Threading an <c>IAbilitySource</c> through that signature is the fix,
-    /// and it is forty-two call sites wide.
+    /// shields its new controller's creatures (CR 613.1b), and every board question here — that
+    /// reader, the condition, and the two filter predicates — is asked with the game's real
+    /// <see cref="IAbilitySource"/>. It used to be asked with none, which is not a small
+    /// approximation but a different rule: the layer walk gathers its candidates <em>through</em>
+    /// that source, so with an empty one it gathers no continuous effects at all. Counters and
+    /// the face-down rules still applied and nothing else did — an Aura granting first strike
+    /// was invisible to "prevent all combat damage that would be dealt by creatures with first
+    /// strike", and a control effect granted to a permanent rather than printed on it could not
+    /// move the shield to its new controller either.
+    /// </para>
+    /// <para>
+    /// It cannot recurse. The predicate runs from the replacement loop rather than from inside a
+    /// layer computation, and the two readers it reaches are each bounded the way CR 613.8b
+    /// bounds a dependency loop it cannot order: <see cref="SearchFilters"/> answers a nested ask
+    /// from the printed card, and <see cref="Characteristics.ControllerOf"/> from the stored
+    /// controller, rather than either looping.
     /// </para>
     /// </remarks>
     private static ReplacementEffectDefinition StaticShield(
@@ -15660,7 +15670,7 @@ public static partial class CardCompiler
         // The shield with its object slots filled from the board, or null when a slot names
         // something that is not there. An Aura that has come unattached shields nobody rather
         // than falling back to shielding itself.
-        PreventionEffect? Bind(GameState state, GameObject source)
+        PreventionEffect? Bind(GameState state, IAbilitySource abilities, GameObject source)
         {
             ObjectId? Anchored(PreventionAnchor which) => which switch
             {
@@ -15687,7 +15697,7 @@ public static partial class CardCompiler
 
             return template with
             {
-                ControllerId = Characteristics.ControllerOf(state, EmptyAbilities.Instance, source),
+                ControllerId = Characteristics.ControllerOf(state, abilities, source),
                 Permanent = shielded,
                 Source = dealing,
                 Excludes = described.Other ? source.Id : null,
@@ -15712,23 +15722,21 @@ public static partial class CardCompiler
             IsPrevention = true,
             Applies = (e, state, abilities, source) =>
             {
-                if (when is not null && !when(state, EmptyAbilities.Instance, source, null))
+                if (when is not null && !when(state, abilities, source, null))
                     return false;
 
-                if (Bind(state, source) is not { } shield)
+                if (Bind(state, abilities, source) is not { } shield)
                     return false;
 
                 return e switch
                 {
                     Events.DamageMarked marked =>
                         Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, marked.IsCombat,
-                            marked.SourceId)
+                            shield, state, abilities, marked.IsCombat, marked.SourceId)
                         && state.TryGetObject(marked.Id, out var damaged)
-                        && Preventions.Covers(shield, state, EmptyAbilities.Instance, damaged),
+                        && Preventions.Covers(shield, state, abilities, damaged),
                     Events.PlayerDamaged hit =>
-                        Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, hit.IsCombat, hit.SourceId)
+                        Preventions.Watches(shield, state, abilities, hit.IsCombat, hit.SourceId)
                         && Preventions.CoversPlayer(shield, state, hit.PlayerId),
                     _ => false,
                 };
