@@ -1936,11 +1936,26 @@ public static partial class EffectPhrase
         var named = pronoun && !relation;
         var asksTheTarget = !itself && !named && !relation && scratchTargets.Count == 1;
 
+        // The consequence may have asked a question of its own. "You may draw a card unless
+        // that player pays {1}" is an offer wrapped in an offer: this reader takes the whole
+        // sentence, hands "you may draw a card" to TryOne, and gets back a MayPay numbered from
+        // the branch's own empty list - which is 0, exactly what this outer offer would take
+        // from its own. EffectTree.Locate answers null on a tie rather than guessing between
+        // two, so *neither* question was ever put to a player: Rhystic Study, Mystic Remora and
+        // Complicate compiled complete, went on the stack, resolved, and drew nothing.
+        //
+        // Renumbered rather than refused, unlike the offer reader next door. That one declines
+        // because a second reader takes the same sentence and produces one question; nothing
+        // else reads this shape, so refusing here would only trade three silent cards for three
+        // unread ones. A locator is a name and not a position - Locate searches the whole tree
+        // for it - so any number no other MayPay in this tree has answers correctly.
+        var locator = NextFreeLocator<MayPay>([.. effects, .. scratchEffects], effects.Count);
+
         effects.Add(new MayPay(
             charged,
             IfYouDo: [],
             IfYouDont: [.. scratchEffects.Select(e => EffectTargets.Shift(e, offset))],
-            EffectIndex: effects.Count,
+            EffectIndex: locator,
             AskTargetController: asksTheTarget ? offset : null,
             EnergyCost: energy,
             LifeCost: life,
@@ -1955,6 +1970,34 @@ public static partial class EffectPhrase
         });
 
         return true;
+    }
+
+    /// <summary>
+    /// A locator no effect of this kind in the tree is already using (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// <c>EffectTree.Locate</c> is how a deferred question finds itself again once the answer
+    /// arrives, and it returns null when two effects of one kind carry the same locator - the
+    /// safe answer, because running the wrong branch is worse than running none, and the silent
+    /// one, because nothing else notices. Whoever builds the second question is the one that has
+    /// to move, so this asks the tree it is about to join rather than assuming its own list is
+    /// the whole of it.
+    /// </remarks>
+    private static int NextFreeLocator<T>(ImmutableList<IEffect> tree, int from)
+        where T : IEffect
+    {
+        var taken = EffectTree.Flatten(tree)
+            .OfType<T>()
+            .Select(one => EffectTree.LocatorOf(one))
+            .Where(one => one is not null)
+            .Select(one => one!.Value)
+            .ToHashSet();
+
+        var free = from;
+        while (taken.Contains(free))
+            free++;
+
+        return free;
     }
 
     /// <summary>The price as an activation cost would spell it, for the shared cost reader.</summary>
@@ -5834,7 +5877,7 @@ public static partial class EffectPhrase
             // card named X" would need both, and the one card printing that shape is not worth
             // a filter grammar that can be got wrong.
             effects.Add(new SearchLibrary(
-                Abilities.SearchFilters.NamedPrefix + m.Groups["named"].Value.Trim(),
+                NamedFilter(m.Groups["named"].Value),
                 m.Groups["where"].Value.Contains("battlefield", StringComparison.OrdinalIgnoreCase)
                     ? Zone.Battlefield
                     : Zone.Hand,
@@ -5889,7 +5932,7 @@ public static partial class EffectPhrase
         if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
         {
             effects.Add(new Seek(
-                Abilities.SearchFilters.NamedPrefix + m.Groups["named"].Value.Trim(),
+                NamedFilter(m.Groups["named"].Value),
                 m.Groups["where"].Success ? Zone.Battlefield : Zone.Hand,
                 Tapped: m.Groups["tapped"].Success));
 
@@ -9157,6 +9200,37 @@ public static partial class EffectPhrase
     public static string? SearchFilterFor(string phrase) => SearchFilterNamed(phrase);
 
     /// <summary>
+    /// The filter for "a card named X", including the form that names two cards (CR 701.23).
+    /// </summary>
+    /// <remarks>
+    /// "Search your library for a card named Festering Newt or Bubbling Cauldron" is one search
+    /// that will take either card, and the whole phrase went into the filter as a single name.
+    /// No card is called "Festering Newt or Bubbling Cauldron", so the search offered nothing on
+    /// three cards that compiled complete: Bogbrew Witch, Dragonstorm Forecaster, Renowned
+    /// Weaponsmith.
+    /// <para>
+    /// The whole phrase is kept as the first alternative rather than replaced by the split, and
+    /// that is deliberate: a card really named "Do or Die" would otherwise be split into two
+    /// names it does not have. The corpus has no search naming such a card today - the three
+    /// above are every "named ... or ..." there is - but a filter that cannot lose a card is
+    /// worth more than one that happens to be right about the current printing.
+    /// </para>
+    /// </remarks>
+    private static string NamedFilter(string printed)
+    {
+        var named = printed.Trim();
+        var whole = Abilities.SearchFilters.NamedPrefix + named;
+
+        var parts = named.Split(
+            " or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return parts.Length < 2
+            ? whole
+            : whole + "|" + string.Join(
+                '|', parts.Select(one => Abilities.SearchFilters.NamedPrefix + one));
+    }
+
+    /// <summary>
     /// The count that means "any number of", which has no ceiling until the library is looked at.
     /// </summary>
     internal const int AnyNumber = -1;
@@ -9368,10 +9442,24 @@ public static partial class EffectPhrase
             return "non" + word[4..];
         }
 
+        var lower = word.ToLowerInvariant();
+
+        // A word this vocabulary already knows is that word, whatever case it is printed in, and
+        // it has to be asked before the capital-means-subtype rule below. Every printed sentence
+        // starts with a capital, so "Colorless spells you cast cost {1} less to cast" handed the
+        // cost modifier the *subtype* "Colorless" - which no card has, so the filter selected
+        // nothing, the discount never came off, and the card read as complete. Four cards on the
+        // same shape: Herald of Kozilek, Eye of Ugin, Jhoira's Familiar, Urza's Filter. It is the
+        // same mistake the mass static made when it became a lord for the creature type
+        // "Artifact", one reader along.
+        //
+        // Safe in the other direction because no printed subtype is spelled like one of these
+        // words: a capitalised "Colorless" can only be the sentence's first word.
+        if (KnownAtom(lower))
+            return lower;
+
         if (word.Length > 1 && char.IsUpper(word[0]) && word.All(char.IsLetter))
             return word;
-
-        var lower = word.ToLowerInvariant();
 
         // A negation is an atom too: "nonlegendary creature" is two words that both have to
         // be true, and the first of them is a "non". Without this the whole phrase was refused
@@ -9379,24 +9467,32 @@ public static partial class EffectPhrase
         if (lower.StartsWith("non", StringComparison.Ordinal) && FilterAtom(lower[3..]) is not null)
             return lower;
 
-        // "Multicolored" and "monocolored" count colours rather than naming one (CR 105.4), and
-        // the half of this vocabulary that answers them at runtime - SearchFilters.Matches - has
-        // read both filter ids for as long as the cost modifiers have printed the words. This
-        // half, which decides whether the compiler accepts them at all, had never been told; so
-        // "a multicolored creature card" was refused here while the identical filter id was
-        // answered perfectly next door. The same drift the "non" prefix above had, one comment up.
-        return SearchableTypes.Contains(lower)
-            || lower is "basic" or "legendary" or "snow" or "world"
-            || lower is "white" or "blue" or "black" or "red" or "green" or "colorless"
-            || lower is "multicolored" or "monocolored"
-
-            // CR 205.4h, and the same drift the two words above it had: the runtime half has
-            // answered "historic" in two other readers all along while this half, which decides
-            // whether the compiler accepts the word at all, had never been told.
-            || lower is "historic"
-                ? lower
-                : null;
+        return KnownAtom(lower) ? lower : null;
     }
+
+    /// <summary>
+    /// Whether one lower-cased word is a filter atom the shared vocabulary answers.
+    /// </summary>
+    /// <remarks>
+    /// A card type, a supertype, a colour, or one of the three words that count colours and ages
+    /// rather than naming them. Lifted out of <see cref="FilterAtom"/> because that reader has to
+    /// ask it twice - once before the capital-means-subtype rule and once after the "non" prefix -
+    /// and two copies of this list is how the two answers would come to differ.
+    /// <para>
+    /// "Multicolored" and "monocolored" count colours rather than naming one (CR 105.4), and
+    /// <c>SearchFilters.Matches</c> - the half of this vocabulary that answers at runtime - has
+    /// read both filter ids for as long as the cost modifiers have printed the words. This half,
+    /// which decides whether the compiler accepts them at all, had never been told, so "a
+    /// multicolored creature card" was refused here while the identical filter id was answered
+    /// perfectly next door. "Historic" (CR 205.4h) had the same drift.
+    /// </para>
+    /// </remarks>
+    private static bool KnownAtom(string lower) =>
+        SearchableTypes.Contains(lower)
+        || lower is "basic" or "legendary" or "snow" or "world"
+        || lower is "white" or "blue" or "black" or "red" or "green" or "colorless"
+        || lower is "multicolored" or "monocolored"
+        || lower is "historic";
 
     private static readonly HashSet<string> SearchableTypes =
         new(StringComparer.OrdinalIgnoreCase)
@@ -18806,9 +18902,16 @@ public static partial class TriggerConditions
             }
             else if (word.Length > 1 && char.IsUpper(word[0]))
             {
-                // A named type is always a creature type in this position, so the card type is
-                // implied and does not have to be printed.
-                alternatives.Add((Domain.Enums.CardType.Creature, word));
+                // Which card type the subtype belongs to, asked of the shared table (CR 205.3).
+                // This arm said "creature" outright and had a comment saying a named type always
+                // is one in this position. It is not: an Equipment is an artifact, an Aura is an
+                // enchantment and a Forest is a land, so "whenever a Forest you control enters"
+                // compiled into a trigger watching for a *creature* with the land type Forest -
+                // of which there are none. The trigger existed, was watched for on every event,
+                // and could not fire on any board that will ever be built. Complete, playable,
+                // and silent, which is the failure mode this table was written to end; the fix
+                // landed in the target grammar and the graveyard reader and never here.
+                alternatives.Add((EffectPhrase.Specs.SubtypeCardType(word), word));
             }
             else
             {

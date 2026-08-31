@@ -18043,11 +18043,46 @@ public static partial class CardCompiler
             // activated and in the graveyard by the time it resolves (CR 702.29a). Left at the
             // default it compiled cleanly and never fired, which is the failure this whole
             // exercise keeps producing when a card reads correctly and plays as nothing.
-            FunctionsFrom = zone!.Value,
+            FunctionsFrom = GraveyardOnly(card, effects) ?? zone!.Value,
         });
 
         return true;
     }
+
+    /// <summary>
+    /// The graveyard, where a non-permanent card's trigger can only be watching (CR 603.6).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SelfTriggerZone"/> reads the trigger's <em>condition</em>, which is all a
+    /// condition can tell it, and defaults to the battlefield. "Whenever a Forest you control
+    /// enters, you may return this card from your graveyard to your hand" says nothing about
+    /// where the card is - so eight instants and sorceries compiled complete and sat waiting on
+    /// a battlefield they can never reach, because <c>Game.Consider</c> skips any ability whose
+    /// source is not in its functioning zone. Reach of Branches, Spit Flame, Sosuke's Summons,
+    /// Punishing Fire and four more: legal, castable, and never once recurring.
+    /// <para>
+    /// The answer is read off the effects rather than off the words, because the effect is the
+    /// thing that knows: <see cref="ReturnSourceToHand"/> returns nothing at all unless the
+    /// source is in a graveyard, which is a zone requirement stated in the one place that can
+    /// enforce it.
+    /// </para>
+    /// <para>
+    /// Only for a card with no permanent type, and that restriction is doing real work. A
+    /// creature's "when this dies, return it to your hand" carries the same effect and must keep
+    /// watching from the battlefield - a leaves-the-battlefield trigger looks back at the game as
+    /// it was (CR 603.10a) - so the certain case is the only one taken.
+    /// </para>
+    /// </remarks>
+    private static Zone? GraveyardOnly(CardDefinition card, ImmutableList<IEffect> effects) =>
+        (card.CardTypes & PermanentTypes) == 0
+        && EffectTree.Flatten(effects).OfType<ReturnSourceToHand>().Any()
+            ? Zone.Graveyard
+            : null;
+
+    /// <summary>The five types that make a permanent, plus Battle (CR 110.1, 205.2a).</summary>
+    private const CardType PermanentTypes =
+        CardType.Artifact | CardType.Creature | CardType.Enchantment | CardType.Land
+        | CardType.Planeswalker | CardType.Battle;
 
     /// <remarks>
     /// Deliberately narrow. "When" opens both kinds of trigger and only the condition tells them
