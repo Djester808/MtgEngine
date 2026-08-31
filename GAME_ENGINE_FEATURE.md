@@ -747,6 +747,119 @@ creature` on a 5/5 source and a 2/6 target and asserts five marks rather than tw
   graveyard card's printed size. That is the shipped behaviour of the arm this round widened — Death
   Watch and Banewasp Affliction inherit it — and it is short by every counter that was on the
   creature. The fix is the same missing last-known-power as the bullet above.
+### Round twenty-one: the verbs a held duration wraps, and a 5.1x excision
+
+**18,419 -> 18,428 complete cards, +9, none lost, measured by set difference on this branch's own
+binary** (32,717 playable cards). The nine are Awakener Druid, Skilled Animator, Unctus's
+Retrofitter, The Blackstaff of Waterdeep, Tide Shaper, The Wondrous Wasp, Quicksmith Spy,
+Quicksmith Rebel and Thran Weaponry. The compiled-effect diff is one shape: `HoldsWhileSourceHolds`,
+between one and four of them per card, and a `PumpGroup` carrying the new `HeldWhile` on the one
+card whose subject is a group.
+
+The duration itself landed the round before. What had not landed was any verb that could take it
+except the four it was built with - a pump, a keyword grant, a "doesn't untap" and a gain-control -
+so the corpus's other six wordings compiled with "until end of turn" and refused the clause the
+card actually prints.
+
+#### Three measurements, and the line control is the one that says anything
+
+The family is the cards with an unread line whose "for as long as ..." tail is one of the four
+spellings this engine can already express. Measured on the baseline compiler, before the work:
+
+| probe | cards |
+|---|---|
+| population - an unread line with an expressible held tail | 62 |
+| ... of which one line short | 51 |
+| **excision** - delete every such line | **51** |
+| **line control** - delete a *different unread line* on a card in the same family | **0 of 11 eligible** |
+| **substitution** - rewrite only the tail to `until end of turn` | **10** |
+
+Excision over-counts by 5.1x, which is the usual story: 41 of those cards have something else
+wrong with them and deleting a line takes that away too. The substitution is the honest ceiling
+and it is 10, because it changes nothing but the three words this work is about. Nine were taken;
+the tenth is declined below. Re-run afterwards the same instrument reads 53 / 42 / 0 of 11 / 1 -
+the population and the ceiling both down by the nine, and the one left is the decline.
+
+The line control is the reason the other two numbers can be believed. Dropping *any* line completes
+about 1,340 cards corpus-wide, which measures nothing at all - so the control drops a line the
+compiler could not read either, on a card in this same family. It completes **0**, before and
+after. The 51 are the held line and nothing else.
+
+#### What was missing was the tail, not the effect
+
+Every id these readers need already existed: `SetPowerToughnessId` for layer 7b, `BecomesId` and
+`BecomesCreatureTypeId` for layer 4, `BecomesColorsId` for 5, `GrantId` and `GrantAbilityId` and
+`LosesAllAbilitiesId` for 6, `PumpId` for 7c. So each new reader hands the ids the turn-long reader
+builds to the same `HoldsWhile` the pump and the keyword grant already use, and the six wordings
+are six patterns over one mechanism rather than six mechanisms:
+
+- `becomes a 4/5 green Treefolk creature` - the sized animation
+- `becomes an artifact creature with base power and toughness 5/5` - the same animation with its
+  size behind the noun, which is where the card types live in that wording
+- `becomes an Island` - CR 305.7 rather than CR 613.4b, because no size is named
+- `loses all abilities`
+- `gains "{T}: Draw a card"` - a quoted ability, parsed back by the readers that read it on a card
+- `All creatures get +2/+2`
+
+The last of those could not ride the wrapper. `HoldsWhileSourceHolds` aims at one permanent and a
+group is gathered as the effect resolves, so `PumpGroup` took the condition as a third duration of
+its own beside its two turn flags. CR 611.2c is untouched by that: the affected set is still fixed
+as the list is built, and the behaviour test puts a creature onto the battlefield inside the window
+to say so.
+
+The sized animation's run of ids is now `SizedAnimationIds`, taken by all three of its readers. It
+had been written out twice, and this family's recorded defect is exactly what a third copy invites:
+an animation that quietly dropped its colour was a different card in front of protection and in
+front of a lord.
+
+#### The layer distinction the tests are built to fail on
+
+A base P/T is *set* in sublayer 7b and a counter modifies in 7c, and a pump read in place of the
+set compiles perfectly. Two of the six tests stack a +1/+1 counter for that reason, and the
+permanents they animate are chosen so the two readings differ - a land and an artifact have no
+printed size at all, so a pump leaves a creature with no power where the set leaves a 5/6.
+
+Each mechanism was mutated to check the tests are load-bearing rather than decorative. Six
+mutations, six red tests: the 7b set read as a 7c pump (twice, once per animation reader), the
+group pump ignoring its held duration, the held effect stamped with the turn number instead (which
+reddens four of the six and an older held test beside them), the removal keeping what other effects
+granted, and the retyping adding a land type instead of replacing it.
+
+That last pair is the fail-closed line in this family. CR 305.7's removal deliberately *keeps*
+granted abilities - it is `HasLostPrintedAbilities`, and Blood Moon is why - while CR 613.1f's
+takes everything. Reading the second as the first leaves a silenced creature still flying because a
+lord beside it said so, on a card that reads as complete, so the ability-removal test asserts a
+granted keyword and a printed one go together off one board.
+
+The mutation run also caught an instrument defect worth recording: a `--filter FullyQualifiedName~Held`
+silently skipped the two tests whose method names do not contain the word, and both mutations
+"survived" until the filter was corrected. A mutation that survives is a claim about a test, and
+the first thing to check is whether the test ran.
+
+#### Declined here, with the measurement behind each
+
+- **"You may play that card for as long as you control ~" - 1 card completed by substitution
+  (Lightning, Security Sergeant), 6 in the family.** The permission is not a continuous effect on a
+  permanent at all: `ExileTopAndMayPlay` hands a *player* a window written as a turn number, and
+  CR 613's layers order objects. Giving it a held duration means a second clock in that machinery
+  rather than a tail on a verb, and reading it as "until end of turn" - which is what makes it
+  complete - is a strictly worse card than the printed one.
+- **The counter-scoped tails - 0 completed.** "For as long as it has a feather counter on it"
+  (Aven Mimeomancer), "for as long as it has a flood counter on it" (Quicksilver Fountain,
+  Xolatoyac, Eluge). Round twenty measured this family at 0 for a duration and it is still 0: the
+  condition is about a counter on the *affected* permanent rather than about the source, which is a
+  different question from the one `StillHolds` asks.
+- **The leading spelling - 9 cards, 0 completed by substitution.** "For as long as ~ remains tapped,
+  another target permanent loses all abilities and can't attack or block" (Immovable Rod), and
+  Opportunistic Dragon, Preacher, Giant Oyster, Kitesail Larcenist, Exchange of Words, Taster of
+  Wares, Hama and Kotose. Every one carries a second clause the compiler cannot read - a
+  prohibition, a text-box swap, a per-upkeep counter, a cast-from-exile permission - so the word
+  order is not what blocks them, and a pattern for it would fire on nothing.
+- **Hedge Whisperer - 1 card.** Its sentence reads now; the line stays unread because
+  `Collect evidence 4` is a cost the compiler does not lift out.
+- **Tishana's Tidebinder - 1 card.** "If an ability of an artifact, creature, or planeswalker is
+  countered this way, that permanent loses all abilities" needs the countered ability's source as a
+  subject, which is a pronoun this engine has nowhere to read.
 
 ### Round twenty-one: how much damage was excess
 

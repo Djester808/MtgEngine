@@ -2130,6 +2130,471 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(17, game.State.GetPlayer(bob).Life);
     }
 
+    // ---- The verbs a held duration wraps (CR 611.2b, 613.1) ------------------
+
+    /// <summary>
+    /// Awakener Druid: "becomes a 4/5 green Treefolk creature for as long as ~ remains on the
+    /// battlefield" (CR 205.1b, 611.2b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The duration was built a round before this and the verbs behind it were not: every one of
+    /// these sentences read with "until end of turn" and refused the clause the card actually
+    /// prints. So what this asserts is the join — the same run of layer effects the turn-long
+    /// reader builds, on the clock the card names.
+    /// <para>
+    /// The counter is what separates a layer-7b <em>set</em> from a pump, and on a land the
+    /// difference is not a number but whether there is one at all: a land has no printed power,
+    /// so "+4/+5" modifies nothing and the animation would leave a creature with no size. Set in
+    /// 7b and then modified by the counter in 7c it is a 5/6. Both readings compile; only one of
+    /// them is the printed card.
+    /// </para>
+    /// <para>
+    /// The trigger the printed card hangs this on is an activated ability here, so the source can
+    /// be removed independently of what it animated — the sentence under test is the card's word
+    /// for word, and the boundary is the point.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_animation_held_while_its_source_stands_sets_a_base_size_under_the_counters()
+    {
+        var druid = Card(
+            "Held Awakener Test",
+            "{T}: Target Forest becomes a 4/5 green Treefolk creature for as long as ~ remains "
+                + "on the battlefield. It's still a land.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(druid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var caster = game.Create(alice, druid, Zone.Battlefield);
+
+        // Put on before the animation, so the assertion also says the set does not wipe it.
+        game.ChangeCounters(forest, CounterKinds.PlusOnePlusOne, 1);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        var woken = Characteristics.Of(game.State, Pool, game.State.GetObject(forest));
+        Assert.True(woken.IsCreature);
+        Assert.True(woken.CardTypes.HasFlag(CardType.Land));
+        Assert.Contains("Treefolk", woken.Subtypes);
+        Assert.Contains(ManaColor.Green, woken.Colors);
+
+        // 4/5 set in 7b, then the counter in 7c. A pump would leave a land with no size at all.
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(forest)));
+        Assert.Equal(
+            6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(forest)));
+
+        // It outlives the turn, which is the whole of what the held tail buys: an
+        // until-end-of-turn reading of the same sentence would have let go in the cleanup behind
+        // us, and this is a permanent the card means to keep animated.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal(5, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(forest)));
+
+        // And the other side of the boundary. The source leaves, the condition names an object
+        // that is gone (CR 400.7), and the land is a land again.
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var asleep = Characteristics.Of(game.State, Pool, game.State.GetObject(forest));
+        Assert.False(asleep.IsCreature);
+        Assert.DoesNotContain("Treefolk", asleep.Subtypes);
+    }
+
+    /// <summary>
+    /// Skilled Animator: "becomes an artifact creature with base power and toughness 5/5 for as
+    /// long as ~ remains on the battlefield" (CR 205.1b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// The same animation with its size printed after the noun instead of before it, which is a
+    /// second sentence shape and not a second effect — the card types live in the modifier run
+    /// here and outside it there. The counter makes the same point it makes above, on a permanent
+    /// that is an even clearer case: an artifact has no printed power either, so a 6/6 can only be
+    /// a set in 7b with the counter added in 7c.
+    /// </remarks>
+    [Fact]
+    public void An_artifact_animated_with_a_base_size_keeps_it_while_its_source_stands()
+    {
+        var animator = Card(
+            "Held Animator Test",
+            "{T}: Target artifact you control becomes an artifact creature with base power and "
+                + "toughness 5/5 for as long as ~ remains on the battlefield.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(animator);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Held Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var caster = game.Create(alice, animator, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(relic)]);
+        Settle(game);
+        game.ChangeCounters(relic, CounterKinds.PlusOnePlusOne, 1);
+
+        var alive = Characteristics.Of(game.State, Pool, game.State.GetObject(relic));
+        Assert.True(alive.IsCreature);
+        Assert.True(alive.CardTypes.HasFlag(CardType.Artifact));
+        Assert.Equal(6, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(relic)));
+        Assert.Equal(6, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(relic)));
+
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).IsCreature);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.False(Characteristics.Of(game.State, Pool, game.State.GetObject(relic)).IsCreature);
+    }
+
+    /// <summary>
+    /// Tide Shaper: "target land becomes an Island for as long as ~ remains on the battlefield"
+    /// (CR 305.7, 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// The retyping with no size, which makes it CR 305.7 rather than CR 613.4b: the land loses
+    /// the abilities its printed text gave it and gains the new type's mana ability. Read through
+    /// the mana ability rather than through the subtype, because the subtype is what an effect
+    /// says and the mana is what a player gets.
+    /// </remarks>
+    [Fact]
+    public void A_land_retyped_while_its_source_stands_taps_for_the_new_colour_until_it_goes()
+    {
+        var shaper = Card(
+            "Held Tide Shaper Test",
+            "{T}: Target land becomes an Island for as long as ~ remains on the battlefield.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(shaper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var theirs = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var caster = game.Create(alice, shaper, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(theirs)]);
+        Settle(game);
+
+        string ManaOf(ObjectId id) => Assert.Single(ManaAbilitiesOf(game, id)).Text;
+
+        Assert.Equal("{T}: Add {U}.", ManaOf(theirs));
+
+        // Bob's whole untap step and turn go by with the land still an Island, which an
+        // until-end-of-turn reading would not survive.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal("{T}: Add {U}.", ManaOf(theirs));
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Equal("{T}: Add {G}.", ManaOf(theirs));
+    }
+
+    /// <summary>
+    /// The Wondrous Wasp: "It loses all abilities for as long as ~ remains on the battlefield"
+    /// (CR 611.2b, 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// Layer 6, and the assertion that matters is the granted keyword rather than the printed
+    /// one. The engine already had a narrower removal for CR 305.7 — a land that becomes a basic
+    /// type loses the abilities <em>its own rules text</em> gave it and keeps anything an effect
+    /// handed it — and reading this sentence as that one would leave a silenced creature still
+    /// flying because a lord beside it said so. Both are asserted, off one board, so a removal
+    /// that reached only the printed half would fail here rather than look identical.
+    /// <para>
+    /// The pronoun is the printed subject: the sentence before it tapped a target, and this one
+    /// is about that same creature. It is read only because something has been targeted.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_ability_removal_held_while_its_source_stands_takes_granted_abilities_too()
+    {
+        var wasp = Card(
+            "Held Wasp Test",
+            "{T}: Tap up to one target creature. It loses all abilities for as long as ~ remains "
+                + "on the battlefield.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            KeywordAbility.Haste);
+
+        var lord = Card(
+            "Held Wasp Lord Test",
+            "Other creatures you control have flying.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(wasp);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(
+            CardCompiler.Compile(lord).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(lord).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, lord, Zone.Battlefield);
+
+        var victim = game.Create(
+            alice,
+            Card(
+                "Held Wasp Victim Test",
+                "{T}: You gain 1 life.",
+                CardType.Creature,
+                power: 2,
+                toughness: 2,
+                KeywordAbility.FirstStrike),
+            Zone.Battlefield);
+
+        var caster = game.Create(alice, wasp, Zone.Battlefield);
+
+        // Flying is the lord's, first strike is the card's, and the activated ability is the
+        // card's too — three things a removal has to take, from two different places.
+        var armed = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.True(armed.Has(KeywordAbility.Flying));
+        Assert.True(armed.Has(KeywordAbility.FirstStrike));
+        Assert.NotEmpty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(victim)]);
+        Settle(game);
+
+        var silenced = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.True(silenced.HasLostAllAbilities);
+        Assert.False(silenced.Has(KeywordAbility.FirstStrike));
+        Assert.False(silenced.Has(KeywordAbility.Flying));
+        Assert.Empty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+
+        // Still silent a turn later, where an until-end-of-turn reading would have given
+        // everything back in the cleanup step behind us.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(victim))
+                .HasLostAllAbilities);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var restored = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.False(restored.HasLostAllAbilities);
+        Assert.True(restored.Has(KeywordAbility.FirstStrike));
+        Assert.True(restored.Has(KeywordAbility.Flying));
+        Assert.NotEmpty(Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(victim)));
+    }
+
+    /// <summary>
+    /// Quicksmith Spy: an ability written out in quotation marks, held by the duration
+    /// (CR 611.2b, 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The grant already existed for a turn and for a turn cycle; the wrapper is what was
+    /// missing. The condition is asserted twice over — once on the compiled card, because the
+    /// four spellings of the tail are one alternation and taking the wrong arm ends the effect at
+    /// the wrong moment, and once by playing the granted ability, because a grant is invisible
+    /// from the card that gives it.
+    /// </remarks>
+    [Fact]
+    public void A_quoted_ability_granted_under_a_held_duration_can_be_played_and_then_goes()
+    {
+        var spy = Card(
+            "Held Quicksmith Test",
+            "{T}: Target artifact you control gains \"{T}: Draw a card\" for as long as you "
+                + "control ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(spy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        Assert.Equal(
+            GenerativeEffects.ControlHeldWhile.Controlled,
+            compiled.Activated.Single().Effects.OfType<HoldsWhileSourceHolds>().Single().Until);
+
+        var (game, alice, _) = InMainPhase();
+        var relic = game.Create(
+            alice, Card("Held Spy Relic Test", string.Empty, CardType.Artifact), Zone.Battlefield);
+        var caster = game.Create(alice, spy, Zone.Battlefield);
+
+        game.ActivateAbility(alice, caster, "a", [Target.ToPermanent(relic)]);
+        Settle(game);
+
+        // The relic is printed blank, so every ability it has is one this sentence gave it.
+        IReadOnlyList<ActivatedAbilityDefinition> AbilitiesOf(ObjectId id) =>
+            [.. Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(id))];
+
+        var granted = Assert.Single(AbilitiesOf(relic));
+        Assert.Equal("{T}: Draw a card", granted.Text);
+
+        var before = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, relic, granted.Id);
+        Settle(game);
+        Assert.Equal(before + 1, game.State.GetPlayer(alice).Hand.Count);
+
+        // A turn cycle later it is still there. The artifact untaps and can be tapped for it
+        // again, which is the difference between a lasting grant and one that expired in a
+        // cleanup step two turns ago.
+        PassToMainPhaseOfTurn(game, 3);
+        Assert.Single(AbilitiesOf(relic));
+
+        var again = game.State.GetPlayer(alice).Hand.Count;
+        game.ActivateAbility(alice, relic, Assert.Single(AbilitiesOf(relic)).Id);
+        Settle(game);
+        Assert.Equal(again + 1, game.State.GetPlayer(alice).Hand.Count);
+
+        game.Move(caster, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        Assert.Empty(AbilitiesOf(relic));
+    }
+
+    /// <summary>
+    /// Thran Weaponry: "All creatures get +2/+2 for as long as ~ remains tapped" (CR 611.2b,
+    /// 611.2c).
+    /// </summary>
+    /// <remarks>
+    /// The one verb in this family that is not aimed at a target, so it cannot ride the wrapper
+    /// the others do: the group is gathered as the effect resolves, and CR 611.2c fixes it there.
+    /// The creature that arrives inside the window is the assertion that says so, and it is the
+    /// one a reader answering the duration by re-asking the board each time would fail — a longer
+    /// window makes that mistake easier to make, not harder.
+    /// <para>
+    /// The last two assertions are the two halves of CR 611.2b. Untapping the source ends the
+    /// effect through the ordinary untap step rather than by hand; tapping it again does not
+    /// bring the bonus back, because an effect whose duration has ended is over and does not
+    /// begin again.
+    /// </para>
+    /// <para>
+    /// The mana cost of the printed card is dropped so the ability can be used on turn one. The
+    /// sentence under test is the card's word for word.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_mass_pump_held_while_its_source_is_tapped_fixes_its_set_and_ends_at_the_untap()
+    {
+        var weaponry = Card(
+            "Held Thran Weaponry Test",
+            "{T}: All creatures get +2/+2 for as long as ~ remains tapped.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(weaponry);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(
+            alice, TestCards.Creature("Held Thran Bear Test", 2, 2), Zone.Battlefield);
+        var theirs = game.Create(
+            bob, TestCards.Creature("Held Thran Enemy Test", 2, 2), Zone.Battlefield);
+        var gear = game.Create(alice, weaponry, Zone.Battlefield);
+
+        game.ActivateAbility(alice, gear, "a");
+        Settle(game);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.PowerOf(game.State, Pool, game.State.GetObject(id))!.Value;
+
+        // "All creatures" is every creature on the battlefield, not the caster's own.
+        Assert.Equal(4, PowerOf(mine));
+        Assert.Equal(4, PowerOf(theirs));
+
+        // Bob's whole turn, inside the window an until-end-of-turn reading would have closed.
+        TestCards.PassToTurn(game, 2);
+        Settle(game);
+        Assert.Equal(4, PowerOf(mine));
+
+        // CR 611.2c: the set was fixed when the effect was created, so this one is not in it.
+        var arrival = game.Create(
+            bob, TestCards.Creature("Held Thran Arrival Test", 2, 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, PowerOf(arrival));
+        Assert.Equal(4, PowerOf(theirs));
+
+        // Alice's untap step frees the Weaponry, which is what ends it.
+        TestCards.PassToTurn(game, 3);
+        Settle(game);
+        Assert.False(game.State.GetObject(gear).Permanent?.IsTapped);
+        Assert.Equal(2, PowerOf(mine));
+        Assert.Equal(2, PowerOf(theirs));
+
+        // Ended, not paused: the condition becoming true again does not restart it.
+        game.Tap(gear);
+        Settle(game);
+        Assert.Equal(2, PowerOf(mine));
+    }
+
+    /// <summary>
+    /// Every corpus card this family unblocked, compiled from the line it actually prints.
+    /// </summary>
+    /// <remarks>
+    /// The tests above play six sentences; this says which real cards those sentences are, and
+    /// keeps the readers anchored to printed wordings rather than to the paraphrases a test is
+    /// free to write. Each line is the card's own, with its self-reference written as the token
+    /// the compiler normalises the name to.
+    /// </remarks>
+    [Theory]
+    [InlineData(
+        "Held Corpus Awakener Test",
+        "When ~ enters, target Forest becomes a 4/5 green Treefolk creature for as long as ~ "
+            + "remains on the battlefield. It's still a land.")]
+    [InlineData(
+        "Held Corpus Hedge Test",
+        "{3}{G}, {T}: Target land you control becomes a 5/5 green Plant Boar creature with haste "
+            + "for as long as ~ remains tapped. It's still a land. Activate only as a sorcery.")]
+    [InlineData(
+        "Held Corpus Blackstaff Test",
+        "{1}{U}, {T}: Another target nontoken artifact you control becomes a 4/4 artifact "
+            + "creature for as long as ~ remains tapped. Activate only as a sorcery.")]
+    [InlineData(
+        "Held Corpus Skilled Animator Test",
+        "When ~ enters, target artifact you control becomes an artifact creature with base power "
+            + "and toughness 5/5 for as long as ~ remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Retrofitter Test",
+        "When ~ enters, up to one target artifact you control becomes an artifact creature with "
+            + "base power and toughness 4/4 for as long as ~ remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Tide Shaper Test",
+        "When ~ enters, target land becomes an Island for as long as ~ remains on the "
+            + "battlefield.")]
+    [InlineData(
+        "Held Corpus Wasp Test",
+        "When ~ enters, tap up to one target creature. It loses all abilities for as long as ~ "
+            + "remains on the battlefield.")]
+    [InlineData(
+        "Held Corpus Quicksmith Spy Test",
+        "When ~ enters, target artifact you control gains \"{T}: Draw a card\" for as long as "
+            + "you control ~.")]
+    [InlineData(
+        "Held Corpus Quicksmith Rebel Test",
+        "When ~ enters, target artifact you control gains \"{T}: ~ deals 2 damage to any target\""
+            + " for as long as you control ~.")]
+    [InlineData(
+        "Held Corpus Thran Weaponry Test",
+        "{2}, {T}: All creatures get +2/+2 for as long as ~ remains tapped.")]
+    public void Every_printed_line_the_held_verbs_unblocked_reads(string name, string text)
+    {
+        var card = Card(name, text, CardType.Creature, power: 2, toughness: 2);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
     // ---- Counting a life change (CR 118.3) -----------------------------------
 
     [Fact]

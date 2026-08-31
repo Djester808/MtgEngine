@@ -5784,6 +5784,106 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // The verbs a held duration wraps. Each of these already reads with "until end of turn"
+        // and could not read the clause behind it, so what is new here is the tail and not the
+        // effect: the ids are the ones the turn-long readers build, handed to the same
+        // HoldsWhile that the pump, the keyword grant and the "doesn't untap" above use. Written
+        // the other way round - a second animation reader, a second silencing reader - the two
+        // halves of each verb would have drifted on which layer the effect belongs in.
+        //
+        // "Target Forest becomes a 4/5 green Treefolk creature for as long as ~ remains on the
+        // battlefield." Layer 7b for the size and layer 4 for the types, exactly as the turn-long
+        // form is: a held duration changes when the effect ends, never which layer it applies in.
+        m = AnimateWhileLine().Match(sentence);
+        if (m.Success
+            && SizedAnimationIds(m) is { } heldAnimation
+            && HoldsWhile(m, heldAnimation, targets, effects))
+        {
+            return true;
+        }
+
+        // "Target artifact you control becomes an artifact creature with base power and toughness
+        // 5/5 for as long as ~ remains on the battlefield" — the same animation with its size
+        // printed after the noun, which is where the card types live in this wording.
+        m = AnimateWithBaseWhileLine().Match(sentence);
+        if (m.Success
+            && AnimationEffects(
+                m,
+                sets: (int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
+                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)))
+                is { } heldSized
+            && HoldsWhile(m, heldSized, targets, effects))
+        {
+            return true;
+        }
+
+        // "Target land becomes an Island for as long as ~ remains on the battlefield" — CR 305.7
+        // rather than CR 613.4b, because no size is named: the land loses its printed abilities
+        // and gains the new type's mana ability, and none of that is a power/toughness question.
+        m = LandRetypeWhileLine().Match(sentence);
+        if (m.Success
+            && Specs.IsBasicLandType(m.Groups["what"].Value)
+            && HoldsWhile(
+                m,
+                [m.Groups["add"].Success
+                    ? GenerativeEffects.GainsCreatureTypeId(m.Groups["what"].Value)
+                    : GenerativeEffects.BecomesCreatureTypeId(m.Groups["what"].Value)],
+                targets,
+                effects))
+        {
+            return true;
+        }
+
+        // "It loses all abilities for as long as ~ remains on the battlefield." Layer 6, and the
+        // whole clause is the sentence — the tails the turn-long reader lifts this out in front
+        // of ("and has base power and toughness 0/1") are never printed with a held duration, so
+        // admitting one here would be a shape no card has.
+        m = LosesAllAbilitiesWhileLine().Match(sentence);
+        if (m.Success
+            && HoldsWhile(m, [GenerativeEffects.LosesAllAbilitiesId()], targets, effects))
+        {
+            return true;
+        }
+
+        // "Target artifact you control gains \"{T}: Draw a card\" for as long as you control ~."
+        // The ability's text rides in the id and is parsed back by the readers that read it on a
+        // card, so the duration is the only thing this adds to the grant beside it.
+        m = GrantsQuotedAbilityWhileLine().Match(sentence);
+        if (m.Success)
+        {
+            var heldAbility = m.Groups["ability"].Value.Trim();
+
+            // Refused rather than granted blank, exactly as the turn-long grant refuses: a
+            // permanent that gained an ability the compiler could not read would look like it had
+            // it and do nothing when it was used.
+            if (!CardCompiler.TryQuotedAbility(heldAbility, out _, out _))
+                return false;
+
+            if (HoldsWhile(
+                m, [GenerativeEffects.GrantAbilityId(heldAbility)], targets, effects))
+            {
+                return true;
+            }
+        }
+
+        // "All creatures get +2/+2 for as long as ~ remains tapped." The one held verb that is
+        // not aimed at a target, so it cannot ride HoldsWhile: the group is gathered when the
+        // effect resolves and CR 611.2c fixes it there, which is what PumpGroup already does.
+        m = MassPumpWhileLine().Match(sentence);
+        if (m.Success
+            && Specs.ParseGroup(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } heldGroup)
+        {
+            var (heldGroupId, heldGroupSize) = PumpSizeOf(m);
+
+            effects.Add(new PumpGroup(heldGroupId, heldGroup)
+            {
+                Size = heldGroupSize,
+                HeldWhile = WhileNamed(m),
+            });
+
+            return true;
+        }
+
         m = GainControlUntilLine().Match(sentence);
         if (!m.Success)
             m = GainControlLine().Match(sentence);
@@ -6328,35 +6428,14 @@ public static partial class EffectPhrase
         m = AnimateLine().Match(sentence);
         if (m.Success && AnimationLastsTheTurn(m) && Specs.Parse(m.Groups["t"].Value) is { } animated)
         {
-            var granted = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
-            if (m.Groups["kw"].Success && granted is null)
+            if (SizedAnimationIds(m) is not { } animation)
                 return false;
 
             targets.Add(animated);
             var index = targets.Count - 1;
 
-            effects.Add(new PumpUntilEndOfTurn(
-                GenerativeEffects.BecomesId(AnimatedTypes(m)), index));
-
-            foreach (var subtype in AnimatedSubtypes(m))
-            {
-                effects.Add(new PumpUntilEndOfTurn(AnimatedSubtypeId(m, subtype), index));
-            }
-
-            if (AnimatedColors(m).ToList() is { Count: > 0 } becomes)
-            {
-                effects.Add(new PumpUntilEndOfTurn(
-                    GenerativeEffects.BecomesColorsId(becomes), index));
-            }
-
-            effects.Add(new PumpUntilEndOfTurn(
-                GenerativeEffects.SetPowerToughnessId(
-                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
-                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)),
-                index));
-
-            if (granted is { } keywords)
-                effects.Add(new PumpUntilEndOfTurn(GenerativeEffects.GrantId(keywords), index));
+            foreach (var id in animation)
+                effects.Add(new PumpUntilEndOfTurn(id, index));
 
             return true;
         }
@@ -6368,31 +6447,11 @@ public static partial class EffectPhrase
         m = AnimateSelfLine().Match(sentence);
         if (m.Success && AnimationLastsTheTurn(m))
         {
-            var grantedSelf = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
-            if (m.Groups["kw"].Success && grantedSelf is null)
+            if (SizedAnimationIds(m) is not { } selfAnimation)
                 return false;
 
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.BecomesId(AnimatedTypes(m))));
-
-            foreach (var subtype in AnimatedSubtypes(m))
-            {
-                effects.Add(new PumpSourceUntilEndOfTurn(AnimatedSubtypeId(m, subtype)));
-            }
-
-            if (AnimatedColors(m).ToList() is { Count: > 0 } becomesSelf)
-            {
-                effects.Add(new PumpSourceUntilEndOfTurn(
-                    GenerativeEffects.BecomesColorsId(becomesSelf)));
-            }
-
-            effects.Add(new PumpSourceUntilEndOfTurn(
-                GenerativeEffects.SetPowerToughnessId(
-                    int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
-                    int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture))));
-
-            if (grantedSelf is { } selfKeywords)
-                effects.Add(new PumpSourceUntilEndOfTurn(GenerativeEffects.GrantId(selfKeywords)));
+            foreach (var id in selfAnimation)
+                effects.Add(new PumpSourceUntilEndOfTurn(id));
 
             return true;
         }
@@ -11158,6 +11217,51 @@ public static partial class EffectPhrase
             ids.Add(GenerativeEffects.GrantId(keywords));
 
         return ids.Count > 0 ? ids : null;
+    }
+
+    /// <summary>
+    /// The run of effects a <em>sized</em> animation comes to — "becomes a 4/5 green Treefolk
+    /// creature" (CR 205.1b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AnimationEffects"/>'s sibling, and the difference between them is which half of
+    /// the sentence names the card types: there the modifier run carries the words ("becomes an
+    /// artifact creature with base power and toughness 5/5"), here the noun "creature" sits
+    /// outside it and <see cref="AnimatedTypes"/> answers from the run's mention of "artifact".
+    /// Reading the second with the first's table hands out no card type at all, which is a land
+    /// that became a 4/5 and is not a creature.
+    /// <para>
+    /// It exists because three readers now build this run — the targeted form, the self form and
+    /// the held-duration form — and they had written it out twice already. A run assembled in
+    /// three places is three chances to leave the colour or the subtype out of one of them, which
+    /// is the defect this family has had before: an animation that dropped its colour was a
+    /// different card in front of protection and in front of a lord.
+    /// </para>
+    /// </remarks>
+    private static List<string>? SizedAnimationIds(Match m)
+    {
+        var granted = m.Groups["kw"].Success ? Keywords(m.Groups["kw"].Value) : null;
+        if (m.Groups["kw"].Success && granted is null)
+            return null;
+
+        var ids = new List<string> { GenerativeEffects.BecomesId(AnimatedTypes(m)) };
+
+        foreach (var subtype in AnimatedSubtypes(m))
+            ids.Add(AnimatedSubtypeId(m, subtype));
+
+        if (AnimatedColors(m).ToList() is { Count: > 0 } colours)
+            ids.Add(GenerativeEffects.BecomesColorsId(colours));
+
+        // Layer 7b, not 7c: the size is *set*, so a +1/+1 counter or an anthem added afterwards
+        // stacks on top of what this produced rather than being erased by it (CR 613.4b).
+        ids.Add(GenerativeEffects.SetPowerToughnessId(
+            int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture),
+            int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)));
+
+        if (granted is { } keywords)
+            ids.Add(GenerativeEffects.GrantId(keywords));
+
+        return ids;
     }
 
     /// <summary>
@@ -16677,6 +16781,85 @@ public static partial class EffectPhrase
         @"^" + T + @" gains (?<kw>[a-z ,]+?)" + HELD + @"\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex GainsKeywordWhileLine();
+
+    /// <summary>
+    /// "Target Forest becomes a 4/5 green Treefolk creature for as long as ~ remains on the
+    /// battlefield" (CR 205.1b, 613.4b).
+    /// </summary>
+    /// <remarks>
+    /// <c>AnimateLine</c> with the held tail in place of the turn's, and case-sensitive for the
+    /// same reason it is: a capitalised word in the modifier run is a subtype and a lowercase one
+    /// is a card type or a colour, which is the whole of how the run is read.
+    /// <para>
+    /// The self form is deliberately absent. No corpus card animates the permanent whose ability
+    /// it is and then holds the animation up with a condition about that same permanent, and a
+    /// pattern for a sentence nobody prints is a reader that can only ever fire on the day it is
+    /// wrong.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + T + @" [Bb]ecomes an? (?<p>\d+)/(?<tough>\d+)"
+            + @"(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)*) creature"
+            + @"( with (?<kw>[a-z ,]+?))?(?<add> in addition to its other types)?"
+            + HELD + @"\.?$",
+        RegexOptions.None)]
+    private static partial Regex AnimateWhileLine();
+
+    /// <summary>
+    /// "Target artifact you control becomes an artifact creature with base power and toughness
+    /// 5/5 for as long as ~ remains on the battlefield" (CR 205.1b, 613.4b).
+    /// </summary>
+    [GeneratedRegex(
+        @"^" + T + @" becomes an?(?<mods>( [a-z][a-z,]*| [A-Z][a-z]+)+)"
+            + @" with base power and toughness (?<p>\d+)/(?<tough>\d+)"
+            + @"(?<add> in addition to its other types)?"
+            + @"( and gains (?<kw>[a-z ,]+?))?" + HELD + @"\.?$",
+        RegexOptions.None)]
+    private static partial Regex AnimateWithBaseWhileLine();
+
+    /// <summary>
+    /// "Target land becomes an Island for as long as ~ remains on the battlefield" (CR 305.7).
+    /// </summary>
+    [GeneratedRegex(
+        @"^" + T + @" [Bb]ecomes an? (?<what>[A-Z][a-z']+)"
+            + @"(?<add> in addition to its other types)?" + HELD + @"\.?$",
+        RegexOptions.None)]
+    private static partial Regex LandRetypeWhileLine();
+
+    /// <summary>
+    /// "It loses all abilities for as long as ~ remains on the battlefield" (CR 613.1f, layer 6).
+    /// </summary>
+    /// <remarks>
+    /// The whole sentence, with no tail admitted after the clause. The turn-long reader lifts the
+    /// removal out and hands the rest of its sentence back to the grammar because the corpus
+    /// prints half a dozen tails behind it; behind a held duration it prints none, and a tail
+    /// this could not read would be a card silenced with the rest of its sentence dropped.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + T + @" loses? all abilities" + HELD + @"\.?$",
+        RegexOptions.None)]
+    private static partial Regex LosesAllAbilitiesWhileLine();
+
+    /// <summary>
+    /// "Target artifact you control gains "{T}: Draw a card" for as long as you control ~."
+    /// </summary>
+    [GeneratedRegex(
+        @"^" + T + @" gains " + "\"(?<ability>[^\"]+)\"" + HELD + @"\.?$",
+        RegexOptions.None)]
+    private static partial Regex GrantsQuotedAbilityWhileLine();
+
+    /// <summary>"All creatures get +2/+2 for as long as ~ remains tapped" (CR 611.2b).</summary>
+    /// <remarks>
+    /// The two branches the turn-long mass pump has, for the reason it has them: the singular
+    /// "gets" needs a group word in front of it or it is indistinguishable from a combat trick
+    /// aimed at one creature, and the plural "get" is already a group by its noun.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^((?<t>(all|each|every) [A-Za-z0-9'\u2019 -]+?) gets"
+            + @"|" + G + @" get)"
+            + @" " + PT + HELD + @"\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MassPumpWhileLine();
 
     /// <summary>
     /// "That creature doesn't untap during its controller's untap step for as long as ~ remains
