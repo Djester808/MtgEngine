@@ -3677,6 +3677,47 @@ public sealed class CompiledCardBehaviourTests
     }
 
     [Fact]
+    public void Playing_the_top_card_covers_a_land_and_a_spell_alike()
+    {
+        // The printing that names neither noun. "You may play the top card of your library" is
+        // whatever is up there, so it has to cover both halves - and it is worth its own test
+        // because a reader that folded it into the two-noun sentence would have made both of
+        // those nouns optional there.
+        var citadel = Card(
+            "Whole Top Card Test",
+            "You may look at the top card of your library any time.\n"
+                + "You may play the top card of your library.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(citadel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var permission = Assert.Single(compiled.LibraryTopPermissions);
+        Assert.True(permission.Lands);
+        Assert.True(permission.Spells);
+        Assert.Null(permission.SpellFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, citadel, Zone.Battlefield);
+
+        var spell = game.Create(
+            alice,
+            Card("Whole Top Spell Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+        var land = game.Create(alice, TestCards.BasicLand("Whole Top Land Test"), Zone.Library);
+
+        var onBattlefield = game.PlayLand(alice, land);
+        Assert.Contains(onBattlefield, game.State.Battlefield);
+
+        Assert.Equal(spell, game.State.GetPlayer(alice).Library[0]);
+
+        game.CastSpell(alice, spell, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
     public void Nothing_may_be_cast_from_a_library_without_a_permanent_saying_so()
     {
         var (game, alice, bob) = InMainPhase();
