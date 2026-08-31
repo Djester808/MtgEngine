@@ -11952,7 +11952,10 @@ public static partial class CardCompiler
         if (card.ManaCostRaw.Contains("{X}", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        if (DefinedCount("the number of " + m.Groups["what"].Value.Trim()) is not { } count)
+        // The whole of what the sentence says X is, handed on as it stands. DefinedCount is the
+        // gate: it reads "the number of …" and nothing else, so a definition it does not know
+        // leaves the line unread rather than discounted by a number nobody worked out.
+        if (DefinedCount(m.Groups["what"].Value.Trim()) is not { } count)
             return false;
 
         // Clamped at zero and not at the spell's cost, for the reason the counted form beside
@@ -19810,12 +19813,17 @@ public static partial class CardCompiler
     /// <remarks>
     /// The amount is the variable and the sentence goes on to define it, which is the whole of
     /// the difference from <see cref="CountedCostReductionLine"/> — so there is no number to
-    /// parse and no multiplication to do. Anchored on "the number of" because that is the shape
-    /// <see cref="DefinedCount"/> reads, and because the compiler has already spelled devotion
-    /// and the aggregates into it by the time a line reaches here.
+    /// parse and no multiplication to do.
+    /// <para>
+    /// The definition is taken whole rather than anchored on "the number of", because the phrase
+    /// a card actually prints here is "the total power of creatures you control" or "the greatest
+    /// mana value among Elementals you control" — the compiler spells those into the counting
+    /// words before a line reaches this, and a pattern written against the spelled-out form would
+    /// match no printed line, which is a shape no behaviour test can play.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^~ costs \{X\} less to cast, where X is the number of (?<what>[^.]+?)\.?$",
+        @"^~ costs \{X\} less to cast, where X is (?<what>[^.]+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableCostReductionLine();
 
