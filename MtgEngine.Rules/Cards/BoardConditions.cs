@@ -2777,10 +2777,17 @@ public static partial class BoardConditions
     /// one printed is "an instant or sorcery spell" and neither tally can be asked it. Any phrase
     /// the shared card-filter vocabulary cannot name still leaves the clause unread.
     /// </para>
+    /// <para>
+    /// "Another" is an article here and not a threshold. Every card printing it is a spell asking
+    /// about its own cost (CR 601.2f), and the cost is worked out before the spell is put on the
+    /// stack and counted (CR 601.2i) - so the tally already excludes the asker, and "another
+    /// spell" is one spell, not two. Read as "two or more" it would leave three cards charging
+    /// full price for the first half of every turn.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^you(('ve| have)|(?<not> haven't| have not)) cast "
-            + @"(an?|(?<n>\d+|one|two|three|four|five) or more) "
+            + @"(an?|another|(?<n>\d+|one|two|three|four|five) or more) "
             + @"(?<kind>[A-Za-z][A-Za-z/ ]*? )?spells? this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SpellsCastThisTurnLine();

@@ -283,6 +283,109 @@ public sealed record CombatTax
 }
 
 /// <summary>
+/// When a cast or activation prohibition is in force (CR 601.3).
+/// </summary>
+/// <remarks>
+/// Two windows and nothing else, because two are what the corpus prints as part of the
+/// prohibition itself: "during your turn" and "during combat". Everything else that looks like a
+/// window on these cards is a duration on a one-shot ("target player can't cast spells this
+/// turn"), which belongs to the sentence parser and has nowhere to live on a permanent.
+/// <para>
+/// <see cref="Always"/> is the default and the commonest printing. It is spelled out rather than
+/// left as a null so that a reader which failed to understand a window cannot fall through into
+/// the unconditional ban, which is the strictly stronger card.
+/// </para>
+/// </remarks>
+public enum BanWindow
+{
+    /// <summary>No window: the ban stands for as long as the permanent does.</summary>
+    Always = 0,
+
+    /// <summary>"during your turn" — the turn of whoever controls the permanent (CR 613.1b).</summary>
+    HostControllersTurn,
+
+    /// <summary>"during combat" — the combat phase, any step of it (CR 506.1).</summary>
+    Combat,
+}
+
+/// <summary>
+/// A ban on casting a described set of spells (CR 601.3).
+/// </summary>
+/// <remarks>
+/// The sibling of <see cref="ChosenNameBan"/> whose subject is printed on the card rather than
+/// chosen by a player: Steel Golem says "creature spells" and Meddling Mage says "the chosen
+/// name", and the two cannot share a record because one is answered from the printed text and
+/// the other from the host object.
+/// <para>
+/// A ban rather than a continuous effect for the reason the rest of <see cref="StaticBans"/> is
+/// one: nothing here changes a characteristic, so CR 613's layers have nothing to order.
+/// </para>
+/// <para>
+/// <strong>Every part of the sentence is read or the line is not.</strong> A prohibition read one
+/// word too <em>narrow</em> is a card weaker than printed, which is the harmless direction; read
+/// one word too <em>wide</em> it stops spells the card never stopped, which is a different card
+/// and one no coverage number would notice. So both the subject and the window are spelled out
+/// by the reader, and a phrase it cannot name leaves the whole line unread.
+/// </para>
+/// </remarks>
+public sealed record CastBan
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// Whose casting it forbids, read around whoever controls the permanent, or null for
+    /// everybody's.
+    /// </summary>
+    /// <remarks>
+    /// Null is Basandra's "players can't cast spells during combat", which stops its own
+    /// controller too. Defaulting a missing subject to the controller is the mistake this file
+    /// records beside <see cref="ChosenNameBan.Who"/>, so there is no default that means "guess".
+    /// </remarks>
+    public Abilities.PlayerScope? Who { get; init; }
+
+    /// <summary>
+    /// A filter the spell has to answer for the ban to bite — "creature", "blue|creature".
+    /// </summary>
+    /// <remarks>
+    /// Null is the unqualified printing, "your opponents can't cast spells", which asks nothing
+    /// of the spell. A qualifier the shared vocabulary cannot name leaves the line unread rather
+    /// than becoming this null, for the reason the record's own remarks give.
+    /// </remarks>
+    public string? SpellFilter { get; init; }
+
+    /// <summary>When the ban is in force (CR 601.3).</summary>
+    public BanWindow Window { get; init; }
+}
+
+/// <summary>
+/// A ban on activating the abilities of a described set of permanents (CR 602.5).
+/// </summary>
+/// <remarks>
+/// Grand Abolisher prints this in the same sentence as its <see cref="CastBan"/> and neither half
+/// implies the other, so they are two records read off one line. Kept apart from
+/// <see cref="ChosenNameBan"/> for the reason <see cref="CastBan"/> is: this subject is printed
+/// and that one is chosen.
+/// <para>
+/// The filter is asked of the permanent whose ability is being activated, through the same
+/// vocabulary the cost modifiers' ability half uses — so "artifacts or creatures or enchantments"
+/// is one filter rather than three readers.
+/// </para>
+/// </remarks>
+public sealed record ActivationBan
+{
+    public required string Id { get; init; }
+
+    /// <summary>Whose activations it forbids, or null for everybody's.</summary>
+    public Abilities.PlayerScope? Who { get; init; }
+
+    /// <summary>A filter the ability's source has to answer, or null for any source.</summary>
+    public string? SourceFilter { get; init; }
+
+    /// <summary>When the ban is in force (CR 602.5).</summary>
+    public BanWindow Window { get; init; }
+}
+
+/// <summary>
 /// What a card's static abilities forbid outright (CR 119.7, 615.12).
 /// </summary>
 /// <remarks>
@@ -310,6 +413,15 @@ public sealed record StaticBans
     /// <summary>Who this card stops casting a spell with the name it chose (CR 201.4).</summary>
     public ImmutableList<ChosenNameBan> NoCastingNamed { get; init; } = [];
 
+    /// <summary>Which spells this card stops being cast at all (CR 601.3).</summary>
+    public ImmutableList<CastBan> NoCasting { get; init; } = [];
+
+    /// <summary>Whose abilities this card stops being activated (CR 602.5).</summary>
+    public ImmutableList<ActivationBan> NoActivating { get; init; } = [];
+
+    /// <summary>Who this card stops playing lands at all (CR 305.1).</summary>
+    public ImmutableList<LandPlayBan> NoPlayingLands { get; init; } = [];
+
     /// <summary>
     /// Whether this card stops activated abilities of sources with the name it chose
     /// (CR 602.5).
@@ -328,6 +440,9 @@ public sealed record StaticBans
         && NoCounter.IsEmpty
         && NoCastingNamed.IsEmpty
         && NoActivatingNamed.IsEmpty
+        && NoCasting.IsEmpty
+        && NoActivating.IsEmpty
+        && NoPlayingLands.IsEmpty
         && CombatTaxes.IsEmpty;
 }
 
@@ -526,6 +641,147 @@ public static class Bans
         return null;
     }
 
+    /// <summary>
+    /// The permanent forbidding this player from casting this spell, or null (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The sibling of <see cref="CastingForbidden"/> whose subject is printed rather than chosen,
+    /// and a separate scan rather than a second arm inside that one so the refusal each produces
+    /// can say which kind of card refused it — a player told "Meddling Mage named it" about a
+    /// Steel Golem has been told the wrong thing.
+    /// <para>
+    /// The spell is asked by its printed characteristics, exactly as
+    /// <see cref="CastPermissions.MayCastAsThoughItHadFlash"/> asks the card it might let
+    /// through: the object is in a hand, a graveyard or a library, and CR 613's layers describe
+    /// permanents.
+    /// </para>
+    /// </remarks>
+    public static GameObject? CastingBanned(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        Domain.Models.CardDefinition casting,
+        Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(casting);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoCasting)
+            {
+                if (!WindowOpen(said.Window, state, ban.ControllerId))
+                    continue;
+
+                if (said.SpellFilter is { } filter && !SearchFilters.Matches(filter, casting))
+                    continue;
+
+                // CR 613.1b: "your opponents" is read around whoever controls the permanent
+                // now, which is why the scope is resolved here and not when the card compiled.
+                if (said.Who is not { } scope
+                    || PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId))
+                {
+                    return ban.Host;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The permanent forbidding this player from activating this source's ability, or null
+    /// (CR 602.5).
+    /// </summary>
+    /// <remarks>
+    /// The source is asked by its <em>computed</em> card, unlike the printed characteristics a
+    /// spell being cast is asked by: this subject is a permanent on the battlefield, so a
+    /// creature that has become an artifact is one (CR 613.1). That difference is deliberate and
+    /// is the mistake this file records nine times over in the other direction.
+    /// </remarks>
+    public static GameObject? ActivatingBanned(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        GameObject source,
+        Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(source);
+
+        var activating = Characteristics.CardOf(state, abilities, source);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoActivating)
+            {
+                if (!WindowOpen(said.Window, state, ban.ControllerId))
+                    continue;
+
+                if (said.SourceFilter is { } filter
+                    && !SearchFilters.Matches(filter, activating))
+                {
+                    continue;
+                }
+
+                if (said.Who is not { } scope
+                    || PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId))
+                {
+                    return ban.Host;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The permanent forbidding this player from playing a land, or null (CR 305.1).
+    /// </summary>
+    /// <remarks>
+    /// The third scan of this shape and deliberately the same shape: walk the battlefield, ask
+    /// what is standing there, read "your opponents" around whoever controls it now (CR 613.1b).
+    /// A land is played rather than cast, so it is asked where the land drop is taken and not
+    /// beside the cast bans.
+    /// </remarks>
+    public static GameObject? LandPlayForbidden(
+        GameState state, Abilities.IAbilitySource abilities, Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoPlayingLands)
+            {
+                if (said.Who is not { } scope
+                    || PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId))
+                {
+                    return ban.Host;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether a ban's window is open right now (CR 506.1, 601.3).</summary>
+    /// <remarks>
+    /// One method for both prohibitions, because "during your turn" has to mean the same thing to
+    /// each half of Grand Abolisher's one sentence. "Your turn" is the turn of whoever controls
+    /// the permanent <em>now</em> (CR 613.1b), which is why the host's controller is passed in
+    /// rather than read off the object.
+    /// </remarks>
+    private static bool WindowOpen(BanWindow window, GameState state, Guid hostController) =>
+        window switch
+        {
+            BanWindow.Always => true,
+            BanWindow.HostControllersTurn => state.ActivePlayerId == hostController,
+            BanWindow.Combat => state.CurrentStep >= TurnStep.BeginningOfCombat
+                && state.CurrentStep <= TurnStep.EndOfCombat,
+            _ => false,
+        };
+
     /// <summary>Whether the name a permanent chose is this card's name (CR 201.2).</summary>
     /// <remarks>
     /// One place, because everything that asks it must agree about the null - and about the
@@ -668,6 +924,55 @@ public sealed record LibraryTopPermission
     public string? SpellFilter { get; init; }
 }
 
+/// <summary>
+/// A ban on playing lands (CR 305.1).
+/// </summary>
+/// <remarks>
+/// Playing a land is a special action rather than a cast (CR 116.2a), so this is a third record
+/// beside <see cref="CastBan"/> and <see cref="ActivationBan"/> and not a filter on either: the
+/// engine refuses it where the land drop is taken, and a land that had to be described as a
+/// spell would be described in a vocabulary that does not fit it.
+/// <para>
+/// No filter and no window. Both printings in the corpus are bare, and the qualified family -
+/// "target player can't play lands this turn" - is a one-shot with a duration, which a permanent
+/// has nowhere to keep and this record deliberately cannot express.
+/// </para>
+/// </remarks>
+public sealed record LandPlayBan
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// Whose land drops it forbids, read around whoever controls the permanent, or null for
+    /// everybody's.
+    /// </summary>
+    public Abilities.PlayerScope? Who { get; init; }
+}
+
+/// <summary>
+/// A permission to play lands out of a graveyard (CR 601.3, 305.1).
+/// </summary>
+/// <remarks>
+/// A third permission beside <see cref="FlashPermission"/> and
+/// <see cref="LibraryTopPermission"/>, and its own record rather than a zone added to the second
+/// one for a reason the second one's own question makes concrete: a library permission is
+/// answered together with "and is this the <em>top</em> card", and a graveyard has no top. The
+/// engine asks the two questions at different moments with different preconditions, so one
+/// record carrying a zone would be a record whose meaning changed depending on which caller
+/// happened to read it.
+/// <para>
+/// Lands and nothing else. Every printing of this sentence in the corpus is Crucible of Worlds'
+/// — "You may play lands from your graveyard" — and the cards that also cast <em>spells</em>
+/// from a graveyard all qualify the permission with a condition ("cards you've surveilled this
+/// turn", "if you control a Giant") that this has nowhere to keep. A permission read without its
+/// condition is a strictly better card than the printed one, so those lines stay unread.
+/// </para>
+/// </remarks>
+public sealed record GraveyardPlayPermission
+{
+    public required string Id { get; init; }
+}
+
 /// <summary>Whether something on the battlefield permits a cast (CR 601.3, 702.8b).</summary>
 /// <remarks>
 /// The mirror image of <see cref="Bans"/> and kept beside it deliberately: both answer a
@@ -752,6 +1057,43 @@ public static class CastPermissions
     /// of them learned about a second castable position they would stop agreeing.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether anything on the battlefield lets this player play a land from their graveyard
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="MayPlayFromTopOfLibrary"/> and asking the same two questions in the
+    /// same order: whose graveyard the permission speaks about is decided by who controls the
+    /// permanent <em>now</em> (CR 613.1b), so a stolen Crucible of Worlds digs through the
+    /// thief's graveyard.
+    /// <para>
+    /// Whether the card <em>is</em> in that graveyard is the caller's question and deliberately
+    /// not asked here, exactly as the position of a library's top card is not: this answers what
+    /// a permanent permits, and the zones are the engine's to look at.
+    /// </para>
+    /// </remarks>
+    public static bool MayPlayLandsFromGraveyard(
+        GameState state, Abilities.IAbilitySource abilities, Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+
+        foreach (var id in state.Battlefield)
+        {
+            if (!state.TryGetObject(id, out var host))
+                continue;
+
+            var granted = abilities.GraveyardPlayPermissionsOf(host.Card);
+            if (granted.Count == 0 || !Bans.StillSpeaks(state, abilities, host))
+                continue;
+
+            if (Characteristics.ControllerOf(state, abilities, host) == playerId)
+                return true;
+        }
+
+        return false;
+    }
+
     public static bool MayPlayFromTopOfLibrary(
         GameState state,
         Abilities.IAbilitySource abilities,

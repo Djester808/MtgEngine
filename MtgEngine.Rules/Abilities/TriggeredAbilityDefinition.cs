@@ -355,6 +355,20 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
         Domain.Models.CardDefinition card) => [];
 
     /// <summary>
+    /// Whether this card's static abilities let its controller play lands from their graveyard
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// A list rather than a bool so that a card printing the sentence twice - or a permanent
+    /// that has become a copy of one that does - says it once as far as the engine is concerned,
+    /// and so that the shape matches the two permissions beside it. See
+    /// <see cref="State.GraveyardPlayPermission"/> for why it is not a zone on
+    /// <see cref="LibraryTopPermissionsOf"/>.
+    /// </remarks>
+    IReadOnlyList<State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        Domain.Models.CardDefinition card) => [];
+
+    /// <summary>
     /// What a card's static abilities forbid outright — prevention, and life gain
     /// (CR 119.7, 615.12).
     /// </summary>
@@ -434,6 +448,17 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
 
     /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
     int ExtraLandDrops(CardDefinition card) => 0;
+
+    /// <summary>
+    /// Whose land drops this card's extra ones go to (CR 305.2, 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="ExtraLandDrops"/> rather than folded into it, because the number and
+    /// the seat are two answers and a caller that read only the number would give Rites of
+    /// Flourishing's symmetrical drop to its controller alone. The default is the unmarked
+    /// printing, "you may play an additional land", which is nearly every card that says this.
+    /// </remarks>
+    PlayerScope ExtraLandDropScope(CardDefinition card) => PlayerScope.You;
 
     /// <summary>Whether its controller may leave it tapped at untap (CR 502.3).</summary>
     bool MayDeclineUntap(CardDefinition card) => false;

@@ -111,6 +111,9 @@ public sealed class CompiledPool : IAbilitySource
     public IReadOnlyList<State.LibraryTopPermission> LibraryTopPermissionsOf(
         CardDefinition card) => For(card).LibraryTopPermissions;
 
+    public IReadOnlyList<State.GraveyardPlayPermission> GraveyardPlayPermissionsOf(
+        CardDefinition card) => For(card).GraveyardPlayPermissions;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 
@@ -145,6 +148,9 @@ public sealed class CompiledPool : IAbilitySource
     public string? ChosenNameFilterOf(CardDefinition card) => For(card).ChosenNameFilter;
 
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops;
+
+    public Abilities.PlayerScope ExtraLandDropScope(CardDefinition card) =>
+        For(card).ExtraLandDropScope;
 
     public bool MayDeclineUntap(CardDefinition card) => For(card).MayDeclineUntap;
 

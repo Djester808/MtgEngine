@@ -1304,6 +1304,22 @@ public enum SelfCost
     ExileSelfFromGraveyard,
 
     /// <summary>
+    /// Exile the card from the hand, which is where the ability functions (CR 701.13a).
+    /// </summary>
+    /// <remarks>
+    /// The hand sibling of <see cref="ExileSelfFromGraveyard"/>, and the Spirit Guides' whole
+    /// mechanism: a card that is not a permanent, has never been cast, and makes mana by leaving
+    /// the hand. Like its two siblings it is a <em>cost</em>, so the card is in exile before the
+    /// ability is announced and nobody can respond by making it leave first (CR 601.2h).
+    /// <para>
+    /// Its <see cref="ActivatedAbilityDefinition.FunctionsFrom"/> is the hand and the two have to
+    /// agree, exactly as they do for the graveyard form: an ability whose cost exiles a card from
+    /// a hand and which functions from the battlefield is one nothing can ever activate.
+    /// </para>
+    /// </remarks>
+    ExileSelfFromHand,
+
+    /// <summary>
     /// Exile the permanent itself as an activation cost (CR 118.3c, 701.13a).
     /// </summary>
     /// <remarks>

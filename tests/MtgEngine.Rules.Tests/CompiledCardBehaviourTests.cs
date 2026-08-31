@@ -13558,6 +13558,852 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- What a permanent permits and forbids about casting (CR 601.3) -------
+
+    /// <summary>
+    /// Steel Golem: "You can't cast creature spells" (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The printed-subject half of the cast-ban family. Until this round the only prohibition on
+    /// casting the engine could read was Meddling Mage's, whose subject is a <em>name a player
+    /// chose</em> - so every card describing the spells it stops in printed words was unread.
+    /// <para>
+    /// Both halves are asserted in one game, and that is the point of the test rather than
+    /// thoroughness: a ban read one word too wide is a card that stops everything, and a suite
+    /// that only ever tries the spell the card names cannot tell the two apart. The instant goes
+    /// through on the same board that refuses the creature.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_printed_cast_ban_stops_the_spells_it_names_and_no_others()
+    {
+        var golem = Card(
+            "Cast Ban Golem Test",
+            "You can't cast creature spells.",
+            CardType.Artifact,
+            power: 3,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(golem);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ban = Assert.Single(compiled.Bans.NoCasting);
+        Assert.Equal(PlayerScope.You, ban.Who);
+        Assert.Equal(BanWindow.Always, ban.Window);
+        Assert.NotNull(ban.SpellFilter);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, golem, Zone.Battlefield);
+
+        var bear = TestCards.PutInHand(
+            game, alice, Card("Banned Bear Test", string.Empty, CardType.Creature, 2, 2));
+        var relief = TestCards.PutInHand(
+            game, alice, Card("Banned Relief Test", "You gain 2 life.", CardType.Instant));
+
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, bear));
+
+        // The same board, a spell the ban does not describe: it resolves.
+        game.CastSpell(alice, relief);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Dragonlord Dromoka: "Your opponents can't cast spells during your turn" (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The window is the whole card. Read without it the Dragonlord stops an opponent casting
+    /// anything ever, which is a strictly better card than the printed one and one that nothing
+    /// in a coverage number could see - the line was read either way.
+    /// <para>
+    /// "Your turn" is the turn of whoever controls the permanent <em>now</em> (CR 613.1b), which
+    /// is why the scope is resolved against the board at the moment the question is asked rather
+    /// than written down when the card compiled. The test plays into Bob's own turn and casts the
+    /// same spell from the same hand to show the window closing again.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_cast_ban_with_a_window_bites_only_inside_it()
+    {
+        var dragon = Card(
+            "Windowed Ban Test",
+            "Your opponents can't cast spells during your turn.",
+            CardType.Creature,
+            power: 5,
+            toughness: 7);
+
+        var compiled = CardCompiler.Compile(dragon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ban = Assert.Single(compiled.Bans.NoCasting);
+        Assert.Equal(PlayerScope.EachOpponent, ban.Who);
+        Assert.Equal(BanWindow.HostControllersTurn, ban.Window);
+        Assert.Null(ban.SpellFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, dragon, Zone.Battlefield);
+
+        var relief = Card("Windowed Relief Test", "You gain 2 life.", CardType.Instant);
+        var theirs = TestCards.PutInHand(game, bob, relief);
+
+        // Alice's turn. Bob holds priority and is refused; his controller-facing half of the
+        // sentence is the only reason.
+        game.PassPriority(alice);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs));
+
+        // The permanent says nothing about its own controller, and Alice casts under it.
+        var mine = TestCards.PutInHand(
+            game, alice, Card("Windowed Gift Test", "You gain 2 life.", CardType.Instant));
+        game.PassPriority(bob);
+        game.CastSpell(alice, mine);
+        Settle(game);
+
+        // Bob's turn: the window has closed and the same card goes through. Dealt again here
+        // rather than held across the cleanup step, because a hand held over one is a hand
+        // something may be asked to discard from (CR 514.1) and what comes back is a different
+        // object.
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        var again = TestCards.PutInHand(game, bob, relief);
+        var before = game.State.GetPlayer(bob).Life;
+        game.CastSpell(bob, again);
+        Settle(game);
+
+        Assert.Equal(before + 2, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// Basandra, Battle Seraph: "Players can't cast spells during combat" (CR 506.1, 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The subject that names nobody in particular, and the arm a default would get wrong. A
+    /// missing subject read as "your opponents" would let Basandra's own controller cast through
+    /// their own ban - which is the difference between this card and a one-sided one, and the
+    /// mistake the chosen-name ban beside it records having made.
+    /// </remarks>
+    [Fact]
+    public void A_ban_that_names_players_stops_its_own_controller_too()
+    {
+        var seraph = Card(
+            "Combat Ban Test",
+            "Players can't cast spells during combat.",
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(seraph);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ban = Assert.Single(compiled.Bans.NoCasting);
+        Assert.Null(ban.Who);
+        Assert.Equal(BanWindow.Combat, ban.Window);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, seraph, Zone.Battlefield);
+
+        var relief = TestCards.PutInHand(
+            game, alice, Card("Combat Relief Test", "You gain 2 life.", CardType.Instant));
+
+        // Out of combat the ban says nothing, so the main phase is not the test - the step is.
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, relief));
+
+        TestCards.PassToStep(game, TurnStep.PostcombatMain);
+        game.CastSpell(alice, relief);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Grand Abolisher: one sentence, a cast ban and an activation ban (CR 601.3, 602.5).
+    /// </summary>
+    /// <remarks>
+    /// Neither half implies the other, so the line compiles to two records rather than one with
+    /// a flag. The activation half carries a filter - artifacts, creatures and enchantments - and
+    /// the test proves it is a filter and not a blanket by leaving a land out of it: Bob still
+    /// taps his Forest for mana on Alice's turn, which is exactly what the printed card allows
+    /// and what a ban read one noun too wide would take away.
+    /// </remarks>
+    [Fact]
+    public void One_sentence_can_forbid_both_a_cast_and_an_activation()
+    {
+        var abolisher = Card(
+            "Abolisher Test",
+            "During your turn, your opponents can't cast spells or activate abilities of"
+                + " artifacts or creatures or enchantments.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(abolisher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var cast = Assert.Single(compiled.Bans.NoCasting);
+        Assert.Equal(BanWindow.HostControllersTurn, cast.Window);
+        Assert.Null(cast.SpellFilter);
+
+        var activation = Assert.Single(compiled.Bans.NoActivating);
+        Assert.Equal(BanWindow.HostControllersTurn, activation.Window);
+        Assert.NotNull(activation.SourceFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, abolisher, Zone.Battlefield);
+
+        var rock = game.Create(
+            bob, Card("Abolished Rock Test", "{T}: Add {C}.", CardType.Artifact), Zone.Battlefield);
+        var forest = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        // The artifact answers the filter and is silenced; the land does not and is not.
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(bob, rock, "mana"));
+        game.ActivateAbility(bob, forest, "mana");
+        Assert.Equal(1, game.State.GetPlayer(bob).ManaPool[ManaColor.Green]);
+
+        // And the cast half of the same sentence.
+        var theirs = TestCards.PutInHand(
+            game, bob, Card("Abolished Relief Test", "You gain 2 life.", CardType.Instant));
+        game.PassPriority(alice);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs));
+    }
+
+    /// <summary>
+    /// Everything the cast-ban reader will not narrow, it refuses (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The direction this family must be wrong in. A prohibition read one word too <em>narrow</em>
+    /// is a card weaker than printed, which is visible in a game; read one word too <em>wide</em>
+    /// it stops spells the card never stopped, and the line counts as read either way. So the
+    /// pattern ends immediately after "spells", and every qualifier that follows the noun leaves
+    /// the whole line unread rather than becoming a total ban on casting.
+    /// <para>
+    /// Each line here is a real printing, and each is a card the compiler deliberately does not
+    /// finish: Iona, Ixalan's Binding, Brisela, Drannith Magistrate, Ashes of the Abhorrent.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_cast_ban_the_reader_cannot_narrow_is_left_unread()
+    {
+        string[] refused =
+        [
+            "Your opponents can't cast spells of the chosen color.",
+            "Your opponents can't cast spells with the same name as the exiled card.",
+            "Your opponents can't cast spells with mana value 3 or less.",
+            "Your opponents can't cast spells from anywhere other than their hands.",
+            "Players can't cast spells from graveyards or activate abilities of cards in"
+                + " graveyards.",
+        ];
+
+        foreach (var text in refused)
+        {
+            var card = Card("Unread Ban Test " + text.Length, text, CardType.Enchantment);
+            var compiled = CardCompiler.Compile(card);
+
+            Assert.False(
+                compiled.IsComplete,
+                $"'{text}' compiled; a ban this reader cannot narrow must stay unread.");
+            Assert.Empty(compiled.Bans.NoCasting);
+        }
+    }
+
+    // ---- Where a land may be played from, and whether it may be (CR 305.1) --
+
+    /// <summary>
+    /// Crucible of Worlds: "You may play lands from your graveyard" (CR 601.3, 305.1).
+    /// </summary>
+    /// <remarks>
+    /// A permission over a zone, read off the battlefield at the moment the play is attempted -
+    /// the same shape as Future Sight's and for the same reason: nothing here changes a
+    /// characteristic, so CR 613's layers have nothing to order, and the permission has to close
+    /// the instant the permanent leaves with nothing to sweep.
+    /// <para>
+    /// <strong>The permission buys the zone and nothing else.</strong> The land drop is still
+    /// spent, which is the assertion at the end: a Crucible that let its controller play a land
+    /// out of the graveyard <em>and</em> another out of hand would be a strictly better card, and
+    /// a test that only checked the graveyard land arrived would not notice.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_may_be_played_from_the_graveyard_while_a_permanent_says_so()
+    {
+        var crucible = Card(
+            "Crucible Test", "You may play lands from your graveyard.", CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(crucible);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.GraveyardPlayPermissions);
+
+        var (game, alice, _) = InMainPhase();
+        var buried = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Graveyard);
+
+        // Nothing on the board says so yet, so the graveyard is not a zone lands come from.
+        Assert.Throws<InvalidOperationException>(() => game.PlayLand(alice, buried));
+
+        game.Create(alice, crucible, Zone.Battlefield);
+
+        // A zone change makes a new object (CR 400.7), so the land on the battlefield is the id
+        // the play hands back and never the one that was in the graveyard.
+        var played = game.PlayLand(alice, buried);
+
+        Assert.Equal(Zone.Battlefield, game.State.GetObject(played).Zone);
+        Assert.Equal(1, game.State.GetPlayer(alice).LandsPlayedThisTurn);
+
+        // The drop was spent by that play, which is the half a permission must not buy.
+        var inHand = TestCards.PutInHand(game, alice, TestCards.BasicLand("Island"));
+        Assert.Throws<InvalidOperationException>(() => game.PlayLand(alice, inHand));
+    }
+
+    /// <summary>
+    /// Rites of Flourishing: "Each player may play an additional land on each of their turns"
+    /// (CR 305.2).
+    /// </summary>
+    /// <remarks>
+    /// The subject is the card. Read as the unmarked "you may play an additional land" - which is
+    /// what every other printing of this sentence says and what the reader used to assume - the
+    /// symmetrical cards hand their controller a second land and give the table nothing, which is
+    /// a strictly better card than either printing.
+    /// <para>
+    /// The consumer had the same one-sided assumption written into it: the engine summed the
+    /// extra drops of the permanents <em>that player controlled</em>, so a scope on the card with
+    /// nothing reading it would have changed nothing at all. Both halves moved together, and this
+    /// asserts the half that is visible - Bob plays two lands on his own turn off Alice's
+    /// enchantment.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_extra_land_drop_that_names_each_player_reaches_the_whole_table()
+    {
+        var rites = Card(
+            "Symmetrical Drop Test",
+            "Each player may play an additional land on each of their turns.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(rites);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(1, compiled.ExtraLandDrops);
+        Assert.Equal(PlayerScope.EachPlayer, compiled.ExtraLandDropScope);
+
+        var oneSided = Card(
+            "One Sided Drop Test",
+            "You may play an additional land on each of your turns.",
+            CardType.Enchantment);
+
+        Assert.Equal(PlayerScope.You, CardCompiler.Compile(oneSided).ExtraLandDropScope);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, rites, Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        // Dealt into the hand here rather than before the turn walk: a hand held over a cleanup
+        // step is a hand something may be asked to discard from (CR 514.1), and the card that
+        // comes back is a different object.
+        var first = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Hand);
+        var second = game.Create(bob, TestCards.BasicLand("Island"), Zone.Hand);
+        var third = game.Create(bob, TestCards.BasicLand("Swamp"), Zone.Hand);
+
+        game.PlayLand(bob, first);
+        game.PlayLand(bob, second);
+
+        // Two and no more: the enchantment adds one drop to each seat, it does not remove the cap.
+        Assert.Throws<InvalidOperationException>(() => game.PlayLand(bob, third));
+    }
+
+    /// <summary>
+    /// Territorial Dispute: "Players can't play lands" (CR 305.1).
+    /// </summary>
+    /// <remarks>
+    /// A land is played as a special action rather than cast (CR 116.2a), so this prohibition is
+    /// a record of its own and is asked where the drop is taken - not beside the cast bans, whose
+    /// vocabulary describes spells and has nothing to say about a land.
+    /// <para>
+    /// The refusal happens before anything moves and before the drop is counted, which is what
+    /// the second half asserts: with the enchantment gone the same card in the same hand is still
+    /// playable this turn, so the refused attempt spent nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_land_play_ban_refuses_the_drop_without_spending_it()
+    {
+        var dispute = Card(
+            "Land Ban Test", "Players can't play lands.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(dispute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Null(Assert.Single(compiled.Bans.NoPlayingLands).Who);
+
+        var (game, alice, _) = InMainPhase();
+        var banner = game.Create(alice, dispute, Zone.Battlefield);
+        var land = TestCards.PutInHand(game, alice, TestCards.BasicLand("Forest"));
+
+        Assert.Throws<InvalidOperationException>(() => game.PlayLand(alice, land));
+        Assert.Equal(0, game.State.GetPlayer(alice).LandsPlayedThisTurn);
+
+        // The ban is read off the battlefield at the moment it is asked, so it stops the instant
+        // the permanent leaves - with nothing to settle and no window in which it is still
+        // speaking. Settling here would pass priority on past the main phase instead.
+        game.Move(banner, Zone.Graveyard, MoveCause.Destroy);
+
+        var played = game.PlayLand(alice, land);
+        Assert.Equal(Zone.Battlefield, game.State.GetObject(played).Zone);
+    }
+
+    // ---- A discount that counts which spell of the turn this is (CR 601.2f) --
+
+    /// <summary>
+    /// Highspire Bell-Ringer: "The second spell you cast each turn costs {1} less to cast"
+    /// (CR 601.2f, 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// <strong>Exactly the second, not the second onwards.</strong> The comparison is against a
+    /// count of spells already cast this turn, and written <c>&gt;=</c> instead of <c>==</c> it
+    /// would discount every spell from the second to the end of the turn - a card far better than
+    /// the printed one, and one that a test casting two spells could not tell apart from the real
+    /// thing. So three spells are cast and the price of each is charged to the mana: the first
+    /// and third pay {2}, the second pays {1}, and the pool is empty at the end.
+    /// <para>
+    /// The refusal is the other half. A discount is only real if the price without it is refused,
+    /// so the second half of the test taps one mana short for the <em>first</em> spell and is
+    /// turned away - which is the same board, the same permanent and the same card.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Only_the_second_spell_of_the_turn_is_discounted()
+    {
+        var ringer = Card(
+            "Bell Ringer Test",
+            "The second spell you cast each turn costs {1} less to cast.",
+            CardType.Creature,
+            power: 2,
+            toughness: 3);
+
+        var compiled = CardCompiler.Compile(ringer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var modifier = Assert.Single(compiled.CostModifiers);
+        Assert.Equal(2, modifier.Nth);
+        Assert.Equal(CostChange.Reduction, modifier.Change);
+        Assert.Equal(1, modifier.Amount);
+
+        static CardDefinition Bear(int n) => new()
+        {
+            OracleId = "oracle-bell-bear-" + n.ToString(CultureInfo.InvariantCulture),
+            Name = "Bell Bear Test " + n.ToString(CultureInfo.InvariantCulture),
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{1}{G}",
+            Cmc = 2,
+            Power = 2,
+            Toughness = 2,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, ringer, Zone.Battlefield);
+
+        // Five green: {1}{G} + {G} + {1}{G} is exactly five if the discount lands on the second
+        // spell and only on it. Four is what a >= comparison would need; six is what no discount
+        // at all would.
+        var forests = new List<ObjectId>();
+        for (var i = 0; i < 5; i++)
+            forests.Add(game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield));
+
+        foreach (var forest in forests)
+            game.ActivateAbility(alice, forest, "mana");
+
+        Assert.Equal(5, game.State.GetPlayer(alice).ManaPool.Total);
+
+        for (var i = 1; i <= 3; i++)
+        {
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, Bear(i)));
+            Settle(game);
+        }
+
+        Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
+
+        // One short of the first spell's price, on the same board: refused.
+        var (other, otherAlice, _) = InMainPhase();
+        other.Create(otherAlice, ringer, Zone.Battlefield);
+        other.ActivateAbility(
+            otherAlice,
+            other.Create(otherAlice, TestCards.BasicLand("Forest"), Zone.Battlefield),
+            "mana");
+
+        Assert.Throws<InvalidOperationException>(
+            () => other.CastSpell(otherAlice, TestCards.PutInHand(other, otherAlice, Bear(9))));
+    }
+
+    /// <summary>
+    /// Conduit of Ruin: "The first creature spell you cast each turn costs {2} less to cast"
+    /// (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// One description doing two jobs, which is why the modifier carries a position and no second
+    /// filter: the spells the sentence counts are the spells it discounts. A reader that counted
+    /// <em>every</em> spell instead would let a cantrip cast first eat the discount, and the
+    /// creature that followed would pay full price on a card that says nothing of the kind.
+    /// <para>
+    /// So the test casts a noncreature spell first and then the creature, and pays the creature's
+    /// discounted price exactly - with the refusal one mana short of it on the same board.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_first_creature_spell_each_turn_counts_only_creature_spells()
+    {
+        var conduit = Card(
+            "Conduit Test",
+            "The first creature spell you cast each turn costs {2} less to cast.",
+            CardType.Creature,
+            power: 7,
+            toughness: 7);
+
+        var compiled = CardCompiler.Compile(conduit);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(1, Assert.Single(compiled.CostModifiers).Nth);
+
+        var giant = new CardDefinition
+        {
+            OracleId = "oracle-conduit-giant",
+            Name = "Conduit Giant Test",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{2}{G}",
+            Cmc = 3,
+            Power = 4,
+            Toughness = 4,
+        };
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, conduit, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        // A noncreature spell first. It is not one of the spells this sentence counts, so the
+        // creature that follows is still the first creature spell of the turn.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Conduit Relief Test", "You gain 2 life.", CardType.Instant)));
+        Settle(game);
+
+        game.ActivateAbility(alice, forest, "mana");
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, giant));
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield, id => game.State.GetObject(id).Card.Name == giant.Name);
+
+        // {2}{G} discounted to {G}, and nothing is one short of one green mana but none at all.
+        var (other, otherAlice, _) = InMainPhase();
+        other.Create(otherAlice, conduit, Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(
+            () => other.CastSpell(otherAlice, TestCards.PutInHand(other, otherAlice, giant)));
+    }
+
+    /// <summary>
+    /// "If an opponent controls seven or more lands, ~ costs {6} less to cast" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The Avatar cycle prints its condition in front of the discount, and the reader was
+    /// anchored to the other word order - so seven cards whose trailing-form twins compile
+    /// perfectly went unread over a comma. Both orderings now reach one reader, one condition
+    /// vocabulary and one place where a condition that cannot be read leaves the line unread.
+    /// <para>
+    /// A discount is only real if the price without it is refused, so the board is built twice:
+    /// six lands and the Avatar costs its printed {4}{R}{R}, seven and it costs {R}{R}. The
+    /// refusal is one mana short of the discounted price with the condition true, which is the
+    /// only pair of runs that can tell a working condition from one that is always on.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_discount_printed_before_its_condition_is_charged_at_the_reduced_price()
+    {
+        var avatar = new CardDefinition
+        {
+            OracleId = "oracle-leading-avatar-test",
+            Name = "Leading Avatar Test",
+            OracleText = "If an opponent controls seven or more lands, ~ costs {6} less to cast.",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{4}{R}{R}",
+            Cmc = 6,
+            Power = 6,
+            Toughness = 4,
+        };
+
+        var compiled = CardCompiler.Compile(avatar);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.NotNull(compiled.Spell?.CostReduction);
+
+        static void Mountains(Game game, Guid who, int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                game.ActivateAbility(
+                    who,
+                    game.Create(who, TestCards.BasicLand("Mountain"), Zone.Battlefield),
+                    "mana");
+            }
+        }
+
+        // Seven lands opposite: {4}{R}{R} becomes {R}{R}, and two red mana pays it.
+        var (game, alice, bob) = InMainPhase();
+        for (var i = 0; i < 7; i++)
+            game.Create(bob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        Mountains(game, alice, 2);
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, avatar));
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield, id => game.State.GetObject(id).Card.Name == avatar.Name);
+
+        // One short of the discounted price, with the condition still true.
+        var (short_, shortAlice, shortBob) = InMainPhase();
+        for (var i = 0; i < 7; i++)
+            short_.Create(shortBob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        Mountains(short_, shortAlice, 1);
+        Assert.Throws<InvalidOperationException>(
+            () => short_.CastSpell(shortAlice, TestCards.PutInHand(short_, shortAlice, avatar)));
+
+        // Six lands opposite: the condition is false and the printed price stands, so the two
+        // red mana that paid above no longer do.
+        var (full, fullAlice, fullBob) = InMainPhase();
+        for (var i = 0; i < 6; i++)
+            full.Create(fullBob, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        Mountains(full, fullAlice, 2);
+        Assert.Throws<InvalidOperationException>(
+            () => full.CastSpell(fullAlice, TestCards.PutInHand(full, fullAlice, avatar)));
+    }
+
+    /// <summary>
+    /// "~ costs {2} less to cast if you've cast another spell this turn" (CR 601.2f, 601.2i).
+    /// </summary>
+    /// <remarks>
+    /// "Another" is an article and not a threshold. The spell asking is not in the count when its
+    /// own cost is worked out - CR 601.2f settles the cost before CR 601.2i puts the spell on the
+    /// stack - so "another spell" is one spell already cast, not two.
+    /// <para>
+    /// Which makes the first half of this test the one that matters: cast as the turn's
+    /// <em>first</em> spell the discount must not apply, and a reader that answered "have you
+    /// cast a spell" after counting this one would apply it every time. The board is the same in
+    /// both halves and only the order of the two casts differs.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_discount_for_another_spell_is_not_paid_for_by_the_spell_asking()
+    {
+        var focus = new CardDefinition
+        {
+            OracleId = "oracle-another-spell-test",
+            Name = "Another Spell Test",
+            OracleText = "~ costs {2} less to cast if you've cast another spell this turn.",
+            CardTypes = CardType.Sorcery,
+            ManaCostRaw = "{2}{G}",
+            Cmc = 3,
+        };
+
+        var compiled = CardCompiler.Compile(focus);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        static Game Board(out Guid alice)
+        {
+            var (game, seat, _) = InMainPhase();
+            alice = seat;
+
+            for (var i = 0; i < 2; i++)
+            {
+                game.ActivateAbility(
+                    seat,
+                    game.Create(seat, TestCards.BasicLand("Forest"), Zone.Battlefield),
+                    "mana");
+            }
+
+            return game;
+        }
+
+        // First spell of the turn: no other spell has been cast, so the printed {2}{G} stands and
+        // two mana cannot pay it.
+        var firstGame = Board(out var firstAlice);
+        Assert.Throws<InvalidOperationException>(
+            () => firstGame.CastSpell(
+                firstAlice, TestCards.PutInHand(firstGame, firstAlice, focus)));
+
+        // A free spell first, and the same two mana now pays the discounted {G}.
+        var secondGame = Board(out var secondAlice);
+        secondGame.CastSpell(
+            secondAlice,
+            TestCards.PutInHand(
+                secondGame,
+                secondAlice,
+                Card("Another Relief Test", "You gain 2 life.", CardType.Instant)));
+        Settle(secondGame);
+
+        secondGame.CastSpell(
+            secondAlice, TestCards.PutInHand(secondGame, secondAlice, focus));
+        Settle(secondGame);
+
+        // {G} of the two paid it, and the other is still floating - which is what says the
+        // discount was {2} and not the whole cost.
+        Assert.Equal(1, secondGame.State.GetPlayer(secondAlice).ManaPool.Total);
+    }
+
+    // ---- Holding a group of permanents down through the untap step (CR 502.3)
+
+    /// <summary>
+    /// Choke: "Islands don't untap during their controllers' untap steps" (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// The mana-denial half of the untap family, and the reason it did nothing was not the flag
+    /// but the subject. Every reader that could set <c>DoesNotUntap</c> described the permanent
+    /// printing the line or the one an Aura was attached to; none of them could describe a group,
+    /// so Choke, Back to Basics and Curse of Marit Lage compiled to a permanent that held down
+    /// itself.
+    /// <para>
+    /// The Forest is the assertion that makes this a test of the filter rather than of the flag:
+    /// it untaps on the same untap step that leaves the Island down, so the group is being read
+    /// and not ignored. Both are Alice's, so nothing about ownership is doing the work either.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_named_by_a_static_does_not_untap()
+    {
+        var choke = Card(
+            "Choke Test",
+            "Islands don't untap during their controllers' untap steps.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(choke);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Contains(
+            compiled.Statics,
+            s => s.Id.StartsWith("no-untap:", StringComparison.Ordinal));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, choke, Zone.Battlefield);
+
+        var island = game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, island, "mana");
+        game.ActivateAbility(alice, forest, "mana");
+
+        Assert.True(game.State.GetObject(island).Permanent!.IsTapped);
+        Assert.True(game.State.GetObject(forest).Permanent!.IsTapped);
+
+        // Alice's next untap step is the start of turn three.
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        Assert.True(game.State.GetObject(island).Permanent!.IsTapped);
+        Assert.False(game.State.GetObject(forest).Permanent!.IsTapped);
+    }
+
+    /// <summary>
+    /// A group the reader cannot narrow holds nothing down (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// The wrong half of a restriction is worse than an unread line, because nothing refuses: a
+    /// board that never untaps is not a card anybody printed, and the line would count as read
+    /// while it did it. So a subject the group vocabulary cannot narrow - the bare noun
+    /// "permanents", and "nonland permanents", whose whole description is an adjective the group
+    /// reader has no slot for - leaves the line unread.
+    /// <para>
+    /// Embargo is the card lost to the second of those, and it is lost deliberately. It is the
+    /// same trade the compiler makes everywhere else in this family: a card that plays as
+    /// something stronger than it prints is not coverage.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_untap_restriction_over_a_group_it_cannot_narrow_is_left_unread()
+    {
+        foreach (var text in new[]
+        {
+            "Permanents don't untap during their controllers' untap steps.",
+            "Nonland permanents don't untap during their controllers' untap steps.",
+        })
+        {
+            var card = Card("Unread Untap Test " + text.Length, text, CardType.Enchantment);
+            var compiled = CardCompiler.Compile(card);
+
+            Assert.False(
+                compiled.IsComplete,
+                $"'{text}' compiled; a group this reader cannot narrow must stay unread.");
+            Assert.DoesNotContain(
+                compiled.Statics,
+                s => s.Id.StartsWith("no-untap:", StringComparison.Ordinal));
+        }
+    }
+
+    // ---- Mana made by a card that is not on the battlefield (CR 106.1) ------
+
+    /// <summary>
+    /// Elvish Spirit Guide: "Exile ~ from your hand: Add {G}" (CR 601.2f, 605.1a).
+    /// </summary>
+    /// <remarks>
+    /// A mana ability of a card in a hand. Two facts have to agree for it to exist at all - the
+    /// cost exiles the card from the hand, and the ability functions from the hand - and the mana
+    /// path had no arm for the second at all: it left every ability it built on the battlefield.
+    /// A Spirit Guide compiled that way reads as complete, offers its ability nowhere, and makes
+    /// no mana for anybody, which is this compiler's worst failure shape and the one a coverage
+    /// number scores as a win.
+    /// <para>
+    /// So the test spends the mana. The card leaves the hand for exile as the cost is paid
+    /// (CR 601.2h), the green it made pays for a spell that could not otherwise be cast, and the
+    /// same ability is refused from the battlefield - which is the assertion that says
+    /// <c>FunctionsFrom</c> is being read rather than defaulted.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Mana_made_from_the_hand_pays_for_a_spell_and_exiles_the_card()
+    {
+        var guide = Card(
+            "Spirit Guide Test",
+            "Exile ~ from your hand: Add {G}.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(guide);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ability = Assert.Single(compiled.Activated);
+        Assert.Equal(SelfCost.ExileSelfFromHand, ability.SelfCost);
+        Assert.Equal(Zone.Hand, ability.FunctionsFrom);
+        Assert.True(ability.IsManaAbility);
+
+        var bear = TestCards.Costed("Guided Bear Test", "{G}", 1);
+
+        var (game, alice, _) = InMainPhase();
+        var inHand = TestCards.PutInHand(game, alice, guide);
+        var spell = TestCards.PutInHand(game, alice, bear);
+
+        // No land on the board: without the card in hand there is no green mana at all.
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(alice, spell));
+
+        game.ActivateAbility(alice, inHand, "mana");
+
+        // The cost is paid on activation, so the card is already gone (CR 601.2h). It is asked
+        // for by name and not by the id that was in the hand: a zone change makes a new object
+        // (CR 400.7), and the id an activation was announced with names nothing afterwards.
+        Assert.DoesNotContain(inHand, game.State.GetPlayer(alice).Hand);
+        Assert.Contains(
+            game.State.Exile, id => game.State.GetObject(id).Card.Name == guide.Name);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+
+        game.CastSpell(alice, spell);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield, id => game.State.GetObject(id).Card.Name == bear.Name);
+
+        // The same ability from the wrong zone: an ability of a card in hand does not function
+        // from the battlefield (CR 602.5).
+        var onBoard = game.Create(alice, guide, Zone.Battlefield);
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, onBoard, "mana"));
+    }
+
     // ---- Mana that may only be spent on some things (CR 106.6) ---------------
 
     [Fact]
