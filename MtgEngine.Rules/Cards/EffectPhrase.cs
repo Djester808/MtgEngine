@@ -9738,6 +9738,7 @@ public static partial class EffectPhrase
     /// words come off because every wrapper in the counting vocabulary is written against the
     /// group alone - the same shape <c>VariableIsCountLine</c> hands it.
     /// </remarks>
+
     internal static Amount? CountedBound(string printed)
     {
         ArgumentNullException.ThrowIfNull(printed);
@@ -9763,6 +9764,7 @@ public static partial class EffectPhrase
 
         if (string.Equals(printed, "X", StringComparison.Ordinal))
             return Amount.X;
+
 
         // A counted bound is refused rather than approximated when the group grammar cannot read
         // it: a tutor whose ceiling silently came out as nought would find nothing at all, and a
@@ -13257,6 +13259,24 @@ public static partial class EffectPhrase
             {
                 var buriedCap = buried.Groups["cap"].Value;
                 var buriedCapIsX = string.Equals(buriedCap, "X", StringComparison.Ordinal);
+
+                // The shared bound clause admits a counted quantity and this host cannot hold
+                // one. A card in a graveyard is chosen through an object filter, which is asked
+                // while targets are being picked and has no resolution to count against, and
+                // InGraveyard takes a printed int. So the counted spelling is refused outright
+                // rather than approximated: a ceiling that quietly came out as nought is a card
+                // that may return nothing at all from a graveyard full of what it names. Those
+                // cards stay unread until the spec can carry an amount.
+                if (buried.Groups["cap"].Success
+                    && !buriedCapIsX
+                    && !int.TryParse(
+                        buriedCap,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out _))
+                {
+                    return null;
+                }
 
                 return InGraveyard(
                     buried.Groups["noun"].Value,

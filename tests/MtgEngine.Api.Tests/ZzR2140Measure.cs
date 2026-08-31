@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Cards;
@@ -20,14 +19,11 @@ public sealed partial class ZzR2140Measure
         RegexOptions.IgnoreCase)]
     private static partial Regex FamilyLine();
 
+    /// <summary>The comparison, up to the first character of the quantity it measures.</summary>
     [GeneratedRegex(
-        @"\bmana value (?<n>\d+) or (?<dir>less|greater|more|fewer)\b", RegexOptions.IgnoreCase)]
-    private static partial Regex ManaValueBoundPhrase();
-
-    [GeneratedRegex(
-        @"\b(?<what>power|toughness|mana value)(?<verb> is| are)? (?<cmp>less than or equal to|greater than or equal to|less than|greater than) (?<n>\d+)\b",
+        @"(?<what>power|toughness|mana value)(?<verb> is| are)? (?<dir>less|greater) than or equal to (?=\S)",
         RegexOptions.IgnoreCase)]
-    private static partial Regex ComparisonPhrase();
+    private static partial Regex ComparisonHead();
 
     private static bool InFamily(string line) => FamilyLine().IsMatch(line);
 
@@ -72,10 +68,36 @@ public sealed partial class ZzR2140Measure
     private static Func<string, string> DroppingFamily() =>
         body => string.Join(Nl, body.Split(Nl).Where(l => !InFamily(l)));
 
-    private static string AsPower(string body) => ManaValueBoundPhrase().Replace(
-        body, m => "power " + m.Groups["n"].Value + " or " + m.Groups["dir"].Value);
+    /// <summary>
+    /// The card with one comparison rewritten as a printed bound, cutting the quantity it
+    /// measures at <paramref name="take"/> characters.
+    /// </summary>
+    /// <remarks>
+    /// Where the counted phrase ends is exactly what the compiler has to work out, so the control
+    /// tries every cut and asks whether <em>any</em> of them completes the card. That is the
+    /// honest ceiling for this family: it says the comparison is the only thing in the way,
+    /// without the measurement having to guess the boundary the reader is for.
+    /// </remarks>
+    private static Func<string, string> AsPrintedBound(int take) => body =>
+    {
+        var m = ComparisonHead().Match(body);
+        if (!m.Success)
+            return body;
 
-    private static string Spelled(string body) => ComparisonPhrase().Replace(body, Spell);
+        var rest = body[(m.Index + m.Length)..];
+        if (take > rest.Length)
+            return body;
+
+        var direction = m.Groups["dir"].Value.Equals("greater", StringComparison.OrdinalIgnoreCase)
+            ? " 3 or greater"
+            : " 3 or less";
+
+        return body[..m.Index]
+            + m.Groups["what"].Value
+            + m.Groups["verb"].Value
+            + direction
+            + rest[take..];
+    };
 
     [Fact]
     public void Excision_and_two_controls()
@@ -89,9 +111,8 @@ public sealed partial class ZzR2140Measure
         var excision = 0;
         var lineControlEligible = 0;
         var lineControl = 0;
-        var subManaValue = 0;
-        var subComparison = 0;
-        var subEither = 0;
+        var substitutionEligible = 0;
+        var substitution = 0;
 
         var excisionNames = new List<string>();
         var subNames = new List<string>();
@@ -122,6 +143,7 @@ public sealed partial class ZzR2140Measure
                 excisionNames.Add(card.Name);
             }
 
+            // A line counts as unread when dropping it takes an entry out of Unhandled.
             var baseline = CardCompiler.Compile(card).Unhandled.Count;
             string? unreadOther = null;
 
@@ -145,25 +167,20 @@ public sealed partial class ZzR2140Measure
                 }
             }
 
-            var touchesMv = Bodies(card).Any(
-                b => !string.Equals(AsPower(b), b, StringComparison.Ordinal));
-            var mv = touchesMv && Completes(card, AsPower);
-            if (mv)
-                subManaValue++;
+            if (!Bodies(card).Any(b => ComparisonHead().IsMatch(b)))
+                continue;
 
-            var touchesCmp = Bodies(card).Any(
-                b => !string.Equals(Spelled(b), b, StringComparison.Ordinal));
-            var cmp = touchesCmp && Completes(card, Spelled);
-            if (cmp)
-                subComparison++;
+            substitutionEligible++;
 
-            if ((touchesMv || touchesCmp) && Completes(card, b => AsPower(Spelled(b))))
+            var longest = Bodies(card).Max(b => b.Length);
+            for (var take = 1; take <= longest; take++)
             {
-                subEither++;
-                subNames.Add(
-                    card.Name
-                    + (mv ? " [mv]" : string.Empty)
-                    + (cmp ? " [cmp]" : string.Empty));
+                if (!Completes(card, AsPrintedBound(take)))
+                    continue;
+
+                substitution++;
+                subNames.Add(card.Name + " [cut " + take + "]");
+                break;
             }
         }
 
@@ -174,15 +191,14 @@ public sealed partial class ZzR2140Measure
         File.WriteAllLines(Out("measure.txt"), new[]
         {
             "CORPUS: " + corpus.Count,
-            "COMPLETE (baseline): " + complete,
+            "COMPLETE (this binary): " + complete,
             "POPULATION (prints a comparison filter/characteristic): " + population,
             "INCOMPLETE AND IN FAMILY: " + incompleteInFamily,
             "RUN 1 EXCISION (drop the family lines): " + excision,
             "RUN 2 LINE CONTROL (drop a different unread line, same cards): "
                 + lineControl + " of " + lineControlEligible + " eligible",
-            "RUN 3 SUBSTITUTION mana-value bound to power bound: " + subManaValue,
-            "RUN 3 SUBSTITUTION comparison spelling to N-or-less: " + subComparison,
-            "RUN 3 SUBSTITUTION both: " + subEither,
+            "RUN 3 SUBSTITUTION (comparison rewritten as a printed bound, any cut): "
+                + substitution + " of " + substitutionEligible + " eligible",
             string.Empty,
             "-- excision completions --",
         }.Concat(excisionNames)
@@ -190,24 +206,5 @@ public sealed partial class ZzR2140Measure
          .Concat(subNames)
          .Concat(new[] { string.Empty, "-- line-control completions --" })
          .Concat(controlNames));
-    }
-
-    private static string Spell(Match m)
-    {
-        var n = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
-        var head = m.Groups["what"].Value + m.Groups["verb"].Value + " ";
-
-        return m.Groups["cmp"].Value.ToLowerInvariant() switch
-        {
-            "less than or equal to" =>
-                head + n.ToString(CultureInfo.InvariantCulture) + " or less",
-            "greater than or equal to" =>
-                head + n.ToString(CultureInfo.InvariantCulture) + " or greater",
-            "less than" when n >= 1 =>
-                head + (n - 1).ToString(CultureInfo.InvariantCulture) + " or less",
-            "greater than" =>
-                head + (n + 1).ToString(CultureInfo.InvariantCulture) + " or greater",
-            _ => m.Value,
-        };
     }
 }
