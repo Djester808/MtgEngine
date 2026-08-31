@@ -689,6 +689,15 @@ public sealed class Game
             }
         }
 
+        // The described offers lapse on the same pass and for the same reason - the printed
+        // window is inside the resolution, and this is the closest an engine that cannot cast
+        // there gets to it. A permission with no end at all would be an Omniscience.
+        foreach (var offer in State.HandCastOffers)
+        {
+            if (offer.PlayerId == playerId)
+                Emit(new HandCastOfferLapsed(offer.Id));
+        }
+
         var next = State.NextInTurnOrderAfter(playerId);
         Emit(new PriorityPassed(playerId, next));
 
@@ -801,6 +810,7 @@ public sealed class Game
         bool teamwork = false,
         IReadOnlyList<int>? kickedWith = null,
         bool cleaved = false,
+        bool freeFromHand = false,
         Guid? giftTo = null)
     {
         RequirePriority(playerId);
@@ -841,6 +851,31 @@ public sealed class Game
         // rule below, because the whole point is that neither would otherwise allow it.
         var onTheHouse = card.MayCastFree;
 
+        // CR 601.2b: a standing offer to cast one described card from hand for nothing. Elected
+        // rather than applied, because a player who has one may still want to pay full price and
+        // keep it for something better - and because an offer taken by accident is an offer
+        // spent, which is the one thing about this permission that cannot be undone.
+        //
+        // Matched by description against the card, and the *first* match is taken: two offers
+        // that both cover this card are two separate permissions, and taking either leaves the
+        // other standing, which is what the printed cards say.
+        State.HandCastOffer? handOffer = null;
+
+        if (freeFromHand)
+        {
+            if (card.Zone != Zone.Hand)
+            {
+                throw new InvalidOperationException(
+                    "That offer casts a card from your hand (CR 601.2b).");
+            }
+
+            handOffer = State.HandCastOffers
+                .FirstOrDefault(offer => offer.PlayerId == playerId && offer.Covers(card.Card))
+                ?? throw new InvalidOperationException(
+                    $"Nothing is offering to cast {card.Card.Name} from your hand without "
+                        + "paying its mana cost (CR 601.2b).");
+        }
+
         // CR 702.143a: a foretold card may be cast from exile for its foretell cost, but only on
         // a turn after the one it was foretold on. The card being in exile is not permission —
         // somebody paid to put this particular card there, and paid a turn early.
@@ -857,6 +892,22 @@ public sealed class Game
         var fromWarp = card.Zone == Zone.Exile
             && card.WarpedOnTurn is { } warpedOn
             && State.TurnNumber > warpedOn;
+
+        // CR 601.3: something on the battlefield may permit a cast from the top of a library -
+        // Future Sight, Melek, Vizier of the Menagerie. Read off the battlefield at this moment
+        // rather than written onto the card, because the card on top is not a thing that knows
+        // it is on top: the next draw makes it a card in a hand and makes a different card
+        // castable, and a permission stamped onto an object would have to be restamped by every
+        // draw, mill and shuffle in the game.
+        //
+        // The position is asked here and the permission there, and the split is deliberate: the
+        // library belongs to the engine and what a permanent permits belongs to the permission.
+        // Only the top card - a permission to cast the top card is not a permission to reach
+        // past it, and "the top card" is index 0 by this engine's one convention.
+        var fromLibraryTop = card.Zone == Zone.Library
+            && State.GetPlayer(playerId).Library is [var onTop, ..]
+            && onTop == cardId
+            && CastPermissions.MayPlayFromTopOfLibrary(State, _abilities, playerId, card.Card);
 
         // CR 601.3e: permission to play a card from exile, paying its cost as normal. Unlike a
         // free cast this grants nothing about the price - only about the zone and the window.
@@ -926,7 +977,7 @@ public sealed class Game
 
         if (card.Zone != Zone.Hand && !fromCommandZone && !fromElsewhere && !fromForetell
             && !fromPlot && !fromWarp && !fromImpulse && !fromAdventure && !fromGraveyard
-            && !onTheHouse && !prepared)
+            && !onTheHouse && !prepared && !fromLibraryTop)
             throw new InvalidOperationException("A spell is cast from hand.");
 
         if (card.Card.CardTypes.HasFlag(CardType.Land))
@@ -996,7 +1047,10 @@ public sealed class Game
         // An offer made during a resolution is not bound by sorcery timing (CR 702.85a): cascade
         // hands you a sorcery while the spell that cascaded is still on the stack, and the whole
         // mechanic depends on your being allowed to cast it there.
-        if (!isInstant && !onTheHouse && !State.IsSorcerySpeedFor(playerId))
+        // An offer taken during a resolution is not bound by sorcery timing either, and for the
+        // reason the free cast beside it is not: the Expertise is still on the stack when it
+        // hands the window over.
+        if (!isInstant && !onTheHouse && handOffer is null && !State.IsSorcerySpeedFor(playerId))
             throw new InvalidOperationException(
                 $"{card.Card.Name} can only be cast during your main phase with an empty stack (CR 505.6a).");
 
@@ -1332,6 +1386,12 @@ public sealed class Game
             : prepared
             ? ManaCostSpec.Parse(_abilities.PreparedCostOf(card.Card) ?? card.Card.ManaCostRaw)
             : fromPlot
+            ? ManaCostSpec.Free
+
+            // The offer pays nothing at all, and nothing about the card is consulted: it is not
+            // an alternative cost printed on the spell, it is a permission somebody else's spell
+            // handed over (CR 601.2b).
+            : handOffer is not null
             ? ManaCostSpec.Free
             : onTheHouse
             ? ManaCostSpec.Parse(card.OfferedCost)
@@ -2150,6 +2210,17 @@ public sealed class Game
         // announced so anything that triggers on the cast sees the face that is actually up.
         if (onTheHouse && card.CastsTransformed && card.Card.Faces.Count > 1)
             Emit(new PermanentTransformed(stackId, 1));
+
+        // CR 601.2b: the offer is spent by the cast that used it, recorded here rather than left
+        // to the pass that would otherwise sweep it. Emitted before the cast is announced, for
+        // the reason PreventionEffectSpent is emitted inside the replacement that used the
+        // shield: anything that triggers off this cast must not find the offer still standing.
+        //
+        // Without this the permission is one a player takes as many times as their hand has
+        // answers, which is a strictly better card than the one printed - and a suite that only
+        // ever casts once cannot see it.
+        if (handOffer is { } taken)
+            Emit(new HandCastOfferSpent(taken.Id));
 
         // CR 700.14: what the caster handed over, and where that leaves their running total for
         // the turn. Emitted before the cast so the two triggers off one spell are collected
@@ -3618,7 +3689,16 @@ public sealed class Game
                 || (card.MayPlayUntilTurn is { } through && State.TurnNumber <= through)
                 || card.MayPlayThroughOwnersNextTurn is not null);
 
-        if (card.Zone != Zone.Hand && !loosed)
+        // CR 601.3: and from the top of a library, while something on the battlefield says so -
+        // Oracle of Mul Daya's half of the same permission Future Sight prints whole. The land
+        // drop is still spent and the timing is still sorcery speed, both checked below: the
+        // permission buys the zone and nothing else.
+        var fromLibraryTop = card.Zone == Zone.Library
+            && State.GetPlayer(playerId).Library is [var onTop, ..]
+            && onTop == cardId
+            && CastPermissions.MayPlayFromTopOfLibrary(State, _abilities, playerId, card.Card);
+
+        if (card.Zone != Zone.Hand && !loosed && !fromLibraryTop)
             throw new InvalidOperationException("A land is played from hand.");
 
         if (!card.Card.CardTypes.HasFlag(CardType.Land))

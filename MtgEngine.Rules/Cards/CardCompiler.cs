@@ -432,6 +432,7 @@ public static partial class CardCompiler
         var noLifeGain = ImmutableList.CreateBuilder<PlayerScope>();
         var noCounter = ImmutableList.CreateBuilder<CounterBan>();
         var flashPermissions = ImmutableList.CreateBuilder<FlashPermission>();
+        var libraryTopPermissions = ImmutableList.CreateBuilder<LibraryTopPermission>();
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
 
@@ -1578,6 +1579,13 @@ public static partial class CardCompiler
             if (!isSpell && TryFlashPermission(line, flashPermissions))
                 continue;
 
+            // The other permission a permanent holds up, and refused on an instant or sorcery
+            // beside it for the same reason: "Until end of turn, you may play lands and cast
+            // spells from the top of your library" is a one-shot window, and filed here it
+            // would be a cast source nothing ever took away.
+            if (!isSpell && TryLibraryTopPermission(line, libraryTopPermissions))
+                continue;
+
             // The two prohibitions whose parameter is a name a player chose rather than
             // anything printed. Refused on an instant or sorcery beside their neighbours and
             // for the same reason: Conjurer's Ban says these words with "until your next
@@ -1976,6 +1984,7 @@ public static partial class CardCompiler
             Statics = statics.ToImmutable(),
             PlayerQualities = playerQualities.ToImmutable(),
             FlashPermissions = flashPermissions.ToImmutable(),
+            LibraryTopPermissions = libraryTopPermissions.ToImmutable(),
             Bans = new StaticBans
             {
                 Unpreventable = unpreventable.ToImmutable(),
@@ -15216,6 +15225,127 @@ public static partial class CardCompiler
         return true;
     }
 
+    /// <summary>
+    /// "You may play lands and cast creature spells from the top of your library" - a cast
+    /// source a permanent holds up for its controller (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Read as a <see cref="LibraryTopPermission"/> and not as anything that touches the card on
+    /// top, for the reason <see cref="TryFlashPermission"/> gives about its own family: nothing
+    /// here changes a characteristic, so CR 613's layers have nothing to order. It is also the
+    /// only reading a hidden zone allows. The card on top is not an object anybody has looked at
+    /// yet, the next one is a different card, and a permission written onto whichever card
+    /// happens to be there would have to be rewritten every time the library moved - by a draw,
+    /// a mill, a shuffle, or by this very permission being taken.
+    /// <para>
+    /// <strong>Two words are refused outright, and each of them is a card.</strong>
+    /// </para>
+    /// <list type="bullet">
+    /// <item>A qualified land - "You may play snow lands and cast snow spells from the top of
+    /// your library" - leaves the line unread. The record has one flag for lands and no room for
+    /// a family, and widening it to "any land" is a strictly better card than the printed one.
+    /// </item>
+    /// <item>A qualifier that follows the noun - "cast spells with mana value 4 or greater",
+    /// "cast spells with flash or flying", "cast creature spells of the chosen type" - never
+    /// matches, because the pattern requires the library clause immediately after "spells". Read
+    /// loosely each of those becomes an unfiltered Future Sight.</item>
+    /// </list>
+    /// <para>
+    /// "Artifact spells and colorless spells" repeats the noun, which makes the join a
+    /// disjunction over one card exactly as it does for the flash permission, and it is split
+    /// the same way. A comma list - "Cleric, Rogue, Warrior, and Wizard spells" - is the same
+    /// disjunction with the noun said once, so it is split on its separators and each piece goes
+    /// through the shared vocabulary alone.
+    /// </para>
+    /// </remarks>
+    private static bool TryLibraryTopPermission(
+        string line, ImmutableList<LibraryTopPermission>.Builder into)
+    {
+        // "You may play the top card of your library" - the whole card, whatever it is, so both
+        // halves at once and no filter on either.
+        if (WholeLibraryTopPermissionLine().IsMatch(line))
+        {
+            into.Add(new LibraryTopPermission
+            {
+                Id = "library-top:lands:any",
+                Lands = true,
+                Spells = true,
+            });
+
+            return true;
+        }
+
+        var m = LibraryTopPermissionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var lands = m.Groups["lands"].Success;
+        var spells = m.Groups["cast"].Success;
+
+        // Both nouns are optional in the pattern, so a line that named neither would reach here
+        // as a permission permitting nothing at all - read, counted, and silently doing nothing,
+        // which is the worse half of every trade this compiler makes.
+        if (!lands && !spells)
+            return false;
+
+        string? filter = null;
+        var what = m.Groups["what"].Value.Trim();
+
+        if (spells && what.Length > 0)
+        {
+            var named = new List<string>();
+
+            foreach (var part in what.Split(
+                " spells and ",
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                foreach (var one in SplitNamedList(part))
+                {
+                    if (EffectPhrase.SearchFilterFor(one) is not { } named1)
+                        return false;
+
+                    named.Add(named1);
+                }
+            }
+
+            filter = string.Join('|', named);
+        }
+
+        into.Add(new LibraryTopPermission
+        {
+            Id = "library-top:" + (lands ? "lands" : "-") + ":"
+                + (spells ? filter ?? "any" : "-"),
+            Lands = lands,
+            Spells = spells,
+            SpellFilter = filter,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Cleric, Rogue, Warrior, and Wizard" as four descriptions (CR 700.2 style listing).
+    /// </summary>
+    /// <remarks>
+    /// Split rather than handed to the filter vocabulary whole, because that vocabulary reads
+    /// one description at a time and a comma list is several. The Oxford "and" is stripped from
+    /// the last piece rather than being a separator of its own: a two-item list joins with a
+    /// bare "and" and a longer one with a comma before it, and treating both as separators here
+    /// keeps the two spellings one case.
+    /// </remarks>
+    private static IEnumerable<string> SplitNamedList(string phrase)
+    {
+        foreach (var piece in phrase.Split(
+            ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            foreach (var one in piece.Split(
+                " and ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                yield return one;
+            }
+        }
+    }
+
     private static bool TryStaticBans(
         string line,
         ImmutableList<UnpreventableStatic>.Builder unpreventable,
@@ -19900,6 +20030,54 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex FlashPermissionLine();
 
+    /// <summary>
+    /// "You may play lands and cast Bird spells from the top of your library" (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The subject is "You" and nothing else. Every printing in the corpus says it, and a
+    /// permission whose seat could not be read must not become everybody's.
+    /// <para>
+    /// The library clause is required immediately after the noun, which is what keeps the
+    /// trailing-qualifier family out - "cast spells with mana value 4 or greater", "cast spells
+    /// with flash or flying", "cast creature spells of the chosen type". Each of those is a
+    /// narrower card than Future Sight, and each of them read loosely becomes Future Sight.
+    /// </para>
+    /// <para>
+    /// "Lands" is bare on purpose: the qualified printing ("snow lands") names a family this
+    /// permission has no slot for, so it falls through unread rather than being widened. The
+    /// duration family falls through for the same reason it does beside the flash permission -
+    /// "Until end of turn, you may play lands and cast spells from the top of your library"
+    /// never starts with "You", so a window can never be read here as a permanent permission.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^You may (?<lands>play lands ?)?(and )?"
+            + @"(?<cast>cast (?<what>[A-Za-z][^.]*? )?spells ?)?"
+            + @"from the top of your library\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex LibraryTopPermissionLine();
+
+    /// <summary>
+    /// "You may play the top card of your library" - both halves at once (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Its own pattern rather than a branch of the one above, because it names neither noun: the
+    /// card on top is whatever it is, and the permission covers a land and a spell alike. Folded
+    /// into that pattern as an optional alternative it would have made the two nouns optional
+    /// there too, and a line naming neither would have compiled to a permission permitting
+    /// nothing.
+    /// <para>
+    /// The conditional printing - "As long as The Lunar Whale attacked this turn, you may play
+    /// the top card of your library" - does not start with "You" and so never reaches here. That
+    /// is the intended refusal: a permission whose condition went unread is permanent when the
+    /// card says it is not.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^You may (?<everything>play the top card of your library)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WholeLibraryTopPermissionLine();
+
     /// <summary>"…can't be blocked except by X" — only X may block it (CR 509.1b).</summary>
     [GeneratedRegex(
         @"^(?<who>~|enchanted creature|equipped creature) can't be blocked except by (?<what>[^.]+?)\.?$",
@@ -20974,6 +21152,16 @@ public sealed record CompiledCard
     /// </remarks>
     public ImmutableList<FlashPermission> FlashPermissions { get; init; } = [];
 
+    /// <summary>
+    /// Which cards this card lets somebody play from the top of their library (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Its own list beside <see cref="FlashPermissions"/> and never folded into it: that
+    /// permission moves a spell's timing and this one moves the zone it is played from, and a
+    /// card says either without saying the other. See <see cref="LibraryTopPermission"/>.
+    /// </remarks>
+    public ImmutableList<LibraryTopPermission> LibraryTopPermissions { get; init; } = [];
+
     public ImmutableList<ReplacementEffectDefinition> Replacements { get; init; } = [];
 
     /// <summary>
@@ -21086,5 +21274,6 @@ public sealed record CompiledCard
         || !CastLimits.IsEmpty
         || !Bans.IsEmpty
         || !FlashPermissions.IsEmpty
+        || !LibraryTopPermissions.IsEmpty
         || AttacksOnlyIfDefenderControls is not null;
 }

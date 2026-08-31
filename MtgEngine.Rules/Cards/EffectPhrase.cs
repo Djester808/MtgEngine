@@ -7350,6 +7350,30 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // CR 601.2b: "You may cast a spell with mana value 3 or less from your hand without
+        // paying its mana cost" - the Expertise cycle's payload, and the one member of the
+        // offer-a-cast family that describes its card instead of naming it. That is why it
+        // becomes an offer on the player with a count rather than a flag on a card: written onto
+        // every card in hand that answers the description it would buy one cast per answer.
+        var freeFromHand = FreeCastFromHandSentence().Match(sentence);
+        if (freeFromHand.Success)
+        {
+            string? offeredFilter = null;
+            var offeredWhat = freeFromHand.Groups["what"].Value.Trim();
+
+            // A qualifier this vocabulary cannot name refuses the sentence rather than widening
+            // to "any spell". An offer that covers more than the card names is the same
+            // strictly-better-than-printed mistake the count itself exists to stop.
+            if (offeredWhat.Length > 0
+                && (offeredFilter = SearchFilterFor(offeredWhat)) is null)
+            {
+                return false;
+            }
+
+            effects.Add(new OfferFreeCastFromHand(offeredFilter, ManaValueBound(freeFromHand)));
+            return true;
+        }
+
         // CR 702.131a: adapt N is "if this creature has no +1/+1 counters on it, put N +1/+1
         // counters on it" - a keyword action that is exactly one conditional effect, so it
         // compiles to that rather than to a mechanic of its own. The condition is the whole
@@ -16196,6 +16220,36 @@ public static partial class EffectPhrase
             + @"( if (?<cond>[^,]+?))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex HiddenCardOfferSentence();
+
+    /// <summary>
+    /// "You may cast an instant or sorcery spell from your hand without paying its mana cost"
+    /// (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// <strong>The singular is the whole test.</strong> "You may cast <em>spells</em> from your
+    /// hand without paying their mana costs" is Omniscience - a static permission with no count
+    /// at all - and "up to three spells" and "any number of spells" are offers this reader has
+    /// no way to count down. Each of those read here would become one free cast where the card
+    /// grants many, or - far worse, since the offer would then never be spent - many where it
+    /// grants one. They are left unread instead.
+    /// <para>
+    /// The kind is a lazy run handed to the shared filter vocabulary, exactly as the flash
+    /// permission's is, so "a Hero spell" and "a noncreature or Robot spell" are refused or
+    /// accepted by the same reader every other card description uses. A word list here would be
+    /// that vocabulary restated and would drift from it.
+    /// </para>
+    /// <para>
+    /// The cap is optional and the sentence is read without one, which is Maelstrom Archangel's
+    /// printing. When it is there it is read by <see cref="ManaValueBound"/>, so "X or less" is
+    /// the X this spell was cast for rather than a number frozen at compile time.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^you may cast an? (?<what>[a-z][^.]*? )?spell"
+            + @"( with mana value (?<cap>\d+|X) or less)?"
+            + @" from your hand without paying its mana cost\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex FreeCastFromHandSentence();
 
     /// <remarks>
     /// "It" and the card's own name both mean the permanent the ability is printed on, which is

@@ -5911,6 +5911,382 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- Casting a card that is not in your hand (CR 601.3, 601.2b) ----------
+
+    /// <summary>A card with a real price, so "without paying its mana cost" means something.</summary>
+    /// <remarks>
+    /// <see cref="Card"/> leaves the cost empty, which makes every fixture free and would let
+    /// the offer tests below pass with the permission doing nothing at all. The mana value is
+    /// set beside the printed cost rather than derived, because that is the number the offer's
+    /// cap is compared against (CR 202.3).
+    /// </remarks>
+    private static CardDefinition Priced(string name, string cost, int manaValue) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = "~ deals 1 damage to any target.",
+        CardTypes = CardType.Instant,
+        ManaCostRaw = cost,
+        Cmc = manaValue,
+    };
+
+    /// <summary>Future Sight's own wording, with the private half of the reveal it pairs with.</summary>
+    private static CardDefinition LibraryTopSight() => Card(
+        "Sight Of The Deck Test",
+        "You may look at the top card of your library any time.\n"
+            + "You may play lands and cast spells from the top of your library.",
+        CardType.Enchantment);
+
+    [Fact]
+    public void A_spell_may_be_cast_from_the_top_of_your_library_and_the_next_becomes_available()
+    {
+        var sight = LibraryTopSight();
+
+        var compiled = CardCompiler.Compile(sight);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(compiled.ShowsTopOfLibrary);
+
+        var permission = Assert.Single(compiled.LibraryTopPermissions);
+        Assert.True(permission.Lands);
+        Assert.True(permission.Spells);
+        Assert.Null(permission.SpellFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, sight, Zone.Battlefield);
+
+        // Two spells buried in that order, so the second is only reachable once the first has
+        // gone. The whole claim of this family is that the top card is a position rather than a
+        // card: playing one has to uncover the next without anything being told to.
+        var underneath = game.Create(
+            alice,
+            Card("Second From The Top Test", "~ deals 2 damage to any target."),
+            Zone.Library);
+        var onTop = game.Create(
+            alice,
+            Card("First From The Top Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+
+        Assert.Equal(onTop, game.State.GetPlayer(alice).Library[0]);
+
+        // The permission grants a zone and not a look: the visibility is the other line on the
+        // card, and it is that line the projection answers.
+        var before = game.ViewFor(alice).Players.Single(p => p.PlayerId == alice);
+        Assert.Equal("First From The Top Test", before.TopOfLibrary?.Name);
+
+        game.CastSpell(alice, onTop, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+
+        // And the next card is now the one that may be cast - nothing was written onto it, and
+        // nothing had to notice that the library moved.
+        Assert.Equal(underneath, game.State.GetPlayer(alice).Library[0]);
+
+        var after = game.ViewFor(alice).Players.Single(p => p.PlayerId == alice);
+        Assert.Equal("Second From The Top Test", after.TopOfLibrary?.Name);
+
+        game.CastSpell(alice, underneath, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void A_land_may_be_played_from_the_top_of_your_library()
+    {
+        var oracle = Card(
+            "Oracle Of The Deck Test",
+            "You may look at the top card of your library any time.\n"
+                + "You may play lands from the top of your library.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(oracle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var permission = Assert.Single(compiled.LibraryTopPermissions);
+        Assert.True(permission.Lands);
+        Assert.False(permission.Spells);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, oracle, Zone.Battlefield);
+
+        var spell = game.Create(
+            alice,
+            Card("Top Library Spell Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+        var land = game.Create(alice, TestCards.BasicLand("Top Library Land Test"), Zone.Library);
+
+        // CR 400.7: the card that was in the library stops existing when it leaves, so the
+        // permanent to look for is the one the play returned and not the id that was buried.
+        var onBattlefield = game.PlayLand(alice, land);
+
+        Assert.Contains(onBattlefield, game.State.Battlefield);
+        Assert.Equal(1, game.State.GetPlayer(alice).LandsPlayedThisTurn);
+        Assert.Equal(spell, game.State.GetPlayer(alice).Library[0]);
+
+        // The half this permission does not grant. "You may play lands from the top of your
+        // library" says nothing about spells, and a permission read one word wider than the card
+        // is a Future Sight wearing an Oracle of Mul Daya's name.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, spell, [Target.ToPlayer(bob)]));
+
+        Assert.Contains("cast from hand", refused.Message, StringComparison.Ordinal);
+        Settle(game);
+    }
+
+    [Fact]
+    public void Playing_the_top_card_covers_a_land_and_a_spell_alike()
+    {
+        // The printing that names neither noun. "You may play the top card of your library" is
+        // whatever is up there, so it has to cover both halves - and it is worth its own test
+        // because a reader that folded it into the two-noun sentence would have made both of
+        // those nouns optional there.
+        var citadel = Card(
+            "Whole Top Card Test",
+            "You may look at the top card of your library any time.\n"
+                + "You may play the top card of your library.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(citadel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var permission = Assert.Single(compiled.LibraryTopPermissions);
+        Assert.True(permission.Lands);
+        Assert.True(permission.Spells);
+        Assert.Null(permission.SpellFilter);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, citadel, Zone.Battlefield);
+
+        var spell = game.Create(
+            alice,
+            Card("Whole Top Spell Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+        var land = game.Create(alice, TestCards.BasicLand("Whole Top Land Test"), Zone.Library);
+
+        var onBattlefield = game.PlayLand(alice, land);
+        Assert.Contains(onBattlefield, game.State.Battlefield);
+
+        Assert.Equal(spell, game.State.GetPlayer(alice).Library[0]);
+
+        game.CastSpell(alice, spell, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void Nothing_may_be_cast_from_a_library_without_a_permanent_saying_so()
+    {
+        var (game, alice, bob) = InMainPhase();
+
+        var onTop = game.Create(
+            alice,
+            Card("Unpermitted Top Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, onTop, [Target.ToPlayer(bob)]));
+
+        Assert.Contains("cast from hand", refused.Message, StringComparison.Ordinal);
+
+        // And the permission arrives with the permanent, which is what reading it off the
+        // battlefield buys: there is no state anywhere saying whether it was ever open.
+        game.Create(alice, LibraryTopSight(), Zone.Battlefield);
+        game.CastSpell(alice, onTop, [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void The_permission_reaches_the_top_card_and_no_further()
+    {
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, LibraryTopSight(), Zone.Battlefield);
+
+        var buried = game.Create(
+            alice,
+            Card("Buried Second Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+        game.Create(
+            alice,
+            Card("Buried First Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+
+        // "The top card of your library" is one card. A permission that let a player reach past
+        // it would be a search of the whole deck at instant speed.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, buried, [Target.ToPlayer(bob)]));
+
+        Assert.Contains("cast from hand", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_cast_source_in_a_library_does_not_put_the_library_in_an_opponents_view()
+    {
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, LibraryTopSight(), Zone.Battlefield);
+
+        game.Create(
+            alice,
+            Card("Private Second Test", "~ deals 2 damage to any target."),
+            Zone.Library);
+        game.Create(
+            alice,
+            Card("Private First Test", "~ deals 3 damage to any target."),
+            Zone.Library);
+
+        // The negative half, and the one this whole feature had to be built around: a library is
+        // hidden from everyone (CR 401.2), and making one castable must not make it visible. The
+        // permission is answered from the battlefield at the moment of the cast and never
+        // reaches the projection, so the only thing an opponent gains is a card leaving a zone
+        // they could already count.
+        var theirs = game.ViewFor(bob);
+        Assert.Null(theirs.Players.Single(p => p.PlayerId == alice).TopOfLibrary);
+        Assert.Null(theirs.Players.Single(p => p.PlayerId == bob).TopOfLibrary);
+
+        // Whatever the shape of the record, the bytes on the wire must not carry a card only
+        // Alice may see - the assertion a flag cannot make.
+        var json = System.Text.Json.JsonSerializer.Serialize(theirs);
+
+        foreach (var id in game.State.GetPlayer(alice).Library)
+        {
+            Assert.DoesNotContain(
+                game.State.GetObject(id).Card.Name, json, StringComparison.Ordinal);
+        }
+
+        // Even its owner sees only the one card the other line on the permanent shows them.
+        var mine = game.ViewFor(alice);
+        Assert.Equal(
+            "Private First Test",
+            mine.Players.Single(p => p.PlayerId == alice).TopOfLibrary?.Name);
+
+        Assert.DoesNotContain(
+            "Private Second Test",
+            System.Text.Json.JsonSerializer.Serialize(mine),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_offer_to_cast_from_hand_is_spent_by_the_cast_that_takes_it()
+    {
+        var expertise = Card(
+            "Expertise Offer Test",
+            "You may cast a spell with mana value 3 or less from your hand "
+                + "without paying its mana cost.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(expertise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var first = game.Create(alice, Priced("Offered First Test", "{2}{R}", 3), Zone.Hand);
+        var second = game.Create(alice, Priced("Offered Second Test", "{2}{R}", 3), Zone.Hand);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, expertise));
+
+        // Resolved by hand rather than by settling, because settling passes priority and the
+        // pass is where an untaken offer lapses. That is the window the printed sentence gives,
+        // stretched to the next pass because casting cannot happen inside a resolution.
+        game.PassPriority(alice);
+        game.PassPriority(bob);
+
+        var offer = Assert.Single(game.State.HandCastOffers);
+        Assert.Equal(alice, offer.PlayerId);
+        Assert.Equal(3, offer.MaxManaValue);
+
+        // Alice has no mana at all, so the cast succeeding is proof the offer paid for it.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, first, [Target.ToPlayer(bob)]));
+
+        game.CastSpell(alice, first, [Target.ToPlayer(bob)], freeFromHand: true);
+
+        Assert.Empty(game.State.HandCastOffers);
+        Assert.Single(game.Log.OfType<HandCastOfferSpent>());
+
+        // The whole point of the count. Without it the permission stands until the pass and the
+        // hand's second answer is free as well - a card strictly better than the printed one,
+        // and one a test that casts only once cannot see.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, second, [Target.ToPlayer(bob)], freeFromHand: true));
+
+        Assert.Contains("601.2b", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(second, game.State.GetPlayer(alice).Hand);
+
+        Settle(game);
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    [Fact]
+    public void An_offer_refuses_a_card_the_sentence_did_not_describe()
+    {
+        var expertise = Card(
+            "Expertise Cap Test",
+            "You may cast a spell with mana value 3 or less from your hand "
+                + "without paying its mana cost.",
+            CardType.Sorcery);
+
+        Assert.True(CardCompiler.Compile(expertise).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var dear = game.Create(alice, Priced("Too Dear Test", "{4}{R}", 5), Zone.Hand);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, expertise));
+        game.PassPriority(alice);
+        game.PassPriority(bob);
+
+        Assert.Single(game.State.HandCastOffers);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, dear, [Target.ToPlayer(bob)], freeFromHand: true));
+
+        Assert.Contains("601.2b", refused.Message, StringComparison.Ordinal);
+
+        // Refused and not spent: the offer is still there for a card that answers it.
+        Assert.Single(game.State.HandCastOffers);
+    }
+
+    [Fact]
+    public void An_offer_nobody_takes_lapses_on_the_next_pass()
+    {
+        var expertise = Card(
+            "Expertise Lapse Test",
+            "You may cast a spell from your hand without paying its mana cost.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(expertise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var held = game.Create(alice, Priced("Left In Hand Test", "{2}{R}", 3), Zone.Hand);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, expertise));
+        game.PassPriority(alice);
+        game.PassPriority(bob);
+
+        var offer = Assert.Single(game.State.HandCastOffers);
+        Assert.Null(offer.MaxManaValue);
+        Assert.Null(offer.SpellFilter);
+
+        game.PassPriority(alice);
+
+        Assert.Empty(game.State.HandCastOffers);
+        Assert.Single(game.Log.OfType<HandCastOfferLapsed>());
+
+        // Bob passes too so priority comes back round to Alice, who is the only player the
+        // offer was ever made to and now has nothing to take.
+        game.PassPriority(bob);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, held, [Target.ToPlayer(bob)], freeFromHand: true));
+
+        Assert.Contains("601.2b", refused.Message, StringComparison.Ordinal);
+        Settle(game);
+    }
+
     // ---- Mayhem (CR 702.181a) ------------------------------------------------
 
     [Fact]

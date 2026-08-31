@@ -108,6 +108,9 @@ public sealed class CompiledPool : IAbilitySource
     public IReadOnlyList<State.FlashPermission> FlashPermissionsOf(CardDefinition card) =>
         For(card).FlashPermissions;
 
+    public IReadOnlyList<State.LibraryTopPermission> LibraryTopPermissionsOf(
+        CardDefinition card) => For(card).LibraryTopPermissions;
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 
