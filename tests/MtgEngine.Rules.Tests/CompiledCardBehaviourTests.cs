@@ -48739,6 +48739,70 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
+    /// "To any target" reaches a player, and shields that player alone (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// Found by <c>Every_effect_aimed_at_any_target_answers_for_a_player</c>, which asks of every
+    /// effect that can be aimed at "any target" whether anybody has read what it does with a
+    /// player. <see cref="PreventDescribedDamage"/> could not be aimed at one at all until the
+    /// CR 615.8 reader arrived — the only targeted prevention before it named a <em>source</em>,
+    /// which is never a player — so a whole arm became reachable with nothing playing it. The
+    /// generalisable half is written down elsewhere in this file and holds here: an effect whose
+    /// Resolve returns nothing on an input its own grammar admits is indistinguishable from a
+    /// working one, and the card still reports itself complete.
+    /// <para>
+    /// Alice is the control. A shield that lost which player it was aimed at would cover her too,
+    /// and every other assertion here would pass.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_chosen_source_shield_aimed_at_a_player_covers_that_player_alone()
+    {
+        var circle = Card(
+            "Any Target Circle Test",
+            "The next time a source of your choice would deal damage to any target this turn, "
+                + "prevent that damage.");
+
+        var compiled = CardCompiler.Compile(circle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Any Target Pinger Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Any Target Bystander Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, circle), [Target.ToPlayer(bob)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Any Target Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        // The shield was aimed at Bob and does not cover Alice - and it is not spent by damage
+        // it did not prevent.
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+        Assert.Single(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Empty(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
     /// A static ability may not say "of your choice" (CR 604.3).
     /// </summary>
     /// <remarks>

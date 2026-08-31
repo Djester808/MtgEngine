@@ -10081,6 +10081,20 @@ red is not prevented and does not spend the shield. `Preventions.Watches` alread
 questions. The one-answer case goes through a forced arm beside the mana colour's (CR 118.3): a
 question with one button on it is not a question, and settling it still makes the shield.
 
+**The invariant suite caught the half nobody was playing.** Aiming a shield at a *victim* was new:
+the only targeted prevention before this named a **source**, and CR 609.7a says a source is never a
+player, so `PreventDescribedDamage` had never been offered an "any target" spec at all.
+`Every_effect_aimed_at_any_target_answers_for_a_player` asks of every effect that can be aimed at
+one whether anybody has read what it does with a player, and it failed the moment the new reader
+made that arm reachable. The arm was in fact correct — the chosen victim goes into
+`PreventionEffect.Player` and `Preventions.CoversPlayer` is what the `PlayerDamaged` half of the
+replacement pass asks — but nothing played it, and "an effect whose `Resolve` returns `[]` on an
+input its own grammar admits is indistinguishable from a working one" is the lesson this file
+already records from the first prevention shield. It is now played by
+`A_chosen_source_shield_aimed_at_a_player_covers_that_player_alone`, with the other player as the
+control: a shield that lost which player it named would cover her too, and every other assertion in
+that test would still pass.
+
 **What is refused on this row, re-measured: 28 sole blockers**, and only two of them are about
 prevention.
 
