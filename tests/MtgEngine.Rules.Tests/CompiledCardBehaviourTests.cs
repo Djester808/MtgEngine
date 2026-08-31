@@ -671,6 +671,324 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.GetPlayer(bob).Hand);
     }
 
+    // ---- A permanent's timing permission (CR 702.8b) --------------------------
+
+    /// <summary>
+    /// A permanent holding the window open, and a spell it does not name shut out of it.
+    /// </summary>
+    /// <remarks>
+    /// The whole family in one game, because the two halves only mean anything together. Yeva
+    /// says "creature spells", so the creature is castable in a step that is not a main phase on
+    /// a turn that is not Alice's — and the sorcery beside it in the same hand, at that same
+    /// moment, is not. A permission read one word wider than the card is printed would pass the
+    /// first assertion and fail nothing.
+    /// </remarks>
+    [Fact]
+    public void A_permanents_flash_permission_covers_the_spells_it_names_and_no_others()
+    {
+        var herald = Card(
+            "Flash Herald Test",
+            "You may cast creature spells as though they had flash.",
+            CardType.Creature,
+            2,
+            2);
+
+        var compiled = CardCompiler.Compile(herald);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, herald, Zone.Battlefield);
+
+        // Bob's turn, with Alice holding priority: no main phase of hers, and nothing about this
+        // moment lets a sorcery-speed spell be cast.
+        //
+        // The two cards are put in hand after the turn has turned over, not before. A card held
+        // across a cleanup step is discarded to hand size and comes back as a different object
+        // (CR 400.7, 514.1), and the id this test is holding would name nothing.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == alice);
+
+        var bear = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Flashed Bear Test", 2, 2));
+
+        var ritual = TestCards.PutInHand(
+            game,
+            alice,
+            Card("Flash Ritual Test", "You gain 2 life.", CardType.Sorcery));
+
+        Assert.False(game.State.IsSorcerySpeedFor(alice));
+
+        // The sorcery first, so the refusal cannot be blamed on the stack the creature leaves
+        // behind.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, ritual, []));
+
+        Assert.Contains("505.6a", refused.Message, StringComparison.Ordinal);
+
+        var onStack = game.CastSpell(alice, bear, []);
+        Assert.Equal(Zone.Stack, game.State.GetObject(onStack).Zone);
+    }
+
+    /// <summary>
+    /// The window closes with the permanent, because nothing anywhere recorded that it was open.
+    /// </summary>
+    /// <remarks>
+    /// CR 611.2c. This is what a timing permission compiled as a keyword grant on the card in
+    /// hand would have got wrong in the other direction — the grant would be recomputed too, but
+    /// the card would carry flash onto the stack and onto the battlefield, where the printed
+    /// permission says nothing at all. Asked here as the one consequence a player can see.
+    /// </remarks>
+    [Fact]
+    public void A_flash_permission_ends_when_the_permanent_granting_it_leaves()
+    {
+        var orrery = Card(
+            "Flash Orrery Test",
+            "You may cast spells as though they had flash.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(orrery);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, orrery, Zone.Battlefield);
+
+        // Drawn after the turn has turned over, because a card held across a cleanup step is
+        // discarded to hand size and comes back as a different object (CR 400.7, 514.1).
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == alice);
+
+        var first = TestCards.PutInHand(
+            game, alice, Card("Flash Rite One Test", "You gain 2 life.", CardType.Sorcery));
+
+        var second = TestCards.PutInHand(
+            game, alice, Card("Flash Rite Two Test", "You gain 2 life.", CardType.Sorcery));
+
+        game.CastSpell(alice, first, []);
+        Settle(game);
+
+        // The permanent goes, and with it the permission - there is no state to sweep, which is
+        // the point.
+        game.Move(host, Zone.Graveyard, MoveCause.Destroy, alice);
+        Settle(game);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.End
+                && game.State.Priority.Holder == alice);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, second, []));
+
+        Assert.Contains("505.6a", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// "Any player may cast Sliver spells as though they had flash" hands the window to the table.
+    /// </summary>
+    /// <remarks>
+    /// Quick Sliver's subject is the one printing with no scope at all, and the difference from
+    /// "You may cast" is the whole card. Both readings are asked in one game so that a scope
+    /// silently defaulted to the controller would fail here rather than pass everywhere.
+    /// </remarks>
+    [Fact]
+    public void An_any_player_permission_reaches_an_opponent_and_a_you_permission_does_not()
+    {
+        var shared = Card(
+            "Shared Flash Sliver Test",
+            "Any player may cast Sliver spells as though they had flash.",
+            CardType.Creature,
+            2,
+            2,
+            subtypes: "Sliver");
+
+        var mine = Card(
+            "Private Flash Beacon Test",
+            "You may cast Goblin spells as though they had flash.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(shared).IsComplete);
+        Assert.True(CardCompiler.Compile(mine).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, shared, Zone.Battlefield);
+        game.Create(alice, mine, Zone.Battlefield);
+
+        var sliver = TestCards.PutInHand(
+            game,
+            bob,
+            Card("Flashed Sliver Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Sliver"));
+
+        var goblin = TestCards.PutInHand(
+            game,
+            bob,
+            Card("Flashed Goblin Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Goblin"));
+
+        // Alice's turn, Bob holding priority: an opponent of whoever controls both permanents.
+        game.PassPriority(alice);
+        Assert.Equal(bob, game.State.Priority.Holder);
+        Assert.False(game.State.IsSorcerySpeedFor(bob));
+
+        // The Goblin is named by a permission Alice is holding for herself, so Bob is not in it.
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, goblin, []));
+
+        Assert.Contains("505.6a", refused.Message, StringComparison.Ordinal);
+
+        var onStack = game.CastSpell(bob, sliver, []);
+        Assert.Equal(Zone.Stack, game.State.GetObject(onStack).Zone);
+    }
+
+    /// <summary>The window belongs to whoever controls the permanent now (CR 613.1b).</summary>
+    /// <remarks>
+    /// Control is layer 2, so "you" in "you may cast creature spells as though they had flash" is
+    /// not the id the object was created with. Read from the stored controller instead, a stolen
+    /// Yeva would go on lending its window to the player it was taken from and give the thief
+    /// nothing - which is the engine's most-repeated bug wearing a new hat.
+    /// </remarks>
+    [Fact]
+    public void A_stolen_permanent_lends_its_flash_permission_to_the_thief()
+    {
+        var herald = Card(
+            "Stolen Flash Herald Test",
+            "You may cast creature spells as though they had flash.",
+            CardType.Creature,
+            2,
+            2);
+
+        var threaten = Card(
+            "Flash Threaten Test",
+            "Gain control of target creature until end of turn. Untap that creature. "
+                + "It gains haste until end of turn.");
+
+        Assert.True(CardCompiler.Compile(herald).IsComplete);
+        Assert.True(CardCompiler.Compile(threaten).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var host = game.Create(alice, herald, Zone.Battlefield);
+
+        // Bob's turn, and he takes it in his own main phase. Every card here is drawn after the
+        // turn has turned over: one held across a cleanup step is discarded to hand size and
+        // comes back as a different object (CR 400.7, 514.1).
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 2
+                && game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain
+                && game.State.Priority.Holder == bob);
+
+        var hers = TestCards.PutInHand(
+            game, alice, TestCards.Creature("Alice Bear Test", 2, 2));
+
+        var his = TestCards.PutInHand(
+            game, bob, TestCards.Creature("Bob Bear Test", 2, 2));
+
+        var steal = TestCards.PutInHand(game, bob, threaten);
+
+        game.CastSpell(bob, steal, [Target.ToPermanent(host)]);
+        Settle(game);
+
+        Assert.Equal(
+            bob, Characteristics.ControllerOf(game.State, Pool, game.State.GetObject(host)));
+
+        // His end step: not a main phase for anybody, so only the permission can allow a cast.
+        TestCards.PassUntil(
+            game,
+            () => game.State.CurrentStep == TurnStep.End
+                && game.State.Priority.Holder == bob);
+
+        var onStack = game.CastSpell(bob, his, []);
+        Assert.Equal(Zone.Stack, game.State.GetObject(onStack).Zone);
+
+        // And Alice, who owns the creature and no longer controls it, has lost the window.
+        game.PassPriority(bob);
+        Assert.Equal(alice, game.State.Priority.Holder);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, hers, []));
+
+        Assert.Contains("505.6a", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The near-misses this reader has to refuse, and the reason each one is a refusal.
+    /// </summary>
+    /// <remarks>
+    /// A timing permission read too widely is a strictly better card than the printed one, and
+    /// the coverage number scores it as a win — so the refusals need a test of their own or
+    /// nothing is watching them. Each line here is real printed wording that shares most of its
+    /// words with the family above and means something else:
+    /// <list type="bullet">
+    /// <item>Rootwater Shaman qualifies the spells <em>after</em> the noun. Read as "Aura
+    /// spells" it would hand instant speed to every Aura in the deck.</item>
+    /// <item>Alchemist's Refuge and Borne Upon a Wind name a window that lasts a turn, and
+    /// Quicksilver one that lasts while a permanent is tapped. A window this cannot read must
+    /// not become a permanent permission - that refusal is the one that kept fifteen free-cast
+    /// cards honest a round ago, and it is the same refusal here.</item>
+    /// <item>Illusion Spinners is the singular self-permission with a condition on it: a static
+    /// ability of a card in a hand, which is a different mechanism. Read here it would grant the
+    /// permission and quietly drop the condition.</item>
+    /// </list>
+    /// </remarks>
+    [Theory]
+    [InlineData("You may cast Aura spells with enchant creature as though they had flash.")]
+    [InlineData("You may cast spells this turn as though they had flash.")]
+    [InlineData("You may cast creature spells this turn as though they had flash.")]
+    [InlineData("During each opponent's end step, you may cast spells as though they had flash.")]
+    [InlineData("As long as Quicksilver is tapped, you may cast spells as though they had flash.")]
+    [InlineData("You may cast this spell as though it had flash if you control a Faerie.")]
+    [InlineData("You may cast the first creature spell you cast each turn as though it had flash.")]
+    public void A_flash_permission_this_reader_cannot_name_is_left_unread(string line)
+    {
+        var card = Card("Unread Flash Test", line, CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(card);
+
+        // The line comes back with the card's own name folded to "~", so the assertion is that
+        // one line went unread and nothing was granted - not that the string round-tripped.
+        Assert.Single(compiled.Unhandled);
+        Assert.Empty(compiled.FlashPermissions);
+    }
+
+    /// <summary>
+    /// The permission grants timing and nothing else — not a zone, and not a price.
+    /// </summary>
+    /// <remarks>
+    /// The line that separates this family from the free-cast one it was decomposed out of. A
+    /// Leyline of Anticipation does not let its controller cast the card in their graveyard;
+    /// every question but the timing one is settled elsewhere in <c>Game.CastSpell</c> without
+    /// consulting the permission at all. Asserted rather than assumed, because "as though it had
+    /// flash" sits one clause away from "without paying its mana cost" on several of the cards
+    /// this round measured.
+    /// </remarks>
+    [Fact]
+    public void A_flash_permission_does_not_open_a_zone()
+    {
+        var orrery = Card(
+            "Zone Flash Orrery Test",
+            "You may cast spells as though they had flash.",
+            CardType.Artifact);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, orrery, Zone.Battlefield);
+
+        var buried = game.Create(
+            alice, TestCards.Creature("Buried Bear Test", 2, 2), Zone.Graveyard);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(alice, buried, []));
+
+        Assert.Contains("A spell is cast from hand", refused.Message, StringComparison.Ordinal);
+    }
+
     // ---- An Aura on a player keeps that player's clock (CR 303.4) ------------
 
     [Fact]
