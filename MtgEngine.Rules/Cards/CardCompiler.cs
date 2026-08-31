@@ -17906,6 +17906,7 @@ public static partial class CardCompiler
         // predicate below and the effects it wraps — because a card that only checked once is a
         // different card, and which way it differs depends on what happened in between.
         BoardCondition? intervening = null;
+        string? interveningText = null;
         var iffy = InterveningIf().Match(effectText);
         if (iffy.Success)
         {
@@ -17913,7 +17914,8 @@ public static partial class CardCompiler
             // and again as it resolves, and both of those know which player the event was about
             // - so "if that player has one or fewer cards in hand" is a question here and
             // nowhere a static could ask it.
-            intervening = BoardConditions.ParseAbout(iffy.Groups["cond"].Value.Trim());
+            interveningText = iffy.Groups["cond"].Value.Trim();
+            intervening = BoardConditions.ParseAbout(interveningText);
             if (intervening is null)
             {
                 unhandled.Add(line);
@@ -18043,7 +18045,9 @@ public static partial class CardCompiler
             // activated and in the graveyard by the time it resolves (CR 702.29a). Left at the
             // default it compiled cleanly and never fired, which is the failure this whole
             // exercise keeps producing when a card reads correctly and plays as nothing.
-            FunctionsFrom = GraveyardOnly(card, effects) ?? zone!.Value,
+            FunctionsFrom = GraveyardOnly(card, effects)
+                ?? (zone == Zone.Battlefield ? WhereItSaysItIs(interveningText) : null)
+                ?? zone!.Value,
         });
 
         return true;
@@ -18073,6 +18077,32 @@ public static partial class CardCompiler
     /// it was (CR 603.10a) - so the certain case is the only one taken.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The zone an intervening-if names for the card itself, which is where the ability works
+    /// from (CR 603.6e).
+    /// </summary>
+    /// <remarks>
+    /// "At the beginning of your upkeep, if Genesis is in your graveyard, you may pay {2}{G}" is
+    /// an ability that functions from a graveyard, and the sentence says so in as many words. Left
+    /// at the default it compiled clean, read as complete, and could not fire on any board ever:
+    /// <c>Game.Consider</c> refuses an ability whose source is not in its functioning zone, so the
+    /// permanent had to be on the battlefield for the trigger to be offered and in the graveyard
+    /// for its own condition to hold. Six cards asked for both at once — Genesis, Gigapede, Arden
+    /// Angel, Blood Operative, Pyrewild Shaman, and Oloro in the command zone — and none of them
+    /// could ever do anything.
+    /// <para>
+    /// <see cref="GraveyardOnly"/> is the same rule read off the <em>effects</em>, and it cannot
+    /// reach these: it is restricted to cards with no permanent type, because a creature's "when
+    /// this dies, return it to your hand" has to keep watching from the battlefield (CR 603.10a).
+    /// All six of these are permanents. What makes them safe where that one is not is that the
+    /// card has said where it is rather than left it to be inferred — so the zone is taken only
+    /// from a condition naming exactly one, never from a negation, and never over a trigger whose
+    /// own condition already named a zone of its own.
+    /// </para>
+    /// </remarks>
+    private static Zone? WhereItSaysItIs(string? intervening) =>
+        intervening is null ? null : BoardConditions.ZoneTheSourceMustBeIn(intervening);
+
     private static Zone? GraveyardOnly(CardDefinition card, ImmutableList<IEffect> effects) =>
         (card.CardTypes & PermanentTypes) == 0
         && EffectTree.Flatten(effects).OfType<ReturnSourceToHand>().Any()

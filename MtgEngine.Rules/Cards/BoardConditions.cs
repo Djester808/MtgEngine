@@ -53,6 +53,36 @@ public static partial class BoardConditions
     public static BoardCondition? ParseAbout(string condition) =>
         Read(condition, aboutASeat: true);
 
+    /// <summary>
+    /// The one zone a condition says the card asking it is in, when it says one (CR 400.1).
+    /// </summary>
+    /// <remarks>
+    /// A question about the <em>text</em> of a condition rather than about the question it
+    /// compiles to, and it has to be: what the caller needs is where the ability functions from,
+    /// and that is settled before a game exists while the condition can only be asked during one.
+    /// The compiler already asks its other grammars this way — <c>TriggerConditions.NamesAnObject</c>
+    /// and <c>DeclarationSubject</c> both read the words, because a predicate is a closure and
+    /// cannot be interrogated.
+    /// <para>
+    /// Answered from <see cref="InZoneLine"/>, the same pattern the reader itself uses, so the two
+    /// cannot drift into disagreeing about which sentences name a zone. Null for everything else,
+    /// and deliberately null for the three cases the caller must not act on: a negation ("if this
+    /// isn't on the battlefield" says where it is <em>not</em>), an alternation ("in the command
+    /// zone or on the battlefield" names two, and an ability functions from one), and a condition
+    /// that is not of this shape at all.
+    /// </para>
+    /// </remarks>
+    public static Zone? ZoneTheSourceMustBeIn(string condition)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        var where = InZoneLine().Match(condition.Trim().TrimEnd('.'));
+
+        return where.Success && !where.Groups["not"].Success && !where.Groups["z2"].Success
+            ? ZoneNamed(where.Groups["z1"].Value)
+            : null;
+    }
+
     private static BoardCondition? Read(string condition, bool aboutASeat)
     {
         ArgumentNullException.ThrowIfNull(condition);

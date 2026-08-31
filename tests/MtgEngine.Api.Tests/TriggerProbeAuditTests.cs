@@ -366,22 +366,34 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
             // More of the same card, so a sentence counting them has something to count:
             // "two or more Gates", "three or more Dragons", "at least five other Mountains",
             // "another Knight". One probe answers no to every one of those whatever card it is.
-            At(Sequential(5), probe, side, Standing(world), 5, world),
-            At(Sequential(6), probe, side, Standing(world), 6, world),
-            At(Sequential(7), probe, side, Standing(world), 7, world),
-            At(Sequential(8), probe, side, Standing(world), 8, world),
-            At(Sequential(9), probe, side, Standing(world), 9, world),
-
-            // And some of it on the asking side and in the other zones. "If you control a red
-            // permanent", "if there's a Lesson card in your graveyard" and "if you control a
-            // Desert" are questions about the trigger's own controller, and every copy of the
-            // probe belonging to the other seat answers no to all of them.
-            At(Sequential(10), probe, Mine, Standing(world), 10, world),
-            At(Sequential(11), probe, Mine, Standing(world), 11, world),
-            At(Sequential(12), probe, Mine, Zone.Graveyard, 12, world),
-            At(Sequential(13), probe, Mine, Zone.Hand, 13, world),
-            At(Sequential(14), probe, Mine, Zone.Exile, 14, world),
         };
+
+        // More of the same card, so a sentence counting them has something to count: "two or more
+        // Gates", "three or more Dragons", "at least five other Mountains", "another Knight". One
+        // probe answers no to every one of those whatever card it is. And some of the copies are
+        // on the asking side and in the other zones, because "if you control a red permanent" and
+        // "if there's a Lesson card in your graveyard" are questions about the trigger's own
+        // controller, which every copy belonging to the other seat answers no to.
+        //
+        // None of it on the bare board, which is the world that exists to answer the opposite
+        // kind of question — "if you have no cards in hand", "if you control exactly one
+        // creature". Filling every zone for the counting sentences made four of those inert.
+        if (!world.Bare)
+        {
+            objects.AddRange(
+            [
+                At(Sequential(5), probe, side, Zone.Battlefield, 5, world),
+                At(Sequential(6), probe, side, Zone.Battlefield, 6, world),
+                At(Sequential(7), probe, side, Zone.Battlefield, 7, world),
+                At(Sequential(8), probe, side, Zone.Battlefield, 8, world),
+                At(Sequential(9), probe, side, Zone.Battlefield, 9, world),
+                At(Sequential(10), probe, Mine, Zone.Battlefield, 10, world),
+                At(Sequential(11), probe, Mine, Zone.Battlefield, 11, world),
+                At(Sequential(12), probe, Mine, Zone.Graveyard, 12, world),
+                At(Sequential(13), probe, Mine, Zone.Hand, 13, world),
+                At(Sequential(14), probe, Mine, Zone.Exile, 14, world),
+            ]);
+        }
 
         objects.AddRange(Extras(world));
 
@@ -429,9 +441,6 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
 
     private static Zone Swap(Zone zone, Zone instead) =>
         zone == Zone.Battlefield ? instead : zone;
-
-    /// <summary>Where a spare permanent stands, which is nowhere on a bare battlefield.</summary>
-    private static Zone Standing(World world) => world.Bare ? Zone.Exile : Zone.Battlefield;
 
     /// <summary>
     /// The supporting cast a crowded board carries: everything in the crowd, on both sides.
