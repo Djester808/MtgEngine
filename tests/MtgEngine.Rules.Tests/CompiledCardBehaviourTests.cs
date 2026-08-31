@@ -9008,6 +9008,139 @@ public sealed class CompiledCardBehaviourTests
             id => game.State.GetObject(id).Card.Name == "Reckoned Bear List Test");
     }
 
+    // ---- The last member of a keyword list (CR 702.16e) ----------------------
+
+    /// <summary>
+    /// "Flying, first strike, vigilance, trample, haste, protection from black and from red" -
+    /// Akroma, Angel of Wrath's whole line.
+    /// </summary>
+    /// <remarks>
+    /// The plain keyword reader splits a line on commas and looks each part up as a flag the
+    /// printed card carries. A protection conjunction is neither: the bulk data carries the bare
+    /// word "Protection" and the loader recovers each colour by looking for "protection from red"
+    /// in the text, which a conjunction never writes. So the last member had no name, and the
+    /// whole-or-nothing rule took the five keywords in front of it down with it.
+    /// </remarks>
+    [Fact]
+    public void The_protection_at_the_end_of_a_keyword_list_grants_both_its_colours()
+    {
+        var akroma = Card(
+            "Wrath List Test",
+            "Flying, first strike, vigilance, trample, haste, protection from black and from red",
+            CardType.Creature,
+            6,
+            6,
+            KeywordAbility.Flying | KeywordAbility.FirstStrike | KeywordAbility.Vigilance
+                | KeywordAbility.Trample | KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(akroma);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var angel = game.Create(alice, akroma, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(angel));
+
+        // Both halves of the conjunction, neither of which is a flag on the printed card: the
+        // line is what says it has them.
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromBlack));
+        Assert.True(computed.Has(KeywordAbility.ProtectionFromRed));
+
+        // And the five keywords printed in front of it are still there. Reading the list as far
+        // as the part it could name would have been the other way to be wrong here.
+        Assert.True(computed.Has(KeywordAbility.Flying));
+        Assert.True(computed.Has(KeywordAbility.FirstStrike));
+        Assert.True(computed.Has(KeywordAbility.Vigilance));
+        Assert.True(computed.Has(KeywordAbility.Trample));
+        Assert.True(computed.Has(KeywordAbility.Haste));
+
+        // It reaches the rule it exists for: neither named colour can block it (CR 702.16e).
+        // The blockers fly, because the angel does - a grounded one is refused by the flying
+        // rule first and would prove nothing about the protection.
+        static CardDefinition Flier(string name, ManaColor colour) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Colors = [colour],
+            ColorIdentity = [colour],
+            Keywords = KeywordAbility.Flying,
+        };
+
+        foreach (var colour in new[] { ManaColor.Black, ManaColor.Red })
+        {
+            var blocker = game.Create(
+                bob, Flier($"Wrath {colour} Test", colour), Zone.Battlefield);
+
+            var why = CombatRules.CannotBlock(
+                game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(angel), bob);
+
+            Assert.NotNull(why);
+            Assert.Contains("702.16e", why, StringComparison.Ordinal);
+        }
+
+        // The control: a colour the line did not name gets through. A list read as a blanket
+        // protection would pass every assertion above and fail this one.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Flier("Wrath Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(angel), bob));
+    }
+
+    /// <summary>
+    /// "Protection from white, from blue, from black, and from red" - Oversoul of Dusk.
+    /// </summary>
+    /// <remarks>
+    /// The conjunction is the one keyword whose printed phrase contains commas of its own, so a
+    /// list reader that splits on commas cuts it into four parts, three of which name no keyword
+    /// at all. This card is the reason the split folds "from …" back into the member in front of
+    /// it: teaching the reader Akroma's line without it would have taken this one away, and a
+    /// coverage count nets that out to nothing.
+    /// </remarks>
+    [Fact]
+    public void A_protection_conjunction_written_with_commas_survives_the_list_split()
+    {
+        var oversoul = Card(
+            "Dusk List Test",
+            "Protection from white, from blue, from black, and from red",
+            CardType.Creature,
+            5,
+            5);
+
+        var compiled = CardCompiler.Compile(oversoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var beast = game.Create(alice, oversoul, Zone.Battlefield);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(beast));
+
+        foreach (var colour in new[]
+        {
+            KeywordAbility.ProtectionFromWhite,
+            KeywordAbility.ProtectionFromBlue,
+            KeywordAbility.ProtectionFromBlack,
+            KeywordAbility.ProtectionFromRed,
+        })
+        {
+            Assert.True(computed.Has(colour), colour.ToString());
+        }
+
+        // The control, and the card's whole point: green is the one colour it did not name.
+        Assert.False(computed.Has(KeywordAbility.ProtectionFromGreen));
+
+        var green = game.Create(bob, Coloured("Dusk Green Test", ManaColor.Green), Zone.Battlefield);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(green), game.State.GetObject(beast), bob));
+    }
+
     // ---- Auras and equipment -------------------------------------------------
 
     [Fact]

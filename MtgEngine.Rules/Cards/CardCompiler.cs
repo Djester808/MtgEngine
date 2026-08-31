@@ -3717,7 +3717,20 @@ public static partial class CardCompiler
 
         var found = KeywordAbility.None;
 
-        foreach (var part in body.Split(';'))
+        // The comma is here as well as the semicolon because the ordinary keyword reader splits
+        // on it and then looks each part up as a flag the card carries - and a protection
+        // conjunction is the one list member that is neither. "Flying, first strike, vigilance,
+        // trample, haste, protection from black and from red" is Akroma's whole line: the plain
+        // reader took the first five and had no name for the sixth, so all six went unread. This
+        // reader has a name for it and grants what it names, which is what that phrase needs.
+        //
+        // A protection conjunction can itself be written with commas - "Protection from white,
+        // from blue, from black, and from red" is Oversoul of Dusk's whole line - so the pieces
+        // of one are put back together before anything is looked up. Splitting without the fold
+        // *lost* that card: it had been read as a single part and became four, three of which
+        // name no keyword at all. A list reader that takes cards away is worse than one that
+        // adds none, which is why the fold is here and not left to the queue.
+        foreach (var part in Rejoined(body.Split(';', ',')))
         {
             var word = part.Trim();
             if (word.Length == 0)
@@ -3749,6 +3762,34 @@ public static partial class CardCompiler
 
         granted |= found;
         return true;
+    }
+
+    /// <summary>Puts a comma-written protection conjunction back together (CR 702.16e).</summary>
+    /// <remarks>
+    /// The only keyword in the corpus whose printed phrase contains a comma of its own, which
+    /// is why splitting a list on commas needs this and nothing else needs it. A continuation is
+    /// told from a new member by its first word: "from blue" and "and from red" can only be the
+    /// rest of a protection phrase, because no keyword the engine names begins with "from".
+    /// </remarks>
+    private static List<string> Rejoined(string[] parts)
+    {
+        var folded = new List<string>(parts.Length);
+
+        foreach (var part in parts)
+        {
+            var word = part.Trim();
+            if (folded.Count > 0
+                && (word.StartsWith("from ", StringComparison.OrdinalIgnoreCase)
+                    || word.StartsWith("and from ", StringComparison.OrdinalIgnoreCase)))
+            {
+                folded[^1] = folded[^1] + ", " + word;
+                continue;
+            }
+
+            folded.Add(word);
+        }
+
+        return folded;
     }
 
     /// <summary>"Protection from blue, from black, and from red" (CR 702.16e).</summary>
