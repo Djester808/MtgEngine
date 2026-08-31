@@ -513,6 +513,113 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: an effect on a card that is not on the battlefield, and the row it retires
+
+The brief was the largest remaining Alchemy row. Perpetual is 193 by excision and 4 by
+substitution, and the reading offered for that gap was that **241 of its 245 lines want a grammar
+for cards in non-battlefield zones** — "creature cards in your graveyard get +1/+1", "each nonland
+card in defending player's hand gains …". That is a claim about a *shape* rather than a word, so it
+was measured as one, corpus-wide, by
+`CardCompilerWorkQueueTests.What_an_effect_on_a_card_outside_the_battlefield_would_be_worth`.
+
+**Both halves of the claim are wrong, and the second one badly.**
+
+| | |
+|---|---|
+| the shape, printed anywhere in the corpus | **110 cards, 112 unread lines** — graveyard 62, hand 41, library 7 |
+| of those, already compiling whole | **0.** No complete card in the corpus prints it; the grammar reads nothing today |
+| how many are perpetual lines | **42 of 112** — so 203 of perpetual's 245 lines are *not* this shape at all |
+| **excision** — cut the lines and recompile | **82** |
+| **substitution** — same sentence, subject moved onto the battlefield | **1** (Embalmer's Tools) |
+| **line control** — drop a *different* unread line on a carrier that has one | **0 of 28** |
+
+The substitution is the one that answers the question, and it is mechanical on purpose: strip the
+word "card", pluralise, add "you control", leave every other word standing. "Creature cards in your
+graveyard get +1/+1" becomes "creatures you control get +1/+1", which the compiler has read for
+many rounds. **One card in a hundred and ten survives that rewrite.** The zone is not what blocks
+them. What blocks them is on the other side of the verb, and a witness battery of framed sentences
+says which:
+
+| sentence, on the battlefield, with nothing to do with a zone | |
+|---|---|
+| `Each creature you control has flying.` | READ |
+| `Creatures you control get +1/+1.` | READ |
+| `Each creature you control has unearth {2}{B}.` | UNREAD |
+| `Each instant and sorcery you control has flashback.` | UNREAD |
+| `Each creature you control has cycling {R}.` / `miracle {2}` / `ninjutsu {2}{U}{B}` / `scavenge` / `escape` / `dredge 2` | UNREAD |
+
+Fifty-five of the 110 grant one of those — a **casting keyword with a cost, granted by a static
+ability** — and the compiler cannot read that grant *anywhere*, battlefield included. Forty-two
+carry `perpetually` as well. The rest grant a quoted ability. **The non-battlefield zone is the one
+thing on these cards that would have been cheap**, and it is worth one card.
+
+So the row is retired: **the non-battlefield continuous-effect grammar is not worth building**, and
+neither is the reading that ranked perpetual by it. Excision has now over-counted 4.4×, 13.7×, 5×,
+50× and here **82×** on six families in one round; the excision column should be read as an upper
+bound and nothing else.
+
+#### The line control is the part worth keeping
+
+Twenty-eight of the 110 carriers have another unread line, and dropping it completes **none** of
+them. These cards are not one line short of anything — they are two and three shapes short, and
+each of those shapes has a larger family of its own. A control that drops any line from any card
+completes 1,340 corpus-wide, which is why it had to be this one.
+
+#### What was built instead, because the audit found a live one
+
+The shape was declined; the *audit* for it was not. Sweeping every complete card whose ability
+targets a card in a graveyard and then creates a continuous effect turned up eleven, and playing
+one showed the whole family broken:
+
+> **Goryo's Vengeance**, Bond of Revival, Foul Renewal, Macabre Mockery, Grave Upheaval, Fated
+> Return, Dawn of the Dead, Balduvian Atrocity, Kami of Industry, Kardur's Vicious Return —
+> "Return target creature card from your graveyard to the battlefield. **It gains haste. Exile it
+> at the beginning of the next end step.**" The creature arrived, could not attack, and was never
+> exiled. All eleven compiled clean and counted as covered.
+
+The cause is CR 400.7 in the place the engine had not looked: the card the player targets is in a
+graveyard and the permanent that arrives is a different object under a different id, and
+`Subjects.Resolve` accepted a target only when it was *already* a permanent. A graveyard card is
+not one, so both the pump and the delayed trigger resolved to nothing at all — no event, no log
+line, no error.
+
+**CR 400.7j is what makes this a fix rather than a convenience:** "if an effect causes an object to
+move to a public zone, other parts of that effect can find that object." The resolution record
+(round eighteen's, for "destroyed this way") already held every zone change of the resolution; what
+it had never kept was the id the object had *before* the move, because a participle asks what
+happened and never which id it happened to. A pronoun asks the other question. `Touch.OldId` is the
+join, and the resolver walks the chain — one resolution can move the same card twice.
+
+Two refusals ride on it, and both are the rule rather than caution:
+
+- **Only to a public zone.** A card returned to a hand or shuffled into a library is not followed,
+  because following it would leave the resolution holding the id of a card only its owner may see.
+  This is the same line `GameView Project` draws, arrived at from the other side: an effect on a
+  card in a hidden zone must not become a route to it. There is a behaviour test that returns the
+  corpse to a hand, watches the delayed exile *not* fire, and asserts the opponent's view still
+  carries a hand count and no hand.
+- **Only a move this resolution made.** Feldon of the Third Path targets a creature card in a
+  graveyard, *copies* it, and says "it gains haste" about the token. Nothing in the record can tell
+  a created object from a moved one, so the resolver answers nothing — as
+  `EffectSubject.TriggeringObject` already does when the event was about no object. A fallback to
+  "the card you targeted" would have passed every other test in the section and put the haste on
+  the corpse. There is a test pinning exactly that: the corpse is still in the graveyard and still
+  hasteless. **Feldon's token remains a live gap**, and its fix is a record of what a resolution
+  *created*, which nothing here has.
+
+#### Result
+
+**18,419 → 18,419 complete cards.** The set diff and the per-card effect fingerprint are both
+empty by construction: no compiler file was touched, and the change is in how a subject is resolved
+while an ability runs. That is the point worth recording — **eleven complete cards were wrong in a
+way no structural instrument in this project could see.** Coverage counted them, the inert audit
+found effects on them, the trigger probe found their triggers firing, and the defect was between
+the target's id and the permanent's, which is not a field on anything.
+
+Made to fail: pinning the new arm to an id that cannot occur turns the two behaviour tests red
+naming exactly the two things a player would see — the reanimated 4/4 is refused as an attacker
+(CR 302.6), and it is still on the battlefield at the end of the turn.
+
 ### Round twenty-one: how much damage was excess
 
 **18,144 → 18,149 complete cards, +5, none lost, measured by set difference on this branch's own

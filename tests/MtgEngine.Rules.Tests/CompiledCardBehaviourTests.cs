@@ -1122,6 +1122,229 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
     }
 
+    // ---- A pronoun that follows a card out of a graveyard (CR 400.7, 400.7j) ----
+
+    /// <summary>
+    /// "Return target creature card from your graveyard to the battlefield. It gains haste."
+    /// </summary>
+    /// <remarks>
+    /// The card the player targets is in a graveyard and the permanent that arrives is a
+    /// different object under a different id (CR 400.7), so the pronoun in the next sentence had
+    /// nothing to name: the subject resolver took a target only when it was already a permanent,
+    /// and a graveyard card is not one. Every card of this family — Goryo's Vengeance, Bond of
+    /// Revival, Foul Renewal, Macabre Mockery, Grave Upheaval, Fated Return, Dawn of the Dead,
+    /// Balduvian Atrocity, Kami of Industry, Kardur's Vicious Return — compiled clean, counted as
+    /// covered, and reanimated a creature that could not attack and was never exiled afterwards.
+    /// <para>
+    /// CR 400.7j is what makes this a fix rather than a convenience: "if an effect causes an
+    /// object to move to a public zone, other parts of that effect can find that object". The
+    /// resolution record already wrote down every zone change of the resolution; what it did not
+    /// keep was the id the object had <em>before</em> the move, which is the only way to get from
+    /// the id the player chose to the id the permanent arrived under.
+    /// </para>
+    /// <para>
+    /// Proved by attacking rather than by reading a keyword off the characteristics: a 4/4 that
+    /// arrived this turn may only be declared if it really has haste (CR 302.6), so the assertion
+    /// is the four damage.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Haste_follows_the_card_a_reanimation_moved_out_of_the_graveyard()
+    {
+        var vengeance = Card(
+            "Zone Pronoun Vengeance Test",
+            "Return target creature card from your graveyard to the battlefield. It gains haste. "
+                + "Exile it at the beginning of the next end step.");
+
+        var compiled = CardCompiler.Compile(vengeance);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, vengeance), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        var arrived = game.State.Battlefield
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name == "Zone Pronoun Corpse Test");
+
+        // CR 400.7: a different object from the one the spell targeted, and that is the point.
+        Assert.NotEqual(corpse, arrived.Id);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [arrived.Id] = AttackTarget.Player(bob),
+        });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Assert.Equal(16, game.State.GetPlayer(bob).Life);
+
+        // The effect reached a card that was not on the battlefield when it was chosen, and it
+        // opened no window onto anything hidden: Bob still gets a count for Alice's hand and her
+        // library and the contents of neither (CR 400.2).
+        var theirs = PlayerViewProjector.Project(game.State, bob, Pool);
+        var hers = theirs.Players.Single(p => p.PlayerId == alice);
+        Assert.Null(hers.Hand);
+        Assert.Null(hers.TopOfLibrary);
+        Assert.Contains(
+            hers.Graveyard,
+            o => string.Equals(o.Name, "Zone Pronoun Vengeance Test", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The delayed half of the same sentence — "exile it at the beginning of the next end step".
+    /// </summary>
+    /// <remarks>
+    /// Its own test because it fails for the same reason at a different moment, and a reanimation
+    /// that keeps the creature for ever is a strictly better card than the printed one. The
+    /// delayed trigger is scheduled <em>during</em> the resolution, which is the only moment the
+    /// record exists, so the id it is handed has to be the one the permanent arrived under rather
+    /// than the one the graveyard card had.
+    /// </remarks>
+    [Fact]
+    public void The_delayed_exile_finds_the_permanent_the_spell_returned()
+    {
+        var vengeance = Card(
+            "Zone Pronoun Exile Test",
+            "Return target creature card from your graveyard to the battlefield. It gains haste. "
+                + "Exile it at the beginning of the next end step.");
+
+        var (game, alice, _) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Exiled Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, vengeance), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Exiled Corpse Test",
+                StringComparison.Ordinal));
+
+        Assert.Contains(
+            game.State.Exile,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Exiled Corpse Test",
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A card sent to a <em>hidden</em> zone is not followed there (CR 400.7j).
+    /// </summary>
+    /// <remarks>
+    /// The rule's own word is "public", and that is why this is not a caution bolted on
+    /// afterwards. Following a card into a hand would leave the resolution holding the id of a
+    /// card nobody but its owner may see, and every later sentence of the effect — and anything
+    /// that remembered the id — would be a route to it. The engine's answer is the one it gives
+    /// everywhere else it cannot see: nothing happens, rather than something happening to a card
+    /// the opponent is not entitled to know about.
+    /// <para>
+    /// So the delayed exile never fires, the creature card stays in the hand, and the opponent's
+    /// view still carries a hand count and no hand.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_returned_to_a_hand_is_not_followed_into_it()
+    {
+        var raise = Card(
+            "Zone Pronoun Hidden Test",
+            "Return target creature card from your graveyard to your hand. "
+                + "Exile it at the beginning of the next end step.");
+
+        var compiled = CardCompiler.Compile(raise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Hidden Corpse Test", 4, 4), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, raise), [Target.ToCard(corpse)]);
+        Settle(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.End);
+        Settle(game);
+
+        Assert.Empty(game.State.Exile);
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Zone Pronoun Hidden Corpse Test",
+                StringComparison.Ordinal));
+
+        var theirs = PlayerViewProjector.Project(game.State, bob, Pool);
+        var hers = theirs.Players.Single(p => p.PlayerId == alice);
+        Assert.Null(hers.Hand);
+        Assert.Empty(hers.RevealedHand);
+        Assert.True(hers.HandCount > 0);
+    }
+
+    /// <summary>
+    /// A resolution that copied the card rather than moving it puts the effect nowhere.
+    /// </summary>
+    /// <remarks>
+    /// Feldon of the Third Path targets a creature card in a graveyard, creates a token copy of
+    /// it, and then says "it gains haste" about the <em>token</em>. Nothing in the resolution
+    /// record can tell a created object from a moved one — only zone changes are written down —
+    /// so the resolver answers nothing, exactly as <c>EffectSubject.TriggeringObject</c> does
+    /// when the event was about no object.
+    /// <para>
+    /// What this pins is the half that must never change: the corpse the ability targeted is
+    /// still lying in the graveyard, and it has not been handed the haste that belonged to the
+    /// token. A resolver that fell back to "the card you targeted" when it found no move would
+    /// pass every other test in this section and put the effect on the wrong object here.
+    /// </para>
+    /// <para>
+    /// The token's own haste is a separate gap and is deliberately not asserted either way: the
+    /// fix for it is a record of what a resolution <em>created</em>, and nothing here has one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_copy_leaves_the_card_it_was_copied_from_untouched()
+    {
+        var feldon = Card(
+            "Zone Pronoun Copy Test",
+            "{2}{R}, {T}: Create a token that's a copy of target creature card in your graveyard, "
+                + "except it's an artifact in addition to its other types. It gains haste. "
+                + "Sacrifice it at the beginning of the next end step.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(feldon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var source = game.Create(alice, feldon, Zone.Battlefield);
+        var corpse = game.Create(
+            alice, TestCards.Creature("Zone Pronoun Copied Corpse Test", 4, 4), Zone.Graveyard);
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var mountain = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(alice, mountain, "mana");
+        }
+
+        var ability = Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(source))
+            .Single(a => !a.IsManaAbility);
+
+        game.ActivateAbility(alice, source, ability.Id, [Target.ToCard(corpse)]);
+        Settle(game);
+
+        var stillDead = game.State.GetObject(corpse);
+        Assert.Equal(Zone.Graveyard, stillDead.Zone);
+        Assert.False(
+            Characteristics.Of(game.State, Pool, stillDead).Has(KeywordAbility.Haste),
+            "the pronoun named the token, and a fallback to the targeted card would land here");
+    }
+
     // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
 
     /// <summary>
