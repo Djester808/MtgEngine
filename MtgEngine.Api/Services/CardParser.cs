@@ -146,6 +146,7 @@ internal static class CardParser
                 Toughness = toughness,
                 StartingLoyalty = loyalty,
                 Defense = defense,
+                AttractionLights = ParseAttractionLights(json),
                 Keywords = keywords,
                 ColorIdentity = colorId,
                 Colors = colors,
@@ -190,6 +191,7 @@ internal static class CardParser
             Toughness = oracle.Toughness,
             StartingLoyalty = oracle.StartingLoyalty,
             Defense = oracle.Defense,
+            AttractionLights = oracle.AttractionLights,
             Keywords = oracle.Keywords,
             ColorIdentity = oracle.ColorIdentity,
             Colors = oracle.Colors,
@@ -417,6 +419,38 @@ internal static class CardParser
             };
         }
         return flags;
+    }
+
+    /// <summary>
+    /// The numbers lit up on an Attraction (CR 717.1), which no rules text carries.
+    /// </summary>
+    /// <remarks>
+    /// Empty for every card that is not one. Scryfall records them as an array of numeric
+    /// strings, and they are the only thing standing between an Attraction and a game: the roll
+    /// that visits one compares its result against this list (CR 701.52a), so a card that arrives
+    /// without it can never be visited. All 22 playable Attractions in the bulk file carry it.
+    /// </remarks>
+    private static IReadOnlyList<int> ParseAttractionLights(JsonElement json)
+    {
+        if (!json.TryGetProperty("attraction_lights", out var lights)
+            || lights.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var lit = new List<int>();
+        foreach (var light in lights.EnumerateArray())
+        {
+            if (light.ValueKind == JsonValueKind.Number && light.TryGetInt32(out var number))
+                lit.Add(number);
+            else if (light.ValueKind == JsonValueKind.String
+                && int.TryParse(light.GetString(), CultureInfo.InvariantCulture, out var parsed))
+            {
+                lit.Add(parsed);
+            }
+        }
+
+        return lit;
     }
 
     private static IReadOnlyDictionary<string, string> ParseLegalities(JsonElement json)

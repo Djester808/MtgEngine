@@ -3425,6 +3425,28 @@ public static partial class CardCompiler
                 cleaned,
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["n"].Value + " plus ");
 
+            // "Visit — [effect]" is not an ability word and must never be stripped like one: it
+            // is a keyword ability, and CR 702.159a writes out what it means in full — "whenever
+            // you roll to visit your Attractions, if the result is equal to a number that is lit
+            // up on this Attraction, [effect]". That whole condition is the event
+            // Attractions.VisitEvents already decides, so the expansion the grammar needs is the
+            // short one: a trigger about this Attraction being visited.
+            //
+            // **Only when the card actually carries its lights.** The numbers are printed in the
+            // column beside the text box (CR 717.1) and appear in no sentence, so an Attraction
+            // that reached the compiler without them is one no result could ever match. Rewriting
+            // its line would compile a card that reads perfectly, opens, sits on the battlefield
+            // and does nothing on every roll for the rest of the game. Left unread instead, which
+            // is the honest answer and the one the coverage figure should carry. All 22 playable
+            // Attractions have their lights, so nothing in the corpus takes this arm.
+            if (card.AttractionLights.Count > 0 && VisitAbility().Match(cleaned) is
+                { Success: true } visit)
+            {
+                var effect = visit.Groups["effect"].Value;
+                cleaned = "Whenever you visit ~, "
+                    + char.ToLowerInvariant(effect[0]) + effect[1..];
+            }
+
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
             cleaned = AbilityWord().Replace(cleaned, string.Empty);
@@ -19142,6 +19164,22 @@ public static partial class CardCompiler
     /// number in it rather than two - the same shape of miss as the hyphen, found the same way.
     /// </para>
     /// </remarks>
+    /// <summary>An Attraction's visit ability and the effect behind the long dash (CR 702.159a).</summary>
+    /// <remarks>
+    /// Anchored at the front and greedy to the end, because the effect is the rest of the line
+    /// however many sentences it holds - "Put a +1/+1 counter on target creature you control.
+    /// That creature gains vigilance until end of turn" is one visit ability of two sentences,
+    /// and the shared sentence grammar splits it the way it splits any other trigger's effect.
+    /// <para>
+    /// "Prize — …" is deliberately not here. CR 702.159b makes it part of the same visit ability,
+    /// reached by "claim the prize" - a keyword action nothing in this engine performs - so the
+    /// six cards printing one keep an unread line and stay incomplete rather than compiling a
+    /// visit that silently drops half of what it says.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^Visit \u2014 (?<effect>.+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex VisitAbility();
+
     private static readonly Regex AbilityWordRegex = new(
         @"^(?!(?:[IVX]+(?:, ?[IVX]+)*|"
             + string.Join('|', StructuralPrefixes.Select(Regex.Escape))

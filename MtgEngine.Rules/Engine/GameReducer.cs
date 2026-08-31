@@ -635,6 +635,11 @@ public static class GameReducer
             // the events the chosen branch then emitted, which the fold replays like any others.
             DiceRollRequested => state,
             DiceRolled => state,
+
+            // And a visit changes none either: it says which Attraction the number lit up
+            // (CR 701.52a) so that Attraction's visit ability can trigger. Everything the visit
+            // then does is the ability's, and the ability's events fold like any others.
+            AttractionVisited => state,
             ModesChosen chosenModes => Changing(
                 state, chosenModes.StackId, o => o with { ChosenModes = chosenModes.Modes }),
             SpellSquadded squad => Changing(

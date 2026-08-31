@@ -137,6 +137,7 @@ public static class EventLogSerializer
             ["CoinFlipRequested"] = typeof(CoinFlipRequested),
             ["DiceRollRequested"] = typeof(DiceRollRequested),
             ["DiceRolled"] = typeof(DiceRolled),
+            ["AttractionVisited"] = typeof(AttractionVisited),
             ["PermanentTurned"] = typeof(PermanentTurned),
             ["EnergyChanged"] = typeof(EnergyChanged),
             ["ExperienceCountersChanged"] = typeof(ExperienceCountersChanged),

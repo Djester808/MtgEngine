@@ -9637,6 +9637,58 @@ public sealed record OnlyIfRollAtLeast(int Least, ImmutableList<IEffect> Effects
     }
 }
 
+/// <summary>"Open an Attraction" — the top card of your Attraction deck (CR 701.51b).</summary>
+/// <remarks>
+/// One sentence for the whole keyword action, the way <see cref="VentureIntoTheDungeon"/> is:
+/// twenty-one corpus lines say it and none of them says what an Attraction deck is, because the
+/// deck is a rules object living in the command zone (CR 717.2). "Open two Attractions" is the
+/// same action twice and carries its count rather than being a second effect.
+/// <para>
+/// The move it emits is <see cref="MoveCause.OpenAttraction"/>, which is the only thing that
+/// tells an opening from any other card leaving the command zone — CR 701.51c's "whenever you
+/// open an Attraction" has nothing else to watch.
+/// </para>
+/// </remarks>
+public sealed record OpenAttraction(int Count = 1) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Attractions.OpenEvents(context.State, context.ControllerId, Count);
+    }
+}
+
+/// <summary>
+/// The half of "roll to visit your Attractions" that happens once the die has come down
+/// (CR 701.52a).
+/// </summary>
+/// <remarks>
+/// It is a <see cref="RollBranch"/> row covering every result rather than an effect that rolls,
+/// and that is the whole design: the roll itself is <see cref="RollDice"/>, which the engine
+/// already defers to the next settle, records as its outcome and replays from the log instead of
+/// re-rolling. What the row does with the number is the only new thing, and it reads the number
+/// out of <see cref="ResolutionContext.SubjectAmount"/> exactly as "you gain life equal to the
+/// result" does.
+/// <para>
+/// Nothing happens when there is no number, which is the same refusal
+/// <see cref="OnlyIfRollAtLeast"/> makes: a visit with no roll behind it is not a visit, and
+/// guessing a result would visit Attractions the die never lit.
+/// </para>
+/// </remarks>
+public sealed record VisitAttractions : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return context.SubjectAmount is not { } result
+            ? []
+            : Attractions.VisitEvents(
+                context.State, context.Abilities, context.ControllerId, result);
+    }
+}
+
 /// <summary>Makes a permanent monstrous, with the counters that come with it (CR 701.32a).</summary>
 /// <remarks>
 /// One effect and not two, because the rule is one action: a creature that is already monstrous

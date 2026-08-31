@@ -327,6 +327,13 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
             Power = card.Power,
             Toughness = card.Toughness,
             Defense = card.Defense,
+
+            // A control card is the same card with different words, so it keeps every printed
+            // characteristic that is not words - the lights included. Dropping them would have
+            // measured the attraction family against a compiler that refuses a visit ability
+            // whose lights are missing, which is a refusal about the control and not about the
+            // card.
+            AttractionLights = card.AttractionLights,
             Faces = card.Faces,
         };
 
