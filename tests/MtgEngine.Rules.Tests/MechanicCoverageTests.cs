@@ -87,6 +87,18 @@ public sealed partial class MechanicCoverageTests
         // An_exception_can_add_a_type_and_a_keyword_at_once for the keyword and the splitting.
         // "Isn't legendary" rides the same splitter, and drops a supertype the copy tests
         // already read through the legend rule.
+        // A keyword's or an unless-clause's price, not a line: OfferedCost is handed only the
+        // cost the surrounding reader cut out - "{1} for each card in your graveyard", "{X},
+        // where X is your devotion to blue", "{X}", "{2}{G}{U}". Played through the lines that
+        // contain them, by A_counted_tax_charges_what_the_count_comes_to_and_lets_the_spell_
+        // through, A_tax_whose_sentence_defines_X_charges_the_count_that_sentence_names,
+        // A_bare_X_tax_charges_the_amount_the_caster_announced and
+        // A_price_the_mana_parser_cannot_keep_whole_is_refused.
+        "CountedPrice",
+        "DefinedPrice",
+        "BareVariablePrice",
+        "PureManaPrice",
+
         "InAdditionClause",
         "SetSizeClause",
         "NotLegendaryClause",
