@@ -2768,6 +2768,18 @@ public sealed record ContinuousEffectCreated(
     /// </remarks>
     public Guid? UntilTurnOf { get; init; }
 
+    /// <summary>
+    /// Whose next turn ends it at that turn's <em>end</em>, for "until the end of your next turn"
+    /// (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// Set alongside <see cref="UntilEndOfTurn"/> rather than instead of it, and that pairing is
+    /// the whole of how the duration works: the number says which turn it began on and the player
+    /// says whose later turn ends it, so the cleanup sweep can tell "the end of your next turn"
+    /// from "the end of this one" on a turn that is already yours.
+    /// </remarks>
+    public Guid? UntilEndOfTurnOf { get; init; }
+
     public override string Rule => "611.2";
 
     public override string Describe() =>

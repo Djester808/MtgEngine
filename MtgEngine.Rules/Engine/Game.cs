@@ -12290,11 +12290,33 @@ public sealed class Game
                 // CR 514.2: damage is removed and "until end of turn" effects end, at the same
                 // time, as a turn-based action.
                 Emit(new DamageCleared());
+
+                // Two durations end in this step and they are told apart by which fields are set,
+                // not by the turn number: an effect carrying UntilEndOfTurnOf reaches the cleanup
+                // of the turn that made it with its number already satisfied, and the plain arm
+                // would take it a whole turn early. Asked here rather than by widening the
+                // comparison, because "the end of your next turn" is a different sentence from
+                // "until end of turn" and not a longer reading of it (CR 611.2b).
                 foreach (var expiring in State.FloatingEffects
-                    .Where(f => f.UntilEndOfTurn is not null && f.UntilEndOfTurn <= State.TurnNumber)
+                    .Where(f => f.UntilEndOfTurnOf is null
+                        && f.UntilEndOfTurn is not null
+                        && f.UntilEndOfTurn <= State.TurnNumber)
                     .ToList())
                 {
                     Emit(new ContinuousEffectEnded(expiring.Id));
+                }
+
+                // "Until the end of your next turn" — the cleanup of a turn that player took
+                // after the one that granted it. Strictly later, so the granting turn does not
+                // count even when it was already theirs; compared against the active player
+                // rather than an arithmetic deadline, so an extra turn taken in between is
+                // harmless. The same shape the exile play-window uses in FinishCleanup.
+                foreach (var lingering in State.FloatingEffects
+                    .Where(f => f.UntilEndOfTurnOf == State.ActivePlayerId
+                        && f.UntilEndOfTurn < State.TurnNumber)
+                    .ToList())
+                {
+                    Emit(new ContinuousEffectEnded(lingering.Id));
                 }
 
                 if (!AskDiscardIfNeeded())

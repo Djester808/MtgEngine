@@ -123,6 +123,27 @@ public sealed record FloatingEffect
     /// </remarks>
     public Guid? UntilTurnOf { get; init; }
 
+    /// <summary>
+    /// The player whose next turn it ends at the <em>end</em> of (CR 611.2b).
+    /// </summary>
+    /// <remarks>
+    /// A third duration, and it is neither of the two above rather than a spelling of one of
+    /// them. <see cref="UntilEndOfTurn"/> ends in the cleanup step of the turn it was made in;
+    /// <see cref="UntilTurnOf"/> ends as that player's next untap step begins; this one runs
+    /// through both of those and ends in the cleanup step of that player's next turn — a whole
+    /// turn later than either. "Gain control of it until the end of your next turn" is a creature
+    /// you get to attack with, and read as either neighbour it is a creature you do not.
+    /// <para>
+    /// Stored as the player it is read around and <em>not</em> as a deadline, for the reason
+    /// <see cref="GameObject.MayPlayThroughOwnersNextTurn"/> gives: whose turn comes next depends
+    /// on the turn order, and an extra turn taken in between would move a stored number. The turn
+    /// it began on rides in <see cref="UntilEndOfTurn"/> alongside, which is what stops it ending
+    /// during the cleanup of the turn that made it when that turn is already this player's — the
+    /// sweep asks for a strictly later turn number.
+    /// </para>
+    /// </remarks>
+    public Guid? UntilEndOfTurnOf { get; init; }
+
     public bool Equals(FloatingEffect? other) =>
         other is not null &&
         Id == other.Id &&
@@ -130,8 +151,10 @@ public sealed record FloatingEffect
         Timestamp == other.Timestamp &&
         UntilEndOfTurn == other.UntilEndOfTurn &&
         UntilTurnOf == other.UntilTurnOf &&
+        UntilEndOfTurnOf == other.UntilEndOfTurnOf &&
         Structural.Same(AffectedIds, other.AffectedIds);
 
     public override int GetHashCode() =>
-        HashCode.Combine(Id, DefinitionId, Timestamp, UntilEndOfTurn, AffectedIds.Count);
+        HashCode.Combine(
+            Id, DefinitionId, Timestamp, UntilEndOfTurn, UntilEndOfTurnOf, AffectedIds.Count);
 }

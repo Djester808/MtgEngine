@@ -330,6 +330,24 @@ public static partial class GenerativeEffects
 
         /// <summary>"…for as long as this creature remains on the battlefield."</summary>
         OnBattlefield,
+
+        /// <summary>
+        /// "…for as long as you control this artifact and this artifact remains tapped."
+        /// </summary>
+        /// <remarks>
+        /// Both halves, and it has to be its own value rather than a pair of effects sharing a
+        /// duration: CR 611.2b ends the effect the moment <em>either</em> clause stops holding
+        /// and never brings it back, so the sentence is one duration with two questions in it.
+        /// <para>
+        /// Read as <see cref="Controlled"/> alone — the reading the tail's first alternative
+        /// would have given it — Rubinia Soulsinger keeps the creature she took when she untaps,
+        /// which is a strictly better card than the printed one and the whole reason the three
+        /// cards that print this stayed unread rather than being widened into the existing
+        /// value. Read as <see cref="Tapped"/> alone it is better still: the thief could be
+        /// stolen and go on holding what it borrowed.
+        /// </para>
+        /// </remarks>
+        ControlledAndTapped,
     }
 
     /// <summary>
@@ -600,6 +618,13 @@ public static partial class GenerativeEffects
                 State.Characteristics.Of(state, abilities, source).ControllerId == holder,
 
             ControlHeldWhile.Tapped => source.Permanent?.IsTapped == true,
+
+            // Both, and the conjunction is an "and" in the strict sense: either half going false
+            // ends the effect. Written as two separate durations sharing an id it would have
+            // needed two effects to end together, which is not something the sweep can promise.
+            ControlHeldWhile.ControlledAndTapped =>
+                source.Permanent?.IsTapped == true
+                && State.Characteristics.Of(state, abilities, source).ControllerId == holder,
 
             // Nothing more to ask: being on the battlefield is the whole condition, and the guard
             // above has already answered it.
