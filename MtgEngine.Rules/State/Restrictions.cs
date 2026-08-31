@@ -102,6 +102,47 @@ public sealed record CounterBan
 }
 
 /// <summary>
+/// A ban on casting or activating anything with the name this permanent chose (CR 201.4).
+/// </summary>
+/// <remarks>
+/// The parameter is not printed on the card at all: Meddling Mage says "spells with the chosen
+/// name", and which name that is was decided by a player as the permanent entered
+/// (CR 614.12a). So the ban carries no name and the name is read off the <em>host object</em>
+/// at the moment the question is asked - which is also what makes it stop when the permanent
+/// leaves, and what makes a permanent that entered again choose again.
+/// <para>
+/// A ban rather than a continuous effect for the reason the rest of <see cref="StaticBans"/> is
+/// one: a spell on the stack is not a permanent, and CR 613's layers order objects'
+/// characteristics. Nothing here changes a characteristic.
+/// </para>
+/// </remarks>
+public sealed record ChosenNameBan
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// Whose casting it forbids, read around whoever controls the permanent, or null for
+    /// everybody's.
+    /// </summary>
+    /// <remarks>
+    /// Nevermore's "spells with the chosen name can't be cast" stops its own controller too and
+    /// is the null case; Gideon's Intervention says "your opponents can't cast" and is the
+    /// scoped one. Defaulting a missing subject to the controller is the mistake recorded one
+    /// file over, so there is no default that means "guess".
+    /// </remarks>
+    public Abilities.PlayerScope? Who { get; init; }
+
+    /// <summary>Whether mana abilities are exempt (CR 605.1a).</summary>
+    /// <remarks>
+    /// Pithing Needle prints the exemption and Phyrexian Revoker does not, and the difference is
+    /// the whole of what separates the two cards. Read rather than assumed in either direction:
+    /// assuming the exemption makes a Revoker that leaves mana rocks alone, and assuming its
+    /// absence makes a Needle that turns off a Sol Ring.
+    /// </remarks>
+    public bool ExceptManaAbilities { get; init; }
+}
+
+/// <summary>
 /// What a card's static abilities forbid outright (CR 119.7, 615.12).
 /// </summary>
 /// <remarks>
@@ -126,8 +167,22 @@ public sealed record StaticBans
     /// <summary>Which spells this card stops being countered while it is on the battlefield.</summary>
     public ImmutableList<CounterBan> NoCounter { get; init; } = [];
 
+    /// <summary>Who this card stops casting a spell with the name it chose (CR 201.4).</summary>
+    public ImmutableList<ChosenNameBan> NoCastingNamed { get; init; } = [];
+
+    /// <summary>
+    /// Whether this card stops activated abilities of sources with the name it chose
+    /// (CR 602.5).
+    /// </summary>
+    public ImmutableList<ChosenNameBan> NoActivatingNamed { get; init; } = [];
+
     /// <summary>Whether this card forbids nothing at all, asked before anything is built.</summary>
-    public bool IsEmpty => Unpreventable.IsEmpty && NoLifeGain.IsEmpty && NoCounter.IsEmpty;
+    public bool IsEmpty =>
+        Unpreventable.IsEmpty
+        && NoLifeGain.IsEmpty
+        && NoCounter.IsEmpty
+        && NoCastingNamed.IsEmpty
+        && NoActivatingNamed.IsEmpty;
 }
 
 /// <summary>Whether a prohibition covers a player (CR 119.7).</summary>
@@ -216,6 +271,110 @@ public static class Bans
 
         return false;
     }
+
+    /// <summary>
+    /// The permanent forbidding this player from casting this card by name, or null (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The name is taken from the host object and the card being cast is compared to it, so a
+    /// host that has not been asked yet - <see cref="GameObject.ChosenName"/> null - forbids
+    /// nothing. That arm is the one this whole family turns on: read the other way round, a
+    /// Meddling Mage entering would stop every spell in the game.
+    /// <para>
+    /// The comparison is against the printed name and never against a filter id (CR 201.2). A
+    /// name is capitalised by definition, and handing one to <c>SearchFilters</c> would ask
+    /// whether the card has a <em>subtype</em> spelled that way - which is how a card once
+    /// acquired a ban on a creature type called Green.
+    /// </para>
+    /// </remarks>
+    public static GameObject? CastingForbidden(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        Domain.Models.CardDefinition casting,
+        Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(casting);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoCastingNamed)
+            {
+                if (!NamesTheSame(ban.Host.ChosenName, casting.Name))
+                    continue;
+
+                // CR 613.1b: "your opponents" is read around whoever controls the permanent
+                // now, which is why the scope is resolved here and not when the card compiled.
+                if (said.Who is not { } scope
+                    || PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId))
+                {
+                    return ban.Host;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The permanent forbidding this source's activated ability by name, or null (CR 602.5).
+    /// </summary>
+    /// <remarks>
+    /// "Sources with the chosen name" is any source in any zone, so the ability's source is
+    /// asked by name rather than by where it is - which is what makes a Pithing Needle naming a
+    /// card in a graveyard do what it says.
+    /// <para>
+    /// The <em>computed</em> name, unlike the ban itself: a permanent that is a copy of Sol
+    /// Ring is named Sol Ring (CR 707.2), and a Needle that named Sol Ring has to stop it.
+    /// Reading <c>obj.Card.Name</c> here is the mistake this engine has recorded nine times
+    /// over - a printed field where a characteristic was meant.
+    /// </para>
+    /// </remarks>
+    public static GameObject? ActivatingForbidden(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        GameObject source,
+        bool isManaAbility)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(source);
+
+        var activating = Characteristics.CardOf(state, abilities, source);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoActivatingNamed)
+            {
+                // CR 605.1a: the exemption the Needle prints and the Revoker does not.
+                if (said.ExceptManaAbilities && isManaAbility)
+                    continue;
+
+                if (NamesTheSame(ban.Host.ChosenName, activating.Name))
+                    return ban.Host;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether the name a permanent chose is this card's name (CR 201.2).</summary>
+    /// <remarks>
+    /// One place, because everything that asks it must agree about the null - and about the
+    /// fact that null is "nothing was named" rather than "everything matches". Three callers
+    /// now: the two scans above and the cost modifiers, which tax by the same name.
+    /// </remarks>
+    public static bool NameMatches(GameObject host, string cardName)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
+        return NamesTheSame(host.ChosenName, cardName);
+    }
+
+    private static bool NamesTheSame(string? chosen, string cardName) =>
+        chosen is { Length: > 0 }
+        && string.Equals(chosen, cardName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Whether a life-gain ban stops this player gaining life.</summary>
     public static bool Covers(LifeGainBan ban, GameState state, Guid playerId)

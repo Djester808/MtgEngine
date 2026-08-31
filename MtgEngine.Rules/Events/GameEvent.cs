@@ -2764,6 +2764,22 @@ public sealed record CharacteristicChosen(ObjectId Id, string Value) : GameEvent
     public override string Describe() => $"{Id} chose {Value}.";
 }
 
+/// <summary>
+/// A card name was chosen as a permanent entered (CR 201.4, 614.12).
+/// </summary>
+/// <remarks>
+/// Its own event beside <see cref="CharacteristicChosen"/> rather than a second use of it,
+/// because the two answers land in different fields and only the event knows which was asked.
+/// A reducer that had to consult the card to decide where to put the string would be reading
+/// the ability source from inside the fold, which is the one thing a fold may not do.
+/// </remarks>
+public sealed record NameChosen(ObjectId Id, string Value) : GameEvent
+{
+    public override string Rule => "201.4";
+
+    public override string Describe() => $"{Id} named {Value}.";
+}
+
 /// <summary>Mana was added to a player's pool (CR 106.1).</summary>
 /// <param name="RestrictedTo">
 /// A card filter the mana may only be spent on, beyond the type mask on

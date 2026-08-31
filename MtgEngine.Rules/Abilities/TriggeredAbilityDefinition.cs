@@ -363,6 +363,17 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => ChoiceOnEntry.None;
 
+    /// <summary>
+    /// Which card names this permanent may choose as it enters, when it chooses one
+    /// (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// Null unless <see cref="ChoosesOnEntry"/> is <see cref="ChoiceOnEntry.CardName"/>, and a
+    /// <c>SearchFilters</c> id when it is. Beside that member rather than inside it because an
+    /// enum member names a kind of question and has nowhere to carry a parameter.
+    /// </remarks>
+    string? ChosenNameFilterOf(CardDefinition card) => null;
+
     /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
     int ExtraLandDrops(CardDefinition card) => 0;
 

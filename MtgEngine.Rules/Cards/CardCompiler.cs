@@ -354,6 +354,7 @@ public static partial class CardCompiler
         var noHandLimit = false;
         var handSizeChanges = ImmutableList.CreateBuilder<HandSizeChange>();
         var chooses = ChoiceOnEntry.None;
+        string? chosenNameFilter = null;
         var devour = 0;
         var amplify = 0;
         ManaCostSpec? flashSurcharge = null;
@@ -428,6 +429,8 @@ public static partial class CardCompiler
         var unpreventable = ImmutableList.CreateBuilder<UnpreventableStatic>();
         var noLifeGain = ImmutableList.CreateBuilder<PlayerScope>();
         var noCounter = ImmutableList.CreateBuilder<CounterBan>();
+        var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
+        var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
 
         // Oblivion Ring's shape, printed as two lines rather than one. They are paired before
         // the loop for the reason the one-line form is built as a pair: an exile that compiles
@@ -766,10 +769,10 @@ public static partial class CardCompiler
                 continue;
             }
 
-            if (TryChooseAsEnters(line, ref chooses))
+            if (TryChooseAsEnters(line, ref chooses, ref chosenNameFilter))
                 continue;
 
-            if (TryEntersTappedChoosing(line, replacements, ref chooses))
+            if (TryEntersTappedChoosing(line, replacements, ref chooses, ref chosenNameFilter))
                 continue;
 
             // "Play with the top card of your library revealed" - the same card, shown to
@@ -1561,6 +1564,13 @@ public static partial class CardCompiler
             if (!isSpell && TryStaticBans(line, unpreventable, noLifeGain, noCounter))
                 continue;
 
+            // The two prohibitions whose parameter is a name a player chose rather than
+            // anything printed. Refused on an instant or sorcery beside their neighbours and
+            // for the same reason: Conjurer's Ban says these words with "until your next
+            // turn" in front of them, and a ban filed here would be one nothing takes down.
+            if (!isSpell && TryChosenNameBans(line, noCastingNamed, noActivatingNamed))
+                continue;
+
             if (TryDamageAmount(line, replacements))
                 continue;
 
@@ -1939,6 +1949,7 @@ public static partial class CardCompiler
             RemovesHandLimit = noHandLimit,
             HandSizeChanges = handSizeChanges.ToImmutable(),
             ChoosesOnEntry = chooses,
+            ChosenNameFilter = chosenNameFilter,
             DevourCount = devour,
             AmplifyCount = amplify,
             HasReadAhead = isSaga && readAhead,
@@ -1955,6 +1966,8 @@ public static partial class CardCompiler
                 Unpreventable = unpreventable.ToImmutable(),
                 NoLifeGain = noLifeGain.ToImmutable(),
                 NoCounter = noCounter.ToImmutable(),
+                NoCastingNamed = noCastingNamed.ToImmutable(),
+                NoActivatingNamed = noActivatingNamed.ToImmutable(),
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
@@ -5594,6 +5607,51 @@ public static partial class CardCompiler
     /// </remarks>
     private static bool TryCostModifier(string line, ImmutableList<CostModifier>.Builder into)
     {
+        // The same two cells with a name in place of the filter, and read *first*. The
+        // general ability pattern below matches "Activated abilities of sources with the
+        // chosen name cost {2} more to activate" and reads the whole phrase as a filter -
+        // then refuses it and returns, so the line never reached this reader at all. A
+        // matcher that recognises a shape it cannot build has to run after the one that can.
+        //
+        // Patterns of their own rather than a word added to the general ones, because the
+        // qualifier sits on the other side of the noun - "spells with the chosen name"
+        // against "creature spells" - and widening the shared "what" group to reach across
+        // it would let that group swallow phrases it now refuses.
+        if (ChosenNameSpellCostLine().Match(line) is { Success: true } named)
+        {
+            into.Add(new CostModifier
+            {
+                ChosenName = true,
+                Amount = int.Parse(named.Groups["n"].Value, CultureInfo.InvariantCulture),
+                Change = ChangeFor(named.Groups["dir"].Value),
+                Kind = CostModifierKind.Spells,
+                Who = named.Groups["who"].Value.Trim().ToLowerInvariant() switch
+                {
+                    "you cast" => PlayerScope.You,
+                    "your opponents cast" => PlayerScope.EachOpponent,
+                    _ => PlayerScope.EachPlayer,
+                },
+            });
+
+            return true;
+        }
+
+        if (ChosenNameAbilityCostLine().Match(line) is { Success: true } namedAbility)
+        {
+            into.Add(new CostModifier
+            {
+                ChosenName = true,
+                Amount = int.Parse(
+                    namedAbility.Groups["n"].Value, CultureInfo.InvariantCulture),
+                Change = ChangeFor(namedAbility.Groups["dir"].Value),
+                Kind = CostModifierKind.ActivatedAbilities,
+                Who = PlayerScope.EachPlayer,
+                ExceptManaAbilities = namedAbility.Groups["mana"].Success,
+            });
+
+            return true;
+        }
+
         if (SpellCostModifierLine().Match(line) is { Success: true } spell)
             return ReadSpellCostModifier(spell, into);
 
@@ -14294,15 +14352,141 @@ public static partial class CardCompiler
     }
 
     /// <summary>"As ~ enters, choose a color" — a choice made as it arrives (CR 614.12).</summary>
-    private static bool TryChooseAsEnters(string line, ref ChoiceOnEntry into)
+    /// <remarks>
+    /// Three kinds of answer through one line, because the cards say them the same way and
+    /// the engine asks them the same way. Where they part is what the answer <em>is</em>: a
+    /// colour and a creature type are characteristics and go to <c>GameObject.Chosen</c>, a
+    /// card name is not one and goes to <c>GameObject.ChosenName</c>. Keeping them apart at
+    /// the compiler is what keeps a capitalised card name out of every reader that treats a
+    /// capital letter as a creature type.
+    /// </remarks>
+    private static bool TryChooseAsEnters(
+        string line, ref ChoiceOnEntry into, ref string? nameFilter)
     {
         var m = ChooseAsEntersLine().Match(line);
         if (!m.Success)
             return false;
 
+        if (m.Groups["name"].Success)
+        {
+            // CR 201.4a: "a card name with certain characteristics". A qualifier this cannot
+            // map leaves the line unread rather than offering the whole corpus, because the
+            // difference between "a card name" and "a nonland card name" is the difference
+            // between Pithing Needle and a Pithing Needle that can also name Island.
+            if (ChosenNameFilterFor(m.Groups["qualifier"].Value) is not { } allowed)
+                return false;
+
+            into = ChoiceOnEntry.CardName;
+            nameFilter = allowed;
+            return true;
+        }
+
         into = m.Groups["what"].Value.Equals("color", StringComparison.OrdinalIgnoreCase)
             ? ChoiceOnEntry.Color
             : ChoiceOnEntry.CreatureType;
+
+        return true;
+    }
+
+    /// <summary>
+    /// The filter a name qualifier names, or null when it names something unreadable
+    /// (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// Built out of the shared vocabulary rather than matched as whole phrases: "noncreature,
+    /// nonland" is two clauses joined with the ampersand <c>SearchFilters</c> already reads as
+    /// "and", and "nonbasic land" is two words of one clause joined the same way. So the four
+    /// spellings the corpus prints and the ones it has not printed yet cost the same nothing.
+    /// <para>
+    /// The word list is closed and fails closed. A qualifier is the only thing standing
+    /// between these cards and a name the printed card would not allow, and an unrecognised
+    /// word defaulting to "any card" is precisely the direction a prohibition must not fail
+    /// in.
+    /// </para>
+    /// </remarks>
+    private static string? ChosenNameFilterFor(string qualifier)
+    {
+        var said = qualifier.Trim().Trim(',').Trim();
+        if (said.Length == 0)
+            return SearchFilters.AnyCard;
+
+        var parts = new List<string>();
+
+        foreach (var clause in said.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            foreach (var word in clause.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!NameQualifierWords.Contains(word))
+                    return null;
+
+                parts.Add(word);
+            }
+        }
+
+        return parts.Count == 0 ? null : string.Join("&", parts);
+    }
+
+    /// <summary>The words a "choose a ... card name" qualifier may be built from.</summary>
+    /// <remarks>
+    /// Every one of them is a word <c>SearchFilters.Matches</c> answers, which is what lets
+    /// this list be a membership test rather than a second filter grammar. The negations are
+    /// spelled out rather than derived, because <c>SearchFilters</c> reads a leading "non" off
+    /// anything at all - including a typo, which would then quietly match every card.
+    /// </remarks>
+    private static readonly HashSet<string> NameQualifierWords = new(StringComparer.Ordinal)
+    {
+        "land", "nonland",
+        "creature", "noncreature",
+        "artifact", "nonartifact",
+        "enchantment", "nonenchantment",
+        "instant", "sorcery", "planeswalker",
+        "basic", "nonbasic",
+        "legendary",
+    };
+
+    /// <summary>
+    /// The two prohibitions whose subject is the name this permanent chose (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// Neither carries the name: it was decided by a player as the permanent entered and is
+    /// read off the object when the question is asked. What is read here is only the part the
+    /// card prints - whose casting, and whether mana abilities are exempt - and a spelling
+    /// this cannot place leaves the line unread rather than becoming a wider ban.
+    /// </remarks>
+    private static bool TryChosenNameBans(
+        string line,
+        ImmutableList<ChosenNameBan>.Builder noCasting,
+        ImmutableList<ChosenNameBan>.Builder noActivating)
+    {
+        var m = ChosenNameCastBanLine().Match(line);
+        if (m.Success)
+        {
+            // "Your opponents can't cast" leaves its controller free; the bare "spells with
+            // the chosen name can't be cast" stops everybody, its controller included. Read
+            // from the words rather than defaulted, because a Nevermore that spared its own
+            // controller is a different and much better card.
+            var opponentsOnly = m.Groups["whose"].Success;
+
+            noCasting.Add(new ChosenNameBan
+            {
+                Id = "no-cast-chosen-name:" + (opponentsOnly ? "opponents" : "anyone"),
+                Who = opponentsOnly ? PlayerScope.EachOpponent : null,
+            });
+
+            return true;
+        }
+
+        m = ChosenNameActivationBanLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var exceptMana = m.Groups["mana"].Success;
+
+        noActivating.Add(new ChosenNameBan
+        {
+            Id = "no-activate-chosen-name:" + (exceptMana ? "except-mana" : "all"),
+            ExceptManaAbilities = exceptMana,
+        });
 
         return true;
     }
@@ -14329,7 +14513,8 @@ public static partial class CardCompiler
     private static bool TryEntersTappedChoosing(
         string line,
         ImmutableList<ReplacementEffectDefinition>.Builder replacements,
-        ref ChoiceOnEntry chooses)
+        ref ChoiceOnEntry chooses,
+        ref string? nameFilter)
     {
         var m = EntersTappedChoosingLine().Match(line);
         if (!m.Success)
@@ -14338,13 +14523,15 @@ public static partial class CardCompiler
         // Both halves or neither: the reader that owns each sentence decides, and a "no" from
         // either leaves the whole line unread rather than half of it applied.
         var choice = ChoiceOnEntry.None;
-        if (!TryChooseAsEnters(m.Groups["choice"].Value, ref choice))
+        string? filter = null;
+        if (!TryChooseAsEnters(m.Groups["choice"].Value, ref choice, ref filter))
             return false;
 
         if (!TryEntersTapped(m.Groups["tapped"].Value, replacements))
             return false;
 
         chooses = choice;
+        nameFilter = filter;
         return true;
     }
 
@@ -19334,6 +19521,27 @@ public static partial class CardCompiler
     private static partial Regex AbilityCostModifierLine();
 
     /// <remarks>
+    /// Both word orders the corpus prints - "Spells with the chosen name you cast" and
+    /// "Spells your opponents cast with the chosen name" - because they are one sentence said
+    /// two ways. "Spells with the chosen name enchanted player casts" is <em>not</em> here:
+    /// that scope is a player an Aura is attached to rather than a set read around a
+    /// controller, and a modifier carrying it would apply to nobody or to everybody.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^Spells (?:with the chosen name(?<who> you cast| your opponents cast)?"
+            + @"|(?<who>your opponents cast) with the chosen name) cost "
+            + @"\{(?<n>\d+)\} (?<dir>less|more) to cast\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenNameSpellCostLine();
+
+    [GeneratedRegex(
+        @"^Activated abilities of sources with the chosen name cost "
+            + @"\{(?<n>\d+)\} (?<dir>less|more) to activate"
+            + @"(?<mana> unless they're mana abilities)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenNameAbilityCostLine();
+
+    /// <remarks>
     /// A permission, not an action: nothing happens when it is granted, and the only thing that
     /// changes is what its controller is shown. So it is answered by the view projection rather
     /// than by an effect, which is also the only place it *can* be answered - a library is hidden
@@ -19366,10 +19574,34 @@ public static partial class CardCompiler
     [GeneratedRegex(@"^you have no maximum hand size\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex NoMaximumHandSizeLine();
 
+    /// <remarks>
+    /// The name arm carries its qualifier out in a group of its own rather than listing the
+    /// four spellings the corpus prints, so the reader decides what it can allow and the
+    /// pattern only says where the words are.
+    /// </remarks>
     [GeneratedRegex(
-        @"^as (~|it) enters, choose a (?<what>color|creature type)\.?$",
+        @"^as (~|it) enters, choose (a|any) "
+            + @"(?:(?<what>color|creature type)|(?<qualifier>[a-z, ]*?)(?<name>card name))\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ChooseAsEntersLine();
+
+    /// <remarks>
+    /// The parenthetical Alhammarret prints - "(as long as this creature is on the
+    /// battlefield)" - is allowed and says nothing this does not already do: a ban read off
+    /// the battlefield stops the moment the permanent does (CR 611.2c).
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:spells with the chosen name can't be cast"
+            + @"|(?<whose>your opponents) can't cast spells with the chosen name)"
+            + @"( \([^)]*\))?\s*\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenNameCastBanLine();
+
+    [GeneratedRegex(
+        @"^activated abilities of sources with the chosen name can't be activated"
+            + @"(?<mana> unless they're mana abilities)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ChosenNameActivationBanLine();
 
     /// <summary>
     /// The two sentences the colour-fixing lands print as one line, captured separately so each
@@ -19764,6 +19996,18 @@ public sealed record CompiledCard
 
     /// <summary>What this permanent chooses as it enters, if anything (CR 614.12).</summary>
     public ChoiceOnEntry ChoosesOnEntry { get; init; }
+
+    /// <summary>
+    /// Which card names may be chosen, when the choice is a name (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="SearchFilters"/> id and null for every other kind of entry choice, so
+    /// "a nonland card name" and "a noncreature, nonland card name" are the filter vocabulary
+    /// the rest of this compiler already writes rather than members of an enum. Offering a
+    /// land to a Meddling Mage would make it a strictly better card than the printed one,
+    /// which is why a qualifier this cannot map leaves the whole line unread.
+    /// </remarks>
+    public string? ChosenNameFilter { get; init; }
 
     /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
     public int ExtraLandDrops { get; init; }

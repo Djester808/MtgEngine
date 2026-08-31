@@ -513,7 +513,113 @@ cheaper of the two.
 
 ## Known gaps
 
-Coverage is **54.3% of playable cards fully read** (17,759 of 32,717), 70.0% of lines.
+Coverage is **54.3% of playable cards fully read** (17,765 of 32,717), 70.0% of lines.
+
+### Round twenty: a card name the player chooses, and a row that was 169 and is 8
+
+Meddling Mage, Pithing Needle, Nevermore and their kin ask a question no other entry choice
+asks: **a card name**. The engine had the shape for it — an entry choice is `ChoiceOnEntry`
+plus an answer stored on the object, and `GameObject.Chosen` already held the colour or
+creature type a permanent named. What it did not have was anywhere safe to put a *name*.
+
+#### The row is an upper bound with almost nothing attached, again
+
+The census ranked `named` at 169 cards. Measured on this corpus, **341** cards have every one
+of their unread lines in the family (any line printing `named`, `card name`, `chosen name`,
+`that name`). Cutting candidate lines and recompiling — with a control that cuts nothing and
+moves the count by zero — gives the honest figure:
+
+| cut | cards completed |
+|---|---|
+| control, nothing cut | **0** |
+| `As ~ enters, choose a … card name.` **alone** | **0** |
+| + `Spells with the chosen name can't be cast.` | 2 |
+| + `Activated abilities of sources with the chosen name can't be activated[ unless…]` | 5 |
+| + `Spells/activated abilities … with the chosen name cost {N} more/less` | **8** |
+| + `You have protection from the chosen card name.` | 9 |
+| + `As ~ enters, look at an opponent's hand, then choose any card name.` | 11 |
+
+**The entry choice on its own is worth nothing at all**, and that is the finding: the question
+is never a card's only unread line, because a card that asks it always prints a static that
+reads the answer. A round that had built the choice and stopped would have moved the number by
+zero and looked like progress. Everything down to the cost cells is built; the two rows below
+it are declined, with reasons under "declined" below.
+
+The other 300-odd cards in the 341 are the same *substring* and a different mechanic: 90 are
+tokens with a printed token name, 108 count "cards named ~ in your graveyard", 45 are the
+two-zone "search your library or graveyard for a card named X", and 34 are Alchemy's
+"conjure a card named X". None of them is a name a player chooses.
+
+#### A name is not a characteristic, and every reader here had to be told
+
+The answer goes in **`GameObject.ChosenName`**, its own field beside `Chosen`. One field would
+have been less code and the wrong model: a card name is capitalised by definition, and this
+compiler tells a subtype from everything else *by the capital letter* — `SearchFilters.Matches`
+falls through to `card.Subtypes.Contains(filterId)`, and the mass-static reader reads
+`source.Chosen` as a tribe. "Meddling Mage" arriving in that field would have been answered
+rather than refused, which is the capitalised-word-in-a-type-table defect this document has now
+recorded seven times. So the name never becomes a filter id anywhere: `ChosenNameBan` and
+`CostModifier.ChosenName` carry a *flag* saying "ask the host by name", and the comparison is
+against `CardDefinition.Name`.
+
+The qualifier goes somewhere else again. `ChoiceOnEntry` names a kind of question and has
+nowhere to put a parameter — the same reason the Thriving lands' "other than red" is still
+refused — so `CompiledCard.ChosenNameFilter` rides beside it as an ordinary `SearchFilters` id.
+"Noncreature, nonland" is then two clauses joined with the ampersand the filter grammar already
+reads as "and", and a qualifier word the closed list does not know leaves the whole line unread
+rather than offering every card in the game.
+
+#### Null means "nothing was named", in one place
+
+`ChosenName` is null until the question is answered, and null has to mean **matches nothing**.
+Read the other way a Meddling Mage entering makes every spell in the game uncastable, and the
+bug looks like the card working. Three things ask it — the cast ban, the activation ban and the
+cost modifiers — and all three converge on one private `Bans.NamesTheSame` (the modifiers
+reach it through the public `Bans.NameMatches`), so no caller can decide the null for itself.
+There is a test whose fixture is a permanent printing the ban with nothing that ever names.
+
+#### The offer is narrowed twice, and the second narrowing is the card text
+
+CR 201.4 lets a player name any card in the Oracle reference. No board can show thirty-two
+thousand options, so the offer is the names in this game — the same narrowing
+`CreatureTypesInPlay` makes. But it is also narrowed to **what the chooser is allowed to know**:
+the public zones plus their own hand, never an opponent's hand and never a library. That is not
+tidiness. Sorcerous Spyglass and Anointed Peacekeeper spend printed card text on the words
+"look at an opponent's hand" before they name, and Meddling Mage does not — an offer built by
+scanning every zone would have handed the Mage exactly what those two are printed to buy.
+
+#### One matcher recognising a shape it cannot build
+
+`Activated abilities of sources with the chosen name cost {2} more to activate` was matched by
+the general ability-cost pattern, whose `what` group swallowed "sources with the chosen name",
+failed to map it to a filter, and **returned false from the whole reader** — so the line never
+reached the matcher written for it and Skyseer's Chariot stayed one line short after the work
+that was meant to finish it. A matcher that recognises a shape it cannot build has to run after
+the one that can.
+
+#### Declined here, with the measurement behind each
+
+- **"Look at an opponent's hand, then choose any card name"** — 2 (Sorcerous Spyglass,
+  Anointed Peacekeeper, whose other three lines now all read). Realising the hand-look as "its
+  names are among your options" is exact at two players and strictly better than printed at
+  four, since the offer would carry every opponent's hand; doing it properly needs a second
+  question naming which opponent, which the entry-choice mechanism has no room for.
+- **"You have protection from the chosen card name"** — 1 (Runed Halo). A protection whose
+  subject is a *player* and whose parameter is a name: neither half fits the keyword flag, and
+  it wants a player quality carrying a predicate.
+- **"Choose a card name. Search target player's graveyard, hand, and library for all cards with
+  that name and exile them"** — 6 (Cranial Extraction, Memoricide, Slaughter Games, Stain the
+  Mind, Ancient Vendetta, Infinite Obliteration), measured by cutting the whole chain. Cutting
+  only the `Choose a … card name.` sentence completes **0**, so the name is not what blocks
+  them: a multi-zone search and a hand reveal are, and neither exists.
+- **`{U}: Counter target spell with the chosen name`** (1, Declaration of Naught) and
+  **"Whenever an opponent casts a spell with the chosen name…"** (1, Silverquill Silencer) —
+  the name as a *target filter* and as a *trigger condition*, each one card.
+- **The literal-name families** the same substring collects: "conjure a card named X" (34,
+  Alchemy), the two-zone "search your library or graveyard for a card named X" (45), "the
+  number of cards named ~ in your graveyard" (108) and token naming (90). `SearchFilters`
+  already has `name:` and reads the single-zone search; what blocks these is the zone list, the
+  counting, and conjure — not the name.
 
 ### Round nineteen: the recorded set as an object, and the second fail-closed line
 

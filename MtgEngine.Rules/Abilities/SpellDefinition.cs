@@ -1330,6 +1330,17 @@ public enum ChoiceOnEntry
 
     /// <summary>"As this enters, choose a creature type."</summary>
     CreatureType,
+
+    /// <summary>"As this enters, choose a card name" (CR 201.4).</summary>
+    /// <remarks>
+    /// The qualifier the cards print - "a <em>nonland</em> card name", "a <em>noncreature,
+    /// nonland</em> card name" - is not in this enum, for the reason the Thriving lands' excluded
+    /// colour is not: an enum member names a kind of question and has nowhere to put a
+    /// parameter. It rides beside this one as <c>CompiledCard.ChosenNameFilter</c>, in the
+    /// shared <see cref="SearchFilters"/> vocabulary, so "noncreature, nonland" is a filter
+    /// this compiler already knows how to write rather than three more enum members.
+    /// </remarks>
+    CardName,
 }
 
 /// <summary>What a payment is for (CR 106.6).</summary>

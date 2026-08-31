@@ -384,6 +384,8 @@ public static class GameReducer
             ManaAdded added => AddMana(state, added),
             CharacteristicChosen chosen => Changing(
                 state, chosen.Id, o => o with { Chosen = chosen.Value }),
+            NameChosen named => Changing(
+                state, named.Id, o => o with { ChosenName = named.Value }),
             StateTriggerArmed armed => state with
             {
                 ArmedStateTriggers = armed.Armed

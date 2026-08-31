@@ -63713,6 +63713,483 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(bear, game.State.Battlefield);
     }
 
+    // ---- A card name the player chooses (CR 201.4) ---------------------------
+
+    /// <summary>Meddling Mage, printed as it is printed.</summary>
+    /// <remarks>
+    /// The real wording rather than a paraphrase, because the thing under test is whether the
+    /// compiler reads what Wizards writes. Its two lines are the two halves of the whole family:
+    /// a question asked as the permanent enters, and a static that refers to the answer.
+    /// </remarks>
+    private static CardDefinition MeddlingMage() => Card(
+        "Meddling Mage Test",
+        "As this creature enters, choose a nonland card name.\n"
+            + "Spells with the chosen name can't be cast.",
+        CardType.Creature,
+        2,
+        2);
+
+    /// <summary>Answers the entry question with a name, and checks it was that question.</summary>
+    private static void NameACard(Game game, Guid chooser, string name)
+    {
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+        var choice = game.State.Choice!;
+        Assert.Contains(choice.Options, o => string.Equals(o.Id, name, StringComparison.Ordinal));
+
+        game.Choose(chooser, [name]);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// A named spell is actually refused, and a spell of another name is not (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// The headline of the family, played rather than asserted about: Alice names a card, Bob
+    /// tries to cast one, and the engine refuses it at CR 601.3 before anything is spent. The
+    /// second half is what stops the test passing for the wrong reason — a ban that refused
+    /// <em>every</em> spell would satisfy the first assertion perfectly, and that is exactly the
+    /// direction a prohibition built around a null fails in.
+    /// <para>
+    /// The name comes out of Alice's own hand because that is where the offer can legally find
+    /// one: an option list is shown to the player who is choosing, so it is built from the public
+    /// zones and the chooser's hand and never from anyone else's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_chosen_name_refuses_that_spell_and_leaves_the_others_alone()
+    {
+        var mage = MeddlingMage();
+        var compiled = CardCompiler.Compile(mage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(ChoiceOnEntry.CardName, compiled.ChoosesOnEntry);
+        Assert.Equal("nonland", compiled.ChosenNameFilter);
+
+        var banned = TestCards.Costed("Named Bear Test", "{G}", 1);
+        var allowed = TestCards.Costed("Unnamed Bear Test", "{G}", 1);
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, alice, banned);
+        game.Create(alice, mage, Zone.Battlefield);
+
+        NameACard(game, alice, banned.Name);
+
+        // The answer is on the object, in the field a card name goes in — never in the one a
+        // colour or a creature type goes in.
+        var onBoard = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => string.Equals(o.Card.Name, mage.Name, StringComparison.Ordinal));
+
+        Assert.Equal(banned.Name, onBoard.ChosenName);
+        Assert.Null(onBoard.Chosen);
+
+        PassToMainPhaseOf(game, bob);
+
+        var theirs = TestCards.PutInHand(game, bob, banned);
+        TapCompiledForest(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs, []));
+
+        // Refused before anything moved: the card is still in hand and the mana is still in the
+        // pool (CR 601.3 — a cast that is prohibited never begins).
+        Assert.Equal(Zone.Hand, game.State.GetObject(theirs).Zone);
+        Assert.False(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+
+        // And the other name goes through, on the same board, from the same hand, for the same
+        // mana. Without this the test would pass just as well against a ban on everything.
+        var other = TestCards.PutInHand(game, bob, allowed);
+        game.CastSpell(bob, other, []);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.Battlefield,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name, allowed.Name, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A ban whose name was never chosen stops nothing (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// The arm the whole family turns on. <c>ChosenName</c> is null until the question has been
+    /// answered, and null has to mean "this matches nothing"; read the other way round, a
+    /// Meddling Mage on the battlefield would make every spell in the game uncastable and the
+    /// bug would look like the card working.
+    /// <para>
+    /// The fixture is a permanent that prints the ban and nothing that ever names — which is a
+    /// real reading, not a contrivance: a permanent whose choice was never offered, or an
+    /// Alhammarret whose entry line this compiler still cannot read, is in exactly this state.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_ban_on_a_name_nobody_chose_forbids_nothing()
+    {
+        var mute = Card(
+            "Unasked Name Ban Test",
+            "Spells with the chosen name can't be cast.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(mute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.Bans.NoCastingNamed);
+        Assert.Equal(ChoiceOnEntry.None, compiled.ChoosesOnEntry);
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, mute, Zone.Battlefield);
+        Settle(game);
+
+        // Nothing was ever asked, so nothing was ever named.
+        Assert.All(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => Assert.Null(o.ChosenName));
+
+        PassToMainPhaseOf(game, bob);
+
+        var theirs = TestCards.PutInHand(
+            game, bob, TestCards.Costed("Unbanned Bear Test", "{G}", 1));
+
+        TapCompiledForest(game, bob, 1);
+        game.CastSpell(bob, theirs, []);
+        Settle(game);
+
+        // By name, because a resolved spell is a new object (CR 400.7).
+        Assert.Contains(
+            game.State.Battlefield,
+            id => string.Equals(
+                game.State.GetObject(id).Card.Name,
+                "Unbanned Bear Test",
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Pithing Needle spares mana abilities and Phyrexian Revoker does not (CR 602.5, 605.1a).
+    /// </summary>
+    /// <remarks>
+    /// Both cards print the same sentence and one of them prints five more words, and those five
+    /// words are the whole difference between them. Read from the line rather than assumed in
+    /// either direction: assume the exemption and the Revoker leaves mana rocks alone, assume its
+    /// absence and the Needle turns off a Sol Ring.
+    /// <para>
+    /// The named permanent belongs to Bob and the naming permanent to Alice, so the ban is also
+    /// shown reaching across the table — "sources with the chosen name" says nothing about who
+    /// controls them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_needles_exemption_for_mana_abilities_is_read_and_the_revokers_absence_is_too()
+    {
+        var needle = Card(
+            "Pithing Needle Test",
+            "As this artifact enters, choose a card name.\n"
+                + "Activated abilities of sources with the chosen name can't be activated "
+                + "unless they're mana abilities.",
+            CardType.Artifact);
+
+        var revoker = Card(
+            "Phyrexian Revoker Test",
+            "As this creature enters, choose a nonland card name.\n"
+                + "Activated abilities of sources with the chosen name can't be activated.",
+            CardType.Creature,
+            2,
+            1);
+
+        foreach (var card in new[] { needle, revoker })
+        {
+            var read = CardCompiler.Compile(card);
+            Assert.True(read.IsComplete, card.Name + ": " + string.Join(" | ", read.Unhandled));
+        }
+
+        Assert.True(
+            CardCompiler.Compile(needle).Bans.NoActivatingNamed.Single().ExceptManaAbilities);
+
+        Assert.False(
+            CardCompiler.Compile(revoker).Bans.NoActivatingNamed.Single().ExceptManaAbilities);
+
+        // A permanent with a mana ability and a non-mana one, so the two halves of the exemption
+        // are asked of the same card.
+        var rock = Card(
+            "Named Rock Test",
+            "{T}: Add {C}.\n{2}, {T}: Draw a card.",
+            CardType.Artifact);
+
+        Assert.True(
+            CardCompiler.Compile(rock).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(rock).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, alice, rock);
+        var theirs = game.Create(bob, rock, Zone.Battlefield);
+        game.Create(alice, needle, Zone.Battlefield);
+
+        NameACard(game, alice, rock.Name);
+
+        var abilities = AbilitiesOn(game, theirs);
+        var manaAbility = abilities.Single(a => a.IsManaAbility).Id;
+        var drawAbility = abilities.Single(a => !a.IsManaAbility).Id;
+
+        // The Needle: the draw is refused, the mana is not.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(bob, theirs, drawAbility));
+
+        game.ActivateAbility(bob, theirs, manaAbility);
+        Assert.False(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+
+        // The Revoker, on its own board, refuses the mana ability too.
+        var (second, carol, dave) = InMainPhase();
+        TestCards.PutInHand(second, carol, rock);
+        var alsoTheirs = second.Create(dave, rock, Zone.Battlefield);
+        second.Create(carol, revoker, Zone.Battlefield);
+
+        NameACard(second, carol, rock.Name);
+
+        var alsoMana = AbilitiesOn(second, alsoTheirs).Single(a => a.IsManaAbility).Id;
+
+        Assert.Throws<InvalidOperationException>(
+            () => second.ActivateAbility(dave, alsoTheirs, alsoMana));
+    }
+
+    /// <summary>The activated abilities the board would offer for one permanent.</summary>
+    private static IReadOnlyList<ActivatedAbilityDefinition> AbilitiesOn(Game game, ObjectId id) =>
+        Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(id));
+
+    /// <summary>
+    /// "A nonland card name" is never offered a land, and "a card name" is (CR 201.4a).
+    /// </summary>
+    /// <remarks>
+    /// The qualifier is the only thing standing between Meddling Mage and a Meddling Mage that
+    /// can also name Island, and a card that may name more than it prints is a strictly better
+    /// card than the printed one. Both directions are asserted, because a filter that refused
+    /// everything would satisfy the first half alone.
+    /// </remarks>
+    [Fact]
+    public void The_qualifier_on_a_chosen_name_narrows_what_may_be_named()
+    {
+        var land = TestCards.BasicLand("Nameable Forest Test");
+        var spell = TestCards.Costed("Nameable Bear Test", "{G}", 1);
+
+        var (game, alice, _) = InMainPhase();
+        TestCards.PutInHand(game, alice, land);
+        TestCards.PutInHand(game, alice, spell);
+        game.Create(alice, MeddlingMage(), Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+        var offered = game.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(spell.Name, offered, StringComparer.Ordinal);
+        Assert.DoesNotContain(land.Name, offered, StringComparer.Ordinal);
+
+        game.Choose(alice, [spell.Name]);
+        Settle(game);
+
+        // The unqualified spelling names anything, land included — Pithing Needle's wording.
+        var needle = Card(
+            "Any Name Needle Test",
+            "As this artifact enters, choose a card name.\n"
+                + "Activated abilities of sources with the chosen name can't be activated.",
+            CardType.Artifact);
+
+        Assert.Equal(SearchFilters.AnyCard, CardCompiler.Compile(needle).ChosenNameFilter);
+
+        var (other, carol, _) = InMainPhase();
+        TestCards.PutInHand(other, carol, land);
+        other.Create(carol, needle, Zone.Battlefield);
+
+        TestCards.PassUntil(
+            other, () => other.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+        Assert.Contains(
+            other.State.Choice!.Options.Select(o => o.Id).ToList(),
+            id => string.Equals(id, land.Name, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The names offered never come out of an opponent's hand (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// An option list is shown to the player choosing from it, so a list built by scanning every
+    /// zone would hand a Meddling Mage's controller the contents of the opponent's hand. That is
+    /// not a rounding error in the offer: Sorcerous Spyglass and Anointed Peacekeeper spend real
+    /// card text on the words "look at an opponent's hand" before they name, and Meddling Mage
+    /// does not. The engine's own rule is that hidden information is projected away rather than
+    /// flagged, and an offer is one more place that has to hold.
+    /// </remarks>
+    [Fact]
+    public void A_card_name_is_never_offered_from_an_opponents_hand()
+    {
+        var secret = TestCards.Costed("Hidden Hand Bear Test", "{G}", 1);
+        var seen = TestCards.Costed("Own Hand Bear Test", "{G}", 1);
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, bob, secret);
+        TestCards.PutInHand(game, alice, seen);
+        game.Create(alice, MeddlingMage(), Zone.Battlefield);
+
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.NameCharacteristic });
+
+        var offered = game.State.Choice!.Options.Select(o => o.Id).ToList();
+        Assert.Contains(seen.Name, offered, StringComparer.Ordinal);
+        Assert.DoesNotContain(secret.Name, offered, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// A tax written against the chosen name is paid by name (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// Disruptor Flute's second line, and the reason the modifier carries a flag rather than a
+    /// filter id: a card name is capitalised, and a capitalised word handed to the filter
+    /// vocabulary is read as a <em>subtype</em>. "Named Bear Test" as a filter would tax cards
+    /// with a creature type nothing has — a card that compiles, looks finished, and never
+    /// changes a cost.
+    /// </remarks>
+    [Fact]
+    public void A_tax_on_the_chosen_name_falls_on_that_card_and_no_other()
+    {
+        var flute = Card(
+            "Disruptor Flute Test",
+            "As this artifact enters, choose a card name.\n"
+                + "Spells with the chosen name cost {2} more to cast.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(flute);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var modifier = Assert.Single(compiled.CostModifiers);
+        Assert.True(modifier.ChosenName);
+        Assert.Equal(2, modifier.Amount);
+        Assert.Equal(CostChange.Increase, modifier.Change);
+
+        var taxed = TestCards.Costed("Taxed Named Bear Test", "{G}", 1);
+        var untaxed = TestCards.Costed("Untaxed Named Bear Test", "{G}", 1);
+
+        var (game, alice, bob) = InMainPhase();
+        TestCards.PutInHand(game, alice, taxed);
+        game.Create(alice, flute, Zone.Battlefield);
+
+        NameACard(game, alice, taxed.Name);
+        PassToMainPhaseOf(game, bob);
+
+        // {G} alone is no longer enough for the named card.
+        var theirs = TestCards.PutInHand(game, bob, taxed);
+        TapCompiledForest(game, bob, 1);
+        Assert.Throws<InvalidOperationException>(() => game.CastSpell(bob, theirs, []));
+
+        TapCompiledForest(game, bob, 2);
+        game.CastSpell(bob, theirs, []);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+
+        // And a card of another name still costs what it prints.
+        var other = TestCards.PutInHand(game, bob, untaxed);
+        TapCompiledForest(game, bob, 1);
+        game.CastSpell(bob, other, []);
+        Assert.True(game.State.GetPlayer(bob).ManaPool.IsEmpty);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// The answer survives a round trip through the log (CR 201.4).
+    /// </summary>
+    /// <remarks>
+    /// A card name is a new field on the object and a new event carrying it, so it is a new way
+    /// for the engine's founding invariant to break: a game rebuilt from its events has to equal
+    /// the game that produced them. Through the serializer rather than only through the reducer,
+    /// because a reducer that folds an event the writer cannot name is a game that replays
+    /// perfectly in memory and loses the answer the moment it is stored.
+    /// </remarks>
+    [Fact]
+    public void A_chosen_card_name_replays_out_of_a_written_log()
+    {
+        var banned = TestCards.Costed("Replayed Name Bear Test", "{G}", 1);
+
+        var (game, alice, _) = InMainPhase();
+        TestCards.PutInHand(game, alice, banned);
+        game.Create(alice, MeddlingMage(), Zone.Battlefield);
+
+        NameACard(game, alice, banned.Name);
+
+        Assert.Contains(game.Log, e => e is NameChosen);
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// The printed cards this family reads, and the ones it still does not.
+    /// </summary>
+    /// <remarks>
+    /// Real oracle text, so what is asserted is what Wizards prints rather than a paraphrase of
+    /// it. The second list is the honest half: the census ranked "named" at 169 cards, and the
+    /// cards whose <em>every</em> unread line is in this family measure 341 — but cutting the
+    /// entry line alone from the corpus completes <strong>zero</strong> of them, because the
+    /// question is never a card's only unread line. What the readers here are worth was measured
+    /// by excision instead: the entry choice plus the cast ban is 2 cards, plus the activation
+    /// ban is 5, plus the two cost cells is 8.
+    /// <para>
+    /// Declined, with what each is worth: <em>look at an opponent's hand, then choose any card
+    /// name</em> (2 — Sorcerous Spyglass, Anointed Peacekeeper), because the offer would either
+    /// need a second question naming which opponent or would show a multiplayer chooser every
+    /// hand at the table, which is more than the card grants; <em>you have protection from the
+    /// chosen card name</em> (1 — Runed Halo), a protection whose subject is a player and whose
+    /// parameter is a name; <em>choose a card name, then search a player's graveyard, hand and
+    /// library for cards with that name and exile them</em> (6 — Cranial Extraction and its
+    /// kin), which needs a multi-zone search and a hand reveal before the name matters at all;
+    /// and the literal-name families the same substring collects but this is not about —
+    /// "conjure a card named X" (34) and the two-zone "search your library or graveyard for a
+    /// card named X" (45).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_printed_cards_that_choose_a_name_compile()
+    {
+        (string Name, string Text, CardType Types, KeywordAbility Keywords)[] shelf =
+        [
+            ("Meddling Mage", "As this creature enters, choose a nonland card name.\nSpells with the chosen name can't be cast.", CardType.Creature, KeywordAbility.None),
+            ("Nevermore", "As this enchantment enters, choose a nonland card name.\nSpells with the chosen name can't be cast.", CardType.Enchantment, KeywordAbility.None),
+            ("Voidstone Gargoyle", "Flying\nAs this creature enters, choose a nonland card name.\nSpells with the chosen name can't be cast.\nActivated abilities of sources with the chosen name can't be activated.", CardType.Creature, KeywordAbility.Flying),
+            ("Pithing Needle", "As this artifact enters, choose a card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.", CardType.Artifact, KeywordAbility.None),
+            ("Phyrexian Revoker", "As this creature enters, choose a nonland card name.\nActivated abilities of sources with the chosen name can't be activated.", CardType.Creature, KeywordAbility.None),
+            ("Council of the Absolute", "As this creature enters, choose a noncreature, nonland card name.\nYour opponents can't cast spells with the chosen name.\nSpells with the chosen name you cast cost {2} less to cast.", CardType.Creature, KeywordAbility.None),
+            ("Skyseer's Chariot", "Flying\nAs this Vehicle enters, choose a nonland card name.\nActivated abilities of sources with the chosen name cost {2} more to activate.\nCrew 2", CardType.Artifact, KeywordAbility.Flying),
+            ("Disruptor Flute", "Flash\nAs this artifact enters, choose a card name.\nSpells with the chosen name cost {3} more to cast.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.", CardType.Artifact, KeywordAbility.Flash),
+        ];
+
+        var blocked = new List<string>();
+
+        foreach (var (name, text, types, keywords) in shelf)
+        {
+            var compiled = CardCompiler.Compile(
+                Card(name + " Shelf Test", text, types, 2, 2, keywords, "Vehicle"));
+
+            if (!compiled.IsComplete)
+            {
+                blocked.Add(name + " -> " + string.Join(" ;; ", compiled.Unhandled));
+                continue;
+            }
+
+            // Every one of them asks the question, and none of them asks for a characteristic.
+            Assert.Equal(ChoiceOnEntry.CardName, compiled.ChoosesOnEntry);
+            Assert.NotNull(compiled.ChosenNameFilter);
+        }
+
+        Assert.True(blocked.Count == 0, string.Join("\n", blocked));
+
+        // The half that is still unread, asserted so it stays measured rather than remembered.
+        (string Name, string Text, CardType Types)[] declined =
+        [
+            ("Sorcerous Spyglass", "As this artifact enters, look at an opponent's hand, then choose any card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.", CardType.Artifact),
+            ("Runed Halo", "As this enchantment enters, choose a card name.\nYou have protection from the chosen card name.", CardType.Enchantment),
+        ];
+
+        foreach (var (name, text, types) in declined)
+        {
+            Assert.False(
+                CardCompiler.Compile(Card(name + " Declined Test", text, types)).IsComplete,
+                name + " now compiles — move it onto the shelf above.");
+        }
+    }
+
     // ---- Split cards (CR 709) ------------------------------------------------
 
     /// <summary>Two spells on one card, printed the way the real ones are.</summary>

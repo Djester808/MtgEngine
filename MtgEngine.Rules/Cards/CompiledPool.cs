@@ -134,6 +134,8 @@ public sealed class CompiledPool : IAbilitySource
     public Abilities.ChoiceOnEntry ChoosesOnEntry(CardDefinition card) =>
         For(card).ChoosesOnEntry;
 
+    public string? ChosenNameFilterOf(CardDefinition card) => For(card).ChosenNameFilter;
+
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops;
 
     public bool MayDeclineUntap(CardDefinition card) => For(card).MayDeclineUntap;

@@ -133,6 +133,8 @@ public sealed class PlayableCards : IAbilitySource
 
     public ChoiceOnEntry ChoosesOnEntry(CardDefinition card) => For(card).ChoosesOnEntry(card);
 
+    public string? ChosenNameFilterOf(CardDefinition card) => For(card).ChosenNameFilterOf(card);
+
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops(card);
 
     public bool MayDeclineUntap(CardDefinition card) => For(card).MayDeclineUntap(card);
