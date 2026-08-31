@@ -3349,6 +3349,29 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["colours"].Value
                     + " mana symbols among the mana costs of permanents you control");
 
+            // "Equal to the greatest power among creatures you control", "where X is the total
+            // mana value of Dragons you control" — an aggregate over a group, and the counting
+            // vocabulary reads numbers written as "the number of …". Spelled into that shape
+            // here, in the same place and for the same reason devotion is: six wrappers hardcode
+            // "the number of" between them, and one rewrite puts every aggregate behind all of
+            // them at once rather than teaching each wrapper a second spelling.
+            //
+            // The words it inserts are not a tally of the group and are not read as one — the
+            // reader behind them matches "greatest power among …" whole and folds the set. A
+            // tally reading is precisely what these lines were left unread rather than given:
+            // three Dragons costing {5} are a total mana value of fifteen and a count of three,
+            // and on "~ costs {X} less to cast" that is a card twelve mana cheaper or dearer
+            // than it prints, which coverage scores as a win either way.
+            //
+            // Only where the phrase is a quantity, which is what the lead says. "Sacrifice a
+            // creature with the greatest power among creatures they control" is a *choice* among
+            // the group rather than a number taken from it, and belongs to the target grammar;
+            // rewriting it here would take the sentence away from the reader it is for.
+            cleaned = AggregateAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
+                    + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
+
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
             cleaned = AbilityWord().Replace(cleaned, string.Empty);
@@ -18396,6 +18419,27 @@ public static partial class CardCompiler
             + @"(?: and (?:white|blue|black|red|green))?)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex DevotionAsANumber();
+
+    /// <summary>
+    /// "Equal to the greatest power among …", "where X is the total mana value of …".
+    /// </summary>
+    /// <remarks>
+    /// The lead does the same work it does for devotion above: it is what says the phrase is
+    /// being used as a number rather than as a way of choosing one permanent out of a group. Every
+    /// corpus line naming an aggregate is one or the other, and the selection form — "sacrifice a
+    /// creature with the greatest power among creatures they control", 40-odd lines of it — never
+    /// carries either word.
+    /// <para>
+    /// The fold, the field and the joining word are all carried through into the rewritten phrase
+    /// rather than normalised away, because the reader behind it needs all three: dropping the
+    /// fold would leave a tally, which is the one reading these lines may not have.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) the (?<how>total|greatest|least|highest|lowest) "
+            + @"(?<field>power|toughness|mana value) (?<join>of|among) ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AggregateAsANumber();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.
