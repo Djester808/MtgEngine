@@ -17934,11 +17934,12 @@ public static partial class EffectPhrase
             + @"(?<attach> attached to (?<host>~|target creature|target player))?"
             + @"|(?<where>exile (it|that card|them|those cards))))?"
             + @"(,? (then |and )?shuffle"
-            // "In any order" is what CR 401.4 already grants whenever an effect puts two or more
-            // cards in one position in a library, so the words are matched and read as nothing —
-            // and the plural pronouns beside them are what the recruiters print.
-            + @"(?<ontop> and put (it|that card|the card|them|those cards) "
-            + @"on top( of your library)?( in any order)?)?"
+            // Deliberately narrower than the sentence-of-its-own form beside it
+            // (SearchToTopLine): every card that says "put those cards on top in any order"
+            // says it after a ", then", so the splitter has already cut the clause away
+            // before this pattern sees it, and widening this group to match completed no
+            // card in the corpus. A reader that can never run is worse than no reader.
+            + @"(?<ontop> and put (it|that card) on top( of your library)?)?"
             + @"| then shuffle your library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SearchLibraryLine();
