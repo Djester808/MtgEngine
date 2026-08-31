@@ -69107,6 +69107,388 @@ public sealed class CompiledCardBehaviourTests
                 .Count(asked => asked.Choice.Kind == ChoiceKind.ChooseProtector));
     }
 
+    // ---- The punisher: an offer to the player a sentence named (CR 601.2b) ---
+
+    /// <summary>
+    /// "That player loses 5 life unless they discard a card" asks the player the trigger named.
+    /// </summary>
+    /// <remarks>
+    /// The counterspell tax had been the only shape of this the compiler read: three verbs, one
+    /// target, one payer word ("its controller") and mana only. Every other punisher in the
+    /// corpus is the same two halves in a different order and stayed unread — 83 lines of it.
+    /// <para>
+    /// Four seats, because at two the offer going to the wrong player is invisible: whoever is
+    /// not the controller is the only opponent there is. Here three players cast nothing and one
+    /// does, and only that one may be charged.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_punisher_asks_the_player_the_trigger_named_and_nobody_else()
+    {
+        var quandary = Card(
+            "Painful Quandary Test",
+            "Whenever an opponent casts a spell, that player loses 5 life unless they discard a card.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(quandary);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], quandary, Zone.Battlefield);
+
+        var before = seats.Select(id => game.State.GetPlayer(id).Life).ToList();
+
+        // A card to discard as well as one to cast, so the offer is a real question rather than
+        // one answered for him because he has nothing to pay with (CR 118.3).
+        TestCards.PutInHand(game, seats[1], Card("Quandary Spare Test", "Draw a card."));
+        var bait = TestCards.PutInHand(game, seats[1], Card("Quandary Bait Test", "Draw a card."));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == seats[1]);
+        game.AddMana(seats[1], ManaColor.Blue);
+        game.CastSpell(seats[1], bait, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // The whole point: seat one cast the spell, so seat one is asked - not the enchantment's
+        // controller and not the other two opponents.
+        Assert.Equal(seats[1], game.State.Choice!.PlayerId);
+
+        // A price that is a selection is declined by picking nothing, not by saying no.
+        game.Choose(seats[1], []);
+        Settle(game);
+
+        Assert.Equal(before[1] - 5, game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(before[0], game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(before[2], game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(before[3], game.State.GetPlayer(seats[3]).Life);
+    }
+
+    /// <summary>Paying the price is what stops the consequence (CR 601.2b).</summary>
+    /// <remarks>
+    /// The price is a selection rather than a sum, which is the half ward already knew how to
+    /// charge and this reader now borrows: "discard a card" cannot be answered yes or no without
+    /// naming the card, so it is one question with a pick in it.
+    /// </remarks>
+    [Fact]
+    public void Paying_a_punisher_leaves_the_player_alone()
+    {
+        var quandary = Card(
+            "Paid Quandary Test",
+            "Whenever an opponent casts a spell, that player loses 5 life unless they discard a card.",
+            CardType.Enchantment);
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], quandary, Zone.Battlefield);
+
+        var before = game.State.GetPlayer(seats[1]).Life;
+        TestCards.PutInHand(game, seats[1], Card("Paid Quandary Spare Test", "Draw a card."));
+        var bait = TestCards.PutInHand(game, seats[1], Card("Paid Quandary Bait Test", "Draw a card."));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == seats[1]);
+        game.AddMana(seats[1], ManaColor.Blue);
+        game.CastSpell(seats[1], bait, []);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        var offer = game.State.Choice!;
+        Assert.NotEmpty(offer.Options);
+
+        var graveyard = game.State.GetPlayer(seats[1]).Graveyard.Count;
+        game.Choose(seats[1], [offer.Options[0].Id]);
+        Settle(game);
+
+        Assert.Equal(before, game.State.GetPlayer(seats[1]).Life);
+        Assert.True(game.State.GetPlayer(seats[1]).Graveyard.Count > graveyard);
+    }
+
+    /// <summary>
+    /// The offer and the consequence belong to different players (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Rhystic Study's shape, and it is why the payer is a field on the offer rather than being
+    /// read off whoever the effects are about: the card draws for <em>its controller</em> and
+    /// charges <em>the caster</em>. A reader that assumed one player for both would have been
+    /// right about half this family and quietly wrong about the other half.
+    /// <para>
+    /// The assertion is who the offer was addressed to rather than what they answered, because
+    /// what they answer here is decided by a rule this change does not touch: a player with no
+    /// mana available mid-resolution is not asked at all (CR 118.3), and the paying and declining
+    /// halves are under test on the discard-priced punisher above.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_punishers_price_is_charged_to_a_different_player_from_its_consequence()
+    {
+        var study = Card(
+            "Rhystic Study Test",
+            "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(study);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], study, Zone.Battlefield);
+
+        var bait = TestCards.PutInHand(game, seats[1], Card("Rhystic Bait Test", "Draw a card."));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == seats[1]);
+        game.CastSpell(seats[1], bait, []);
+        Settle(game);
+
+        // Charged to the caster, though the card that would draw belongs to somebody else - and
+        // charged to *him* rather than to either of the two opponents who cast nothing.
+        var offer = Assert.Single(game.Log.OfType<OptionalPaymentRequested>());
+        Assert.Equal(seats[1], offer.PlayerId);
+    }
+
+    /// <summary>
+    /// A mana-priced punisher takes its life from the player the trigger named, at four seats.
+    /// </summary>
+    /// <remarks>
+    /// Isolation Cell's shape. The consequence is what the whole family turns on: the trigger is
+    /// about one opponent, and reading its "that player" as anything wider would take life from a
+    /// table that never cast anything. Declined for want of mana rather than by an answer, which
+    /// is the same branch a "no" runs.
+    /// </remarks>
+    [Fact]
+    public void A_declined_mana_price_takes_its_consequence_from_the_named_player_only()
+    {
+        var cell = Card(
+            "Isolation Cell Test",
+            "Whenever an opponent casts a spell, that player loses 2 life unless they pay {2}.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(cell);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], cell, Zone.Battlefield);
+
+        var before = seats.Select(id => game.State.GetPlayer(id).Life).ToList();
+        var bait = TestCards.PutInHand(game, seats[2], Card("Cell Bait Test", "Draw a card."));
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == seats[2]);
+        game.CastSpell(seats[2], bait, []);
+        Settle(game);
+
+        Assert.Equal(seats[2], Assert.Single(game.Log.OfType<OptionalPaymentRequested>()).PlayerId);
+        Assert.Equal(before[2] - 2, game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(before[0], game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(before[1], game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(before[3], game.State.GetPlayer(seats[3]).Life);
+    }
+
+    /// <summary>
+    /// "They" is the pronoun spelling of a player the sentence already named (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// The shared subject vocabulary knew "that player" and not the pronoun, so a card printing
+    /// the shorter word said nothing the compiler could read. It answers
+    /// <see cref="PlayerScope.NamedPlayer"/> rather than the trigger's subject for the reason the
+    /// possessive does: a pronoun points back at whoever the text picked out, and half the lines
+    /// carrying one are on spells with a target and no trigger at all.
+    /// <para>
+    /// Four seats again. "They lose 2 life" on a trigger about one opponent must reach that one
+    /// opponent, and at two players every wrong answer but "you" looks like the right one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_reaches_the_one_player_the_trigger_was_about()
+    {
+        var sheoldred = Card(
+            "Sheoldred Test",
+            "Whenever an opponent draws a card, they lose 2 life.",
+            CardType.Creature,
+            power: 4,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(sheoldred);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], sheoldred, Zone.Battlefield);
+
+        var before = seats.Select(id => game.State.GetPlayer(id).Life).ToList();
+
+        var draw = TestCards.PutInHand(game, seats[2], Card("Sheoldred Draw Test", "Draw a card."));
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == seats[2]);
+        game.AddMana(seats[2], ManaColor.Blue);
+        game.CastSpell(seats[2], draw, []);
+        Settle(game);
+
+        Assert.Equal(before[2] - 2, game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(before[0], game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(before[1], game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(before[3], game.State.GetPlayer(seats[3]).Life);
+    }
+
+    /// <summary>A pronoun after a target names the target (CR 115.1).</summary>
+    /// <remarks>
+    /// The other half of <see cref="PlayerScope.NamedPlayer"/>, and the reason a punisher does not
+    /// simply read the trigger's subject: Compulsive Research is a sorcery and has no trigger, so
+    /// the only player its "they" can mean is the one the target slot chose.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_after_a_target_charges_that_target()
+    {
+        var research = Card(
+            "Compulsive Research Test",
+            "Target player draws three cards. Then that player discards two cards unless they "
+                + "discard a land card.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(research);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var card = TestCards.PutInHand(game, seats[0], research);
+
+        // The price is a land card, so seat two has to hold one: an offer nobody could
+        // take is answered for them rather than put to them (CR 118.3).
+        TestCards.PutInHand(game, seats[2], TestCards.BasicLand("Forest"));
+
+        game.AddMana(seats[0], ManaColor.Blue);
+        game.AddMana(seats[0], ManaColor.Blue);
+        game.CastSpell(seats[0], card, [Target.ToPlayer(seats[2])]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // Aimed at seat two, so seat two is asked - not the caster, and not either of the two
+        // opponents the spell never mentioned.
+        Assert.Equal(seats[2], game.State.Choice!.PlayerId);
+    }
+
+    /// <summary>
+    /// A punisher aimed at a group is left unread rather than charged to one of them.
+    /// </summary>
+    /// <remarks>
+    /// "Each opponent loses 3 life unless they pay {2}" is three questions at a four-player table
+    /// and <see cref="MayPay"/> asks one. Reading it would charge the first opponent and let the
+    /// rest of the table off, which is a different card from the one printed and one no coverage
+    /// number could tell apart from a working reader. The refusal is the load-bearing half.
+    /// </remarks>
+    [Theory]
+    [InlineData("Each opponent loses 3 life unless they discard a card.")]
+    [InlineData("Each opponent sacrifices a permanent of their choice unless they pay {1}.")]
+    [InlineData("Each player loses 4 life unless they sacrifice a creature of their choice.")]
+    public void A_punisher_aimed_at_a_group_is_left_unread(string text)
+    {
+        var card = Card("Group Punisher Test", text, CardType.Sorcery);
+
+        Assert.False(CardCompiler.Compile(card).IsComplete);
+    }
+
+    /// <summary>
+    /// "Unless they're mana abilities" is not a player at all (CR 605.1a).
+    /// </summary>
+    /// <remarks>
+    /// The pronoun is the risk this whole family carries: thirteen corpus lines spell "they"
+    /// about a batch of <em>abilities</em>, and a payer vocabulary that took any "they" would
+    /// have turned a restriction on activating into an offer nobody is ever made. It stays unread
+    /// because the pattern wants a verb of payment after the word, not because anything counted
+    /// these thirteen.
+    /// </remarks>
+    [Theory]
+    [InlineData("Activated abilities of artifacts and creatures can't be activated unless "
+        + "they're mana abilities.")]
+    [InlineData("Activated abilities cost {2} more to activate unless they're mana abilities.")]
+    public void A_pronoun_that_names_abilities_is_not_a_payer(string text)
+    {
+        var card = Card("Damping Test", text, CardType.Artifact);
+
+        Assert.False(CardCompiler.Compile(card).IsComplete);
+    }
+
+    /// <summary>
+    /// The counterspell tax still asks the controller of the thing it is aimed at.
+    /// </summary>
+    /// <remarks>
+    /// The shape the widened reader grew out of, kept under test at the same door it came in
+    /// through: "its controller" is a relation to a target and not a player the text named, so it
+    /// must still go through <c>AskTargetController</c> rather than through the scope. The corpus
+    /// diff for this change was 25 cards gained, none lost and no compiled ability altered on any
+    /// card that already read - this is the behavioural half of that claim.
+    /// </remarks>
+    [Fact]
+    public void The_counterspell_tax_still_asks_the_controller_of_its_target()
+    {
+        var portal = Card(
+            "Erratic Portal Test",
+            "{1}, {T}: Return target creature to its owner's hand unless its controller pays {1}.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(portal);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var gate = game.Create(seats[0], portal, Zone.Battlefield);
+        var his = game.Create(seats[2], TestCards.Creature("Portal Victim Test", 2, 2), Zone.Battlefield);
+
+        // Untapped mana of his own, so the tax is a question rather than one answered
+        // for him (CR 118.3).
+        game.Create(seats[2], TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.AddMana(seats[0], ManaColor.Blue);
+        game.ActivateAbility(seats[0], gate, "a", targets: [Target.ToPermanent(his)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+
+        // The creature's controller, who is neither the artifact's controller nor either of the
+        // other two seats.
+        Assert.Equal(seats[2], game.State.Choice!.PlayerId);
+
+        game.Choose(seats[2], ["no"]);
+        Settle(game);
+
+        Assert.DoesNotContain(his, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// An offer with nobody to ask is an offer declined, not an effect skipped (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The direction this reader has to be wrong in. A scope that names no seat - a trigger about
+    /// a permanent rather than a player, a target that has since gone - could either do nothing
+    /// or run the consequence, and only one of those is safe: a punisher that quietly stops
+    /// punishing is a card strictly better than the one printed, and nothing downstream would
+    /// notice. So the price no player can pay is a price not paid.
+    /// <para>
+    /// No printed card says this; it is written to reach the branch, because a documented
+    /// fallback nothing exercises is a documented guess.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_price_no_player_can_be_asked_for_is_a_price_not_paid()
+    {
+        var orphan = Card(
+            "Orphan Punisher Test",
+            "Whenever this creature attacks, you lose 2 life unless they pay {1}.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(orphan);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, orphan, Zone.Battlefield);
+        var before = game.State.GetPlayer(alice).Life;
+
+        TestCards.PassToStep(game, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(alice, new Dictionary<ObjectId, AttackTarget>
+        {
+            [attacker] = AttackTarget.Player(bob),
+        });
+
+        Settle(game);
+
+        // Nobody was asked, and the consequence ran anyway.
+        Assert.Equal(before - 2, game.State.GetPlayer(alice).Life);
+        Assert.DoesNotContain(
+            game.Log, e => e is ChoiceRequested { Choice.Kind: ChoiceKind.OptionalPayment });
+    }
+
     // ---- Aftermath (CR 702.127) ----------------------------------------------
 
     /// <summary>A split card whose second half is cast from the graveyard.</summary>

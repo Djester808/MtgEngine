@@ -350,6 +350,19 @@ public sealed record OptionalPaymentRequested(
     public ObjectId? SubjectObject { get; init; }
 
     /// <summary>
+    /// The player the trigger that made the offer was about (CR 603.2).
+    /// </summary>
+    /// <remarks>
+    /// The subject object's twin, and missing for exactly the reason it was: a branch runs
+    /// against the permanent, which carries no ability and so remembers no subject. Nothing
+    /// needed it until there was a punisher to notice - the counterspell tax reaches its player
+    /// through a target. "That player loses 5 life unless they discard a card" reaches theirs
+    /// through the trigger, so declining ran a branch that named nobody and took no life, in
+    /// silence, on a card the coverage number counted as read.
+    /// </remarks>
+    public Guid? SubjectPlayer { get; init; }
+
+    /// <summary>
     /// How much the event was about, for a trigger that says "that many" (CR 603.2).
     /// </summary>
     /// <remarks>
