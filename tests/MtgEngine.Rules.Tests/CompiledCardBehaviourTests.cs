@@ -5041,20 +5041,26 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "~ deals damage to any target equal to three times the number of …" - Burn at the Stake
+    /// "…, where X is three times the number of …" - Burn at the Stake's factor on the X clause
     /// (CR 107.3).
     /// </summary>
     /// <remarks>
     /// The factor is read rather than assumed. Every other test in this section prints "twice",
     /// and all of them would pass on a reader that had learnt the one word - nine damage from
     /// three Islands is a number only the printed factor gives.
+    /// <para>
+    /// Written as the X clause on purpose. "Deals damage equal to three times the number of" was
+    /// one of the four readers that had been taught a factor of its own, so it went on reading
+    /// with this mechanism excised and proved nothing; the same arithmetic on the clause those
+    /// four never covered is what makes this test load-bearing.
+    /// </para>
     /// </remarks>
     [Fact]
     public void A_factor_other_than_two_is_the_factor_the_card_printed()
     {
         var stake = Card(
             "Factored Stake Test",
-            "~ deals damage to any target equal to three times the number of Islands you "
+            "~ deals X damage to any target, where X is three times the number of Islands you "
                 + "control.");
 
         var compiled = CardCompiler.Compile(stake);
