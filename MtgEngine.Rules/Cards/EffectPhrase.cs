@@ -18675,9 +18675,16 @@ public static partial class TriggerConditions
             }
             else if (word.Length > 1 && char.IsUpper(word[0]))
             {
-                // A named type is always a creature type in this position, so the card type is
-                // implied and does not have to be printed.
-                alternatives.Add((Domain.Enums.CardType.Creature, word));
+                // Which card type the subtype belongs to, asked of the shared table (CR 205.3).
+                // This arm said "creature" outright and had a comment saying a named type always
+                // is one in this position. It is not: an Equipment is an artifact, an Aura is an
+                // enchantment and a Forest is a land, so "whenever a Forest you control enters"
+                // compiled into a trigger watching for a *creature* with the land type Forest -
+                // of which there are none. The trigger existed, was watched for on every event,
+                // and could not fire on any board that will ever be built. Complete, playable,
+                // and silent, which is the failure mode this table was written to end; the fix
+                // landed in the target grammar and the graveyard reader and never here.
+                alternatives.Add((EffectPhrase.Specs.SubtypeCardType(word), word));
             }
             else
             {

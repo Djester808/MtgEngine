@@ -1413,21 +1413,22 @@ public sealed class CompiledCardBehaviourTests
         var held = game.State.GetPlayer(alice).Hand.Count;
         game.CastSpell(bob, bait, []);
 
-        // Both questions, answered by hand: the price goes to the caster and the draw is offered
-        // to the enchantment's controller, which is the whole shape of the card.
-        var asked = new List<Guid>();
-        for (var guard = 0; guard < 8; guard++)
-        {
-            if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment } offer)
-                break;
+        // The price goes to the caster, which is the half that already worked.
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        var price = game.State.Choice!;
+        Assert.Equal(bob, price.PlayerId);
+        game.Choose(bob, ["no"]);
 
-            asked.Add(offer.PlayerId);
-            game.Choose(offer.PlayerId, [offer.PlayerId == bob ? "no" : "yes"]);
-        }
+        // And the draw is offered to the enchantment's controller, which is the half that was
+        // never reached: the branch is found by locator, and both offers carried 0.
+        var draw = game.State.Choice;
+        Assert.NotNull(draw);
+        Assert.Equal(ChoiceKind.OptionalPayment, draw!.Kind);
+        Assert.Equal(alice, draw.PlayerId);
+        game.Choose(alice, ["yes"]);
 
         Settle(game);
 
-        Assert.Equal([bob, alice], asked);
         Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
     }
 
@@ -1535,6 +1536,12 @@ public sealed class CompiledCardBehaviourTests
         var compiled = CardCompiler.Compile(reach);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
+        // The whole fix in one field, asserted before the game starts: an ability that acts on
+        // its card in a graveyard has to be watching from the graveyard, and Game.Consider skips
+        // any ability whose source is not in its functioning zone.
+        var recursion = Assert.Single(compiled.Triggers);
+        Assert.Equal(Zone.Graveyard, recursion.FunctionsFrom);
+
         var (game, alice, _) = InMainPhase();
         var card = TestCards.PutInHand(game, alice, reach);
 
@@ -1549,20 +1556,17 @@ public sealed class CompiledCardBehaviourTests
         var forest = TestCards.PutInHand(game, alice, TestCards.BasicLand("Forest"));
         game.PlayLand(alice, forest);
 
-        // The offer is the trigger resolving, which is the half that never happened before.
-        for (var guard = 0; guard < 8; guard++)
-        {
-            if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment } offer)
-            {
-                Run(game);
-                if (game.State.Choice is not { Kind: ChoiceKind.OptionalPayment })
-                    break;
+        // It has to reach the stack at all, which it never did while the ability was waiting on
+        // a battlefield this card cannot be on.
+        Assert.Contains(
+            game.Log.OfType<AbilityTriggered>(),
+            t => t.Text.Contains("from your graveyard", StringComparison.Ordinal));
 
-                continue;
-            }
-
-            game.Choose(offer.PlayerId, ["yes"]);
-        }
+        // And the offer it resolves into is the "you may".
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        var offer = game.State.Choice!;
+        Assert.Equal(alice, offer.PlayerId);
+        game.Choose(alice, ["yes"]);
 
         Settle(game);
 
@@ -1623,6 +1627,64 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(
             game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
             o => o.Card.Name == "Cauldron Test");
+    }
+
+    /// <summary>
+    /// A trigger naming a land type watches for a land, not for a creature (CR 205.3).
+    /// </summary>
+    /// <remarks>
+    /// The largest of the five, and the one the audit could not see. Every card type has its own
+    /// subtypes and the sets do not overlap, so the word alone settles which type is meant - and
+    /// <c>Specs.SubtypeCardType</c> has said so since "for each Equipment you control" was found
+    /// asking for a creature with the Equipment subtype. The trigger-condition reader never asked
+    /// it. It paired every capitalised noun with <c>CardType.Creature</c>, with a comment saying
+    /// a named type always is one in this position, so "whenever a Forest you control enters"
+    /// compiled into a trigger watching for a <em>creature</em> with the land type Forest. There
+    /// are none, and there can be none: the trigger was consulted on every event of every game
+    /// and could not fire on any board that will ever be built.
+    /// <para>
+    /// 61 corpus cards print the shape, across every non-creature subtype the reader can meet -
+    /// Vehicle, Aura, Forest, Equipment, Mountain, Shrine, Swamp, Gate, Island, Desert, Food,
+    /// Cave, Clue, Curse. Baru, Fist of Krosa; Puresteel Paladin; Dread Presence; Guild Summit.
+    /// </para>
+    /// <para>
+    /// It is invisible to a filter audit because a trigger condition is a compiled predicate and
+    /// not a filter string - the same blind spot the mass-static check was written for, one
+    /// reader along - which is why it was found by playing the card rather than by reading it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_trigger_on_a_land_type_fires_for_the_land_and_not_for_another()
+    {
+        var baru = Card(
+            "Land Type Trigger Test",
+            "Whenever a Forest you control enters, you gain 2 life.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(baru);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, baru, Zone.Battlefield);
+
+        var forest = TestCards.PutInHand(game, alice, TestCards.BasicLand("Forest"));
+        game.PlayLand(alice, forest);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        // A land of another type is not a Forest, so the trigger stays narrow: the fix widens
+        // which card type answers, not which subtype.
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var island = TestCards.PutInHand(game, bob, TestCards.BasicLand("Island"));
+        game.PlayLand(bob, island);
+        Settle(game);
+
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
     // ---- Declining to untap (CR 502.3) ---------------------------------------
