@@ -704,6 +704,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
 
         output.WriteLine($"fully read lands:                  {lands.Count,6}");
         output.WriteLine($"  played from hand as a land drop: {found.Dropped,6}");
+        output.WriteLine($"  distinct lands that reached one: {found.Reached.Count,6}");
         output.WriteLine($"  entered tapped:                  {found.EnteredTapped,6}");
         output.WriteLine($"  asked a question as they landed: {found.Questioned,6}");
         output.WriteLine($"mana abilities activated:          {found.Activated,6}");
@@ -711,6 +712,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         output.WriteLine($"  exactly what they promised:      {found.Exact,6}");
         output.WriteLine($"  production the text decides:     {found.Unreadable,6}");
         output.WriteLine($"non-mana buttons pressed:          {found.Pressed,6}");
+        output.WriteLine($"  distinct lands that pressed one: {found.Pressers.Count,6}");
         output.WriteLine($"lands with no mana ability at all: {found.NoManaAbility.Count,6}");
 
         output.WriteLine(string.Empty);
@@ -804,10 +806,10 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
     /// <remarks>
     /// Most mana abilities cost a tap, so a land offering several - "Add one mana of any color"
     /// compiles to five alternatives, one per colour - can only produce one of them per turn.
-    /// Seven covers every alternative count in the corpus with a turn to spare for a land that
-    /// entered tapped.
+    /// Eight covers every alternative count in the corpus with turns to spare for a land that
+    /// entered tapped and for the round its non-mana button took.
     /// </remarks>
-    private const int TapRounds = 7;
+    private const int TapRounds = 8;
 
     /// <summary>The five basic land types and the mana each carries (CR 305.6).</summary>
     private static readonly (string Subtype, ManaColor Colour)[] BasicLandTypes =
@@ -830,7 +832,11 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         public int Unreadable;
         public int Pressed;
 
+        public HashSet<string> Reached { get; } = new(StringComparer.Ordinal);
+
         public HashSet<string> Producers { get; } = new(StringComparer.Ordinal);
+
+        public HashSet<string> Pressers { get; } = new(StringComparer.Ordinal);
 
         public HashSet<string> NoManaAbility { get; } = new(StringComparer.Ordinal);
 
@@ -874,12 +880,14 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             startingPlayerId: alice,
             abilities: pool);
 
-        // No opening hand. Seven filler cards on top of twelve lands puts the hand over the
-        // maximum, the cleanup step asks for a discard (CR 514.1), and the harness would answer
-        // by throwing away the very cards it came to play.
+        // No opening hand, and each land is put into it only at the moment it is to be played.
+        // A hand of twelve is already over the maximum on its own, the cleanup step asks for a
+        // discard (CR 514.1), and the harness answers by throwing away the very cards it came to
+        // play: measured, that cost 274 of the 826 lands before one of them reached a
+        // battlefield. The lands still share a board afterwards - only the hand is kept legal.
         game.BeginPlay(openingHandSize: 0, withMulligans: false);
 
-        var waiting = new Queue<ObjectId>(table.Select(c => game.Create(alice, c, Zone.Hand)));
+        var waiting = new Queue<CardDefinition>(table);
 
         Settle(game);
 
@@ -901,12 +909,14 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 && game.State.IsSorcerySpeedFor(alice)
                 && game.State.GetPlayer(alice).LandsPlayedThisTurn == 0)
             {
-                var card = waiting.Dequeue();
+                var definition = waiting.Dequeue();
+                var card = game.Create(alice, definition, Zone.Hand);
 
                 try
                 {
                     var arrived = game.PlayLand(alice, card);
                     found.Dropped++;
+                    found.Reached.Add(definition.Name);
                     placed.Add(arrived);
 
                     // The question a land can ask as it arrives - a shockland's "you may pay 2
@@ -966,35 +976,61 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 if (round == 0)
                     CheckIntrinsic(land, offered, found);
 
-                foreach (var ability in offered)
+                // The buttons that are not mana abilities go first, and the reason is that most
+                // of both kinds cost a tap: a land carrying "{T}: Add {B}" and "{T}: Draw a card"
+                // has one tap to spend per turn, and whichever is tried first is the only one
+                // that ever fires. Mana is the plentiful half - a land offering several taps for
+                // one of them per turn anyway and comes back next round - so the scarce tap is
+                // spent first on the ability nothing else in the run reaches at all.
+                foreach (var pressing in new[] { false, true })
                 {
-                    var key = id.Value.ToString() + "/" + ability.Id;
-                    if (!used.Add(key))
-                        continue;
+                    foreach (var ability in offered)
+                    {
+                        if (ability.IsManaAbility == pressing)
+                            continue;
 
-                    if (ability.IsManaAbility)
-                    {
-                        // Put back if it was refused, so the next untap step tries it again: a
-                        // land offering five alternatives can only pay the tap for one of them
-                        // per turn, and dropping the other four is how a harness silently stops
-                        // reaching four fifths of what it came for.
-                        if (Taps(game, alice, id, land.Card, ability, found))
-                            anything = true;
-                        else
-                            used.Remove(key);
-                    }
-                    else if (round == 0)
-                    {
+                        // The land may have left: a fetchland sacrifices itself to pay for its
+                        // own ability, and the abilities after it in this list belong to an
+                        // object that is no longer on the battlefield.
+                        if (!game.State.TryGetObject(id, out var still)
+                            || still.Zone != Zone.Battlefield)
+                        {
+                            break;
+                        }
+
+                        var key = id.Value.ToString() + "/" + ability.Id;
+                        if (!used.Add(key))
+                            continue;
+
+                        if (pressing)
+                        {
+                            // Put back if it was refused, so the next untap step tries it again:
+                            // a land offering five alternatives can only pay the tap for one of
+                            // them per turn, and dropping the other four is how a harness
+                            // silently stops reaching four fifths of what it came for.
+                            if (Taps(game, alice, id, land.Card, ability, found))
+                                anything = true;
+                            else
+                                used.Remove(key);
+
+                            continue;
+                        }
+
                         // A land whose button is not a mana ability - "{T}: Target creature gains
-                        // shroud", "{2}, {T}: Draw a card". Pressed once, generously funded, with
-                        // the shapes the ability soak offers, because it is code that runs only
-                        // when somebody pays for it and nothing else here pays.
+                        // shroud", "{2}, {T}: Draw a card". Generously funded, with the shapes the
+                        // ability soak offers, because it is code that runs only when somebody
+                        // pays for it and nothing else here pays.
                         Fund(game, alice);
 
                         if (Press(game, alice, id, ability.Id, Aims(game, alice, id)))
                         {
                             found.Pressed++;
+                            found.Pressers.Add(land.Card.Name);
                             anything = true;
+                        }
+                        else
+                        {
+                            used.Remove(key);
                         }
 
                         Settle(game);
