@@ -689,6 +689,15 @@ public sealed class Game
             }
         }
 
+        // The described offers lapse on the same pass and for the same reason - the printed
+        // window is inside the resolution, and this is the closest an engine that cannot cast
+        // there gets to it. A permission with no end at all would be an Omniscience.
+        foreach (var offer in State.HandCastOffers)
+        {
+            if (offer.PlayerId == playerId)
+                Emit(new HandCastOfferLapsed(offer.Id));
+        }
+
         var next = State.NextInTurnOrderAfter(playerId);
         Emit(new PriorityPassed(playerId, next));
 
@@ -801,6 +810,7 @@ public sealed class Game
         bool teamwork = false,
         IReadOnlyList<int>? kickedWith = null,
         bool cleaved = false,
+        bool freeFromHand = false,
         Guid? giftTo = null)
     {
         RequirePriority(playerId);
@@ -840,6 +850,31 @@ public sealed class Game
         // card is, for nothing — and it has to be read before both the timing rule and the zone
         // rule below, because the whole point is that neither would otherwise allow it.
         var onTheHouse = card.MayCastFree;
+
+        // CR 601.2b: a standing offer to cast one described card from hand for nothing. Elected
+        // rather than applied, because a player who has one may still want to pay full price and
+        // keep it for something better - and because an offer taken by accident is an offer
+        // spent, which is the one thing about this permission that cannot be undone.
+        //
+        // Matched by description against the card, and the *first* match is taken: two offers
+        // that both cover this card are two separate permissions, and taking either leaves the
+        // other standing, which is what the printed cards say.
+        State.HandCastOffer? handOffer = null;
+
+        if (freeFromHand)
+        {
+            if (card.Zone != Zone.Hand)
+            {
+                throw new InvalidOperationException(
+                    "That offer casts a card from your hand (CR 601.2b).");
+            }
+
+            handOffer = State.HandCastOffers
+                .FirstOrDefault(offer => offer.PlayerId == playerId && offer.Covers(card.Card))
+                ?? throw new InvalidOperationException(
+                    $"Nothing is offering to cast {card.Card.Name} from your hand without "
+                        + "paying its mana cost (CR 601.2b).");
+        }
 
         // CR 702.143a: a foretold card may be cast from exile for its foretell cost, but only on
         // a turn after the one it was foretold on. The card being in exile is not permission —
@@ -1012,7 +1047,10 @@ public sealed class Game
         // An offer made during a resolution is not bound by sorcery timing (CR 702.85a): cascade
         // hands you a sorcery while the spell that cascaded is still on the stack, and the whole
         // mechanic depends on your being allowed to cast it there.
-        if (!isInstant && !onTheHouse && !State.IsSorcerySpeedFor(playerId))
+        // An offer taken during a resolution is not bound by sorcery timing either, and for the
+        // reason the free cast beside it is not: the Expertise is still on the stack when it
+        // hands the window over.
+        if (!isInstant && !onTheHouse && handOffer is null && !State.IsSorcerySpeedFor(playerId))
             throw new InvalidOperationException(
                 $"{card.Card.Name} can only be cast during your main phase with an empty stack (CR 505.6a).");
 
@@ -1348,6 +1386,12 @@ public sealed class Game
             : prepared
             ? ManaCostSpec.Parse(_abilities.PreparedCostOf(card.Card) ?? card.Card.ManaCostRaw)
             : fromPlot
+            ? ManaCostSpec.Free
+
+            // The offer pays nothing at all, and nothing about the card is consulted: it is not
+            // an alternative cost printed on the spell, it is a permission somebody else's spell
+            // handed over (CR 601.2b).
+            : handOffer is not null
             ? ManaCostSpec.Free
             : onTheHouse
             ? ManaCostSpec.Parse(card.OfferedCost)
@@ -2166,6 +2210,17 @@ public sealed class Game
         // announced so anything that triggers on the cast sees the face that is actually up.
         if (onTheHouse && card.CastsTransformed && card.Card.Faces.Count > 1)
             Emit(new PermanentTransformed(stackId, 1));
+
+        // CR 601.2b: the offer is spent by the cast that used it, recorded here rather than left
+        // to the pass that would otherwise sweep it. Emitted before the cast is announced, for
+        // the reason PreventionEffectSpent is emitted inside the replacement that used the
+        // shield: anything that triggers off this cast must not find the offer still standing.
+        //
+        // Without this the permission is one a player takes as many times as their hand has
+        // answers, which is a strictly better card than the one printed - and a suite that only
+        // ever casts once cannot see it.
+        if (handOffer is { } taken)
+            Emit(new HandCastOfferSpent(taken.Id));
 
         // CR 700.14: what the caster handed over, and where that leaves their running total for
         // the turn. Emitted before the cast so the two triggers off one spell are collected

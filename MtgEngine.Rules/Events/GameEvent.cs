@@ -2104,6 +2104,63 @@ public sealed record FreeCastLapsed(ObjectId Id) : GameEvent
 }
 
 /// <summary>
+/// A player may cast one card from their hand for nothing (CR 601.2b).
+/// </summary>
+/// <remarks>
+/// The offer <see cref="FreeCastOffered"/> cannot make, and the difference is which of the two
+/// knows what card it is about. That one names an object, because the effect that makes it has
+/// exiled or milled a particular card and the permission is a fact about that card. This one
+/// names a description - "a spell with mana value 3 or less" - and the card is chosen by the
+/// player at the moment they cast, so the permission has to be a fact about the player.
+/// <para>
+/// The whole offer travels on the event rather than an id into a registry, for the reason
+/// <see cref="PreventionEffectCreated"/> carries its shield: what it covers is data, so the fold
+/// is a copy rather than a lookup and the state cannot describe a different offer from the log.
+/// </para>
+/// </remarks>
+public sealed record HandCastOffered(State.HandCastOffer Offer) : GameEvent
+{
+    public override string Rule => "601.2b";
+
+    public override string Describe() =>
+        $"{Offer?.PlayerId:N} may cast a card from hand without paying.";
+}
+
+/// <summary>An offer to cast from hand has been taken (CR 601.2b).</summary>
+/// <remarks>
+/// **The event that makes the permission spent rather than standing.** Without it the offer sits
+/// on the player until they pass, and an Expertise that casts one spell would cast every spell
+/// in the hand that answered its description - strictly better than the printed card, and a
+/// thing no test that only casts once can see.
+/// <para>
+/// Emitted <em>by the cast that used it</em>, in the same batch and before the cast is announced,
+/// exactly as <see cref="PreventionEffectSpent"/> is emitted by the replacement that used the
+/// shield: the fact is about that one cast, and written any later a trigger off the cast could
+/// find the offer still open and take it again.
+/// </para>
+/// </remarks>
+public sealed record HandCastOfferSpent(Guid OfferId) : GameEvent
+{
+    public override string Rule => "601.2b";
+
+    public override string Describe() => "The free cast from hand was taken.";
+}
+
+/// <summary>An offer to cast from hand lapsed unused (CR 601.2b).</summary>
+/// <remarks>
+/// The other end, and the one that keeps a permission from outliving its window. It is the same
+/// moment <see cref="FreeCastLapsed"/> happens at - the offered player passing priority - because
+/// the deviation both share is the same one: the rules give the window inside the resolution, and
+/// an engine that cannot cast in the middle of one gives the next pass instead.
+/// </remarks>
+public sealed record HandCastOfferLapsed(Guid OfferId) : GameEvent
+{
+    public override string Rule => "601.2b";
+
+    public override string Describe() => "The free cast from hand lapsed.";
+}
+
+/// <summary>
 /// A player became a battle's protector (CR 310.9).
 /// </summary>
 /// <remarks>

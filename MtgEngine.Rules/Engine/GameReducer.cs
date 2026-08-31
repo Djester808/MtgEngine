@@ -556,6 +556,24 @@ public static class GameReducer
             {
                 LifeGainBans = state.LifeGainBans.Add(banned.Ban),
             },
+            HandCastOffered offer => state with
+            {
+                HandCastOffers = state.HandCastOffers.Add(offer.Offer),
+            },
+
+            // Taken and lapsed fold identically - the offer is gone either way - and they are
+            // two events rather than one because the log is read by people as well as by this
+            // switch, and "the Expertise cast something" and "the Expertise cast nothing" are
+            // different games. Removed by id for the reason PreventionEffectSpent removes by id:
+            // two Expertises resolved in one turn are two offers equal in every other field.
+            HandCastOfferSpent spent => state with
+            {
+                HandCastOffers = state.HandCastOffers.RemoveAll(o => o.Id == spent.OfferId),
+            },
+            HandCastOfferLapsed lapsed => state with
+            {
+                HandCastOffers = state.HandCastOffers.RemoveAll(o => o.Id == lapsed.OfferId),
+            },
             RedirectionChanged redirect => Redirect(state, redirect),
             HandLookedAt => state,
             FreerunningEnabled ready => state.WithPlayer(

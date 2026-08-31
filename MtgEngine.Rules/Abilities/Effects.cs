@@ -1214,6 +1214,54 @@ public sealed record OfferHiddenCard : IEffect
 }
 
 /// <summary>
+/// "You may cast a spell with mana value 3 or less from your hand without paying its mana cost"
+/// - one free cast, described rather than named (CR 601.2b).
+/// </summary>
+/// <remarks>
+/// The Expertise cycle's payload, and the offer-a-cast family's other shape. Every other member
+/// - cascade, madness, hideaway, a defeated Siege - has already found the card by the time it
+/// makes the offer, so the permission goes on that object and there is one of it. This sentence
+/// names no card. The player picks one out of a hand as they cast, which means the permission
+/// cannot be a fact about an object without being a fact about <em>every</em> object in the hand
+/// that answers the description - and an Expertise that pays for two spells is not the card that
+/// was printed.
+/// <para>
+/// So it makes a <see cref="State.HandCastOffer"/>: a permission on the player, spent by the
+/// cast that takes it. See that record for why the count is the whole mechanism, and
+/// <see cref="PreventDescribedDamage.OnlyOnce"/> for the shape it borrows - a permission ended
+/// by an event the action that used it emits, because the state is a fold of the log.
+/// </para>
+/// <para>
+/// The window is the next pass, which is this family's standing deviation and is written down
+/// under <see cref="State.GameObject.MayCastFree"/>: the printed sentence gives the window
+/// inside the resolution, and casting cannot happen in the middle of one.
+/// </para>
+/// </remarks>
+public sealed record OfferFreeCastFromHand(
+    string? SpellFilter = null, Amount? MaxManaValue = null) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return
+        [
+            new HandCastOffered(new State.HandCastOffer
+            {
+                Id = Guid.NewGuid(),
+                PlayerId = context.ControllerId,
+                SpellFilter = SpellFilter,
+
+                // Read here rather than at compile time because "mana value X or less" is the
+                // X this very spell was cast for (CR 202.3b) - Electrodominance names it, and a
+                // cap fixed when the card compiled would be the same number every game.
+                MaxManaValue = MaxManaValue?.In(context),
+            }),
+        ];
+    }
+}
+
+/// <summary>
 /// Exiles a permanent and brings it back at the next end step (CR 603.7b).
 /// </summary>
 /// <remarks>

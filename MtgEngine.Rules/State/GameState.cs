@@ -258,6 +258,17 @@ public sealed record GameState
     public ImmutableList<LifeGainBan> LifeGainBans { get; init; } = [];
 
     /// <summary>
+    /// Standing offers to cast a card from a hand for nothing (CR 601.2b).
+    /// </summary>
+    /// <remarks>
+    /// Here rather than on a card for the reason <see cref="HandCastOffer"/> gives: the sentence
+    /// that makes one names no card, so the permission belongs to the player and is spent when
+    /// it is taken. Every other offer in the family lives on the object it is about, which is
+    /// what makes those self-limiting and this not.
+    /// </remarks>
+    public ImmutableList<HandCastOffer> HandCastOffers { get; init; } = [];
+
+    /// <summary>
     /// Every permanent that has entered the battlefield this turn, oldest first (CR 400.7).
     /// </summary>
     /// <remarks>
@@ -644,6 +655,7 @@ public sealed record GameState
         Structural.Same(Preventions, other.Preventions) &&
         Structural.Same(Unpreventable, other.Unpreventable) &&
         Structural.Same(LifeGainBans, other.LifeGainBans) &&
+        Structural.Same(HandCastOffers, other.HandCastOffers) &&
 
         // Delayed triggers were missing from this comparison, which is the one omission
         // that hides itself: two states differing only in what is waiting to happen
