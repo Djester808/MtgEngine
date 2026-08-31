@@ -181,7 +181,7 @@ public sealed record TriggeredAbilityDefinition
     /// the battlefield. Asked without one, every anthem in the game is invisible and the
     /// condition answers about printed values.
     /// </remarks>
-    public Func<GameState, IAbilitySource, GameObject, bool>? StateCondition { get; init; }
+    public BoardCondition? StateCondition { get; init; }
 
     /// <summary>
     /// Where the source has to be for the ability to work. Almost everything triggers from the

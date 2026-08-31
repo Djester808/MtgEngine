@@ -834,7 +834,7 @@ public sealed class Game
             // The card in the graveyard is the source the question is asked about, so a condition
             // that names the card itself has the right object to look at.
             && (alternative.Available is null
-                || alternative.Available(State, _abilities, card));
+                || alternative.Available(State, _abilities, card, null));
 
         // CR 601.2b: an offer to cast without paying is permission to cast from wherever the
         // card is, for nothing — and it has to be read before both the timing rule and the zone
@@ -2224,7 +2224,7 @@ public sealed class Game
 
         // CR 602.5b: a printed restriction on the board rather than on the phase. Asked of the
         // source permanent, because "you" in the printed condition means whoever controls it.
-        if (ability.ActivateOnlyIf?.Invoke(State, _abilities, source) == false)
+        if (ability.ActivateOnlyIf?.Invoke(State, _abilities, source, null) == false)
         {
             throw new InvalidOperationException(
                 "That ability cannot be activated right now (CR 602.5b).");
@@ -5082,7 +5082,7 @@ public sealed class Game
                     continue;
                 }
 
-                if (ability.ActivateOnlyIf?.Invoke(State, _abilities, obj) == false)
+                if (ability.ActivateOnlyIf?.Invoke(State, _abilities, obj, null) == false)
                     continue;
 
                 var produces = ImmutableList.CreateBuilder<ManaProduction>();
@@ -10318,7 +10318,7 @@ public sealed class Game
                 live.Add(key);
 
                 var armed = State.ArmedStateTriggers.Contains(key);
-                var nowTrue = holds(State, _abilities, obj);
+                var nowTrue = holds(State, _abilities, obj, null);
 
                 if (nowTrue == armed)
                     continue;

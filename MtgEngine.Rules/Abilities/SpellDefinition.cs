@@ -848,7 +848,7 @@ public sealed record AlternativeCastZone(
     /// compiled definition is rebuilt from the card, and a predicate cannot be folded from a log.
     /// </para>
     /// </remarks>
-    public Func<GameState, IAbilitySource, GameObject, bool>? Available { get; init; }
+    public BoardCondition? Available { get; init; }
 }
 
 /// <summary>
@@ -973,7 +973,7 @@ public sealed record ActivatedAbilityDefinition
     /// activated, and re-checked nowhere, because CR 602.5b is about announcing the ability and
     /// not about it resolving.
     /// </remarks>
-    public Func<State.GameState, IAbilitySource, State.GameObject, bool>? ActivateOnlyIf
+    public BoardCondition? ActivateOnlyIf
     {
         get;
         init;

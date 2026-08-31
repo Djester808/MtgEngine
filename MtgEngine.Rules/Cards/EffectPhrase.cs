@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -881,7 +882,7 @@ public static partial class EffectPhrase
         if (!kicked && DeicticCondition().IsMatch(condition))
             return false;
 
-        var holds = kicked ? null : BoardConditions.Parse(condition);
+        var holds = kicked ? null : BoardConditions.ParseAbout(condition);
 
         if (!kicked && holds is null)
             return false;
@@ -941,7 +942,8 @@ public static partial class EffectPhrase
                     [
                         new OnlyIf(holds!, scratch.ToImmutable()),
                         new OnlyIf(
-                            (state, abilities, source) => !holds!(state, abilities, source),
+                            (state, abilities, source, subject) =>
+                                !holds!(state, abilities, source, subject),
                             replaced),
                     ]));
 
@@ -1090,7 +1092,7 @@ public static partial class EffectPhrase
     {
         var opening = ConditionalSentence().Match(conditional.Trim());
         if (!opening.Success
-            || BoardConditions.Parse(opening.Groups["cond"].Value.Trim()) is not { } holds)
+            || BoardConditions.ParseAbout(opening.Groups["cond"].Value.Trim()) is not { } holds)
         {
             return false;
         }
@@ -1140,7 +1142,8 @@ public static partial class EffectPhrase
             [
                 new OnlyIf(holds, then.ToImmutable()),
                 new OnlyIf(
-                    (state, abilities, source) => !holds(state, abilities, source),
+                    (state, abilities, source, subject) =>
+                        !holds(state, abilities, source, subject),
                     instead.ToImmutable()),
             ]));
 
@@ -1148,8 +1151,8 @@ public static partial class EffectPhrase
     }
 
     /// <summary>A condition that is always met — the wrapper above holds two that are not.</summary>
-    private static bool Whatever(GameState state, IAbilitySource abilities, GameObject source) =>
-        true;
+    private static bool Whatever(
+        GameState state, IAbilitySource abilities, GameObject source, Guid? subject) => true;
 
     private static IEnumerable<string> Sentences(string text)
     {
@@ -6518,7 +6521,7 @@ public static partial class EffectPhrase
                 return false;
 
             effects.Add(new OnlyIf(
-                (_, _, self) =>
+                (_, _, self, _) =>
                     (self.Permanent?.Counters.GetValueOrDefault(kind, 0) ?? 0) == 0,
                 [new SacrificeSource()]));
 
@@ -6534,7 +6537,7 @@ public static partial class EffectPhrase
                 return false;
 
             effects.Add(new OnlyIf(
-                (_, _, arrived) => arrived.ManaSpent[needed] == 0,
+                (_, _, arrived, _) => arrived.ManaSpent[needed] == 0,
                 [new SacrificeSource()]));
 
             return true;
@@ -7216,7 +7219,7 @@ public static partial class EffectPhrase
                 return true;
             }
 
-            if (BoardConditions.Parse(gate) is not { } holds)
+            if (BoardConditions.ParseAbout(gate) is not { } holds)
                 return false;
 
             effects.Add(new OnlyIf(holds, [new OfferHiddenCard()]));
@@ -7242,7 +7245,7 @@ public static partial class EffectPhrase
         if (adapting.Success)
         {
             effects.Add(new OnlyIf(
-                (state, _, source) => state.TryGetObject(source.Id, out var self)
+                (state, _, source, _) => state.TryGetObject(source.Id, out var self)
                     && (self.Permanent?.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne) ?? 0) == 0,
                 [
                     new PutCounters(
@@ -7516,7 +7519,8 @@ public static partial class EffectPhrase
         }
 
         if (conditional.Success
-            && BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is { } required)
+            && BoardConditions.ParseAbout(conditional.Groups["cond"].Value.Trim())
+                is { } required)
         {
             var guarded = ImmutableList.CreateBuilder<IEffect>();
 
@@ -7561,7 +7565,8 @@ public static partial class EffectPhrase
         // would do its worst arm every time.
         var negative = UnlessSentence().Match(sentence);
         if (negative.Success
-            && BoardConditions.Parse(negative.Groups["cond"].Value.Trim()) is { } forbidden)
+            && BoardConditions.ParseAbout(negative.Groups["cond"].Value.Trim())
+                is { } forbidden)
         {
             var otherwise = ImmutableList.CreateBuilder<IEffect>();
 
@@ -7581,7 +7586,8 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new OnlyIf(
-                (state, abilities, source) => !forbidden(state, abilities, source),
+                (state, abilities, source, subject) =>
+                    !forbidden(state, abilities, source, subject),
                 otherwise.ToImmutable()));
 
             return true;
@@ -14097,6 +14103,18 @@ public static partial class EffectPhrase
         @"each opponent|each other player|each player|that player|defending player"
             + @"|enchanted player|the subject's controller|they|them";
 
+    /// <summary>Whether a printed word is one of the player subjects this list knows.</summary>
+    /// <remarks>
+    /// Asked by <c>BoardConditions</c>, which reads the same words in a condition that this
+    /// grammar reads in a sentence and had spelled out its own smaller list seventeen times.
+    /// Exposed as a question rather than as the string, so the two cannot drift: a word added to
+    /// <see cref="WhoElse"/> is a word every condition understands the same day.
+    /// </remarks>
+    internal static bool NamesAPlayer(string word) => JustAPlayer().IsMatch(word);
+
+    [GeneratedRegex(@"^(?:" + WhoElse + @")$", RegexOptions.IgnoreCase)]
+    private static partial Regex JustAPlayer();
+
     /// <summary>The same group with "you" left out.</summary>
     private const string WThem = @"(?<who>" + WhoElse + @")";
 
@@ -17109,14 +17127,15 @@ public static partial class TriggerConditions
             // "While saddled" has no subject, because the sentence already named one: the
             // permanent whose trigger this is. Asked plainly first, so a clause that does name
             // its own subject still reaches the reader that expects one.
-            var holds = BoardConditions.Parse(meanwhile)
-                ?? BoardConditions.Parse("~ is " + meanwhile);
+            var holds = BoardConditions.ParseAbout(meanwhile)
+                ?? BoardConditions.ParseAbout("~ is " + meanwhile);
 
             if (Parse(qualified.Groups["when"].Value.Trim()) is not { } fires || holds is null)
                 return null;
 
             return (e, state, source) =>
-                fires(e, state, source) && holds(state, source.Abilities, source);
+                fires(e, state, source)
+                && holds(state, source.Abilities, source, Game.SubjectOf(e, state));
         }
 
         if (TryPhase(condition) is { } phase)
