@@ -695,7 +695,24 @@ public sealed record ReplacementEffectDefinition
     public required string Id { get; init; }
 
     /// <summary>Whether this effect applies to the event that is about to happen.</summary>
-    public required Func<GameEvent, GameState, GameObject, bool> Applies { get; init; }
+    /// <remarks>
+    /// The <see cref="IAbilitySource"/> is the third argument for the reason
+    /// <see cref="Branches"/> takes one: a predicate that asks what a permanent <em>is</em> —
+    /// "damage dealt to creatures with flying", "damage dealt by creatures you control" — is
+    /// asking a CR 613 question, and the layers cannot be computed without the granted abilities
+    /// on the board. Passing an empty source here is not a small approximation: the computation
+    /// then gathers no continuous effects at all, so a creature that gained first strike from an
+    /// Aura answers to the printed card and the shield reads the wrong creature.
+    /// <para>
+    /// It costs every construction site an argument it mostly ignores, and that is the trade this
+    /// signature had already been recorded as needing.
+    /// </para>
+    /// </remarks>
+    public required Func<GameEvent, GameState, IAbilitySource, GameObject, bool> Applies
+    {
+        get;
+        init;
+    }
 
     /// <summary>
     /// Whether this one is a prevention effect, and so answerable to CR 615.12.

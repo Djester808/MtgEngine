@@ -11740,7 +11740,7 @@ public sealed class Game
                 if (effect.FunctionsFrom is { } zone && source.Zone != zone)
                     continue;
 
-                if (!effect.Applies(e, State, source))
+                if (!effect.Applies(e, State, _abilities, source))
                     continue;
 
                 // CR 615.12, for the half of the prevention family that lives out here. A
@@ -11785,7 +11785,7 @@ public sealed class Game
             if (effect.FunctionsFrom is { } zone && made.Zone != zone)
                 continue;
 
-            if (!effect.Applies(e, State, arriving))
+            if (!effect.Applies(e, State, _abilities, arriving))
                 continue;
 
             foreach (var candidate in Branches(e, made.Id, effect, arriving, applied))

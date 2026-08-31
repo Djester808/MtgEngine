@@ -1953,7 +1953,7 @@ public static partial class CardCompiler
             {
                 Id = "saga-enters-with-lore",
                 FunctionsFrom = null,
-                Applies = (e, _, source) => Arriving(e, source) is not null,
+                Applies = (e, _, _, source) => Arriving(e, source) is not null,
                 Replace = (e, _, source) =>
                     [e, new CountersChanged(Arriving(e, source)!.Value, CounterKinds.Lore, 1)],
             });
@@ -2643,8 +2643,9 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "solved" + r.Id,
-                Applies = (e, state, source) =>
-                    source?.Permanent is { IsSolved: true } && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    source?.Permanent is { IsSolved: true }
+                    && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -2785,8 +2786,8 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "l" + need.ToString(CultureInfo.InvariantCulture) + r.Id,
-                Applies = (e, state, source) =>
-                    AtLeastLevel(source, need) && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    AtLeastLevel(source, need) && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -3044,8 +3045,8 @@ public static partial class CardCompiler
             replacements.AddRange(section.Replacements.Select(r => r with
             {
                 Id = "l" + floor + r.Id,
-                Applies = (e, state, source) =>
-                    reached.Covers(LevelsOn(source)) && r.Applies(e, state, source),
+                Applies = (e, state, abilities, source) =>
+                    reached.Covers(LevelsOn(source)) && r.Applies(e, state, abilities, source),
             }));
         }
 
@@ -5212,7 +5213,7 @@ public static partial class CardCompiler
             Id = $"dredge:{many}",
             FunctionsFrom = Zone.Graveyard,
             IsOptional = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is Events.ObjectMoved { To: Zone.Hand, Cause: Events.MoveCause.Draw } drawn
                 && drawn.ControllerId == source.OwnerId
                 && state.GetPlayer(source.OwnerId).Library.Count >= many,
@@ -5270,7 +5271,7 @@ public static partial class CardCompiler
         {
             Id = "umbra-armor",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.ObjectMoved { To: Zone.Graveyard, Cause: Events.MoveCause.Destroy } gone
                 && source.Permanent?.AttachedTo == gone.OldId,
             Replace = (_, _, source) =>
@@ -5958,7 +5959,7 @@ public static partial class CardCompiler
             // silently did nothing whenever a board was set up with `Game.Create`, which is the
             // path the behaviour suite and the corpus soak both take. Nothing failed: the
             // permanent simply arrived with no counters and then never left.
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6516,7 +6517,7 @@ public static partial class CardCompiler
         {
             Id = "fading",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6591,7 +6592,7 @@ public static partial class CardCompiler
             // exactly the one the cast marked. Reaching for the permanent it is about to become
             // finds nothing: the replacement runs before the move, so that object does not exist
             // yet.
-            Applies = (e, _, source) => Arriving(e, source) is not null && source.WasEscaped,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && source.WasEscaped,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6628,7 +6629,7 @@ public static partial class CardCompiler
         {
             Id = "echo-owed",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6702,9 +6703,9 @@ public static partial class CardCompiler
         {
             Id = "bloodthirst",
             FunctionsFrom = null,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
-                && bloodied(state, EmptyAbilities.Instance, source, null),
+                && bloodied(state, abilities, source, null),
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6757,7 +6758,7 @@ public static partial class CardCompiler
         {
             Id = "ravenous",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -7126,7 +7127,7 @@ public static partial class CardCompiler
             ? CounterKinds.PlusOnePlusOne
             : CounterKinds.Loyalty;
 
-        bool Applies(GameEvent e, GameState state, GameObject source) =>
+        bool Applies(GameEvent e, GameState state, IAbilitySource _, GameObject source) =>
             Entering(e, state) is { } arriving
             && arriving.Id != source.Id
             && arriving.ControllerId == source.ControllerId
@@ -7207,7 +7208,7 @@ public static partial class CardCompiler
         {
             Id = $"enters-counters-per:{card.Name}:{m.Groups["group"].Value.Trim()}",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -7293,7 +7294,7 @@ public static partial class CardCompiler
         {
             Id = "enters-with-counters",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -14255,7 +14256,7 @@ public static partial class CardCompiler
                 : bottom ? "graveyard-to-library"
                 : "graveyard-to-exile",
             FunctionsFrom = null,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.ObjectMoved { To: Zone.Graveyard } bound && bound.OldId == source.Id,
             Replace = (e, _, source) =>
             {
@@ -14302,7 +14303,7 @@ public static partial class CardCompiler
             Id = "shockland",
             FunctionsFrom = null,
             IsOptional = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
                 && state.GetPlayer(source.ControllerId).Life >= life,
 
@@ -14346,7 +14347,7 @@ public static partial class CardCompiler
         {
             Id = "enters-prepared",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, _, source) => [e, new BecamePrepared(Arriving(e, source)!.Value)],
         });
 
@@ -14413,7 +14414,7 @@ public static partial class CardCompiler
             // Once the copy effect naming this permanent exists, this effect is done with the
             // arrival - the branches not taken must not be offered again against the very event
             // the chosen one re-emitted.
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is { } arriving && !AlreadyACopy(state, arriving),
 
             // Never reached: an effect with branches is applied through one of them. It is the
@@ -15069,12 +15070,12 @@ public static partial class CardCompiler
             // same words is on the stack. Pinning this to the stack made every enters-tapped land
             // arrive untapped.
             FunctionsFrom = null,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Arriving(e, source) is not null
                 // CR 614.1c: the replacement simply does not apply when the condition is met, so
                 // the land arrives upright and nothing has to untap it afterwards.
                 && (unless is null
-                    || !unless(state, EmptyAbilities.Instance, source, null)),
+                    || !unless(state, abilities, source, null)),
             Replace = (e, _, source) => [e, new PermanentTapped(Arriving(e, source)!.Value)],
         });
 
@@ -15164,7 +15165,7 @@ public static partial class CardCompiler
             // FunctionsFrom is left at its default, which is the battlefield, and that is
             // load-bearing rather than incidental: the gathering loop walks objects in every
             // zone, so a Kismet in hand would otherwise tap the board it is not on.
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 Entering(e, state) is { } arriving
                 && arriving.Id != source.Id
                 && (!theirs || arriving.ControllerId != source.ControllerId)
@@ -15256,7 +15257,7 @@ public static partial class CardCompiler
         {
             Id = "phantom-damage",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) => e is DamageMarked marked && marked.Id == source.Id,
+            Applies = (e, _, _, source) => e is DamageMarked marked && marked.Id == source.Id,
             Replace = (_, _, source) =>
                 [new CountersChanged(source.Id, CounterKinds.PlusOnePlusOne, -1)],
         });
@@ -16131,12 +16132,22 @@ public static partial class CardCompiler
     /// </para>
     /// <para>
     /// The controller is read through the control-only layer reader so that a stolen permanent
-    /// shields its new controller's creatures (CR 613.1b). It is asked with no ability source,
-    /// which is the compiler's standing compromise everywhere a replacement predicate needs one:
-    /// <see cref="ReplacementEffectDefinition.Applies"/> is handed a state and an object and no
-    /// abilities, so a control effect <em>granted</em> to a permanent rather than printed on it
-    /// is invisible here. Threading an <c>IAbilitySource</c> through that signature is the fix,
-    /// and it is forty-two call sites wide.
+    /// shields its new controller's creatures (CR 613.1b), and every board question here — that
+    /// reader, the condition, and the two filter predicates — is asked with the game's real
+    /// <see cref="IAbilitySource"/>. It used to be asked with none, which is not a small
+    /// approximation but a different rule: the layer walk gathers its candidates <em>through</em>
+    /// that source, so with an empty one it gathers no continuous effects at all. Counters and
+    /// the face-down rules still applied and nothing else did — an Aura granting first strike
+    /// was invisible to "prevent all combat damage that would be dealt by creatures with first
+    /// strike", and a control effect granted to a permanent rather than printed on it could not
+    /// move the shield to its new controller either.
+    /// </para>
+    /// <para>
+    /// It cannot recurse. The predicate runs from the replacement loop rather than from inside a
+    /// layer computation, and the two readers it reaches are each bounded the way CR 613.8b
+    /// bounds a dependency loop it cannot order: <see cref="SearchFilters"/> answers a nested ask
+    /// from the printed card, and <see cref="Characteristics.ControllerOf"/> from the stored
+    /// controller, rather than either looping.
     /// </para>
     /// </remarks>
     private static ReplacementEffectDefinition StaticShield(
@@ -16168,7 +16179,7 @@ public static partial class CardCompiler
         // The shield with its object slots filled from the board, or null when a slot names
         // something that is not there. An Aura that has come unattached shields nobody rather
         // than falling back to shielding itself.
-        PreventionEffect? Bind(GameState state, GameObject source)
+        PreventionEffect? Bind(GameState state, IAbilitySource abilities, GameObject source)
         {
             ObjectId? Anchored(PreventionAnchor which) => which switch
             {
@@ -16195,7 +16206,7 @@ public static partial class CardCompiler
 
             return template with
             {
-                ControllerId = Characteristics.ControllerOf(state, EmptyAbilities.Instance, source),
+                ControllerId = Characteristics.ControllerOf(state, abilities, source),
                 Permanent = shielded,
                 Source = dealing,
                 Excludes = described.Other ? source.Id : null,
@@ -16218,25 +16229,23 @@ public static partial class CardCompiler
             // the state-held shields. Without the flag the two halves of the prevention family
             // would answer a Skullcrack differently, and only one of them would be right.
             IsPrevention = true,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
             {
-                if (when is not null && !when(state, EmptyAbilities.Instance, source, null))
+                if (when is not null && !when(state, abilities, source, null))
                     return false;
 
-                if (Bind(state, source) is not { } shield)
+                if (Bind(state, abilities, source) is not { } shield)
                     return false;
 
                 return e switch
                 {
                     Events.DamageMarked marked =>
                         Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, marked.IsCombat,
-                            marked.SourceId)
+                            shield, state, abilities, marked.IsCombat, marked.SourceId)
                         && state.TryGetObject(marked.Id, out var damaged)
-                        && Preventions.Covers(shield, state, EmptyAbilities.Instance, damaged),
+                        && Preventions.Covers(shield, state, abilities, damaged),
                     Events.PlayerDamaged hit =>
-                        Preventions.Watches(
-                            shield, state, EmptyAbilities.Instance, hit.IsCombat, hit.SourceId)
+                        Preventions.Watches(shield, state, abilities, hit.IsCombat, hit.SourceId)
                         && Preventions.CoversPlayer(shield, state, hit.PlayerId),
                     _ => false,
                 };
@@ -16359,7 +16368,7 @@ public static partial class CardCompiler
                 + m.Groups["dir"].Value + m.Groups["n"].Value,
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 DamageIn(e) is { } damage
                 && damage.Amount > 0
                 && (combat is null || combat == damage.IsCombat)
@@ -16620,7 +16629,7 @@ public static partial class CardCompiler
                 + ":" + m.Groups["group"].Value.Trim().ToLowerInvariant(),
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is CountersChanged { Delta: > 0 } put
                 && string.Equals(put.Kind, kind, StringComparison.OrdinalIgnoreCase)
                 && holds(state, source, put.Id),
@@ -16705,7 +16714,7 @@ public static partial class CardCompiler
         {
             Id = "life-gain-amount:" + who + ":" + how,
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is LifeChanged { Delta: > 0 } gained
                 && (who is "a player"
                     || (gained.PlayerId == ControllerIn(state, source)) == mine),
@@ -16756,7 +16765,7 @@ public static partial class CardCompiler
         {
             Id = "extra-die",
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, _, source) =>
+            Applies = (e, _, _, source) =>
                 e is Events.DiceRollRequested roll && roll.PlayerId == source.ControllerId,
             Replace = (e, _, _) =>
             {
@@ -16819,7 +16828,7 @@ public static partial class CardCompiler
                 + ":" + who.ToLowerInvariant(),
 
             FunctionsFrom = Zone.Battlefield,
-            Applies = (e, state, source) =>
+            Applies = (e, state, abilities, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard } gone
                 && dying(state, source, gone.OldId),
 
@@ -17021,7 +17030,7 @@ public static partial class CardCompiler
         {
             Id = cost is null ? "kicked-counters" : "kicked-counters-" + cost,
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null && paid(source),
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && paid(source),
             Replace = (e, _, source) =>
             [
                 e,
@@ -17089,7 +17098,7 @@ public static partial class CardCompiler
         {
             Id = "multikicked-counters",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null && source.TimesKicked > 0,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null && source.TimesKicked > 0,
             Replace = (e, _, source) =>
             [
                 e,
@@ -17132,7 +17141,7 @@ public static partial class CardCompiler
         {
             Id = "sunburst",
             FunctionsFrom = null,
-            Applies = (e, _, source) => Arriving(e, source) is not null,
+            Applies = (e, _, _, source) => Arriving(e, source) is not null,
             Replace = (e, state, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
