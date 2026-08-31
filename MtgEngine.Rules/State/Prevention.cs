@@ -331,8 +331,16 @@ public static class Preventions
         if (!state.TryGetObject(sourceId, out var source))
             return false;
 
-        if (effect.SourceFilter is { } filter && !SearchFilters.Matches(filter, source.Card))
+        // Asked of the permanent rather than of its printed card, which is what a sentence
+        // naming a damage source means: "by creatures with flying" is CR 702.9a's quality held
+        // now, and "by creatures with power 3 or less" is CR 613.4's number. The menu this
+        // shield may have been built from asks the same way, because CR 615.9 rechecks the same
+        // properties when the damage arrives and the two lists have to agree.
+        if (effect.SourceFilter is { } filter
+            && !SearchFilters.Matches(filter, state, abilities, source))
+        {
             return false;
+        }
 
         return effect.SourceController is not { } scope
             || PlayerScopes.Around(scope, state, effect.ControllerId)
@@ -341,11 +349,12 @@ public static class Preventions
 
     /// <summary>Whether a prevention effect shields this permanent (CR 615.1).</summary>
     /// <remarks>
-    /// The filter is asked of the printed card, as every other card-filter question at this level
-    /// is. That is a deviation worth naming: a land animated into a creature is not shielded by
-    /// "damage that would be dealt to creatures you control", where CR 613 layer 4 says it should
-    /// be. The alternative is a second filter vocabulary over computed characteristics, and the
-    /// cards that print this shield name a type the animation cases do not reach.
+    /// The filter is asked of the permanent as it is now, not of the card that was printed. That
+    /// used to be the other way round and is the deviation this comment used to name: a land
+    /// animated into a creature was not shielded by "damage that would be dealt to creatures you
+    /// control", where CR 613 layer 4 says it is one. The alternative feared here was a second
+    /// filter vocabulary over computed characteristics; what it took instead was a second
+    /// <em>subject</em> for the one vocabulary, so nothing about the reading forked.
     /// </remarks>
     public static bool Covers(
         PreventionEffect effect, GameState state, IAbilitySource abilities, GameObject damaged)
@@ -371,7 +380,7 @@ public static class Preventions
             return true;
 
         if (effect.PermanentFilter is not { } filter
-            || !SearchFilters.Matches(filter, damaged.Card))
+            || !SearchFilters.Matches(filter, state, abilities, damaged))
         {
             return false;
         }

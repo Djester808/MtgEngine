@@ -8455,7 +8455,8 @@ public sealed class Game
         PayableFor(
             payerId,
             kind,
-            (state, obj) => SearchFilters.Matches(filterId, state.GetObject(obj).Card));
+            (state, obj) => SearchFilters.Matches(
+                filterId, state, _abilities, state.GetObject(obj)));
 
     /// <summary>
     /// The same list, described the way an <em>activation</em> cost describes it (CR 118.12a).

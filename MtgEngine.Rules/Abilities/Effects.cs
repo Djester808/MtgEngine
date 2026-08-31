@@ -4494,12 +4494,12 @@ public sealed record PreventDescribedDamage : IEffect
     /// card, so the stack is not an optional half of this list. The resolving object itself is
     /// left out: it is on its way off the stack and naming it is naming nothing.
     /// <para>
-    /// The properties are read off the printed card, as every other card-filter question at this
-    /// level is, and the same deviation <see cref="State.Preventions.Covers"/> documents applies
-    /// — an animated land is not offered to "a creature of your choice". Widening it here would
-    /// need a second filter vocabulary over computed characteristics, and it would also have to
-    /// be widened in <see cref="State.Preventions.Watches"/>, which rechecks the same properties
-    /// when the damage arrives (CR 615.9). The two must agree, so neither moves alone.
+    /// The properties are read off the permanent as it is now (CR 613), so an animated land is
+    /// offered to "a creature of your choice" and a creature wearing an Aura that grants flying
+    /// is offered to "a creature with flying". <see cref="State.Preventions.Watches"/> rechecks
+    /// the same properties when the damage arrives (CR 615.9) and asks them the same way, which
+    /// is why the two moved together: a menu built from one question and a shield checked
+    /// against the other would offer a source it then refused to prevent.
     /// </para>
     /// </remarks>
     private ImmutableList<ObjectId> SourcesToChooseFrom(ResolutionContext context)
@@ -4511,8 +4511,12 @@ public sealed record PreventDescribedDamage : IEffect
             if (id == context.SourceId || !context.State.TryGetObject(id, out var candidate))
                 continue;
 
-            if (SourceFilter is { } filter && !SearchFilters.Matches(filter, candidate.Card))
+            if (SourceFilter is { } filter
+                && !SearchFilters.Matches(
+                    filter, context.State, context.Abilities, candidate))
+            {
                 continue;
+            }
 
             // The menu and the shield ask the same questions, which is CR 615.9's whole point:
             // the properties are rechecked when the damage would happen, so a source that was
@@ -7328,15 +7332,81 @@ public static class SearchFilters
     /// </remarks>
     public const string NamedPrefix = "name:";
 
-    /// <summary>Whether a card answers to a filter name.</summary>
+    /// <summary>Whether a printed card answers to a filter name.</summary>
     /// <remarks>
     /// The name is either a card type, a supertype-and-type pair, or a subtype, and they are told
     /// apart the same way everywhere else in the compiler: a capital letter means a subtype.
+    /// <para>
+    /// <strong>This is the printed question, and only the printed question.</strong> A card in a
+    /// library, a hand or a graveyard has exactly what is printed on it - CR 613 orders continuous
+    /// effects on <em>permanents</em>, and none of them reaches a card in another zone - so this
+    /// is the right answer for every search, every hand filter and every count of a graveyard.
+    /// For a permanent it is the wrong one, and silently: a creature that gained flying this turn
+    /// is not "a creature with flying" here, and a 2/2 pumped to 4/4 is not one "with power 4 or
+    /// greater". Ask <see cref="Matches(string, GameState, IAbilitySource, GameObject)"/> wherever
+    /// there is an object on the battlefield to ask about.
+    /// </para>
     /// </remarks>
     public static bool Matches(string filterId, Domain.Models.CardDefinition card)
     {
         ArgumentNullException.ThrowIfNull(card);
 
+        return Matches(filterId, new Subject(card, null, null));
+    }
+
+    /// <summary>Whether a permanent answers to a filter name <em>as it is now</em> (CR 613).</summary>
+    /// <remarks>
+    /// The same vocabulary asked of the object rather than of the print, which is what every
+    /// sentence naming a permanent means: "creatures with flying" is CR 702.9a's quality held at
+    /// the moment the question is asked, however the creature came by it, and "creatures with
+    /// power 4 or less" is CR 613.4's number and not the one in the corner of the card.
+    /// <para>
+    /// One vocabulary and not two, deliberately. A second filter grammar over computed
+    /// characteristics would drift from this one the first time either of them learned a word -
+    /// the same reason the search filters, the hand filters and the graveyard counts already
+    /// share this one - so the reading is shared and only the <see cref="Subject"/> differs.
+    /// </para>
+    /// <para>
+    /// <strong>CR 613.8's hazard is real here and is answered the way the engine already answers
+    /// it.</strong> A filter asked from inside the layer loop that computed a second permanent
+    /// would recurse without bound: a lord on each side of the table, each describing the other,
+    /// is the shape that overflowed the stack when <c>Characteristics.ControllerOf</c> was first
+    /// written as <c>Of</c>. A nested ask falls back to the printed card rather than looping,
+    /// which is what CR 613.8b does with a dependency loop it cannot order.
+    /// </para>
+    /// </remarks>
+    public static bool Matches(
+        string filterId, GameState state, IAbilitySource abilities, GameObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(obj);
+
+        // Everywhere but the battlefield the printed answer *is* the computed one, and costs
+        // nothing: CR 613 orders effects on permanents, and a spell on the stack is a card.
+        if (obj.Zone != Zone.Battlefield || _askingAboutTheBoard)
+            return Matches(filterId, new Subject(obj.Card, null, null));
+
+        _askingAboutTheBoard = true;
+        try
+        {
+            return Matches(
+                filterId,
+                new Subject(
+                    obj.Card, Characteristics.Of(state, abilities, obj), obj.Permanent?.Counters));
+        }
+        finally
+        {
+            _askingAboutTheBoard = false;
+        }
+    }
+
+    /// <summary>Whether a computation is already running, so a nested one must not start.</summary>
+    [ThreadStatic]
+    private static bool _askingAboutTheBoard;
+
+    private static bool Matches(string filterId, in Subject subject)
+    {
         if (string.Equals(filterId, AnyCard, StringComparison.Ordinal))
             return true;
 
@@ -7348,7 +7418,7 @@ public static class SearchFilters
         {
             foreach (var one in filterId.Split('|', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (Matches(one, card))
+                if (Matches(one, subject))
                     return true;
             }
 
@@ -7358,7 +7428,7 @@ public static class SearchFilters
         if (filterId.StartsWith(NamedPrefix, StringComparison.Ordinal))
         {
             return string.Equals(
-                card.Name,
+                subject.Name,
                 filterId[NamedPrefix.Length..],
                 StringComparison.OrdinalIgnoreCase);
         }
@@ -7371,7 +7441,7 @@ public static class SearchFilters
         {
             foreach (var one in filterId.Split('&', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!Matches(one, card))
+                if (!Matches(one, subject))
                     return false;
             }
 
@@ -7382,51 +7452,82 @@ public static class SearchFilters
         // here rather than as its own entry per type, so a negation works anywhere a type does
         // and the two can never disagree about what a creature is.
         if (filterId.StartsWith("non", StringComparison.Ordinal))
-            return !Matches(filterId[3..], card);
+            return !Matches(filterId[3..], subject);
+
+        // ---- Qualities the board decides, not the print (CR 613) ----
+        //
+        // Everything else in this vocabulary is a fact about a card and reads the same in every
+        // zone. These three are the opposite: a creature has flying because something gave it
+        // flying, is a 4/4 because something pumped it, and has a +1/+1 counter on it because the
+        // game put one there. They read off the subject like every other word, so the printed
+        // overload answers them for a card in a library - where the printed values *are* the
+        // characteristics - and the computed one answers them for a permanent.
+
+        if (filterId.StartsWith(KeywordPrefix, StringComparison.Ordinal))
+        {
+            return KeywordNamed(filterId[KeywordPrefix.Length..]) is { } keyword
+                && subject.Keywords.HasFlag(keyword);
+        }
+
+        // Counters exist only on the battlefield (CR 122.1), so a card anywhere else has none -
+        // which is the right answer and not a missing one. "Creatures with no +1/+1 counters on
+        // them" is this word under the negation above.
+        if (filterId.StartsWith(CounterPrefix, StringComparison.Ordinal))
+            return subject.CountersOf(filterId[CounterPrefix.Length..]) > 0;
+
+        if (SizeBoundNamed(filterId) is { } bound)
+        {
+            var size = bound.Toughness ? subject.Toughness : subject.Power;
+
+            // A permanent that is not a creature has no power at all, which no bound can be true
+            // of (CR 208.3) - "creatures with power 3 or less" never means a land.
+            return size is { } number
+                && (bound.AtLeast ? number >= bound.Number : number <= bound.Number);
+        }
 
         if (string.Equals(filterId, PermanentCard, StringComparison.Ordinal))
         {
-            return card.CardTypes.HasFlag(Domain.Enums.CardType.Artifact)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Creature)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Enchantment)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Land)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Planeswalker)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Battle);
+            return subject.CardTypes.HasFlag(Domain.Enums.CardType.Artifact)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Creature)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Enchantment)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Land)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Planeswalker)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Battle);
         }
 
         if (string.Equals(filterId, BasicLand, StringComparison.Ordinal))
         {
-            return card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase)
-                && card.CardTypes.HasFlag(Domain.Enums.CardType.Land);
+            return subject.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase)
+                && subject.CardTypes.HasFlag(Domain.Enums.CardType.Land);
         }
 
         if (CardTypeNamed(filterId) is { } type)
-            return card.CardTypes.HasFlag(type);
+            return subject.CardTypes.HasFlag(type);
 
         // Supertypes and colours, so "a basic Forest card" and "a green creature card" are two
         // filters joined rather than two phrases needing their own readers.
         if (SupertypeNamed(filterId) is { } supertype)
-            return card.Supertypes.Contains(supertype, StringComparer.OrdinalIgnoreCase);
+            return subject.Supertypes.Contains(supertype, StringComparer.OrdinalIgnoreCase);
 
         // The card's colours (CR 202.2). Its colour identity counts the mana symbols in its
         // rules text as well (CR 903.4), which is a deck-building question and not this one.
         if (ColorNamed(filterId) is { } colour)
-            return card.Colors.Contains(colour);
+            return subject.Colors.Contains(colour);
 
         // Colourless is the absence of all five rather than a sixth colour (CR 105.1), so it
         // cannot go in the table above and has to be asked as its own question.
         if (string.Equals(filterId, "colorless", StringComparison.Ordinal))
-            return card.Colors.Count == 0;
+            return subject.Colors.Count == 0;
 
         // "Multicolored" and "monocolored" count colours rather than naming one (CR 105.4), so
         // they are their own questions for the same reason colourless is. Both are printed by
         // the mana restrictions - "spend this mana only to cast a multicolored spell" - and by
         // the cost modifiers, and neither could be said with the table above.
         if (string.Equals(filterId, "multicolored", StringComparison.Ordinal))
-            return card.Colors.Count > 1;
+            return subject.Colors.Count > 1;
 
         if (string.Equals(filterId, "monocolored", StringComparison.Ordinal))
-            return card.Colors.Count == 1;
+            return subject.Colors.Count == 1;
 
         // "Historic" is legendary, artifact or Saga (CR 205.4h) - three unrelated things under
         // one word, so it cannot be a supertype lookup or a type lookup and has to be asked
@@ -7437,13 +7538,13 @@ public static class SearchFilters
         // graveyard" was refused one reader along from "whenever you cast a historic spell".
         if (string.Equals(filterId, "historic", StringComparison.Ordinal))
         {
-            return card.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase)
-                || card.CardTypes.HasFlag(Domain.Enums.CardType.Artifact)
-                || card.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase);
+            return subject.Supertypes.Contains("Legendary", StringComparer.OrdinalIgnoreCase)
+                || subject.CardTypes.HasFlag(Domain.Enums.CardType.Artifact)
+                || subject.Subtypes.Contains("Saga", StringComparer.OrdinalIgnoreCase);
         }
 
         // A capitalised name is a subtype — "Forest", "Goblin", "Equipment".
-        return card.Subtypes.Contains(filterId, StringComparer.OrdinalIgnoreCase);
+        return subject.Subtypes.Contains(filterId, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>A supertype a printed word names, or null if it is not one (CR 205.4).</summary>
@@ -7478,6 +7579,160 @@ public static class SearchFilters
         "sorcery" => Domain.Enums.CardType.Sorcery,
         _ => null,
     };
+
+    /// <summary>The prefix a filter id spells a keyword with - <c>keyword:first-strike</c>.</summary>
+    public const string KeywordPrefix = "keyword:";
+
+    /// <summary>The prefix a filter id spells a counter with - <c>counter:+1/+1</c>.</summary>
+    public const string CounterPrefix = "counter:";
+
+    /// <summary>How a filter id opens a power bound - <c>power&gt;=4</c>, <c>power&lt;=3</c>.</summary>
+    public const string PowerPrefix = "power";
+
+    /// <summary>How a filter id opens a toughness bound.</summary>
+    public const string ToughnessPrefix = "toughness";
+
+    /// <summary>The keyword a filter atom names, or null where it names none (CR 702).</summary>
+    /// <remarks>
+    /// Folded out of the enum rather than listed beside it. A hand-written table of keyword names
+    /// is a shape this compiler has been caught by twice - the grantable-keyword list was found
+    /// narrower than the enum it describes on both occasions, and each time the missing word was
+    /// silent - so the atoms are derived: <c>FirstStrike</c> is written <c>first-strike</c> and
+    /// nothing has to remember it.
+    /// </remarks>
+    public static Domain.Enums.KeywordAbility? KeywordNamed(string atom)
+    {
+        ArgumentNullException.ThrowIfNull(atom);
+
+        return KeywordsByAtom.TryGetValue(atom, out var found) ? found : null;
+    }
+
+    /// <summary>The atom a keyword is written as: its name, hyphenated and in lower case.</summary>
+    public static string AtomFor(Domain.Enums.KeywordAbility keyword)
+    {
+        var name = keyword.ToString();
+        var atom = new System.Text.StringBuilder(name.Length + 4);
+
+        foreach (var letter in name)
+        {
+            if (char.IsUpper(letter) && atom.Length > 0)
+                atom.Append('-');
+
+            atom.Append(char.ToLowerInvariant(letter));
+        }
+
+        return atom.ToString();
+    }
+
+    private static readonly Dictionary<string, Domain.Enums.KeywordAbility> KeywordsByAtom =
+        BuildKeywordAtoms();
+
+    private static Dictionary<string, Domain.Enums.KeywordAbility> BuildKeywordAtoms()
+    {
+        var table = new Dictionary<string, Domain.Enums.KeywordAbility>(StringComparer.Ordinal);
+
+        foreach (var keyword in Enum.GetValues<Domain.Enums.KeywordAbility>())
+        {
+            if (keyword == Domain.Enums.KeywordAbility.None)
+                continue;
+
+            table[AtomFor(keyword)] = keyword;
+        }
+
+        return table;
+    }
+
+    /// <summary>A power or toughness bound a filter id carries (CR 613.4).</summary>
+    private readonly record struct SizeBound(bool Toughness, bool AtLeast, int Number);
+
+    private static SizeBound? SizeBoundNamed(string filterId)
+    {
+        bool toughness;
+        string rest;
+
+        if (filterId.StartsWith(ToughnessPrefix, StringComparison.Ordinal))
+        {
+            toughness = true;
+            rest = filterId[ToughnessPrefix.Length..];
+        }
+        else if (filterId.StartsWith(PowerPrefix, StringComparison.Ordinal))
+        {
+            toughness = false;
+            rest = filterId[PowerPrefix.Length..];
+        }
+        else
+        {
+            return null;
+        }
+
+        var atLeast = rest.StartsWith(">=", StringComparison.Ordinal);
+        if (!atLeast && !rest.StartsWith("<=", StringComparison.Ordinal))
+            return null;
+
+        return int.TryParse(
+            rest[2..],
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var number)
+            ? new SizeBound(toughness, atLeast, number)
+            : null;
+    }
+
+    /// <summary>What a filter is asked about: a printed card, or a permanent as it is now.</summary>
+    /// <remarks>
+    /// The whole of the two-form answer. Every word of the vocabulary reads off this and none of
+    /// them knows which it was handed, so the reading cannot come apart between the printed
+    /// question and the computed one - which is exactly how a second grammar over computed
+    /// characteristics would have gone wrong.
+    /// </remarks>
+    private readonly record struct Subject(
+        Domain.Models.CardDefinition Card,
+        ComputedCharacteristics? Now,
+        ImmutableDictionary<string, int>? Counters)
+    {
+        public string Name => Now is { } now ? now.Name : Card.Name;
+
+        public Domain.Enums.CardType CardTypes => Now is { } now ? now.CardTypes : Card.CardTypes;
+
+        public IReadOnlyList<string> Subtypes => Now is { } now ? now.Subtypes : Card.Subtypes;
+
+        public IReadOnlyList<Domain.Enums.ManaColor> Colors =>
+            Now is { } now ? now.Colors : Card.Colors;
+
+        public int? Power => Now is { } now ? now.Power : Card.Power;
+
+        public int? Toughness => Now is { } now ? now.Toughness : Card.Toughness;
+
+        public Domain.Enums.KeywordAbility Keywords =>
+            Now is { } now ? now.Keywords : Card.Keywords;
+
+        /// <summary>The supertypes the object has (CR 205.4a).</summary>
+        /// <remarks>
+        /// Layer 4 can make a permanent legendary - the Ring does it to its bearer - and nothing
+        /// makes one basic or snow, so the computed list is the copiable card's plus that one
+        /// flag. <see cref="ComputedCharacteristics"/> holds it as a flag rather than in a list,
+        /// which is why it cannot simply be read across.
+        /// </remarks>
+        public IReadOnlyList<string> Supertypes
+        {
+            get
+            {
+                if (Now is not { } now)
+                    return Card.Supertypes;
+
+                var printed = now.Card.Supertypes;
+
+                return now.IsLegendary
+                    && !printed.Contains("Legendary", StringComparer.OrdinalIgnoreCase)
+                    ? [.. printed, "Legendary"]
+                    : printed;
+            }
+        }
+
+        /// <summary>How many counters of one kind are on the object (CR 122.1).</summary>
+        public int CountersOf(string kind) =>
+            Counters is { } on && on.TryGetValue(kind, out var many) ? many : 0;
+    }
 }
 
 /// <summary>Whether a cost modifier adds to a cost or takes off it (CR 601.2f).</summary>
