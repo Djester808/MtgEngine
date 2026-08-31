@@ -3143,6 +3143,24 @@ public sealed class Game
         Preventions.CoversPlayer(effect, State, playerId);
 
     /// <summary>
+    /// The end of a shield that only ever stopped one instance of damage (CR 615.8).
+    /// </summary>
+    /// <remarks>
+    /// Written as its own step because the condition is not "the shield applied": a shield that
+    /// prevented <em>nothing</em> is not used up. CR 615.10's number can cap a damage event at
+    /// zero — "prevent 1 of that damage" against an event of nought — and CR 615.8 counts
+    /// instances of damage <em>prevented</em>, so the two amounts are compared rather than the
+    /// arm being trusted to have done something.
+    /// <para>
+    /// The one shape that cannot reach here is unpreventable damage: both call sites ask
+    /// <see cref="IsUnpreventable"/> before the loop, which is what buys CR 615.12's "existing
+    /// damage prevention shields won't be reduced by damage that can't be prevented".
+    /// </para>
+    /// </remarks>
+    private static GameEvent[] SpendingOf(PreventionEffect effect, int amount, int left) =>
+        effect.OnlyOnce && left < amount ? [new PreventionEffectSpent(effect.Id)] : [];
+
+    /// <summary>
     /// Whether this damage can't be prevented (CR 615.12).
     /// </summary>
     /// <remarks>
@@ -3887,6 +3905,13 @@ public sealed class Game
             // a spell that player was in the middle of paying for.
             case ChoiceKind.ChooseManaColor:
                 ResolveManaColorChoice(picks);
+                _priorityRecipient = choice.ResumePriorityTo;
+                SettleBeforePriority();
+                GrantPriorityAfterSettle(choice.ResumePriorityTo);
+                break;
+
+            case ChoiceKind.ChooseDamageSource:
+                ResolveDamageSourceChoice(picks);
                 _priorityRecipient = choice.ResumePriorityTo;
                 SettleBeforePriority();
                 GrantPriorityAfterSettle(choice.ResumePriorityTo);
@@ -4745,6 +4770,9 @@ public sealed class Game
 
     /// <summary>Mana colours an effect has asked for and not yet been given (CR 106.1a).</summary>
     private readonly List<ManaColorChoiceRequested> _manaColorChoicesOwed = [];
+
+    /// <summary>Shields waiting to be told which source they name (CR 609.7b).</summary>
+    private readonly List<DamageSourceChoiceRequested> _damageSourceChoicesOwed = [];
     private readonly List<CreatureTypeChoiceRequested> _creatureTypeChoicesOwed = [];
     private readonly List<ConniveRequested> _connivesOwed = [];
     private readonly List<ManifestDreadRequested> _manifestDreadsOwed = [];
@@ -7384,6 +7412,117 @@ public sealed class Game
             owed.SourceId));
     }
 
+    /// <summary>
+    /// Puts up an owed shield whose menu has narrowed to one source (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The mana colour's forced arm, for the same rule and the same reason: a question with one
+    /// possible answer is not a question, and a Circle of Protection activated when the only red
+    /// permanent on the table is the one about to burn you has exactly one answer. The menu is
+    /// re-read here rather than trusted, because the board can have changed between the effect
+    /// resolving and this sweep — a source that has left is not on the list, and if that empties
+    /// it the shield is simply not made (CR 609.7b).
+    /// </remarks>
+    private bool SettleForcedDamageSource()
+    {
+        if (_damageSourceChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _damageSourceChoicesOwed[0];
+        var live = LiveDamageSources(owed);
+
+        if (live.Count > 1)
+            return false;
+
+        _damageSourceChoicesOwed.RemoveAt(0);
+
+        if (live.Count == 0)
+            return false;
+
+        Emit(new PreventionEffectCreated(owed.Shield with { Source = live[0] }));
+        return true;
+    }
+
+    /// <summary>
+    /// Asks the oldest owed source choice, if any (CR 609.7b).
+    /// </summary>
+    /// <remarks>
+    /// Asked from the sweep rather than where the effect ran, for the reason every deferred
+    /// question here is: a resolution is never stopped half way through. The shield goes up a
+    /// beat after the ability that promised it and still before anybody receives priority, which
+    /// is what a Circle of Protection needs — the damage it was activated against has not
+    /// happened yet (CR 615.4).
+    /// </remarks>
+    private bool AskOwedDamageSourceChoice()
+    {
+        if (_damageSourceChoicesOwed.Count == 0 || State.IsWaitingForChoice)
+            return false;
+
+        var owed = _damageSourceChoicesOwed[0];
+        var live = LiveDamageSources(owed);
+
+        if (live.Count <= 1 || !State.Players.ContainsKey(owed.PlayerId))
+            return false;
+
+        _damageSourceChoicesOwed.RemoveAt(0);
+        _damageSourceChoiceBeingAsked = owed;
+
+        Ask(new PendingChoice
+        {
+            Id = $"damage-source:{owed.PlayerId:N}",
+            PlayerId = owed.PlayerId,
+            Kind = ChoiceKind.ChooseDamageSource,
+            Prompt = "Choose a source of damage to prevent.",
+            Options =
+            [
+                .. live.Select(id => new ChoiceOption(
+                    id.Value.ToString("N"), State.GetObject(id).Card.Name)),
+            ],
+            MinPicks = 1,
+            MaxPicks = 1,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// The offered sources that are still objects (CR 609.7a).
+    /// </summary>
+    /// <remarks>
+    /// The menu the effect worked out, minus whatever has left the game since. It is not rebuilt
+    /// from the board: the effect's own reading of "a red source" is what was promised, and a
+    /// list computed again here would quietly widen or narrow it. What this does drop is an id
+    /// that no longer names anything — a shield round a source that has gone watches nothing
+    /// (<see cref="Preventions.Watches"/> says so), so offering it is offering a wasted answer.
+    /// </remarks>
+    private List<ObjectId> LiveDamageSources(DamageSourceChoiceRequested owed) =>
+        [.. owed.Options.Where(id => State.TryGetObject(id, out _))];
+
+    private DamageSourceChoiceRequested? _damageSourceChoiceBeingAsked;
+
+    /// <summary>Puts the shield round the source that was named (CR 609.7b).</summary>
+    /// <remarks>
+    /// An answer that is not on the menu makes no shield at all. Every other selection choice in
+    /// this engine can afford to ignore an unknown pick and carry on with the rest; here the rest
+    /// is a prevention effect with an empty source slot, which prevents damage from everything.
+    /// </remarks>
+    private void ResolveDamageSourceChoice(IReadOnlyList<string> picks)
+    {
+        if (_damageSourceChoiceBeingAsked is not { } owed)
+            return;
+
+        _damageSourceChoiceBeingAsked = null;
+
+        if (picks.Count == 0 || !Guid.TryParseExact(picks[0], "N", out var picked))
+            return;
+
+        var chosen = new ObjectId(picked);
+        if (!owed.Options.Contains(chosen) || !State.TryGetObject(chosen, out _))
+            return;
+
+        Emit(new PreventionEffectCreated(owed.Shield with { Source = chosen }));
+    }
+
     /// <summary>What a mana type is called on a button (CR 106.1b).</summary>
     private static string ColorLabel(ManaColor colour) => colour switch
     {
@@ -9600,6 +9739,18 @@ public sealed class Game
             if (AskOwedManaColorChoice())
                 return true;
 
+            // The same pair, for the same rule: a menu that has narrowed to one source puts the
+            // shield up here and sends the sweep round again, rather than stopping the game on a
+            // question with one button on it.
+            if (SettleForcedDamageSource())
+            {
+                didSomething = true;
+                continue;
+            }
+
+            if (AskOwedDamageSourceChoice())
+                return true;
+
             if (AskOwedUntapChoice())
                 return true;
 
@@ -10842,10 +10993,15 @@ public sealed class Game
         }
 
         // CR 615.1: a described prevention effect watches the same two events the shields above
-        // do and takes some or all of the damage away. Nothing is spent: CR 615.10's number caps
-        // each damage event and applies again to the next one, which is the whole difference
-        // between "prevent 1 of that damage" and "prevent the next 1 damage". So the replacement
-        // emits the remainder and writes no state back.
+        // do and takes some or all of the damage away. CR 615.10's number caps each damage event
+        // and applies again to the next one, which is the whole difference between "prevent 1 of
+        // that damage" and "prevent the next 1 damage" — so a described shield normally writes no
+        // state back and the replacement just emits the remainder.
+        //
+        // CR 615.8's shield is the exception and spends itself: "the next time a source of your
+        // choice would deal damage" stops one instance however large, and every later instance
+        // from that same source is dealt normally. That end has to be an event, because the state
+        // is a fold of the log and nothing else in the batch says the Circle has been used.
         if (e is DamageMarked hit
             && !State.Preventions.IsEmpty
             && State.TryGetObject(hit.Id, out var damaged)
@@ -10862,11 +11018,12 @@ public sealed class Game
                 }
 
                 var left = hit.Amount - Math.Min(effect.Amount ?? hit.Amount, hit.Amount);
+                var spent = SpendingOf(effect, hit.Amount, left);
 
                 yield return (
                     key,
                     damaged,
-                    (_, _, _) => left > 0 ? [hit with { Amount = left }] : [],
+                    (_, _, _) => left > 0 ? [.. spent, hit with { Amount = left }] : spent,
                     false,
                     null);
             }
@@ -10896,11 +11053,14 @@ public sealed class Game
 
                 var left = hitPlayerBySource.Amount
                     - Math.Min(effect.Amount ?? hitPlayerBySource.Amount, hitPlayerBySource.Amount);
+                var spent = SpendingOf(effect, hitPlayerBySource.Amount, left);
 
                 yield return (
                     key,
                     dealing,
-                    (_, _, _) => left > 0 ? [hitPlayerBySource with { Amount = left }] : [],
+                    (_, _, _) => left > 0
+                        ? [.. spent, hitPlayerBySource with { Amount = left }]
+                        : spent,
                     false,
                     null);
             }
@@ -13068,6 +13228,9 @@ public sealed class Game
 
         if (e is ManaColorChoiceRequested manaColour)
             _manaColorChoicesOwed.Add(manaColour);
+
+        if (e is DamageSourceChoiceRequested shielding)
+            _damageSourceChoicesOwed.Add(shielding);
 
         if (e is ColorChoiceRequested naming)
             _colorChoicesOwed.Add(naming);

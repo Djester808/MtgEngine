@@ -6850,6 +6850,11 @@ public static partial class EffectPhrase
         if (TryPreventDescribed(sentence, targets, effects))
             return true;
 
+        // "The next time a source of your choice would deal damage to you this turn, prevent
+        // that damage" — the same shield with a use as well as a duration (CR 615.8).
+        if (TryPreventNextInstance(sentence, targets, effects))
+            return true;
+
         if (TryBanPrevention(sentence, effects))
             return true;
 
@@ -7229,13 +7234,15 @@ public static partial class EffectPhrase
             return TryPreventBothWays(read, targets, effects);
 
         (string? Filter, PlayerScope? Who) from = (null, null);
+        var askForSource = false;
         TargetSpec? aimedSource = null;
 
         if (read.Sources is { } dealt)
         {
             if (PreventSource(dealt) is { } dealer)
             {
-                from = dealer;
+                from = (dealer.Filter, dealer.Who);
+                askForSource = dealer.Chosen;
             }
             else if (Specs.Parse(dealt) is { Kind: TargetKind.Permanent } chosen)
             {
@@ -7262,6 +7269,7 @@ public static partial class EffectPhrase
                 Kind = read.Kind,
                 SourceFilter = from.Filter,
                 SourceController = from.Who,
+                ChooseSource = askForSource,
             });
         }
         else
@@ -7286,11 +7294,20 @@ public static partial class EffectPhrase
                     Players = who.Filter is null ? who.Who : null,
                     SourceFilter = from.Filter,
                     SourceController = from.Who,
+                    ChooseSource = askForSource,
                 });
             }
         }
 
         if (shields.Count == 0)
+            return false;
+
+        // One sentence, one question. "To you and/or creatures you control ... by a source of
+        // your choice" splits into two shields above, and two shields that each ask would ask
+        // twice — the player naming one source for their life total and a different one for
+        // their board, which is not the card. Left unread rather than answered wrongly; the
+        // corpus prints this on Shadowbane alone, which is blocked by its rider anyway.
+        if (askForSource && shields.Count > 1)
             return false;
 
         // The target is claimed last, so a sentence that defeats the vocabulary above leaves the
@@ -7375,6 +7392,122 @@ public static partial class EffectPhrase
 
         effects.Add(shield);
         effects.Add(shield with { TargetIsSource = true });
+        return true;
+    }
+
+    /// <summary>
+    /// "The next time a source of your choice would deal damage to you this turn, prevent that
+    /// damage" (CR 615.8).
+    /// </summary>
+    /// <remarks>
+    /// The Circles of Protection, and the last shape of prevention the compiler could not read.
+    /// It is <see cref="TryPreventDescribed"/>'s shield with two differences, and both are in the
+    /// sentence rather than in the machinery:
+    /// <list type="bullet">
+    /// <item>
+    /// <strong>"The next time" is a use, not a duration.</strong> CR 615.8 stops one instance of
+    /// damage from the named source however large it is, and lets every later instance through;
+    /// "this turn" is still printed beside it and still ends the shield if it goes unspent, so
+    /// the effect carries both and whichever comes first ends it.
+    /// </item>
+    /// <item>
+    /// <strong>The source is a question.</strong> "A source of your choice" is answered as the
+    /// ability resolves (CR 609.7b), which is what <see cref="PreventDescribedDamage.ChooseSource"/>
+    /// is for. Every other way of naming one source is already read next door, and the only one
+    /// that also appears in this wording is the permanent itself.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// <strong>Nothing is read past the shield.</strong> "…prevent that damage. You gain life
+    /// equal to the damage prevented this way" is CR 615.5's additional effect, which this engine
+    /// has no way to size — the amount prevented is not carried anywhere a later sentence could
+    /// read it. The anchor at the end of the pattern refuses those cards whole rather than
+    /// letting the rider fall off a card that would then look implemented. "Prevent half that
+    /// damage, rounded down" is refused by the same anchor, and so is every wording that
+    /// redirects the damage instead of preventing it.
+    /// </para>
+    /// </remarks>
+    private static bool TryPreventNextInstance(
+        string sentence,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects)
+    {
+        var text = sentence.Trim().TrimEnd('.').Trim();
+
+        if (PreventNextInstanceLine().Match(text) is not { Success: true } read)
+            return false;
+
+        // The same splitter the described shield uses, so the two cannot disagree about where
+        // "this turn" is allowed to sit. A "by" clause cannot appear in this wording — the
+        // source is the sentence's subject — so one arriving means the sentence was cut in the
+        // wrong place, and "to and dealt by" is a shape this shield has no second half for.
+        if (!SplitPreventClauses(
+                read.Groups["rest"].Value,
+                out var victims,
+                out var sources,
+                out var bothWays,
+                out var forTheTurn)
+            || sources is not null
+            || bothWays
+            || !forTheTurn)
+        {
+            return false;
+        }
+
+        var named = read.Groups["by"].Value.Trim();
+        var shield = new PreventDescribedDamage { OnlyOnce = true };
+        var hostIsSource = string.Equals(named, "~", StringComparison.Ordinal);
+
+        if (hostIsSource)
+        {
+            // "The next time ~ would deal damage to you this turn" — the permanent the ability
+            // is printed on, named outright, exactly as the both-ways reader takes it.
+            shield = shield with { AroundSource = true, TargetIsSource = true };
+        }
+        else if (PreventSource(named) is { Chosen: true } dealer)
+        {
+            shield = shield with
+            {
+                SourceFilter = dealer.Filter,
+                SourceController = dealer.Who,
+                ChooseSource = true,
+            };
+        }
+        else
+        {
+            // A description with no choice in it — "the next time a creature would deal damage"
+            // — is a shield against a set rather than an object, and CR 615.8 counts instances
+            // from *that source*. Nothing prints it, and reading one would end the shield on
+            // whichever creature happened to swing first.
+            return false;
+        }
+
+        if (victims is { } hit)
+        {
+            if (PreventVictim(hit) is { Other: false } who)
+            {
+                shield = shield with
+                {
+                    PermanentFilter = who.Filter,
+                    PermanentController = who.Filter is null ? null : who.Who,
+                    Players = who.Filter is null ? who.Who : null,
+                };
+            }
+            else if (!hostIsSource && Specs.Parse(hit) is { } aimed)
+            {
+                // "To target creature", "to any target". Refused when the source is the host,
+                // because one index cannot mean two things: TargetIsSource is what tells the
+                // effect which slot the target fills, and it is already spoken for.
+                targets.Add(aimed);
+                shield = shield with { TargetIndex = targets.Count - 1 };
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        effects.Add(shield);
         return true;
     }
 
@@ -7770,12 +7903,49 @@ public static partial class EffectPhrase
         return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose, other) : null;
     }
 
-    /// <summary>What one "by" clause describes — the filter a damage source has to answer.</summary>
-    internal static (string? Filter, PlayerScope? Who)? PreventSource(string phrase)
+    /// <summary>
+    /// What one "by" clause describes — the filter a damage source has to answer.
+    /// </summary>
+    /// <remarks>
+    /// "Of your choice" is reported rather than answered, exactly as "other" is on the victim
+    /// side and for the same kind of reason: it is not a property of any card, it is a question,
+    /// and only a reader that has somewhere to ask it may accept the words. A static ability has
+    /// nowhere — it is not resolving and there is no moment at which to stop — so the static
+    /// reader refuses the flag rather than dropping it. Dropped, "a red source of your choice"
+    /// becomes "a red source", which shields against every red source on the table instead of
+    /// one, and is the direction this family is most dangerous in.
+    /// </remarks>
+    internal static (string? Filter, PlayerScope? Who, bool Chosen)? PreventSource(string phrase)
     {
         ArgumentNullException.ThrowIfNull(phrase);
 
         var what = phrase.Trim();
+
+        const string OfYourChoice = " of your choice";
+        var at = what.IndexOf(OfYourChoice, StringComparison.OrdinalIgnoreCase);
+        var chosen = at >= 0;
+
+        if (chosen)
+        {
+            // Taken out where it stands rather than off the end: the cards print "a source of
+            // your choice" and "a creature of your choice with shadow", so the words after it
+            // are part of the description. What is left has to read as a filter on its own —
+            // "a source of your choice of the chosen color" leaves "a source of the chosen
+            // color", which this vocabulary refuses, and that is the intended answer.
+            what = (what[..at] + what[(at + OfYourChoice.Length)..]).Trim();
+
+            // The article belongs to that phrase and to nothing else read here: the described
+            // wordings are plural ("dealt by creatures") and carry none.
+            foreach (var article in Articles)
+            {
+                if (what.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+                {
+                    what = what[article.Length..].Trim();
+                    break;
+                }
+            }
+        }
+
         PlayerScope? whose = null;
 
         if (TrimTail(ref what, " you control"))
@@ -7787,16 +7957,24 @@ public static partial class EffectPhrase
         }
 
         // "Sources you don't control" describes nothing but who they belong to, which is a
-        // shield with no filter rather than one that matches nothing.
-        if (string.Equals(what, "sources", StringComparison.OrdinalIgnoreCase))
-            return whose is null ? null : (null, whose);
+        // shield with no filter rather than one that matches nothing. "A source of your choice"
+        // is the same noun in the singular, and says even less: the object is named, so there
+        // is nothing left for a description to add (CR 609.7a).
+        if (string.Equals(what, "sources", StringComparison.OrdinalIgnoreCase)
+            || (chosen && string.Equals(what, "source", StringComparison.OrdinalIgnoreCase)))
+        {
+            return whose is null && !chosen ? null : (null, whose, chosen);
+        }
 
         // "Artifact sources", "black sources" — the word "source" adds only that it is whatever
         // dealt the damage, which is the question being asked anyway.
         _ = TrimTail(ref what, " sources") || TrimTail(ref what, " source");
 
-        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose) : null;
+        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose, chosen) : null;
     }
+
+    /// <summary>The articles a chosen source's noun phrase can open with.</summary>
+    private static readonly string[] Articles = ["a ", "an ", "the "];
 
     private static bool TrimTail(ref string phrase, string tail)
     {
@@ -15501,6 +15679,25 @@ public static partial class EffectPhrase
         @"^prevent all (?<kind>combat |noncombat )?damage that would be dealt(?<rest>[^.]*)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PreventDescribedPassiveLine();
+
+    /// <remarks>
+    /// CR 615.8's shield. The subject is captured whole and handed to the source vocabulary,
+    /// which is where "a red source of your choice" and "~" are already told apart; the tail
+    /// goes to the same clause splitter the described shield uses, so "this turn" is allowed in
+    /// exactly the places it is allowed there.
+    /// <para>
+    /// The pattern ends at "prevent that damage" and nothing may follow it. Half the cards
+    /// printing this sentence carry a rider on the next one — life gained, cards exiled, damage
+    /// dealt back — and every one of those is a card that would look implemented while doing
+    /// only the first half. The comma is excluded from the tail for the same reason: it is what
+    /// separates the shield from its condition, and a tail that ate it would swallow whatever
+    /// the card said next.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^the next time (?<by>.+?) would deal damage(?<rest>[^,.]*), prevent that damage$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PreventNextInstanceLine();
 
     /// <remarks>
     /// Anchored at both ends on purpose. A ban that runs on into another clause — Lava Burst's

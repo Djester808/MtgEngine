@@ -133,6 +133,26 @@ public sealed record PreventionEffect
     public int? UntilEndOfTurn { get; init; }
 
     /// <summary>
+    /// Whether the shield is spent by the first damage it prevents (CR 615.8).
+    /// </summary>
+    /// <remarks>
+    /// "The next time a source of your choice would deal damage to you this turn, prevent that
+    /// damage" is a shield with a duration <em>and</em> a use, and it is the use that ends it
+    /// first: CR 615.8 stops the next <em>instance</em> from that source however large it is,
+    /// and lets every later instance through. A Circle of Protection read without this is a
+    /// blanket immunity to a whole source for the turn, which is the direction this family is
+    /// most dangerous in — the card looks implemented and plays several times better than the
+    /// one on the table.
+    /// <para>
+    /// It is not <see cref="Amount"/>. That number is CR 615.10's per-event cap, which never runs
+    /// out; this is a count of <em>events</em>, and one point from the named source spends the
+    /// whole shield exactly as twelve would. The two are independent: no printed card sets both,
+    /// but nothing here needs them to be exclusive.
+    /// </para>
+    /// </remarks>
+    public bool OnlyOnce { get; init; }
+
+    /// <summary>
     /// Whether this effect names nothing to shield, and so shields everything it sees.
     /// </summary>
     /// <remarks>

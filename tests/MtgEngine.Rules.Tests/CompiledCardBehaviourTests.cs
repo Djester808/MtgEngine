@@ -48365,6 +48365,470 @@ public sealed class CompiledCardBehaviourTests
         Assert.False(CardCompiler.Compile(harvest).IsComplete);
     }
 
+    // ---- A shield round a source of your choice (CR 609.7b, 615.8) -----------
+
+    /// <summary>A creature that can ping repeatedly, so one source can deal damage twice.</summary>
+    /// <remarks>
+    /// The cost is mana rather than a tap because CR 615.8 is a rule about the <em>second</em>
+    /// instance of damage from a source, and a source that taps to deal its first cannot deal
+    /// one. Nothing in the mechanism cares which cost it is; the test does.
+    /// </remarks>
+    private static CardDefinition Pinger(string name, ManaColor? colour = null) => new()
+    {
+        OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+        Name = name,
+        OracleText = "{1}: ~ deals 1 damage to any target.",
+        CardTypes = CardType.Creature,
+        Power = 1,
+        Toughness = 1,
+        Colors = colour is { } one ? [one] : [],
+        ColorIdentity = colour is { } same ? [same] : [],
+    };
+
+    /// <summary>
+    /// Empties the stack and stops there, leaving the step where it was.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Settle"/> passes priority once more on an empty stack, which ends the step and
+    /// with it any unspent mana (CR 500.4) - so a test that activates an ability twice cannot use
+    /// it in between. This stops the moment the stack is clear, which is where the active player
+    /// has priority again, and it still asserts the founding invariant that every other settle
+    /// here asserts.
+    /// </remarks>
+    private static void ResolveStack(Game game)
+    {
+        for (var guard = 0; guard < 40; guard++)
+        {
+            if (game.State.Choice is not null || game.State.Stack.IsEmpty)
+                break;
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// CR 615.8: the shield stops one instance from the named source and no more.
+    /// </summary>
+    /// <remarks>
+    /// The whole of what "the next time" means, and the reading that has to be proved rather than
+    /// assumed: a Circle of Protection read as an ordinary turn-long shield would make its owner
+    /// immune to the chosen source for the rest of the turn, which is a strictly better card than
+    /// the one printed and is exactly the direction this family fails in. The second activation
+    /// is the control - it must connect, and asserting only that the first was prevented would
+    /// pass just as happily on the wrong reading.
+    /// </remarks>
+    [Fact]
+    public void A_shield_on_a_chosen_source_stops_one_instance_and_lets_the_next_through()
+    {
+        var circle = Card(
+            "Chosen Source Test",
+            "The next time a source of your choice would deal damage to you this turn, prevent "
+                + "that damage.");
+
+        var compiled = CardCompiler.Compile(circle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Chosen Pinger Test"), Zone.Battlefield);
+
+        // A second object on the board, so there is a question to ask: with one legal
+        // source the engine settles the choice itself (CR 118.3), which is what the
+        // forced-arm test below is for.
+        game.Create(alice, TestCards.Creature("Chosen Bystander Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, circle), targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        Assert.Equal(ChoiceKind.ChooseDamageSource, choice.Kind);
+        Assert.Contains(choice.Options, o => o.Label == "Chosen Pinger Test");
+
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Chosen Pinger Test").Id]);
+        ResolveStack(game);
+
+        Assert.Single(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        // Spent, not merely inapplicable. The shield has to be gone from state as well as have
+        // stopped preventing, or the next turn's cleanup is the only thing removing it.
+        Assert.Empty(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        // Two new events in one round - the request and the spending - and both have to survive
+        // the round trip, because a log that writes and will not read is a saved game lost.
+        Assert.Equal(
+            game.State,
+            GameReducer.Replay(EventLogSerializer.Read(EventLogSerializer.Write(game.Log))));
+    }
+
+    /// <summary>
+    /// CR 609.7a: the shield names one object, and every other source is untouched.
+    /// </summary>
+    /// <remarks>
+    /// The failure a count of compiling cards cannot see. A shield built with an empty source
+    /// slot means "any source" - it would fog the table from a card that named one creature -
+    /// and it would still report itself created, still show up in state, and still prevent the
+    /// damage this test aims at the chosen pinger. Only the other pinger tells the two apart.
+    /// </remarks>
+    [Fact]
+    public void A_shield_on_a_chosen_source_ignores_damage_from_a_different_source()
+    {
+        var circle = Card(
+            "One Source Test",
+            "The next time a source of your choice would deal damage to you this turn, prevent "
+                + "that damage.");
+
+        var (game, alice, _) = InMainPhase();
+        var named = game.Create(alice, Pinger("Named Pinger Test"), Zone.Battlefield);
+        var other = game.Create(alice, Pinger("Other Pinger Test"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, circle), targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Named Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, other, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        // The unnamed source connects, and the shield is still whole: CR 615.8 spends it on
+        // damage it prevented, not on damage that happened to be dealt while it stood.
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+        Assert.Single(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, named, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+        Assert.Empty(game.State.Preventions);
+    }
+
+    /// <summary>
+    /// CR 615.9: a Circle of Protection may only name a source with the property it prints.
+    /// </summary>
+    /// <remarks>
+    /// The five Circles differ from each other in one adjective, and the adjective is the card.
+    /// It is asked twice - once to build the menu, once when the damage would happen - and both
+    /// are proved here: the white pinger is not on the list, and its damage arrives.
+    /// </remarks>
+    [Fact]
+    public void A_circle_of_protection_offers_only_the_colour_it_names()
+    {
+        var circle = Card(
+            "Red Circle Test",
+            "The next time a red source of your choice would deal damage to you this turn, "
+                + "prevent that damage.");
+
+        var compiled = CardCompiler.Compile(circle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var red = game.Create(alice, Pinger("Red Pinger Test", ManaColor.Red), Zone.Battlefield);
+        game.Create(alice, Pinger("Second Red Pinger Test", ManaColor.Red), Zone.Battlefield);
+        var white = game.Create(
+            alice, Pinger("White Pinger Test", ManaColor.White), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, circle), targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        var offered = choice.Options.Select(o => o.Label).ToList();
+
+        // The two red creatures and nothing else. The white pinger is on the battlefield and is
+        // not a source this card may name.
+        Assert.Equal(2, offered.Count);
+        Assert.Contains("Red Pinger Test", offered);
+        Assert.Contains("Second Red Pinger Test", offered);
+        Assert.DoesNotContain("White Pinger Test", offered);
+
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Red Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, white, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, red, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A source choice with one possible answer is not asked (CR 118.3).
+    /// </summary>
+    /// <remarks>
+    /// The mana colour's forced arm in a second place, and the same rule the optional payment and
+    /// the look-and-take state in as many words. What matters is that the shield is still made:
+    /// settling a question is carrying it out, not dropping it, and a dropped one here leaves a
+    /// card that resolved and did nothing.
+    /// </remarks>
+    [Fact]
+    public void A_source_choice_with_one_answer_is_settled_without_asking()
+    {
+        var circle = Card(
+            "Forced Circle Test",
+            "The next time a red source of your choice would deal damage to you this turn, "
+                + "prevent that damage.");
+
+        var (game, alice, _) = InMainPhase();
+        var red = game.Create(
+            alice, Pinger("Only Red Pinger Test", ManaColor.Red), Zone.Battlefield);
+
+        game.Create(alice, Pinger("Ignored White Pinger Test", ManaColor.White), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, circle), targets: null);
+        ResolveStack(game);
+
+        Assert.DoesNotContain(
+            game.Log.OfType<ChoiceRequested>(),
+            e => e.Choice.Kind == ChoiceKind.ChooseDamageSource);
+
+        Assert.Single(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, red, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// With nothing the card may name, no shield is made at all (CR 609.7b).
+    /// </summary>
+    /// <remarks>
+    /// The most dangerous case in the whole family, and the one a coverage count scores as a win
+    /// either way. A shield whose source slot was left empty because there was nobody to name
+    /// prevents damage from <em>every</em> source, so the safe answer to an empty menu is no
+    /// effect - and the proof of it is a life total that goes down.
+    /// </remarks>
+    [Fact]
+    public void A_source_choice_with_nothing_to_name_makes_no_shield()
+    {
+        var circle = Card(
+            "Empty Circle Test",
+            "The next time a red source of your choice would deal damage to you this turn, "
+                + "prevent that damage.");
+
+        var (game, alice, _) = InMainPhase();
+        var white = game.Create(
+            alice, Pinger("Lone White Pinger Test", ManaColor.White), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, circle), targets: null);
+        ResolveStack(game);
+
+        Assert.Empty(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, white, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "Prevent all damage a source of your choice would deal this turn" is not spent (CR 615.3).
+    /// </summary>
+    /// <remarks>
+    /// Pay No Heed against a Circle of Protection: the same chosen source, the same turn, and the
+    /// opposite answer to "how many instances". The two wordings are three words apart and both
+    /// are printed, so the flag that separates them is read from the sentence rather than implied
+    /// - and this is the half that would go unnoticed, because a shield that ends too early looks
+    /// like a card working once.
+    /// </remarks>
+    [Fact]
+    public void Preventing_all_damage_from_a_chosen_source_is_not_spent_by_the_first_instance()
+    {
+        var heed = Card(
+            "Chosen All Test", "Prevent all damage a source of your choice would deal this turn.");
+
+        var compiled = CardCompiler.Compile(heed);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Heeded Pinger Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Heeded Bystander Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, heed), targets: null);
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Heeded Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        // Still 20, and the shield is still there: this one runs to the end of the turn.
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+        Assert.Single(game.State.Preventions);
+    }
+
+    /// <summary>
+    /// The chosen source and a targeted victim are two different slots (CR 609.7b).
+    /// </summary>
+    /// <remarks>
+    /// Charm Peddler and the three "any target" circles: the victim is chosen as the spell is
+    /// cast and the source as it resolves, which is two questions about the same effect. They
+    /// share one index on <see cref="PreventDescribedDamage"/>, told apart by the flag that says
+    /// which slot the target fills, so a sentence naming both has to be refused or read
+    /// correctly - never merged.
+    /// </remarks>
+    [Fact]
+    public void A_chosen_source_shield_can_still_be_aimed_at_a_target()
+    {
+        var peddler = Card(
+            "Aimed Circle Test",
+            "The next time a source of your choice would deal damage to target creature this "
+                + "turn, prevent that damage.");
+
+        var compiled = CardCompiler.Compile(peddler);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Aiming Pinger Test"), Zone.Battlefield);
+        var bear = game.Create(
+            alice, TestCards.Creature("Aimed Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, peddler), [Target.ToPermanent(bear)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Aiming Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(bear)]);
+        ResolveStack(game);
+        Assert.Equal(0, game.State.GetObject(bear).Permanent?.DamageMarked);
+
+        // The shield covered one creature and one source. Alice takes the second ping, which is
+        // the control for the victim slot: a shield that forgot what it was aimed at would stop
+        // this too.
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// "To any target" reaches a player, and shields that player alone (CR 615.1).
+    /// </summary>
+    /// <remarks>
+    /// Found by <c>Every_effect_aimed_at_any_target_answers_for_a_player</c>, which asks of every
+    /// effect that can be aimed at "any target" whether anybody has read what it does with a
+    /// player. <see cref="PreventDescribedDamage"/> could not be aimed at one at all until the
+    /// CR 615.8 reader arrived — the only targeted prevention before it named a <em>source</em>,
+    /// which is never a player — so a whole arm became reachable with nothing playing it. The
+    /// generalisable half is written down elsewhere in this file and holds here: an effect whose
+    /// Resolve returns nothing on an input its own grammar admits is indistinguishable from a
+    /// working one, and the card still reports itself complete.
+    /// <para>
+    /// Alice is the control. A shield that lost which player it was aimed at would cover her too,
+    /// and every other assertion here would pass.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_chosen_source_shield_aimed_at_a_player_covers_that_player_alone()
+    {
+        var circle = Card(
+            "Any Target Circle Test",
+            "The next time a source of your choice would deal damage to any target this turn, "
+                + "prevent that damage.");
+
+        var compiled = CardCompiler.Compile(circle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var pinger = game.Create(alice, Pinger("Any Target Pinger Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Any Target Bystander Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, circle), [Target.ToPlayer(bob)]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is not null);
+
+        var choice = game.State.Choice!;
+        game.Choose(alice, [choice.Options.Single(o => o.Label == "Any Target Pinger Test").Id]);
+        ResolveStack(game);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(alice)]);
+        ResolveStack(game);
+
+        // The shield was aimed at Bob and does not cover Alice - and it is not spent by damage
+        // it did not prevent.
+        Assert.Equal(19, game.State.GetPlayer(alice).Life);
+        Assert.Single(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Empty(game.State.Preventions);
+
+        TapLands(game, alice, 1);
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPlayer(bob)]);
+        ResolveStack(game);
+
+        Assert.Equal(19, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A static ability may not say "of your choice" (CR 604.3).
+    /// </summary>
+    /// <remarks>
+    /// The control for the reader, and it asserts both directions of the mistake. A permanent is
+    /// not resolving and has no moment at which to ask, so the words have nowhere to be answered;
+    /// read as the bare description they leave behind, the same sentence is a permanent that
+    /// shields against every red source on the table for as long as it is on the battlefield.
+    /// The one-shot with a duration is the same words and is read.
+    /// </remarks>
+    [Fact]
+    public void A_prevention_of_your_choice_is_read_as_a_one_shot_and_refused_as_a_static()
+    {
+        var spell = Card(
+            "Choice Duration Test",
+            "Prevent all damage a red source of your choice would deal this turn.");
+
+        Assert.True(CardCompiler.Compile(spell).IsComplete);
+
+        var permanent = Card(
+            "Choice Static Test",
+            "Prevent all damage a red source of your choice would deal.",
+            CardType.Enchantment);
+
+        Assert.False(CardCompiler.Compile(permanent).IsComplete);
+    }
+
     // ---- Station (CR 702.184, 721) -------------------------------------------
 
     /// <summary>A Spacecraft printed the way the real ones are.</summary>

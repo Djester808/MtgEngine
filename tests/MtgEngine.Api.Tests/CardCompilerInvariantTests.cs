@@ -124,6 +124,14 @@ public sealed partial class CardCompilerInvariantTests(ITestOutputHelper output)
             // soaks PlayerDamaged with it.
             ["PreventDamage"] = "emits PlayerPreventionChanged for a player target",
 
+            // "The next time a source of your choice would deal damage to any target this turn":
+            // the described shield puts the chosen victim in PreventionEffect.Player rather than
+            // Permanent, and Preventions.CoversPlayer is what the PlayerDamaged arm of the
+            // replacement pass asks. This effect only reached an "any target" spec when the
+            // CR 615.8 reader arrived, and the test is what noticed - the player half is proved
+            // by A_chosen_source_shield_aimed_at_a_player_covers_that_player_alone.
+            ["PreventDescribedDamage"] = "fills PreventionEffect.Player for a player target",
+
             // Nothing, and correctly: this is the "if a creature dealt damage this way would
             // die, exile it" rider on a burn spell. Aimed at a player there is no creature for
             // it to be about, so doing nothing is the whole answer.

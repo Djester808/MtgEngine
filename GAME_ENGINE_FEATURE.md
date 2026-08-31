@@ -10102,3 +10102,109 @@ serializer and `Replay(log) == State` all have to carry it — a magnitude on `R
 which round eighteen deliberately kept to sets, and five separate sentence grammars between them.
 That is a round of its own. An excess clause that silently reads zero is worse than an unread line,
 and eight cards is not worth risking one.
+### Round twenty: a shield round a source of your choice
+
+**17,757 → 17,789 complete cards, +32, none lost, measured by set difference.** Coverage 54.3% →
+54.4%. The per-card compiled-effect diff moved 80 rows, of which 32 are the cards gained, 47 are
+the two new default-false fields printing in the dump, and one — Ajani's Aid — reads a line it
+could not read before and is still short of a second.
+
+The Circles of Protection, and the last shape of prevention the compiler had no answer to. The
+family was measured at 119 cards across four rows; the row with a mechanism-shaped answer was "the
+next time *a source of your choice* would deal damage", **33 sole blockers**, and building it also
+took the twelve cards printing "prevent all damage *a source of your choice* would deal this
+turn" — which the census had filed under the two filter rows. Two rows, one question.
+
+**It is a question, so it is an event plus a `ChoiceKind`.** `AddChosenMana` is the model and this
+follows it exactly: `PreventDescribedDamage` with `ChooseSource` set emits a
+`DamageSourceChoiceRequested` instead of a shield, the settle sweep raises
+`ChoiceKind.ChooseDamageSource`, and the answer is a `ChoiceMade` in the log like any other — so a
+replay reaches the same offer rather than needing a continuation the log cannot rebuild. The
+alternative, answering inside `Resolve`, is not available at all: a resolution is never stopped
+half way through, and there is nothing in the sentence to answer from.
+
+**The shield rides on the event, whole but for its source.** Everything the sentence settled — what
+it shields, which damage it watches, whether the first use ends it — was worked out while the spell
+resolved; a shield rebuilt when the answer arrives would be rebuilt from a board that has moved.
+Only `PreventionEffect.Source` is left empty, and it is the one field the answer fills. The menu
+rides on it too, for the reason the mana menu does.
+
+**An empty menu makes no shield, and that is the whole of the safety argument.** A prevention
+effect with an empty source slot means *any source*: the failure mode of dropping this question is
+not a card that does nothing, it is a card that fogs the table, and coverage would score it as a
+win either way. So the request is the only thing that arm of `Resolve` returns, an answer off the
+menu is refused rather than partly honoured, and
+`A_source_choice_with_nothing_to_name_makes_no_shield` proves it with a life total that goes down.
+Every test in the section shows damage **arriving** in a control case; a prevention read too
+broadly is the one defect this family produces that looks exactly like success.
+
+**"The next time" is a use, not a duration** (CR 615.8). `PreventionEffect.OnlyOnce` is a count of
+*events* and is not `Amount`, which is CR 615.10's per-event cap and never runs out. The two are
+independent and both are printed: "the next time a source of your choice would deal damage to you
+this turn" against Pay No Heed's "prevent all damage a source of your choice would deal this turn"
+are the same shield round the same chosen object, and the only difference is whether it survives
+its first use. Read without the flag, a Circle of Protection is blanket immunity to a whole source
+for the turn — a strictly better card than the printed one. The end is an event,
+`PreventionEffectSpent`, emitted by the replacement that prevented the damage and in the same
+batch: state is a fold of the log, and "the Circle has been used" is not derivable from the damage
+event. It is spent on damage it *prevented* rather than on having applied, which is what keeps
+CR 615.12's "shields won't be reduced by damage that can't be prevented" true — the unpreventable
+guard already sits above both arms.
+
+**"Of your choice" is reported, not answered — exactly as "other" is.** `PreventSource` hands the
+word back as a flag, and the two static readers in `CardCompiler` *refuse* it rather than dropping
+it: a permanent is not resolving and has no moment at which to ask, and the sentence with the words
+removed is a permanent that shields against every red source on the table for as long as it is on
+the battlefield. `A_prevention_of_your_choice_is_read_as_a_one_shot_and_refused_as_a_static`
+asserts both directions.
+
+**CR 615.9 costs nothing extra.** The filter is kept on the shield as well as used to build the
+menu, so the properties are rechecked when the damage would happen; a source that has stopped being
+red is not prevented and does not spend the shield. `Preventions.Watches` already asked both
+questions. The one-answer case goes through a forced arm beside the mana colour's (CR 118.3): a
+question with one button on it is not a question, and settling it still makes the shield.
+
+**The invariant suite caught the half nobody was playing.** Aiming a shield at a *victim* was new:
+the only targeted prevention before this named a **source**, and CR 609.7a says a source is never a
+player, so `PreventDescribedDamage` had never been offered an "any target" spec at all.
+`Every_effect_aimed_at_any_target_answers_for_a_player` asks of every effect that can be aimed at
+one whether anybody has read what it does with a player, and it failed the moment the new reader
+made that arm reachable. The arm was in fact correct — the chosen victim goes into
+`PreventionEffect.Player` and `Preventions.CoversPlayer` is what the `PlayerDamaged` half of the
+replacement pass asks — but nothing played it, and "an effect whose `Resolve` returns `[]` on an
+input its own grammar admits is indistinguishable from a working one" is the lesson this file
+already records from the first prevention shield. It is now played by
+`A_chosen_source_shield_aimed_at_a_player_covers_that_player_alone`, with the other player as the
+control: a shield that lost which player it named would cover her too, and every other assertion in
+that test would still pass.
+
+**What is refused on this row, re-measured: 28 sole blockers**, and only two of them are about
+prevention.
+
+- **8 redirect rather than prevent** — Aegis of Honor, Beacon of Destiny, Eye for an Eye, General's
+  Regalia, Jade Monolith, Nova Pentacle, Reflect Damage, Shaman en-Kor. The shield is not the verb.
+- **9 carry a rider sized by the damage prevented** (CR 615.5) — Awe Strike, Bone Mask, Cho-Arrim
+  Alchemist, Deflecting Palm, Honorable Passage, Intervention Pact, New Way Forward, Reverse
+  Damage, Shadowbane. The amount prevented is not carried anywhere a later sentence can read it,
+  and the pattern anchors at "prevent that damage" so the rider cannot fall off a card that would
+  then look implemented.
+- **3 name a characteristic the permanent remembered** — Story Circle, Prismatic Circle and Circle
+  of Solace read "the chosen color"/"the chosen type" off an as-enters choice.
+- **2 have an activation cost the compiler cannot read** (Penance, Seasoned Tactician), and the
+  prevention sentence itself now reads on both.
+- **1 each**: a keyword in the card-filter vocabulary (Circle of Protection: Shadow wants "a
+  creature with shadow"), an Aura's host as the victim of a one-shot (Kithkin Armor), half the
+  damage rounded down (Dark Sphere), a pronoun in the source slot (Dazzling Reflection), a
+  condition in front of the shield (Rhystic Circle), and one that is not a prevention at all
+  (Desperate Gambit).
+
+**The two filter rows were re-measured and are not one gap.** 92 cards still print "prevent all …
+damage" as their only unread line, and the biggest coherent group in them is **23 that filter on
+combat state** — "attacking creatures you control", "creatures it's blocking", "unblocked
+creatures". That is the same capability the previous round wrote down and it has not gone stale:
+`PermanentFilter` and `SourceFilter` are `SearchFilters` ids asked of a *printed card*, and these
+want computed characteristics and the combat state. Behind it, 14 want a filter over what the
+source is (power bounds, "creatures without trample", "creature tokens"), 8 want a colour named,
+remembered or compared, 7 carry the CR 615.5 rider, 5 name a spell on the stack as the source, 4
+lead with a condition `BoardConditions` cannot read, and 3 take a variable number of targets. The
+rest are one-offs. There is no second convergence in there of the size this round found.
