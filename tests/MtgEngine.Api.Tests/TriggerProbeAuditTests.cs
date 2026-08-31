@@ -1067,8 +1067,13 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
         // Every small number, not a selection of them. "When this Class becomes level 3" is an
         // equality on the level the event carries, and a list that jumped from two to four
         // reported both printed Classes as inert for want of a three.
+        // 6 is here because a d6 has one, and the visit die is the commonest die in the game
+        // (CR 701.52a). Without it "whenever you roll a 6" could not be satisfied by any event
+        // this battery builds, and the three corpus cards that watch for one were reported as
+        // firing on nothing at all - which is the battery's blind spot and not the card's, the
+        // distinction this file's failure message asks the next person to make.
         if (type == typeof(int))
-            return [1, 2, 0, 3, 4, 5, 8];
+            return [1, 2, 0, 3, 4, 5, 6, 8];
 
         if (type == typeof(long))
             return [1L];
