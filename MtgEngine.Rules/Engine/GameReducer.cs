@@ -648,10 +648,16 @@ public static class GameReducer
             DiceRollRequested => state,
             DiceRolled => state,
 
-            // And a visit changes none either: it says which Attraction the number lit up
-            // (CR 701.52a) so that Attraction's visit ability can trigger. Everything the visit
-            // then does is the ability's, and the ability's events fold like any others.
-            AttractionVisited => state,
+            // A visit says which Attraction the number lit up (CR 701.52a) so that Attraction's
+            // visit ability can trigger, and everything the visit then does is the ability's.
+            // What the fold keeps is the fact of it: four cards read "Attractions you've visited
+            // this turn", and the Attraction they are counting may have sacrificed itself on the
+            // visit or been destroyed since, so the board cannot be asked afterwards.
+            AttractionVisited visit => state with
+            {
+                AttractionVisitsThisTurn = state.AttractionVisitsThisTurn.Add(
+                    new AttractionVisit(visit.PlayerId, visit.AttractionId)),
+            },
             ModesChosen chosenModes => Changing(
                 state, chosenModes.StackId, o => o with { ChosenModes = chosenModes.Modes }),
             SpellSquadded squad => Changing(
@@ -1501,6 +1507,12 @@ public static class GameReducer
             Players = players,
             ArrivalsThisTurn = [],
             DeparturesThisTurn = [],
+
+            // CR 701.52a's visits are a per-turn fact like the two above it. The roll that
+            // starts the new turn's precombat main phase (CR 717.4) happens after this, so a
+            // card counting "Attractions you've visited this turn" during its own visit counts
+            // that visit and nothing from the turn before.
+            AttractionVisitsThisTurn = [],
         };
     }
 
