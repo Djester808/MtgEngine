@@ -4196,6 +4196,9 @@ public sealed class Game
         Emit(new PriorityGranted(recipient ?? State.ActivePlayerId));
     }
 
+    /// <summary>Names the shield counter's replacement, so it is applied at most once per event.</summary>
+    private const string ShieldCounterKey = "shield-counter";
+
     /// <summary>Identifies one waiting trigger: which object, and which of its abilities.</summary>
     private static string TriggerKey(PendingTrigger trigger) =>
         trigger.SourceId.Value.ToString("N") + "|" + trigger.AbilityId;
@@ -9279,6 +9282,14 @@ public sealed class Game
         if (!_triggerModes.TryGetValue(key, out var list))
             _triggerModes[key] = list = [];
 
+        // Taking fewer than the maximum is an answer, and it has to be remembered: without it
+        // the question is asked again the moment the trigger is looked at, for ever.
+        if (string.Equals(pick, NoFurtherMode, StringComparison.Ordinal))
+        {
+            _triggerModesClosed.Add(key);
+            return;
+        }
+
         if (int.TryParse(
             pick,
             System.Globalization.NumberStyles.Integer,
@@ -9288,6 +9299,24 @@ public sealed class Game
             list.Add(index);
         }
     }
+
+    /// <summary>The most modes a trigger may be given (CR 700.2d).</summary>
+    /// <remarks>
+    /// Almost every modal ability prints one number and takes exactly that many, and those
+    /// compile with a maximum equal to the count. A maximum below the count would be a card that
+    /// asks for more modes than it allows, so the larger of the two is the honest reading.
+    /// </remarks>
+    private static int ModeCeiling(TriggeredAbilityDefinition ability) =>
+        Math.Max(ability.ModesToChoose, ability.ModesMax);
+
+    /// <summary>The option id that means "I have taken all the modes I want".</summary>
+    /// <remarks>
+    /// Not a number, so it can never collide with a mode index however many modes a card prints.
+    /// </remarks>
+    private const string NoFurtherMode = "no-further-mode";
+
+    /// <summary>Triggers whose controller has said they want no more modes.</summary>
+    private readonly HashSet<string> _triggerModesClosed = new(StringComparer.Ordinal);
 
     /// <summary>Records one answered target and keeps the rest of the question open.</summary>
     private void RecordTriggerTarget(PendingChoice choice, string pick)
@@ -10434,9 +10463,33 @@ public sealed class Game
 
                 // CR 603.3c: modes are chosen as the ability goes on the stack, and before its
                 // targets - the modes decide what there is to target at all.
+                //
+                // CR 700.2d: "choose one or both" is a range, not a count, and the ability
+                // carries both ends of it. Only the lower end was ever read here, so a trigger
+                // offering a range asked for its minimum and stopped: the second half of "choose
+                // one or both" could not be taken at all, on a card that compiled cleanly and
+                // played without complaint. ModesMax was written by the compiler and read by
+                // nothing, which is why nothing noticed.
                 if (modal is { ModesToChoose: > 0 } offering
-                    && pickedModes.Count < offering.ModesToChoose)
+                    && pickedModes.Count < ModeCeiling(offering)
+                    && !_triggerModesClosed.Contains(modeKey))
                 {
+                    // Past the minimum every further mode is optional, so there has to be a way
+                    // to stop. Offered as an option rather than as a wider MaxPicks because the
+                    // modes are picked one at a time and the order they were picked in is what
+                    // slices the targets below (CR 601.2c).
+                    var modeOptions = offering.Modes
+                        .Select((one, index) => (Mode: one, Index: index))
+                        .Where(one => !pickedModes.Contains(one.Index))
+                        .Select(one => new ChoiceOption(
+                            one.Index.ToString(
+                                System.Globalization.CultureInfo.InvariantCulture),
+                            one.Mode.Text))
+                        .ToList();
+
+                    if (pickedModes.Count >= offering.ModesToChoose)
+                        modeOptions.Add(new ChoiceOption(NoFurtherMode, "Choose no more modes."));
+
                     Ask(new PendingChoice
                     {
                         Id = "trigger-modes:" + modeKey + ":" + pickedModes.Count.ToString(
@@ -10444,16 +10497,7 @@ public sealed class Game
                         PlayerId = trigger.ControllerId,
                         Kind = ChoiceKind.ChooseTriggerMode,
                         Prompt = trigger.Text,
-                        Options =
-                        [
-                            .. offering.Modes
-                                .Select((one, index) => (Mode: one, Index: index))
-                                .Where(one => !pickedModes.Contains(one.Index))
-                                .Select(one => new ChoiceOption(
-                                    one.Index.ToString(
-                                        System.Globalization.CultureInfo.InvariantCulture),
-                                    one.Mode.Text)),
-                        ],
+                        Options = [.. modeOptions],
                         MinPicks = 1,
                         MaxPicks = 1,
                     });
@@ -10546,6 +10590,7 @@ public sealed class Game
                             });
                             _triggerTargets.Remove(key);
                             _triggerModes.Remove(modeKey);
+                            _triggerModesClosed.Remove(modeKey);
                             continue;
                         }
 
@@ -10592,6 +10637,7 @@ public sealed class Game
                     });
                     _triggerTargets.Remove(key);
                     _triggerModes.Remove(modeKey);
+                    _triggerModesClosed.Remove(modeKey);
                     continue;
                 }
 
@@ -10611,6 +10657,7 @@ public sealed class Game
                 });
 
                 _triggerModes.Remove(modeKey);
+                _triggerModesClosed.Remove(modeKey);
             }
         }
     }
@@ -11367,6 +11414,38 @@ public sealed class Game
                     [new CountersChanged(
                         hitCreature.Id, CounterKinds.MinusOneMinusOne, hitCreature.Amount)], false, null);
             }
+        }
+
+        // CR 122.1d: a shield counter replaces the next damage the permanent would be dealt,
+        // spending itself. A rules replacement that lives on the permanent rather than on a card,
+        // like regeneration below, so it is offered here rather than through ReplacementsOf.
+        //
+        // Offered after infect and wither, which replace the same event with counters: a creature
+        // dealt infect damage is not dealt damage at all (CR 702.90b), so there is nothing left
+        // for a shield to stop and spending one would cost the permanent its protection for free.
+        if (e is DamageMarked shieldedHit
+            && !applied.Contains((shieldedHit.Id, ShieldCounterKey))
+            && State.TryGetObject(shieldedHit.Id, out var guarded)
+            && guarded.Permanent?.Counters.GetValueOrDefault(CounterKinds.Shield) > 0)
+        {
+            yield return (ShieldCounterKey, guarded, (_, _, source) =>
+                [new CountersChanged(source.Id, CounterKinds.Shield, -1)], false, null);
+        }
+
+        // The other half of the same rule. "Destroy" and "destroy, it can't be regenerated" are
+        // both destruction, and a shield counter is not regeneration - reading only the first
+        // would leave the commonest removal in the game going through the shield.
+        if (e is ObjectMoved
+            {
+                To: Zone.Graveyard,
+                Cause: MoveCause.Destroy or MoveCause.DestroyNoRegeneration,
+            } razed
+            && !applied.Contains((razed.OldId, ShieldCounterKey))
+            && State.TryGetObject(razed.OldId, out var warded)
+            && warded.Permanent?.Counters.GetValueOrDefault(CounterKinds.Shield) > 0)
+        {
+            yield return (ShieldCounterKey, warded, (_, _, source) =>
+                [new CountersChanged(source.Id, CounterKinds.Shield, -1)], false, null);
         }
 
         // CR 614.1c: "if it would die this turn, exile it instead". A floating effect rather
