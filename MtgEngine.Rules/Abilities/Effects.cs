@@ -3646,9 +3646,9 @@ public sealed record PumpUntilEndOfTurn(
     /// The same moment <see cref="UntilYourNextTurn"/> names — the untap step is where CR 611.2b's
     /// turn boundary is swept — read around a different player. "Target land becomes a Swamp until
     /// its controller's next untap step" is a land somebody else usually controls, and reading
-    /// "its controller" as the effect's controller would end the retyping on the wrong turn: on
-    /// the caster's own turn it ends a whole turn cycle early, and against a table of four it can
-    /// end three turns early or late depending on the seat.
+    /// "its controller" as the effect's controller would end the retyping on the wrong turn — a
+    /// turn late at two players, and up to three turns late at four, which is a strictly better
+    /// card than the printed one every time.
     /// <para>
     /// The player is read when the effect resolves and stored as an identity, exactly as
     /// <see cref="State.PreventionEffect.Source"/> is: control is layer 2 and moves, so a

@@ -10878,7 +10878,8 @@ duration at all.
 | `until ~ leaves the battlefield` | 68 | 68 | 49 | 45 | 0 | **1** |
 | `the next spell you cast this turn` | 14 | 14 | 12 | 12 | 0 | 0 |
 | `as though it had flash` | 54 | 53 | 41 | 39 | 0 | 0 |
-| `once each turn` / `without paying its mana cost` | 232 | 232 | 167 | 164 | 0 | 0 |
+| `once each turn` | 193 | 190 | 143 | 142 | 0 | 0 |
+| `without paying its mana cost` | 232 | 232 | 167 | 164 | 0 | 0 |
 | an attack tax carrying a duration | 23 | 23 | 15 | 15 | 0 | 0 |
 | **any unread line naming a window** | **432** | **424** | **300** | **287** | **0** | **21** |
 

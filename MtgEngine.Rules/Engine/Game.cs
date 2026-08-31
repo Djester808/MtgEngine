@@ -12311,9 +12311,14 @@ public sealed class Game
                 // count even when it was already theirs; compared against the active player
                 // rather than an arithmetic deadline, so an extra turn taken in between is
                 // harmless. The same shape the exile play-window uses in FinishCleanup.
+                //
+                // A missing start stamp ends it here rather than never: the two fields are set
+                // together by the only effect that makes one of these, and if that ever came
+                // apart the shorter window is the safe half to be wrong on. `null < int` is
+                // false, so leaving the comparison bare would have made the theft permanent.
                 foreach (var lingering in State.FloatingEffects
                     .Where(f => f.UntilEndOfTurnOf == State.ActivePlayerId
-                        && f.UntilEndOfTurn < State.TurnNumber)
+                        && (f.UntilEndOfTurn is not { } began || began < State.TurnNumber))
                     .ToList())
                 {
                     Emit(new ContinuousEffectEnded(lingering.Id));
