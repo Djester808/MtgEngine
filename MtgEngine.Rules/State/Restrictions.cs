@@ -142,6 +142,26 @@ public sealed record ChosenNameBan
     public bool ExceptManaAbilities { get; init; }
 }
 
+/// <summary>
+/// A number read off the board at the moment a declaration is made (CR 107.3).
+/// </summary>
+/// <remarks>
+/// A declaration is not a resolution, so <see cref="Abilities.Amount"/> cannot serve here: its
+/// <see cref="Abilities.Amount.Counter"/> is handed a <see cref="Abilities.ResolutionContext"/>,
+/// and CR 508.1 is a turn-based action with no spell, no ability and no stack object to build one
+/// from. What is left when that context is taken away is exactly this — the board, whoever is
+/// asking, and the permanent doing the asking.
+/// <para>
+/// Declared here rather than reusing the compiler's own counting delegate so that
+/// <c>MtgEngine.Rules.State</c> does not learn about <c>MtgEngine.Rules.Cards</c>: the compiler
+/// reads state, and the dependency may not run the other way. The compiler adapts its shared
+/// counting vocabulary to this — the <em>same</em> vocabulary, entered from a caller that has no
+/// resolution, rather than a second one written out here.
+/// </para>
+/// </remarks>
+public delegate int BoardCount(
+    GameState state, Abilities.IAbilitySource abilities, Guid you, ObjectId source);
+
 /// <summary>Which declaration a combat tax is charged for (CR 508.1h, 509.1d).</summary>
 public enum TaxedDeclaration
 {
@@ -237,6 +257,23 @@ public sealed record CombatTax
     /// price silently read as its generic half is a Norn's Annex that anybody can walk past.
     /// </remarks>
     public required Mana.ManaCostSpec Price { get; init; }
+
+    /// <summary>
+    /// A board count that multiplies <see cref="Price"/>, or null for a price printed outright.
+    /// </summary>
+    /// <remarks>
+    /// Sphere of Safety's "{X} for each of those creatures, where X is the number of enchantments
+    /// you control" and Phyrexian Marauder's "{1} for each +1/+1 counter on it" are the same
+    /// shape: a unit price times something on the board. The count is taken when the declaration
+    /// is made and never again — CR 508.1h locks the total in, and an enchantment that leaves
+    /// afterwards does not refund anybody.
+    /// <para>
+    /// The unit is <see cref="Price"/>'s generic part, so a counted tax is generic mana by
+    /// construction; the compiler refuses a coloured unit rather than multiplying a pip, which is
+    /// not a thing CR 107.3 says how to do and no card prints.
+    /// </para>
+    /// </remarks>
+    public BoardCount? Count { get; init; }
 
     /// <summary>Whether it is charged at the declaration of attackers or of blockers.</summary>
     public required TaxedDeclaration Declaration { get; init; }
@@ -675,7 +712,7 @@ public static class CombatTaxes
                 foreach (var (attackerId, target) in attackers)
                 {
                     if (Charges(state, abilities, tax, host, controllerId, attackerId, target))
-                        total = total.Plus(tax.Price);
+                        total = total.Plus(PriceOf(state, abilities, tax, host, controllerId));
                 }
             }
         }
@@ -713,13 +750,31 @@ public static class CombatTaxes
                 foreach (var blockerId in declared)
                 {
                     if (Charges(state, abilities, tax, host, controllerId, blockerId, target: null))
-                        total = total.Plus(tax.Price);
+                        total = total.Plus(PriceOf(state, abilities, tax, host, controllerId));
                 }
             }
         }
 
         return total;
     }
+
+    /// <summary>What one covered creature costs right now (CR 107.3, 508.1h).</summary>
+    /// <remarks>
+    /// A count that comes to nought makes the tax free, and that is the printed card rather than
+    /// a failure: a Sphere of Safety with no enchantments beside it really does let everything
+    /// through. The direction that would be wrong — a phrase the compiler could not read quietly
+    /// coming back as nought — cannot happen here, because such a line never becomes a tax at all.
+    /// </remarks>
+    private static Mana.ManaCostSpec PriceOf(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        CombatTax tax,
+        GameObject host,
+        Guid hostControllerId) =>
+        tax.Count is not { } count
+            ? tax.Price
+            : Mana.ManaCostSpec.Free.PlusGeneric(
+                Math.Max(0, tax.Price.GenericPart * count(state, abilities, hostControllerId, host.Id)));
 
     /// <summary>Whether this tax is charged for this creature in this declaration.</summary>
     /// <remarks>

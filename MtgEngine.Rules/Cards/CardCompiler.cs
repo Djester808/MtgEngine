@@ -15311,8 +15311,10 @@ public static partial class CardCompiler
     {
         if (DefenceTaxLine().Match(line) is { Success: true } group)
         {
-            if (TaxPrice(group.Groups["price"].Value) is not { } price)
+            if (TaxPrice(group.Groups["price"].Value, group.Groups["count"]) is not { } priced)
                 return false;
+
+            var (price, count) = priced;
 
             // The three printed subjects are three different questions about who is being
             // attacked, and there is no default that means "guess": a spelling this switch does
@@ -15330,8 +15332,9 @@ public static partial class CardCompiler
 
             into.Add(new CombatTax
             {
-                Id = "attack-tax:" + who + ":" + price,
+                Id = "attack-tax:" + who + ":" + price + (count is null ? string.Empty : ":counted"),
                 Price = price,
+                Count = count,
                 Declaration = TaxedDeclaration.Attack,
                 Subject = who,
             });
@@ -15346,18 +15349,22 @@ public static partial class CardCompiler
             return false;
 
         var m = self.Success ? self : attached;
-        if (TaxPrice(m.Groups["price"].Value) is not { } toll)
+        if (TaxPrice(m.Groups["price"].Value, m.Groups["count"]) is not { } charged)
             return false;
+
+        var (toll, per) = charged;
 
         var subjectHere = self.Success ? TaxedCreatures.Host : TaxedCreatures.Attached;
         var what = m.Groups["what"].Value.ToUpperInvariant();
+        var counted = per is null ? string.Empty : ":counted";
 
         if (what is "ATTACK" or "ATTACK OR BLOCK")
         {
             into.Add(new CombatTax
             {
-                Id = "attack-tax:" + subjectHere + ":" + toll,
+                Id = "attack-tax:" + subjectHere + ":" + toll + counted,
                 Price = toll,
+                Count = per,
                 Declaration = TaxedDeclaration.Attack,
                 Subject = subjectHere,
             });
@@ -15367,8 +15374,9 @@ public static partial class CardCompiler
         {
             into.Add(new CombatTax
             {
-                Id = "block-tax:" + subjectHere + ":" + toll,
+                Id = "block-tax:" + subjectHere + ":" + toll + counted,
                 Price = toll,
+                Count = per,
                 Declaration = TaxedDeclaration.Block,
                 Subject = subjectHere,
             });
@@ -15387,40 +15395,79 @@ public static partial class CardCompiler
     /// Phyrexian symbol is a choice between mana and life. A price of nothing is refused too: a
     /// tax of {0} is a prohibition with a free way out, which is not a card.
     /// </remarks>
-    private static ManaCostSpec? TaxPrice(string printed)
+    private static (ManaCostSpec Price, BoardCount? Count)? TaxPrice(string printed, Group counted)
     {
         var price = ManaCostSpec.Parse(printed);
+
+        // A counted price is a unit times something on the board, so the unit has to be a number
+        // this can multiply. "{X}, where X is the number of enchantments you control" prints no
+        // unit at all and means one apiece (CR 107.3), which is the {1} substituted here rather
+        // than a second field nothing else would ever set.
+        if (counted.Success)
+        {
+            var phrase = counted.Value.Trim();
+            if (phrase.StartsWith(TaxCountPreamble, StringComparison.OrdinalIgnoreCase))
+                phrase = phrase[TaxCountPreamble.Length..].Trim();
+
+            // hasSource: true — the permanent printing the line is standing on the battlefield
+            // when the declaration is made, so "+1/+1 counter on it" has something to point at.
+            // CountSeats.Host and no lookup: a declaration settles "you" and "its controller" and
+            // nothing else, and a phrase naming a seat it cannot reach is refused there rather
+            // than answered with nought.
+            if (EffectPhrase.Counting(phrase, hasSource: true, EffectPhrase.CountSeats.Host)
+                is not { } count)
+            {
+                return null;
+            }
+
+            var unit = price.HasVariable ? ManaCostSpec.Parse("{1}") : price;
+
+            // The unit is multiplied, so it has to be generic: CR 107.3 says nothing about what
+            // three times a coloured pip would be, and no card asks.
+            return unit.Symbols.IsEmpty
+                || unit.GenericPart <= 0
+                || unit.ManaValue != unit.GenericPart
+                ? null
+                : (unit,
+                    (state, abilities, you, source) => count(state, abilities, you, source, null));
+        }
 
         return price.Symbols.IsEmpty
             || price.ManaValue <= 0
             || price.Symbols.Any(s => s.IsVariable || s.IsHybrid || s.IsPhyrexian)
             ? null
-            : price;
+            : (price, null);
     }
+
+    /// <summary>The words "the number of", which a counted group phrase is read without.</summary>
+    private const string TaxCountPreamble = "the number of ";
 
     /// <summary>"Creatures can't attack you unless their controller pays {2} for each …"</summary>
     /// <remarks>
-    /// The tail is an alternation of the three phrases the corpus prints rather than a wildcard,
-    /// because the wildcard is where this family goes wrong: "{1} for each card in your hand" has
-    /// the same shape and means something the declaration cannot work out.
+    /// The per-creature tail is an alternation of the three phrases the corpus prints rather than
+    /// a wildcard, because that multiplication is the declaration's own and has to be recognised
+    /// rather than counted. What follows it — Sphere of Safety's "where X is the number of
+    /// enchantments you control" — is a genuine board count and goes to the shared vocabulary.
     /// </remarks>
     [GeneratedRegex(
         @"^Creatures can't attack (?<what>you or planeswalkers you control|you|planeswalkers you control) "
             + @"unless their controller pays (?<price>\{[^{}]+\}) for each "
-            + @"(?:of those creatures|creature they control that's attacking (?:you|a planeswalker you control))\.?$",
+            + @"(?:of those creatures|creature they control that's attacking (?:you|a planeswalker you control))"
+            + @"(?:, where X is (?<count>[^.]+?))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DefenceTaxLine();
 
     /// <summary>"~ can't attack or block unless you pay {2}." — Qal Sisma Behemoth.</summary>
     [GeneratedRegex(
-        @"^~ can't (?<what>attack or block|attack|block) unless you pay (?<price>\{[^{}]+\})\.?$",
+        @"^~ can't (?<what>attack or block|attack|block) unless you pay (?<price>\{[^{}]+\})"
+            + @"(?: for each (?<count>[^.]+?))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCombatTaxLine();
 
     /// <summary>"Enchanted creature can't attack unless its controller pays {3}." — Brainwash.</summary>
     [GeneratedRegex(
         @"^Enchanted creature can't (?<what>attack or block|attack|block) "
-            + @"unless its controller pays (?<price>\{[^{}]+\})\.?$",
+            + @"unless its controller pays (?<price>\{[^{}]+\})(?: for each (?<count>[^.]+?))?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedCombatTaxLine();
 
