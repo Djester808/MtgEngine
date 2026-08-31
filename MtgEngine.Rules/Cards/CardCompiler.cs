@@ -1523,6 +1523,7 @@ public static partial class CardCompiler
                 continue;
             }
 
+
             if (CastOnlyLine().Match(line) is { Success: true } onlyWhen)
             {
                 // Unread words leave the card alone rather than dropping the restriction: a
@@ -13071,6 +13072,7 @@ public static partial class CardCompiler
     /// </remarks>
     private static bool DividesSomething(ImmutableList<IEffect> effects) =>
         effects.OfType<IDividedEffect>().Any();
+
 
     /// <summary>How many modes a written-out number asks for, or null if it is not one.</summary>
     /// <remarks>
