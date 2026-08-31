@@ -231,6 +231,26 @@ public enum ChoiceKind
     /// <summary>Which creature type a permanent becomes (CR 205.1b).</summary>
     ChooseCreatureType,
 
+    /// <summary>
+    /// Which of the five basic land types a land becomes (CR 305.6, 305.7).
+    /// </summary>
+    /// <remarks>
+    /// The creature type's twin one set along, and a separate kind for the reason
+    /// <see cref="ChooseManaColor"/> is separate from <see cref="ChooseColor"/>: the menu is
+    /// what differs. A creature type is offered from the types in play, because there are several
+    /// hundred of them and no board can show them all; the land types are the five CR 305.6
+    /// names, so the offer is closed, the same on every board, and never empty - a question that
+    /// could not be asked because nothing in play carried the answer would leave the land unread
+    /// with the ability spent.
+    /// <para>
+    /// The answer decides which of CR 305.7's two halves runs, and the request says which: a land
+    /// <em>set</em> to a basic land type loses its old land types and the abilities its rules
+    /// text gave it, and one that gains a type "in addition to its other types" keeps every word.
+    /// Both spellings are printed on this family, one card apart.
+    /// </para>
+    /// </remarks>
+    ChooseBasicLandType,
+
     /// <summary>Whether to put a clashed card on the bottom of your library (CR 701.30a).</summary>
     ClashKeepOnTop,
 

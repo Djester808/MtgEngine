@@ -8365,6 +8365,53 @@ public sealed record UntapUpTo(
     }
 }
 
+/// <summary>
+/// "Target land becomes the basic land type of your choice until end of turn" (CR 305.7).
+/// </summary>
+/// <remarks>
+/// The colour choice's shape with a different menu, and it borrows that effect's two guards for
+/// the same reasons: a target that was not a permanent leaves nothing to ask about, and a land
+/// that has left the battlefield is skipped rather than asked about (CR 608.2b) — stopping the
+/// whole game to name a type for a permanent that is no longer there is a hang, not a choice.
+/// <para>
+/// <strong>The duration is not carried here.</strong> Every printed card in this family says
+/// "until end of turn", the compiler refuses the sentence without one, and what the answer builds
+/// is a floating effect stamped with the turn number. An indefinite arm would be a different
+/// duration, not a flag on this: an effect that outlives what it should is as wrong as one that
+/// ends early.
+/// </para>
+/// </remarks>
+public sealed record ChooseBasicLandTypeForTarget(
+    bool InAddition,
+    int? TargetIndex = 0) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var subject = TargetIndex is { } index
+            ? context.TargetAt(index) is { Kind: TargetKind.Permanent } target
+                ? target.Subject
+                : (ObjectId?)null
+            : context.PhysicalSourceId;
+
+        if (subject is not { } chosen)
+            return [];
+
+        if (!context.State.TryGetObject(chosen, out var permanent)
+            || permanent.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        return
+        [
+            new LandTypeChoiceRequested(
+                context.ControllerId, context.PhysicalSourceId, [chosen], InAddition),
+        ];
+    }
+}
+
 public sealed record ChooseColorForTarget(
     ColorChoiceUse Use,
     int? TargetIndex = 0) : IEffect

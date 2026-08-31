@@ -986,6 +986,32 @@ public sealed record ColorChoiceRequested(
 }
 
 /// <summary>
+/// A player must name one of the five basic land types for a land (CR 305.6, 305.7).
+/// </summary>
+/// <remarks>
+/// The creature type's request with one field more, and that field is the rule: CR 305.7 gives
+/// two different answers to "this land is now a Swamp" depending on whether the sentence said
+/// "in addition to its other types", and only the card knows which it said. Carried on the
+/// request rather than worked out when the answer arrives, because by then the sentence is gone.
+/// <para>
+/// The lands it applies to are captured here rather than re-derived on the answer, for the reason
+/// every deferred question here captures its subject: the question is asked after the resolution
+/// that raised it, and a land that has left in between is not one of the lands that were chosen
+/// for.
+/// </para>
+/// </remarks>
+public sealed record LandTypeChoiceRequested(
+    Guid ChooserId,
+    ObjectId SourceId,
+    ImmutableList<ObjectId> Affected,
+    bool InAddition) : GameEvent
+{
+    public override string Rule => "305.7";
+
+    public override string Describe() => $"{ChooserId:N} chooses a basic land type.";
+}
+
+/// <summary>
 /// A player must name the colour of mana an effect is adding, as it resolves (CR 106.1a).
 /// </summary>
 /// <remarks>

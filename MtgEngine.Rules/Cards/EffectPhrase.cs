@@ -5985,6 +5985,28 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target land becomes the basic land type of your choice until end of turn." — the
+        // sentence above with the type left to a player (CR 305.6, 305.7). What it does when it
+        // resolves is what the named form does; the only thing added is the question, and the
+        // question is asked the way every other one here is — an event and a ChoiceKind, so a
+        // replay reaches the same offer and reads the answer back out of the log.
+        //
+        // The duration is required exactly as it is above, and for the same reason: the answer
+        // builds an effect stamped with the turn number, so a sentence printed without a duration
+        // would compile into something that undoes itself in the cleanup step. No card in this
+        // family prints one without it.
+        m = ChosenLandTypeLine().Match(sentence);
+        if (m.Success
+            && (m.Groups["pre"].Success || m.Groups["ueot"].Success)
+            && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } asked)
+        {
+            targets.Add(asked);
+            effects.Add(new ChooseBasicLandTypeForTarget(
+                m.Groups["add"].Success, targets.Count - 1));
+
+            return true;
+        }
+
         // "{2}: ~ becomes a copy of target artifact, creature, enchantment, or land until end of
         // turn" (CR 613.2a, 707.2). Layer 1, so everything else on the board applies on top of
         // the card it became rather than of the card it was printed as.
@@ -15731,6 +15753,26 @@ public static partial class EffectPhrase
             + @"(?<ueot> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex LandRetypeLine();
+
+    /// <summary>
+    /// The retyping above with the type left to a player — "target land becomes the basic land
+    /// type of your choice until end of turn" (CR 305.6, 305.7).
+    /// </summary>
+    /// <remarks>
+    /// A pattern of its own rather than an alternation inside that one, because what it builds is
+    /// a different thing: the named form is a floating effect the compiler can write down, and
+    /// this one is a question that has to be asked before there is an effect to create at all.
+    /// The two tails are shared deliberately — the same <c>add</c> clause decides which half of
+    /// CR 305.7 applies, and the same duration is required — so the pair cannot drift on the
+    /// half of the rule they have in common.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?" + T
+            + @" [Bb]ecomes the basic land type of your choice"
+            + @"(?<add> in addition to its other types)?"
+            + @"(?<ueot> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex ChosenLandTypeLine();
 
     /// <summary>The same animation, said of the permanent whose ability it is.</summary>
     [GeneratedRegex(
