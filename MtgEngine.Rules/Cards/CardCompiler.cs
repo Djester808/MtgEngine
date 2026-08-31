@@ -15169,7 +15169,7 @@ public static partial class CardCompiler
     /// in a sentence whose victim is a described set.
     /// </para>
     /// </remarks>
-    private static (PreventionRelation Relation, string Rest)? StaticPreventionRelation(
+    private static (PreventionRelation Relation, string Head)? StaticPreventionRelation(
         string phrase)
     {
         var what = phrase.Trim();
@@ -15178,8 +15178,8 @@ public static partial class CardCompiler
         {
             if (what.EndsWith(tail, StringComparison.OrdinalIgnoreCase))
             {
-                var rest = what[..^tail.Length].Trim();
-                return rest.Length == 0 ? null : (relation, rest);
+                var head = what[..^tail.Length].Trim();
+                return head.Length == 0 ? null : (relation, head);
             }
         }
 
@@ -15219,7 +15219,8 @@ public static partial class CardCompiler
             return false;
 
         var dealer = PreventionAnchor.None;
-        (string? Filter, PlayerScope? Who) from = (null, null);
+        var relation = PreventionRelation.None;
+        (string? Filter, PlayerScope? Who, CombatRole? Combat) from = (null, null, null);
 
         if (sources is { } by)
         {
@@ -15227,6 +15228,15 @@ public static partial class CardCompiler
 
             if (dealer is PreventionAnchor.None)
             {
+                // "Creatures blocking it" is neither a description nor a named object, so the
+                // relation comes off first and the head - "creatures" - goes through the shared
+                // vocabulary like every other clause.
+                if (StaticPreventionRelation(by) is { } related)
+                {
+                    relation = related.Relation;
+                    by = related.Head;
+                }
+
                 // A static ability never stops to ask anything, so "of your choice" has nowhere
                 // to be answered and the line is left unread. Read as the bare description it
                 // would be a permanent shielding against every source of that kind for as long
@@ -15234,14 +15244,26 @@ public static partial class CardCompiler
                 if (EffectPhrase.PreventSource(by) is not { Chosen: false } described)
                     return false;
 
-                from = (described.Filter, described.Who);
+                from = (described.Filter, described.Who, described.Combat);
             }
+        }
+
+        // "It" is the permanent printing the line, and it is only unambiguous because every
+        // sentence that says it shields "~" and nothing else. A relation on a sentence whose
+        // victim is a described set would have to guess which of the two the pronoun meant, so
+        // the line is left unread instead.
+        if (relation is not PreventionRelation.None
+            && (victims is null || StaticPreventionAnchor(victims) is not PreventionAnchor.Self))
+        {
+            return false;
         }
 
         if (victims is null)
         {
             built.Add(
-                StaticShield(kind, PreventionAnchor.None, (null, null, false), dealer, from, when));
+                StaticShield(
+                    kind, PreventionAnchor.None, (null, null, false, null), dealer, from,
+                    relation, when));
             return true;
         }
 
@@ -15252,14 +15274,17 @@ public static partial class CardCompiler
         {
             if (StaticPreventionAnchor(part) is var anchor and not PreventionAnchor.None)
             {
-                built.Add(StaticShield(kind, anchor, (null, null, false), dealer, from, when));
+                built.Add(
+                    StaticShield(
+                        kind, anchor, (null, null, false, null), dealer, from, relation, when));
                 continue;
             }
 
             if (EffectPhrase.PreventVictim(part) is not { } who)
                 return false;
 
-            built.Add(StaticShield(kind, PreventionAnchor.None, who, dealer, from, when));
+            built.Add(
+                StaticShield(kind, PreventionAnchor.None, who, dealer, from, relation, when));
         }
 
         return built.Count > before;
@@ -15295,9 +15320,10 @@ public static partial class CardCompiler
     private static ReplacementEffectDefinition StaticShield(
         DamageKind kind,
         PreventionAnchor victim,
-        (string? Filter, PlayerScope? Who, bool Other) described,
+        (string? Filter, PlayerScope? Who, bool Other, CombatRole? Combat) described,
         PreventionAnchor dealer,
-        (string? Filter, PlayerScope? Who) from,
+        (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
+        PreventionRelation relation,
         Func<GameState, IAbilitySource, GameObject, bool>? when)
     {
         var template = new PreventionEffect
@@ -15310,9 +15336,11 @@ public static partial class CardCompiler
             // control" and "to you" are the two halves of the same slot and never both.
             PermanentFilter = described.Filter,
             PermanentController = described.Filter is null ? null : described.Who,
+            PermanentCombat = described.Combat,
             Players = described.Filter is null ? described.Who : null,
             SourceFilter = from.Filter,
             SourceController = from.Who,
+            SourceCombat = from.Combat,
         };
 
         // The shield with its object slots filled from the board, or null when a slot names
@@ -15349,12 +15377,19 @@ public static partial class CardCompiler
                 Permanent = shielded,
                 Source = dealing,
                 Excludes = described.Other ? source.Id : null,
+
+                // Bound here for the reason every other object slot is: there is no board at
+                // compile time, and the relation is to whichever permanent carries the ability
+                // at the moment the damage would happen.
+                SourceBlocks = relation is PreventionRelation.BlockingHost ? source.Id : null,
+                SourceBlockedBy =
+                    relation is PreventionRelation.BlockedByHost ? source.Id : null,
             };
         }
 
         return new ReplacementEffectDefinition
         {
-            Id = StaticShieldId(kind, victim, described, dealer, from),
+            Id = StaticShieldId(kind, victim, described, dealer, from, relation),
             FunctionsFrom = Zone.Battlefield,
 
             // CR 615.12: unpreventable damage has to walk past this the same way it walks past
@@ -15403,9 +15438,10 @@ public static partial class CardCompiler
     private static string StaticShieldId(
         DamageKind kind,
         PreventionAnchor victim,
-        (string? Filter, PlayerScope? Who, bool Other) described,
+        (string? Filter, PlayerScope? Who, bool Other, CombatRole? Combat) described,
         PreventionAnchor dealer,
-        (string? Filter, PlayerScope? Who) from)
+        (string? Filter, PlayerScope? Who, CombatRole? Combat) from,
+        PreventionRelation relation)
     {
         var to = victim switch
         {
@@ -15416,6 +15452,7 @@ public static partial class CardCompiler
             // "creatures your opponents control" are one word apart and would otherwise be the
             // same shield to CR 614.5, which keys an application on this string.
             _ => (described.Other ? "other-" : string.Empty)
+                + (described.Combat is { } doing ? doing + "-" : string.Empty)
                 + (described.Filter ?? "all")
                 + (described.Who is { } whose ? ":" + whose : string.Empty),
         };
@@ -15424,9 +15461,12 @@ public static partial class CardCompiler
         {
             PreventionAnchor.Self => "self",
             PreventionAnchor.Host => "host",
-            _ => from.Filter is null && from.Who is null
+            _ => from.Filter is null && from.Who is null && from.Combat is null
                 ? "any"
-                : (from.Filter ?? "source") + (from.Who is { } who ? ":" + who : string.Empty),
+                : (from.Combat is { } acting ? acting + "-" : string.Empty)
+                    + (from.Filter ?? "source")
+                    + (from.Who is { } who ? ":" + who : string.Empty)
+                    + (relation is PreventionRelation.None ? string.Empty : ":" + relation),
         };
 
         return $"static-prevention:{kind.ToString().ToLowerInvariant()}:to={to}:by={by}";
