@@ -7165,6 +7165,70 @@ public enum SearchWho
     SubjectController,
 }
 
+/// <summary>
+/// Which zones one search instruction reaches (CR 701.23a).
+/// </summary>
+/// <remarks>
+/// A search normally takes one zone, and every part of the machinery below was written assuming
+/// the library: the candidates come from one list, the shuffle at the end is unconditional, and
+/// the request carries one player. 103 corpus cards reach across two or three zones in a single
+/// instruction — "search your library or graveyard for a card named ~", "search target player's
+/// graveyard, hand, and library for all cards with that name and exile them" — and none of them
+/// could be said at all.
+/// <para>
+/// Flags rather than a list, for the reason every filter here is a name: it has to survive being
+/// written to a log and read back, and a set of flags is one word in the JSON either way. Order
+/// carries no meaning — the cards that name more than one zone name them in every order, and the
+/// union is the same set of candidates whichever way round they are printed.
+/// </para>
+/// <para>
+/// The union is also exact rather than convenient, which is worth saying because "search your
+/// library <em>or</em> graveyard" reads as a choice of one zone. Every corpus card printing "or"
+/// searches for a single card, so a player who picks the zone the card is in and a player offered
+/// both zones at once find precisely the same card; the cards that fetch several — Doomsday,
+/// Ecological Appreciation, Chandra, Heart of Fire — all print "and". Where that stops being true
+/// this has to become a choice of zone first.
+/// </para>
+/// </remarks>
+[Flags]
+public enum SearchIn
+{
+    /// <summary>The library, which is what a search means unless the card says otherwise.</summary>
+    Library = 1,
+
+    /// <summary>The graveyard — a public zone, so a search of it may not fail to find.</summary>
+    Graveyard = 2,
+
+    /// <summary>The hand.</summary>
+    Hand = 4,
+}
+
+/// <summary>
+/// Whose zones a search reaches, which is not the same question as who does the searching.
+/// </summary>
+/// <remarks>
+/// <see cref="SearchWho"/> answers "who is holding the cards up and choosing", and until the
+/// extraction family arrived it answered both questions at once, because a player only ever
+/// searched their own library. Cranial Extraction separates them: its controller searches, and
+/// what they search is somebody else's graveyard, hand and library. The two have to be carried
+/// apart or the choice is put to the wrong player — and putting an opponent's hand in front of
+/// its owner would be a card that does nothing.
+/// </remarks>
+public enum SearchWhoseZones
+{
+    /// <summary>The searcher's own zones.</summary>
+    Searcher,
+
+    /// <summary>The player this spell or ability targets — "target opponent's graveyard, hand, and library".</summary>
+    TargetPlayer,
+
+    /// <summary>Whoever controls the object it targets — "its controller's graveyard, hand, and library".</summary>
+    TargetsController,
+
+    /// <summary>Whoever owns the object it targets — "its owner's graveyard, hand, and library".</summary>
+    TargetsOwner,
+}
+
 /// <remarks>
 /// The three mana-value bounds are <see cref="Amount"/>s rather than numbers so that "with mana
 /// value X or less" can be said at all: X is chosen as the spell is cast (CR 601.2b) and the
@@ -7186,7 +7250,29 @@ public sealed record SearchLibrary(
     /// Whose library is searched. "Its controller may search their library" is the same search
     /// pointed at somebody else, and the fetch lands under their control rather than yours.
     /// </summary>
-    SearchWho Who = SearchWho.You) : IEffect
+    SearchWho Who = SearchWho.You,
+
+    /// <summary>
+    /// Which of that player's zones this one instruction reaches (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// Defaulted to the library, so every single-zone tutor in the corpus - and every log already
+    /// written - says exactly what it said before.
+    /// </remarks>
+    SearchIn Zones = SearchIn.Library,
+
+    /// <summary>Whose zones are searched, when they are not the searcher's own.</summary>
+    SearchWhoseZones Whose = SearchWhoseZones.Searcher,
+
+    /// <summary>
+    /// Which target names the player whose zones are searched, when <see cref="Whose"/> is not
+    /// <see cref="SearchWhoseZones.Searcher"/>.
+    /// </summary>
+    /// <remarks>
+    /// Read only in that case, which is what <see cref="EffectTargets.ReadsATarget"/> is told, so
+    /// an ordinary tutor is not reported as aiming at a target it never looks at.
+    /// </remarks>
+    int TargetIndex = 0) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -7222,11 +7308,45 @@ public sealed record SearchLibrary(
             searcher = owner.ControllerId;
         }
 
+        // Whose zones, which is a different question from who searches (CR 701.23a). An
+        // extraction's controller does the searching and what they search belongs to somebody
+        // else, so the two travel apart from here on.
+        var zonesOf = searcher;
+
+        if (Whose != SearchWhoseZones.Searcher)
+        {
+            var them = Whose switch
+            {
+                SearchWhoseZones.TargetPlayer =>
+                    context.TargetAt(TargetIndex) is { Kind: TargetKind.Player } aimed
+                        ? aimed.Player
+                        : null,
+
+                // The object is followed forward (CR 400.7): every card in this family counters
+                // or exiles what it targets and then asks whose it was, so by now the target is
+                // a card in a graveyard under a new id and asking the state alone finds nothing.
+                SearchWhoseZones.TargetsController => context.PeerAt(TargetIndex)?.ControllerId,
+                _ => context.PeerAt(TargetIndex)?.OwnerId,
+            };
+
+            // CR 608.2b: an effect that cannot work out whose zones it means does nothing at
+            // all. Falling back on the searcher would point an extraction at its own caster's
+            // library, which is the opposite card.
+            if (them is not { } found)
+                return [];
+
+            zonesOf = found;
+        }
+
         return
         [
             new LibrarySearchRequested(
                 searcher, filter, Destination, Tapped, Count, MaxManaValue?.In(context),
-                MinManaValue?.In(context), ExactManaValue?.In(context)),
+                MinManaValue?.In(context), ExactManaValue?.In(context))
+            {
+                Zones = Zones,
+                ZonesOf = zonesOf == searcher ? null : zonesOf,
+            },
         ];
     }
 }

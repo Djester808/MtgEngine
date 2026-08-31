@@ -3397,6 +3397,247 @@ public sealed class CompiledCardBehaviourTests
                 damageDivision: [3, 0]));
     }
 
+    // ---- Searching more than one zone (CR 701.23a) ---------------------------
+
+    /// <summary>
+    /// "Search your library or graveyard for a card named ~" with the card in the graveyard.
+    /// </summary>
+    /// <remarks>
+    /// A search normally takes one zone, and every part of the machinery was written around that:
+    /// the candidates came from one list, the shuffle at the end was unconditional, and the
+    /// request carried one player. The graveyard half is the half that proves the zone list is
+    /// read rather than ignored - a compiler that dropped the extra zone would still pass a test
+    /// where the card was in the library.
+    /// </remarks>
+    [Fact]
+    public void A_two_zone_search_takes_the_card_out_of_the_graveyard()
+    {
+        var sought = Card("Sought Rune Test", string.Empty, CardType.Artifact);
+        var spared = Card("Spared Rune Test", string.Empty, CardType.Artifact);
+
+        var summoner = Card(
+            "Rune Summoner Test",
+            "When ~ enters, search your library or graveyard for a card named Sought Rune Test, "
+                + "reveal it, and put it into your hand. If you search your library this way, "
+                + "shuffle.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(summoner);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, sought, Zone.Graveyard);
+
+        // The control, in both searched zones: same artifact, different name. A search that read
+        // the zone list and lost the filter would have offered it first.
+        game.Create(alice, spared, Zone.Graveyard);
+        game.Create(alice, spared, Zone.Library);
+
+        game.Create(alice, summoner, Zone.Battlefield);
+        Settle(game);
+
+        // It left the graveyard...
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Rune Test");
+
+        // ...and arrived in hand.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Rune Test");
+
+        // The control stayed where it was put, in both zones.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Rune Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Rune Test");
+    }
+
+    /// <summary>The same card with the same wording, found in the library instead.</summary>
+    /// <remarks>
+    /// The other half of the union, and it is a separate test rather than a second assertion
+    /// because the two failures look nothing alike: a zone list read as "graveyard only" passes
+    /// the test above and fails this one.
+    /// </remarks>
+    [Fact]
+    public void The_same_two_zone_search_takes_the_card_out_of_the_library()
+    {
+        var sought = Card("Sought Rune Test", string.Empty, CardType.Artifact);
+        var spared = Card("Spared Rune Test", string.Empty, CardType.Artifact);
+
+        var summoner = Card(
+            "Rune Summoner Test",
+            "When ~ enters, search your library or graveyard for a card named Sought Rune Test, "
+                + "reveal it, and put it into your hand. If you search your library this way, "
+                + "shuffle.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, sought, Zone.Library);
+        game.Create(alice, spared, Zone.Library);
+        game.Create(alice, spared, Zone.Graveyard);
+
+        var libraryBefore = game.State.GetPlayer(alice).Library.Count;
+
+        game.Create(alice, summoner, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Rune Test");
+
+        // One card fewer in the library, and the one that left is the one it was told to find.
+        Assert.Equal(libraryBefore - 1, game.State.GetPlayer(alice).Library.Count);
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Library.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Rune Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Library.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Rune Test");
+    }
+
+    /// <summary>
+    /// "Search your graveyard, hand, or library for a card named ~" with the card in hand.
+    /// </summary>
+    /// <remarks>
+    /// The hand is the zone this family exists to reach: it is hidden (CR 400.2), so nothing
+    /// before this could look into one at all, and a card found there moves out of a zone the
+    /// searcher is otherwise not allowed to see. Here the searcher owns the hand, which is the
+    /// easy case.
+    /// </remarks>
+    [Fact]
+    public void A_three_zone_search_takes_the_card_out_of_the_hand()
+    {
+        var sought = Card("Sought Relic Test", string.Empty, CardType.Artifact);
+        var spared = Card("Spared Relic Test", string.Empty, CardType.Artifact);
+
+        var gate = Card(
+            "Relic Gate Test",
+            "When ~ enters, search your graveyard, hand, or library for a card named "
+                + "Sought Relic Test and put it onto the battlefield. If you search your library "
+                + "this way, shuffle.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(gate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, sought, Zone.Hand);
+        game.Create(alice, spared, Zone.Hand);
+
+        game.Create(alice, gate, Zone.Battlefield);
+        Settle(game);
+
+        // Out of the hand and onto the battlefield.
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Relic Test");
+
+        Assert.Contains(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Relic Test");
+
+        // The control is still in hand, and never reached the battlefield.
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Relic Test");
+
+        Assert.DoesNotContain(
+            game.State.Battlefield.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Relic Test");
+    }
+
+    /// <summary>
+    /// The shuffle happens because a library was searched, and not otherwise (CR 701.23e).
+    /// </summary>
+    /// <remarks>
+    /// "If you search your library this way, shuffle" is the rider every card in this family
+    /// prints, and it is a condition rather than decoration: a search that only ever looked at a
+    /// graveyard has nothing hidden to randomise. The unconditional shuffle the single-zone
+    /// search did was invisible until a search could avoid the library altogether.
+    /// </remarks>
+    [Fact]
+    public void A_search_that_never_reaches_a_library_does_not_shuffle_one()
+    {
+        var sought = Card("Sought Idol Test", string.Empty, CardType.Artifact);
+
+        var digger = Card(
+            "Idol Digger Test",
+            "When ~ enters, search your graveyard for a card named Sought Idol Test, "
+                + "reveal it, and put it into your hand.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var compiled = CardCompiler.Compile(digger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, sought, Zone.Graveyard);
+
+        var shufflesBefore = game.Log.OfType<LibraryShuffled>().Count();
+
+        game.Create(alice, digger, Zone.Battlefield);
+        Settle(game);
+
+        // The card came out of the graveyard...
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Idol Test");
+
+        // ...and no library was shuffled on the way.
+        Assert.Equal(shufflesBefore, game.Log.OfType<LibraryShuffled>().Count());
+    }
+
+    /// <summary>The same search with the library in its zone list does shuffle.</summary>
+    /// <remarks>
+    /// The control for the test above. Without it, a build that had simply stopped shuffling
+    /// would pass - and the shuffle is what stops a tutor telling its controller the order of
+    /// everything it did not take.
+    /// </remarks>
+    [Fact]
+    public void A_search_that_does_reach_a_library_shuffles_it()
+    {
+        var sought = Card("Sought Idol Test", string.Empty, CardType.Artifact);
+
+        var seeker = Card(
+            "Idol Seeker Test",
+            "When ~ enters, search your library or graveyard for a card named Sought Idol Test, "
+                + "reveal it, and put it into your hand. If you search your library this way, "
+                + "shuffle.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, sought, Zone.Graveyard);
+
+        var shufflesBefore = game.Log.OfType<LibraryShuffled>().Count();
+
+        game.Create(alice, seeker, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Idol Test");
+
+        Assert.True(game.Log.OfType<LibraryShuffled>().Count() > shufflesBefore);
+    }
+
     // ---- Searching by name (CR 701.23) ---------------------------------------
 
     [Fact]

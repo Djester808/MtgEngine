@@ -560,10 +560,38 @@ public sealed record LibrarySearchRequested(
     int? MinManaValue = null,
     int? ExactManaValue = null) : GameEvent
 {
+    /// <summary>
+    /// Which zones this one instruction reaches (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// An init property rather than another positional parameter, so that every log already
+    /// written reads back as the library search it was.
+    /// </remarks>
+    public SearchIn Zones { get; init; } = SearchIn.Library;
+
+    /// <summary>
+    /// Whose zones are being searched, when they are not <see cref="PlayerId"/>'s own.
+    /// </summary>
+    /// <remarks>
+    /// The two are separate because an extraction searches an opponent's zones and the
+    /// <em>caster</em> chooses what is found. Which player is asked is <see cref="PlayerId"/>,
+    /// and that is what decides who sees the options — a hand searched this way is shown to the
+    /// searcher and to nobody else, which is the whole of how the hidden information is modelled.
+    /// The cards are never put into a view; the question is, and
+    /// <see cref="Views.PlayerViewProjector"/> already sends a question only to the player it is
+    /// for.
+    /// </remarks>
+    public Guid? ZonesOf { get; init; }
+
+    /// <summary>Whose cards are being looked through.</summary>
+    public Guid Searched => ZonesOf ?? PlayerId;
+
     public override string Rule => "701.23";
 
     public override string Describe() =>
-        $"{PlayerId:N} searches their library for a {FilterId} card.";
+        ZonesOf is { } them
+            ? $"{PlayerId:N} searches {them:N}'s {Zones} for a {FilterId} card."
+            : $"{PlayerId:N} searches their {Zones} for a {FilterId} card.";
 }
 
 /// <summary>

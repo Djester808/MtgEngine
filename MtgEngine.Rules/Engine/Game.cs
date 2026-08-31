@@ -8572,19 +8572,13 @@ public sealed class Game
         var owed = _searchesOwed[0];
         _searchesOwed.RemoveAt(0);
 
-        // CR 202.3: mana value comes from the printed cost, and a card in a library has only
-        // its printed cost - nothing on the battlefield is changing it.
-        var found = State.GetPlayer(owed.PlayerId).Library
-            .Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card)
-                && (owed.MaxManaValue is not { } cap || State.GetObject(id).Card.Cmc <= cap)
-                && (owed.MinManaValue is not { } floor || State.GetObject(id).Card.Cmc >= floor)
-                && (owed.ExactManaValue is not { } exact
-                    || State.GetObject(id).Card.Cmc == exact))
-            .ToList();
+        var found = SearchCandidates(owed);
 
         if (found.Count == 0)
         {
-            Shuffle(owed.PlayerId, _random);
+            if (owed.Zones.HasFlag(SearchIn.Library))
+                Shuffle(owed.Searched, _random);
+
             return false;
         }
 
@@ -8595,7 +8589,7 @@ public sealed class Game
             Id = $"search:{owed.PlayerId:N}",
             PlayerId = owed.PlayerId,
             Kind = ChoiceKind.SearchLibrary,
-            Prompt = $"Search your library for a {owed.FilterId} card.",
+            Prompt = SearchPrompt(owed),
             Options = [.. found.Select(id => new ChoiceOption(
                 id.Value.ToString("N"), State.GetObject(id).Card.Name))],
             // CR 701.23c: a player may always fail to find, even when the card is there.
@@ -8611,7 +8605,62 @@ public sealed class Game
 
     private LibrarySearchRequested? _searchBeingAsked;
 
-    /// <summary>Moves the found card and shuffles the library (CR 701.23e).</summary>
+    /// <summary>
+    /// Every card in the searched zones that the instruction admits (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// One list across however many zones the card names, in the order library, graveyard, hand,
+    /// because the union is what the player picks from and no card in the corpus distinguishes
+    /// which zone the find came out of. The mana-value bounds are asked of the printed cost
+    /// (CR 202.3): a card outside the battlefield has only its printed cost, and nothing on the
+    /// battlefield is changing it.
+    /// </remarks>
+    private List<ObjectId> SearchCandidates(LibrarySearchRequested owed)
+    {
+        var player = State.GetPlayer(owed.Searched);
+        var looked = new List<ObjectId>();
+
+        if (owed.Zones.HasFlag(SearchIn.Library))
+            looked.AddRange(player.Library);
+
+        if (owed.Zones.HasFlag(SearchIn.Graveyard))
+            looked.AddRange(player.Graveyard);
+
+        if (owed.Zones.HasFlag(SearchIn.Hand))
+            looked.AddRange(player.Hand);
+
+        return
+        [
+            .. looked.Where(id => SearchFilters.Matches(owed.FilterId, State.GetObject(id).Card)
+                && (owed.MaxManaValue is not { } cap || State.GetObject(id).Card.Cmc <= cap)
+                && (owed.MinManaValue is not { } floor || State.GetObject(id).Card.Cmc >= floor)
+                && (owed.ExactManaValue is not { } exact
+                    || State.GetObject(id).Card.Cmc == exact)),
+        ];
+    }
+
+    /// <summary>What the player being asked is told they are looking through.</summary>
+    private string SearchPrompt(LibrarySearchRequested owed)
+    {
+        var zones = new List<string>();
+
+        if (owed.Zones.HasFlag(SearchIn.Library))
+            zones.Add("library");
+
+        if (owed.Zones.HasFlag(SearchIn.Graveyard))
+            zones.Add("graveyard");
+
+        if (owed.Zones.HasFlag(SearchIn.Hand))
+            zones.Add("hand");
+
+        var whose = owed.ZonesOf is { } them
+            ? State.GetPlayer(them).Name + "'s "
+            : "your ";
+
+        return $"Search {whose}{string.Join(", ", zones)} for a {owed.FilterId} card.";
+    }
+
+    /// <summary>Moves the found cards and shuffles the library (CR 701.23e).</summary>
     private void ResolveSearch(IReadOnlyList<string> picks)
     {
         if (_searchBeingAsked is not { } owed)
@@ -8619,19 +8668,21 @@ public sealed class Game
 
         _searchBeingAsked = null;
 
+        var searched = owed.Searched;
+
         // "Shuffle and put that card on top" - the card never leaves the library, so the two
         // steps have to happen in the printed order. Moving it first and shuffling afterwards
         // folds it back in at random, which is the opposite of what the card says and looks
         // identical from every angle except the one that matters.
         if (owed.Destination == Zone.Library)
         {
-            Shuffle(owed.PlayerId, _random);
+            Shuffle(searched, _random);
 
             if (picks.Count > 0)
             {
                 var found = new ObjectId(Guid.ParseExact(picks[0], "N"));
                 if (State.TryGetObject(found, out var onTop) && onTop.Zone == Zone.Library)
-                    Move(found, Zone.Library, MoveCause.Other, owed.PlayerId, ZonePosition.Top);
+                    Move(found, Zone.Library, MoveCause.Other, searched, ZonePosition.Top);
             }
 
             return;
@@ -8642,17 +8693,44 @@ public sealed class Game
         foreach (var pick in picks)
         {
             var id = new ObjectId(Guid.ParseExact(pick, "N"));
-            if (!State.TryGetObject(id, out var card) || card.Zone != Zone.Library)
+
+            // A pick has to have come from one of the zones this search was told to look in.
+            // Checking the zone rather than trusting the answer is what stops a client naming a
+            // card in a zone the instruction never reached - the board's list is a courtesy and
+            // the engine is the authority.
+            if (!State.TryGetObject(id, out var card) || !SearchedZone(owed, card))
                 continue;
 
-            var landed = Move(id, owed.Destination, MoveCause.Other, owed.PlayerId);
+            // CR 400.3: a card put into a hand, library or graveyard goes to its owner's, and
+            // the owner here is the player whose zones were searched rather than the searcher -
+            // an extraction exiles the cards it finds, and exile is shared, but a search of
+            // somebody else's library that puts a card in "your hand" would be a different card.
+            var landed = Move(
+                id,
+                owed.Destination,
+                owed.Destination == Zone.Exile ? MoveCause.Exile : MoveCause.Other,
+                owed.PlayerId);
 
             if (owed.Tapped && owed.Destination == Zone.Battlefield)
                 Emit(new PermanentTapped(landed));
         }
 
-        Shuffle(owed.PlayerId, _random);
+        // CR 701.23e shuffles what was searched, and only if a library was: "if you search your
+        // library this way, shuffle" is the rider two-zone cards print, and a search that only
+        // ever looked at a graveyard has nothing to randomise.
+        if (owed.Zones.HasFlag(SearchIn.Library))
+            Shuffle(searched, _random);
     }
+
+    /// <summary>Whether a found card is in one of the zones the search was told to look in.</summary>
+    private static bool SearchedZone(LibrarySearchRequested owed, GameObject card) =>
+        card.Zone switch
+        {
+            Zone.Library => owed.Zones.HasFlag(SearchIn.Library),
+            Zone.Graveyard => owed.Zones.HasFlag(SearchIn.Graveyard),
+            Zone.Hand => owed.Zones.HasFlag(SearchIn.Hand),
+            _ => false,
+        };
 
     /// <summary>
     /// Performs the oldest owed seek, if any.
