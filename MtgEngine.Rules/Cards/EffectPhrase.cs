@@ -190,7 +190,7 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (TryFlicker(text, effects, targets))
+        if (TryFlicker(text, effects, targets, objectNamedByTrigger))
         {
             parsed = new ParsedPhrase
             {
@@ -11435,7 +11435,8 @@ public static partial class EffectPhrase
     private static bool TryFlicker(
         string text,
         ImmutableList<IEffect>.Builder effects,
-        ImmutableList<TargetSpec>.Builder targets)
+        ImmutableList<TargetSpec>.Builder targets,
+        bool objectNamedByTrigger)
     {
         var m = FlickerLine().Match(text.Trim());
         if (!m.Success)
@@ -11464,6 +11465,17 @@ public static partial class EffectPhrase
         {
             targets.Add(howMany > 1 ? blinked with { Optional = true } : blinked);
             effects.Add(new FlickerTarget(targets.Count - 1, m.Groups["tapped"].Success));
+        }
+
+        // "It gains first strike until end of turn", "If it's a Spirit, put a +1/+1 counter on
+        // it", "Create a 1/1 colorless Shapeshifter creature token with changeling" - read the
+        // ordinary way, exactly as the impulse-draw pair above reads what follows it. The
+        // pronoun in those sentences names the target this reader just added, and CR 400.7j is
+        // what lets it find the permanent that came back.
+        foreach (var sentence in Sentences(m.Groups["after"].Value))
+        {
+            if (!TryOne(sentence, targets, effects, objectNamedByTrigger))
+                return false;
         }
 
         return true;
@@ -17507,10 +17519,22 @@ public static partial class EffectPhrase
     /// owner's". Refusing them left Illusionist's Stratagem and Displace unread beside a reader
     /// that already did exactly what they ask.
     /// </para>
+    /// <para>
+    /// <b>And whatever the card says next is not part of the blink.</b> Anchoring the match to
+    /// the end of the line did not leave those cards unread, which is the failure this file has
+    /// seen before and can measure - it left them read as something else. "Exile target creature
+    /// you control, then return that card to the battlefield under its owner's control" was cut
+    /// at the ", then" by the ordinary clause splitter, and the half that was left compiled to
+    /// the graveyard reanimator that shares its wording - an effect that looks for its subject in
+    /// a graveyard and finds it in exile. So Justiciar's Portal, Essence Flux, Siren's Ruse,
+    /// Splash Portal, Personify and their neighbours were complete, castable, and exiled your own
+    /// creature permanently.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"^exile (?<t>.+?), then return (it|that card|those cards) to the battlefield"
-            + @"(?<tapped> tapped)? under (its|their) owner's control\.?$",
+            + @"(?<tapped> tapped)? under (its|their) owner's control"
+            + @"(?:\.(?<after>.*))?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FlickerLine();
 

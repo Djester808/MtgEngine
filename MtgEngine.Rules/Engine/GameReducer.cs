@@ -904,6 +904,14 @@ public static class GameReducer
                 ? state.TurnNumber
                 : null,
 
+            // CR 717.6a: an Attraction that arrives in the command zone from anywhere else has
+            // been junked, and the junkyard is "a single face-up pile separate from any player's
+            // Attraction deck". The zone cannot say which pile a card is in - there is only one
+            // zone - so the move says it, the same way the discard above does.
+            IsJunked = e.To == Zone.Command
+                && e.From != Zone.Command
+                && Abilities.Attractions.Is(arriving),
+
             // CR 400.7 makes a zone change a new object that remembers nothing, and CR 607.2 is
             // the exception these two live in: an enters trigger reading "if it was kicked" is
             // linked to the kicker paid on the spell that became this permanent, so the fact has

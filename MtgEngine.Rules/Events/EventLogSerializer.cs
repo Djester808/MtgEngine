@@ -452,7 +452,15 @@ public static class EventLogSerializer
         // versions makes GameReducer.Specialize refuse every index, so a saved game came
         // back with its specialized permanents on their base cards and unable to
         // specialize again. Nineteen corpus cards carry these.
-        IReadOnlyList<CardFace> Specializations)
+        IReadOnlyList<CardFace> Specializations,
+
+        // And a third time, one mechanic along again. An Attraction's lights are printed beside
+        // its text box and appear in no sentence (CR 717.1), so a stored game that lost them
+        // brought back an Attraction that is still an Attraction, still sits on the battlefield
+        // and still makes the precombat main phase roll a die - and whose every result matches
+        // nothing, for the rest of the game, with nothing anywhere reporting an error. Twenty-two
+        // corpus Attractions carry them.
+        IReadOnlyList<int> AttractionLights)
     {
         public static PrintedCard Of(CardDefinition card) => new(
             card.OracleId,
@@ -471,7 +479,8 @@ public static class EventLogSerializer
             card.ColorIdentity,
             card.Colors,
             card.Faces,
-            card.Specializations);
+            card.Specializations,
+            card.AttractionLights);
 
         public CardDefinition ToDefinition() => new()
         {
@@ -492,6 +501,7 @@ public static class EventLogSerializer
             Colors = [.. Colors],
             Faces = [.. Faces],
             Specializations = [.. Specializations],
+            AttractionLights = [.. AttractionLights],
         };
     }
 }
