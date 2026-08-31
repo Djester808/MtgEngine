@@ -11373,15 +11373,30 @@ public static partial class CardCompiler
             && rejected.Count == 0
             && quotedTriggers.Count > 0;
 
-        if (!isTrigger
-            && !TryManaAbility(inner, quoted)
-            && (!TryActivatedAbility(inner, card, quoted, rejected) || rejected.Count > 0))
-        {
-            return false;
-        }
+        var readAsAbility =
+            (isTrigger
+                || TryManaAbility(inner, quoted)
+                || (TryActivatedAbility(inner, card, quoted, rejected) && rejected.Count == 0))
+            && (quoted.Count > 0 || quotedTriggers.Count > 0);
 
-        if (quoted.Count == 0 && quotedTriggers.Count == 0)
-            return false;
+        // A quoted ability need not be one that uses the stack. `All Sliver creatures have "~
+        // gets +1/+1 as long as you control a Swamp"` is a *static* ability, and a static's
+        // effect belongs in the layer that effect belongs to rather than in layer 6 - which is
+        // the whole of the difficulty, and the reason this reader took a trigger, an activated
+        // ability or a mana ability and nothing else (CR 604.1, 613.1).
+        var innerStatics = ImmutableList<ContinuousEffectDefinition>.Empty;
+        var innerAboutItself = false;
+
+        if (!readAsAbility)
+        {
+            // Whatever the ability readers left behind is not the ability. Carried forward it
+            // would grant half a line, which is worth less than leaving the line unread.
+            quoted.Clear();
+            quotedTriggers.Clear();
+
+            if (!TryQuotedStatic(inner, out innerStatics, out innerAboutItself))
+                return false;
+        }
 
         var granted = quoted
             .Select(a => a with { Id = "granted:" + card.Name + ":" + a.Id })
@@ -11482,6 +11497,35 @@ public static partial class CardCompiler
             return group!.Matches(state, source, target);
         }
 
+        // Which permanent is *carrying* the granted static, which is a different question from
+        // which permanent the static changes. `Receives` answers the first for an ability, where
+        // the two coincide because a granted ability sits on the thing that has it; a static's
+        // effect can name something else entirely, so the bearer has to be found first and then
+        // handed to the static's own reader as its source.
+        //
+        // Every arm reads raw state and nothing computed. That is the rule this has to keep: it
+        // runs inside the layers, and asking another permanent for a characteristic from in here
+        // is the re-entrant read CR 613.8's hazard is about.
+        GameObject? Bearer(GameState state, GameObject source, CharacteristicsBuilder target)
+        {
+            if (self)
+                return source;
+
+            // CR 701.3c: the one permanent this Aura or Equipment is attached to.
+            if (attached)
+            {
+                return source.Permanent?.AttachedTo is { } host
+                    && state.TryGetObject(host, out var carrying)
+                    ? carrying
+                    : null;
+            }
+
+            // A group, where the only bearer this can name without computing another
+            // permanent's characteristics is the one being computed - which is why the guard
+            // below admits a group frame only for a static about the permanent it is on.
+            return Receives(state, source, target) ? target.Subject : null;
+        }
+
         // Named by what it grants as well as by the card, because a card can grant more than
         // one: "Equipped creature has "A" and "B"" is two effects, and two sharing an id are
         // indistinguishable in a log and in every list keyed on one.
@@ -11500,17 +11544,48 @@ public static partial class CardCompiler
                     ? "commanders"
                     : group!.Described;
 
-        into.Add(new ContinuousEffectDefinition
+        // Where a granted static's effect lands is decided by *which permanent is carrying it*,
+        // and the frame is what says which that is. Two of the three answers are readable from
+        // raw state - the granting permanent itself, and the one it is attached to - and those
+        // two may take any static at all, including one whose subject is a third object:
+        // `As long as enchanted permanent is an Equipment, it has "Equipped creature has
+        // lifelink"` gives the Equipment an ability about the creature *it* is attached to, and
+        // handing that effect the Equipment as its source is what makes its own reader answer
+        // the question.
+        //
+        // A group cannot be answered that way. Finding which permanents are in it means
+        // computing another permanent's characteristics from inside this one's, which is the
+        // loop CR 613.8 warns about and which has overflowed the stack here before. So a group
+        // frame takes only a static whose subject is the permanent receiving it - where the
+        // receiver *is* the object being computed and no other one has to be found.
+        if (!innerStatics.IsEmpty && !self && !attached && !innerAboutItself)
+            return false;
+
+        // No ability to grant when the quotation was a static: the layer-6 effect below would
+        // add an empty list under an id naming nothing, which every list keyed on one would then
+        // have to carry.
+        if (!granted.IsEmpty || !grantedTriggers.IsEmpty)
         {
-            Id = $"grants:{describedGroup}:{card.Name}:{describedGrant}",
-            Layer = EffectLayer.Ability,
-            Applies = Receives,
-            Apply = (_, _, builder) =>
+            into.Add(new ContinuousEffectDefinition
             {
-                builder.GrantedActivated.AddRange(granted);
-                builder.GrantedTriggers.AddRange(grantedTriggers);
-            },
-        });
+                Id = $"grants:{describedGroup}:{card.Name}:{describedGrant}",
+                Layer = EffectLayer.Ability,
+                Applies = Receives,
+                Apply = (_, _, builder) =>
+                {
+                    builder.GrantedActivated.AddRange(granted);
+                    builder.GrantedTriggers.AddRange(grantedTriggers);
+                },
+            });
+        }
+
+        foreach (var quotedStatic in innerStatics)
+        {
+            into.Add(GrantedStatic(
+                $"grants:{describedGroup}:{card.Name}:static:{quotedStatic.Id}",
+                quotedStatic,
+                Bearer));
+        }
 
         // "Enchanted creature gets +2/+2 and has "{T}: Add {B}"" — the bonus and the quoted
         // ability, which the cards print together on 52 of them and which two complete grammars
@@ -16056,19 +16131,27 @@ public static partial class CardCompiler
         // the gift is neither a grantable keyword nor a quoted ability the compiler reads — half
         // the printed line is not the card.
         Action<CharacteristicsBuilder>? gift = null;
+        var giftStatics = ImmutableList<ContinuousEffectDefinition>.Empty;
         if (m.Groups["quote"].Success)
         {
-            if (!TryQuotedAbility(
+            if (TryQuotedAbility(
                 m.Groups["quote"].Value, out var grantedActivated, out var grantedTriggers))
             {
+                gift = builder =>
+                {
+                    builder.GrantedActivated.AddRange(grantedActivated);
+                    builder.GrantedTriggers.AddRange(grantedTriggers);
+                };
+            }
+            else if (!TryQuotedStatic(m.Groups["quote"].Value, out giftStatics, out _))
+            {
+                // "... and with \"~ can attack as though it didn't have defender\"" is a static,
+                // and its effect belongs in its own layer rather than in layer 6 beside the
+                // abilities. Nothing here needs the subject test the group grants need: the
+                // permanent carrying the ability is the one that was kicked, so the bearer is
+                // the source and never has to be looked for.
                 return false;
             }
-
-            gift = builder =>
-            {
-                builder.GrantedActivated.AddRange(grantedActivated);
-                builder.GrantedTriggers.AddRange(grantedTriggers);
-            };
         }
         else if (m.Groups["kw"].Success)
         {
@@ -16105,6 +16188,18 @@ public static partial class CardCompiler
                     && paid(builder.Subject),
                 Apply = (_, _, builder) => granting(builder),
             });
+        }
+
+        foreach (var one in giftStatics)
+        {
+            statics.Add(GrantedStatic(
+                (cost is null ? "kicked-gift-static:" : $"kicked-gift-{cost}-static:") + one.Id,
+                one,
+
+                // The flag is asked of the bearer rather than of the effect, which puts the
+                // whole of CR 607.2's condition in one place: an unkicked permanent has no
+                // bearer, so the effect applies to nothing at all.
+                (_, source, _) => paid(source) ? source : null));
         }
 
         return true;
@@ -16266,6 +16361,147 @@ public static partial class CardCompiler
         triggered = quotedTriggers.ToImmutable();
         return true;
     }
+
+    /// <summary>
+    /// Reads the text inside quotation marks as a <em>static</em> ability (CR 604.1, 613.1).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TryQuotedAbility"/>'s missing third arm. A quoted ability is as often a static
+    /// as it is a trigger — <c>All Sliver creatures have "~ gets +1/+1 as long as you control a
+    /// Swamp"</c>, <c>Equipped creature has "Equipped creature has lifelink"</c> — and a static
+    /// could not be read there because a static is not an ability a permanent <em>has</em> in the
+    /// sense layer 6 means: it is a continuous effect, and its effect has to be applied in
+    /// whichever layer that effect belongs to. Layer 6 is where a granted ability goes, not where
+    /// a granted static's effect goes, and the two are different layers on nearly every card that
+    /// prints one.
+    /// <para>
+    /// Compiled as a card of its own, which is what puts the quotation through the same
+    /// normalisation a printed line gets — the trailing full stop these quotations often lack,
+    /// the reminder text, the typographic quotes — and through every static reader rather than a
+    /// second copy of a few of them. The bearer is named <c>~</c> because that is what a tilde
+    /// inside a quotation means: whatever the ability ends up on, resolved when the effect
+    /// applies rather than when it is read.
+    /// </para>
+    /// <para>
+    /// <paramref name="aboutItself"/> reports whether the static's subject is the permanent
+    /// carrying it. That is the difference between a grant whose receiver can be found from raw
+    /// state and one whose receiver would have to be computed, and the callers use it to refuse
+    /// the second.
+    /// </para>
+    /// </remarks>
+    internal static bool TryQuotedStatic(
+        string text,
+        out ImmutableList<ContinuousEffectDefinition> statics,
+        out bool aboutItself)
+    {
+        statics = [];
+        aboutItself = false;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        // A quotation inside the quotation is a grant inside a grant, and reading it would call
+        // this from inside itself. Nothing printed does it; refused rather than trusted.
+        if (text.Contains('"', StringComparison.Ordinal))
+            return false;
+
+        var compiled = Compile(new CardDefinition
+        {
+            OracleId = "granted",
+            Name = "~",
+
+            // A permanent type, because a static ability only functions on one (CR 604.1) and
+            // the readers that matter are gated on the card not being a spell. Which permanent
+            // type is not a characteristic of anything granted: the tilde is resolved against
+            // the permanent that ends up carrying the ability, never against this placeholder.
+            CardTypes = CardType.Enchantment,
+            OracleText = text,
+        });
+
+        // Whole or not at all, which is the promise this whole family is built on: a quotation
+        // the static readers only half understood would give a permanent less than the card
+        // says, and a card that compiles and plays weaker is worth less than an unread line.
+        if (!compiled.Unhandled.IsEmpty
+            || compiled.Statics.IsEmpty
+            || !compiled.Activated.IsEmpty
+            || !compiled.Triggers.IsEmpty
+            || !compiled.Replacements.IsEmpty
+            || !compiled.PlayerQualities.IsEmpty
+            || compiled.Spell is not null)
+        {
+            return false;
+        }
+
+        // Two things a granted static may not be, and both for the reason
+        // <see cref="State.Characteristics"/> refuses them outside their own layer: each is two
+        // things and only one of them is an effect. Removing every ability and becoming a copy
+        // are decided before any effect is applied, by a pass over permanents that are not the
+        // one being computed, and nothing reachable from a granted effect can make that call.
+        if (compiled.Statics.Any(e => e.RemovesAllAbilities || e.Copies is not null))
+            return false;
+
+        statics = compiled.Statics;
+        aboutItself = QuotedStaticSubject().IsMatch(text);
+        return true;
+    }
+
+    /// <summary>
+    /// A static ability one permanent has given another, applied in the layer it belongs to.
+    /// </summary>
+    /// <remarks>
+    /// The effect is the granting permanent's — it exists exactly while that permanent is on the
+    /// battlefield (CR 604.2), so it is gathered from there like any other static — but it is
+    /// <em>read</em> as though it were printed on the bearer: the bearer is handed to the inner
+    /// effect as its source, so a tilde inside the quotation means the bearer, "equipped
+    /// creature" means what the bearer is attached to, and "you" means whoever controls it.
+    /// <para>
+    /// It reports the inner effect's layer rather than layer 6, and that is the point of the
+    /// whole exercise. A granted <c>+1/+1</c> applied in layer 6 would be added before a
+    /// layer-7b effect set the creature's base power, and the bonus would vanish (CR 613.4b).
+    /// </para>
+    /// <para>
+    /// <see cref="ContinuousEffectDefinition.Applies"/> is asked again inside
+    /// <see cref="ContinuousEffectDefinition.Apply"/> rather than trusted from the call before
+    /// it: the bearer is looked up from state each time, and between the two calls an earlier
+    /// effect in the same layer may have changed which permanent qualifies.
+    /// </para>
+    /// </remarks>
+    private static ContinuousEffectDefinition GrantedStatic(
+        string id,
+        ContinuousEffectDefinition inner,
+        Func<GameState, GameObject, CharacteristicsBuilder, GameObject?> bearerOf) => new()
+        {
+            Id = id,
+            Layer = inner.Layer,
+            Applies = (state, source, target) =>
+                source is not null
+                && bearerOf(state, source, target) is { } bearer
+                && inner.Applies(state, bearer, target),
+            Apply = (state, source, target) =>
+            {
+                if (source is not null
+                    && bearerOf(state, source, target) is { } bearer
+                    && inner.Applies(state, bearer, target))
+                {
+                    inner.Apply(state, bearer, target);
+                }
+            },
+        };
+
+    /// <summary>Whether a quoted static's subject is the permanent it is granted to.</summary>
+    /// <remarks>
+    /// "~ gets +1/+1 as long as you control a Swamp" changes the permanent carrying it and
+    /// nothing else, so the bearer and the object being computed are the same permanent and no
+    /// second one has to be found. "Creature tokens you control get +2/+2" does not, and a
+    /// caller that cannot name the bearer from raw state has to refuse it.
+    /// <para>
+    /// "~ and other Slivers you control ..." is deliberately outside the pattern: its subject is
+    /// a group that merely begins with the bearer, and reading it as self-referential would give
+    /// the whole group's bonus to one permanent.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^~(?:'s)? (?!and )", RegexOptions.None)]
+    private static partial Regex QuotedStaticSubject();
 
     private static bool TryManaAbility(
         string line, ImmutableList<ActivatedAbilityDefinition>.Builder into)
