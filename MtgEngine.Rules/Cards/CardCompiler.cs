@@ -20141,12 +20141,12 @@ public static partial class CardCompiler
             + @"|(?<must>attacks each combat if able)"
             + @"|(?<silenced>its activated abilities can't be activated)))?"
             + @"|has base power and toughness (?<basep>\d+)/(?<baset>\d+)"
-            // The removal on its own - "Enchanted creature loses flying" - and behind a keyword
-            // grant, which is Sky Tether: "Enchanted creature has defender and loses flying."
-            // Both are the clause the pump arm above already reads, in the two other places the
-            // corpus prints it, so the reader underneath is untouched and there is one removal
-            // rather than two spellings of one.
-            + @"|has (?<kw>[a-z0-9{} ,]+?)(,? and loses (?<lost>[a-z ,]+?))?"
+            + @"|has (?<kw>[a-z0-9{} ,]+?)"
+            // The removal on its own - "Enchanted creature loses flying" - which is the clause
+            // the pump arm above already reads, in the other place the corpus prints it. Nothing
+            // is needed for "has defender and loses flying" beside it: the conjunction fold has
+            // already cut that line in two by the time this is asked, so an arm for it was
+            // written, measured against the whole corpus, and found to change no card at all.
             + @"|loses (?<lost>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"

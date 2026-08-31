@@ -12442,6 +12442,15 @@ public sealed class CompiledCardBehaviourTests
                 "R2157 Unread Group Test",
                 "Creatures your opponents control lose prowess.",
                 CardType.Enchantment),
+
+            // The same group sentence under a line that *does* read. The group reader hands its
+            // effects to a builder the whole card shares and answers "did I read this line?" by
+            // asking whether that builder is empty, so a refusal that only added nothing would
+            // report this second line as read on the strength of the first.
+            Card(
+                "R2157 Unread Second Group Test",
+                "Creatures you control get +1/+1.\nCreatures your opponents control lose prowess.",
+                CardType.Enchantment),
             Card(
                 "R2157 Unread Duration Test",
                 "Target creature loses flying.",
