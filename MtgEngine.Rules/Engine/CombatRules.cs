@@ -213,6 +213,21 @@ public static class CombatRules
         if (blocking.Has(KeywordAbility.CantBlock))
             return "it cannot block";
 
+        // "This creature can't block creatures with power 2 or greater" - a restriction naming
+        // the attacker by description rather than by identity (CR 509.1b). Asked of the attacker
+        // through the shared filter vocabulary and so of what it is *now*: a creature pumped
+        // past the line stops being blockable, and one shrunk below it starts.
+        //
+        // Skipped once the blocker has lost all its abilities (CR 613.1f), beside the attack
+        // restriction that reads the card the same way and for the same reason - this is a
+        // static ability of the blocker, and a creature that has none does not have this one.
+        if (!blocking.HasLostAllAbilities
+            && abilities.CantBlockMatching(blocker.Card) is { } barred
+            && SearchFilters.Matches(barred, state, abilities, attacker))
+        {
+            return $"it cannot block {attacker.Card.Name} (CR 509.1b)";
+        }
+
         if (attacking.Has(KeywordAbility.CantBeBlocked))
             return "that creature cannot be blocked";
 

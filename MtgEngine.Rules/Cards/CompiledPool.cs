@@ -114,6 +114,8 @@ public sealed class CompiledPool : IAbilitySource
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls;
 
+    public string? CantBlockMatching(CardDefinition card) => For(card).CantBlockMatching;
+
     /// <summary>
     /// What this card does to somebody's spell or ability costs (CR 601.2f, 602.2b).
     /// </summary>

@@ -476,6 +476,24 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// </remarks>
     string? AttacksOnlyIfDefenderControls(CardDefinition card) => null;
 
+    /// <summary>
+    /// The attackers this creature is forbidden to block, as a filter name, or null (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// The blocking mirror of <see cref="AttacksOnlyIfDefenderControls"/> and here for its
+    /// reason: "this creature can't block creatures with power 2 or greater" is a restriction on
+    /// the declaration and not a quality the creature has, so no keyword can hold it - the
+    /// question is about the <em>other</em> creature and cannot be answered until a block names
+    /// one. The nine cards printing it are Ironclaw Orcs and its siblings.
+    /// <para>
+    /// A filter name in the shared <see cref="SearchFilters"/> vocabulary rather than a
+    /// predicate, so the same words mean the same thing here as in a search, a count or a
+    /// prevention shield - and so that it is asked of the attacker <em>as it is now</em>
+    /// (CR 613), which is what makes a pumped attacker stop being blockable.
+    /// </para>
+    /// </remarks>
+    string? CantBlockMatching(CardDefinition card) => null;
+
     /// <summary>The replacement effects a card produces (CR 614).</summary>
     IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) => [];
 

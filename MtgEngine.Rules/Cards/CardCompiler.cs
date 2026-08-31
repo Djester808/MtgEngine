@@ -443,6 +443,7 @@ public static partial class CardCompiler
         var overloadEffects = ImmutableList<IEffect>.Empty;
         var suspendCount = 0;
         string? attacksOnlyIf = null;
+        string? cantBlockMatching = null;
         ManaCostSpec? foretell = null;
         string? madness = null;
         var additionalCosts = ImmutableList.CreateBuilder<ChosenCost>();
@@ -1029,6 +1030,12 @@ public static partial class CardCompiler
             if (AttacksOnlyIfLine().Match(line) is { Success: true } restricted)
             {
                 attacksOnlyIf = restricted.Groups["land"].Value;
+                continue;
+            }
+
+            if (CantBlockFilter(line) is { } barred)
+            {
+                cantBlockMatching = barred;
                 continue;
             }
 
@@ -2041,6 +2048,7 @@ public static partial class CardCompiler
             },
             GrantedKeywords = grantedKeywords,
             AttacksOnlyIfDefenderControls = attacksOnlyIf,
+            CantBlockMatching = cantBlockMatching,
             HasGift = hasGift,
             Unhandled = unhandled.ToImmutable(),
         };
@@ -9899,6 +9907,51 @@ public static partial class CardCompiler
     /// attacker as well as the blocker, and both powers are read computed so a pump on either
     /// side changes who may block.
     /// </remarks>
+    /// <summary>
+    /// "This creature can't block creatures with power 2 or greater" - one creature's blocking
+    /// restriction, described (CR 509.1b).
+    /// </summary>
+    /// <remarks>
+    /// Nine corpus cards, and none of them expressible as a keyword: what the restriction asks
+    /// about is the <em>attacker</em>, and the answer changes with the board. So it is stored as
+    /// a filter name and asked at declaration, exactly as the attack restriction beside it is.
+    /// <para>
+    /// <strong>Everything the shared vocabulary cannot say is refused, and the refusals are the
+    /// point.</strong> A blocking restriction read one word too wide is a creature that cannot
+    /// block at all, and read one word too narrow it is a creature with no restriction - both
+    /// compile, and both make the card complete. So:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>"Unless you pay {1}" is a price on the restriction and not part of the description;
+    /// Hipparion stays unread rather than becoming a creature that simply cannot block.</item>
+    /// <item>"Or be blocked by" is two restrictions in one sentence and only one of them is
+    /// this; Sneaky Homunculus stays unread rather than losing its evasion half.</item>
+    /// <item>"Creatures with power greater than this creature's power" is a relation between the
+    /// two creatures rather than a description of one, which no filter name can hold. Spitfire
+    /// Handler and Ironclaw Curse stay unread.</item>
+    /// <item>Only "~" is the subject. "Enchanted creature can't block ..." grants the
+    /// restriction to something else, which is a continuous effect and not a fact about the card
+    /// printing the words.</item>
+    /// </list>
+    /// </remarks>
+    private static string? CantBlockFilter(string line)
+    {
+        if (CantBlockFilterLine().Match(line) is not { Success: true } read)
+            return null;
+
+        var what = read.Groups["what"].Value.Trim();
+
+        // Two refusals spelled out rather than left to the filter vocabulary, because both
+        // phrases have a head this one *can* read and a tail it would drop.
+        if (what.Contains(" unless ", StringComparison.OrdinalIgnoreCase)
+            || what.StartsWith("or be blocked", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return EffectPhrase.CardFilterNamed(EffectPhrase.Singular(what));
+    }
+
     private static bool TrySmallCreaturesCantBlock(
         string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
     {
@@ -21139,6 +21192,17 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex SmallCantBlockLine();
 
+    /// <summary>
+    /// "~ can't block creatures with power 2 or greater." (CR 509.1b)
+    /// </summary>
+    /// <remarks>
+    /// The description has to be the whole of the sentence. A trailing clause - a price, a
+    /// second restriction, a condition on the blocker - is a card this cannot compile, and a
+    /// pattern that stopped short of it would compile the half it understood.
+    /// </remarks>
+    [GeneratedRegex(@"^~ can't block (?<what>[^.]+)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex CantBlockFilterLine();
+
     [GeneratedRegex(
         @"^(?<who>~|Enchanted creature|Equipped creature) can block "
         + @"(?:(?<any>any number of creatures)|an additional creature|"
@@ -22588,6 +22652,11 @@ public sealed record CompiledCard
     /// <summary>The land type this creature may only attack a controller of (CR 506.3).</summary>
     public string? AttacksOnlyIfDefenderControls { get; init; }
 
+    /// <summary>
+    /// The attackers this creature may not block, as a filter name (CR 509.1b).
+    /// </summary>
+    public string? CantBlockMatching { get; init; }
+
     public ImmutableList<string> Unhandled { get; init; } = [];
 
     /// <summary>Whether every line of the card was understood.</summary>
@@ -22621,5 +22690,6 @@ public sealed record CompiledCard
         || !Bans.IsEmpty
         || !FlashPermissions.IsEmpty
         || !LibraryTopPermissions.IsEmpty
-        || AttacksOnlyIfDefenderControls is not null;
+        || AttacksOnlyIfDefenderControls is not null
+        || CantBlockMatching is not null;
 }

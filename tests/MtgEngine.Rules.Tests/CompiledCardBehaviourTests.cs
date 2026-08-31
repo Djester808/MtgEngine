@@ -5112,6 +5112,213 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- A described blocking restriction (CR 509.1b) ------------------------
+
+    /// <summary>Ironclaw Orcs and its eight siblings, on a board that has both answers.</summary>
+    private static CardDefinition RestrictedBlocker(string name, string bars) =>
+        Card(name, "~ can't block " + bars + ".", CardType.Creature, 2, 2);
+
+    /// <summary>
+    /// Ironclaw Orcs: "This creature can't block creatures with power 2 or greater."
+    /// </summary>
+    /// <remarks>
+    /// The restriction is about the <em>attacker</em>, which is why it cannot be a keyword and
+    /// why the small creature attacking beside the big one is the control rather than a second
+    /// case: a restriction read as the blanket "can't block" refuses both declarations, and a
+    /// restriction dropped entirely allows both. Only the printed card allows exactly one.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_refuses_only_the_attackers_it_names()
+    {
+        var orcs = RestrictedBlocker(
+            "Restricted Orcs Test", "creatures with power 2 or greater");
+
+        var compiled = CardCompiler.Compile(orcs);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var big = game.Create(alice, TestCards.Creature("Restricted Ogre Test", 2, 2), Zone.Battlefield);
+        var small = game.Create(alice, TestCards.Creature("Restricted Mouse Test", 1, 1), Zone.Battlefield);
+        var orc = game.Create(bob, orcs, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [big] = AttackTarget.Player(bob),
+                [small] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        var refused = Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [big] = [orc] }));
+
+        Assert.Contains("509.1b", refused.Message, StringComparison.Ordinal);
+
+        // The control: the same blocker, the same combat, an attacker one point smaller.
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [small] = [orc] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The 1/1 was stopped and the 2/2 was not, so exactly two points got through.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+        Assert.Equal(1, game.State.GetObject(orc).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// Hunted Ghoul: "This creature can't block Humans."
+    /// </summary>
+    /// <remarks>
+    /// The second half of the family describes the attacker by what it <em>is</em> rather than
+    /// by a number, and it goes through the same shared filter vocabulary. Kept as its own test
+    /// because a reader that answered only the numeric wording would still pass the one above.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_reads_a_tribe_as_well_as_a_number()
+    {
+        var ghoul = RestrictedBlocker("Restricted Ghoul Test", "Humans");
+
+        var compiled = CardCompiler.Compile(ghoul);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var human = game.Create(
+            alice,
+            Card("Restricted Human Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Human"),
+            Zone.Battlefield);
+
+        var goblin = game.Create(
+            alice,
+            Card("Restricted Goblin Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.None, "Goblin"),
+            Zone.Battlefield);
+
+        var ghoulId = game.Create(bob, ghoul, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [human] = AttackTarget.Player(bob),
+                [goblin] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [human] = [ghoulId] }));
+
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [goblin] = [ghoulId] });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// The restriction asks what the attacker is <em>now</em>, not what it was printed as.
+    /// </summary>
+    /// <remarks>
+    /// Two games, one printed attacker, two boards. A 1/1 is blockable; the same 1/1 standing
+    /// next to a lord is a 2/2 and is not. This is the assertion that the filter runs through
+    /// <see cref="SearchFilters"/>'s board-aware ask rather than reading the corner of the card -
+    /// and a reader that read the print instead would pass every other test in this section.
+    /// </remarks>
+    [Fact]
+    public void A_described_blocking_restriction_asks_the_board_and_not_the_print()
+    {
+        var orcs = RestrictedBlocker(
+            "Restricted Layer Orcs Test", "creatures with power 2 or greater");
+
+        var lord = Card(
+            "Restricted Lord Test",
+            "Other creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2);
+
+        Assert.True(
+            CardCompiler.Compile(lord).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(lord).Unhandled));
+
+        // Board one: a printed 1/1 that is a 2/2 while the lord stands, and cannot be blocked.
+        var (pumped, alice, bob) = InMainPhase();
+        var raised = pumped.Create(
+            alice, TestCards.Creature("Restricted Layer Mouse Test", 1, 1), Zone.Battlefield);
+
+        pumped.Create(alice, lord, Zone.Battlefield);
+        SettleIn(pumped);
+
+        Assert.Equal(2, Now(pumped, raised).Power);
+
+        var guard = pumped.Create(bob, orcs, Zone.Battlefield);
+
+        PassTo(pumped, 3, TurnStep.DeclareAttackers);
+        pumped.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget> { [raised] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(pumped, () => pumped.State.CurrentStep == TurnStep.DeclareBlockers);
+
+        Assert.Throws<InvalidOperationException>(() => pumped.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [raised] = [guard] }));
+
+        // Board two: the same printed creature with no lord beside it, and the block is legal.
+        var (plain, carol, dave) = InMainPhase();
+        var mouse = plain.Create(
+            carol, TestCards.Creature("Restricted Layer Mouse Test", 1, 1), Zone.Battlefield);
+
+        var watcher = plain.Create(dave, orcs, Zone.Battlefield);
+
+        PassTo(plain, 3, TurnStep.DeclareAttackers);
+        plain.DeclareAttackers(
+            carol,
+            new Dictionary<ObjectId, AttackTarget> { [mouse] = AttackTarget.Player(dave) });
+
+        TestCards.PassUntil(plain, () => plain.State.CurrentStep == TurnStep.DeclareBlockers);
+        plain.DeclareBlockers(
+            dave, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [mouse] = [watcher] });
+
+        TestCards.PassUntil(plain, () => plain.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(plain);
+
+        Assert.Equal(20, plain.State.GetPlayer(dave).Life);
+        Assert.Equal(1, plain.State.GetObject(watcher).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The three neighbouring sentences this reader refuses, and what each would have cost.
+    /// </summary>
+    /// <remarks>
+    /// Every one of them is "~ can't block " followed by words, and every one of them carries
+    /// something a filter name cannot hold. Read loosely, Hipparion loses the price that is the
+    /// whole point of it, Sneaky Homunculus loses its evasion, and Spitfire Handler gets a
+    /// restriction measured against a creature that is not the one the sentence means.
+    /// </remarks>
+    [Fact]
+    public void The_blocking_restrictions_a_filter_name_cannot_hold_stay_unread()
+    {
+        foreach (var text in new[]
+        {
+            "~ can't block creatures with power 3 or greater unless you pay {1}.",
+            "~ can't block or be blocked by creatures with power 2 or greater.",
+            "~ can't block creatures with power greater than ~'s power.",
+        })
+        {
+            var refused = Card(
+                "Restricted Refusal Test " + text.Length, text, CardType.Creature, 2, 2);
+
+            Assert.NotEmpty(CardCompiler.Compile(refused).Unhandled);
+        }
+    }
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]

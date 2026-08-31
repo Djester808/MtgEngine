@@ -168,6 +168,8 @@ public sealed class PlayableCards : IAbilitySource
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls(card);
 
+    public string? CantBlockMatching(CardDefinition card) => For(card).CantBlockMatching(card);
+
     /// <summary>
     /// A generated continuous effect, looked up by the id that names it rather than by a card.
     /// </summary>
