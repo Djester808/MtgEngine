@@ -204,7 +204,9 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
         int Lean,
         IReadOnlyList<CardDefinition> Crowd,
         IReadOnlyList<string> Kinds,
-        ImmutableDictionary<string, int> CounterMap);
+        ImmutableDictionary<string, int> CounterMap,
+        bool Lone,
+        bool Designated);
 
     /// <summary>The board shapes, in the order the sweep tries them.</summary>
     /// <remarks>
@@ -225,9 +227,11 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
             bool faceDown = false,
             int lean = 0,
             IReadOnlyList<CardDefinition>? with = null,
-            bool day = true) =>
+            bool day = true,
+            bool lone = false,
+            bool designated = true) =>
             new(name, counters, busy, busy, busy, day, bare, faceDown, lean, with ?? [], kinds,
-                kinds.ToImmutableDictionary(k => k, _ => counters));
+                kinds.ToImmutableDictionary(k => k, _ => counters), lone, busy && designated);
 
         return
         [
@@ -239,11 +243,21 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
             Shape("busy(4)", 4, true),
             Shape("busy(5)", 5, true),
             Shape("busy(6)", 6, true),
+            Shape("busy(7)", 7, true),
+            Shape("busy(8)", 8, true),
             Shape("face down", 1, true, faceDown: true),
             Shape("everyone nearly dead", 1, true, lean: 3),
             Shape("busy at night", 1, true, day: false),
             Shape("quiet", 0, false, day: false),
             Shape("bare battlefield", 0, false, bare: true, day: false),
+            Shape("one friend", 1, true, bare: true, lone: true),
+
+            // A designation is not like the other facts here: monstrous, renowned, saddled,
+            // prepared and solved each turn some abilities on and others *off*. CR 719.3a's "and
+            // this Case is not solved" is the clearest — a Case that is already solved can never
+            // solve again, so a battery that stamped every designation on reported the two
+            // printed Cases as inert for having done what they were waiting to do.
+            Shape("nothing designated", 4, true, designated: false),
         ];
     }
 
@@ -293,6 +307,7 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
             WasBestowed = world.Busy,
             IsRevealed = world.Busy,
             OnAdventure = world.Busy,
+            WasTeamwork = world.Busy,
             GiftedTo = world.Busy ? Theirs : null,
             CastBy = world.Busy ? who : null,
             CastFromZone = world.Busy ? Zone.Hand : null,
@@ -314,11 +329,11 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
     {
         HasSummoningSickness = false,
         IsTapped = world.Tapped,
-        IsMonstrous = world.Busy,
-        IsSaddled = world.Busy,
-        IsRenowned = world.Busy,
-        IsSolved = world.Busy,
-        IsPrepared = world.Busy,
+        IsMonstrous = world.Designated,
+        IsSaddled = world.Designated,
+        IsRenowned = world.Designated,
+        IsSolved = world.Designated,
+        IsPrepared = world.Designated,
         Level = Math.Max(1, world.Counters),
         EnteredOnTurn = 3,
         DamageMarked = world.Busy ? 1 : 0,
@@ -378,6 +393,11 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
         // None of it on the bare board, which is the world that exists to answer the opposite
         // kind of question — "if you have no cards in hand", "if you control exactly one
         // creature". Filling every zone for the counting sentences made four of those inert.
+        // "If you control exactly one creature" is a board nobody else here builds: the busy
+        // worlds hold a dozen permanents and the bare one holds the source alone.
+        if (world.Lone)
+            objects.Add(At(Sequential(5), probe, Mine, Zone.Battlefield, 5, world));
+
         if (!world.Bare)
         {
             objects.AddRange(
@@ -1044,8 +1064,11 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
         if (type == typeof(Guid))
             return [side, Mine, Theirs];
 
+        // Every small number, not a selection of them. "When this Class becomes level 3" is an
+        // equality on the level the event carries, and a list that jumped from two to four
+        // reported both printed Classes as inert for want of a three.
         if (type == typeof(int))
-            return [1, 2, 0, 4, 8];
+            return [1, 2, 0, 3, 4, 5, 8];
 
         if (type == typeof(long))
             return [1L];
@@ -1562,46 +1585,85 @@ public sealed partial class TriggerProbeAuditTests(ITestOutputHelper output)
 
         foreach (var (text, who) in dead.OrderByDescending(e => e.Value.Count))
             output.WriteLine($"  {who.Count,4}  \"{text}\" — {string.Join(", ", who.Take(6))}");
+
+        var unexplained = remaining
+            .Select(c => c.Card.Name)
+            .Where(name => !Understood.ContainsKey(name))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var stale = Understood.Keys
+            .Where(name => !remaining.Exists(c => string.Equals(
+                c.Card.Name, name, StringComparison.Ordinal)))
+            .ToList();
+
+        Assert.True(
+            unexplained.Count == 0,
+            $"{unexplained.Count} cards compile a trigger that fires on nothing this battery can "
+                + "build, and nothing in this file says why. Either the card is inert — fix the "
+                + "compiler — or the battery cannot reach it, in which case widen the battery "
+                + $"rather than adding a name here:\n  {string.Join("\n  ", unexplained)}");
+
+        Assert.True(
+            stale.Count == 0,
+            $"{stale.Count} cards are listed as understood and now fire on something. Remove the "
+                + $"entry in the commit that fixed them:\n  {string.Join("\n  ", stale)}");
     }
 
-    [Fact]
-    public void Diagnose()
-    {
-        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
-        if (corpus is null)
-            return;
-
-        string[] names =
-        [
-            "Blastoderm", "Invasion of Ixalan", "Alley Assailant", "Cleric Class",
-            "Eloise, Nephalia Sleuth", "Legion's Landing", "Blood Operative",
-            "Storyteller Pixie", "Valakut, the Molten Pinnacle", "Kederekt Parasite",
-            "Wretched Camel", "Slayer's Plate", "Scouting Hawk", "Glorious Enforcer",
-            "Overwhelming Instinct", "Weatherseed Totem", "Case of the Ransacked Lab",
-        ];
-
-        foreach (var name in names)
+    /// <summary>
+    /// The cards this audit still reports, and what is understood about each.
+    /// </summary>
+    /// <remarks>
+    /// Every entry here is a claim that somebody looked, and the reason is the evidence for it.
+    /// Two kinds of thing end up in this list and they want opposite treatment, so each entry
+    /// says which it is: a <b>live defect</b> the fix for is bigger than this round, and a
+    /// <b>battery limit</b> where the card is fine and the probe set cannot reach it. There are
+    /// no entries of the second kind today, and that is the point of the list rather than an
+    /// accident — every battery limit found while this was built was closed by widening the
+    /// battery instead, because a name here silences a real finding just as easily.
+    /// <para>
+    /// The screen started at 8,099 triggers and 1,256 of them fired on nothing. Every reduction
+    /// from there to three was a battery limit found and closed: counters the compiler invents
+    /// and no card prints ("fade", "echo"); a board with a lean, so "more lands than you" has a
+    /// direction; a source that had been kicked, blitzed, disguised, given a gift and paid for
+    /// with every colour; the two ids of a zone change tried both ways round, without which
+    /// every Aura in the game refused; and a supporting cast, because half the printed triggers
+    /// are "at the beginning of X, if Y" and Y is a question about a populated board.
+    /// </para>
+    /// </remarks>
+    private static readonly ImmutableDictionary<string, string> Understood =
+        new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            var card = corpus.FirstOrDefault(c => c.Name.StartsWith(name, StringComparison.Ordinal));
-            if (card is null)
-            {
-                output.WriteLine($"{name}: not in corpus");
-                continue;
-            }
+            // --- Live defects, each needing more than this round ---------------------
+            //
+            // "Whenever equipped creature dies, if it was a Human, ..." — the intervening-if is
+            // read by BoardConditions.SelfTypeLine, whose closure asks the question of the
+            // ability's own *source*: "if (!state.TryGetObject(source.Id, out var self))" and
+            // then the filter against `self`. The source is the Equipment, an Equipment is never
+            // a Human, and the condition is therefore false on every board. Its own comment says
+            // so out loud — "'It' is the source here rather than a target ... the pronoun in that
+            // sentence has only one thing it can mean" — which is true of the clauses it was
+            // written for and false here, where the trigger's subject is the creature that died.
+            //
+            // Not fixed here because the fix is a signature: BoardCondition carries a state, an
+            // ability source, the source object and a *seat*, and there is nowhere to put the
+            // object a trigger was about. That parameter list was widened once already, on
+            // purpose, and widening it again is its own change with its own tests.
+            ["Slayer's Plate"] =
+                "live: \"if it was a Human\" is asked of the Equipment, which never is one",
+            ["Avacyn's Collar"] =
+                "live: the same clause on the same reader, and the same always-false answer",
 
-            var compiled = CardCompiler.Compile(card);
-            output.WriteLine($"== {card.Name} complete={compiled.IsComplete}");
-            foreach (var t in compiled.Triggers)
-            {
-                output.WriteLine(
-                    $"   [{t.Id}] from={t.FunctionsFrom} faceDown={t.FunctionsFaceDown} "
-                        + $"state={(t.StateCondition is null ? "-" : "yes")} chapter={t.Chapter} "
-                        + $"level={t.AnnouncesLevel} door={t.OpensDoor} once={t.OncePerTurn} "
-                        + $"subjIsSrc={t.SubjectIsSource} perDecl={t.PerDeclaredCreature}");
-                output.WriteLine($"        \"{t.Text}\"");
-            }
-        }
-    }
+            // "Whenever you cast an Adventure spell" — the cast reader treats "Adventure" as a
+            // subtype and filters the cast card on it, and nothing in this engine ever produces
+            // an object carrying it: an adventure is a *face* (CR 715.3), the spell put on the
+            // stack keeps the creature card's own subtypes, and Game marks OnAdventure on the
+            // exiled card after the spell has resolved. So no object the corpus can produce
+            // satisfies the predicate, which is the twenty-three-card defect exactly, one card
+            // wide. Fixing it means the cast event carrying which half was cast.
+            ["Storyteller Pixie"] =
+                "live: \"Adventure\" is filtered as a subtype and no object in this engine has it",
+        }.ToImmutableDictionary(StringComparer.Ordinal);
 
     /// <summary>Every effect a compiled card runs, from wherever it hangs.</summary>
     private static IEnumerable<IEffect> EveryEffect(CompiledCard compiled)
