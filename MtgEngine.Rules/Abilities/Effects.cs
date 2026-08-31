@@ -3131,6 +3131,98 @@ public sealed record CreateTokenCopy(
 }
 
 /// <summary>
+/// Conjures a duplicate of something as a real card in a zone (CR 701.55, CR 701.56).
+/// </summary>
+/// <remarks>
+/// Alchemy's conjure creates a card that was never in anybody's deck. CR 701.55a says what the
+/// created object is - <em>a card</em>, not a token - and CR 701.56a says a duplicate is a copy
+/// of the copiable values of the thing named. So this is <see cref="CreateTokenCopy"/> with two
+/// differences and no third: the definition is not passed through
+/// <c>TokenCards.AsToken</c> (nothing marks it <see cref="CardType.Token"/>, because it is not
+/// one), and it arrives in the zone the sentence names rather than on the battlefield.
+/// <para>
+/// <strong>Nothing new was needed to hold it.</strong> <see cref="ObjectCreated"/> already
+/// carries a zone and a whole card definition, and <c>GameReducer.Create</c> already reads that
+/// zone rather than assuming the battlefield - it gives a per-player zone's object to its owner
+/// and builds a <c>Permanent</c> only for the battlefield. That is the same reuse the emblems
+/// made of the command zone: a conjured card is an object created in a zone, which the engine
+/// has always been able to say.
+/// </para>
+/// <para>
+/// The definition keeps the copied card's own oracle id, exactly as an ungranted token copy
+/// does, because a duplicate of Lightning Bolt <em>is</em> Lightning Bolt and
+/// <see cref="Cards.CompiledPool"/> must serve it the same behaviour. A duplicate that had been
+/// re-keyed would compile a second time under a second id and be a different card in the log.
+/// </para>
+/// <para>
+/// Only the reachable half of conjure lives here. "Conjure a card named Lightning Bolt" needs a
+/// name-to-definition lookup that <c>MtgEngine.Rules</c> does not have and this does not add -
+/// see the round twenty-one note in <c>GAME_ENGINE_FEATURE.md</c>. A <em>duplicate</em> needs
+/// none, because the thing being copied is already an object in the game.
+/// </para>
+/// </remarks>
+public sealed record ConjureDuplicate(
+    Zone Into,
+    int? TargetIndex = null,
+
+    /// <summary>Whose card is copied, when it is neither a target nor this permanent.</summary>
+    EffectSubject? Subject = null,
+
+    /// <summary>Whether what is copied is a card rather than a permanent (CR 707.2).</summary>
+    bool CopiesACard = false) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var aimed = TargetIndex is { } index ? context.TargetAt(index) : null;
+
+        var subject = Subject is { } named
+            ? Subjects.Resolve(context, named, TargetIndex ?? 0)
+            : TargetIndex is not null
+            ? aimed is { Kind: TargetKind.Permanent or TargetKind.CardInGraveyard }
+                ? aimed.Value.Subject
+                : (ObjectId?)null
+            : context.PhysicalSourceId;
+
+        if (subject is not { } id)
+            return [];
+
+        // CR 608.2g, and the same reach-back CreateTokenCopy makes: by the time an attack or a
+        // death trigger resolves, what it names may already be somewhere else under a new id
+        // (CR 400.7). Requiring it to still be where it was would make every such card do nothing.
+        var original = context.State.TryGetObject(id, out var present)
+            ? present
+            : context.ObjectBehind?.Invoke(id);
+
+        if (original is null)
+            return [];
+
+        if (!CopiesACard
+            && Subject is not EffectSubject.TriggeringObject
+            && original.Zone != Zone.Battlefield)
+        {
+            return [];
+        }
+
+        // CR 707.3 for a permanent, CR 707.2 for a card: only a permanent has copiable values
+        // worked out for it, and a card in a graveyard or a hand is read as itself.
+        var copiable = original.Zone == Zone.Battlefield
+            ? Characteristics.CardOf(context.State, context.Abilities, original)
+            : original.Card;
+
+        // The conjured card belongs to whoever the ability's controller is, and a per-player zone
+        // gives it to its owner - which is the same player. Passed as both so that a conjure onto
+        // the battlefield puts it under the controller, where CR 701.55a leaves it.
+        return
+        [
+            new ObjectCreated(
+                ObjectId.New(), copiable, context.ControllerId, context.ControllerId, Into),
+        ];
+    }
+}
+
+/// <summary>
 /// The same card, marked as a token (CR 111.7).
 /// </summary>
 /// <remarks>

@@ -146,6 +146,190 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
         return first.Length > 90 ? first[..90] : first;
     }
 
+    /// <summary>
+    /// The Alchemy and Un-set mechanics, each measured three ways rather than named once.
+    /// </summary>
+    /// <remarks>
+    /// This exists because the figures behind five separate declines went four rounds without
+    /// being re-measured and three of them turned out to be wrong. "62 spellbook cards with no
+    /// data field", "19 specialize cards absent from the corpus", "46 Attractions missing
+    /// <c>attraction_lights</c>", "48 sticker sheets excluded as not-cards": of those, the
+    /// specialize cards are in the corpus, every Attraction in the dump carries its lights, and
+    /// only the spellbook and the sticker numbers held. A decline is a measurement and a
+    /// measurement nobody repeats is a rumour.
+    /// <para>
+    /// <strong>The excision column is an upper bound and the substitution column is the real
+    /// one.</strong> Excision deletes the family's lines and asks how many cards would then be
+    /// complete - which is what everybody quotes, and it answers a question nobody asked:
+    /// what if those cards did not say this. Substitution takes only the <em>mechanic word</em>
+    /// out and leaves the sentence, which is what modelling the mechanic would actually buy. On
+    /// perpetual the two are 193 and 4. Ranking this family by its excision number recommends
+    /// fifty times the work it can pay for.
+    /// </para>
+    /// <para>
+    /// Reported rather than asserted, like everything else in this file.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void What_the_alchemy_and_un_set_families_would_actually_be_worth()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("oracle_cards.json not present — skipping.");
+            return;
+        }
+
+        // Compiled once and shared: a pass over the corpus per family is eight passes, and the
+        // answer is the same one every time.
+        var compiled = corpus
+            .Select(card => (Card: card, Result: CardCompiler.Compile(card)))
+            .ToList();
+
+        output.WriteLine($"corpus {corpus.Count}, complete {compiled.Count(c => c.Result.IsComplete)}");
+        output.WriteLine(string.Empty);
+        output.WriteLine("family          cards  lines  distinct  excised  substituted");
+
+        foreach (var (family, word, substitute) in Families)
+        {
+            var carriers = compiled
+                .Where(c => !c.Result.IsComplete
+                    && c.Result.Unhandled.Any(l => l.Contains(word, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            var lines = 0;
+            var shapes = new HashSet<string>(StringComparer.Ordinal);
+            var excised = 0;
+            var substituted = 0;
+
+            foreach (var (card, result) in carriers)
+            {
+                var mine = result.Unhandled
+                    .Where(l => l.Contains(word, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                lines += mine.Count;
+                foreach (var line in mine)
+                    shapes.Add(line);
+
+                var whole = CardCompiler.Lines(card).ToList();
+
+                var cut = string.Join("\n", whole.Where(l => !mine.Contains(l, StringComparer.Ordinal)));
+                if (CardCompiler.Compile(Rewritten(card, cut)).IsComplete)
+                    excised++;
+
+                var swapped = string.Join(
+                    "\n",
+                    whole.Select(l => mine.Contains(l, StringComparer.Ordinal) ? substitute(l) : l));
+                if (CardCompiler.Compile(Rewritten(card, swapped)).IsComplete)
+                    substituted++;
+            }
+
+            output.WriteLine(
+                $"{family,-14} {carriers.Count,5}  {lines,5}  {shapes.Count,8}  {excised,7}  {substituted,11}");
+        }
+    }
+
+    /// <summary>
+    /// Each family, and how to say its sentence without its mechanic word.
+    /// </summary>
+    /// <remarks>
+    /// The substitutions are deliberately the plainest printed wording that means nearly the
+    /// same thing, because a clever one would be measuring the substitution rather than the
+    /// grammar. Where a family has no plainer wording at all - a sticker, an Attraction - the
+    /// line is left as it stands and the column reads zero, which is itself the answer: there is
+    /// no ordinary sentence underneath.
+    /// </remarks>
+    private static readonly (string Family, string Word, Func<string, string> Without)[] Families =
+    [
+        // The nearest printed wording for "conjure a card named X into your hand" is a tutor,
+        // which is the fairest substitute available: it asks whether the rest of the sentence -
+        // the trigger, the condition, the clause after the comma - is already read.
+        ("conjure", "conjure", l => Regex.Replace(
+            l,
+            "[Cc]onjures? (a|an|two|three|four|X) cards? named [A-Z][^,.]*",
+            "search your library for a card")),
+        ("perpetual", "perpetual", WithoutPerpetually),
+
+        // The Alchemy card-list mechanics have no plainer wording, so the substitute is the
+        // plainest *instruction* - a draw - left inside the sentence that carried them. That is
+        // the distinction the whole table exists for: if the trigger, the cost and the clause
+        // after the comma are already read, the card is waiting on a reader; if they are not,
+        // the mechanic was never what blocked it.
+        ("spellbook", "spellbook", l => Regex.Replace(
+            l,
+            "([Dd]raft|[Cc]onjure)s? (a |an |each )?(random |of your choice )?cards? "
+                + "(of your choice )?from ([^,.]*?)[Ss]pellbook",
+            "draw a card")),
+
+        // A keyword ability with a cost, rewritten to an activated ability with the same cost -
+        // so what is measured is whether the rest of the printed line ("Activate only if you
+        // control six or more lands") reads, which is all that could be left.
+        ("specialize", "specialize", l => Regex.Replace(
+            l, @"Specialize ((?:\{[^}]+\})+)", "$1: Draw a card")),
+
+        ("attraction", "attraction", l => l
+            .Replace("Open an Attraction", "Draw a card", StringComparison.Ordinal)
+            .Replace("open an Attraction", "draw a card", StringComparison.Ordinal)
+            .Replace("Open two Attractions", "Draw two cards", StringComparison.Ordinal)
+            .Replace("open two Attractions", "draw two cards", StringComparison.Ordinal)
+            .Replace("Roll to visit your Attractions", "Draw a card", StringComparison.Ordinal)
+            .Replace("roll to visit your Attractions", "draw a card", StringComparison.Ordinal)),
+
+        ("sticker", "sticker", l => Regex.Replace(
+            l,
+            "([Yy]ou may )?put (a|an|up to two|up to one) (name )?stickers? on [^,.]*",
+            m => (m.Groups[1].Success ? "you may draw a card" : "draw a card"))),
+
+        ("seek", "seek ", l => Regex.Replace(
+            l, "[Ss]eeks? (a|an|two|three) ", "search your library for $1 ")),
+        // A keyword line rewritten to a keyword that reads, for the same reason specialize is.
+        ("double team", "double team", l => l
+            .Replace("Double team", "Flying", StringComparison.Ordinal)
+            .Replace("double team", "flying", StringComparison.Ordinal)),
+    ];
+
+    /// <summary>"Perpetually X" is "X" with a duration Alchemy invented (CR 614 is not it).</summary>
+    private static string WithoutPerpetually(string line)
+    {
+        var without = line;
+        foreach (var verb in PerpetualVerbs)
+            without = without.Replace("perpetually " + verb, verb, StringComparison.Ordinal);
+
+        return without
+            .Replace("Perpetually ", string.Empty, StringComparison.Ordinal)
+            .Replace("perpetually ", string.Empty, StringComparison.Ordinal);
+    }
+
+    private static readonly string[] PerpetualVerbs =
+    [
+        "gets", "get", "gains", "gain", "becomes", "become",
+        "has", "have", "loses", "lose",
+    ];
+
+    /// <summary>The same card with different words on it, for a control run.</summary>
+    private static Domain.Models.CardDefinition Rewritten(
+        Domain.Models.CardDefinition card, string text) => new()
+        {
+            // A control card is a card of its own, or the compiled pool would be asked to serve
+            // one card's behaviour under another's id.
+            OracleId = card.OracleId + "#control-" + text.GetHashCode(StringComparison.Ordinal),
+            Name = card.Name,
+            OracleText = text,
+            ManaCostRaw = card.ManaCostRaw,
+            Cmc = card.Cmc,
+            CardTypes = card.CardTypes,
+            Subtypes = card.Subtypes,
+            Supertypes = card.Supertypes,
+            Keywords = card.Keywords,
+            Colors = card.Colors,
+            ColorIdentity = card.ColorIdentity,
+            Power = card.Power,
+            Toughness = card.Toughness,
+            Defense = card.Defense,
+            Faces = card.Faces,
+        };
+
     [Fact]
     public void The_work_queue_split_by_the_part_that_could_not_be_read()
     {
