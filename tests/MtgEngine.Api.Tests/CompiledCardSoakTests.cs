@@ -982,11 +982,11 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 // that ever fires. Mana is the plentiful half - a land offering several taps for
                 // one of them per turn anyway and comes back next round - so the scarce tap is
                 // spent first on the ability nothing else in the run reaches at all.
-                foreach (var pressing in new[] { false, true })
+                foreach (var mana in new[] { false, true })
                 {
                     foreach (var ability in offered)
                     {
-                        if (ability.IsManaAbility == pressing)
+                        if (ability.IsManaAbility != mana)
                             continue;
 
                         // The land may have left: a fetchland sacrifices itself to pay for its
@@ -1002,7 +1002,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                         if (!used.Add(key))
                             continue;
 
-                        if (pressing)
+                        if (mana)
                         {
                             // Put back if it was refused, so the next untap step tries it again:
                             // a land offering five alternatives can only pay the tap for one of
