@@ -276,8 +276,11 @@ public static partial class BoardConditions
                         ? "more"
                         : "fewer";
 
-            var mine = !held.Groups["who"].Value
-                .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+            // "At the beginning of each opponent's upkeep, if that player has one or fewer cards
+            // in hand" - twenty-two corpus lines, and the seat is the only thing that was ever
+            // missing from them. It arrives as the fourth argument now rather than being guessed.
+            if (ReadWhose(held.Groups["who"].Value) is not { } handSeats)
+                return null;
 
             bool Holds(int count) => compare switch
             {
@@ -288,11 +291,8 @@ public static partial class BoardConditions
                 _ => count <= wantedHeld,
             };
 
-            return (state, _, source, _) => mine
-                ? Holds(state.GetPlayer(source.ControllerId).Hand.Count)
-                : state.TurnOrder
-                    .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
-                    .Any(id => Holds(state.GetPlayer(id).Hand.Count));
+            return (state, _, source, subject) => handSeats.Of(
+                state, source, subject, seat => Holds(state.GetPlayer(seat).Hand.Count));
         }
 
         // "If you have more cards in hand than each opponent" - two counts compared rather than
@@ -345,8 +345,15 @@ public static partial class BoardConditions
             var orMore = !emptyPile
                 && (theirs ? graveyard.Groups["dir2"].Value : graveyard.Groups["dir"].Value)
                     .StartsWith("more", StringComparison.OrdinalIgnoreCase);
-            var anyOpponent = theirs
-                && graveyard.Groups["who"].Value.StartsWith("an", StringComparison.OrdinalIgnoreCase);
+            // The first arm of the pattern - "there are four or more cards in your graveyard" -
+            // names no subject at all and asks about the controller's pile, which is "you" said
+            // by leaving the word out (CR 608.2).
+            var pile = theirs
+                ? ReadWhose(graveyard.Groups["who"].Value)
+                : new Whose(PlayerScope.You, true);
+
+            if (pile is not { } whoseGraveyard)
+                return null;
 
             // "Four or more creature cards in your graveyard" - the same count over a filtered
             // pile. The noun goes through the shared card-filter vocabulary, so a word that
@@ -375,21 +382,16 @@ public static partial class BoardConditions
                 || (state.TryGetObject(id, out var card)
                     && Abilities.SearchFilters.Matches(filter, card.Card));
 
-            return (state, abilities, source, _) =>
-            {
-                if (!anyOpponent)
+            return (state, _, source, subject) => whoseGraveyard.Of(
+                state,
+                source,
+                subject,
+                seat =>
                 {
-                    var mine = state.GetPlayer(source.ControllerId).Graveyard
-                        .Count(id => Counts(state, id));
+                    var held = state.GetPlayer(seat).Graveyard.Count(id => Counts(state, id));
 
-                    return orMore ? mine >= wanted : mine <= wanted;
-                }
-
-                return state.TurnOrder
-                    .Where(id => id != source.ControllerId)
-                    .Select(id => state.GetPlayer(id).Graveyard.Count(card => Counts(state, card)))
-                    .Any(count => orMore ? count >= wanted : count <= wanted);
-            };
+                    return orMore ? held >= wanted : held <= wanted;
+                });
         }
 
         // "Four or more card types among cards in your graveyard" counts distinct *types*, not
@@ -464,30 +466,26 @@ public static partial class BoardConditions
             // thresholds are wrong for it in a way that plays: at or above leaves the reward on
             // for a healthy player, at or below leaves it on for a dying one.
             var exactly = life.Groups["exactly"].Success;
-            var who = life.Groups["who"].Value.ToLowerInvariant();
 
-            return (state, abilities, source, _) =>
-            {
-                // "An opponent has ..." is true if any one of them does, and "a player has ..."
-                // is true if anyone at all does — including the controller, which is the whole
-                // difference between the two and the reason they cannot share a branch (CR 109.5).
-                var totals = who switch
+            // "An opponent has ..." is true if any one of them does and "a player has ..." if
+            // anyone at all does, the controller included; "each opponent has ..." is true only
+            // of all of them. Three answers the subject vocabulary now gives rather than three
+            // branches written out here (CR 109.5).
+            if (ReadWhose(life.Groups["who"].Value) is not { } lifeSeats)
+                return null;
+
+            return (state, _, source, subject) => lifeSeats.Of(
+                state,
+                source,
+                subject,
+                seat =>
                 {
-                    "you" => [state.GetPlayer(source.ControllerId).Life],
-                    "a player" => state.TurnOrder
-                        .Where(id => !state.GetPlayer(id).HasLost)
-                        .Select(id => state.GetPlayer(id).Life)
-                        .ToList(),
-                    _ => state.TurnOrder
-                        .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
-                        .Select(id => state.GetPlayer(id).Life)
-                        .ToList(),
-                };
+                    var total = state.GetPlayer(seat).Life;
 
-                return totals.Any(total => exactly
-                    ? total == wanted
-                    : orMore ? total >= wanted : total <= wanted);
-            };
+                    return exactly
+                        ? total == wanted
+                        : orMore ? total >= wanted : total <= wanted;
+                });
         }
 
         // "As long as your devotion to black is less than five, ~ isn't a creature" - CR 700.5,
@@ -565,30 +563,15 @@ public static partial class BoardConditions
         var emptyHand = EmptyHandLine().Match(text);
         if (emptyHand.Success)
         {
-            var mine = emptyHand.Groups["who"].Value.StartsWith(
-                "you", StringComparison.OrdinalIgnoreCase);
+            // Four arms were written out here - you, an opponent, a player, each player - and the
+            // difference between the last two is the whole point of Howltooth Hollow: "a player"
+            // pays out the moment one seat is empty, "each player" only when every one is. Both
+            // are the subject vocabulary's answer now, and "that player" came free with them.
+            if (ReadWhose(emptyHand.Groups["who"].Value) is not { } emptySeats)
+                return null;
 
-            // "A player has no cards in hand" is anybody at all, the asker included, which is a
-            // third answer rather than a synonym for either of the two above (CR 109.5) - and it
-            // differs from them at the only board that matters to the cards printing it, the one
-            // where the empty hand is your own.
-            var anyone = emptyHand.Groups["anyone"].Success;
-
-            // "Each player has no cards in hand" is the fourth answer, and the one arm that is
-            // not a disjunction: every hand at the table, the asker's own included. It cannot
-            // ride the "a player" arm, which is true the moment one seat is empty - Howltooth
-            // Hollow would pay out with an opponent holding six cards.
-            var everyone = emptyHand.Groups["everyone"].Success;
-
-            return (state, abilities, source, _) => everyone
-                ? state.TurnOrder.TrueForAll(other => state.GetPlayer(other).Hand.IsEmpty)
-                : anyone
-                    ? state.TurnOrder.Any(other => state.GetPlayer(other).Hand.IsEmpty)
-                    : mine
-                        ? state.GetPlayer(source.ControllerId).Hand.IsEmpty
-                        : state.TurnOrder.Any(
-                            other => other != source.ControllerId
-                                && state.GetPlayer(other).Hand.IsEmpty);
+            return (state, _, source, subject) => emptySeats.Of(
+                state, source, subject, seat => state.GetPlayer(seat).Hand.IsEmpty);
         }
 
         // "An opponent has more life than you", "you have more life than each opponent" - two
@@ -663,12 +646,11 @@ public static partial class BoardConditions
         var bloodied = DamagedThisTurnLine().Match(text);
         if (bloodied.Success)
         {
-            var theirs = bloodied.Groups["who"].Value.Contains(
-                "opponent", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(bloodied.Groups["who"].Value) is not { } bloodiedSeats)
+                return null;
 
-            return (state, abilities, source, _) => state.TurnOrder.Any(id =>
-                (theirs ? id != source.ControllerId : id == source.ControllerId)
-                && state.GetPlayer(id).WasDealtDamageThisTurn);
+            return (state, _, source, subject) => bloodiedSeats.Of(
+                state, source, subject, id => state.GetPlayer(id).WasDealtDamageThisTurn);
         }
 
         if (DiedThisTurnLine().Match(text) is { Success: true } deaths)
@@ -936,13 +918,14 @@ public static partial class BoardConditions
         if (poisoned.Success)
         {
             var wantedPoison = Number(poisoned.Groups["n"].Value);
-            var theirs = poisoned.Groups["who"].Value
-                .StartsWith("an", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(poisoned.Groups["who"].Value) is not { } poisonedSeats)
+                return null;
 
-            return (state, _, source, _) => theirs
-                ? state.TurnOrder.Any(id => id != source.ControllerId
-                    && state.GetPlayer(id).PoisonCounters >= wantedPoison)
-                : state.GetPlayer(source.ControllerId).PoisonCounters >= wantedPoison;
+            return (state, _, source, subject) => poisonedSeats.Of(
+                state,
+                source,
+                subject,
+                seat => state.GetPlayer(seat).PoisonCounters >= wantedPoison);
         }
 
         // "If defending player is poisoned" - CR 122.1f defines the word as one or more poison
@@ -953,24 +936,14 @@ public static partial class BoardConditions
         var envenomed = PoisonedLine().Match(text);
         if (envenomed.Success)
         {
-            var defending = envenomed.Groups["who"].Value
-                .StartsWith("defending", StringComparison.OrdinalIgnoreCase);
+            // "Defending player" needed a branch of its own here and no longer does: the shared
+            // resolver reads it off the combat, and names nobody outside one - which is the same
+            // false this used to reach by hand.
+            if (ReadWhose(envenomed.Groups["who"].Value) is not { } envenomedSeats)
+                return null;
 
-            return (state, _, source, _) =>
-            {
-                if (defending)
-                {
-                    // Outside combat "defending player" names nobody, so the condition is simply
-                    // false - which is the right answer for a bonus that only applies while this
-                    // creature is attacking somebody.
-                    return state.Combat.Attackers.TryGetValue(source.Id, out var attacking)
-                        && state.GetPlayer(attacking.DefendingPlayer).PoisonCounters > 0;
-                }
-
-                return state.TurnOrder.Any(
-                    id => id != source.ControllerId
-                        && state.GetPlayer(id).PoisonCounters > 0);
-            };
+            return (state, _, source, subject) => envenomedSeats.Of(
+                state, source, subject, seat => state.GetPlayer(seat).PoisonCounters > 0);
         }
 
         // "You've drawn your second card this turn" as the cards usually spell it: a count of
@@ -1235,12 +1208,15 @@ public static partial class BoardConditions
         var banished = OwnsExiledLine().Match(text);
         if (banished.Success)
         {
-            var mine = banished.Groups["who"].Value
-                .StartsWith("you", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(banished.Groups["who"].Value) is not { } exileSeats)
+                return null;
 
-            return (state, _, source, _) => state.Exile.Any(id =>
-                state.TryGetObject(id, out var card)
-                && (card.OwnerId == source.ControllerId) == mine);
+            return (state, _, source, subject) => exileSeats.Of(
+                state,
+                source,
+                subject,
+                seat => state.Exile.Any(id =>
+                    state.TryGetObject(id, out var card) && card.OwnerId == seat));
         }
 
         // "As long as you have the city's blessing" (CR 702.131a). A designation rather than a
@@ -1249,14 +1225,11 @@ public static partial class BoardConditions
         var blessed = CitysBlessingLine().Match(text);
         if (blessed.Success)
         {
-            var mine = blessed.Groups["who"].Value.Equals(
-                "you", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(blessed.Groups["who"].Value) is not { } blessedSeats)
+                return null;
 
-            return (state, abilities, source, _) => mine
-                ? state.GetPlayer(source.ControllerId).HasCitysBlessing
-                : state.TurnOrder.Any(
-                    other => other != source.ControllerId
-                        && state.GetPlayer(other).HasCitysBlessing);
+            return (state, _, source, subject) => blessedSeats.Of(
+                state, source, subject, seat => state.GetPlayer(seat).HasCitysBlessing);
         }
 
         // "If no spells were cast last turn" and "if a player cast two or more spells last turn"
@@ -1302,12 +1275,11 @@ public static partial class BoardConditions
             if (crowned.Groups["nobody"].Success)
                 return (state, _, _, _) => state.MonarchId is null;
 
-            var mine = crowned.Groups["who"].Value.Equals(
-                "you", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(crowned.Groups["who"].Value) is not { } crownSeats)
+                return null;
 
-            return (state, abilities, source, _) => mine
-                ? state.MonarchId == source.ControllerId
-                : state.MonarchId is { } held && held != source.ControllerId;
+            return (state, _, source, subject) => crownSeats.Of(
+                state, source, subject, seat => state.MonarchId == seat);
         }
 
         // "If you have the initiative" (CR 726.1) - the monarch's twin, held the same way: one
@@ -1404,14 +1376,14 @@ public static partial class BoardConditions
         var connected = DealtCombatDamageLine().Match(text);
         if (connected.Success)
         {
-            var mine = connected.Groups["who"].Value.Equals(
-                "you", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(connected.Groups["who"].Value) is not { } connectedSeats)
+                return null;
 
-            return (state, abilities, source, _) => mine
-                ? state.GetPlayer(source.ControllerId).DealtCombatDamageToPlayerThisTurn
-                : state.TurnOrder.Any(
-                    other => other != source.ControllerId
-                        && state.GetPlayer(other).DealtCombatDamageToPlayerThisTurn);
+            return (state, _, source, subject) => connectedSeats.Of(
+                state,
+                source,
+                subject,
+                seat => state.GetPlayer(seat).DealtCombatDamageToPlayerThisTurn);
         }
 
         // "If you attacked this turn" - a fact about the player, not about any creature that
@@ -1429,14 +1401,13 @@ public static partial class BoardConditions
                     id => !state.GetPlayer(id).AttackedThisTurn);
             }
 
-            var theirs = attacked.Groups["who"].Value
-                .StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(attacked.Groups["who"].Value) is not { } attackerSeats)
+                return null;
 
             var negated = attacked.Groups["not"].Success;
 
-            return (state, _, source, _) => state.TurnOrder
-                .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
-                .Any(id => state.GetPlayer(id).AttackedThisTurn) != negated;
+            return (state, _, source, subject) => attackerSeats.Of(
+                state, source, subject, id => state.GetPlayer(id).AttackedThisTurn) != negated;
         }
 
         // "If you gained 3 or more life this turn", "if an opponent lost life this turn" - one
@@ -1449,11 +1420,14 @@ public static partial class BoardConditions
             var least = moved.Groups["n"].Success ? Number(moved.Groups["n"].Value) : 1;
             var gained = !moved.Groups["dir"].Value.StartsWith("lost", StringComparison.OrdinalIgnoreCase);
             var either = moved.Groups["dir"].Value.Contains(" or ", StringComparison.OrdinalIgnoreCase);
-            var theirs = moved.Groups["who"].Value.StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
+            if (ReadWhose(moved.Groups["who"].Value) is not { } movedSeats)
+                return null;
 
-            return (state, abilities, source, _) => state.TurnOrder
-                .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
-                .Any(id =>
+            return (state, _, source, subject) => movedSeats.Of(
+                state,
+                source,
+                subject,
+                id =>
                 {
                     var player = state.GetPlayer(id);
 
@@ -1733,24 +1707,20 @@ public static partial class BoardConditions
                 ? EffectPhrase.Specs.FoldPlural(controls.Groups["what"].Value.Trim())
                 : controls.Groups["what"].Value.Trim();
 
-            // Matched against the whole subject and not its first word: "your opponents
-            // control" also begins with "you", so a prefix test on three letters read it as your
-            // own board and inverted every card that says it.
-            var theirBoard = !controls.Groups["who"].Value
-                .StartsWith("you control", StringComparison.OrdinalIgnoreCase);
-
             // "A player controls" and "there are ... on the battlefield" name no side at all, so
             // the ownership test is skipped rather than answered — asking whose it is would make
             // a global question into a one-sided one, which is how a board wipe reads as a board
-            // check.
+            // check. It is kept out of the subject vocabulary deliberately: the words are this
+            // compiler's own rewrite of a battlefield-wide question rather than a card's, and
+            // read as English "a player controls no creatures" is a question about one seat.
             var anyone = controls.Groups["anyone"].Success;
 
-            // "Defending player" is one particular opponent rather than any of them, and which
-            // one is only knowable from combat: it is whoever the permanent asking is attacking.
-            // Outside combat it names nobody, and the condition is simply false - which is the
-            // right answer for an evasion ability that only matters while blockers are declared.
-            var defending = controls.Groups["who"].Value
-                .StartsWith("defending", StringComparison.OrdinalIgnoreCase);
+            // Everything else - yours, an opponent's, each opponent's, that player's, the
+            // defending player's - is one word list and one seat resolver. "Defending player"
+            // had a branch of its own here and no longer needs one.
+            var subjectWord = anyone ? null : ReadWhose(controls.Groups["who"].Value);
+            if (!anyone && subjectWord is null)
+                return null;
 
             // "A Plains or a Swamp" is one condition over two nouns, and the dual lands that
             // print it would otherwise all go unread. Each side is parsed as a noun in its own
@@ -1773,38 +1743,34 @@ public static partial class BoardConditions
 
             var spec = specs[0];
 
-            return (state, abilities, source, _) =>
+            return (state, abilities, source, subject) =>
             {
-                Guid? defender = null;
-
-                if (defending)
+                bool Board(Guid? seat) => state.Battlefield.Any(id =>
                 {
-                    if (!state.Combat.Attackers.TryGetValue(source.Id, out var attacking))
-                        return none;
+                    if (excludesSelf && id == source.Id)
+                        return false;
 
-                    defender = attacking.DefendingPlayer;
-                }
-
-                var any = state.Battlefield.Any(id =>
-                {
                     var obj = state.GetObject(id);
                     var controller =
                         Characteristics.Of(state, abilities, obj).ControllerId;
 
-                    if (excludesSelf && id == source.Id)
-                        return false;
-
-                    var whoseBoard = anyone
-                        || (defender is { } named
-                            ? controller == named
-                            : (controller == source.ControllerId) != theirBoard);
-
-                    return whoseBoard
+                    return (seat is not { } only || controller == only)
                         && specs.Any(one => one.ObjectFilter?.Invoke(
                             state, abilities, obj, source.ControllerId) != false);
                 });
 
-                return any != none;
+                if (anyone)
+                    return Board(null) != none;
+
+                // The negation is asked seat by seat rather than of the union, because those are
+                // different questions and the words say which: "your opponents control no Wall"
+                // is nobody holding one, and "an opponent controls no creatures" - two corpus
+                // cards - is one of them holding none. Swept as a union both read as the first.
+                var asked = subjectWord!.Value;
+
+                return none
+                    ? asked.Of(state, source, subject, seat => !Board(seat))
+                    : asked.Of(state, source, subject, seat => Board(seat));
             };
         }
 
@@ -1826,6 +1792,153 @@ public static partial class BoardConditions
         return null;
     }
 
+    /// <summary>
+    /// Whose board a printed condition is about (CR 109.5), and whether it means all of them.
+    /// </summary>
+    /// <remarks>
+    /// Seventeen readers below had each spelled its own subject alternation out - "you", "an
+    /// opponent", "a player", "your opponents", "defending player" - and no two of them agreed.
+    /// Nobody decided that; it is what happens when a vocabulary is written down once per reader,
+    /// and the effect grammar beside this file records the same failure in the same words. The
+    /// list itself is <see cref="EffectPhrase.WhoElse"/>, so a word added there is a word every
+    /// condition here understands the same day.
+    /// <para>
+    /// <see cref="Every"/> is the one thing a <see cref="PlayerScope"/> does not say, and a
+    /// condition is the one place it has to be said. "An opponent has no cards in hand" is any one
+    /// of them and "each opponent has no cards in hand" is all of them; at two seats those are the
+    /// same sentence, which is how a reader that guessed could stay wrong for years.
+    /// </para>
+    /// </remarks>
+    private readonly record struct Whose(PlayerScope Scope, bool Every)
+    {
+        /// <summary>Whether the question holds of the seats this subject names.</summary>
+        /// <remarks>
+        /// <strong>No seats is false, whichever way round the quantifier runs.</strong> "All of an
+        /// empty set" is true in logic and wrong here: a condition about a player the game cannot
+        /// name has not been answered, and answering yes turns a bonus on about nobody. The
+        /// alternative that had to be refused is worse - reading an unknown seat as the controller
+        /// gives a card that compiles, plays, and asks about the wrong player, which is precisely
+        /// the defect a declined punisher already produced once by carrying the subject object and
+        /// not the subject player.
+        /// </remarks>
+        public bool Of(GameState state, GameObject source, Guid? subject, Func<Guid, bool> asked)
+        {
+            var seats = Seats(state, source, subject);
+
+            return seats.Count > 0 && (Every ? seats.All(asked) : seats.Any(asked));
+        }
+
+        /// <summary>The seats this subject names, in turn order (CR 101.4).</summary>
+        /// <remarks>
+        /// The twin of <c>PlayerScopes.Resolve</c>, which answers the same question for an effect
+        /// that is resolving. It cannot be that method: a resolution carries targets, a triggering
+        /// object and a gift, and a board question is asked from inside the layers with none of
+        /// those - so the scopes that read one of them name nobody here rather than being answered
+        /// out of thin air.
+        /// </remarks>
+        public IReadOnlyList<Guid> Seats(GameState state, GameObject source, Guid? subject) =>
+            Scope switch
+            {
+                PlayerScope.You => [source.ControllerId],
+
+                // A player who has lost is not an opponent and not a player (CR 800.4a). Several
+                // of the readers this replaced swept TurnOrder without the test and several swept
+                // it with; one answer now, and it is the rules' one.
+                PlayerScope.EachOpponent or PlayerScope.EachOtherPlayer =>
+                    [.. state.ActivePlayers().Where(id => id != source.ControllerId)],
+                PlayerScope.EachPlayer => [.. state.ActivePlayers()],
+
+                // "That player", and the pronoun spelling of it. The seat is the one the sentence
+                // around this condition already picked out - the trigger's subject (CR 603.2) -
+                // and null means it picked out nobody, which is not the controller.
+                PlayerScope.TriggerSubject or PlayerScope.NamedPlayer =>
+                    subject is { } named
+                    && state.Players.TryGetValue(named, out var seat)
+                    && !seat.HasLost
+                        ? [named]
+                        : [],
+
+                // Read off the combat, because nothing else knows it. Outside combat the words
+                // name nobody and the condition is false, which is the right answer for a bonus
+                // that only applies while this creature is attacking somebody (CR 506.2).
+                PlayerScope.DefendingPlayer =>
+                    state.Combat.Attackers.TryGetValue(source.Id, out var attacking)
+                    && state.Players.TryGetValue(attacking.DefendingPlayer, out var defender)
+                    && !defender.HasLost
+                        ? [attacking.DefendingPlayer]
+                        : [],
+
+                // A Curse is an Aura whose host is a player (CR 303.4b). Attached to nobody names
+                // nobody rather than falling back to whoever owns the Aura.
+                PlayerScope.EnchantedPlayer =>
+                    source.Permanent?.AttachedToPlayer is { } enchanted
+                    && state.Players.TryGetValue(enchanted, out var host)
+                    && !host.HasLost
+                        ? [enchanted]
+                        : [],
+                _ => [],
+            };
+    }
+
+    /// <summary>
+    /// The subject a condition names, or null when it names one this cannot resolve.
+    /// </summary>
+    /// <remarks>
+    /// Null is a refusal and the readers below pass it on, so a subject nothing here can answer
+    /// leaves the whole line unread. That is the same promise the file opens with, kept for the
+    /// one part of a condition that used not to have it: a subject silently read as "you" is a
+    /// land that comes in untapped when it should not, told about a player instead of a board.
+    /// </remarks>
+    private static Whose? ReadWhose(string printed)
+    {
+        var word = printed.Trim().ToLowerInvariant();
+
+        // The indefinite subjects, which belong to conditions rather than to effects and are why
+        // this cannot simply be EffectPhrase.ScopeOf: an effect says "each opponent draws" and a
+        // condition says "an opponent has", and only the second needs a word meaning "any one of
+        // them" (CR 102.1). Two opponents holding two cards each do not answer "an opponent has
+        // four cards in hand", and reading the plural as the singular is the shape of mistake
+        // that only shows up at a four-player table.
+        switch (word)
+        {
+            case "an opponent":
+                return new Whose(PlayerScope.EachOpponent, false);
+            case "another player":
+                return new Whose(PlayerScope.EachOtherPlayer, false);
+            case "a player" or "any player":
+                return new Whose(PlayerScope.EachPlayer, false);
+            case "your opponents":
+                return new Whose(PlayerScope.EachOpponent, true);
+            case "you":
+                return new Whose(PlayerScope.You, true);
+            default:
+                break;
+        }
+
+        if (!EffectPhrase.NamesAPlayer(word))
+            return null;
+
+        // Two words the shared list carries that a board question cannot answer: they point back
+        // at an object this reader was never handed, or at a promise made while a spell was cast.
+        // Refused here rather than resolved to nobody, so the line stays unread instead of
+        // compiling into a condition that is false for the rest of the game.
+        var scope = EffectPhrase.ScopeOf(word);
+
+        return scope is PlayerScope.SubjectController or PlayerScope.GiftRecipient
+            ? null
+            : new Whose(scope, true);
+    }
+
+    /// <summary>Every subject a printed condition can be about, as one alternation.</summary>
+    /// <remarks>
+    /// Ordered longest-first where one word is a prefix of another - "your opponents" ahead of
+    /// "you" - rather than trusting the engine to backtrack into the longer arm. A list whose
+    /// correctness depends on backtracking is one a future anchor breaks silently, which is the
+    /// rule the possessive twin of this list already writes down.
+    /// </remarks>
+    private const string WHO =
+        @"(?<who>your opponents|another player|any player|an opponent|a player|"
+            + EffectPhrase.WhoElse + @"|you)";
     /// <summary>Two conditions joined by "and" or "or", each read by everything above.</summary>
     /// <remarks>
     /// This is the only reader here that multiplies rather than adds, so it is also the only one
@@ -2511,7 +2624,7 @@ public static partial class BoardConditions
 
     /// <summary>"An opponent has three or more poison counters" (CR 122.1).</summary>
     [GeneratedRegex(
-        @"^(?<who>an opponent|you) (has|have) "
+        @"^" + WHO + @" (has|have) "
             + @"(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or more poison counters$",
         RegexOptions.IgnoreCase)]
@@ -2545,7 +2658,7 @@ public static partial class BoardConditions
 
     /// <summary>"An opponent is poisoned" - one or more poison counters (CR 122.1f).</summary>
     [GeneratedRegex(
-        @"^(?<who>an opponent|defending player) is poisoned$", RegexOptions.IgnoreCase)]
+        @"^" + WHO + @" is poisoned$", RegexOptions.IgnoreCase)]
     private static partial Regex PoisonedLine();
 
     /// <summary>"~ is attached to a creature" - the attachment asking about its host.</summary>
@@ -2638,7 +2751,7 @@ public static partial class BoardConditions
     private static partial Regex MoreThanLine();
 
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) (?<dir>gained or lost|gained|lost|have gained|has gained)"
+        @"^" + WHO + @" (?<dir>gained or lost|gained|lost|have gained|has gained)"
             + @"( (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more)?"
             + @" life this turn$",
         RegexOptions.IgnoreCase)]
@@ -2651,7 +2764,7 @@ public static partial class BoardConditions
     /// prints it, so the branch would exist to be wrong in.
     /// </remarks>
     [GeneratedRegex(
-        @"^((?<who>you|an opponent) (have |has |'ve )?attacked this turn"
+        @"^(" + WHO + @" (have |has |'ve )?attacked this turn"
             + @"|(?<who>you) (?<not>didn't|haven't) attack(ed)? (with a creature )?this turn"
             + @"|(?<nobody>no creatures attacked) this turn)$",
         RegexOptions.IgnoreCase)]
@@ -2753,7 +2866,7 @@ public static partial class BoardConditions
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir>more|fewer)) "
             + @"(?<what>(?!.*\bamong\b)[A-Za-z][A-Za-z/ ]*? )?cards in your graveyard"
-            + @"|(?<who>an opponent|you) (has|have) "
+            + @"|" + WHO + @" (has|have) "
             + @"(?<n2>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir2>more|fewer) "
             + @"(?<what2>(?!.*\bamong\b)[A-Za-z][A-Za-z/ ]*? )?cards in (their|your) graveyard)$",
@@ -2805,7 +2918,7 @@ public static partial class BoardConditions
     /// turn, ~ has first strike" is matched by a pattern that captures only the condition itself.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent|a player) ha(s|ve) "
+        @"^" + WHO + @" ha(s|ve) "
             + @"((?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) "
             + @"or (?<dir>more|less|fewer)) life$",
@@ -2813,8 +2926,7 @@ public static partial class BoardConditions
     private static partial Regex LifeLine();
 
     [GeneratedRegex(
-        @"^(?<who>you have|an opponent has|(?<anyone>a player has)"
-            + @"|(?<everyone>each player has)) no cards in hand$",
+        @"^" + WHO + @" (has|have) no cards in hand$",
         RegexOptions.IgnoreCase)]
     private static partial Regex EmptyHandLine();
 
@@ -2861,9 +2973,7 @@ public static partial class BoardConditions
     /// that reads correctly and plays inverted.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you control|your opponents control|an opponent controls"
-            + @"|another player controls"
-            + @"|defending player controls|(?<anyone>an?y? ?player controls)) "
+        @"^((?<anyone>an?y? ?player)|" + WHO + @") controls? "
             + @"(an?|(?<none>no)|(?<another>another)) (?<what>[A-Za-z][A-Za-z0-9 ]*)$",
         RegexOptions.None)]
     private static partial Regex ControlsAnyLine();
@@ -2879,7 +2989,7 @@ public static partial class BoardConditions
     /// rather than in a reader of its own.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>an opponent|you) (was|were|has been|have been) dealt damage this turn$",
+        @"^" + WHO + @" (was|were|has been|have been) dealt damage this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DamagedThisTurnLine();
 
@@ -2899,17 +3009,17 @@ public static partial class BoardConditions
     /// recorded. A pattern admitting either would compile the wrong half of the corpus silently.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) dealt combat damage to a player this turn$",
+        @"^" + WHO + @" dealt combat damage to a player this turn$",
         RegexOptions.IgnoreCase)]
     private static partial Regex DealtCombatDamageLine();
 
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) ha(ve|s) the city's blessing$", RegexOptions.IgnoreCase)]
+        @"^" + WHO + @" ha(ve|s) the city's blessing$", RegexOptions.IgnoreCase)]
     private static partial Regex CitysBlessingLine();
 
     /// <summary>"An opponent owns a card in exile" — a card in the shared zone, by owner.</summary>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) owns? a card in exile$", RegexOptions.IgnoreCase)]
+        @"^" + WHO + @" owns? a card in exile$", RegexOptions.IgnoreCase)]
     private static partial Regex OwnsExiledLine();
 
     /// <summary>"You have max speed" — speed 4 (CR 702.179e).</summary>
@@ -2922,7 +3032,7 @@ public static partial class BoardConditions
     private static partial Regex MaxSpeedLine();
 
     [GeneratedRegex(
-        @"^((?<who>you|an opponent) ?(are|'re|’re|is) the monarch"
+        @"^(" + WHO + @" ?(are|'re|’re|is) the monarch"
             + @"|(?<nobody>there is no monarch))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex MonarchLine();
@@ -3059,7 +3169,7 @@ public static partial class BoardConditions
     /// at the front, which is the only place that says whose hand it is.
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|an opponent) (has|have) "
+        @"^" + WHO + @" (has|have) "
             + @"((?<none>no)"
             + @"|(?<exactly>exactly) (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"
             + @"|(?<under>fewer|more) than (?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"

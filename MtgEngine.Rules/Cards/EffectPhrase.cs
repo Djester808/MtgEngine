@@ -13960,6 +13960,18 @@ public static partial class EffectPhrase
         @"each opponent|each other player|each player|that player|defending player"
             + @"|enchanted player|the subject's controller|they|them";
 
+    /// <summary>Whether a printed word is one of the player subjects this list knows.</summary>
+    /// <remarks>
+    /// Asked by <c>BoardConditions</c>, which reads the same words in a condition that this
+    /// grammar reads in a sentence and had spelled out its own smaller list seventeen times.
+    /// Exposed as a question rather than as the string, so the two cannot drift: a word added to
+    /// <see cref="WhoElse"/> is a word every condition understands the same day.
+    /// </remarks>
+    internal static bool NamesAPlayer(string word) => JustAPlayer().IsMatch(word);
+
+    [GeneratedRegex(@"^(?:" + WhoElse + @")$", RegexOptions.IgnoreCase)]
+    private static partial Regex JustAPlayer();
+
     /// <summary>The same group with "you" left out.</summary>
     private const string WThem = @"(?<who>" + WhoElse + @")";
 
