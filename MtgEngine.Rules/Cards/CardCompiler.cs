@@ -3543,6 +3543,30 @@ public static partial class CardCompiler
                 m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
                     + ", where X is " + m.Groups["amount"].Value);
 
+            // "Draw cards equal to its power", "create a number of Treasure tokens equal to its
+            // power" — the same quantity as the count above, measured on one object instead of
+            // counted, and *which* object is the whole of the work. The clause the rewrite writes
+            // into already reads "where X is ~'s power" as the source and nothing else, so a
+            // possessive this can prove means the source is spelled into that form and every verb
+            // gains it at once; one it cannot prove is left exactly as printed, and the line stays
+            // unread. That is the direction to be wrong in: a stat read off the wrong permanent is
+            // a card that compiles, plays and pays a number the card does not print.
+            //
+            // **Damage is deliberately absent from the nouns.** "~ deals damage equal to its power
+            // to target creature" is read whole by a matcher that already knows the pronoun's
+            // difficulty, and the rewrite would take the sentence away from it and hand the clause
+            // a head with a target in it — which is the reading the count rewrite next door
+            // declines this family for. The measurement is in GAME_ENGINE_FEATURE.md.
+            var measured = cleaned;
+            cleaned = StatAsANumber().Replace(
+                measured,
+                m => PossessiveNamesTheSource(
+                        measured,
+                        m.Index,
+                        m.Groups["whose"].Value.Equals("~'s", StringComparison.Ordinal))
+                    ? "X " + m.Groups["what"].Value + ", where X is ~'s " + m.Groups["stat"].Value
+                    : m.Value);
+
             // The rule between a card's two faces, which the card pool writes as a line of its
             // own. It is deliberately left unread, and that is the whole of the engine's answer
             // to two-faced cards: a CardDefinition holds one set of characteristics and one body
@@ -3622,6 +3646,64 @@ public static partial class CardCompiler
         var named = before.LastIndexOf('~');
 
         return named >= 0 && !OtherAntecedent().IsMatch(before[(named + 1)..]);
+    }
+
+    /// <summary>
+    /// Whether the possessive of a stat amount beginning at <paramref name="at"/> in
+    /// <paramref name="line"/> can only be the source of the ability (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The nearest-antecedent rule <see cref="MeansTheSource"/> applies, with two differences the
+    /// grammar forces and one the rules do.
+    /// <para>
+    /// <b>The position asked about is the quantity, not the pronoun.</b> "Draw cards equal to its
+    /// power" carries the word "cards" between the two, and "card" is in the antecedent list — so
+    /// asked at the pronoun, every sentence of this family refuses itself on the noun it is a
+    /// quantity of. Asked where the quantity begins, the text in between is the sentence proper.
+    /// </para>
+    /// <para>
+    /// <b>A player is not a candidate.</b> "Whenever ~ deals combat damage to a player, draw cards
+    /// equal to its power" and "When ~ leaves the battlefield, target opponent loses life equal to
+    /// its power" both name a person between the source and the quantity, and a person has no
+    /// power and no toughness (CR 107.3) — so the possessive cannot be pointing at them, and they
+    /// are struck out of the text before the antecedent list is asked. Nothing else is: every
+    /// object word stays a refusal, planeswalkers included, because being wrong about which
+    /// object is the failure this whole reader is arranged around.
+    /// </para>
+    /// <para>
+    /// <b>And the source has to still be there.</b> The number is read as the effect resolves, so
+    /// a sentence whose own trigger took the source off the battlefield first — "when ~ dies,
+    /// create a number of Treasure tokens equal to its power" — is asking about a permanent that
+    /// no longer exists, and a card in a graveyard answers its printed power. Goldvein Hydra and
+    /// Termagant Swarm are printed 0/0s that live entirely on their counters: read that way they
+    /// would compile, resolve, and make nothing, for ever. Those lines are refused rather than
+    /// answered with a lie, and the refusal applies to the <em>printed</em> name as much as to the
+    /// pronoun — Termagant Swarm spells its own name where the pronoun would go, and spelling it
+    /// out settles which object is meant without saying a word about whether it is still there.
+    /// </para>
+    /// </remarks>
+    /// <param name="line">The line being read, with the card's own name already a tilde.</param>
+    /// <param name="at">Where the quantity begins — not where the possessive does.</param>
+    /// <param name="printedTilde">
+    /// Whether the card spelled its own name rather than a pronoun, which settles the antecedent
+    /// question outright and leaves only the question of whether the source is still there.
+    /// </param>
+    private static bool PossessiveNamesTheSource(string line, int at, bool printedTilde)
+    {
+        var before = line[..at];
+
+        if (printedTilde)
+            return !SourceHasLeft().IsMatch(before);
+
+        var named = before.LastIndexOf('~');
+
+        if (named < 0)
+            return false;
+
+        var between = before[(named + 1)..];
+
+        return !SourceHasLeft().IsMatch(between)
+            && !OtherAntecedent().IsMatch(PlayerNoun().Replace(between, " "));
     }
 
     /// <summary>
@@ -19356,6 +19438,54 @@ public static partial class CardCompiler
             + @" equal to (?<amount>the number of [^.;]+?)(?<tail> to [^.;]+?)?(?=\.|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex CountAsANumber();
+
+    /// <summary>
+    /// "…equal to its power" — a quantity measured on one object rather than counted (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The noun list is the count rewrite's next door with <c>damage</c> struck out, and the
+    /// striking out is the point: the damage sentences of this family are read whole by a matcher
+    /// that already knows what their pronoun means, and handing them to the clause instead is the
+    /// mis-reading that whole family was declined for.
+    /// <para>
+    /// The stat ends at the word. "Its power plus its toughness" and "its power minus 1" are
+    /// printed too, and an arithmetic tail admitted here would read as the bare stat and give the
+    /// card a number it does not print — the same closed ending the clause it writes into keeps.
+    /// </para>
+    /// <para>
+    /// A life sentence the life family already reads is left alone by the lookbehind, because that
+    /// family answers the possessive with a reading this rewrite cannot express: it can see the
+    /// permanent an earlier sentence targeted, and this can only see the words.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?:a number of (?<what>[^.;]+?)|(?<!\b(?:gain|gains|lose|loses) )\b(?<what>life|cards))"
+            + @"(?<!\bor) equal to (?<whose>its|~'s) (?<stat>power|toughness|mana value)\b"
+            + @"(?!\s+(?:plus|minus|and|or)\b)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex StatAsANumber();
+
+    /// <summary>A person, who has no power and no toughness to be the antecedent of (CR 107.3).</summary>
+    [GeneratedRegex(
+        @"\b(?:target |each |an |any |that |a |another |the |their )?(?:player|opponent)s?\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PlayerNoun();
+
+    /// <summary>
+    /// Something the sentence says has happened to the source before the quantity is measured.
+    /// </summary>
+    /// <remarks>
+    /// Not a grammar — a refusal, and a wider one than it looks. It catches the trigger condition
+    /// of "when ~ dies" and "when ~ leaves the battlefield" because those words stand between the
+    /// tilde and the quantity, and it catches Riders of the Mark, whose sentence returns the
+    /// source to its owner's hand and only then asks how big it was.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b(?:dies|died|leaves the battlefield|left the battlefield|is put into|was put into"
+            + @"|are put into|is exiled|was exiled|is milled"
+            + @"|sacrifice (?:it|~)|exile (?:it|~)|return (?:it|~)|put (?:it|~) into)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SourceHasLeft();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.

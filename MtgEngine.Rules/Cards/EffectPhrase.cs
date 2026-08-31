@@ -4668,11 +4668,34 @@ public static partial class EffectPhrase
                 : 1;
 
             // "Life equal to that creature's toughness" measures one permanent rather than
-            // counting a group, and the permanent is whatever the trigger was about. Last known
-            // information when it has gone (CR 608.2g), which is the ordinary case: the commonest
-            // printing of this is on a creature dying.
+            // counting a group, and which permanent is the whole of the reading. Last known
+            // information when it has gone (CR 608.2h), which is the ordinary case: the commonest
+            // printings of this are a creature dying and a creature this same spell has just
+            // exiled.
+            //
+            // A permanent an earlier sentence of this line targeted is the nearest antecedent and
+            // is what the possessive means: "Exile target creature. Its controller gains life
+            // equal to its power" is about the creature, and reading the trigger's subject there
+            // would answer with the wrong object on a spell and with nothing at all on Swords to
+            // Plowshares, which has no trigger to have a subject. With nothing targeted the
+            // possessive falls back to the trigger's object, which is the reading this arm has
+            // always had.
+            //
+            // Only a target that has the characteristic. A player has no power, no toughness and
+            // no mana value, so a sentence whose last target is one has not named a candidate at
+            // all — and "any target" is refused with them, because it is a player as readily as a
+            // creature and the words cannot say which it turned out to be. A spell on the stack
+            // is admitted beside a permanent: Illumination counters one and gains life equal to
+            // *its* mana value, and reading a spell target as no candidate would leave that card
+            // gaining nothing at all, which is the shape of failure this reader exists to refuse.
+            var possessed = targets.Count > 0
+                && targets[targets.Count - 1].Kind
+                    is TargetKind.Permanent or TargetKind.SpellOnStack or TargetKind.CardInGraveyard
+                    ? targets.Count - 1
+                    : (int?)null;
+
             var gained = perEach.Groups["stat"].Success
-                ? StatOfTriggerSubject(perEach.Groups["stat"].Value)
+                ? StatOfNamedObject(perEach.Groups["stat"].Value, possessed)
                 : CountingAmount(each, perEach.Groups["t"].Value);
 
             if (gained is not { } gainedAmount)
@@ -12417,6 +12440,81 @@ public static partial class EffectPhrase
 
 
     /// <summary>
+    /// The power or toughness of the object a stat amount's possessive names (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// "You gain life equal to its toughness" is a number about one object, and <em>which</em>
+    /// object is the whole of the reading — the same question the verbs answer with
+    /// <c>ObjectOf</c>, asked where a quantity stands rather than where a verb's object does.
+    /// The caller decides it, because only the caller can see what the sentence has named: a
+    /// permanent an earlier sentence of this same line targeted is the nearest antecedent and
+    /// wins, and with nothing targeted the possessive falls back to the object the trigger was
+    /// about, which is what this family has always read.
+    /// <para>
+    /// Deliberately no third arm. A possessive that resolves to neither is left to the reader
+    /// that built it, which refuses the sentence — an amount cannot decline, and an amount that
+    /// answered nought would be a card that compiles, plays and pays the wrong number.
+    /// </para>
+    /// </remarks>
+    private static Amount StatOfNamedObject(string stat, int? targetIndex)
+    {
+        if (targetIndex is not { } index)
+            return StatOfTriggerSubject(stat);
+
+        var wanted = stat.ToLowerInvariant();
+
+        return new Amount(1)
+        {
+            Counter = context => StatAsItLastWas(context, context.PeerAt(index), wanted),
+        };
+    }
+
+    /// <summary>
+    /// One object's stat, through the layers while it is on a battlefield and off the record
+    /// once it has left (CR 608.2h, CR 613).
+    /// </summary>
+    /// <remarks>
+    /// The commonest printing of this family is a sentence about something the sentence in front
+    /// of it has already moved — "Exile target creature. Its controller gains life equal to its
+    /// power" — so by the time the number is asked for, the permanent is a card in exile. A card
+    /// outside a battlefield answers its <em>printed</em> power and is short by every counter and
+    /// every lord that was on it, which is not what the rule means by last known information: a
+    /// 2/2 with three +1/+1 counters that gets exiled was a 5/5. The resolution's own record kept
+    /// that number as the object left, and this reads it back.
+    /// <para>
+    /// The printed characteristics remain the floor for an object the record never saw, because
+    /// they are the honest answer for one that left before this resolution began — and because
+    /// nothing this reader is admitted for can reach that case: every shape the callers accept
+    /// either measures a permanent still on the battlefield or one this very resolution moved.
+    /// </para>
+    /// </remarks>
+    private static int StatAsItLastWas(ResolutionContext context, GameObject? named, string wanted)
+    {
+        if (named is null)
+            return 0;
+
+        // Mana value is a fact about the card and never about the permanent (CR 202.3b), so the
+        // layers and the record have nothing to say about it that the card does not.
+        if (named.Zone == Zone.Battlefield || wanted.StartsWith("mana", StringComparison.Ordinal))
+            return StatOfObject(context, named, wanted);
+
+        foreach (var touch in context.Record.Touches)
+        {
+            if (touch.Id != named.Id)
+                continue;
+
+            var was = wanted.StartsWith("power", StringComparison.Ordinal)
+                ? touch.Power
+                : touch.Toughness;
+
+            if (was is { } known)
+                return Math.Max(0, known);
+        }
+
+        return StatOfObject(context, named, wanted);
+    }
+
+    /// <summary>
     /// The power or toughness of whatever the trigger was about, read when the effect resolves.
     /// </summary>
     private static Amount StatOfTriggerSubject(string stat)
@@ -17129,8 +17227,16 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ConjureDuplicateLine();
 
+    /// <remarks>
+    /// The payer words include the rewritten spelling of "its controller", because the printed
+    /// sentence this family is commonest in names a player by the thing beside it: "Exile target
+    /// creature. Its controller gains life equal to its power". The rewrite has already turned
+    /// that phrase into the one word the scope vocabulary reads by the time this sees it, and a
+    /// reader that did not know the fourth spelling is the failure written up beside that rewrite.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<who>you|each opponent|each player) (?<verb>gains?|loses?) "
+        @"^(?<who>you|each opponent|each player|that player|the subject's controller) "
+            + @"(?<verb>gains?|loses?) "
             + @"((?<n>\d+|X) life for (?<t>each " + COUNTED + @"+)"
             + @"|life equal to the number of (?<t>" + COUNTED + @"+)"
             + @"|life equal to (?<subject>that [a-z]+'s|its|the sacrificed [a-z]+'s) "

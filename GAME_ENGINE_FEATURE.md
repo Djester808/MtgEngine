@@ -619,6 +619,134 @@ the target's id and the permanent's, which is not a field on anything.
 Made to fail: pinning the new arm to an id that cannot occur turns the two behaviour tests red
 naming exactly the two things a player would see — the reanimated 4/4 is refused as an attacker
 (CR 302.6), and it is still on the battlefield at the end of the turn.
+### Round twenty-one: which object a pronoun in an amount means
+
+**18,419 → 18,436 complete cards, +17, none lost, measured by set difference on this branch's own
+binary.** And 22 cards that were *already* complete now play a different number, which is the
+larger half of this round: they were reading the wrong object and nobody could see it.
+
+The family is an amount whose size is a characteristic of an object the sentence names by pronoun —
+"you gain life equal to its power", "draw cards equal to that creature's toughness", "create a
+number of tokens equal to ~'s power". The count rewrite next door declined it in round twenty-one
+with a precise reason: the clause reader resolves "its" against the head's target, so
+`~ deals damage equal to its power to target creature` would compile as the *target's* power.
+Reads-and-is-wrong is worse than unread.
+
+#### The measurement
+
+274 incomplete corpus cards carry an unread line of this family; 215 of them have no other unread
+line at all. Three probes on that population, on the pre-change binary:
+
+| probe | completes |
+|---|---|
+| **excision** — drop the whole line that carries the stat amount | **112** |
+| **line control** — drop a *different* unread line on the same cards | **0** |
+| **substitution control** — rewrite only the stat phrase into a count already read | **43** |
+
+The line control at 0 says the stat line is the blocker on every one of these cards and nothing
+else on them is. The substitution control at 43 against an excision of 112 says the rest. The two
+sets overlap on 31: **81 of the excision's 112 are cards where the sentence around the amount is
+unread as well**, so dropping the line took a second win with it and the excision figure is 2.6×
+the honest ceiling. Most of the 81 are damage sentences with a target grammar the compiler cannot
+read yet — "whenever ~ becomes blocked, you may have it deal damage equal to its power to target
+creature" is four cards on its own and none of them turns on the amount. The other 12 run the other
+way: cards whose *only* printed line is the stat line, which excision cannot score at all because
+cutting it leaves no card.
+
+Of the 43 the substitution can reach, two in five name their object as "the sacrificed creature",
+which is a referent the engine has no way to point at: the sacrifice is a cost or a player's
+choice, and nothing carries which permanent it was into the resolution. Those are left in the
+queue. 17 is what the two referents below actually reach.
+
+#### Two referents, each with a rule
+
+**The source, decided by nearest antecedent — with people struck out.** The compiler already had
+`MeansTheSource` for "it deals": yes exactly when the last thing named before the pronoun is `~`
+and nothing that could be an antecedent stands in between. A possessive in an amount wants the same
+rule with two changes the grammar forces and one the rules do.
+
+The position asked about is the **quantity**, not the pronoun: "draw cards equal to its power"
+carries the word "cards" between the two, and "card" is on the antecedent list, so asked at the
+pronoun every sentence of this family refuses itself on the noun it is a quantity *of*.
+
+And **a player is not a candidate**, because a player has no power and no toughness (CR 107.3). The
+words "each opponent" and "to a player" stand between the source and the quantity on Gregor, Shrewd
+Magistrate and Imperious Mindbreaker, and the pronoun cannot be pointing at them — so they are
+struck out of the text before the antecedent list is consulted. Nothing else is: every object word
+stays a refusal, planeswalkers included.
+
+**And the source has to still be there.** The number is read as the effect resolves, so a sentence
+whose own trigger buried the source first — "when ~ dies, create a number of Treasure tokens equal
+to its power" — is asking about a permanent that no longer exists, and a card in a graveyard
+answers its *printed* power. Goldvein Hydra and Termagant Swarm are printed 0/0s that live entirely
+on the counters they enter with: read that way they would compile, resolve and make nothing, for
+ever. Refused. The refusal applies to the printed name as readily as to the pronoun — Termagant
+Swarm spells its own name where the pronoun would go, and spelling it out settles *which* object is
+meant while saying nothing about whether it is still there.
+
+**The object this same resolution has already named, read as last known information.** "Exile
+target creature. Its controller gains life equal to its power" is Swords to Plowshares, and by the
+time the life is gained the creature is a card in exile. The life family answered that possessive
+with the *trigger's* subject, which on a spell is nobody at all — Swords to Plowshares, Condemn and
+Avenger en-Dal each gained nought. It now answers with the permanent the sentence in front
+targeted, through `PeerAt`, and reads its size **through the layers while it is on a battlefield
+and off the resolution's own record once it has left** (CR 608.2h): a printed 2/2 with three +1/+1
+counters left the battlefield as a 5/5, and the exile card would have said two.
+
+Only a target that *has* the characteristic. A player target is refused, and so is "any target",
+which is a player as readily as a creature and the words cannot say which it turned out to be —
+that refusal is what keeps Consuming Vapors and Tribute to Hunger from measuring a person. A spell
+on the stack is admitted beside a permanent, because Illumination counters one and gains life equal
+to its mana value.
+
+#### The 22 already-complete cards that were playing the wrong number
+
+The life family's stat arm always answered with the trigger's subject. 27 complete corpus cards
+reach it, and on **22** of them their own sentence has targeted something first — Divine Offering,
+Chastise, Sever Soul, Vendetta, Devour in Shadow, Reanimate, Terashi's Grasp, Feed the Swarm,
+Garruk's −3, Sheltering Word, Heal the Scars, Serene Offering, Infernal Reckoning and nine more.
+Most are spells with no trigger at all, so the subject was nobody and every one of them gained or
+lost **nothing**. Rotfeaster Maggot is worse than nothing: an enters trigger whose subject is the
+Maggot itself, so it exiled a creature card from a graveyard and gained life equal to *its own*
+toughness. All 22 now measure the object their sentence names.
+
+The other five are untouched, and the reasons are the refusals above. Engulfing Slagwurm and
+Doomgape name no target, so the trigger's subject is still the only answer and still the right one.
+Consuming Vapors and Tribute to Hunger target a *player* who then sacrifices something, and reading
+that target would have measured a person. Syr Ginger sacrifices itself for a cost and targets
+nothing.
+
+#### Damage is deliberately absent from the rewrite's nouns
+
+The rewrite that hands this vocabulary to every verb at once takes `life`, `cards` and
+"a number of …" and **not** `damage`. The damage sentences of this family are read whole by a
+matcher that already knows what their pronoun means; handing them to the clause instead would give
+that clause a head with a target in it, which is precisely the mis-reading the count rewrite
+declined this family for. A guard test plays `{T}: ~ deals damage equal to its power to target
+creature` on a 5/5 source and a 2/6 target and asserts five marks rather than two.
+
+#### What is still declined, and why
+
+- **"The sacrificed creature's power/toughness" — 25 sole-blocked cards** (Fling, Thud, Greater Good,
+  Life's Legacy, Altar of Dementia, Brion Stoutarm, Starlit Sanctum, Bloodshot Cyclops, Barrage
+  Tyrant, Scourge of Skola Vale, Tormented Thoughts, Eye of Yawgmoth, Rite of Consumption, Airdrop
+  Condor, Final Strike, Pyrrhic Blast, Rhovanion Rampager). The referent is a permanent sacrificed
+  to pay a cost or chosen by a player, and nothing carries which one it was into the resolution.
+  A referent the engine cannot name is not a phrase to widen.
+- **"Assigns combat damage equal to its toughness rather than its power" — 20 lines, 12 sole
+  blockers.** Not an amount at all: it is a rule about how a creature assigns combat damage
+  (CR 510.1a), and the possessive in it is never in doubt.
+- **Arithmetic tails — 3 cards** ("its power plus its toughness", "its power minus 1"). The pattern
+  ends at the stat word, because a tail admitted here would read as the bare stat and give the card
+  a smaller number than it prints.
+- **A source buried by its own sentence — 8 cards** (Goldvein Hydra, Termagant Swarm, Mortis Dogs,
+  Rapacious Guest, Feral Ghoul, Lifeblood Hydra, Doom Weaver, Riders of the Mark). Answerable only
+  by a last-known-power the engine does not keep for an object that left before this resolution
+  began. The record covers what *this* resolution moved and nothing earlier.
+- **A stat measured on the trigger's subject after it has died** is read, and it reads the
+  graveyard card's printed size. That is the shipped behaviour of the arm this round widened — Death
+  Watch and Banewasp Affliction inherit it — and it is short by every counter that was on the
+  creature. The fix is the same missing last-known-power as the bullet above.
 
 ### Round twenty-one: how much damage was excess
 
