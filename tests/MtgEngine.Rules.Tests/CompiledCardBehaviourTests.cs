@@ -5319,6 +5319,172 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- Half a fight, aimed somewhere a fight cannot go (CR 115.4) ---------
+
+    /// <summary>
+    /// Soul's Fire: "Target creature you control deals damage equal to its power to any target."
+    /// </summary>
+    /// <remarks>
+    /// The recipient is a player, which is the half a fight has no room for - CR 701.12a puts
+    /// two creatures in a fight and a player is neither. It is still read as the one-way fight
+    /// rather than as ordinary damage, and that is a rule and not a convenience: CR 120.2b makes
+    /// the <em>creature</em> the source, so lifelink, protection and every "dealt damage by"
+    /// trigger see the creature. Read as a DealDamage the instant would be in the dealer's seat,
+    /// the life would not be gained, and the card would look implemented.
+    /// <para>
+    /// The lord is the control. The same spell aimed by the same player at the same creature
+    /// deals two on one board and three on the next, because power is computed (CR 613) - and a
+    /// reader that took the printed number would pass every other assertion here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_can_be_aimed_at_a_player_and_deals_the_creatures_power()
+    {
+        var fire = Card(
+            "Bitten Fire Test",
+            "Target creature you control deals damage equal to its power to any target.");
+
+        var compiled = CardCompiler.Compile(fire);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var lord = Card(
+            "Bitten Lord Test",
+            "Other creatures you control get +1/+1.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var bear = game.Create(
+            alice,
+            Card("Bitten Bear Test", string.Empty, CardType.Creature, 2, 2, KeywordAbility.Lifelink),
+            Zone.Battlefield);
+
+        SettleIn(game);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // The creature dealt it, not the instant: lifelink is a quality of the source (CR 702.15b).
+        Assert.Equal(22, game.State.GetPlayer(alice).Life);
+
+        // Same spell, same creature, one more lord on the board.
+        game.Create(alice, lord, Zone.Battlefield);
+        SettleIn(game);
+
+        Assert.Equal(3, Now(game, bear).Power);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// The same sentence aimed at a permanent, which is the arm that already worked.
+    /// </summary>
+    /// <remarks>
+    /// "Any target" is one spec covering both, so the permanent half is the control that says
+    /// the widening did not cost the reading it already had.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_aimed_at_any_target_still_reaches_a_creature()
+    {
+        var fire = Card(
+            "Bitten Aim Test",
+            "Target creature you control deals damage equal to its power to any target.");
+
+        Assert.True(CardCompiler.Compile(fire).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Bitten Aim Bear Test", 2, 2), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Bitten Aim Wall Test", 0, 5), Zone.Battlefield);
+        SettleIn(game);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, fire),
+            [Target.ToPermanent(bear), Target.ToPermanent(wall)]);
+
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.Equal(2, game.State.GetObject(wall).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// Fall of the Hammer: "... deals damage equal to its power to another target creature."
+    /// </summary>
+    /// <remarks>
+    /// "Another" is CR 109.5 asked of a sibling target rather than of the source, and the target
+    /// grammar has carried that filter for a while - this sentence simply could not say it,
+    /// because the pattern wanted the recipient to start with the word "target". The illegal
+    /// declaration is the assertion: without the exclusion the card is a creature dealing its
+    /// power to itself, which is a different and much worse card that compiles just as cleanly.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_at_another_target_cannot_choose_its_own_dealer()
+    {
+        var hammer = Card(
+            "Bitten Hammer Test",
+            "Target creature you control deals damage equal to its power to another target creature.");
+
+        var compiled = CardCompiler.Compile(hammer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var ogre = game.Create(alice, TestCards.Creature("Bitten Hammer Ogre Test", 3, 3), Zone.Battlefield);
+        var wall = game.Create(bob, TestCards.Creature("Bitten Hammer Wall Test", 0, 5), Zone.Battlefield);
+        SettleIn(game);
+
+        Assert.ThrowsAny<InvalidOperationException>(() => game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, hammer),
+            [Target.ToPermanent(ogre), Target.ToPermanent(ogre)]));
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, hammer),
+            [Target.ToPermanent(ogre), Target.ToPermanent(wall)]);
+
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(wall).Permanent!.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(ogre).Permanent!.DamageMarked);
+    }
+
+    /// <summary>
+    /// The recipient this reader still refuses: a player named by relation rather than targeted.
+    /// </summary>
+    /// <remarks>
+    /// Backlash and its two siblings say "to its controller" - a player the sentence never
+    /// targets, found from whichever creature the spell tapped. Every recipient this reader can
+    /// say is a target slot, and a player that is not a target has nowhere to be chosen; three
+    /// cards stay unread rather than being aimed at somebody the sentence did not name.
+    /// </remarks>
+    [Fact]
+    public void A_one_way_fight_at_an_untargeted_player_stays_unread()
+    {
+        var backlash = Card(
+            "Bitten Backlash Test",
+            "Tap target untapped creature. It deals damage equal to its power to its controller.",
+            CardType.Sorcery);
+
+        Assert.NotEmpty(CardCompiler.Compile(backlash).Unhandled);
+    }
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]

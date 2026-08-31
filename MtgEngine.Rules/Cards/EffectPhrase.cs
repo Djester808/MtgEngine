@@ -4396,9 +4396,13 @@ public static partial class EffectPhrase
                 ? Specs.Parse(bite.Groups["mine"].Value.Trim())
                 : null;
 
+            // The dealer has to be a creature; the recipient may be anything the sentence
+            // is allowed to aim at. "Any target" is its own kind (CR 115.4) and resolves to a
+            // player or a permanent when the target is chosen, which is why both are accepted
+            // here and told apart at resolution rather than at compile time.
             if ((bite.Groups["mine"].Success && dealer is not { Kind: TargetKind.Permanent })
                 || Specs.Parse(bite.Groups["theirs"].Value.Trim()) is not
-                { Kind: TargetKind.Permanent } bitten)
+                { Kind: TargetKind.Permanent or TargetKind.Any } bitten)
             {
                 return false;
             }
@@ -4426,7 +4430,18 @@ public static partial class EffectPhrase
                     mineSubject = biter.Subject;
             }
 
-            targets.Add(bitten);
+            // "Another target creature" is CR 115.3 asked of the sibling this sentence chose,
+            // and only this sentence knows which one that is. Specs.Parse gives the word its
+            // other half - not the permanent whose ability is asking - and on an instant that
+            // exclusion is vacuous, because the source is the spell and never a creature. Left
+            // at that, Fall of the Hammer would let a creature deal its power to itself.
+            targets.Add(
+                mineIndex2 is { } sibling
+                && bite.Groups["theirs"].Value.TrimStart()
+                    .StartsWith("another", StringComparison.OrdinalIgnoreCase)
+                    ? bitten with { PeerIndex = sibling }
+                    : bitten);
+
             effects.Add(new Fight(
                 targets.Count - 1, mineIndex2, BothWays: false, MySubject: mineSubject));
 
@@ -16688,7 +16703,8 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^((?<mine>[Tt]arget [a-z’' ]+?)|~|(?<pronoun>[Ii]t|[Tt]hat creature)) "
-            + @"deals damage equal to its power to (?<theirs>target [a-z’' ]+?)\.?$",
+            + @"deals damage equal to its power to "
+            + @"(?<theirs>(?:another |up to one )?target [a-z’', ]+?|any target)\.?$",
         RegexOptions.None)]
     private static partial Regex BiteLine();
 
