@@ -3825,6 +3825,16 @@ public sealed class Game
         if (!card.Card.CardTypes.HasFlag(CardType.Land))
             throw new InvalidOperationException($"{card.Card.Name} is not a land.");
 
+        // CR 305.1: and no rule or effect stops this player playing a land at all. Checked
+        // before the timing and the drop count so a refusal names the permanent doing it, and
+        // before anything moves, for the reason the cast bans are checked where they are.
+        if (Bans.LandPlayForbidden(State, _abilities, playerId) is { } forbidding)
+        {
+            throw new InvalidOperationException(
+                $"{card.Card.Name} cannot be played: {forbidding.Card.Name} forbids it "
+                    + "(CR 305.1).");
+        }
+
         if (!State.IsSorcerySpeedFor(playerId))
             throw new InvalidOperationException(
                 "A land is played during your main phase with an empty stack (CR 505.6b).");
@@ -13531,11 +13541,23 @@ public sealed class Game
     /// written into the land drop goes on being one while the card that says otherwise sits there
     /// doing nothing.
     /// </remarks>
+    /// <summary>How many lands this player may play this turn (CR 305.2).</summary>
+    /// <remarks>
+    /// The whole battlefield is walked and every permanent asked whose drops it adds to, rather
+    /// than only the permanents this player controls. The narrower sum was right for as long as
+    /// every card that said this said "you may play an additional land"; Rites of Flourishing and
+    /// Ghirapur Orrery say "each player may", and under the old sum their controller got the
+    /// extra land and nobody else did - which is a strictly better card than either printing.
+    /// The scope is resolved here and not when the card compiled, because "each player" and
+    /// "you" are both read around whoever controls the permanent now (CR 613.1b).
+    /// </remarks>
     private int LandDropsFor(Guid playerId) =>
         1 + State.GetPlayer(playerId).ExtraLandDropsThisTurn
         + State.Battlefield
             .Select(State.GetObject)
-            .Where(o => ControllerOf(o) == playerId)
+            .Where(o => PlayerScopes.Around(
+                    _abilities.ExtraLandDropScope(o.Card), State, ControllerOf(o))
+                .Contains(playerId))
             .Sum(o => _abilities.ExtraLandDrops(o.Card));
 
     /// <summary>The colour a printed word names, or null if it is not one (CR 105.1).</summary>

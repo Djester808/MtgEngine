@@ -147,6 +147,9 @@ public sealed class CompiledPool : IAbilitySource
 
     public int ExtraLandDrops(CardDefinition card) => For(card).ExtraLandDrops;
 
+    public Abilities.PlayerScope ExtraLandDropScope(CardDefinition card) =>
+        For(card).ExtraLandDropScope;
+
     public bool MayDeclineUntap(CardDefinition card) => For(card).MayDeclineUntap;
 
     public bool SkipsDrawStep(CardDefinition card) => For(card).SkipsDrawStep;

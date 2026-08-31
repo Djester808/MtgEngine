@@ -449,6 +449,17 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
     /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
     int ExtraLandDrops(CardDefinition card) => 0;
 
+    /// <summary>
+    /// Whose land drops this card's extra ones go to (CR 305.2, 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="ExtraLandDrops"/> rather than folded into it, because the number and
+    /// the seat are two answers and a caller that read only the number would give Rites of
+    /// Flourishing's symmetrical drop to its controller alone. The default is the unmarked
+    /// printing, "you may play an additional land", which is nearly every card that says this.
+    /// </remarks>
+    PlayerScope ExtraLandDropScope(CardDefinition card) => PlayerScope.You;
+
     /// <summary>Whether its controller may leave it tapped at untap (CR 502.3).</summary>
     bool MayDeclineUntap(CardDefinition card) => false;
 

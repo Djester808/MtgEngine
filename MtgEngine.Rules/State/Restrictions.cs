@@ -419,6 +419,9 @@ public sealed record StaticBans
     /// <summary>Whose abilities this card stops being activated (CR 602.5).</summary>
     public ImmutableList<ActivationBan> NoActivating { get; init; } = [];
 
+    /// <summary>Who this card stops playing lands at all (CR 305.1).</summary>
+    public ImmutableList<LandPlayBan> NoPlayingLands { get; init; } = [];
+
     /// <summary>
     /// Whether this card stops activated abilities of sources with the name it chose
     /// (CR 602.5).
@@ -439,6 +442,7 @@ public sealed record StaticBans
         && NoActivatingNamed.IsEmpty
         && NoCasting.IsEmpty
         && NoActivating.IsEmpty
+        && NoPlayingLands.IsEmpty
         && CombatTaxes.IsEmpty;
 }
 
@@ -731,6 +735,36 @@ public static class Bans
         return null;
     }
 
+    /// <summary>
+    /// The permanent forbidding this player from playing a land, or null (CR 305.1).
+    /// </summary>
+    /// <remarks>
+    /// The third scan of this shape and deliberately the same shape: walk the battlefield, ask
+    /// what is standing there, read "your opponents" around whoever controls it now (CR 613.1b).
+    /// A land is played rather than cast, so it is asked where the land drop is taken and not
+    /// beside the cast bans.
+    /// </remarks>
+    public static GameObject? LandPlayForbidden(
+        GameState state, Abilities.IAbilitySource abilities, Guid playerId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+
+        foreach (var ban in InPlay(state, abilities))
+        {
+            foreach (var said in ban.Bans.NoPlayingLands)
+            {
+                if (said.Who is not { } scope
+                    || PlayerScopes.Around(scope, state, ban.ControllerId).Contains(playerId))
+                {
+                    return ban.Host;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Whether a ban's window is open right now (CR 506.1, 601.3).</summary>
     /// <remarks>
     /// One method for both prohibitions, because "during your turn" has to mean the same thing to
@@ -888,6 +922,31 @@ public sealed record LibraryTopPermission
     /// mana value 4 or greater" read loosely is a Future Sight wearing another card's name.
     /// </remarks>
     public string? SpellFilter { get; init; }
+}
+
+/// <summary>
+/// A ban on playing lands (CR 305.1).
+/// </summary>
+/// <remarks>
+/// Playing a land is a special action rather than a cast (CR 116.2a), so this is a third record
+/// beside <see cref="CastBan"/> and <see cref="ActivationBan"/> and not a filter on either: the
+/// engine refuses it where the land drop is taken, and a land that had to be described as a
+/// spell would be described in a vocabulary that does not fit it.
+/// <para>
+/// No filter and no window. Both printings in the corpus are bare, and the qualified family -
+/// "target player can't play lands this turn" - is a one-shot with a duration, which a permanent
+/// has nowhere to keep and this record deliberately cannot express.
+/// </para>
+/// </remarks>
+public sealed record LandPlayBan
+{
+    public required string Id { get; init; }
+
+    /// <summary>
+    /// Whose land drops it forbids, read around whoever controls the permanent, or null for
+    /// everybody's.
+    /// </summary>
+    public Abilities.PlayerScope? Who { get; init; }
 }
 
 /// <summary>

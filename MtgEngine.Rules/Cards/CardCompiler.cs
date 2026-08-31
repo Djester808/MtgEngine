@@ -389,6 +389,7 @@ public static partial class CardCompiler
         int? prototypePower = null;
         int? prototypeToughness = null;
         var extraLandDrops = 0;
+        var extraLandDropScope = PlayerScope.You;
         var mayDeclineUntap = false;
         var skipsDraw = false;
         var revealsTop = false;
@@ -462,6 +463,7 @@ public static partial class CardCompiler
         var noCastingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noActivatingNamed = ImmutableList.CreateBuilder<ChosenNameBan>();
         var noCasting = ImmutableList.CreateBuilder<CastBan>();
+        var noPlayingLands = ImmutableList.CreateBuilder<LandPlayBan>();
         var noActivating = ImmutableList.CreateBuilder<ActivationBan>();
         var combatTaxes = ImmutableList.CreateBuilder<CombatTax>();
 
@@ -804,6 +806,16 @@ public static partial class CardCompiler
                 extraLandDrops += extraLands.Groups["n"].Success
                     ? NumberWord(extraLands.Groups["n"].Value)
                     : 1;
+
+                // "Each player may play an additional land on each of their turns" - the same
+                // permission handed to the table instead of to one seat. Read rather than
+                // defaulted: a symmetrical card compiled as Exploration is a strictly better
+                // card than the printed one.
+                if (extraLands.Groups["who"].Value.StartsWith(
+                    "each", StringComparison.OrdinalIgnoreCase))
+                {
+                    extraLandDropScope = PlayerScope.EachPlayer;
+                }
 
                 continue;
             }
@@ -1646,7 +1658,7 @@ public static partial class CardCompiler
             // about a name a player chose. Beside them and refused on an instant or sorcery for
             // their reason: "target player can't cast spells this turn" is a one-shot with a
             // duration, and a ban filed here would be one nothing ever takes down.
-            if (!isSpell && TryPrintedBans(line, noCasting, noActivating))
+            if (!isSpell && TryPrintedBans(line, noCasting, noActivating, noPlayingLands))
                 continue;
 
             if (TryDamageAmount(line, replacements))
@@ -2032,6 +2044,7 @@ public static partial class CardCompiler
             AmplifyCount = amplify,
             HasReadAhead = isSaga && readAhead,
             ExtraLandDrops = extraLandDrops,
+            ExtraLandDropScope = extraLandDropScope,
             MayDeclineUntap = mayDeclineUntap,
             SkipsDrawStep = skipsDraw,
             RevealsTopOfLibrary = revealsTop,
@@ -2050,6 +2063,7 @@ public static partial class CardCompiler
                 NoCastingNamed = noCastingNamed.ToImmutable(),
                 NoActivatingNamed = noActivatingNamed.ToImmutable(),
                 NoCasting = noCasting.ToImmutable(),
+                NoPlayingLands = noPlayingLands.ToImmutable(),
                 NoActivating = noActivating.ToImmutable(),
                 CombatTaxes = combatTaxes.ToImmutable(),
             },
@@ -8410,6 +8424,7 @@ public static partial class CardCompiler
             || TryCantBeBlockedBy(line, card, statics)
             || TryDoesNotUntap(line, card, statics)
             || TryMayAttackDespiteDefender(line, card, statics)
+            || TryGroupDoesNotUntap(line, card, statics)
             || TryAbilitiesCantBeActivated(line, card, statics)
             || TryAttachedSilencing(line, card, statics)
             || TryAttachedBuff(line, statics)
@@ -10245,6 +10260,71 @@ public static partial class CardCompiler
             Layer = EffectLayer.Ability,
             Applies = Applies,
             Apply = (_, _, builder) => builder.MayAttackAsThoughNoDefender = true,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Islands don't untap during their controllers' untap steps" (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// The group form of the restriction <see cref="TryDoesNotUntap"/> reads about one permanent,
+    /// setting the same flag the untap step already consults. It is the mana-denial half of the
+    /// corpus's untap family — Choke, Back to Basics, Curse of Marit Lage — and the reason those
+    /// three cards did nothing was not the flag but the subject: every reader that could set it
+    /// described the permanent printing the line or the one an Aura was attached to, and none of
+    /// them could describe a group.
+    /// <para>
+    /// So the group goes through <see cref="ReadStaticGroup"/> — the same noun reader every lord
+    /// and the silencing static beside this one uses — and this knows nothing about what an
+    /// Island is. A group it cannot narrow, the bare noun "permanents", is refused rather than
+    /// applied to the whole board, exactly as its neighbour refuses one: a board that never
+    /// untaps is not a card anybody printed, and the wrong half of a restriction is worse than an
+    /// unread line because nothing refuses.
+    /// </para>
+    /// <para>
+    /// Whose untap step is not read, for the reason the single-permanent reader gives: a
+    /// permanent untaps only in its own controller's untap step to begin with (CR 502.3), so
+    /// "their controllers'" and "your" name the same step from two ends.
+    /// </para>
+    /// </remarks>
+    private static bool TryGroupDoesNotUntap(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = GroupDoesNotUntapLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["group"].Value.Trim();
+        var side = string.Empty;
+
+        foreach (var clause in OwnershipClauses)
+        {
+            if (!printed.EndsWith(clause, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            side = clause;
+            printed = printed[..^clause.Length].Trim();
+            break;
+        }
+
+        // No scope slot, as beside: no card prints "other Islands don't untap", and the shared
+        // reader refuses a scope word it does not know rather than dropping it.
+        if (ReadGroupFilter(printed, string.Empty, side) is not { } group)
+            return false;
+
+        if (group.NamesEveryPermanent)
+            return false;
+
+        into.Add(new ContinuousEffectDefinition
+        {
+            // The group leads, in the segment the lords' ids put it in, so the invariant that
+            // reads group readers reads this one too.
+            Id = $"no-untap:{group.Described}{side.Replace(' ', '-')}:{card.Name}",
+            Layer = EffectLayer.Ability,
+            Applies = group.Matches,
+            Apply = (_, _, builder) => builder.DoesNotUntap = true,
         });
 
         return true;
@@ -15621,8 +15701,23 @@ public static partial class CardCompiler
     private static bool TryPrintedBans(
         string line,
         ImmutableList<CastBan>.Builder noCasting,
-        ImmutableList<ActivationBan>.Builder noActivating)
+        ImmutableList<ActivationBan>.Builder noActivating,
+        ImmutableList<LandPlayBan>.Builder noPlayingLands)
     {
+        // "Players can't play lands" - the third prohibition of the family, and the one that is
+        // not about the stack at all: playing a land is a special action (CR 116.2a), so it is
+        // refused where the land drop is taken rather than where a spell is cast.
+        if (PrintedLandBanLine().Match(line) is { Success: true } lands)
+        {
+            noPlayingLands.Add(new LandPlayBan
+            {
+                Id = "no-play-lands:" + lands.Groups["who"].Value.ToLowerInvariant(),
+                Who = BanSubject(lands.Groups["who"].Value),
+            });
+
+            return true;
+        }
+
         if (BothPrintedBansLine().Match(line) is { Success: true } both)
         {
             // "artifacts or creatures or enchantments" - plural nouns, and the filter
@@ -21639,6 +21734,21 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex AbilitiesCantBeActivatedLine();
 
+    /// <summary>
+    /// "Nonbasic lands don't untap during their controllers' untap steps" (CR 502.3).
+    /// </summary>
+    /// <remarks>
+    /// Anchored at both ends and the plural required, which is what keeps the single-permanent
+    /// family — "~ doesn't untap during its controller's untap step" — with the reader that owns
+    /// it. The duration printings ("Creatures don't untap during target player's <em>next</em>
+    /// untap step") name one step rather than every one and never match, which is the intended
+    /// refusal: a one-shot read as a static is a lock nothing ever takes off.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<group>[A-Za-z][^.]*?) don't untap during their controllers' untap steps\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GroupDoesNotUntapLine();
+
     [GeneratedRegex(
         @"^As an additional cost to cast (~|this spell|it), (?<cost>.+?)\.?$",
         RegexOptions.IgnoreCase)]
@@ -22346,6 +22456,17 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex BothPrintedBansLine();
 
+    /// <summary>"Players can't play lands" (CR 305.1).</summary>
+    /// <remarks>
+    /// Anchored so nothing follows the noun, which is what keeps the one-shot family out:
+    /// "target player can't play lands <em>this turn</em>" is a duration a permanent has
+    /// nowhere to keep, and a ban filed as a static would be one nothing ever takes down.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<who>You|Your opponents|Players|Each player) can't play lands\s*\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex PrintedLandBanLine();
+
     /// <summary>
     /// The two sentences the colour-fixing lands print as one line, captured separately so each
     /// goes back to the reader that already owns it.
@@ -22480,9 +22601,15 @@ public static partial class CardCompiler
         RegexOptions.IgnoreCase)]
     private static partial Regex CastLimitLine();
 
+    /// <remarks>
+    /// The subject is one of the two the corpus prints and is captured rather than assumed.
+    /// Two cards say "each player", and read as the unmarked "you" they would be Exploration
+    /// - a card that hands its controller an extra land and gives the table nothing, which is
+    /// a strictly better card than either of the ones printed.
+    /// </remarks>
     [GeneratedRegex(
-        @"^you may play (an|(?<n>one|two|three)) additional lands? "
-            + @"(on each of your turns|each turn)\.?$",
+        @"^(?<who>you|each player) may play (an|(?<n>one|two|three)) additional lands? "
+            + @"(on each of (your|their) turns|each turn)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExtraLandDropLine();
 
@@ -22783,6 +22910,19 @@ public sealed record CompiledCard
 
     /// <summary>How many extra lands its controller may play each turn (CR 305.2).</summary>
     public int ExtraLandDrops { get; init; }
+
+    /// <summary>
+    /// Whose land drops <see cref="ExtraLandDrops"/> adds to (CR 305.2, 613.1b).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PlayerScope.You"/> is Exploration and Azusa, the overwhelming majority;
+    /// <see cref="PlayerScope.EachPlayer"/> is Rites of Flourishing and Ghirapur Orrery, which
+    /// hand the extra drop to the whole table. Read from the printed subject rather than
+    /// defaulted, because a symmetrical card read as a one-sided one is a different and much
+    /// better card - and it only means anything next to a consumer that asks it, which is why
+    /// the engine's sum walks the whole battlefield rather than one player's half.
+    /// </remarks>
+    public PlayerScope ExtraLandDropScope { get; init; } = PlayerScope.You;
 
     /// <summary>Whether its controller may leave it tapped at untap (CR 502.3).</summary>
     public bool MayDeclineUntap { get; init; }
