@@ -1790,10 +1790,23 @@ public static partial class BoardConditions
                 // is nobody holding one, and "an opponent controls no creatures" - two corpus
                 // cards - is one of them holding none. Swept as a union both read as the first.
                 var asked = subjectWord!.Value;
+                var seats = asked.Seats(state, source, subject);
 
-                return none
-                    ? asked.Of(state, source, subject, seat => !Board(seat))
-                    : asked.Of(state, source, subject, seat => Board(seat));
+                // The one place a subject naming nobody is an answer rather than a refusal, and
+                // it is the negation that makes it one: a player who does not exist controls
+                // nothing, so "controls no Glimmer creatures" is true of them and "controls a
+                // Glimmer" is false. Fear of the Dark is why it has to be said out loud - "if
+                // defending player controls no Glimmer creatures" is an intervening-if checked
+                // when the ability would trigger as well as when it resolves (CR 603.4), and the
+                // first of those checks is handed the state from before the declaration
+                // (CR 603.6), where there is no defending player at all. Refused there, the
+                // trigger never goes on the stack and the card does nothing for the whole game.
+                if (seats.Count == 0)
+                    return none;
+
+                bool Asked(Guid seat) => none ? !Board(seat) : Board(seat);
+
+                return asked.Every ? seats.All(Asked) : seats.Any(Asked);
             };
         }
 

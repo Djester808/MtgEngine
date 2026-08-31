@@ -962,6 +962,293 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(21, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- A condition about a particular player (CR 603.2, 603.4) -------------
+
+    /// <summary>
+    /// "At the beginning of each opponent's upkeep, if that player has no cards in hand" asks
+    /// about the opponent whose upkeep it is, and about nobody else.
+    /// </summary>
+    /// <remarks>
+    /// The scoped step trigger is one shape over 121 corpus lines, and none of them could be read:
+    /// the head was never the blocker, the intervening-if was. <c>BoardConditions</c> had no seat
+    /// argument at all, so "that player" could not be expressed even where the words were
+    /// understood.
+    /// <para>
+    /// Four seats, because this is a claim two cannot make. With one opponent, "the player whose
+    /// upkeep it is", "an opponent" and "any player other than me" are the same seat, so a reader
+    /// that answered any of the three would pass. Here the empty hand belongs to the third seat
+    /// alone, and the two innocent opponents are the assertion.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_intervening_if_about_that_player_asks_the_seat_whose_step_it_is()
+    {
+        var netsuke = Card(
+            "Seat Netsuke Test",
+            "At the beginning of each opponent's upkeep, if that player has no cards in hand, "
+                + "~ deals 2 damage to that player.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(netsuke);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], netsuke, Zone.Battlefield);
+
+        // The controller's own hand is emptied as well, and that is the half of this test that
+        // catches the tempting wrong answer: a condition that fell back to "you" would be true on
+        // every opponent's upkeep and would burn all three of them.
+        foreach (var card in game.State.GetPlayer(seats[0]).Hand)
+            game.Move(card, Zone.Graveyard, MoveCause.Discard, seats[0]);
+
+        foreach (var card in game.State.GetPlayer(seats[2]).Hand)
+            game.Move(card, Zone.Graveyard, MoveCause.Discard, seats[2]);
+
+        PassToMainPhaseOf(game, seats[1]);
+        Assert.Equal(20, game.State.GetPlayer(seats[1]).Life);
+
+        PassToMainPhaseOf(game, seats[2]);
+
+        // The seat whose upkeep it was, and the only one holding nothing when it began.
+        Assert.Equal(18, game.State.GetPlayer(seats[2]).Life);
+
+        PassToMainPhaseOf(game, seats[3]);
+        Assert.Equal(20, game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(18, game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[3]).Life);
+
+        // And never the controller, whose hand was empty the whole time: "each opponent's upkeep"
+        // is three of the four steps and not four of them.
+        Assert.Equal(20, game.State.GetPlayer(seats[0]).Life);
+    }
+
+    /// <summary>
+    /// The same pronoun under "each player's upkeep" reaches the controller's own seat.
+    /// </summary>
+    /// <remarks>
+    /// The twin of the test above and the reason the seat is resolved rather than assumed to be an
+    /// opponent: "each player" includes the player asking (CR 109.5), so the answer to "that
+    /// player" on their own upkeep is themselves. A reader that resolved the pronoun by excluding
+    /// the controller would be right three times in four and silently wrong on the fourth.
+    /// </remarks>
+    [Fact]
+    public void That_player_under_each_players_upkeep_includes_the_controller()
+    {
+        var cage = Card(
+            "Seat Cage Test",
+            "At the beginning of each player's upkeep, if that player has no cards in hand, "
+                + "~ deals 1 damage to that player.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(cage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+
+        // Under the second seat, so its own upkeep arrives on the next turn rather than four
+        // turns away.
+        game.Create(seats[1], cage, Zone.Battlefield);
+
+        foreach (var card in game.State.GetPlayer(seats[1]).Hand)
+            game.Move(card, Zone.Graveyard, MoveCause.Discard, seats[1]);
+
+        PassToMainPhaseOf(game, seats[1]);
+
+        Assert.Equal(19, game.State.GetPlayer(seats[1]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[0]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[2]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[3]).Life);
+    }
+
+    /// <summary>
+    /// A condition handed no seat answers <em>false</em>, and never the controller's board.
+    /// </summary>
+    /// <remarks>
+    /// The failure this exists to make impossible has already happened once in this engine: an
+    /// optional payment carried the subject <em>object</em> and not the subject <em>player</em>,
+    /// so a declined punisher took life from nobody and nothing failed. A condition that quietly
+    /// re-aims at whoever controls the card is the same defect one level down - it compiles, it
+    /// plays, and it asks about the wrong person.
+    /// <para>
+    /// The controller's hand is emptied first, so the wrong answer is the <em>true</em> one. A
+    /// reader defaulting to "you" passes every test where the controller happens to be holding
+    /// cards.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_condition_with_no_seat_answers_false_rather_than_asking_the_controller()
+    {
+        var asked = BoardConditions.ParseAbout("that player has no cards in hand");
+        Assert.NotNull(asked);
+
+        var (game, seats) = FourPlayers();
+        var stone = game.Create(
+            seats[0], TestCards.BasicLand("Seat Probe Stone Test"), Zone.Battlefield);
+
+        foreach (var card in game.State.GetPlayer(seats[0]).Hand)
+            game.Move(card, Zone.Graveyard, MoveCause.Discard, seats[0]);
+
+        var self = game.State.GetObject(stone);
+
+        // No seat named: false, though the controller's own hand is empty.
+        Assert.False(asked(game.State, Pool, self, null));
+
+        // Named: the question is answered, and about the seat that was named.
+        Assert.True(asked(game.State, Pool, self, seats[0]));
+        Assert.False(asked(game.State, Pool, self, seats[2]));
+    }
+
+    /// <summary>
+    /// A subject no caller could ever resolve leaves the whole line unread.
+    /// </summary>
+    /// <remarks>
+    /// The run-time half above is fail-closed but not enough on its own: a static's "as long as"
+    /// and an activation gate have no triggering event and never will, so a condition about "that
+    /// player" compiled from one of them would be false for the rest of the game - a card that
+    /// reads perfectly and does nothing, which is precisely what the unread list exists to keep
+    /// visible. So the entry point is split: <see cref="BoardConditions.Parse"/> refuses the
+    /// pronoun outright and <see cref="BoardConditions.ParseAbout"/> admits it, and only callers
+    /// whose clause is checked against a triggering event use the second.
+    /// </remarks>
+    [Fact]
+    public void A_seat_no_caller_can_name_leaves_the_line_unread()
+    {
+        Assert.Null(BoardConditions.Parse("that player has no cards in hand"));
+        Assert.NotNull(BoardConditions.ParseAbout("that player has no cards in hand"));
+
+        // The same words that are a question under a trigger are not one on a static.
+        var idol = Card(
+            "Seat Idol Test",
+            "~ gets +2/+2 as long as that player has no cards in hand.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.False(CardCompiler.Compile(idol).IsComplete);
+    }
+
+    /// <summary>
+    /// "An opponent" is any one of them and "each opponent" is all of them (CR 102.1, 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The distinction the seventeen private subject lists could not express, and the reason the
+    /// shared vocabulary carries a quantifier beside the scope: at two seats the two phrasings
+    /// name the same player and a reader that confused them would never be caught. Here three
+    /// hands are emptied one at a time and the two creatures part company in the middle.
+    /// <para>
+    /// The controller's hand goes first, for the reason the seat probe gives: a reader asking the
+    /// wrong side is turned on by it, and neither of these cards may be.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_opponent_is_any_of_them_and_each_opponent_is_all_of_them()
+    {
+        var any = Card(
+            "Seat Any Watcher Test",
+            "~ gets +2/+2 as long as an opponent has no cards in hand.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        var all = Card(
+            "Seat Every Watcher Test",
+            "~ gets +2/+2 as long as each opponent has no cards in hand.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+        Assert.True(
+            CardCompiler.Compile(any).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(any).Unhandled));
+
+        Assert.True(
+            CardCompiler.Compile(all).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(all).Unhandled));
+
+        var (game, seats) = FourPlayers();
+        var anyone = game.Create(seats[0], any, Zone.Battlefield);
+        var everyone = game.Create(seats[0], all, Zone.Battlefield);
+
+        int Power(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power ?? 0;
+
+        void Empty(Guid seat)
+        {
+            foreach (var card in game.State.GetPlayer(seat).Hand)
+                game.Move(card, Zone.Graveyard, MoveCause.Discard, seat);
+        }
+
+        Assert.Equal(1, Power(anyone));
+        Assert.Equal(1, Power(everyone));
+
+        // The controller's own hand is not an opponent's, either way round.
+        Empty(seats[0]);
+        Assert.Equal(1, Power(anyone));
+        Assert.Equal(1, Power(everyone));
+
+        // One opponent empty-handed answers "an opponent" and not "each opponent".
+        Empty(seats[1]);
+        Assert.Equal(3, Power(anyone));
+        Assert.Equal(1, Power(everyone));
+
+        Empty(seats[2]);
+        Assert.Equal(3, Power(anyone));
+        Assert.Equal(1, Power(everyone));
+
+        // All three, and only now.
+        Empty(seats[3]);
+        Assert.Equal(3, Power(anyone));
+        Assert.Equal(3, Power(everyone));
+    }
+
+    /// <summary>
+    /// The same seat vocabulary answers a question about the board, not only about a hand.
+    /// </summary>
+    /// <remarks>
+    /// The point of converging seventeen readers onto one word list is that the word arrives at
+    /// all of them at once. "That player controls a Forest" is the controls-a-noun reader, which
+    /// had never heard the pronoun, and it needed no change of its own to learn it.
+    /// </remarks>
+    [Fact]
+    public void That_player_reaches_the_board_readers_too()
+    {
+        var shrine = Card(
+            "Seat Shrine Test",
+            "At the beginning of each opponent's upkeep, if that player controls a Forest, "
+                + "~ deals 2 damage to that player.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(shrine);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, seats) = FourPlayers();
+        game.Create(seats[0], shrine, Zone.Battlefield);
+
+        // A Forest for the controller as well, which a reader asking the wrong side would light
+        // up on for every opponent.
+        static CardDefinition Forest(string name) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            CardTypes = CardType.Land,
+            Supertypes = ["Basic"],
+            Subtypes = ["Forest"],
+        };
+
+        game.Create(seats[0], Forest("Seat Shrine Forest A"), Zone.Battlefield);
+        game.Create(seats[2], Forest("Seat Shrine Forest C"), Zone.Battlefield);
+
+        PassToMainPhaseOf(game, seats[1]);
+        Assert.Equal(20, game.State.GetPlayer(seats[1]).Life);
+
+        PassToMainPhaseOf(game, seats[2]);
+        Assert.Equal(18, game.State.GetPlayer(seats[2]).Life);
+
+        PassToMainPhaseOf(game, seats[3]);
+        Assert.Equal(20, game.State.GetPlayer(seats[3]).Life);
+        Assert.Equal(20, game.State.GetPlayer(seats[0]).Life);
+    }
+
     // ---- Tokens, counted and tapped (CR 111.1) -------------------------------
 
     [Fact]
