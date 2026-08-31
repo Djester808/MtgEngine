@@ -11865,6 +11865,43 @@ public static partial class EffectPhrase
         // Placed above the two set arms rather than below them so that the aggregate's own group
         // - "creatures you control" inside "the greatest power among creatures you control" - is
         // offered to those arms as a group, which is what it is.
+        // "The number of card types among cards in your graveyard" - delirium asked as a number
+        // rather than tested as a threshold (CR 205.2a). It is a tally of distinct *types* and
+        // emphatically not of cards: four cards can be one type and two cards can be two, which
+        // is the whole reason delirium is hard to reach with two cards and easy with four. Read
+        // as a card count it would be a card that plays a much bigger number than it prints.
+        //
+        // The population is the one the pile count below already reads, asked through the same
+        // `MatchedSet`, so the card that counts a graveyard and the card that counts the types in
+        // it can never disagree about which cards are in it. The types are the list
+        // `BoardConditions` tests the very same phrase against as a condition - one table, asked
+        // twice, because the corpus prints delirium both ways.
+        //
+        // **Only a pile.** "Card types among permanents you control" is about permanents, whose
+        // types are what the layers made them (CR 613.1d) and not what their cards print, and the
+        // set this arm is handed carries the printed card. An animated land is a creature and this
+        // would not say so, so the phrase is refused rather than answered off the wrong
+        // characteristics.
+        var typeTally = TypesAmongLine().Match(people);
+        if (typeTally.Success)
+        {
+            var inThePile = typeTally.Groups["group"].Value.Trim();
+
+            if (!CardsInZoneLine().IsMatch(inThePile)
+                || MatchedSet("each " + inThePile, inThePile, seats) is not { } pile)
+            {
+                return null;
+            }
+
+            return (state, abilities, you, source, players) =>
+            {
+                var cards = pile(state, abilities, you, source, players).ToList();
+
+                return BoardConditions.CardTypesForDelirium.Count(
+                    type => cards.Exists(card => card.Card.CardTypes.HasFlag(type)));
+            };
+        }
+
         var aggregate = AggregateOverGroupLine().Match(people);
         if (aggregate.Success)
         {
@@ -12399,6 +12436,17 @@ public static partial class EffectPhrase
         @"^(?<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten) plus ",
         RegexOptions.IgnoreCase)]
     private static partial Regex AdditiveCountTerm();
+
+    /// <summary>"Card types among cards in your graveyard" — a tally of types (CR 205.2a).</summary>
+    /// <remarks>
+    /// The noun is spelled out rather than described, because "card types among …" and "permanent
+    /// types among …" are two different lists over the same pile (CR 205.2a against CR 110.4): an
+    /// instant and a sorcery are two card types and no permanent types at all. Only the first is
+    /// admitted here; the second would need the other list and no corpus line asks for it as a
+    /// number.
+    /// </remarks>
+    [GeneratedRegex(@"^card types? among (?<group>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TypesAmongLine();
 
     /// <summary>"… plus the number of …" — two counts added together (CR 107.3).</summary>
     /// <remarks>

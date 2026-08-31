@@ -5908,6 +5908,51 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    /// <remarks>
+    /// Delirium asked as a number rather than tested as a threshold. The board conditions have
+    /// read "if there are four or more card types among cards in your graveyard" for a long time;
+    /// the counting vocabulary could not answer the same phrase when a card wanted the tally
+    /// itself, and six corpus cards were one such phrase short.
+    /// <para>
+    /// It is a count of distinct <em>types</em> and emphatically not of cards, which is the whole
+    /// reason delirium is hard to reach with two cards and easy with four — so the board below
+    /// holds four cards worth three types, and a reader that counted the pile would say four.
+    /// Both halves come from somewhere that already existed: the population from the pile counter
+    /// beside it, the type list from the condition that tests the very same words.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_tally_of_card_types_in_a_graveyard_counts_types_and_not_cards()
+    {
+        var goyf = Card(
+            "Type Tally Test",
+            "{T}: You gain X life, where X is the number of card types among cards in your graveyard.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(goyf);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var artifact = game.Create(alice, goyf, Zone.Battlefield);
+
+        // Four cards, three types: two creatures share one.
+        game.Create(alice, TestCards.Creature("Type Tally Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Type Tally Wolf Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, Card("Type Tally Bolt Test", "Draw a card."), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Graveyard);
+
+        // And a fourth type in somebody else's pile, which "your graveyard" does not reach.
+        game.Create(
+            alice,
+            Card("Type Tally Aura Test", string.Empty, CardType.Enchantment),
+            Zone.Battlefield);
+
+        game.ActivateAbility(alice, artifact, "a");
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
     // ---- A card referred to by its literal printed name (CR 201.2a) ----------
 
     /// <remarks>

@@ -3029,7 +3029,14 @@ public static partial class BoardConditions
     private static partial Regex GraveyardCountLine();
 
     /// <summary>The card types a printed card can have, for counting them (CR 205.2a).</summary>
-    private static readonly Domain.Enums.CardType[] CardTypesForDelirium =
+    /// <remarks>
+    /// Internal because the same phrase is printed as a condition and as a number - "if there are
+    /// four or more card types among cards in your graveyard" against "where X is the number of
+    /// card types among cards in your graveyard" - and the counting vocabulary answers the second.
+    /// One table, asked twice, so the two spellings of delirium cannot come to different answers
+    /// about what a card type is.
+    /// </remarks>
+    internal static readonly Domain.Enums.CardType[] CardTypesForDelirium =
     [
         Domain.Enums.CardType.Creature, Domain.Enums.CardType.Instant, Domain.Enums.CardType.Sorcery, Domain.Enums.CardType.Enchantment,
         Domain.Enums.CardType.Artifact, Domain.Enums.CardType.Land, Domain.Enums.CardType.Planeswalker, Domain.Enums.CardType.Tribal,
