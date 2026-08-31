@@ -308,6 +308,14 @@ public static partial class EffectPhrase
         // folded into the two the readers know rather than given a matcher of its own.
         text = FoldConjoinedProhibition(text);
 
+        // "Create Marit Lage, a legendary 20/20 black Avatar creature token with flying and
+        // indestructible" is the same instruction as the same sentence with the name last, and
+        // only the word order was ever missing. Done before the splitter for the same reason
+        // the two above it are: the comma the name-first form puts after the name is not a
+        // clause boundary, and a splitter that took it as one leaves "a legendary 20/20 black
+        // Avatar creature token" as a sentence with no verb.
+        text = FoldNameFirstToken(text);
+
         // "Look at the top three cards of your library, then put them back in any order" is one
         // instruction, and ", then" is exactly what the splitter cuts on - so read before it, for
         // the same reason as the idiom below. Split apart, "put them back in any order" has no
@@ -677,7 +685,8 @@ public static partial class EffectPhrase
     {
         var m = GrantedTokenAbilityLine().Match(text);
         return m.Success
-            ? m.Groups["head"].Value + " with " + '"' + m.Groups["ability"].Value + '"'
+            ? m.Groups["head"].Value + " with " + m.Groups["kw"].Value
+                + '"' + m.Groups["ability"].Value + '"'
             : text;
     }
 
@@ -704,6 +713,25 @@ public static partial class EffectPhrase
     /// </remarks>
     private static string FoldConjoinedProhibition(string text) =>
         ConjoinedProhibitionLine().Replace(text, Carried);
+
+    /// <summary>
+    /// Rewrites "create Marit Lage, a legendary 20/20 black Avatar creature token" into the
+    /// spelling with the name at the end.
+    /// </summary>
+    /// <remarks>
+    /// A normalisation rather than a third token reader, for the reason the two folds above it
+    /// are: the two spellings are one instruction, the trailing one is understood already, and
+    /// a second reader for the same sentence is two places for the guards to drift apart. The
+    /// name-first form is what a card prints when the token is a named character - Marit Lage,
+    /// Ragavan, Boo - and the trailing form is what it prints when the token is a thing.
+    /// <para>
+    /// The tail is carried across untouched, so "with flying and indestructible" ends up where
+    /// the readers already look for it. A body this cannot describe leaves the sentence exactly
+    /// as it was printed, and the readers refuse it as they did before.
+    /// </para>
+    /// </remarks>
+    private static string FoldNameFirstToken(string text) =>
+        NameFirstTokenLine().Replace(text, "${verb} ${body} named ${named}${tail}");
 
     /// <summary>The prohibition half, rewritten with the subject the head named.</summary>
     private static string Carried(Match m)
@@ -4789,7 +4817,16 @@ public static partial class EffectPhrase
             return false;
         }
 
+        // Two spellings of one instruction, read by one body. A creature token prints its
+        // size and its type in front of the word "token"; an artifact or enchantment token
+        // whose whole definition is its name - a Land Mine, an Etherium Cell, an Equipment
+        // called Rock - prints neither, and nothing else about the sentence differs. They
+        // were two readers for exactly as long as it took to notice that the count, the
+        // "tapped", the maker and every guard behind them are the same words in both.
         m = CreatureTokenLine().Match(sentence);
+        if (!m.Success)
+            m = NamedNoncreatureTokenLine().Match(sentence);
+
         if (m.Success && TokenFrom(m) is { } minted)
         {
             var many = Number(m.Groups["n"].Value);
@@ -8690,8 +8727,17 @@ public static partial class EffectPhrase
 
     private static Domain.Models.CardDefinition? TokenFrom(Match m)
     {
-        var power = int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture);
-        var toughness = int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture);
+        // A size, when the token has one. Every creature token prints one and a Vehicle
+        // token prints one too, but the artifact tokens whose whole definition is their name
+        // - a Land Mine, an Etherium Cell - print none, and a 0/0 stood in for "none" would
+        // be a permanent the state-based actions bin the moment it arrives.
+        int? power = m.Groups["p"].Success
+            ? int.Parse(m.Groups["p"].Value, CultureInfo.InvariantCulture)
+            : null;
+
+        int? toughness = m.Groups["tough"].Success
+            ? int.Parse(m.Groups["tough"].Value, CultureInfo.InvariantCulture)
+            : null;
 
         var colours = new List<ManaColor>();
         foreach (var word in m.Groups["colours"].Value
@@ -8736,6 +8782,17 @@ public static partial class EffectPhrase
         foreach (Capture quoted in m.Groups["text"].Captures)
             granted.Add(quoted.Value.Trim());
 
+        // "…and equip {2}" is the last clause on every Equipment token any card makes, and it
+        // goes where the quotations go: the compiler has read a bare "Equip {2}" line on a
+        // card since long before tokens carried text, and the printed Equipment token card
+        // prints exactly that line. Dropped instead, the token would be an Equipment that can
+        // never be attached to anything - which is the whole of what an Equipment does.
+        if (m.Groups["equip"].Success)
+        {
+            var clause = m.Groups["equip"].Value.Trim();
+            granted.Add(char.ToUpperInvariant(clause[0]) + clause[1..]);
+        }
+
         var text = string.Join('\n', granted);
 
         var subtypes = m.Groups["subtypes"].Value
@@ -8744,12 +8801,26 @@ public static partial class EffectPhrase
             .Where(w => w.Length > 0)
             .ToArray();
 
-        var name = string.Join(' ', subtypes);
+        // The name the card printed for its token, when it printed one. Everywhere else in
+        // this grammar a capitalised word beside a type line is a subtype - it is how the
+        // subtypes above are found, with no vocabulary of type names anywhere - and this is
+        // the one position where such a word means a name instead. So it comes from its own
+        // capture, goes only into Name, and is never added to Subtypes: "a 1/1 white Soldier
+        // creature token named Alice" is a Soldier called Alice, not an Alice.
+        var printed = m.Groups["named"].Value.Trim();
+        var name = printed.Length > 0 ? printed : string.Join(' ', subtypes);
         if (name.Length == 0)
             return null;
 
+        var supertypes = new List<string>();
+        if (m.Groups["legendary"].Success)
+            supertypes.Add("Legendary");
+
+        if (m.Groups["snow"].Success)
+            supertypes.Add("Snow");
+
         var extraTypes = Domain.Enums.CardType.None;
-        foreach (var word in m.Groups["types"].Value
+        foreach (var word in (m.Groups["types"].Value + " " + m.Groups["basetype"].Value)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             extraTypes |= word.Trim().ToLowerInvariant() switch
@@ -8769,13 +8840,26 @@ public static partial class EffectPhrase
             // Rat quietly gaining somebody else's ability.
             OracleId = $"token-{name}-{power}-{toughness}-"
                 + string.Concat(colours.Select(c => c.ToString()[..1])).ToLowerInvariant()
+                + string.Concat(supertypes).ToLowerInvariant()
                 + Distinguishing(extraTypes, subtypes, keywords, text),
             Name = name,
             // A token can be more than a creature: an artifact creature token is both, and
             // reading only the creature half would put a Thopter on the board that no artifact
-            // sweeper could find and no metalcraft would count.
-            CardTypes = Domain.Enums.CardType.Creature | Domain.Enums.CardType.Token | extraTypes,
+            // sweeper could find and no metalcraft would count. And it can be less than one:
+            // an Equipment token is an artifact and nothing else, so the creature bit is set
+            // by the sentence having printed the word rather than assumed.
+            CardTypes = (m.Groups["basetype"].Success
+                    ? Domain.Enums.CardType.None
+                    : Domain.Enums.CardType.Creature)
+                | Domain.Enums.CardType.Token | extraTypes,
             Subtypes = subtypes,
+
+            // CR 205.4: a printed supertype travels with the token, and neither of the two is
+            // decoration. A Replicated Ring that lost "snow" stops feeding every {S} cost on
+            // the board that made it, and a Marit Lage that lost "legendary" is a 20/20 a
+            // player may have two of - the legend rule (CR 704.5j) is the only thing holding
+            // the named tokens to one apiece, and it reads a supertype to do it.
+            Supertypes = supertypes,
             Power = power,
             Toughness = toughness,
             Keywords = keywords,
@@ -8783,6 +8867,17 @@ public static partial class EffectPhrase
             Colors = [.. colours],
             OracleText = text,
         };
+
+        // A name that cannot be told from a type leaves the line unread. This engine has been
+        // bitten seven times by a capitalised word read as a subtype - "all Mountains are
+        // Plains" once compiled to a lord for the creature type Mountain, complete and
+        // matching nothing - and a token name sits in exactly that position. The question is
+        // asked of the reader that would get it wrong: if handing the printed name to
+        // SearchFilters as a filter id would match this token by its type, colour or subtype,
+        // then nothing downstream could tell the two readings apart and the sentence is
+        // refused rather than compiled into whichever one happened to win.
+        if (printed.Length > 0 && Abilities.SearchFilters.Matches(printed, token))
+            return null;
 
         // The promise every template makes: what the compiler cannot read, it does not claim. A
         // token whose ability went unread would arrive as a vanilla creature of the right size,
@@ -13250,6 +13345,32 @@ public static partial class EffectPhrase
     private const string COUNTED = @"[A-Za-z0-9'’~+/ -]";
 
     /// <summary>
+    /// The name a card prints for a token it creates - "a 1/1 white Soldier creature token
+    /// named Alice" (CR 111.4).
+    /// </summary>
+    /// <remarks>
+    /// <strong>A name is not a type, and this class is what says so.</strong> Everywhere else in
+    /// this compiler a capitalised word next to a type line <em>is</em> a subtype - that is how
+    /// <c>CreatureTokenLine</c> finds "Soldier" without a vocabulary of type names, and how
+    /// <see cref="Abilities.SearchFilters.Matches"/> decides what a filter id means. A token name
+    /// arrives in exactly that position and means something else, so it is captured by a group of
+    /// its own, put in <see cref="Domain.Models.CardDefinition.Name"/> and never in
+    /// <c>Subtypes</c>, and refused outright when it cannot be told from a type.
+    /// <para>
+    /// The shape is a run of capitalised words joined by the small lowercase words a printed name
+    /// uses - "Kobolds of Kher Keep", "Wolves of the Hunt". Bounded that way rather than as
+    /// "everything up to the full stop" because the loose form swallowed the tail of the sentence:
+    /// Prossh prints "…tokens named Kobolds of Kher Keep, where X is the amount of mana spent to
+    /// cast it", and a token called that is a card nobody printed. A name the run cannot describe
+    /// - one built from the card's own name, which the compiler has already folded to <c>~</c> -
+    /// simply fails the match and leaves the line unread.
+    /// </para>
+    /// </remarks>
+    private const string TOKENNAME =
+        @"(?<named>[A-Z][A-Za-z0-9'’-]*(?:(?: (?:of|the|and|in|to|from|a))* [A-Z][A-Za-z0-9'’-]*)*)";
+
+
+    /// <summary>
     /// One printed instruction: everything up to a full stop that is not inside a quotation.
     /// </summary>
     /// <remarks>
@@ -16088,17 +16209,85 @@ public static partial class EffectPhrase
             + @"|[Ii]ts controller|[Tt]hat [a-z]+'s controller|[Tt]he subject's controller"
             + @"|[Yy]ou) "
             + @"creates?|[Cc]reate) " + N
-            + @" (?<tapped>tapped )?(?<p>\d+)/(?<tough>\d+) (?<colours>[a-z, ]*?)\s*"
+            + @" (?<tapped>tapped )?(?<legendary>legendary )?"
+            + @"(?<p>\d+)/(?<tough>\d+) (?<colours>[a-z, ]*?)\s*"
             + @"(?<subtypes>(?:[A-Z][a-z]+ )+)(?<types>(?:artifact |enchantment )*)creature tokens?"
+            + @"(?: named " + TOKENNAME + @")?"
             + @"(?: with (?<kw>[a-z][a-z0-9 ,]*?))?"
             + @"(?:(?:,? and)?(?: with)? ""(?<text>[^""]+)"")*"
             + @"( for (?<foreach>each " + COUNTED + @"+))?$",
         RegexOptions.None)]
     private static partial Regex CreatureTokenLine();
 
-    /// <summary>A granted ability printed as its own sentence after a token is created.</summary>
+    /// <summary>
+    /// "Create a colorless Equipment artifact token named Rock with ..." - a noncreature token
+    /// the card describes only by naming it (CR 111.4).
+    /// </summary>
+    /// <remarks>
+    /// The sibling of the predefined tokens, and the same idea from the other end. A Treasure
+    /// or a Clue is a name the <em>game</em> defines, so its definition is a table entry here;
+    /// these are names one card defines, so the definition is on that card and the name is what
+    /// the rest of its text calls the thing. Both are a token whose name carries the ability,
+    /// and neither prints a size or the word "creature" - which is exactly why the creature
+    /// reader beside this one could not take them.
+    /// <para>
+    /// A size is admitted anyway, because a Vehicle token prints one and is still not a
+    /// creature (CR 301.7). Read as a creature token instead, a Zeppelin would be a 5/5 that
+    /// attacks without being crewed.
+    /// </para>
+    /// <para>
+    /// <strong>The name is required here, unlike on the creature reader.</strong> Without one
+    /// there is nothing to call the token: a creature token takes its name from the subtypes
+    /// the sentence prints, and "create a colorless artifact token" prints none. A nameless
+    /// definition would collide in the pool with every other nameless one.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<head>.*\btokens?)\.\s+(?:They have|It has) ""(?<ability>[^""]+)""\.?$",
+        @"^((?<who>[Ee]ach opponent|[Ee]ach player|[Tt]arget player|[Tt]arget opponent"
+            + @"|[Ii]ts controller|[Tt]hat [a-z]+'s controller|[Yy]ou) "
+            + @"creates?|[Cc]reate) " + N
+            + @" (?<tapped>tapped )?(?<legendary>legendary )?"
+            + @"(?:(?<p>\d+)/(?<tough>\d+) )?"
+            + @"(?<colours>(?:[a-z]+ )*?)(?<snow>snow )?"
+            + @"(?<subtypes>(?:[A-Z][a-z]+ )*)(?<basetype>artifact|enchantment) tokens?"
+            + @" named " + TOKENNAME
+            + @"(?: with (?<kw>[a-z][a-z0-9 ,]*?))?"
+            + @"(?:(?:,? and)?(?: with)? ""(?<text>[^""]+)"")*"
+            + @"(?:,? and (?<equip>equip \{[^}]+\}))?$",
+        RegexOptions.None)]
+    private static partial Regex NamedNoncreatureTokenLine();
+
+    /// <summary>"Create &lt;name&gt;, a legendary 2/2 ... token ..." (CR 111.4).</summary>
+    /// <remarks>
+    /// The body runs lazily to the first "token", so the tail - a keyword list, a quotation, an
+    /// equip cost - is handed on whole to the readers that already know it. Anchored on the
+    /// comma that separates the name from the description, which is what tells this form from
+    /// "create a token" and is why the name may not contain one.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<verb>\b[Cc]reate) " + TOKENNAME
+            + @", (?<body>an? \S.*?\btokens?)(?<tail>([ .,]|$).*)$",
+        RegexOptions.Singleline)]
+    private static partial Regex NameFirstTokenLine();
+
+    /// <summary>A granted ability printed as its own sentence after a token is created.</summary>
+    /// <remarks>
+    /// The head may end in the token's printed name, because that is where a name goes and a
+    /// head that stopped at the word "token" matched none of the sentences that carry one:
+    /// "create a 1/1 green Elf Druid creature token named Llanowar Elves. It has ... " read as
+    /// far as the full stop and then lost the only ability the token has.
+    /// <para>
+    /// The keywords in front of the quotation come with it. "It has trample, haste, and ..." is
+    /// one grant printed as a list, and the inline form this folds into has read a keyword list
+    /// beside a quotation all along - so the words are carried across rather than the sentence
+    /// being refused for having them.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.*\btokens?(?: named " + TOKENNAME + @")?)\.\s+"
+            + @"(?:They have|It has|The tokens have|The token has) "
+            + @"(?<kw>[a-z][a-z0-9 ]*(?:, [a-z][a-z0-9 ]*)*,? and )?"
+            + @"""(?<ability>[^""]+)""\.?$",
         RegexOptions.Singleline)]
     private static partial Regex GrantedTokenAbilityLine();
 
