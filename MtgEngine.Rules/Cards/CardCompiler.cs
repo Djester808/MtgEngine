@@ -562,6 +562,9 @@ public static partial class CardCompiler
             if (TryCountedCostReduction(line, ref costReduction))
                 continue;
 
+            if (TryVariableCostReduction(line, card, ref costReduction))
+                continue;
+
             if (TryConditionalCostReduction(line, card, ref costReduction))
                 continue;
 
@@ -11920,6 +11923,46 @@ public static partial class CardCompiler
     }
 
     /// <summary>
+    /// "~ costs {X} less to cast, where X is the number of Dragons you control" (CR 601.2f).
+    /// </summary>
+    /// <remarks>
+    /// The same discount as the "for each" form beside it with the amount written as a defined
+    /// variable rather than a printed number — one lot of X, not X per thing — and it reads
+    /// through the same <see cref="DefinedCount"/>, so every phrase that vocabulary knows arrives
+    /// working. That is where the aggregates land: the cards printing this sentence overwhelmingly
+    /// spell X as a total or a greatest rather than a tally, and "where X is the number of
+    /// creatures you control" is a card nobody prints.
+    /// <para>
+    /// Refused outright when the card's own mana cost has an {X} in it. CR 107.3i makes every
+    /// instance of X on an object the same number, and a caster who announced X for the cost
+    /// (CR 107.3a) has already fixed it; a second definition would be two answers to one
+    /// question, so the line stays unread rather than being decided here. No corpus card prints
+    /// both, which is what makes the refusal free.
+    /// </para>
+    /// </remarks>
+    private static bool TryVariableCostReduction(
+        string line,
+        CardDefinition card,
+        ref Func<GameState, Guid, IReadOnlyList<Target>, int>? into)
+    {
+        var m = VariableCostReductionLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (card.ManaCostRaw.Contains("{X}", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (DefinedCount("the number of " + m.Groups["what"].Value.Trim()) is not { } count)
+            return false;
+
+        // Clamped at zero and not at the spell's cost, for the reason the counted form beside
+        // this one is: a reduction larger than the cost pays all of the generic there is
+        // (CR 601.2f), and the payment code is where that is decided.
+        into = (state, playerId, _) => Math.Max(0, count(state, playerId));
+        return true;
+    }
+
+    /// <summary>
     /// "~ costs {1} less to cast if you control a Wizard" (CR 601.2f).
     /// </summary>
     private static bool TryConditionalCostReduction(
@@ -17174,6 +17217,24 @@ public static partial class CardCompiler
             return true;
         }
 
+        if (SelfVariableCostReductionLine().Match(text) is { Success: true } variable)
+        {
+            // One lot of X rather than N per thing, so there is no multiplier to read - and the
+            // count is asked with the source, exactly as the "for each" arm above asks it, so an
+            // aggregate over "other" and a count of the permanent's own counters both work.
+            if (EffectPhrase.Counting(
+                    variable.Groups["what"].Value.Trim(), hasSource: true) is not { } count)
+            {
+                return false;
+            }
+
+            reduction = (state, abilities, source, you) =>
+                Math.Max(0, count(state, abilities, you, source.Id, null));
+
+            text = SelfVariableCostReductionLine().Replace(text, string.Empty).Trim();
+            return true;
+        }
+
         if (SelfConditionalCostReductionLine().Match(text) is { Success: true } conditional)
         {
             if (BoardConditions.Parse(conditional.Groups["cond"].Value.Trim()) is not { } holds)
@@ -19263,15 +19324,33 @@ public static partial class CardCompiler
     /// Read as {1} generic the card would be dearer than printed; read as two generic it would be
     /// cheaper. Neither is the card, so it stays unread.
     /// <para>
-    /// It also refuses "costs {X} less to activate, where X is …" — five cards whose amount is a
-    /// defined variable rather than a printed number, and whose sentence continues past the point
-    /// this one ends.
+    /// It also refuses "costs {X} less to activate, where X is …", whose amount is a defined
+    /// variable rather than a printed number and whose sentence continues past the point this one
+    /// ends. <see cref="SelfVariableCostReductionLine"/> is that form; the two are separate
+    /// patterns so that neither can half-match the other.
     /// </para>
     /// </remarks>
     [GeneratedRegex(
         @"\s*This ability costs \{(?<n>\d+)\} less to activate for each (?<what>[^.]+?)\.?\s*$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfCountedCostReductionLine();
+
+    /// <summary>
+    /// "This ability costs {X} less to activate, where X is the greatest power among Wurms you
+    /// control" (CR 601.2f, 602.2b).
+    /// </summary>
+    /// <remarks>
+    /// The variable form of the sentence above, which that pattern deliberately refused because
+    /// its own sentence ends where this one carries on. It is a separate pattern rather than an
+    /// optional tail on that one so that neither can half-match the other: a line whose amount is
+    /// a variable and whose definition this cannot read has to stay unread, not be read as a
+    /// discount of nothing.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\s*This ability costs \{X\} less to activate, where X is the number of "
+            + @"(?<what>[^.]+?)\.?\s*$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SelfVariableCostReductionLine();
 
     /// <summary>
     /// "This ability costs {2} less to activate if you control a legendary creature" (CR 601.2f).
@@ -19727,6 +19806,18 @@ public static partial class CardCompiler
         @"^~ costs \{(?<n>\d+)\} less to cast if (?!it targets)(?<cond>[^.]+?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ConditionalCostReductionLine();
+
+    /// <remarks>
+    /// The amount is the variable and the sentence goes on to define it, which is the whole of
+    /// the difference from <see cref="CountedCostReductionLine"/> — so there is no number to
+    /// parse and no multiplication to do. Anchored on "the number of" because that is the shape
+    /// <see cref="DefinedCount"/> reads, and because the compiler has already spelled devotion
+    /// and the aggregates into it by the time a line reaches here.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ costs \{X\} less to cast, where X is the number of (?<what>[^.]+?)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableCostReductionLine();
 
     [GeneratedRegex(@"^Retrace\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex RetraceLine();
