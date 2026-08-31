@@ -1821,6 +1821,268 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
     }
 
+    // ---- A card referred to by its literal printed name (CR 201.2a) ----------
+
+    /// <remarks>
+    /// The family these tests are about is one the compiler could not see, because the self-name
+    /// substitution blanked a card's own name to "~" before any reader ran and a name filter has
+    /// nothing left to filter on. Two rules are in play and they are not the same rule: CR 201.5
+    /// governs the object a card names to mean *itself*, and CR 201.2a governs "named X", which
+    /// asks every object whether it carries that name.
+    /// <para>
+    /// The trap the whole family sits on is that a name is capitalised and so is a subtype, and
+    /// every reader in this compiler tells those apart by the capital letter alone. A name left in
+    /// a noun phrase is read as a creature type, which is how "All Mountains are Plains" once
+    /// compiled into a lord for the creature type Mountain - a card that read, played and matched
+    /// nothing. Two of the tests below are that control and nothing else.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_of_cards_with_one_printed_name_ignores_the_rest_of_the_graveyard()
+    {
+        var inventory = Card(
+            "Take Inventory Test",
+            "Draw a card, then draw cards equal to the number of cards named ~ in your graveyard.");
+
+        var compiled = CardCompiler.Compile(inventory);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Two of this card, and two that are not it. The graveyard holds four cards and the count
+        // is two: the name is the filter, not the pile.
+        game.Create(alice, inventory, Zone.Graveyard);
+        game.Create(alice, inventory, Zone.Graveyard);
+        game.Create(alice, Card("Lost Inventory Test", "Draw a card."), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Buried Inventory Bear Test", 2, 2), Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, inventory);
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // One card, then two more: the spell itself is still on the stack while it resolves, so it
+        // is not one of the two it counted.
+        Assert.Equal(held - 1 + 3, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <remarks>
+    /// The other player's copy counts. The phrase is "on the battlefield", not "you control", and
+    /// reading the first as the second is a smaller card than the printed one.
+    /// </remarks>
+    [Fact]
+    public void A_creature_counting_its_own_name_leaves_itself_out_and_counts_every_seat()
+    {
+        var rats = Card(
+            "Relentless Rats Test",
+            "~ gets +1/+1 for each other creature on the battlefield named ~.",
+            CardType.Creature,
+            2,
+            2,
+            subtypes: "Rat");
+
+        var compiled = CardCompiler.Compile(rats);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var first = game.Create(alice, rats, Zone.Battlefield);
+        game.Create(alice, rats, Zone.Battlefield);
+        game.Create(bob, rats, Zone.Battlefield);
+
+        // A Rat by type and not by name. It is the control: the noun vocabulary reads a
+        // capitalised word as a subtype, and this one would be counted by a reader that did.
+        var stray = game.Create(
+            alice,
+            Card("Sewer Rat Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Rat"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        // Three copies on the battlefield, so each sees the other two: 2/2 plus two.
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(first)));
+        Assert.Equal(4, Characteristics.ToughnessOf(game.State, Pool, game.State.GetObject(first)));
+
+        // And the Rat that is only a Rat is untouched by all of it.
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(stray)));
+    }
+
+    /// <remarks>
+    /// The control that the rest of this section exists for. The name here is deliberately a word
+    /// that is also a creature type, because that collision is the whole defect: read as a type,
+    /// the count answers with the wrong permanent and the card still reports itself complete.
+    /// </remarks>
+    [Fact]
+    public void A_name_that_is_also_a_creature_type_counts_the_name_and_not_the_type()
+    {
+        var sentinel = Card(
+            "Griffin Sentinel Test",
+            "~ gets +1/+1 for each creature you control named Griffin.",
+            CardType.Creature,
+            1,
+            1,
+            subtypes: "Wall");
+
+        var compiled = CardCompiler.Compile(sentinel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var watcher = game.Create(alice, sentinel, Zone.Battlefield);
+
+        // One creature carries the name and is not the type; two carry the type and not the name.
+        game.Create(
+            alice,
+            Card("Griffin", string.Empty, CardType.Creature, 2, 2, subtypes: "Bird"),
+            Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Sky Hunter Test", string.Empty, CardType.Creature, 2, 2, subtypes: "Griffin"),
+            Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Cloud Rider Test", string.Empty, CardType.Creature, 2, 2, subtypes: "Griffin"),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        // One, not two, and not three. A reader that took the word for a subtype would say two.
+        Assert.Equal(2, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(watcher)));
+    }
+
+    [Fact]
+    public void A_trigger_over_a_named_group_reaches_your_other_copies_and_nothing_else()
+    {
+        var stray = Card(
+            "Charmed Stray Test",
+            "When ~ enters, put a +1/+1 counter on each other creature you control named ~.",
+            CardType.Creature,
+            0,
+            3,
+            subtypes: "Cat");
+
+        var compiled = CardCompiler.Compile(stray);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(alice, stray, Zone.Battlefield);
+        var theirs = game.Create(bob, stray, Zone.Battlefield);
+        var decoy = game.Create(
+            alice,
+            Card("Alley Cat Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Cat"),
+            Zone.Battlefield);
+
+        // Settled first, so the three arrivals already on the board have had their own triggers
+        // and found nobody. A trigger held on the stack while the rest of the board is built up
+        // resolves against a board that did not exist when it fired, which is a fact about this
+        // test and not about the card.
+        Settle(game);
+        Assert.Equal(0, Counters(game, mine));
+
+        var arriving = game.Create(alice, stray, Zone.Battlefield);
+        Settle(game);
+
+        // "Each other creature you control named ~" is three refusals at once: not the opponent's
+        // copy, not a Cat of another name, and not the permanent whose trigger this is.
+        Assert.Equal(1, Counters(game, mine));
+        Assert.Equal(0, Counters(game, theirs));
+        Assert.Equal(0, Counters(game, decoy));
+        Assert.Equal(0, Counters(game, arriving));
+    }
+
+    private static int Counters(Game game, ObjectId id) =>
+        game.State.GetObject(id).Permanent?.Counters.GetValueOrDefault("+1/+1") ?? 0;
+
+    /// <remarks>
+    /// The negated form, which is the same test with the answer turned round (CR 201.2c). It is
+    /// checked as a *target legality* rather than as an effect, because that is where the printed
+    /// clause does its work: a permanent of that name may not be chosen at all.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_not_named_refuses_that_name_and_takes_any_other()
+    {
+        var conjurer = Card(
+            "Clever Conjurer Test",
+            "{T}: Untap target permanent not named ~. Activate only as a sorcery.",
+            CardType.Creature,
+            0,
+            3,
+            subtypes: "Human");
+
+        var compiled = CardCompiler.Compile(conjurer);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var untap = Assert.Single(compiled.Activated);
+
+        var (game, alice, _) = InMainPhase();
+        var mine = game.Create(alice, conjurer, Zone.Battlefield);
+        var twin = game.Create(alice, conjurer, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Conjured Bear Test", 2, 2), Zone.Battlefield);
+
+        // The ability costs a tap, so it waits out summoning sickness (CR 302.6).
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        game.Tap(bear);
+        game.Tap(twin);
+
+        // The other Conjurer is tapped, untapping it would do something, and it is still not a
+        // legal target: the clause is about the name and nothing else.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, mine, untap.Id, [Target.ToPermanent(twin)]));
+
+        game.ActivateAbility(alice, mine, untap.Id, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.False(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.True(game.State.GetObject(twin).Permanent?.IsTapped);
+    }
+
+    /// <remarks>
+    /// The same name test asked as a *condition* rather than as a count, which is a different
+    /// reader reaching the same vocabulary - and the reason the clause is lifted off in one place
+    /// instead of taught to each of them.
+    /// </remarks>
+    [Fact]
+    public void A_condition_on_controlling_another_of_the_same_name_is_answered_by_name()
+    {
+        var miscreant = Card(
+            "Faerie Miscreant Test",
+            "Flying\nWhen ~ enters, if you control another creature named ~, draw a card.",
+            CardType.Creature,
+            1,
+            1,
+            KeywordAbility.Flying,
+            "Faerie");
+
+        var compiled = CardCompiler.Compile(miscreant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A Faerie of another name and the opponent's own copy: neither is "another creature you
+        // control named ~", so the first arrival draws nothing.
+        game.Create(
+            alice,
+            Card("Faerie Squire Test", string.Empty, CardType.Creature, 1, 1, subtypes: "Faerie"),
+            Zone.Battlefield);
+        game.Create(bob, miscreant, Zone.Battlefield);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+        game.Create(alice, miscreant, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(held, game.State.GetPlayer(alice).Hand.Count);
+
+        // A second copy of Alice's own, and now the condition is met.
+        game.Create(alice, miscreant, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
     // ---- "Target artifact or enchantment" (CR 109.4) -------------------------
 
     [Fact]
