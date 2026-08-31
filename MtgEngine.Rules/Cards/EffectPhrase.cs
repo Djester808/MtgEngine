@@ -10638,7 +10638,15 @@ public static partial class EffectPhrase
             .Where(colour => colour is not null)
             .Select(colour => colour!.Value);
 
-    /// <summary>One of the five colour words, or null for anything else (CR 105.1).</summary>
+    /// <summary>One of the colour words, or null for anything else (CR 105.1).</summary>
+    /// <remarks>
+    /// "Colorless" is one of them. CR 105.2c makes it the absence of colour rather than a
+    /// sixth colour, and <c>ManaColor.Colorless</c> is the name this codebase gives that
+    /// absence - so every reader taking a colour word takes this one too, and the single
+    /// place that has to know the difference is where the word becomes an effect. Leaving it
+    /// out did not make the sentences safe: the older animation reader dropped the word
+    /// silently, so "becomes a colorless artifact" kept every colour it had.
+    /// </remarks>
     private static ManaColor? ColourNamed(string word) => word.ToLowerInvariant() switch
     {
         "white" => ManaColor.White,
@@ -10646,6 +10654,7 @@ public static partial class EffectPhrase
         "black" => ManaColor.Black,
         "red" => ManaColor.Red,
         "green" => ManaColor.Green,
+        "colorless" => ManaColor.Colorless,
         _ => null,
     };
 
@@ -10687,10 +10696,11 @@ public static partial class EffectPhrase
     /// <remarks>
     /// The guard the older animation reader does not have, and the reason the new shapes get it:
     /// a run is read by picking out the words that are understood, so a word that is <em>not</em>
-    /// — "colorless", "basic", "nonlegendary" — is silently dropped and the card compiles as
-    /// complete while doing something else. "Becomes a colorless artifact in addition to its
-    /// other types" would have kept every colour it had. Refusing the whole sentence leaves it in
-    /// the work queue, where it can be seen.
+    /// — "basic", "nonlegendary" — is silently dropped and the card compiles as complete
+    /// while doing something else. Refusing the whole sentence leaves it in the work queue,
+    /// where it can be seen. "Colorless" used to head that list; it is now a word the colour
+    /// table knows, so "becomes a colorless artifact in addition to its other types" is read
+    /// rather than refused - and no longer keeps every colour it had.
     /// </remarks>
     private static bool ModifiersUnderstood(string mods) =>
         mods.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
@@ -15816,14 +15826,14 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?(?<t>[Tt]arget [A-Za-z0-9'’ ]+?) becomes "
-            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+            + @"(?<colour>white|blue|black|red|green|colorless)(?<ueot> until end of turn)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BecomesColourLine();
 
     /// <summary>The same sentence said about the source (CR 105.2).</summary>
     [GeneratedRegex(
         @"^(?<pre>[Uu]ntil end of turn, )?~ becomes "
-            + @"(?<colour>white|blue|black|red|green)(?<ueot> until end of turn)?\.?$",
+            + @"(?<colour>white|blue|black|red|green|colorless)(?<ueot> until end of turn)?\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex SelfBecomesColourLine();
 
