@@ -847,6 +847,141 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(22, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- "The basic land type of your choice" (CR 305.6, 305.7) --------------
+
+    [Fact]
+    public void A_land_told_to_become_a_chosen_basic_type_taps_for_the_type_that_was_named()
+    {
+        // Reef Shaman, and the shape twelve corpus cards print. The named form of this sentence
+        // - "target land becomes an Island until end of turn" - has read for a round; what was
+        // missing was the question, so the type is a player's answer rather than a word the
+        // compiler could write down.
+        //
+        // Both halves are asserted because only one of them is the interesting one. That the land
+        // taps for blue says the retyping happened; that it no longer taps for green says CR
+        // 305.7 ran - the land's old land types went with it, and with them the intrinsic ability
+        // CR 305.6 hung on the type it used to have.
+        var shaper = Card(
+            "Chosen Type Shaper Test",
+            "{T}: Target land becomes the basic land type of your choice until end of turn.",
+            CardType.Creature,
+            1,
+            1,
+
+            // Haste only so the ability can be used the turn it arrives (CR 302.6).
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(shaper);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var merfolk = game.Create(alice, shaper, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        // Before: a Forest, and one mana ability, and it is green.
+        var printed = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {G}.", printed.Text);
+
+        game.ActivateAbility(alice, merfolk, "a", [Target.ToPermanent(forest)]);
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChooseBasicLandType });
+
+        // The offer is the five CR 305.6 names, and it does not depend on what is in play: this
+        // board has no Island on it anywhere.
+        var asked = game.State.Choice!;
+        Assert.Equal(alice, asked.PlayerId);
+        Assert.Equal(
+            new[] { "Plains", "Island", "Swamp", "Mountain", "Forest" },
+            asked.Options.Select(o => o.Id));
+
+        game.Choose(asked.PlayerId, ["Island"]);
+        Settle(game);
+
+        // The land the player named, and nothing of what it was: one ability, and it is blue.
+        var island = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {U}.", island.Text);
+
+        game.ActivateAbility(alice, forest, island.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+
+        // And the duration is real. The answer builds an effect stamped with the turn number, so
+        // it comes off in the cleanup step (CR 514.2) and the land is a Forest again - which is
+        // why the compiler refuses this sentence when the card prints no duration at all.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var back = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {G}.", back.Text);
+        game.ActivateAbility(alice, forest, back.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+    }
+
+    [Fact]
+    public void A_land_that_gains_a_chosen_basic_type_keeps_the_mana_it_had()
+    {
+        // Navigator's Compass - the same question with CR 305.7's other half behind it. "In
+        // addition to its other types" keeps the land's own types and its rules text, so this
+        // land taps for two colours; read as the replacement above it would tap for one, and the
+        // card would be strictly worse than printed on every board.
+        var compass = Card(
+            "Chosen Type Compass Test",
+            "{T}: Until end of turn, target land you control becomes the basic land type of "
+                + "your choice in addition to its other types.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(compass);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var tool = game.Create(alice, compass, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, tool, "a", [Target.ToPermanent(forest)]);
+        TestCards.PassUntil(
+            game, () => game.State.Choice is { Kind: ChoiceKind.ChooseBasicLandType });
+
+        game.Choose(game.State.Choice!.PlayerId, ["Swamp"]);
+        Settle(game);
+
+        var texts = ManaAbilitiesOf(game, forest).Select(a => a.Text).ToList();
+        Assert.Contains("{T}: Add {G}.", texts, StringComparer.Ordinal);
+        Assert.Contains("{T}: Add {B}.", texts, StringComparer.Ordinal);
+
+        // Two abilities and one land: the ids have to differ or an activation by id resolves
+        // whichever came first (CR 305.6 grants one ability per type).
+        var ids = ManaAbilitiesOf(game, forest).Select(a => a.Id).ToList();
+        Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
+
+        var black = ManaAbilitiesOf(game, forest).Single(a => a.Text == "{T}: Add {B}.");
+        game.ActivateAbility(alice, forest, black.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Black]);
+    }
+
+    [Fact]
+    public void The_chosen_land_type_sentence_without_a_duration_is_left_unread()
+    {
+        // Thelonite Monk's half of the family, and the refusal is deliberate. What the answer
+        // builds is an effect that ends in the cleanup step, so a sentence printed without a
+        // duration would compile into a card that quietly undoes itself - and would count as
+        // read while doing it. An indefinite retyping wants a duration this engine does not have,
+        // not a looser pattern here.
+        var monk = Card(
+            "Undated Retype Test",
+            "{T}: Target land becomes the basic land type of your choice.",
+            CardType.Creature,
+            1,
+            1);
+
+        var compiled = CardCompiler.Compile(monk);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            u => u.Contains("basic land type of your choice", StringComparison.Ordinal));
+    }
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]
