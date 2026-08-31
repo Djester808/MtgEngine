@@ -69925,10 +69925,12 @@ public sealed class CompiledCardBehaviourTests
     /// charges <em>the caster</em>. A reader that assumed one player for both would have been
     /// right about half this family and quietly wrong about the other half.
     /// <para>
-    /// The assertion is who the offer was addressed to rather than what they answered, because
-    /// what they answer here is decided by a rule this change does not touch: a player with no
-    /// mana available mid-resolution is not asked at all (CR 118.3), and the paying and declining
-    /// halves are under test on the discard-priced punisher above.
+    /// It asserted <em>one</em> offer for a while and said in this paragraph that what the player
+    /// answered was somebody else's business. That was the half that did not work: the draw is an
+    /// offer too, and until the two stopped sharing a locator the caster's answer could not find
+    /// its own branch, so the second question was never put and nothing was ever drawn. Both are
+    /// named here now, and the branch itself is played out on
+    /// <see cref="An_offer_inside_a_punisher_still_runs_when_the_price_is_declined"/>.
     /// </para>
     /// </remarks>
     [Fact]
@@ -69952,9 +69954,16 @@ public sealed class CompiledCardBehaviourTests
         Settle(game);
 
         // Charged to the caster, though the card that would draw belongs to somebody else - and
-        // charged to *him* rather than to either of the two opponents who cast nothing.
-        var offer = Assert.Single(game.Log.OfType<OptionalPaymentRequested>());
-        Assert.Equal(seats[1], offer.PlayerId);
+        // charged to *him* rather than to either of the two opponents who cast nothing. Told
+        // apart by the price, because the free offer inside it carries none.
+        var offers = game.Log.OfType<OptionalPaymentRequested>().ToList();
+
+        var price = Assert.Single(offers, o => o.CostText.Length > 0);
+        Assert.Equal(seats[1], price.PlayerId);
+
+        // And the consequence is offered to the enchantment's controller.
+        var draw = Assert.Single(offers, o => o.CostText.Length == 0);
+        Assert.Equal(seats[0], draw.PlayerId);
     }
 
     /// <summary>
