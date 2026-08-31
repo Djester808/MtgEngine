@@ -7879,10 +7879,22 @@ public static class SearchFilters
 
         if (filterId.StartsWith(NamedPrefix, StringComparison.Ordinal))
         {
-            return string.Equals(
-                subject.Name,
-                filterId[NamedPrefix.Length..],
-                StringComparison.OrdinalIgnoreCase);
+            var wanted = filterId[NamedPrefix.Length..];
+
+            if (string.Equals(subject.Name, wanted, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // A two-faced card carries both faces in one name - "Halvar, God of Battle // Sword
+            // of the Realms" - and CR 201.2b gives a card with two names each of them. A search
+            // naming one face is naming the card, so asking only the joined string left Forging
+            // the Tyrite Sword complete and searching for a card no library holds.
+            var faces = subject.Name.Split(
+                " // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            return faces.Length > 1
+                && Array.Exists(
+                    faces,
+                    face => string.Equals(face, wanted, StringComparison.OrdinalIgnoreCase));
         }
 
         // "A noncreature, nonland card" is two filters the card must answer to *both* of, which

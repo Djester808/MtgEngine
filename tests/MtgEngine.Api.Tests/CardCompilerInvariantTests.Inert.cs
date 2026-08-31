@@ -78,6 +78,17 @@ public sealed partial class CardCompilerInvariantTests
                 if (filter.Length == 0)
                     continue;
 
+                // The sentinel a search leaves where a target's name will go. It is filled in
+                // at resolution from the target the search actually got (SearchFilters
+                // .TargetsName), so it is *meant* to select nothing at compile time - asking a
+                // corpus about it is asking the wrong question, the same way "name:~" is.
+                if (filter.Contains(
+                    MtgEngine.Rules.Abilities.SearchFilters.TargetsName,
+                    StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 if (!carriers.TryGetValue(filter, out var who))
                     carriers[filter] = who = [];
 

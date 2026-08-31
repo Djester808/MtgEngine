@@ -5998,7 +5998,8 @@ public static partial class EffectPhrase
             // filter carries one. Read as a single name it compiles to a search that matches
             // nothing at all - a card that reads, passes the deck gate and then quietly finds
             // nothing, which this compiler treats as worse than a line it refuses outright.
-            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase))
+            && !m.Groups["named"].Value.Contains(" named ", StringComparison.OrdinalIgnoreCase)
+            && !RunsOnPastTheName(m.Groups["named"].Value))
         {
             // A name is a filter of its own and cannot be combined with a kind here: "a Goblin
             // card named X" would need both, and the one card printing that shape is not worth
@@ -6093,7 +6094,10 @@ public static partial class EffectPhrase
         // this cannot build, and each stops matching at the tail rather than being read as the
         // plain seek it is not.
         m = SeekLine().Match(sentence);
-        if (m.Success && m.Groups["named"].Success && !m.Groups["what"].Success)
+        if (m.Success
+            && m.Groups["named"].Success
+            && !m.Groups["what"].Success
+            && !RunsOnPastTheName(m.Groups["named"].Value))
         {
             effects.Add(new Seek(
                 NamedFilter(m.Groups["named"].Value),
@@ -9528,6 +9532,26 @@ public static partial class EffectPhrase
     /// worth more than one that happens to be right about the current printing.
     /// </para>
     /// </remarks>
+    /// <summary>Whether a captured name has run on into the sentence around it.</summary>
+    /// <remarks>
+    /// A card name is a name, not a clause. Arachnus Spinner searches "for a card named Arachnus
+    /// Web <em>and put it onto the battlefield attached to target creature</em>", and the capture
+    /// took the rider with the name - so the card compiled complete and searched every library
+    /// for a card called all of that, which is nothing. That is the failure this compiler treats
+    /// as worse than an unread line, and it is the same shape as the two-name search refused
+    /// beside it.
+    /// <para>
+    /// This is a guard, not a reader: what these lines actually want is the rider lifted off
+    /// before the name is captured, the way <c>SearchToTopLine</c> already amends a search. Until
+    /// then the line stays in the work queue, which is the honest place for it.
+    /// </para>
+    /// </remarks>
+    private static bool RunsOnPastTheName(string named) =>
+        named.Contains(" and put ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" attached to ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" target ", StringComparison.OrdinalIgnoreCase)
+        || named.Contains(" onto the ", StringComparison.OrdinalIgnoreCase);
+
     private static string NamedFilter(string printed)
     {
         var named = printed.Trim();
