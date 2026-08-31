@@ -9409,6 +9409,106 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(graveyardBefore + 1, game.State.GetPlayer(alice).Graveyard.Count);
     }
 
+    // ---- X defined by a record ------------------------------------------------
+
+    /// <summary>
+    /// "…, where X is the number of colors of mana spent to cast ~" (CR 106.1b, CR 202.2).
+    /// </summary>
+    /// <remarks>
+    /// The colours that actually paid, not the colours in the cost: this costs {2} and names no
+    /// colour at all, so what X comes to depends entirely on which lands were tapped. The same
+    /// record sunburst reads, asked by the definition clause instead of by a keyword.
+    /// </remarks>
+    [Theory]
+    [InlineData("Forest", "Island", 2)]
+    [InlineData("Forest", "Forest", 1)]
+    public void X_is_the_number_of_colours_of_mana_that_paid_for_the_spell(
+        string first, string second, int gained)
+    {
+        var prism = new CardDefinition
+        {
+            OracleId = "oracle-x-colours-spent-test",
+            Name = "X Colours Spent Test",
+            OracleText = "You gain X life, where X is the number of colors of mana spent to cast ~.",
+            CardTypes = CardType.Instant,
+            ManaCostRaw = "{2}",
+            Cmc = 2,
+        };
+
+        var compiled = CardCompiler.Compile(prism);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, prism);
+
+        foreach (var basic in new[] { first, second })
+        {
+            var land = game.Create(alice, TestCards.BasicLand(basic), Zone.Battlefield);
+            game.ActivateAbility(alice, land, "mana");
+        }
+
+        var before = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Equal(before + gained, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>"…, where X is the amount of life you gained this turn" (CR 608.2).</summary>
+    /// <remarks>
+    /// The record is the controller's and it is a turn's worth, so a card cast before anything
+    /// gained life reads zero rather than refusing — which is why the second case is here. "You"
+    /// is the controller of the spell, not the player it points at.
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 3)]
+    [InlineData(false, 0)]
+    public void X_is_the_life_gained_this_turn(bool gainFirst, int lost)
+    {
+        var drain = Card(
+            "X Life Gained Test",
+            "Each opponent loses X life, where X is the amount of life you gained this turn.");
+
+        var compiled = CardCompiler.Compile(drain);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        if (gainFirst)
+        {
+            var gain = Card("X Life Gained Primer Test", "You gain 3 life.");
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, gain), []);
+            Settle(game);
+        }
+
+        var before = game.State.GetPlayer(bob).Life;
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drain), []);
+        Settle(game);
+
+        Assert.Equal(before - lost, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>"…, where X is your life total" (CR 608.2).</summary>
+    [Fact]
+    public void X_is_your_life_total()
+    {
+        var herd = Card("X Life Total Test", "You gain X life, where X is your life total.");
+
+        var compiled = CardCompiler.Compile(herd);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Read as the spell resolves, so the doubling is of the total at that moment and not of
+        // the total the game started with.
+        var before = game.State.GetPlayer(alice).Life;
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, herd), []);
+        Settle(game);
+
+        Assert.Equal(before * 2, game.State.GetPlayer(alice).Life);
+    }
+
+
     // ---- Infect ---------------------------------------------------------------
 
     [Fact]
