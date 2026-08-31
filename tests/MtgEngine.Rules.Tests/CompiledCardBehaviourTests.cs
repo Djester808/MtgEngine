@@ -9309,6 +9309,505 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(computed.Has(KeywordAbility.Trample));
     }
 
+    // ---- What a search does with the card after it finds it (CR 701.23d, 401.4) ----
+
+    // A search sentence names a zone, a filter, and then a rider: what happens to what it found.
+    // The rider is regularly printed across a ", then", which is exactly where the clause
+    // splitter cuts, so it arrives at the compiler as a sentence with no subject — "put it into
+    // your hand" on its own. It amends the search in the clause before it rather than adding an
+    // effect of its own, because "it" is the card that search found and there is no other way to
+    // say so.
+    //
+    // Every test here plays the card and asks where the card ended up, because that is the only
+    // question a mis-read rider gets wrong: a tutor that fetches to the wrong zone compiles,
+    // passes a deck check, and reports itself as having done its job.
+
+    [Fact]
+    public void A_destination_printed_after_then_still_reaches_the_battlefield_tapped()
+    {
+        var fetch = Card(
+            "Rider Battlefield Test",
+            "Search your library for a basic land card, reveal it, then put it onto the "
+                + "battlefield tapped. If you searched your library this way, shuffle.");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, fetch);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        Assert.Single(choice.Options!);
+        game.Choose(alice, [choice.Options![0].Id]);
+        Settle(game);
+
+        // On the battlefield and tapped, not in hand — which is where the search alone would
+        // have put it, because the hand is what a tutor that names no destination means.
+        var landed = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Forest");
+
+        Assert.True(landed.Permanent!.IsTapped);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Forest");
+
+        // The control: the differently-named card in the same library was not touched.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void An_offered_search_takes_the_destination_printed_after_the_offer()
+    {
+        // Sun-Blessed Mount's shape. The offer is built from the clause before the cut, so the
+        // search this rider is about sits *inside* the offer and the last effect on the list is
+        // the offer itself. An amend that looked only at the top of the list left the card one
+        // line short of complete while every other wording of the same rider read.
+        var summons = Card(
+            "Rider Offer Test",
+            "When ~ enters, you may search your library for a card named Rider Wanted, reveal it, "
+                + "then put it into your hand. If you searched your library this way, shuffle.",
+            CardType.Creature,
+            2,
+            2);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, Card("Rider Wanted", string.Empty, CardType.Creature, 1, 1), Zone.Library);
+        var decoy = game.Create(
+            alice, Card("Rider Unwanted", string.Empty, CardType.Creature, 1, 1), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, summons);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.OptionalPayment });
+        game.Choose(alice, ["yes"]);
+
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        Assert.Single(choice.Options!);
+        Assert.Equal("Rider Wanted", choice.Options![0].Label);
+        game.Choose(alice, [choice.Options[0].Id]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Rider Wanted");
+
+        // The control: the card the name filter refused is still in the library.
+        Assert.Contains(decoy, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_search_that_exiles_what_it_finds_puts_nothing_in_hand()
+    {
+        // Mana Severance and Selective Memory. Exile is a destination the tail names with a verb
+        // rather than a "put … into" phrase, so a reader that fell through to its default would
+        // have drawn the searcher their whole library instead of removing it.
+        var severance = Card(
+            "Rider Exile Test",
+            "Search your library for any number of land cards, exile them, then shuffle.");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Library);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Exile Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, severance);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        Assert.Equal(2, choice.Options!.Count);
+        game.Choose(alice, [choice.Options[0].Id, choice.Options[1].Id]);
+        Settle(game);
+
+        var exiled = game.State.Exile.Select(game.State.GetObject).ToList();
+        Assert.Contains(exiled, o => o.Card.Name == "Forest");
+        Assert.Contains(exiled, o => o.Card.Name == "Island");
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name is "Forest" or "Island");
+
+        // The control: the differently-named card the filter refused stayed in the library.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_recruiter_puts_every_card_it_found_on_top_in_the_order_it_named_them()
+    {
+        // Goblin Recruiter, Dwarven Recruiter, Congregation at Dawn, Scouting Trek: the same
+        // rider in the plural. Both halves of it were missing — the sentence did not read, and
+        // the resolution behind it moved only the first card found, which would have left a
+        // recruiter finding four Goblins and delivering one.
+        var recruiter = Card(
+            "Rider Recruiter Test",
+            "Search your library for any number of Goblin cards, reveal them, then shuffle and "
+                + "put those cards on top in any order.");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card("Rider Goblin One", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Goblin"),
+            Zone.Library);
+        game.Create(
+            alice,
+            Card("Rider Goblin Two", string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Goblin"),
+            Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Recruiter Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, recruiter);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        Assert.Equal(2, choice.Options!.Count);
+
+        var first = choice.Options.Single(o => o.Label == "Rider Goblin One");
+        var second = choice.Options.Single(o => o.Label == "Rider Goblin Two");
+        game.Choose(alice, [first.Id, second.Id]);
+        Settle(game);
+
+        // Both are back in the library, on top, in the order they were named (CR 401.4).
+        var library = game.State.GetPlayer(alice).Library;
+        Assert.Equal("Rider Goblin One", game.State.GetObject(library[0]).Card.Name);
+        Assert.Equal("Rider Goblin Two", game.State.GetObject(library[1]).Card.Name);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name.StartsWith("Rider Goblin", StringComparison.Ordinal));
+
+        // The control: the card the filter refused is in the library and not on top of it.
+        Assert.Contains(bystander, library);
+        Assert.NotEqual(bystander, library[0]);
+        Assert.NotEqual(bystander, library[1]);
+    }
+
+    [Fact]
+    public void A_tutor_that_calls_its_find_the_card_still_puts_it_on_top()
+    {
+        // Worldly Tutor says "the card" where every other card of the family says "that card".
+        // One definite article, one card, and the whole of what it cost.
+        var tutor = Card(
+            "Rider The Card Test",
+            "Search your library for a creature card, reveal it, then shuffle and put the card on top.");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Rider Sought Creature", 3, 3), Zone.Library);
+        var bystander = game.Create(
+            alice, Card("Rider Sought Land", string.Empty, CardType.Land), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, tutor);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Sought Creature");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        // By name rather than by id: a card put back into the library is a new object
+        // (CR 400.7), so the thing on top is not the object that was picked.
+        var library = game.State.GetPlayer(alice).Library;
+        Assert.Equal("Rider Sought Creature", game.State.GetObject(library[0]).Card.Name);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Rider Sought Creature");
+
+        // The control: the land the filter refused is in the library and not on top of it.
+        Assert.Contains(bystander, library);
+        Assert.NotEqual(bystander, library[0]);
+    }
+
+    [Fact]
+    public void A_search_somebody_else_makes_is_refused_rather_than_pointed_at_nobody()
+    {
+        // The same rider with its verb agreeing with a different subject — "target player
+        // searches their library …, puts it onto the battlefield tapped, then shuffles". One
+        // more word in the pattern reads it, and the card it buys is inert: a search somebody
+        // else makes carries "the controller of the permanent this is about" as its searcher,
+        // and a sentence naming a player has no permanent to read, so the search resolves to
+        // nothing at all on a card reporting itself fully read.
+        //
+        // Measured and declined: one corpus card (Restorative Technique). A tutor that finds
+        // nothing is what this compiler treats as worse than a line left in the work queue, so
+        // the third person stays unread until a search can name a player as its searcher.
+        var technique = Card(
+            "Rider Third Person Test",
+            "Target player gains 2 life, then searches their library for a basic land card, "
+                + "puts it onto the battlefield tapped, then shuffles.");
+
+        Assert.False(CardCompiler.Compile(technique).IsComplete);
+    }
+
+    [Fact]
+    public void A_rider_may_send_what_the_search_found_to_the_graveyard()
+    {
+        // The third destination the orphan rider names, and the one a mis-read would be most
+        // quietly wrong about: the hand is the default, so a graveyard rider left unamended is
+        // a self-mill spell that draws instead.
+        var digger = Card(
+            "Rider Graveyard Test",
+            "Search your library for a creature card, reveal it, then put it into your graveyard. "
+                + "If you searched your library this way, shuffle.");
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Rider Buried Creature", 3, 3), Zone.Library);
+        var bystander = game.Create(
+            alice, Card("Rider Buried Land", string.Empty, CardType.Land), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, digger);
+
+        game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Buried Creature");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Rider Buried Creature");
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Rider Buried Creature");
+
+        // The control: the land the filter refused stayed in the library.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void The_reveal_into_hand_rider_is_read_where_it_is_printed_whole()
+    {
+        // Written down because the shape is easy to mis-count as this row's population, and it
+        // was: 45 unread lines in the corpus print "reveal it, put it into your hand, then
+        // shuffle" and 35 of them are the only line their card is short, which reads like 35
+        // cards' worth of rider. It is not one card's worth. The tutor grammar has read that
+        // whole clause since it was written — what defeats those 35 is the filter in front of
+        // it: "a land card with a basic land type", "an instant card or a card with flash", "a
+        // creature card with power 2 or less", "a basic land card or Gate card".
+        //
+        // The rider only ever costs a card when the ", then" splitter cuts it away from its
+        // search, which is what the tests above are about and what the substitution control
+        // measured: rewriting the rider alone completes 25 of the 471 cards that print one,
+        // while dropping the whole line completes 302. Those two numbers are different rows of
+        // the work queue, and the difference is the filter vocabulary.
+        var whole = Card(
+            "Rider Printed Whole Test",
+            "Search your library for a basic land card, reveal it, put it into your hand, "
+                + "then shuffle.");
+
+        Assert.True(CardCompiler.Compile(whole).IsComplete);
+    }
+
+    [Fact]
+    public void A_destination_rider_may_not_amend_a_search_it_did_not_follow()
+    {
+        // The guard, and the reason the amend looks at the immediately preceding effect rather
+        // than at anything in the tree. A "put it onto the battlefield tapped" printed after
+        // some other instruction means something this compiler cannot see, and pointing it at a
+        // search two sentences back would be a tutor fetching to a zone its card never named —
+        // worse, by this compiler's standard, than a line left unread.
+        var muddle = Card(
+            "Rider Orphan Test",
+            "Search your library for a basic land card, reveal it. You gain 2 life, then put it "
+                + "onto the battlefield tapped.");
+
+        Assert.False(CardCompiler.Compile(muddle).IsComplete);
+
+        // And a rider with no search in front of it at all is not an instruction either.
+        var alone = Card("Rider Alone Test", "You gain 2 life, then exile them.");
+
+        Assert.False(CardCompiler.Compile(alone).IsComplete);
+    }
+
+    [Fact]
+    public void A_search_that_attaches_its_find_to_the_source_puts_the_aura_on_it()
+    {
+        // Boonweaver Giant and Runed Crown: "put it onto the battlefield attached to this
+        // creature". The destination is the whole phrase, not the first half of it — an Aura put
+        // onto the battlefield enchanting nothing is put into its owner's graveyard by a
+        // state-based action (CR 704.5m), so reading only "onto the battlefield" is a tutor whose
+        // find is in the graveyard a moment later.
+        var giant = Card(
+            "Rider Attach Source Test",
+            "When ~ enters, search your library for an Aura card and put it onto the battlefield "
+                + "attached to ~. If you searched your library this way, shuffle.",
+            CardType.Creature,
+            3,
+            3);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(
+            alice,
+            Card(
+                "Rider Sought Aura",
+                "Enchant creature\nEnchanted creature gets +1/+1.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Attach Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, giant);
+
+        var host = game.CastSpell(alice, card, []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Sought Aura");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        var giantOnBoard = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Attach Source Test");
+
+        var aura = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Sought Aura");
+
+        Assert.Equal(giantOnBoard.Id, aura.Permanent!.AttachedTo);
+        Assert.NotEqual(host, aura.Id);
+
+        // The control: the differently-named card the filter refused stayed in the library.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_search_that_attaches_its_find_to_a_target_puts_the_aura_on_that_target()
+    {
+        // Arachnus Spinner's shape, and the one that was compiling wrong rather than unread: the
+        // name capture ran on through "and put it onto the battlefield attached to target
+        // creature" because nothing after the name could match, and the arm beside it then read
+        // the leftovers as a plain tutor for any card into hand — a strictly better card than the
+        // printed one. Reading the attachment is what stops the name at the name.
+        var spinner = Card(
+            "Rider Attach Target Test",
+            "Search your graveyard and/or library for a card named Rider Web "
+                + "and put it onto the battlefield attached to target creature. "
+                + "If you searched your library this way, shuffle.");
+
+        var compiled = CardCompiler.Compile(spinner);
+        Assert.True(compiled.IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Rider Attach Host", 2, 2), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card(
+                "Rider Web",
+                "Enchant creature\nEnchanted creature gets -1/-0.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var decoy = game.Create(
+            alice,
+            Card(
+                "Rider Other Web",
+                "Enchant creature\nEnchanted creature gets -1/-0.",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura"),
+            Zone.Library);
+        var card = TestCards.PutInHand(game, alice, spinner);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        // The name filter offers the one card it names and nothing else — the failure this test
+        // is really about is the search that offered the whole library.
+        var choice = game.State.Choice!;
+        Assert.Single(choice.Options!);
+        Assert.Equal("Rider Web", choice.Options![0].Label);
+        game.Choose(alice, [choice.Options[0].Id]);
+        Settle(game);
+
+        var aura = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Web");
+
+        Assert.Equal(bear, aura.Permanent!.AttachedTo);
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Hand,
+            id => game.State.GetObject(id).Card.Name == "Rider Web");
+
+        // The control: the differently-named Aura in the same library was left where it was.
+        Assert.Contains(decoy, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_curse_search_attaches_what_it_finds_to_the_player_it_targeted()
+    {
+        // Bitterheart Witch. A Curse enchants a player (CR 303.4b), so the host is a seat rather
+        // than a permanent and the event has to carry it as one.
+        var witch = Card(
+            "Rider Curse Test",
+            "Search your library for a Curse card, put it onto the battlefield "
+                + "attached to target player, then shuffle.");
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(
+            alice,
+            Card(
+                "Rider Sought Curse",
+                "Enchant player",
+                CardType.Enchantment,
+                null,
+                null,
+                KeywordAbility.None,
+                "Aura",
+                "Curse"),
+            Zone.Library);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Rider Curse Bystander", 2, 2), Zone.Library);
+        var card = TestCards.PutInHand(game, alice, witch);
+
+        game.CastSpell(alice, card, [Target.ToPlayer(bob)]);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice!;
+        var pick = choice.Options!.Single(o => o.Label == "Rider Sought Curse");
+        game.Choose(alice, [pick.Id]);
+        Settle(game);
+
+        var curse = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rider Sought Curse");
+
+        Assert.Equal(bob, curse.Permanent!.AttachedToPlayer);
+        Assert.Null(curse.Permanent.AttachedTo);
+
+        // The control: the differently-named card in the same library was left alone.
+        Assert.Contains(bystander, game.State.GetPlayer(alice).Library);
+    }
+
+    [Fact]
+    public void A_search_that_attaches_to_a_creature_you_control_is_left_unread()
+    {
+        // Quest for the Holy Relic and Stonehewer Giant. "Attach it to a creature you control" is
+        // a choice made while the search resolves, and there is nobody to put it to: the search
+        // asks its question, the answer comes back, and the attachment would have to ask a second
+        // one. Attaching to whichever permanent happened to be first is not the card, so the two
+        // stay in the work queue — the same refusal the third-person rider gets above.
+        var quest = Card(
+            "Rider Attach Choice Test",
+            "Search your library for an Equipment card, put it onto the battlefield, "
+                + "attach it to a creature you control, then shuffle.");
+
+        Assert.False(CardCompiler.Compile(quest).IsComplete);
+    }
+
     // ---- Basic lands ----------------------------------------------------------
 
     [Fact]
