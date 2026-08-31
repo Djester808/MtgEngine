@@ -513,6 +513,105 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: the Alchemy families, re-measured — and the mechanic word is not the blocker
+
+Five figures had stood behind the Alchemy and Un-set declines for several rounds without anybody
+re-running them. **Three of the five were wrong**, and the two that held were right for reasons
+worth writing down. Measured against the current dump (38,626 objects, 32,717 playable) and the
+current compiler.
+
+| the old figure | what it actually is |
+|---|---|
+| "62 spellbook cards with no data field" | **64 cards, and the field really is absent.** No key anywhere in the dump contains the word; the only linking field any of them carries is `all_parts`, on 5 of the 64, and every entry there is a `combo_piece` or a `token` — never a spellbook. A spellbook's contents are not in this file. |
+| "19 specialize cards absent from the corpus" | **Wrong twice.** The 19 base cards *are* in the playable corpus, and their five specialized versions are in the dump too — all 45 of them, set `hbg`, `not_legal` in every format, which is why the legality filter drops them. **Every base card carries `all_parts` with exactly six entries: itself and its five colours.** The link is complete and machine-readable. |
+| "246 `perpetually` cards contradict CR 400.7" | **246 confirmed**, and the identity problem is real. But see below: it is not what blocks them. |
+| "46 Attractions missing `attraction_lights`" | **Wrong.** There are 22 Attractions in the playable corpus and **all 22 carry `attraction_lights`**; so do all 50 in the dump. The 46 was a text match on cards that *open* Attractions, not on Attractions. Nothing about this family is blocked on missing data. |
+| "48 sticker sheets excluded as not-cards" | **Correct and deliberate.** 50 sheet objects, 48 of which pass the legality test; `CardCompilerCoverageTests` drops them on the type line, for the reason it drops tokens. |
+
+#### The excision number is an upper bound, and everybody had been quoting it as the answer
+
+`CardCompilerWorkQueueTests.What_the_alchemy_and_un_set_families_would_actually_be_worth` measures
+each family three ways. **Excision** deletes the family's lines and recompiles: that is the number
+in every previous decline. **Substitution** takes only the mechanic *word* out and leaves the
+sentence standing, which is what modelling the mechanic would actually buy.
+
+| family | cards | unread lines | distinct | excised | substituted |
+|---|---|---|---|---|---|
+| conjure | 164 | 171 | 171 | 111 | 31 |
+| perpetual | 238 | 245 | 245 | **193** | **4** |
+| spellbook | 64 | 64 | 60 | 43 | 0 |
+| specialize | 19 | 19 | 9 | 12 | 0 |
+| attraction | 27 | 34 | 22 | 24 | 0 |
+| sticker | 47 | 63 | 53 | 42 | 0 |
+| seek | 81 | 85 | 84 | 61 | 0 |
+| double team | 23 | 24 | 10 | 14 | 0 |
+
+**Perpetual is the whole lesson: 193 against 4.** Take the word "perpetually" out of all 245 lines
+and 241 of them are *still* unread, because what is left is "creature cards in your graveyard get
++1/+1", "a random land card in your library gains …", "each nonland card in defending player's
+hand gains …" — pumping and granting to cards in zones the compiler's grammar has never been
+shown. Perpetual duration is a small part of that family and modelling it completes four cards.
+Ranking this work by 193 recommends fifty times what it can pay for.
+
+The `distinct` column says the same thing from the other side. 245 unread perpetual lines have 245
+distinct spellings; 171 conjure lines have 171. **These families have no template.** The one that
+does is specialize — 19 lines, 9 spellings, 15 of them the bare `Specialize {2}` — and it is the
+one whose data turned out to be complete.
+
+#### What was built, and what it proved
+
+The reachable half of conjure. A conjured *duplicate* needs nothing the game does not already
+have, because the thing being copied is an object in it — so `ConjureDuplicate` is
+`CreateTokenCopy` with two differences and no third: no `TokenCards.AsToken`, because CR 701.55a
+says a conjured object is a card, and the zone the sentence names instead of the battlefield.
+Nothing new was needed to hold it: `ObjectCreated` already carried a zone and a whole definition,
+and `GameReducer.Create` already read that zone rather than assuming the battlefield — the same
+reuse emblems made of the command zone one round earlier.
+
+**It completed one card** (Sinister Reflections), reading three lines. That is not a
+disappointment, it is the substitution column arriving in person: conjure is not what blocks
+conjure cards. The other 41 lines mentioning a duplicate are blocked by the *rest* of their
+sentence — `The duplicate perpetually gains …`, `for each creature sacrificed this way`, a trigger
+condition nothing reads.
+
+One near-miss is worth recording. "Conjure a duplicate of each of up to two target creatures you
+control into your hand" compiled on the first run and looked like a card being read as half of
+itself — one duplicate where the card says two. It is not: `EachOfTargets` normalises the phrase
+and the shared grammar expands it to two targets and one effect apiece, so the reader must *not*
+do its own counting. There is a test asserting exactly that, because the instinct to add a count
+here is the wrong one and would have to be resisted twice.
+
+#### The declines, with the number behind each
+
+- **Conjure a card *named* X — 94 cards.** Not a grammar problem, and the name grammar landing did
+  not change it: `MtgEngine.Rules` has no name-to-definition lookup at all. `IAbilitySource` takes
+  a `CardDefinition` in and never a name; `CompiledPool` compiles definitions it is handed.
+  Conjuring Lightning Bolt needs the corpus reachable from the engine, which is a new seam, not a
+  template. The precedents cited for it — `TokenCards.Granting`, emblems — all build a definition
+  out of words *printed on the card doing the conjuring*, and a named conjure prints no text.
+- **Spellbook — 64 cards, 43 by excision.** The one decline that is genuinely a data decline. The
+  contents are not in `oracle_cards.json` under any key, and `all_parts` does not carry them.
+  Reachable only with a second data source.
+- **Specialize — 19 cards, 12 by excision.** *Not* blocked on data, which is the correction. It
+  needs `all_parts` to reach `CardDefinition`, five extra definitions per card in the pool, and an
+  exchange action; and the five specialized versions carry their own unread text ("when this
+  creature specializes", "it unspecializes"), so reading `Specialize {2}` alone would be an ability
+  that activates and does nothing. Bounded work, and the smallest of these families — but engine
+  work, not compiler work.
+- **Attraction — 27 cards, 24 by excision.** Also not a data decline: every Attraction carries its
+  lights. It needs an Attraction deck outside the game (CR 717.2), a die roll, a visit trigger and
+  a new zone. 12 of the 27 print the identical line `When ~ enters, open an Attraction.`, which is
+  the largest single unread Alchemy/Un shape in the corpus.
+- **Sticker — 47 cards, 42 by excision.** The sheets are excluded correctly. Name stickers change a
+  card's name, ability stickers add text, power/toughness stickers change a printed size — four
+  mechanics behind one word, on 53 distinct lines.
+- **Perpetual — 238 cards, 193 by excision, 4 by substitution.** See above. The zone-change
+  identity problem (CR 400.7) is real and is *not* the reason these cards are unread.
+- **Seek — 81 cards, 61 by excision.** Included because it is the Alchemy family that looks most
+  buildable and is not: the substitution to a printed tutor wording reads **0 of 85** lines. The
+  filters are the work — "a card with mana value less than the number of cards in your hand", "a
+  creature card of the most prevalent creature type in your library" — not the verb.
+
 ### Round twenty-one: the basic land type of your choice, and two neighbours re-measured
 
 Round twenty moved CR 305.6's intrinsic mana ability off the printed card and onto the land's
