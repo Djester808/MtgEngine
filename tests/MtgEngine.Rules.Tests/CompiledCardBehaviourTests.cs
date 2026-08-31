@@ -582,6 +582,217 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
     }
 
+    // ---- Exiling the source as an activation cost (CR 118.3c, 400.7) --------
+
+    [Fact]
+    public void Exiling_the_source_is_paid_on_activation_and_not_on_resolution()
+    {
+        // Feldon's Cane's wording. The cost is what takes the artifact out of the game, so it is
+        // gone the moment the ability is announced (CR 601.2h) - not when it resolves.
+        var cane = Card(
+            "Feldon's Reliquary Test",
+            "{T}, Exile ~: Shuffle your graveyard into your library.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(cane);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ability = Assert.Single(compiled.Activated);
+        Assert.Equal(SelfCost.ExileSelf, ability.SelfCost);
+
+        // The battlefield, not the graveyard: a permanent that exiles itself is standing on the
+        // battlefield when it does it, and the graveyard sibling of this cost is a different
+        // value with a different zone.
+        Assert.Equal(Zone.Battlefield, ability.FunctionsFrom);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Reliquary Bear Test", 2, 2), Zone.Graveyard);
+        var source = game.Create(alice, cane, Zone.Battlefield);
+
+        Assert.Single(game.State.GetPlayer(alice).Graveyard);
+
+        game.ActivateAbility(alice, source, "a");
+
+        // Paid, with the ability still on the stack and nothing resolved yet.
+        Assert.NotEmpty(game.State.Stack);
+        Assert.DoesNotContain(source, game.State.Battlefield);
+        Assert.Single(game.State.GetPlayer(alice).Graveyard);
+
+        var inExile = Assert.Single(
+            game.State.Exile.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, cane.Name, StringComparison.Ordinal));
+
+        // CR 400.7: what is in exile is a new object. The id that paid the cost names nothing,
+        // which is exactly why nothing the ability does afterwards may look it back up.
+        Assert.NotEqual(source, inExile.Id);
+        Assert.False(game.State.TryGetObject(source, out _));
+
+        Settle(game);
+
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+    }
+
+    [Fact]
+    public void Nobody_can_respond_to_the_exile_cost_by_sacrificing_the_permanent()
+    {
+        // The whole reason these are costs. Read as an effect, the exile would happen on
+        // resolution, and the controller could sacrifice the artifact in reply to some removal
+        // and keep the shuffle as well - two cards' worth of value out of one. Paid as a cost,
+        // there is nothing left to sacrifice by the time anyone holds priority.
+        var relic = Card(
+            "Answered Reliquary Test",
+            "{T}, Exile ~: Shuffle your graveyard into your library.\n"
+                + "Sacrifice ~: You gain 2 life.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(relic);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(2, compiled.Activated.Count);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Answered Bear Test", 2, 2), Zone.Graveyard);
+        var source = game.Create(alice, relic, Zone.Battlefield);
+
+        game.ActivateAbility(alice, source, "a");
+
+        // Alice has priority back with her own ability on the stack, and the sacrifice outlet
+        // printed on the same card is no longer hers to use: the permanent is in exile, and an
+        // ability that functions from the battlefield cannot be activated from there (CR 602.5).
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, source, "a1"));
+
+        Assert.Contains("No object", refused.Message, StringComparison.Ordinal);
+
+        Settle(game);
+
+        // The shuffle happened and no life was gained: the response was never available.
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    [Fact]
+    public void The_ability_is_refused_a_second_time_because_the_cost_cannot_be_paid_twice()
+    {
+        // Fail closed: a cost the engine cannot charge leaves the ability unusable rather than
+        // free. Once the permanent has exiled itself there is no second payment to make, and the
+        // engine refuses the activation instead of running the effect for nothing.
+        var cane = Card(
+            "Spent Reliquary Test",
+            "{T}, Exile ~: Shuffle your graveyard into your library.",
+            CardType.Artifact);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Spent Bear Test", 2, 2), Zone.Graveyard);
+        var source = game.Create(alice, cane, Zone.Battlefield);
+
+        game.ActivateAbility(alice, source, "a");
+        Settle(game);
+
+        Assert.Throws<InvalidOperationException>(() => game.ActivateAbility(alice, source, "a"));
+
+        // And nothing ran the second time: one shuffle, one exile, one card in exile.
+        Assert.Single(
+            game.State.Exile.Select(game.State.GetObject),
+            o => string.Equals(o.Card.Name, cane.Name, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_ability_paid_by_exiling_the_source_still_exiles_what_it_targeted()
+    {
+        // Hanged Executioner's shape with the mana taken off. Two objects end up in exile and
+        // they are different ones: the source went there as the cost, the creature as the
+        // effect. A pronoun that had followed the vanished source would exile it twice and leave
+        // the creature alone.
+        var warden = Card(
+            "Vanishing Warden Test",
+            "Exile ~: Exile target creature.",
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(warden);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(SelfCost.ExileSelf, Assert.Single(compiled.Activated).SelfCost);
+
+        var (game, alice, bob) = InMainPhase();
+        var bear = game.Create(bob, TestCards.Creature("Warded Bear Test", 2, 2), Zone.Battlefield);
+        var source = game.Create(alice, warden, Zone.Battlefield);
+
+        game.ActivateAbility(alice, source, "a", [Target.ToPermanent(bear)]);
+
+        // The cost first, with the creature still on the battlefield and the ability unresolved.
+        Assert.DoesNotContain(source, game.State.Battlefield);
+        Assert.Contains(bear, game.State.Battlefield);
+
+        Settle(game);
+
+        var exiled = game.State.Exile.Select(game.State.GetObject).ToList();
+        Assert.Contains(exiled, o => string.Equals(o.Card.Name, "Vanishing Warden Test", StringComparison.Ordinal));
+        Assert.Contains(exiled, o => string.Equals(o.Card.Name, "Warded Bear Test", StringComparison.Ordinal));
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    [Fact]
+    public void Exiling_the_card_from_the_graveyard_is_still_the_graveyard_cost()
+    {
+        // The two costs are the same words with a zone on the end, and the battlefield reader
+        // must not lift "Exile ~" out of the middle of the graveyard one - which would leave
+        // "from your graveyard" behind as a cost item nothing can charge and refuse eighty lines
+        // that already work.
+        var scavenger = Card(
+            "Graveyard Scavenger Test",
+            "{5}, Exile ~ from your graveyard: You gain 5 life.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(scavenger);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var ability = Assert.Single(compiled.Activated);
+        Assert.Equal(SelfCost.ExileSelfFromGraveyard, ability.SelfCost);
+        Assert.Equal(Zone.Graveyard, ability.FunctionsFrom);
+    }
+
+    [Fact]
+    public void Exiling_the_card_from_hand_as_a_cost_is_left_unread()
+    {
+        // The Spirit Guides. The zone phrase is deliberately not swallowed: there is no self
+        // cost that charges a card out of hand by exiling it, so the remainder fails to parse as
+        // mana and the whole line stays unread. Granting the ability anyway would hand a player
+        // a free red mana with nothing paid for it - the exact fail-open this compiler refuses.
+        var guide = Card(
+            "Spirit Guide Test",
+            "Exile ~ from your hand: Add {R}.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(guide);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains("Exile ~ from your hand: Add {R}.", compiled.Unhandled);
+        Assert.Empty(compiled.Activated);
+    }
+
+    [Theory]
+    [InlineData("Reliquary Cane Test", "{T}, Exile ~: Shuffle your graveyard into your library.")]
+    [InlineData("Reliquary Archive Test", "{2}, Exile ~: Target player shuffles their graveyard into their library. Draw a card.")]
+    [InlineData("Reliquary Foundry Test", "{1}, {T}, Exile ~: Target player shuffles their graveyard into their library.")]
+    [InlineData("Reliquary Effigy Test", "{4}, {T}, Exile ~: Exile target creature.")]
+    [InlineData("Reliquary Amulet Test", "{5}, {T}, Exile ~: Exile target artifact, creature, or land. Activate only as a sorcery.")]
+    [InlineData("Reliquary Vault Test", "{5}, {T}, Exile ~: Exile all nonland permanents.")]
+    [InlineData("Reliquary Floor Test", "{2}, {T}, Exile ~: Exile all untapped creatures. Activate only as a sorcery.")]
+    public void Every_printed_shape_of_the_exile_self_cost_reads(string name, string text)
+    {
+        // The real wordings from the cards this unblocked, each with the cost items in the order
+        // they are printed: alone, after mana, and between mana and a tap symbol.
+        var card = Card(name, text, CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Contains(compiled.Activated, a => a.SelfCost == SelfCost.ExileSelf);
+    }
+
     // ---- Counting a life change or a burn (CR 118.3, 119.3) ------------------
 
     [Fact]

@@ -428,4 +428,37 @@ public sealed class TempMeasureR2104(ITestOutputHelper output)
 
         output.WriteLine("WROTE " + to);
     }
+
+    [Fact]
+    public void Probe()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("NO CORPUS");
+            return;
+        }
+
+        foreach (var name in new[] { "Perpetual Timepiece", "King Solomon's Frogs", "Feldon's Cane" })
+        {
+            var card = corpus.First(c => string.Equals(c.Name, name, System.StringComparison.Ordinal));
+            output.WriteLine("== " + name);
+            output.WriteLine("RAW: " + (card.OracleText ?? string.Empty).Replace("\n", " // ", System.StringComparison.Ordinal));
+            foreach (var l in CardCompiler.Lines(card))
+            {
+                output.WriteLine("LINE: " + l);
+            }
+
+            var c = CardCompiler.Compile(card);
+            foreach (var u in c.Unhandled)
+            {
+                output.WriteLine("UNREAD: " + u);
+            }
+
+            foreach (var a in c.Activated)
+            {
+                output.WriteLine($"ACT[{a.Id}] self={a.SelfCost} text={a.Text}");
+            }
+        }
+    }
 }
