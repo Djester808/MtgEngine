@@ -6933,12 +6933,14 @@ public sealed class Game
     /// sentinel — an ordinary tutor's filter is a word and is left alone.
     /// </para>
     /// <para>
-    /// <strong>Only a name that was on the menu.</strong> The answer arrives from outside the
-    /// engine, and every other selection here answers with an object id and is unambiguous by
-    /// construction; a card name is a word, and a word can arrive naming something the offer
-    /// never contained. Taking it would let a client name a card out of the opponent's hand
-    /// — precisely the reading <see cref="CardNamesOffered"/> exists to refuse — and
-    /// extract it. So an answer off the menu names nothing, and the search behind it is dropped.
+    /// <strong>An answer off the menu never reaches here.</strong> A card name is a word rather
+    /// than an object id, so it is the one answer in this engine that could arrive naming
+    /// something the offer never held - the card in the opponent's hand that
+    /// <see cref="CardNamesOffered"/> exists to hide. <c>Choose</c> refuses a pick that was not
+    /// among the options before any of this runs, which is where that guard belongs: one place,
+    /// for every question, at the door. Recomputing the offer here would be a second copy of the
+    /// narrowing rule, and the whole point of sharing one is that there is nowhere for the two
+    /// to drift apart.
     /// </para>
     /// </remarks>
     private void ResolveCardNameChoice(IReadOnlyList<string> picks)
@@ -6948,12 +6950,8 @@ public sealed class Game
 
         _cardNameChoiceBeingAsked = null;
 
-        if (picks.Count == 0
-            || !CardNamesOffered(owed.ChooserId, owed.FilterId)
-                .Contains(picks[0], StringComparer.Ordinal))
-        {
+        if (picks.Count == 0)
             return;
-        }
 
         var named = picks[0];
 
