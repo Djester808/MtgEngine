@@ -80,4 +80,29 @@ public sealed class ZzR2109CensusTests
 
         return string.Join(" | ", parts);
     }
+
+    [Fact]
+    public void Probe_named_cards()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        Assert.NotNull(corpus);
+
+        var wanted = (Environment.GetEnvironmentVariable("R2109_CARDS") ?? string.Empty)
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var lines = new List<string>();
+
+        foreach (var card in corpus.Where(c => wanted.Contains(c.Name)))
+        {
+            var compiled = CardCompiler.Compile(card);
+            lines.Add("=== " + card.Name + "  complete=" + compiled.IsComplete);
+            lines.Add("    text: " + (card.OracleText ?? string.Empty).Replace(Nl, " | "));
+            foreach (var u in compiled.Unhandled)
+                lines.Add("    UNREAD: " + u.Replace(Nl, " | "));
+            lines.Add("    EFFECTS: " + Describe(compiled));
+        }
+
+        File.WriteAllLines(Out("probe-cards.txt"), lines);
+    }
 }

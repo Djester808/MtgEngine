@@ -14927,10 +14927,13 @@ public static partial class CardCompiler
             }
             // "Of your choice" is a question, and a ban is not resolving to ask one — the word
             // is refused here rather than dropped, which would ban prevention of every red
-            // source's damage on the strength of a card that named one.
-            else if (EffectPhrase.PreventSource(dealt) is { Chosen: false } dealer)
+            // source's damage on the strength of a card that named one. A combat state is
+            // refused for the same reason and with the same consequence: UnpreventableStatic has
+            // nowhere to keep one, and a ban that lost the word "attacking" would cover every
+            // creature on the board.
+            else if (EffectPhrase.PreventSource(dealt) is { Chosen: false, Combat: null } dealer)
             {
-                (filter, whose, _) = dealer;
+                (filter, whose, _, _) = dealer;
             }
             else
             {
@@ -15127,6 +15130,70 @@ public static partial class CardCompiler
                 => PreventionAnchor.Host,
             _ => PreventionAnchor.None,
         };
+
+    /// <summary>
+    /// How a static prevention's "by" clause can describe its sources by their <em>relation</em>
+    /// to the permanent printing it (CR 509.1g, 509.1h).
+    /// </summary>
+    /// <remarks>
+    /// A third thing a clause can be, beside a description and a named object. "Creatures
+    /// blocking it" names no set any card filter could answer and no single object either — it
+    /// is whichever creatures were declared as blockers for one permanent, and that changes
+    /// twice a turn.
+    /// </remarks>
+    private enum PreventionRelation
+    {
+        /// <summary>No relation asked.</summary>
+        None,
+
+        /// <summary>The source is blocking the permanent — "creatures blocking it".</summary>
+        BlockingHost,
+
+        /// <summary>The permanent is blocking the source — "creatures it's blocking".</summary>
+        BlockedByHost,
+    }
+
+    /// <summary>
+    /// Takes a combat relation off the end of a "by" clause and hands back what is left.
+    /// </summary>
+    /// <remarks>
+    /// The two are mirror images and are the whole of what the corpus prints: Armored Transport
+    /// is an attacker shielding itself from the creatures blocking it, Wall of Vapor a blocker
+    /// shielding itself from the creatures it is blocking. Reading either as the other covers the
+    /// opposite half of the combat, and reading either as the bare "creatures" left behind makes
+    /// the permanent immune to every creature on the board — which is the failure this family
+    /// produces that looks most like success.
+    /// <para>
+    /// The pronoun is only unambiguous because the sentences that print it shield "~" and nothing
+    /// else; <see cref="StaticShields"/> requires that, rather than guessing what "it" points at
+    /// in a sentence whose victim is a described set.
+    /// </para>
+    /// </remarks>
+    private static (PreventionRelation Relation, string Rest)? StaticPreventionRelation(
+        string phrase)
+    {
+        var what = phrase.Trim();
+
+        foreach (var (tail, relation) in PreventionRelationTails)
+        {
+            if (what.EndsWith(tail, StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = what[..^tail.Length].Trim();
+                return rest.Length == 0 ? null : (relation, rest);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The endings that name a combat relation to the permanent printing the line.</summary>
+    private static readonly (string Tail, PreventionRelation Relation)[] PreventionRelationTails =
+    [
+        (" blocking it", PreventionRelation.BlockingHost),
+        (" blocking ~", PreventionRelation.BlockingHost),
+        (" it's blocking", PreventionRelation.BlockedByHost),
+        (" ~'s blocking", PreventionRelation.BlockedByHost),
+    ];
 
     /// <summary>
     /// One prevention sentence's clauses, compiled to a shield each (CR 615.1).

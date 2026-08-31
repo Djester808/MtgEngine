@@ -7694,7 +7694,7 @@ public static partial class EffectPhrase
         if (read.BothWays)
             return TryPreventBothWays(read, targets, effects);
 
-        (string? Filter, PlayerScope? Who) from = (null, null);
+        (string? Filter, PlayerScope? Who, CombatRole? Combat) from = (null, null, null);
         var askForSource = false;
         TargetSpec? aimedSource = null;
 
@@ -7702,7 +7702,7 @@ public static partial class EffectPhrase
         {
             if (PreventSource(dealt) is { } dealer)
             {
-                from = (dealer.Filter, dealer.Who);
+                from = (dealer.Filter, dealer.Who, dealer.Combat);
                 askForSource = dealer.Chosen;
             }
             else if (Specs.Parse(dealt) is { Kind: TargetKind.Permanent } chosen)
@@ -7730,6 +7730,7 @@ public static partial class EffectPhrase
                 Kind = read.Kind,
                 SourceFilter = from.Filter,
                 SourceController = from.Who,
+                SourceCombat = from.Combat,
                 ChooseSource = askForSource,
             });
         }
@@ -7744,18 +7745,36 @@ public static partial class EffectPhrase
                 // resolving spell is not on the battlefield to be left out. The static reader
                 // fills that slot; here the word has nothing to point at, so the line is left
                 // unread rather than widened to every creature.
+                var shield = new PreventDescribedDamage
+                {
+                    Kind = read.Kind,
+                    SourceFilter = from.Filter,
+                    SourceController = from.Who,
+                    SourceCombat = from.Combat,
+                    ChooseSource = askForSource,
+                };
+
+                // The three ways a clause can name one object rather than describe a set, and
+                // the same three the both-ways reader next door already takes — it had them
+                // because Maze of Ith needs them, and this reader was left with only the
+                // description. "Untap target creature. Prevent all damage that would be dealt to
+                // it this turn" is one sentence naming a set and one naming the creature the
+                // sentence in front of it already chose.
+                if (PreventOneObject(part, targets, claimTarget: false, ref shield))
+                {
+                    shields.Add(shield);
+                    continue;
+                }
+
                 if (PreventVictim(part) is not { Other: false } who)
                     return false;
 
-                shields.Add(new PreventDescribedDamage
+                shields.Add(shield with
                 {
-                    Kind = read.Kind,
                     PermanentFilter = who.Filter,
                     PermanentController = who.Filter is null ? null : who.Who,
+                    PermanentCombat = who.Combat,
                     Players = who.Filter is null ? who.Who : null,
-                    SourceFilter = from.Filter,
-                    SourceController = from.Who,
-                    ChooseSource = askForSource,
                 });
             }
         }
@@ -7789,6 +7808,70 @@ public static partial class EffectPhrase
         }
 
         effects.AddRange(shields);
+        return true;
+    }
+
+    /// <summary>
+    /// The three ways a prevention clause names <em>one object</em> rather than a set.
+    /// </summary>
+    /// <remarks>
+    /// Lifted out of <see cref="TryPreventBothWays"/>, which had all three because Maze of Ith
+    /// needs them, so that the ordinary "to …" clause can use the same three and the two cannot
+    /// drift about what a pronoun means. Each resolves to something different:
+    /// <list type="bullet">
+    /// <item>
+    /// <strong>"~"</strong> is the permanent whose ability this is, and becomes
+    /// <see cref="PreventDescribedDamage.AroundSource"/> — read off
+    /// <see cref="ResolutionContext.PhysicalSourceId"/> when the ability resolves, because what
+    /// resolves is the ability and the shield goes round the creature. On an instant or sorcery
+    /// it names the spell, which is never dealt damage, so the shield is inert rather than wide:
+    /// the safe direction, and the reason this needs no test for what printed it.
+    /// </item>
+    /// <item>
+    /// <strong>A pronoun</strong> is the object the sentence in front of it already chose, and is
+    /// read <em>only</em> when there is a permanent target behind it to point at. With none, "it"
+    /// means the permanent the ability is printed on — a different card, and one no reader can
+    /// tell from the sentence alone, so the line is left unread. Favored Hoplite and Ignoble
+    /// Soldier both print that and both stay unread.
+    /// </item>
+    /// <item>
+    /// <strong>A target phrase</strong> claims a target of its own, and only the both-ways
+    /// reader asks for it. The ordinary "to …" clause may not: the one index an effect carries
+    /// is already spoken for there by "by target creature", and a victim that claimed it too
+    /// would silently take the source's slot. A player is refused in the arm as well — CR 609.7a
+    /// keeps one out of the source slot, and on the victim side "you" and "players" are scopes
+    /// the described vocabulary already answers.
+    /// </item>
+    /// </list>
+    /// </remarks>
+    private static bool PreventOneObject(
+        string phrase,
+        ImmutableList<TargetSpec>.Builder targets,
+        bool claimTarget,
+        ref PreventDescribedDamage shield)
+    {
+        var named = phrase.Trim();
+
+        if (string.Equals(named, "~", StringComparison.Ordinal))
+        {
+            shield = shield with { AroundSource = true };
+            return true;
+        }
+
+        if (Pronouns.Contains(named, StringComparer.OrdinalIgnoreCase))
+        {
+            if (targets.Count == 0 || targets[^1].Kind != TargetKind.Permanent)
+                return false;
+
+            shield = shield with { TargetIndex = targets.Count - 1 };
+            return true;
+        }
+
+        if (!claimTarget || Specs.Parse(named) is not { Kind: TargetKind.Permanent } chosen)
+            return false;
+
+        targets.Add(chosen);
+        shield = shield with { TargetIndex = targets.Count - 1 };
         return true;
     }
 
@@ -7828,28 +7911,9 @@ public static partial class EffectPhrase
             return false;
 
         var shield = new PreventDescribedDamage { Kind = read.Kind };
-        var named = noun.Trim();
 
-        if (string.Equals(named, "~", StringComparison.Ordinal))
-        {
-            shield = shield with { AroundSource = true };
-        }
-        else if (Pronouns.Contains(named, StringComparer.OrdinalIgnoreCase))
-        {
-            if (targets.Count == 0 || targets[^1].Kind != TargetKind.Permanent)
-                return false;
-
-            shield = shield with { TargetIndex = targets.Count - 1 };
-        }
-        else if (Specs.Parse(named) is { Kind: TargetKind.Permanent } chosen)
-        {
-            targets.Add(chosen);
-            shield = shield with { TargetIndex = targets.Count - 1 };
-        }
-        else
-        {
+        if (!PreventOneObject(noun, targets, claimTarget: true, ref shield))
             return false;
-        }
 
         effects.Add(shield);
         effects.Add(shield with { TargetIsSource = true });
@@ -7931,6 +7995,7 @@ public static partial class EffectPhrase
             {
                 SourceFilter = dealer.Filter,
                 SourceController = dealer.Who,
+                SourceCombat = dealer.Combat,
                 ChooseSource = true,
             };
         }
@@ -7951,6 +8016,7 @@ public static partial class EffectPhrase
                 {
                     PermanentFilter = who.Filter,
                     PermanentController = who.Filter is null ? null : who.Who,
+                    PermanentCombat = who.Combat,
                     Players = who.Filter is null ? who.Who : null,
                 };
             }
@@ -8317,7 +8383,8 @@ public static partial class EffectPhrase
     /// sentence do different things with the same word.
     /// </para>
     /// </remarks>
-    internal static (string? Filter, PlayerScope? Who, bool Other)? PreventVictim(string phrase)
+    internal static (string? Filter, PlayerScope? Who, bool Other, CombatRole? Combat)?
+        PreventVictim(string phrase)
     {
         ArgumentNullException.ThrowIfNull(phrase);
 
@@ -8326,15 +8393,15 @@ public static partial class EffectPhrase
         switch (what.ToLowerInvariant())
         {
             case "you":
-                return (null, PlayerScope.You, false);
+                return (null, PlayerScope.You, false, null);
             case "players":
             case "each player":
             case "all players":
-                return (null, PlayerScope.EachPlayer, false);
+                return (null, PlayerScope.EachPlayer, false, null);
             case "your opponents":
             case "each opponent":
             case "opponents":
-                return (null, PlayerScope.EachOpponent, false);
+                return (null, PlayerScope.EachOpponent, false, null);
             default:
                 break;
         }
@@ -8361,7 +8428,14 @@ public static partial class EffectPhrase
         if (other)
             what = what["other ".Length..].Trim();
 
-        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose, other) : null;
+        // After "other" and after the possessive, because the cards stack all three: "other
+        // attacking Soldiers you control" is an exclusion, a combat state, a card filter and a
+        // controller, and only the middle one is not a question about the printed card.
+        var combat = TrimCombatRole(ref what);
+
+        return CardFilterNamed(Singular(what)) is { } filter
+            ? (filter, whose, other, combat)
+            : null;
     }
 
     /// <summary>
@@ -8376,7 +8450,8 @@ public static partial class EffectPhrase
     /// becomes "a red source", which shields against every red source on the table instead of
     /// one, and is the direction this family is most dangerous in.
     /// </remarks>
-    internal static (string? Filter, PlayerScope? Who, bool Chosen)? PreventSource(string phrase)
+    internal static (string? Filter, PlayerScope? Who, bool Chosen, CombatRole? Combat)?
+        PreventSource(string phrase)
     {
         ArgumentNullException.ThrowIfNull(phrase);
 
@@ -8424,18 +8499,62 @@ public static partial class EffectPhrase
         if (string.Equals(what, "sources", StringComparison.OrdinalIgnoreCase)
             || (chosen && string.Equals(what, "source", StringComparison.OrdinalIgnoreCase)))
         {
-            return whose is null && !chosen ? null : (null, whose, chosen);
+            return whose is null && !chosen ? null : (null, whose, chosen, null);
         }
 
         // "Artifact sources", "black sources" — the word "source" adds only that it is whatever
         // dealt the damage, which is the question being asked anyway.
         _ = TrimTail(ref what, " sources") || TrimTail(ref what, " source");
 
-        return CardFilterNamed(Singular(what)) is { } filter ? (filter, whose, chosen) : null;
+        var combat = TrimCombatRole(ref what);
+
+        return CardFilterNamed(Singular(what)) is { } filter
+            ? (filter, whose, chosen, combat)
+            : null;
     }
 
     /// <summary>The articles a chosen source's noun phrase can open with.</summary>
     private static readonly string[] Articles = ["a ", "an ", "the "];
+
+    /// <summary>
+    /// The combat adjectives a prevention clause can open with, taken off and reported.
+    /// </summary>
+    /// <remarks>
+    /// Reported rather than answered, exactly as "other" and "of your choice" are, and for the
+    /// same reason all three are: none of them is a property of a card. The filter vocabulary
+    /// these clauses bottom out in is a <see cref="SearchFilters"/> id asked of a printed card,
+    /// and "attacking" is a fact about the game — so a reader that let the word fall through
+    /// would turn Harmless Assault's "by attacking creatures" into "by creatures", which is a
+    /// fog, and Dolmen Gate's "to attacking creatures you control" into a permanent that makes
+    /// every creature its controller has invulnerable at home.
+    /// <para>
+    /// One word at the front and no more. "Attacking or blocking creatures" is a disjunction the
+    /// shield has one slot for and would have to be two shields; nothing in the corpus prints it
+    /// in this sentence, and the phrase is left unread rather than collapsed to either half.
+    /// </para>
+    /// </remarks>
+    private static CombatRole? TrimCombatRole(ref string phrase)
+    {
+        foreach (var (word, role) in CombatAdjectives)
+        {
+            if (phrase.StartsWith(word, StringComparison.OrdinalIgnoreCase))
+            {
+                phrase = phrase[word.Length..].Trim();
+                return role;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The combat adjectives, longest first so "unblocked" is never read as a prefix.</summary>
+    private static readonly (string Word, CombatRole Role)[] CombatAdjectives =
+    [
+        ("unblocked ", CombatRole.Unblocked),
+        ("attacking ", CombatRole.Attacking),
+        ("blocking ", CombatRole.Blocking),
+        ("blocked ", CombatRole.Blocked),
+    ];
 
     private static bool TrimTail(ref string phrase, string tail)
     {

@@ -21,6 +21,39 @@ public enum DamageKind
 }
 
 /// <summary>
+/// What a permanent is <em>doing</em> in combat, when a shield asks about it (CR 506.1, 509.1h).
+/// </summary>
+/// <remarks>
+/// Kept apart from <see cref="PreventionEffect.PermanentFilter"/> deliberately, and it is the
+/// reason this type exists at all. A filter is a <see cref="Abilities.SearchFilters"/> id asked
+/// of a <em>printed card</em>, and no card says whether it is attacking — that is a fact about
+/// the game, held in <see cref="CombatState"/> and true of one permanent for part of one turn.
+/// Read as the bare filter it sits on, "prevent all combat damage that would be dealt this turn
+/// by attacking creatures" becomes "…by creatures", which is a fog rather than the printed card.
+/// <para>
+/// <strong>Blocked and unblocked are recorded, not derived.</strong> CR 509.1h makes an attacker
+/// with blockers declared for it blocked and keeps it blocked "even if all the creatures blocking
+/// it are removed from combat", so both arms ask <see cref="CombatState.Blocked"/> rather than
+/// whether anything currently blocks — the derived answer is wrong in the attacker's favour, and
+/// a shield reading it would let an attacker whose only blocker died through as "unblocked".
+/// </para>
+/// </remarks>
+public enum CombatRole
+{
+    /// <summary>Declared as an attacker and still in combat (CR 508.1g).</summary>
+    Attacking,
+
+    /// <summary>Blocking one or more attackers (CR 509.1g).</summary>
+    Blocking,
+
+    /// <summary>An attacker that had blockers declared for it (CR 509.1h).</summary>
+    Blocked,
+
+    /// <summary>An attacker that had none declared for it (CR 509.1h).</summary>
+    Unblocked,
+}
+
+/// <summary>
 /// A prevention effect: a shield around a described set of things (CR 615.1).
 /// </summary>
 /// <remarks>
@@ -133,6 +166,52 @@ public sealed record PreventionEffect
     public int? UntilEndOfTurn { get; init; }
 
     /// <summary>
+    /// What the permanents it shields have to be doing in combat, or null for any state.
+    /// </summary>
+    /// <remarks>
+    /// Asked <em>as well as</em> <see cref="PermanentFilter"/> and never instead of it: "attacking
+    /// creatures you control" is a card filter, a controller and a combat state, and all three
+    /// have to hold. Dolmen Gate read without this shields every creature its controller has,
+    /// standing at home, for as long as it is on the battlefield.
+    /// </remarks>
+    public CombatRole? PermanentCombat { get; init; }
+
+    /// <summary>
+    /// What the damage's source has to be doing in combat, or null for any state.
+    /// </summary>
+    /// <remarks>
+    /// The mirror of <see cref="PermanentCombat"/> on the other side of the damage event, and the
+    /// commoner of the two: "by attacking creatures", "by unblocked creatures". Read without it,
+    /// Snag and Harmless Assault are both plain fogs — strictly better cards than the printed
+    /// ones, which is the direction this family must never fail in.
+    /// </remarks>
+    public CombatRole? SourceCombat { get; init; }
+
+    /// <summary>
+    /// An object the damage's source has to be blocking — "creatures blocking it".
+    /// </summary>
+    /// <remarks>
+    /// A relation rather than a role, and it needs an id for the same reason <see cref="Source"/>
+    /// does: "creatures blocking <em>it</em>" is not a set any description can name, it is
+    /// whichever creatures were declared as blockers for one particular permanent. Only a
+    /// permanent's static ability prints this, and the permanent is the object the id names —
+    /// filled in when the shield is bound to its host, since there is no board at compile time.
+    /// </remarks>
+    public ObjectId? SourceBlocks { get; init; }
+
+    /// <summary>
+    /// An object the damage's source has to be blocked by — "creatures it's blocking".
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SourceBlocks"/> the other way round, and the two are not interchangeable:
+    /// Armored Transport shields itself from the creatures blocking it, Wall of Vapor from the
+    /// creatures it is blocking. One is an attacker naming its blockers, the other a blocker
+    /// naming its attackers, and a shield that confused them would cover the wrong half of the
+    /// combat entirely.
+    /// </remarks>
+    public ObjectId? SourceBlockedBy { get; init; }
+
+    /// <summary>
     /// Whether the shield is spent by the first damage it prevents (CR 615.8).
     /// </summary>
     /// <remarks>
@@ -160,8 +239,17 @@ public sealed record PreventionEffect
     /// player, and means both. Asked here rather than at the two call sites so the answer cannot
     /// differ between damage to a creature and damage to a player.
     /// </remarks>
+    /// <remarks>
+    /// <see cref="PermanentCombat"/> counts here even though it names no permanent. A shield
+    /// whose only "to" clause is a combat state describes a set, and a set is not everything —
+    /// answering true would hand it every player at the table as well.
+    /// </remarks>
     public bool ShieldsEverything =>
-        Permanent is null && PermanentFilter is null && Player is null && Players is null;
+        Permanent is null
+        && PermanentFilter is null
+        && PermanentCombat is null
+        && Player is null
+        && Players is null;
 }
 
 /// <summary>
@@ -212,6 +300,31 @@ public static class Preventions
         if (effect.Source is { } named && named != sourceId)
             return false;
 
+        // The combat questions are asked before the early return below, because they are about
+        // the game rather than about the card: a shield reading "by attacking creatures" has no
+        // SourceFilter beyond "creature" and would otherwise fall straight through that return
+        // and prevent every point of damage on the table.
+        if (effect.SourceCombat is { } role && !InCombat(role, state, sourceId))
+            return false;
+
+        // "Creatures blocking it": the source has to be one of the blockers declared for the
+        // named object (CR 509.1g). Asked of the recorded declaration, so a blocker that has
+        // since been removed from combat stops being covered — CR 506.4 says it stops being a
+        // blocking creature, and it deals no combat damage after that anyway.
+        if (effect.SourceBlocks is { } blockee
+            && !state.Combat.BlockersOf(blockee).Contains(sourceId))
+        {
+            return false;
+        }
+
+        // "Creatures it's blocking": the named object has to be blocking the source, which is
+        // the same table read from the other end.
+        if (effect.SourceBlockedBy is { } blocker
+            && !state.Combat.BlockersOf(sourceId).Contains(blocker))
+        {
+            return false;
+        }
+
         if (effect.SourceFilter is null && effect.SourceController is null)
             return true;
 
@@ -248,6 +361,12 @@ public static class Preventions
         if (effect.Excludes == damaged.Id)
             return false;
 
+        // Before the early return below for the same reason the source's combat state is: this
+        // narrows, and a shield that answered "everything" first would never reach it. "Attacking
+        // creatures you control" is three questions and this is the one no card filter can ask.
+        if (effect.PermanentCombat is { } role && !InCombat(role, state, damaged.Id))
+            return false;
+
         if (effect.ShieldsEverything || effect.Permanent == damaged.Id)
             return true;
 
@@ -261,6 +380,35 @@ public static class Preventions
             || PlayerScopes.Around(scope, state, effect.ControllerId)
                 .Contains(Characteristics.ControllerOf(state, abilities, damaged));
     }
+
+    /// <summary>
+    /// Whether a permanent is in the combat state a shield asked about (CR 506.1, 509.1h).
+    /// </summary>
+    /// <remarks>
+    /// "Unblocked" is an attacker with no blockers declared for it, which is a fact that does not
+    /// exist until blockers <em>have</em> been declared (CR 509.1h). Before that step an attacker
+    /// is neither blocked nor unblocked, and answering "unblocked" for it would be a shield that
+    /// applied for half a combat phase it was never meant to reach. Combat damage is dealt after
+    /// the declaration in every case, so requiring it costs the cards that print this nothing.
+    /// </remarks>
+    public static bool InCombatState(CombatRole role, GameState state, ObjectId id)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return InCombat(role, state, id);
+    }
+
+    private static bool InCombat(CombatRole role, GameState state, ObjectId id) => role switch
+    {
+        CombatRole.Attacking => state.Combat.Attackers.ContainsKey(id),
+        CombatRole.Blocking => state.Combat.IsBlocking(id),
+        CombatRole.Blocked =>
+            state.Combat.Attackers.ContainsKey(id) && state.Combat.Blocked.Contains(id),
+        CombatRole.Unblocked =>
+            state.Combat.BlockersDeclared
+            && state.Combat.Attackers.ContainsKey(id)
+            && !state.Combat.Blocked.Contains(id),
+        _ => false,
+    };
 
     /// <summary>Whether a prevention effect shields this player (CR 615.1).</summary>
     public static bool CoversPlayer(PreventionEffect effect, GameState state, Guid playerId)
