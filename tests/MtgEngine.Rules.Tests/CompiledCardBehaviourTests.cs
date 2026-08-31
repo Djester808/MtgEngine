@@ -3885,6 +3885,276 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(token.Permanent?.IsTapped);
     }
 
+    // ---- A bound that names a comparison, not a number (CR 107.3) -----------
+
+    /// <summary>A 1/1 of a named tribe, for a bound that counts one.</summary>
+    private static CardDefinition Tribal(string name, string subtype) =>
+        Card(name, string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, subtype);
+
+    /// <summary>
+    /// "Destroy target creature with power less than or equal to the number of Warriors you
+    /// control" — the same clause as "with power 2 or less", with the limit counted rather than
+    /// printed.
+    /// </summary>
+    /// <remarks>
+    /// The two creatures are one point of power apart and the board decides which of them the
+    /// spell may name, so a reader that had the comparison the wrong way round fails here rather
+    /// than compiling into a spell that destroys the opposite half of the table. The third
+    /// Warrior is the whole point of the fixture: nothing about the card changes and the answer
+    /// does, which is what says the limit is being counted at all rather than read off a number
+    /// somebody happened to guess.
+    /// </remarks>
+    [Fact]
+    public void A_bound_counted_off_the_board_refuses_the_creature_just_outside_it()
+    {
+        var edict = Card(
+            "Counted Bound Edict Test",
+            "Destroy target creature with power less than or equal to the number of Warriors "
+                + "you control.");
+
+        var compiled = CardCompiler.Compile(edict);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Tribal("Counted Bound Warrior One Test", "Warrior"), Zone.Battlefield);
+        game.Create(alice, Tribal("Counted Bound Warrior Two Test", "Warrior"), Zone.Battlefield);
+
+        var inside = game.Create(
+            bob, TestCards.Creature("Counted Bound Inside Test", 2, 2), Zone.Battlefield);
+        var outside = game.Create(
+            bob, TestCards.Creature("Counted Bound Outside Test", 3, 3), Zone.Battlefield);
+
+        // Two Warriors, so the limit is two: the 3/3 is not a legal target at all, and the 2/2
+        // one point below it is.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, edict),
+                [Target.ToPermanent(outside)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, edict), [Target.ToPermanent(inside)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(inside, out _));
+        Assert.True(game.State.TryGetObject(outside, out _));
+
+        // A third Warrior moves the limit and nothing else moves. The same spell now reaches the
+        // 3/3 it was refused a moment ago.
+        PassToMainPhaseOf(game, alice);
+        game.Create(alice, Tribal("Counted Bound Warrior Three Test", "Warrior"), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, edict), [Target.ToPermanent(outside)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(outside, out _));
+    }
+
+    /// <summary>
+    /// "Greater than or equal to" is the same clause pointed the other way (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The direction is carried by one group shared with the printed spelling, so a mistake in
+    /// it would be silent on every card in the family at once. This is the assertion that says
+    /// which way it points: the board is the same as the test above and the halves it admits are
+    /// exactly the opposite ones.
+    /// </remarks>
+    [Fact]
+    public void A_counted_bound_keeps_the_direction_the_card_printed()
+    {
+        var cull = Card(
+            "Counted Floor Cull Test",
+            "Destroy target creature with power greater than or equal to the number of Warriors "
+                + "you control.");
+
+        var compiled = CardCompiler.Compile(cull);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, Tribal("Counted Floor Warrior One Test", "Warrior"), Zone.Battlefield);
+        game.Create(alice, Tribal("Counted Floor Warrior Two Test", "Warrior"), Zone.Battlefield);
+
+        var under = game.Create(
+            bob, TestCards.Creature("Counted Floor Under Test", 1, 1), Zone.Battlefield);
+        var over = game.Create(
+            bob, TestCards.Creature("Counted Floor Over Test", 3, 3), Zone.Battlefield);
+
+        // A floor of two: the 1/1 is under it and refused, and the 3/3 is over it and destroyed.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, cull),
+                [Target.ToPermanent(under)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, cull), [Target.ToPermanent(over)]);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(over, out _));
+        Assert.True(game.State.TryGetObject(under, out _));
+    }
+
+    /// <summary>
+    /// "Target creature an opponent controls with power less than or equal to the number of
+    /// Warriors you control" — the owner clause on the end belongs to the count, not the target.
+    /// </summary>
+    /// <remarks>
+    /// The qualifier grammar takes a trailing "you control" off the end of a "with …" clause and
+    /// hands the rest of the phrase back to the target grammar, because that is where the
+    /// target's own owner clause is printed on almost every card that has one. A counted bound
+    /// ends in exactly those words and means something else by them, and this card prints both:
+    /// the target's owner clause in front of the qualifier and the count's behind it.
+    /// <para>
+    /// Taken as the target's, the count becomes every Warrior on the battlefield — Bob's three
+    /// as well as Alice's one — and his 2/2 becomes a legal target on a card that says it is not.
+    /// The board is built so the two readings disagree: four Warriors between them, one of them
+    /// Alice's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_owner_clause_after_a_counted_bound_belongs_to_the_count()
+    {
+        var vanguard = Card(
+            "Counted Owner Vanguard Test",
+            "Target creature an opponent controls with power less than or equal to the number "
+                + "of Warriors you control can't block this turn.");
+
+        var compiled = CardCompiler.Compile(vanguard);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var mine = game.Create(
+            alice, Tribal("Counted Owner Warrior Mine Test", "Warrior"), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, Tribal("Counted Owner Warrior Theirs One Test", "Warrior"), Zone.Battlefield);
+
+        game.Create(bob, Tribal("Counted Owner Warrior Theirs Two Test", "Warrior"), Zone.Battlefield);
+        game.Create(bob, Tribal("Counted Owner Warrior Theirs Three Test", "Warrior"), Zone.Battlefield);
+
+        var bear = game.Create(
+            bob, TestCards.Creature("Counted Owner Bear Test", 2, 2), Zone.Battlefield);
+
+        // One Warrior of Alice's, so the limit is one. Bob's 2/2 is over it — and would be under
+        // it on the reading that counts all four.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, vanguard),
+                [Target.ToPermanent(bear)]));
+
+        // Alice's own Warrior is inside the limit and still refused: the target's owner clause
+        // survived the lift, which is the other half of reading the phrase correctly.
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice,
+                TestCards.PutInHand(game, alice, vanguard),
+                [Target.ToPermanent(mine)]));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, vanguard), [Target.ToPermanent(theirs)]);
+        Settle(game);
+    }
+
+    /// <summary>
+    /// "Search your library for a card with mana value less than or equal to the number of lands
+    /// you control" — Beseech the Queen's ceiling, counted (CR 701.19a).
+    /// </summary>
+    /// <remarks>
+    /// The tutor's bound is an <see cref="Amount"/> and always was, which is what let the counted
+    /// spelling arrive here without the search learning anything: the same group carries a digit,
+    /// an announced X and a count. The two cards are one mana value apart, so a ceiling read as a
+    /// floor — or as no ceiling at all — offers the wrong one.
+    /// </remarks>
+    [Fact]
+    public void A_tutor_bounded_by_a_count_offers_only_what_the_count_allows()
+    {
+        var beseech = Card(
+            "Counted Tutor Test",
+            "Search your library for a card with mana value less than or equal to the number of "
+                + "lands you control, reveal it, put it into your hand, then shuffle.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(beseech);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Counted Tutor Land One Test"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Counted Tutor Land Two Test"), Zone.Battlefield);
+
+        game.Create(
+            alice, TestCards.Costed("Counted Tutor Inside Test", "{1}{G}", 2), Zone.Library);
+        game.Create(
+            alice, TestCards.Costed("Counted Tutor Outside Test", "{2}{G}", 3), Zone.Library);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, beseech), []);
+        TestCards.PassUntil(game, () => game.State.Choice is { Kind: ChoiceKind.SearchLibrary });
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+
+        var offered = choice!.Options.Select(o => o.Label).ToList();
+
+        // Two lands, so the ceiling is two: the two-mana card is offered and the three-mana card
+        // beside it is not.
+        Assert.Contains(
+            offered, label => label.Contains("Counted Tutor Inside", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(
+            offered, label => label.Contains("Counted Tutor Outside", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The same bound over a group rather than a target — "destroy each creature with power less
+    /// than or equal to the number of Islands you control".
+    /// </summary>
+    /// <remarks>
+    /// The group grammar asks the same qualifier the target grammar does, so the counted bound
+    /// arrived here without the sweeper being told anything. That is the point of putting it in
+    /// the shared reader, and this is the assertion that says it actually got there: one sweep
+    /// with one Island and the same sweep with two, on a board that does not otherwise change.
+    /// </remarks>
+    [Fact]
+    public void A_group_bounded_by_a_count_sweeps_only_up_to_it()
+    {
+        var tide = Card(
+            "Counted Sweep Test",
+            "Destroy each creature with power less than or equal to the number of Islands you "
+                + "control.");
+
+        var compiled = CardCompiler.Compile(tide);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var small = game.Create(
+            bob, TestCards.Creature("Counted Sweep Small Test", 1, 1), Zone.Battlefield);
+        var large = game.Create(
+            bob, TestCards.Creature("Counted Sweep Large Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tide), []);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(small, out _));
+        Assert.True(game.State.TryGetObject(large, out _));
+
+        // A second Island, and the same card sweeps one point higher.
+        PassToMainPhaseOf(game, alice);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, tide), []);
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(large, out _));
+    }
+
     // ---- A filter of several words (CR 109.4) --------------------------------
 
     [Fact]

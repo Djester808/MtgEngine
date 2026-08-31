@@ -1531,6 +1531,9 @@ public static partial class EffectPhrase
             return false;
         }
 
+        if (BoundNotRead(m))
+            return false;
+
         var restTo = Zone.Library;
         if (m.Groups["exilerest"].Success)
             restTo = Zone.Exile;
@@ -6190,7 +6193,8 @@ public static partial class EffectPhrase
         }
 
         if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } filter
-            && SearchedZones(m.Groups["zones"].Value) is { } zones)
+            && SearchedZones(m.Groups["zones"].Value) is { } zones
+            && !BoundNotRead(m))
         {
             // "Shuffle and put that card on top" leaves it in the library, which is a
             // destination like any other here - the engine puts it back after the shuffle
@@ -6283,7 +6287,8 @@ public static partial class EffectPhrase
             return true;
         }
 
-        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } sought)
+        if (m.Success && SearchFilterNamed(m.Groups["what"].Value) is { } sought
+            && !BoundNotRead(m))
         {
             effects.Add(new Seek(
                 sought,
@@ -7703,6 +7708,9 @@ public static partial class EffectPhrase
             {
                 return false;
             }
+
+            if (BoundNotRead(freeFromHand))
+                return false;
 
             effects.Add(new OfferFreeCastFromHand(offeredFilter, ManaValueBound(freeFromHand)));
             return true;
@@ -9776,6 +9784,108 @@ public static partial class EffectPhrase
     /// would drift the first time either of them learned a word.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What a printed mana-value bound may be measured against.
+    /// </summary>
+    /// <remarks>
+    /// A digit, the X announced as the spell was cast, or a <em>counted</em> quantity - "with
+    /// mana value less than or equal to the number of lands you control". All three end up in
+    /// one <see cref="Amount"/>, which is what lets the count reach every wrapper that already
+    /// takes a bound: the tutor, the seek, the free cast and the graveyard target cap read this
+    /// one group, so none of them had to learn what a count is.
+    /// <para>
+    /// The counted spelling is deliberately the <em>only</em> phrase admitted beside the two
+    /// literals. A bound is a comparison, and a comparison read against the wrong quantity is a
+    /// card that fetches what it may not fetch while compiling clean - so anything the shared
+    /// counting vocabulary cannot read leaves the line unread rather than guessing at a number.
+    /// </para>
+    /// </remarks>
+    private const string ManaValueCap =
+        @"\d+|X|the (?:total )?number of " + COUNTED + "+?";
+
+    /// <summary>
+    /// A printed mana-value ceiling, in either of the two spellings the corpus uses.
+    /// </summary>
+    /// <remarks>
+    /// "With mana value 3 or less" and "with mana value less than or equal to the number of
+    /// lands you control" are one clause written two ways round, and the second was unread
+    /// everywhere the first was read. One fragment behind every host means neither spelling can
+    /// reach a wrapper the other does not - which is the failure this compiler keeps finding,
+    /// where a sentence is refused by which of its vocabularies it happened to arrive at.
+    /// <para>
+    /// It is a shared <em>pattern</em> and not a rewrite in <c>Clean</c> deliberately. A rewrite
+    /// would have to say where the counted phrase ends before any host has matched, and there is
+    /// no punctuation to say: "the number of Warriors and Equipment you control" truncated at
+    /// the conjunction is a bound that admits more than the card allows, on a card that compiles
+    /// clean. The host pattern already knows what follows the clause, so it is the only reader
+    /// in a position to end the phrase.
+    /// </para>
+    /// </remarks>
+    private const string ManaValueCeilingClause =
+        @"( with mana value ((?<cap>" + ManaValueCap + @") or less"
+            + @"|less than or equal to (?<cap>" + ManaValueCap + @")))?";
+
+    /// <summary>The same clause where the host reads a floor as well as a ceiling.</summary>
+    /// <remarks>
+    /// <c>dir</c> carries the direction in both spellings and means the same thing in each:
+    /// absent is an exact mana value, "greater" is a floor and anything else a ceiling. Reading
+    /// "greater than or equal to" as a ceiling would be a tutor fetching the opposite half of
+    /// the library from the one printed, which nothing downstream could notice.
+    /// </remarks>
+    private const string ManaValueBoundClause =
+        @"( with mana value ((?<cap>" + ManaValueCap + @")( or (?<dir>less|greater))?"
+            + @"|(?<dir>less|greater) than or equal to (?<cap>" + ManaValueCap + @")))?";
+    /// <summary>The words a counted bound opens with, before the group grammar sees it.</summary>
+    private const string CountedBoundLead = "the number of ";
+
+    /// <summary>
+    /// The quantity a counted bound names, or null when the phrase is not a counted one.
+    /// </summary>
+    /// <remarks>
+    /// One per thing counted, which is what a bound means: "mana value less than or equal to the
+    /// number of Plains you control" is the count itself and not a multiple of it. The leading
+    /// words come off because every wrapper in the counting vocabulary is written against the
+    /// group alone - the same shape <c>VariableIsCountLine</c> hands it.
+    /// </remarks>
+
+    internal static Amount? CountedBound(string printed)
+    {
+        ArgumentNullException.ThrowIfNull(printed);
+
+        var phrase = printed.Trim();
+
+        if (phrase.StartsWith("the total number of ", StringComparison.OrdinalIgnoreCase))
+            phrase = phrase["the total number of ".Length..];
+        else if (phrase.StartsWith(CountedBoundLead, StringComparison.OrdinalIgnoreCase))
+            phrase = phrase[CountedBoundLead.Length..];
+        else
+            return null;
+
+        return CountingAmount(new Amount(1), phrase.Trim());
+    }
+
+    /// <summary>
+    /// Whether a bound was printed and could not be read - the one answer a host may not treat
+    /// as "no bound".
+    /// </summary>
+    /// <remarks>
+    /// <strong>This is the fail-open the counted spelling would otherwise have opened.</strong>
+    /// Before the shared clause admitted a counted quantity, a cap the reader could not parse
+    /// could not match either, so the whole sentence went unread and the card was visibly
+    /// unfinished. Now the clause matches and <see cref="ManaValueBound"/> answers null for a
+    /// phrase the counting vocabulary cannot read - and every host below spells a missing bound
+    /// as null too. Handed straight through, "search your library for a card with mana value
+    /// less than or equal to <em>something unread</em>" would compile into a tutor with no
+    /// ceiling at all: a strictly better card than the printed one, scored as coverage.
+    /// <para>
+    /// So the two nulls are told apart here and the hosts refuse the sentence rather than
+    /// widening it. The cards stay unread, which is what an unfinished reading is supposed to
+    /// look like.
+    /// </para>
+    /// </remarks>
+    private static bool BoundNotRead(Match m) =>
+        m.Groups["cap"].Success && ManaValueBound(m) is null;
+
     private static Amount? ManaValueBound(Match m)
     {
         if (!m.Groups["cap"].Success)
@@ -9783,9 +9893,20 @@ public static partial class EffectPhrase
 
         var printed = m.Groups["cap"].Value;
 
-        return string.Equals(printed, "X", StringComparison.Ordinal)
-            ? Amount.X
-            : new Amount(int.Parse(printed, CultureInfo.InvariantCulture));
+        if (string.Equals(printed, "X", StringComparison.Ordinal))
+            return Amount.X;
+
+
+        // A counted bound is refused rather than approximated when the group grammar cannot read
+        // it: a tutor whose ceiling silently came out as nought would find nothing at all, and a
+        // floor that did would find everything.
+        return int.TryParse(
+            printed,
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var fixedValue)
+            ? new Amount(fixedValue)
+            : CountedBound(printed);
     }
 
     /// <summary>
@@ -13210,7 +13331,7 @@ public static partial class EffectPhrase
         private static TargetSpec WithQualifier(
             TargetSpec spec,
             string described,
-            Func<GameState, IAbilitySource, GameObject, int, bool> qualifier,
+            Func<GameState, IAbilitySource, GameObject, Guid, int, bool> qualifier,
             bool readsVariable)
         {
             var already = spec.ObjectFilter;
@@ -13222,7 +13343,7 @@ public static partial class EffectPhrase
                 Guid controller,
                 int announced) =>
                 already?.Invoke(state, abilities, obj, controller) != false
-                && qualifier(state, abilities, obj, announced);
+                && qualifier(state, abilities, obj, controller, announced);
 
             return spec with
             {
@@ -13516,6 +13637,24 @@ public static partial class EffectPhrase
                 var buriedCap = buried.Groups["cap"].Value;
                 var buriedCapIsX = string.Equals(buriedCap, "X", StringComparison.Ordinal);
 
+                // The shared bound clause admits a counted quantity and this host cannot hold
+                // one. A card in a graveyard is chosen through an object filter, which is asked
+                // while targets are being picked and has no resolution to count against, and
+                // InGraveyard takes a printed int. So the counted spelling is refused outright
+                // rather than approximated: a ceiling that quietly came out as nought is a card
+                // that may return nothing at all from a graveyard full of what it names. Those
+                // cards stay unread until the spec can carry an amount.
+                if (buried.Groups["cap"].Success
+                    && !buriedCapIsX
+                    && !int.TryParse(
+                        buriedCap,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out _))
+                {
+                    return null;
+                }
+
                 return InGraveyard(
                     buried.Groups["noun"].Value,
                     buried.Groups["whose"].Value,
@@ -13529,7 +13668,7 @@ public static partial class EffectPhrase
             // noun and the owner clause, so it is lifted out and the rest is read as an ordinary
             // phrase - which is what lets "target creature with power 4 or greater you control"
             // work without the noun grammar having to know anything about power.
-            Func<GameState, IAbilitySource, GameObject, int, bool>? qualifier = null;
+            Func<GameState, IAbilitySource, GameObject, Guid, int, bool>? qualifier = null;
             var qualifierReadsX = false;
             var described = text;
 
@@ -13541,14 +13680,39 @@ public static partial class EffectPhrase
 
             if (QualifierPhrase().Match(text) is { Success: true } qualified)
             {
-                qualifier = QualifierFilter(
-                    qualified.Groups["q"].Value.Trim(), out qualifierReadsX);
+                var clause = qualified.Groups["q"].Value.Trim();
+                var lifted = qualified.Groups["q"].Length;
+
+                // "Target creature an opponent controls with power less than or equal to the
+                // number of Warriors you control" - the owner clause this pattern takes off the
+                // end belongs to the *count*, and on that card the target has an owner clause of
+                // its own printed in front of the qualifier. Taking the trailing words off
+                // anyway left a qualifier counting every Warrior on the battlefield where the
+                // card says yours, on a phrase that still read as a target: a spell picking the
+                // wrong creatures, compiled clean, with nothing downstream able to tell.
+                //
+                // So the longer reading is tried first and today's is what is left when it
+                // fails. Nothing is lost by the order: every other qualifier this grammar knows
+                // is anchored at both ends, so none of them can match with the owner words still
+                // on the end - "with power 3 or less you control" is not a clause any of them
+                // accepts, and the second attempt reads it exactly as it always did.
+                if (qualified.Groups["own"].Success
+                    && QualifierFilter(clause + qualified.Groups["own"].Value, out var ownReadsX)
+                        is { } counted)
+                {
+                    qualifier = counted;
+                    qualifierReadsX = ownReadsX;
+                    lifted += qualified.Groups["own"].Length;
+                }
+                else
+                {
+                    qualifier = QualifierFilter(clause, out qualifierReadsX);
+                }
 
                 if (qualifier is null)
                     return null;
 
-                text = text.Remove(
-                    qualified.Groups["q"].Index - 1, qualified.Groups["q"].Length + 1);
+                text = text.Remove(qualified.Groups["q"].Index - 1, lifted + 1);
             }
 
             var m = TargetPhrase().Match(text);
@@ -13747,7 +13911,7 @@ public static partial class EffectPhrase
                 Guid controller,
                 int announced)
             {
-                if (qualifier?.Invoke(state, abilities, obj, announced) == false)
+                if (qualifier?.Invoke(state, abilities, obj, controller, announced) == false)
                     return false;
 
                 // Types come from the computed characteristics, not the printed card: a land
@@ -14353,7 +14517,7 @@ public static partial class EffectPhrase
         /// </remarks>
         [GeneratedRegex(
             @"^[Tt]arget ((?<noun>(nonland )?[A-Za-z][A-Za-z-]*(?: (?:or )?[A-Za-z][A-Za-z-]*)*) )?card"
-                + @"( with mana value (?<cap>\d+|X) or less)?"
+                + ManaValueCeilingClause
                 + @" (from|in) (?<whose>your|a single|a|an opponent's) graveyard$",
             RegexOptions.None)]
         private static partial Regex GraveyardPhrase();
@@ -14707,7 +14871,7 @@ public static partial class EffectPhrase
         /// goes in <see cref="TargetSpec.VariableFilter"/>, which refuses when no value was
         /// announced, rather than in the plain object filter, which would be handed a zero.
         /// </param>
-        private static Func<GameState, IAbilitySource, GameObject, int, bool>? QualifierFilter(
+        private static Func<GameState, IAbilitySource, GameObject, Guid, int, bool>? QualifierFilter(
             string qualifier, out bool readsVariable)
         {
             readsVariable = false;
@@ -14719,10 +14883,10 @@ public static partial class EffectPhrase
                 // a permanent can carry a counter at zero, so the count is what is asked about
                 // rather than whether the key is present.
                 if (!counter.Groups["kind"].Success)
-                    return (_, _, obj, _) => obj.Permanent?.Counters.Values.Any(n => n > 0) == true;
+                    return (_, _, obj, _, _) => obj.Permanent?.Counters.Values.Any(n => n > 0) == true;
 
                 var kind = counter.Groups["kind"].Value;
-                return (_, _, obj, _) => obj.Permanent?.Counters.GetValueOrDefault(kind, 0) > 0;
+                return (_, _, obj, _, _) => obj.Permanent?.Counters.GetValueOrDefault(kind, 0) > 0;
             }
 
             var number = NumberQualifier().Match(qualifier);
@@ -14736,7 +14900,30 @@ public static partial class EffectPhrase
                 var variable = string.Equals(printed, "X", StringComparison.Ordinal);
                 readsVariable = variable;
 
-                var wanted = variable ? 0 : Number(printed).Fixed;
+                // "With power less than or equal to the number of Warriors you control" -
+                // the same comparison against a quantity nothing prints. It goes to the
+                // shared counting vocabulary rather than to a tally of its own, so every
+                // group phrase that vocabulary already reads arrives here working; a phrase
+                // it cannot read leaves the clause unread, because a bound that quietly came
+                // out as nought would be a spell that may target nothing at all and a floor
+                // that did would be one that may target everything.
+                //
+                // Counted around the *controller* of the spell or ability, which is who "you"
+                // means while a target is chosen (CR 608.2), and with no source: an object
+                // filter is asked before anything is on the stack, so a phrase that reads the
+                // permanent itself is refused at compile time rather than answered with a
+                // default nobody chose.
+                var counted = number.Groups["counted"].Success
+                    ? Counting(
+                        number.Groups["counted"].Value.Trim(),
+                        hasSource: false,
+                        CountSeats.Board)
+                    : null;
+
+                if (number.Groups["counted"].Success && counted is null)
+                    return null;
+
+                var wanted = variable || counted is not null ? 0 : Number(printed).Fixed;
                 var direction = number.Groups["dir"].Value;
                 var orMore =
                     direction.StartsWith("greater", StringComparison.OrdinalIgnoreCase)
@@ -14744,7 +14931,7 @@ public static partial class EffectPhrase
 
                 var what = number.Groups["what"].Value.ToLowerInvariant();
 
-                return (state, abilities, obj, announced) =>
+                return (state, abilities, obj, controller, announced) =>
                 {
                     var computed = Characteristics.Of(state, abilities, obj);
                     int? has = what switch
@@ -14754,7 +14941,9 @@ public static partial class EffectPhrase
                         _ => obj.Card.Cmc,
                     };
 
-                    var limit = variable ? announced : wanted;
+                    var limit = counted is { } tally
+                        ? tally(state, abilities, controller, default, null)
+                        : variable ? announced : wanted;
 
                     return has is { } value && (orMore ? value >= limit : value <= limit);
                 };
@@ -14764,7 +14953,7 @@ public static partial class EffectPhrase
             if (keyword.Success && Keywords(keyword.Groups["kw"].Value) is { } wantedKeyword)
             {
                 var negated = keyword.Groups["not"].Success;
-                return (state, abilities, obj, _) =>
+                return (state, abilities, obj, _, _) =>
                     Characteristics.Of(state, abilities, obj).Has(wantedKeyword) != negated;
             }
 
@@ -14806,9 +14995,14 @@ public static partial class EffectPhrase
         [GeneratedRegex(@"^(another|other) target\s+", RegexOptions.IgnoreCase)]
         private static partial Regex AnotherPrefix();
 
+        /// <remarks>
+        /// The owner clause is captured rather than merely skipped, because the caller has to be
+        /// able to put it back: a counted qualifier ends in the same words and the two readings
+        /// are told apart only by which of them the qualifier grammar accepts.
+        /// </remarks>
         [GeneratedRegex(
             @"\s(?<q>with(out)? .+?)"
-                + @"(\s+you control|\s+you don't control|\s+an opponent controls"
+                + @"(?<own>\s+you control|\s+you don't control|\s+an opponent controls"
                 + @"|\s+your opponents control|\s+another player controls"
                 + @"|\s+defending player controls)?$",
             RegexOptions.IgnoreCase)]
@@ -14822,10 +15016,19 @@ public static partial class EffectPhrase
         /// is a letter in a word, and the surrounding alternatives are all spelled out — so the
         /// literal turns the option off around itself rather than relying on the group.
         /// </remarks>
+        /// <remarks>
+        /// The second alternative is the same bound with the comparison spelled out and the
+        /// quantity counted rather than printed - "target creature with power less than or
+        /// equal to the number of Warriors you control". <c>dir</c> carries the direction in
+        /// both spellings, so the one delegate below decides which way round the comparison
+        /// goes from one group whichever way the card wrote it.
+        /// </remarks>
         [GeneratedRegex(
             @"^with (?<what>power|toughness|mana value) "
-                + @"(?<n>\d+|(?-i:X)|one|two|three|four|five|six|seven|eight|nine|ten) "
-                + @"or (?<dir>greater|more|less|fewer)$",
+                + @"((?<n>\d+|(?-i:X)|one|two|three|four|five|six|seven|eight|nine|ten) "
+                + @"or (?<dir>greater|more|less|fewer)"
+                + @"|(?<dir>greater|less) than or equal to "
+                + @"(?<n>the (?:total )?number of (?<counted>\S.*)))$",
             RegexOptions.IgnoreCase)]
         private static partial Regex NumberQualifier();
 
@@ -17497,7 +17700,7 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^you may cast an? (?<what>[a-z][^.]*? )?spell"
-            + @"( with mana value (?<cap>\d+|X) or less)?"
+            + ManaValueCeilingClause
             + @" from your hand without paying its mana cost\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex FreeCastFromHandSentence();
@@ -17910,7 +18113,7 @@ public static partial class EffectPhrase
     /// <summary>The filter on what may be taken, with the search's own mana-value bound.</summary>
     private const string TAKEWHAT =
         @"(?: (?<what>[A-Za-z][A-Za-z, \-]*?) cards?"
-            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + ManaValueBoundClause
             + @"( from among them| revealed this way))?";
 
     /// <remarks>
@@ -17990,7 +18193,7 @@ public static partial class EffectPhrase
     [GeneratedRegex(
         LOOKHEAD + @"(You may\s+)?[Rr]eveal (" + TAKECOUNT + @")"
             + @" (?<what>[A-Za-z][A-Za-z, \-]*?) cards?"
-            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + ManaValueBoundClause
             + @" from among them,?\s*(and|then)\s+[Pp]ut "
             + @"(it|them|that card|those cards|the revealed cards) into your (?<where>hand)"
             + RESTGOES + @"\.?(?<after>.*)$",
@@ -18261,7 +18464,7 @@ public static partial class EffectPhrase
             // compiler treats as worse than an unread line, and refusing to cross the word is
             // what leaves the two-name family unread until somebody builds a filter holding two.
             + @"( named (?<named>(?:(?! named )[^.])+?))?"
-            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + ManaValueBoundClause
             + @"(,? reveal (it|that card|them|those cards))?"
             // "Exile them" is the third destination the tail can name, and it is a destination
             // rather than a separate instruction: the search is what found the cards and this
@@ -18327,7 +18530,7 @@ public static partial class EffectPhrase
             // to cross the word is what leaves the two-name family unread until somebody
             // builds it a filter that can hold two.
             + @"( named (?<named>(?:(?! named )[^,.])+?))?"
-            + @"( with mana value (?<cap>\d+|X)( or (?<dir>less|greater))?)?"
+            + ManaValueBoundClause
             + @"( (and|then) put (it|that card|them|those cards) "
             + @"(?<where>onto the battlefield)(?<tapped> tapped)?)?\.?$",
         RegexOptions.IgnoreCase)]
