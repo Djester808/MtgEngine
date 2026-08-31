@@ -3410,6 +3410,21 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
                     + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
 
+            // "Equal to 2 plus the number of cards named ~ in all graveyards", "where X is one
+            // plus the number of other creatures you control" — a count with a constant added to
+            // it. Every wrapper that reads a count anchors on the literal words "the number of",
+            // so a constant printed in front of them hides the count from all of them at once;
+            // moved to the other side, all of them read it and the group grammar behind them
+            // takes the constant off again.
+            //
+            // The lead does the work it does for the aggregate above: it is what says the phrase
+            // is a quantity. "Change this creature's base toughness to 1 plus the number of
+            // creature cards in your graveyard" has no reader waiting for it either way, and
+            // rewriting it would only move an unread line's words about.
+            cleaned = AdditiveCountAsANumber().Replace(
+                cleaned,
+                m => m.Groups["lead"].Value + " the number of " + m.Groups["n"].Value + " plus ");
+
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
             cleaned = AbilityWord().Replace(cleaned, string.Empty);
@@ -19132,6 +19147,21 @@ public static partial class CardCompiler
             + @"(?<field>power|toughness|mana value) (?<join>of|among) ",
         RegexOptions.IgnoreCase)]
     private static partial Regex AggregateAsANumber();
+
+    /// <summary>
+    /// "Equal to 2 plus the number of …", "where X is one plus the number of …".
+    /// </summary>
+    /// <remarks>
+    /// The constant is carried through into the rewritten phrase rather than dropped, which is
+    /// the whole point: a reader that threw it away would compile 18 of the 35 corpus cards
+    /// carrying one as complete while playing a number smaller than the card prints — Kindle
+    /// dealing 0 rather than 2 the first time it is cast.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<lead>equal to|where X is) (?<n>\d{1,2}|one|two|three|four|five|six|seven|eight"
+            + @"|nine|ten) plus the number of ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AdditiveCountAsANumber();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.

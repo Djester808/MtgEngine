@@ -11072,6 +11072,22 @@ public static partial class EffectPhrase
         // three of the five ways the corpus spells this reference, for one branch.
         if (ThisWay.Mentions(groupPhrase))
         {
+            // "Equal to the total mana value of cards milled this way", "where X is the greatest
+            // power among creature cards put into your graveyard this way" - an *aggregate* over
+            // what this resolution just did rather than a tally of it, and the third source for
+            // the fold that already reads a board group and a zone pile. The compiler has spelled
+            // the aggregate into the counting words by the time it reaches here, exactly as it
+            // does for a board group, so the same wrappers carry both.
+            //
+            // It cannot be read as a tally and that is why these lines were left unread rather
+            // than approximated: two 4/4s milled are a count of two and a total power of eight,
+            // and "~ deals damage equal to the total power of the cards exiled this way" read as
+            // a count is a card doing a quarter of what it prints. The set is the one
+            // ThisWay.Counted names for the tally beside it, so neither can drift about which
+            // touches the phrase admits.
+            if (TouchedAggregate(groupPhrase) is { } folded)
+                return each with { Counter = folded };
+
             return ThisWay.Counted(groupPhrase) is not { } touched
                 ? null
                 : each with { Counter = touched.In };
@@ -11088,6 +11104,51 @@ public static partial class EffectPhrase
                     context.PhysicalSourceId,
                     scope => PlayerScopes.Resolve(scope, context)),
             };
+    }
+
+    /// <summary>
+    /// An aggregate over the set this resolution has touched, or null when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// The same two patterns the board aggregate is read through - the fold and the field come
+    /// off <see cref="AggregateOverGroupLine"/>, and what is left is a "this way" phrase read by
+    /// the one reader every other grammar of the family asks. Nothing here knows a noun or a
+    /// participle of its own: a phrase the tally would refuse is a phrase this refuses too, which
+    /// is what stops a card totalling a set it could not have counted.
+    /// <para>
+    /// The "each" some callers put in front comes off first, because those callers disagree about
+    /// whether it belongs to the phrase in exactly the way <see cref="Counting"/> records - and
+    /// "each greatest power among ..." is not a phrase the aggregate pattern would match.
+    /// </para>
+    /// </remarks>
+    private static Func<ResolutionContext, int>? TouchedAggregate(string groupPhrase)
+    {
+        var phrase = groupPhrase.Trim();
+
+        if (phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase))
+            phrase = phrase[5..].Trim();
+
+        if (AggregateOverGroupLine().Match(phrase) is not { Success: true } aggregate)
+            return null;
+
+        if (ThisWay.Counted(aggregate.Groups["group"].Value.Trim()) is not { } over)
+            return null;
+
+        var stat = aggregate.Groups["field"].Value.ToLowerInvariant() switch
+        {
+            "power" => TouchStat.Power,
+            "toughness" => TouchStat.Toughness,
+            _ => TouchStat.ManaValue,
+        };
+
+        var fold = aggregate.Groups["how"].Value.ToLowerInvariant() switch
+        {
+            "total" => TouchFold.Total,
+            "least" or "lowest" => TouchFold.Least,
+            _ => TouchFold.Greatest,
+        };
+
+        return context => over.AggregateIn(context, stat, fold);
     }
 
     /// <summary>
@@ -11110,6 +11171,56 @@ public static partial class EffectPhrase
     {
         ArgumentNullException.ThrowIfNull(groupPhrase);
 
+        // "X is 2 plus the number of cards named ~ in all graveyards" - a count with a constant
+        // added to it. It is taken off here, in front of the group grammar, and the obvious
+        // alternative - a third term on `Amount`, beside the fixed part it multiplies the count
+        // by - was tried and is wrong twice over.
+        //
+        // It does not reach the amount. The commonest printing of this family is "where X is
+        // ...", which compiles through `WithCountedVariable`, and that reader takes the amount's
+        // `Counter` delegate and drops the amount around it - so a constant stored beside the
+        // delegate goes nowhere and Kindle deals nought. The behaviour test below caught it at
+        // once, 2 damage becoming 0, which is the shape of every failure in this round.
+        //
+        // And where it does reach one, adding after the multiplication is the wrong arithmetic.
+        // "For each" distributes over the whole quantity: "gain 2 life for each 3 plus the
+        // number of Islands you control" is two life per thing counted, and there are three plus
+        // the Islands of them. Folded into the count, that comes out right at every multiplier;
+        // added afterwards it is right only while the multiplier is the implicit one every card
+        // printing this happens to leave off today.
+        //
+        // Half the family has no amount anywhere near it in any case. "~'s power and toughness
+        // are each equal to 1 plus the number of lands you control" is a characteristic-defining
+        // ability, and so is every cost reduction and every board condition that counts.
+        //
+        // Dropping the term instead is the fail-open this vocabulary exists to refuse: 18 of the
+        // 35 corpus cards blocked on one compile as complete with the constant simply thrown
+        // away, and each of them then plays a smaller number than it prints, for ever, on a card
+        // coverage scores as read.
+        var phrase = groupPhrase.Trim();
+
+        var lead = phrase.StartsWith("each ", StringComparison.OrdinalIgnoreCase)
+            ? "each "
+            : string.Empty;
+
+        if (AdditiveCountTerm().Match(phrase[lead.Length..]) is not { Success: true } more)
+            return CountedGroup(phrase, hasSource, seats);
+
+        if (AdditiveNumber(more.Groups["n"].Value) is not { } extra)
+            return null;
+
+        var rest = lead + phrase[(lead.Length + more.Length)..].Trim();
+
+        return CountedGroup(rest, hasSource, seats) is not { } counted
+            ? null
+            : (state, abilities, you, source, players) =>
+                counted(state, abilities, you, source, players) + extra;
+    }
+
+    /// <summary>The group itself, with any constant added to its count already taken off.</summary>
+    private static CountFn? CountedGroup(
+        string groupPhrase, bool hasSource, CountSeats seats)
+    {
         var phrase = groupPhrase.Trim();
 
         // "For each creature on the battlefield" is "for each creature". The count at the bottom
@@ -11899,6 +12010,19 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex AggregateOverGroupLine();
 
+    /// <summary>"2 plus …", "one plus …" - a constant added to the count behind it.</summary>
+    /// <remarks>
+    /// Anchored at the start of the phrase, because that is the only place the compiler's rewrite
+    /// puts it: the printed word order is "2 plus the number of X" and the wrappers that read a
+    /// count all anchor on "the number of", so the constant is moved across those words before
+    /// anything reads them. A number found anywhere else in a group phrase is part of the group -
+    /// "creatures with power 2 or greater" - and is nothing to do with this.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<n>\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten) plus ",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AdditiveCountTerm();
+
     /// <summary>"Creatures on the battlefield" - a zone a count is already confined to.</summary>
     /// <remarks>
     /// A name clause may follow it - "each other creature on the battlefield named Relentless
@@ -12401,6 +12525,31 @@ public static partial class EffectPhrase
     private static bool IsThatMany(string word) =>
         word.Trim().Equals("that many", StringComparison.OrdinalIgnoreCase)
         || word.Trim().Equals("that much", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The constant in front of a count, or null for a word this may not guess at.</summary>
+    /// <remarks>
+    /// Its own table rather than <see cref="Number"/>, which answers one for every word it does
+    /// not know. That default is right where it stands - an article is one - and wrong here: a
+    /// constant read as one on a card that printed three is a card two short of what it says,
+    /// on a line that compiled, with nothing downstream able to tell.
+    /// </remarks>
+    private static int? AdditiveNumber(string word) =>
+        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var digits)
+            ? digits
+            : word.ToLowerInvariant() switch
+            {
+                "one" => 1,
+                "two" => 2,
+                "three" => 3,
+                "four" => 4,
+                "five" => 5,
+                "six" => 6,
+                "seven" => 7,
+                "eight" => 8,
+                "nine" => 9,
+                "ten" => 10,
+                _ => null,
+            };
 
     internal static Amount Number(string word)
     {
