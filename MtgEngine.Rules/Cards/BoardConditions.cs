@@ -72,7 +72,42 @@ public static partial class BoardConditions
 
         text = SpellOutEachName(text);
 
-        return Single(text, aboutASeat) ?? Joined(text, aboutASeat);
+        return Single(text, aboutASeat)
+            ?? Joined(text, aboutASeat)
+            ?? ControlsNoneOfThem(text, aboutASeat);
+    }
+
+    /// <summary>
+    /// "You don't control a creature named Darkstar" — the negation spelled with the verb
+    /// (CR 109.5).
+    /// </summary>
+    /// <remarks>
+    /// The same question as "you control no creature named Darkstar", which has been read all
+    /// along, in the words the cards happen to print: an amass card asks whether you have an
+    /// Army yet, and Kookus, Rufus Shinra, Tatsunari and Jiang Yanggu ask whether their partner
+    /// is on the board. It arrives here rather than as a reader because the negation belongs in
+    /// exactly one place, and the noun keeps going through the one filter vocabulary — which is
+    /// what carries the name clause into it for free.
+    /// <para>
+    /// Asked only once every other reader has refused the clause, so a phrase that already reads
+    /// cannot start reading as this instead, and a rewrite that produces nonsense costs nothing
+    /// the card was not already losing.
+    /// </para>
+    /// </remarks>
+    private static BoardCondition? ControlsNoneOfThem(string text, bool aboutASeat)
+    {
+        var negated = DoesNotControlLine().Match(text);
+
+        return negated.Success
+            ? Single(
+                negated.Groups["who"].Value
+                    + (negated.Groups["one"].Value.Equals("es not", StringComparison.Ordinal)
+                        || negated.Groups["one"].Value.Equals("esn't", StringComparison.Ordinal)
+                        ? " controls no "
+                        : " control no ")
+                    + negated.Groups["what"].Value,
+                aboutASeat)
+            : null;
     }
 
     /// <summary>
@@ -3066,6 +3101,19 @@ public static partial class BoardConditions
             + @"(?<names>[A-Z][A-Za-z0-9'’ -]*(?:, [A-Z][A-Za-z0-9'’ -]*)*,? and [A-Z][A-Za-z0-9'’ -]*)$",
         RegexOptions.None)]
     private static partial Regex EachNamedLine();
+
+    /// <summary>"You don't control a Zombie", "that player doesn't control a creature".</summary>
+    /// <remarks>
+    /// The determiner is required and is only ever "a", "an" or "any": "you don't control two
+    /// creatures" is a different question — it is false with three of them — and rewriting it as
+    /// "control no" would answer the wrong one. The subject list is the same one every other
+    /// reader here uses, so a seat this file cannot resolve is refused before the rewrite runs.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^" + WHO + @" do(?<one>n't|es not|esn't) control (?:an?|any) "
+            + @"(?<what>[A-Za-z][A-Za-z0-9 ]*(?: named [A-Z][A-Za-z0-9 ,'’-]*)?)$",
+        RegexOptions.None)]
+    private static partial Regex DoesNotControlLine();
 
     /// <summary>The commas and the "and" a printed list of names is joined by.</summary>
     [GeneratedRegex(@",? and |, ")]
