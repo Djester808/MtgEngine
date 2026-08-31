@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using MtgEngine.Rules.Abilities;
 using MtgEngine.Rules.Cards;
+using MtgEngine.Rules.State;
 using Xunit.Abstractions;
 
 namespace MtgEngine.Api.Tests;
@@ -133,6 +134,13 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
         var unnamed = putBy
             .Where(k => readBy.GetValueOrDefault(k.Key) == 0)
             .Where(k => !literals.Contains(k.Key))
+
+            // CR 122.1c: a counter whose name is a power and a toughness modifies them by that
+            // much, whatever the name is. Asked with the engine's own reader rather than by
+            // listing "+1/+1" and its cousins, because that reader is the thing consuming them -
+            // "-0/-1" is on three cards, appears as a literal nowhere, and is read by the layers
+            // exactly as "+1/+1" is.
+            .Where(k => CounterKinds.PowerToughnessOf(k.Key) is null)
             .OrderByDescending(k => k.Value)
             .ToList();
 
@@ -406,15 +414,10 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
         foreach (var effect in EveryEffect(compiled))
         {
             var type = effect.GetType();
-            var counted = type.GetProperties().Any(p =>
-                p.PropertyType == typeof(Amount) || p.Name is "Counters" or "Count" or "Delta");
-
-            if (!counted)
-                continue;
 
             foreach (var property in type.GetProperties())
             {
-                if (property.PropertyType != typeof(string) || property.Name is not ("Kind" or "CounterKind"))
+                if (property.PropertyType != typeof(string) || !NamesACounter(type, property))
                     continue;
 
                 if (property.GetValue(effect) is string { Length: > 0 } kind)
@@ -422,6 +425,18 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
             }
         }
     }
+
+    /// <summary>Whether a string property on an effect holds a counter's name.</summary>
+    /// <remarks>
+    /// <c>CounterKind</c> says what it is. A bare <c>Kind</c> only names a counter on an effect
+    /// that is about counters: <c>Amass</c>'s <c>Kind</c> is the Army's creature type, and taking
+    /// it for a counter name filed "Zombies", "Orcs" and "Goblins" as counters that nothing reads
+    /// - three findings, fifty-two cards, and not one of them a counter.
+    /// </remarks>
+    private static bool NamesACounter(Type effect, PropertyInfo property) =>
+        property.Name is "CounterKind"
+        || (property.Name is "Kind"
+            && effect.Name.Contains("Counter", StringComparison.Ordinal));
 
     private static IEnumerable<IEffect> EveryEffect(CompiledCard compiled)
     {
@@ -489,26 +504,67 @@ public sealed class DeadWriteAuditTests(ITestOutputHelper output)
     }
 
     /// <summary>Whether a card's own text reads a counter back rather than only putting it on.</summary>
+    /// <remarks>
+    /// Classified by the <em>putting</em> side rather than by a list of reading words, because the
+    /// reading words are open-ended and the putting ones are not: "when there are five or more
+    /// plot counters on this enchantment" is a read, and no list of verbs written in advance
+    /// contained it.
+    /// <para>
+    /// <b>Reminder text does not count.</b> A stun counter's reminder — "if a permanent with a
+    /// stun counter would become untapped, remove one from it instead" — is the rulebook printed
+    /// on the card, not the card reading its own marker, and it appears on 48 of the 54 cards that
+    /// put one on. Counting it would have made the counter that started this audit look consumed.
+    /// </para>
+    /// </remarks>
     private static bool ReadsCounterBack(string text, string kind)
     {
-        foreach (var verb in new[] { "remove", "for each", "if", "with", "without", "as long as", "that many", "number of" })
-        {
-            var needle = $"{kind} counter";
-            var at = text.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
-            while (at >= 0)
-            {
-                var window = text[Math.Max(0, at - 60)..at];
-                if (window.Contains(verb, StringComparison.OrdinalIgnoreCase)
-                    && !window.EndsWith("put a ", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+        var plain = WithoutReminderText(text);
 
-                at = text.IndexOf(needle, at + 1, StringComparison.OrdinalIgnoreCase);
+        // A card that counts every counter on a permanent reads whatever it put there, whatever
+        // the name. Twitching Doll puts a nest counter on itself and then makes a token "for each
+        // counter on this creature" - read, by a sentence that never names it.
+        foreach (var counted in new[]
+        {
+            "for each counter", "number of counters", "counters on it", "counters on this",
+        })
+        {
+            if (plain.Contains(counted, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        var needle = $"{kind} counter";
+        for (var at = plain.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+             at >= 0;
+             at = plain.IndexOf(needle, at + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            var before = plain[Math.Max(0, at - 30)..at];
+            if (!before.Contains("put ", StringComparison.OrdinalIgnoreCase)
+                && !before.Contains("enters ", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>A card's text with its parenthesised reminders taken out (CR 207.2).</summary>
+    private static string WithoutReminderText(string text)
+    {
+        var kept = new System.Text.StringBuilder(text.Length);
+        var depth = 0;
+
+        foreach (var letter in text)
+        {
+            if (letter == '(')
+                depth++;
+            else if (letter == ')' && depth > 0)
+                depth--;
+            else if (depth == 0)
+                kept.Append(letter);
+        }
+
+        return kept.ToString();
     }
 
     /// <summary>

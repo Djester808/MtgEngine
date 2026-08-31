@@ -239,6 +239,193 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(25, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Markers written and read by nothing (CR 700.2d, 613.4c) -------------
+
+    /// <summary>
+    /// A shield counter spends itself instead of letting the damage land (CR 122.1d).
+    /// </summary>
+    /// <remarks>
+    /// The stun counter's twin, and it was in exactly the same state: nine corpus cards put a
+    /// shield counter on a creature, the compiler read the line, the counter went on, and nothing
+    /// in the engine ever looked for it — so the creature took the damage and died on schedule.
+    /// <para>
+    /// It hid better than the stun counter did. Every card that grants one prints the rule as
+    /// reminder text, so the card itself reads as though the shield worked, and any instrument
+    /// that treats a card mentioning its own counter as a card consuming it is told the marker is
+    /// fine. Reminder text is the rulebook printed on the card; it is not the card doing
+    /// anything, and the audit now strips it before asking.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_shield_counter_is_spent_instead_of_the_damage_landing()
+    {
+        var aegis = Card("Shield Counter Test", "Put a shield counter on target creature.");
+        var bolt = Card("Shield Bolt Test", "~ deals 2 damage to target creature.");
+
+        var compiled = CardCompiler.Compile(aegis);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Shielded Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, aegis), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(bear).Permanent!.Counters.GetValueOrDefault(CounterKinds.Shield));
+
+        // Two damage on a 2/2 is lethal, and the whole question is whether it arrives at all.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Contains(bear, game.State.Battlefield);
+        Assert.Equal(0, game.State.GetObject(bear).Permanent!.DamageMarked);
+
+        // Spent, not permanent: the counter stops one thing and then it is gone.
+        Assert.Equal(
+            0,
+            game.State.GetObject(bear).Permanent!.Counters.GetValueOrDefault(CounterKinds.Shield));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, bolt), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The other half of CR 122.1d: destruction is replaced as well as damage.
+    /// </summary>
+    /// <remarks>
+    /// Asserted separately because it is a separate arm reading the same counter, and because a
+    /// shield that stopped damage but not "destroy target creature" would look implemented from
+    /// every angle a damage test can see. "It can't be regenerated" is destruction too, and a
+    /// shield counter is not regeneration.
+    /// </remarks>
+    [Theory]
+    [InlineData("Destroy target creature.")]
+    [InlineData("Destroy target creature. It can't be regenerated.")]
+    public void A_shield_counter_is_spent_instead_of_the_destruction(string printed)
+    {
+        var aegis = Card("Shield Destroy Aegis Test", "Put a shield counter on target creature.");
+        var doom = Card(
+            "Shield Destroy Test " + printed.Length.ToString(CultureInfo.InvariantCulture),
+            printed);
+
+        var compiled = CardCompiler.Compile(doom);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(
+            alice, TestCards.Creature("Shielded Doomed Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, aegis), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doom), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.Contains(bear, game.State.Battlefield);
+        Assert.Equal(
+            0,
+            game.State.GetObject(bear).Permanent!.Counters.GetValueOrDefault(CounterKinds.Shield));
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, doom), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bear, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// "Choose one or both" on a triggered ability offers the second mode as well as the first.
+    /// </summary>
+    /// <remarks>
+    /// CR 700.2d: a range, not a count, and the compiled ability carries both ends of it. Only the
+    /// lower end was ever read, so the question stopped the moment the minimum was met and the
+    /// "or both" half of the sentence could not be taken at all — on a card that compiled cleanly,
+    /// played without an error and put a perfectly ordinary line in the log.
+    /// <para>
+    /// Both rows matter. The second is what the maximum is for; the first is what stops a range
+    /// from becoming a requirement, and a fix that only offered more modes would have made
+    /// "choose one or both" mean "choose both".
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 23, 1)]
+    [InlineData(false, 23, 0)]
+    public void A_modal_trigger_offers_the_whole_range_it_was_compiled_with(
+        bool takeTheSecond, int expectedLife, int expectedDrawn)
+    {
+        var jarl = new CardDefinition
+        {
+            OracleId = "oracle-modal-trigger-range-test",
+            Name = "Modal Range Test",
+            OracleText = "When ~ enters, choose one or both —" + "\n" + "• You gain 3 life."
+                + "\n" + "• Draw a card.",
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            ManaCostRaw = "{1}{W}",
+        };
+
+        var compiled = CardCompiler.Compile(jarl);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var trigger = compiled.Triggers.Single();
+        Assert.Equal(1, trigger.ModesToChoose);
+        Assert.Equal(2, trigger.ModesMax);
+
+        var (game, alice, _) = InMainPhase();
+        var before = game.State.GetPlayer(alice).Hand.Count;
+
+        game.Create(alice, jarl, Zone.Battlefield);
+
+        // By hand rather than through Settle, which answers every choice with its first option -
+        // and which option is offered at all is the whole question here.
+        PassUntilAsked(game);
+
+        var first = game.State.Choice;
+        Assert.NotNull(first);
+        Assert.Equal(ChoiceKind.ChooseTriggerMode, first.Kind);
+
+        // Below the minimum there is nothing to decline: two modes and no way out of picking one.
+        Assert.Equal(2, first.Options.Count);
+
+        game.Choose(alice, [first.Options[0].Id]);
+        PassUntilAsked(game);
+
+        // Past the minimum the question comes back with the mode not yet taken and a way to stop.
+        var second = game.State.Choice;
+        Assert.NotNull(second);
+        Assert.Equal(ChoiceKind.ChooseTriggerMode, second.Kind);
+        Assert.Equal(2, second.Options.Count);
+
+        game.Choose(alice, [second.Options[takeTheSecond ? 0 : 1].Id]);
+        Settle(game);
+
+        Assert.Equal(expectedLife, game.State.GetPlayer(alice).Life);
+        Assert.Equal(before + expectedDrawn, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>Passes priority until a question is outstanding, or nothing is left to pass.</summary>
+    private static void PassUntilAsked(Game game)
+    {
+        for (var guard = 0; guard < 20 && game.State.Choice is null; guard++)
+        {
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+        }
+    }
+
     // ---- Pumps ---------------------------------------------------------------
 
     [Fact]

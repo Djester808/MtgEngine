@@ -1469,6 +1469,24 @@ public static class CounterKinds
     public const string Stun = "stun";
 
     /// <summary>
+    /// Shield counters, which spend themselves stopping damage or destruction (CR 122.1d).
+    /// </summary>
+    /// <remarks>
+    /// The stun counter's twin, and it was in the same state until now: nine corpus cards put one
+    /// on and nothing anywhere looked for it, so every creature that gained a shield took the
+    /// damage anyway and died on schedule.
+    /// <para>
+    /// It is worse hidden than the stun counter was, because the cards that grant it print the
+    /// rule as reminder text - "if it would be dealt damage or destroyed, remove a shield counter
+    /// from it instead" - so the card reads as though the engine had implemented it, and any
+    /// audit that counts a card mentioning its own counter as a card reading it back is told the
+    /// marker is consumed. Reminder text is the rulebook printed on the card, not the card doing
+    /// anything.
+    /// </para>
+    /// </remarks>
+    public const string Shield = "shield";
+
+    /// <summary>
     /// Level counters, which are how a leveler tracks how far it has been levelled (CR 711.2a).
     /// </summary>
     /// <remarks>

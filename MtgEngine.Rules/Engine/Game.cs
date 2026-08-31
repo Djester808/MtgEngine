@@ -4179,6 +4179,9 @@ public sealed class Game
         Emit(new PriorityGranted(recipient ?? State.ActivePlayerId));
     }
 
+    /// <summary>Names the shield counter's replacement, so it is applied at most once per event.</summary>
+    private const string ShieldCounterKey = "shield-counter";
+
     /// <summary>Identifies one waiting trigger: which object, and which of its abilities.</summary>
     private static string TriggerKey(PendingTrigger trigger) =>
         trigger.SourceId.Value.ToString("N") + "|" + trigger.AbilityId;
@@ -11318,6 +11321,38 @@ public sealed class Game
                     [new CountersChanged(
                         hitCreature.Id, CounterKinds.MinusOneMinusOne, hitCreature.Amount)], false, null);
             }
+        }
+
+        // CR 122.1d: a shield counter replaces the next damage the permanent would be dealt,
+        // spending itself. A rules replacement that lives on the permanent rather than on a card,
+        // like regeneration below, so it is offered here rather than through ReplacementsOf.
+        //
+        // Offered after infect and wither, which replace the same event with counters: a creature
+        // dealt infect damage is not dealt damage at all (CR 702.90b), so there is nothing left
+        // for a shield to stop and spending one would cost the permanent its protection for free.
+        if (e is DamageMarked shieldedHit
+            && !applied.Contains((shieldedHit.Id, ShieldCounterKey))
+            && State.TryGetObject(shieldedHit.Id, out var guarded)
+            && guarded.Permanent?.Counters.GetValueOrDefault(CounterKinds.Shield) > 0)
+        {
+            yield return (ShieldCounterKey, guarded, (_, _, source) =>
+                [new CountersChanged(source.Id, CounterKinds.Shield, -1)], false, null);
+        }
+
+        // The other half of the same rule. "Destroy" and "destroy, it can't be regenerated" are
+        // both destruction, and a shield counter is not regeneration - reading only the first
+        // would leave the commonest removal in the game going through the shield.
+        if (e is ObjectMoved
+            {
+                To: Zone.Graveyard,
+                Cause: MoveCause.Destroy or MoveCause.DestroyNoRegeneration,
+            } razed
+            && !applied.Contains((razed.OldId, ShieldCounterKey))
+            && State.TryGetObject(razed.OldId, out var warded)
+            && warded.Permanent?.Counters.GetValueOrDefault(CounterKinds.Shield) > 0)
+        {
+            yield return (ShieldCounterKey, warded, (_, _, source) =>
+                [new CountersChanged(source.Id, CounterKinds.Shield, -1)], false, null);
         }
 
         // CR 614.1c: "if it would die this turn, exile it instead". A floating effect rather
