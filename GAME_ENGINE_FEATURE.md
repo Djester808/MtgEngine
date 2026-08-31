@@ -2295,9 +2295,13 @@ model, and a prohibition that binds on some turns and not others is worse than a
 - **The God cycle's "unless"** (4). "~ can't attack or block unless you control another creature
   with power 4 or greater" reads as a conditional static today; what refuses it is
   `BoardConditions`, which cannot answer the clause. A board-condition row, not a prohibition one.
-- **An attack tax** (6). "Creatures can't attack you unless their controller pays {1} for each of
-  those creatures" is a cost demanded of a declaration, and nothing in the engine can charge one
-  during the declare attackers step.
+- **An attack tax** (6). ~~"Creatures can't attack you unless their controller pays {1} for each
+  of those creatures" is a cost demanded of a declaration, and nothing in the engine can charge
+  one during the declare attackers step.~~ **Superseded in round twenty-one**: `CombatTax` now
+  exists and Ghostly Prison, Propaganda and Sphere of Safety are read. Left struck through rather
+  than deleted because the reasoning was sound and the conclusion still expired — a decline in
+  this document is a measurement of the engine on the day it was written, not a standing verdict,
+  and every one of them should be re-tested before it is cited.
 - **A filtered one-shot** (3). "…and can't be blocked by Walls this turn" needs a block restriction
   with a filter *and* a duration; the static form of it exists and the floating form does not.
 
