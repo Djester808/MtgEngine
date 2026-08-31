@@ -10805,3 +10805,57 @@ source is (power bounds, "creatures without trample", "creature tokens"), 8 want
 remembered or compared, 7 carry the CR 615.5 rider, 5 name a spell on the stack as the source, 4
 lead with a condition `BoardConditions` cannot read, and 3 take a variable number of targets. The
 rest are one-offs. There is no second convergence in there of the size this round found.
+
+### A filter that asks the permanent instead of the printed card (CR 613)
+
+The row above predicted this one: `PermanentFilter` and `SourceFilter` were `SearchFilters` ids
+asked of a **printed card**, and fourteen prevention cards wanted a filter over what the source
+*is*. That was the small half of the problem. `SearchFilters.Matches` took a `CardDefinition` and
+nothing else, and it is the vocabulary shared by search, hand filters, graveyard counts, cost
+modifiers, casting restrictions, splice and the chosen costs — so **every filter in the compiler
+that named a permanent was blind to the board**. A creature that gained flying this turn was not
+"a creature with flying"; a 2/2 pumped to 5/5 was not one "with power 4 or greater"; and no
+creature anywhere could be told to carry a +1/+1 counter, because a card has no counters to read.
+
+**The vocabulary was not forked, and that was the whole design problem.** A filter is asked in
+places where there is no permanent to ask about — a card in a library, a hand, a graveyard — and
+for those the printed answer is not a compromise, it is correct: CR 613 orders continuous effects
+on permanents and none of them reaches a card in another zone. So `Matches` reads a `Subject`,
+which is either a printed card or a permanent's `ComputedCharacteristics`, and every word of the
+grammar reads off that without knowing which it was handed. The two forms cannot come apart the
+way a second grammar over computed characteristics would have.
+
+Three qualities the board decides joined the vocabulary, and the compiler learned to read them off
+"X with Y", "X without Y" and "X with no Y":
+
+- `keyword:<name>` — **folded out of the `KeywordAbility` enum rather than listed beside it.** The
+  compiler's grantable-keyword table has twice been found narrower than the enum it describes, and
+  both times the missing word was silent; `FirstStrike` is written `first-strike` and nothing has
+  to remember it.
+- `power>=N` / `power<=N`, and the same for toughness — CR 613.4's number, not the one in the
+  corner of the card.
+- `counter:<kind>` — the only quality here that a card can never carry at all.
+
+The noun and the quality are joined with the ampersand the vocabulary already has, so nothing
+downstream knows the reader exists. A noun that reads as an *alternation* is refused instead: the
+bar binds looser than the ampersand where the filter is read, so "artifact|creature&keyword:flying"
+would mean any artifact at all, and a precedence a string cannot spell is one to refuse.
+
+**CR 613.8's hazard is real here** — a filter asked from inside the layer loop that computed a
+second permanent would recurse without bound, which is exactly what overflowed the stack when
+`ControllerOf` was first written as `Of`. It is answered the same way: a nested ask falls back to
+the printed card rather than looping, the way CR 613.8b breaks a dependency loop it cannot order.
+
+**Measured.** 8 cards completed — Scarecrow, Tresserhorn Skyknight, Tanglesap, Al-abara's Carpet,
+Fog of War, Vine Snare, Hindervines and Circle of Protection: Shadow, which is every card the
+previous round's row named. **89 already-complete cards changed behaviour**: 43 carry a prevention
+shield whose filter is now asked of the permanent, 20 carry a static shield of the same shape, and
+27 print a cost that sacrifices or returns a permanent answering a filter — "sacrifice a creature"
+could not be paid with an animated land, and now can. The compiled-output diff over the whole
+corpus is exactly those 8 rows and nothing else.
+
+**Two things this did not reach, and both are the same limitation.** The static-shield path passes
+`EmptyAbilities.Instance` into `Preventions.Watches`, so on those twenty cards the computation
+gathers no continuous effects at all — counters and the face-down rules still apply, a granted
+keyword does not. And a *spell on the stack* is still asked of its printed card, deliberately:
+the object is a card, and the readers that describe one say so.

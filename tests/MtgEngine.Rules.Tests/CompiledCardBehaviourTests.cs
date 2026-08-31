@@ -5088,6 +5088,238 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(before + 1, game.State.GetPlayer(bob).Hand.Count);
     }
 
+    // ---- A filter that asks the board, not the print (CR 613) ----------------
+
+    /// <summary>
+    /// "By creatures with flying" catches a creature an Aura just gave wings (CR 702.9a).
+    /// </summary>
+    /// <remarks>
+    /// The whole of this section in one card. A filter id is a string asked of a
+    /// <see cref="CardDefinition"/> everywhere in this compiler, and for a search, a hand filter
+    /// or a count of a graveyard that is exactly right — a card in those zones has only what is
+    /// printed on it. For a permanent it is wrong, and silently: the creature under the Aura has
+    /// flying by CR 613 layer 6 and its card does not say so, so a shield reading the print
+    /// prevents nothing at all.
+    /// <para>
+    /// The control is the second attacker in the same combat, under the same shield, with the
+    /// same printed card and no Aura. Nothing but the granted keyword separates the two, so a
+    /// filter that had gone back to reading the print would show both unprevented and one that
+    /// answered "yes" to everything would show both prevented.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_fog_on_creatures_with_flying_catches_one_an_aura_gave_wings()
+    {
+        var fog = Card(
+            "Wing Fog Test",
+            "Prevent all combat damage that would be dealt this turn by creatures with flying.");
+
+        var compiled = CardCompiler.Compile(fog);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var wings = Card(
+            "Fog Wings Test",
+            "Enchant creature" + (char)10 + "Enchanted creature has flying.",
+            CardType.Enchantment, subtypes: "Aura");
+
+        Assert.True(CardCompiler.Compile(wings).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var winged = game.Create(
+            alice, TestCards.Creature("Winged Ox Test", 2, 6), Zone.Battlefield);
+        var grounded = game.Create(
+            alice, TestCards.Creature("Grounded Ox Test", 3, 6), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, wings), [Target.ToPermanent(winged)]);
+        ResolveStack(game);
+
+        // The keyword is granted rather than printed, which is the entire point of the test.
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(winged))
+                .Has(KeywordAbility.Flying));
+
+        Assert.False(game.State.GetObject(grounded).Card.Keywords.HasFlag(KeywordAbility.Flying));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, fog), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [winged] = AttackTarget.Player(bob),
+                [grounded] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Three from the grounded ox and nothing from the winged one: 20 - 3. Reading the print
+        // would let both through and leave Bob on 15.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "By creatures with power 4 or less" reads the pumped size, not the printed one (CR 613.4).
+    /// </summary>
+    /// <remarks>
+    /// Vine Snare. The number in the corner of the card is the value layer 7a starts from and not
+    /// the answer, so this is the arm that a printed reading gets wrong in the direction that
+    /// matters: a 2/2 pumped to 5/5 is exactly the creature the shield is not supposed to stop.
+    /// <para>
+    /// Both attackers print 2/2 and only one of them has been pumped, so the two assertions below
+    /// cannot both hold unless the bound is being asked of the board.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_fog_on_power_four_or_less_lets_a_pumped_two_two_through()
+    {
+        var snare = Card(
+            "Snare Fog Test",
+            "Prevent all combat damage that would be dealt this turn by creatures with "
+                + "power 4 or less.");
+
+        var compiled = CardCompiler.Compile(snare);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var growth = Card("Snare Growth Test", "Target creature gets +3/+3 until end of turn.");
+        Assert.True(CardCompiler.Compile(growth).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var pumped = game.Create(
+            alice, TestCards.Creature("Snare Runt Test", 2, 2), Zone.Battlefield);
+        var small = game.Create(
+            alice, TestCards.Creature("Snare Whelp Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, growth), [Target.ToPermanent(pumped)]);
+        ResolveStack(game);
+
+        Assert.Equal(
+            5, Characteristics.Of(game.State, Pool, game.State.GetObject(pumped)).Power);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, snare), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [pumped] = AttackTarget.Player(bob),
+                [small] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Five from the pumped one, nothing from the 2/2 that still answers the bound. A printed
+        // reading prevents both and leaves Bob on 20.
+        Assert.Equal(15, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// "By creatures with no +1/+1 counters on them" counts what is on the permanent (CR 122.1).
+    /// </summary>
+    /// <remarks>
+    /// Hindervines, and the one quality in this family that no card can ever carry: counters exist
+    /// only on the battlefield, so the printed answer is not merely stale, there is nothing there
+    /// to read. A filter asked of the card says "no counters" about every creature in the game.
+    /// <para>
+    /// The negation is the other half of it. "With no X" and "without X" are one meaning printed
+    /// two ways and both come out as the vocabulary's own "non" prefix, so the counted creature
+    /// must be the one the shield lets through.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_fog_on_creatures_with_no_counters_lets_the_counted_creature_through()
+    {
+        var vines = Card(
+            "Vine Fog Test",
+            "Prevent all combat damage that would be dealt this turn by creatures with "
+                + "no +1/+1 counters on them.");
+
+        var compiled = CardCompiler.Compile(vines);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var counter = Card("Vine Counter Test", "Put a +1/+1 counter on target creature.");
+        Assert.True(CardCompiler.Compile(counter).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var counted = game.Create(
+            alice, TestCards.Creature("Vine Adder Test", 2, 2), Zone.Battlefield);
+        var bare = game.Create(
+            alice, TestCards.Creature("Vine Serpent Test", 2, 2), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, counter), [Target.ToPermanent(counted)]);
+        ResolveStack(game);
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(counted).Permanent!.Counters.GetValueOrDefault("+1/+1"));
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, vines), targets: null);
+        ResolveStack(game);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice,
+            new Dictionary<ObjectId, AttackTarget>
+            {
+                [counted] = AttackTarget.Player(bob),
+                [bare] = AttackTarget.Player(bob),
+            });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // Three from the creature carrying a counter, nothing from the one without.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+    }
+
+    /// <summary>
+    /// A card in a library still answers the printed question (CR 613 orders permanents).
+    /// </summary>
+    /// <remarks>
+    /// The other half of the two-form answer, and the reason the printed overload was kept rather
+    /// than replaced. A search is not a question about the board: no continuous effect reaches a
+    /// card in a library, so what is printed on it <em>is</em> what it has. The same filter id
+    /// that reads a granted keyword off a permanent has to read the printed one here, and a
+    /// counter — which only a permanent can carry — has to answer "none".
+    /// </remarks>
+    [Fact]
+    public void The_same_filter_answers_a_library_card_from_its_print()
+    {
+        var flier = Card(
+            "Printed Flier Test", string.Empty, CardType.Creature,
+            power: 2, toughness: 2, keywords: KeywordAbility.Flying);
+
+        var ground = Card(
+            "Printed Walker Test", string.Empty, CardType.Creature, power: 2, toughness: 2);
+
+        Assert.True(SearchFilters.Matches("creature&keyword:flying", flier));
+        Assert.False(SearchFilters.Matches("creature&keyword:flying", ground));
+
+        // The bound is the printed number, because that is the only number a card in a library
+        // has (CR 613.4 modifies permanents).
+        Assert.True(SearchFilters.Matches("creature&power<=4", ground));
+        Assert.False(SearchFilters.Matches("creature&power>=4", ground));
+
+        // No counters anywhere but the battlefield, so "with no +1/+1 counters" is true of every
+        // card in a library and "with a +1/+1 counter" is true of none.
+        Assert.True(SearchFilters.Matches("creature&noncounter:+1/+1", ground));
+        Assert.False(SearchFilters.Matches("creature&counter:+1/+1", ground));
+    }
+
     // ---- Flicker (CR 400.7) --------------------------------------------------
 
     [Fact]

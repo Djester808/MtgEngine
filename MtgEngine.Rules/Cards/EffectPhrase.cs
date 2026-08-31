@@ -9398,6 +9398,13 @@ public static partial class EffectPhrase
         // once and no second reader has to learn it separately.
         what = what.Replace(" and/or ", " or ", StringComparison.OrdinalIgnoreCase);
 
+        // "Creatures with flying", "creatures without trample", "creatures with power 3 or less",
+        // "creatures with no +1/+1 counters on them" - a noun and a quality only the board can
+        // answer. Read before the alternation below, because "power 3 or less" is one clause
+        // containing the word "or" and the split would tear it in half.
+        if (QualifiedFilter(what) is { } qualified)
+            return qualified;
+
         if (string.Equals(what, "basic land", StringComparison.OrdinalIgnoreCase))
             return SearchFilters.BasicLand;
 
@@ -9514,6 +9521,136 @@ public static partial class EffectPhrase
 
         return string.Join('&', parts);
     }
+
+    /// <summary>
+    /// A noun and a quality it has or lacks - "creatures with flying", "creatures without
+    /// trample", "creatures with power 3 or less", "creatures with no +1/+1 counters on them".
+    /// </summary>
+    /// <remarks>
+    /// The half of the filter vocabulary that describes a permanent rather than a card, and the
+    /// reason <see cref="Abilities.SearchFilters"/> grew a computed form: a creature has flying
+    /// because something gave it flying, not because the word is printed on it, and a filter that
+    /// answered from the print would be wrong about every creature wearing an Aura.
+    /// <para>
+    /// The noun and the quality are joined with the conjunction the vocabulary already has, so
+    /// nothing downstream has to know this reader exists: "creature&amp;keyword:flying" is read by
+    /// the same loop that reads "green&amp;creature". A noun that reads as an <em>alternation</em>
+    /// is refused instead, because the bar binds looser than the ampersand where the filter is
+    /// read - "artifact|creature&amp;keyword:flying" would mean any artifact at all - and a
+    /// precedence a string cannot spell is one to refuse rather than to spell wrongly.
+    /// </para>
+    /// <para>
+    /// "With no X" and "without X" are one meaning printed two ways, and both come out as the
+    /// negation the vocabulary already reads. The negation is put on the quality alone: "creatures
+    /// without flying" is still creatures.
+    /// </para>
+    /// </remarks>
+    private static string? QualifiedFilter(string phrase)
+    {
+        var without = phrase.IndexOf(" without ", StringComparison.OrdinalIgnoreCase);
+        var with = phrase.IndexOf(" with ", StringComparison.OrdinalIgnoreCase);
+
+        int at;
+        int width;
+        bool negated;
+
+        // "Without" first where both appear, and by position rather than by preference: the
+        // earlier preposition is the one that splits the phrase.
+        if (without >= 0 && (with < 0 || without <= with))
+        {
+            at = without;
+            width = " without ".Length;
+            negated = true;
+        }
+        else if (with >= 0)
+        {
+            at = with;
+            width = " with ".Length;
+            negated = false;
+        }
+        else
+        {
+            return null;
+        }
+
+        var quality = phrase[(at + width)..].Trim();
+
+        // "With no +1/+1 counters on them" spells the negation on the quality instead of on the
+        // preposition, and means the same thing.
+        if (quality.StartsWith("no ", StringComparison.OrdinalIgnoreCase))
+        {
+            negated = !negated;
+            quality = quality[3..].Trim();
+        }
+
+        if (QualityAtom(quality) is not { } atom)
+            return null;
+
+        var described = negated ? "non" + atom : atom;
+        var noun = phrase[..at].Trim();
+
+        if (noun.Length == 0)
+            return described;
+
+        if (SearchFilterNamed(noun) is not { } subject
+            || subject.Contains('|', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return subject + "&" + described;
+    }
+
+    /// <summary>
+    /// One quality a permanent has or lacks, as the filter vocabulary spells it, or null.
+    /// </summary>
+    /// <remarks>
+    /// Three families and no list of words. A keyword's atom is folded out of the enum by
+    /// <see cref="Abilities.SearchFilters.KeywordNamed"/>, so this reader gains a word the moment
+    /// the engine gains the ability rather than when somebody remembers to write it down - which
+    /// is the failure the compiler's grantable-keyword table has had twice.
+    /// </remarks>
+    private static string? QualityAtom(string quality)
+    {
+        if (SizeBoundPhrase().Match(quality) is { Success: true } size)
+        {
+            var atLeast = !size.Groups["dir"].Value.Equals("less", StringComparison.OrdinalIgnoreCase);
+            var number = int.Parse(size.Groups["n"].Value, CultureInfo.InvariantCulture);
+
+            return size.Groups["which"].Value.ToLowerInvariant()
+                + (atLeast ? ">=" : "<=")
+                + number.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (CounterQuality().Match(quality) is { Success: true } counters)
+            return Abilities.SearchFilters.CounterPrefix + counters.Groups["kind"].Value;
+
+        var atom = KeywordAtom(quality);
+
+        return Abilities.SearchFilters.KeywordNamed(atom) is null
+            ? null
+            : Abilities.SearchFilters.KeywordPrefix + atom;
+    }
+
+    /// <summary>A printed keyword's name, spelled the way a filter id spells it.</summary>
+    private static string KeywordAtom(string printed) => printed
+        .Trim()
+        .ToLowerInvariant()
+        .Replace("'", string.Empty, StringComparison.Ordinal)
+        .Replace("\u2019", string.Empty, StringComparison.Ordinal)
+        .Replace(' ', '-');
+
+    /// <summary>"Power 3 or less", "toughness 4 or greater" (CR 613.4).</summary>
+    [GeneratedRegex(
+        @"^(?<which>power|toughness) (?<n>\d+) or (?<dir>less|greater|more)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SizeBoundPhrase();
+
+    /// <summary>"A +1/+1 counter on it", "+1/+1 counters on them", "counters on them" (CR 122.1).</summary>
+    [GeneratedRegex(
+        @"^(a |an |one or more )?(?<kind>[+-]\d+/[+-]\d+|[a-z]+) counters? on (it|them|him|her|itself)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CounterQuality();
 
     /// <summary>
     /// One word of a filter phrase, as the filter vocabulary spells it, or null if unread.
