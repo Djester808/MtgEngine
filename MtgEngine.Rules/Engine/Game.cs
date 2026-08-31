@@ -10655,7 +10655,12 @@ public sealed class Game
                 id, ability.Id, ability.Text, obj.ControllerId)
             {
                 SubjectPlayer = SubjectOf(e, state),
-                SubjectObject = SubjectObjectOf(e),
+
+                // CR 603.2: which object the event was about is a question about the event on
+                // every trigger but one. A TargetsChosen names two - the spell that targeted and
+                // the permanent it targeted - and only the condition knows which of them its own
+                // sentence means, so an ability that has been told says so here.
+                SubjectObject = ability.SubjectIsSource ? id : SubjectObjectOf(e),
                 SubjectAmount = AmountFor(e, state, ability, source),
             });
         }

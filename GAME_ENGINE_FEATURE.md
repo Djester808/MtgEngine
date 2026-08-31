@@ -715,6 +715,196 @@ compound and with-clause vocabulary in the group filter itself, shared by every 
 **Emblems are the largest single missing frame in the quadrant: 23 cards** print `−N: You get an
 emblem with "Q"`, plus 2 for an opponent and 5 for Alchemy's one-time boon. CR 114's emblem is an
 object in the command zone that the engine has no notion of.
+Coverage is **54.4% of playable cards fully read** (17,794 of 32,717), 70.0% of lines.
+
+### Round twenty: the frame population was a measurement artefact, and there is no frame family
+
+Round nineteen's census left three numbers that five rounds have been steering by: 4,549 sole
+blockers across 4,177 shapes at 1.09 cards each, no sentence template worth more than 8 — and
+**8,435 incomplete cards "blocked by a line's frame, not by any sentence", said to be larger than
+every sentence family combined.** That last figure was the biggest unexplored thing anyone had
+identified. It does not exist.
+
+**This section supersedes every census figure round nineteen produced.** Where a number below
+disagrees with one quoted elsewhere in this document or in a brief written from it, the number
+below is the one measured against the compiler's own text; the older one was measured against
+text the compiler never read. The corrected TSVs and the scripts that slice them are in the
+shared scratchpad under a `-r20` suffix - re-slice from those rather than re-deriving.
+
+#### What the excision was cutting from
+
+The census works by excision: take a card the compiler could not finish, cut out the sentences it
+reported unread, recompile, and see whether the rest reads. `allCut = 0` — the card still not
+complete after every unread sentence is gone — was read as "the blocker is the line's structure".
+
+The sentences came from `CompiledCard.Unhandled`, which is the compiler's **normalised** text.
+`CardCompiler.Lines` folds the card's own name and every "this creature"/"this spell" to `~`,
+rewrites "enters the battlefield" to "enters" and the long spelling of "dies" to "dies", strips
+ability words and reminder text, and normalises typographic quotes. The excision cut those
+sentences out of the **raw** oracle text. On any card that refers to itself, the sentence being
+cut simply was not there to find, the cut was a no-op, and the card was recorded as frame-blocked.
+
+Measured on round nineteen's own two files, `units-r19s3.tsv` against the oracle text in
+`dump-r19s3.tsv`:
+
+| | every unread sentence found in the text | some missing | none found |
+|---|---|---|---|
+| recorded sentence-blocked (6,641) | **6,270** | 371 | 0 |
+| recorded frame-blocked (8,435) | 903 | 2,495 | **5,037** |
+
+**7,532 of the 8,435 had at least one sentence that could not be located in the text the excision
+ran against.** The correlation is not subtle: 7,332 of the frame population print `~` in an unread
+sentence, against 371 of the sentence-blocked population.
+
+#### Re-run against the compiler's own text
+
+Excising from `CardCompiler.Lines(card)` — the same strings the compiler read — and recompiling
+with the remainder:
+
+| | round nineteen | corrected |
+|---|---|---|
+| incomplete cards | 15,076 | 14,960 |
+| complete once every unread sentence is cut | 6,641 | **14,927** |
+| **still incomplete: the "frame" population** | **8,435** | **33** |
+| sole-blocker units | 4,549 | **8,817** on 8,795 cards |
+
+The frame population is 33 cards, and none of them is a frame family. Every one is the compiler's
+own multi-reading structure reporting text that was never on a printed line, so no excision from
+the printed lines can remove it: **12 Cases** (three sections, and the section split leaves a bare
+`.` and `Solved —` behind), **11 gift** cards and **4 cleave** cards (the promised and cleaved
+readings are compiled separately and their unread text is synthesised), **3** whose quotation was
+lifted out of a token or copy line leaving `""`, and three singletons.
+
+#### And the corrected population is flatter, not richer
+
+Doubling the sole-blocker set did not produce a head. Ranked by normalised shape:
+
+| | shapes | cards each | largest |
+|---|---|---|---|
+| round nineteen (4,549 units) | 4,177 | 1.09 | 8 |
+| corrected (8,817 units) | 8,139 | **1.08** | **10** |
+
+The 4,430 newly visible cards are overwhelmingly the self-referential ones — 3,820 of their 4,444
+sole-blocker sentences print `~` — which is to say the half of the corpus the old instrument could
+not see was permanents, and permanents are exactly where triggers and activated abilities live.
+So the flatness now holds on the population that was supposed to be structurally different.
+
+#### The frame, asked properly: which half the compiler blames
+
+The question round nineteen was reaching for has an answer, and it is a different instrument: for
+each sole-blocker line, swap the head for one the compiler certainly reads (`When ~ enters,`,
+`{T}:`) and ask whether the body compiles; swap the body for `draw a card` and ask whether the
+head does. Over all 8,817:
+
+| kind of line | units | head blamed | body blamed | both | composition |
+|---|---|---|---|---|---|
+| plain sentence — no frame at all | 5,045 | — | — | — | — |
+| trigger | 2,844 | 552 | 1,839 | 446 | 7 |
+| activated | 760 | 118 | 599 | 43 | — |
+| static `as long as` | 168 | 7 | 100 | 24 | 37 |
+
+**The frame is the blocker on 677 units — 7.7% of the corpus's remaining work.** Where a line has
+a frame at all, the compiler blames the effect roughly four times more often than the frame. And
+the 677 are flat in their own right: **515 distinct head shapes, 1.31 cards each, largest 9.** Cut
+in two it stays flat on both sides — 552 trigger conditions, and 118 activation costs across 88
+shapes whose largest is 7 ("{1}, remove a +1/+1 counter from a creature you control").
+
+One caveat on that table, because it undercounts one arm honestly: the body probe substitutes an
+`enters` head, so a body naming the trigger's *subject* ("destroy that creature") cannot read
+under it and lands in "both" rather than "body". The 18 "both" rows in the family taken below are
+exactly that shape.
+
+The other side of that table is the work queue, and it is flat too. The 7,583 blamed effect
+bodies — the 5,045 plain sentences plus the 2,538 whose frame reads — are **6,775 distinct
+shapes at 1.12 cards each, largest 12**, and four of the six largest are mechanics the engine
+does not model at all: a spellbook draft (12), an attraction (11), specialize (9), a sticker
+(9). The two that are ordinary Magic are "~ isn't a creature" (10) and the Laccolith family's
+"if you do, ~ assigns no combat damage this turn" (10).
+
+**The conclusion for the rounds after this one: stop looking for families.** Three independent
+rankings of the corrected census — whole sentence (largest 10), effect body (12), trigger head
+(9) — all top out in single figures or barely past them, on twice the data that produced the
+last flat verdict. What is left is a long tail, and the only things worth taking out of it are
+*grammars over readers that already work*, which is what this round took.
+
+#### Taken: the three qualifiers on "becomes the target"
+
+`~ becomes the target of a spell( or ability)?` was the whole of the pattern. The corpus prints
+that sentence on **112 cards** with three independent qualifiers on it, and the old pattern
+matched eight of them — so what did the targeting, whose it was, and which of two permanents the
+sentence is about were each an unread line rather than a word. Rewriting every printed form to the
+bare one and recompiling measured the ceiling first: **42 incomplete cards** complete if the
+condition reads.
+
+The grammar multiplies rather than enumerates, the way `Specs.Parse` and `ZoneChangeLine` do:
+subject (`~`, enchanted/equipped creature) × what did it (`a spell`, `an ability`, `a spell or
+ability`, `an instant or sorcery spell`, `an Aura spell`) × whose it was (`you control`, `an
+opponent controls`). The kind is read from computed characteristics rather than the printed card
+(CR 613), and a spell or ability the state cannot find on the stack makes the qualified readings
+answer no rather than fire blind.
+
+**"For the first time each turn" is deliberately not in that grammar.** It is a limit on how often
+the ability triggers (CR 603.1) — the same thing "this ability triggers only once each turn" says
+after the effect — and the compiler has had `OncePerTurn` for it all along. Lifted off the
+condition before any reader sees it, for the reason the sentence form is lifted off the effect:
+every condition reader is written against the event on its own. 33 corpus cards print it across
+23 different conditions, and **12 cards outside this family completed on that rewrite alone**:
+life gained (Attended Healer, Cleric of Life's Bond, Vanguard Seraph, Deathless Knight,
+Gourmand's Talent), life lost (Gonti's Machinations, Vengeful Warchief, Intermediate
+Chirography), counters put on (Axgard Artisan, Danny Pink), discard (Rielle, Veronica) and
+surveil (Whispering Snitch).
+
+#### The pronoun, and the one event that names two objects
+
+`TargetsChosen` carries the spell or ability that did the targeting **and** the permanent it was
+aimed at. `Game.SubjectObjectOf` can only answer with one, and it answers with the spell, because
+ward's "counter it" is much the commonest sentence written on that event. So "put a +1/+1 counter
+on it" — seven corpus cards, Heartfire Hero among them — would have compiled, resolved, and
+put a counter on an object in the stack zone: reads perfectly, plays as nothing, counts as coverage.
+
+The condition already knows which of the two it means, because it said `~`. So the ability records
+the answer — `TriggeredAbilityDefinition.SubjectIsSource`, set from
+`TriggerConditions.TargetsTheSource`, one query and an allow-list whose default is false, exactly
+as `NamesAnObject` and `DeclarationSubject` are set — and `Game.Consider` uses the source as the
+subject for those abilities instead of asking the event. The attached subjects are deliberately
+**not** in that allow-list: "enchanted creature becomes the target" is about the host, which is a
+third answer, so those cards read only the sentences whose effect names no object at all.
+
+The compiler withholds the flag from any ability whose effect names "that spell" or "that
+ability", because both readings cannot sit on one ability. Ten corpus cards print the pair —
+Frost Titan, Reality Smasher, Glyph Keeper, the two Glasskites, Bonecrusher Giant, Forsaken
+Wastes, Lava Runner, Retromancer and Agrus Kos — and they stay unread rather than wrong.
+
+The behaviour test that puts ward and one of these triggers on the same permanent is the
+regression that catches the override leaking into the keyword: both fire off one event, and
+countering the creature instead of the spell is a silent no-op that no test asserting the
+trigger alone would notice.
+
+**+37 cards, and the set diff is one-sided: 37 gained, 0 lost** — 25 from the targeting grammar,
+12 from the first-time-each-turn lift. A fingerprint of every card's compiled abilities moved on
+44 cards; the seven that were not the 37 each gained an ability and are still incomplete for
+another line (Recruit Instructor, Brave Meadowguard, Altanak, Eternal Scourge, and the two Classes
+whose level triggers the lift unlocked). One of the seven *changed* rather than gained: Task Force
+compiled "it gets +0/+3" as a source pump while the pronoun had nothing to mean, and now reads it
+as the pronoun the card prints, aimed at the same permanent.
+
+#### Declined here, with the measurement
+
+- **A group subject — "whenever a creature you control becomes the target" — 12 cards.** The
+  targeted permanent is not the source, so the pronoun would need `SubjectObjectOf` to answer with
+  the *other* object the event carries, which is ward's. Half these bodies say "it gets +3/+3"
+  (Wild Defiance, Daru Spiritualist) and would land on the spell. Wants the verb added to
+  `ZoneChangeLine`'s subject grammar *and* a second subject slot on the event, not a third pattern.
+- **A compound condition — "whenever ~ enters or becomes the target", "attacks or becomes the
+  target" — 5 cards.** A disjunction of two conditions the compiler reads separately; the trigger
+  builder has one predicate slot and no notion of "or".
+- **"Whenever one or more X …" batch triggers — 48 head-blamed cards, the largest head prefix in
+  the census.** It is 39 distinct shapes with a maximum of 5, across ten different event kinds
+  (enter, die, deal combat damage, be put into a graveyard, attack, leave the battlefield, become
+  tapped, phase out, be exiled, have counters put on). Rewriting to the singular is the trap CR
+  603.2c names: "whenever one or more creatures die" fires once, and the singular reader fires per
+  creature, so the rewrite prints a strictly better card. Each event kind needs its own batch
+  event, which is ten pieces of work for a family whose head is 5.
 
 ### Round nineteen: the recorded set as an object, and the second fail-closed line
 
@@ -1366,7 +1556,9 @@ The dump is `(oracleId, name, isComplete, unhandled lines)` for all 32,717 cards
 from round sixteen held everywhere it was checked. **Whole-line clustering is flat**: 17,662
 distinct templates with numbers and mana symbols folded out, and the largest completes **nine**
 cards. Cutting to the one sentence whose *removal* lets a line read is flat too - 8,382 shapes,
-largest **ten**. A substring row like `for each` at 831 is one word across a thousand templates.
+largest **ten**. (Both figures were re-measured in round twenty against the compiler's own
+normalised text, which roughly doubles the population and leaves the head flatter still - see
+"the frame population was a measurement artefact" above.) A substring row like `for each` at 831 is one word across a thousand templates.
 
 What is not flat is the **clause**, and the probe that finds it is an excision: take a structural
 clause out of a blocked line, ask whether the rest compiles, and ask separately whether

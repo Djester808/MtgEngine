@@ -16118,7 +16118,37 @@ public static partial class TriggerConditions
                 "one or more", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The predicate for a trigger condition, or null if it is not one we read.</summary>
+    /// <summary>
+    /// Whether the object this condition is about is the permanent whose ability it is.
+    /// </summary>
+    /// <remarks>
+    /// The one event in the engine that names two objects at once. A <c>TargetsChosen</c> carries
+    /// the spell or ability that did the targeting <em>and</em> the permanent it was aimed at, and
+    /// <c>Game.SubjectObjectOf</c> can only answer with one of them - it answers with the spell,
+    /// because ward's "counter it" is much the commonest sentence written on this event.
+    /// <para>
+    /// A condition saying <c>~</c> was the target has already settled which of the two its own
+    /// pronoun means: itself. So the ability records that (see
+    /// <see cref="Abilities.TriggeredAbilityDefinition.SubjectIsSource"/>) rather than the event
+    /// guessing, and "put a +1/+1 counter on it" lands on the creature instead of on the spell
+    /// that targeted it. Without this the seven corpus cards printing that sentence would have
+    /// compiled, resolved, and put a counter on an object in the stack zone.
+    /// </para>
+    /// <para>
+    /// An allow-list with the same discipline as <see cref="NamesAnObject"/>: the default is
+    /// false, and a shape may only be added here when the source really is the object the
+    /// sentence is about. The attached readings are deliberately not here - "enchanted creature
+    /// becomes the target" is about the host, which is a third answer and not this one.
+    /// </para>
+    /// </remarks>
+    public static bool TargetsTheSource(string condition)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        var aimed = BecomesTargeted().Match(condition);
+        return aimed.Success && aimed.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Whether a trigger on this condition hands its effects an object to call "that creature".
     /// </summary>
@@ -16779,13 +16809,67 @@ public static partial class TriggerConditions
                 && (!mine || spell.ControllerId == source.ControllerId);
         }
 
-        if (BecomesTargeted().IsMatch(condition))
+        var aimed = BecomesTargeted().Match(condition);
+        if (aimed.Success)
         {
-            // CR 603.2c: the trigger is on being chosen as a target, which happens once as the
-            // spell or ability is put on the stack (CR 601.2c) rather than on resolution.
-            return (e, _, source) =>
-                e is TargetsChosen chosen
-                && chosen.Targets.Any(t => t.Subject == source.Id);
+            // "Enchanted creature becomes the target of a spell" is the same sentence about the
+            // permanent this one is attached to (CR 702.5c) - the Aura is not what was targeted,
+            // and reading it as the source would make every one of these fire on nothing.
+            var onHost = !aimed.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
+
+            var kind = aimed.Groups["what"].Value.ToLowerInvariant();
+            var mine = aimed.Groups["whose"].Value.StartsWith("you", StringComparison.OrdinalIgnoreCase);
+            var theirs = aimed.Groups["whose"].Value.StartsWith("an opp", StringComparison.OrdinalIgnoreCase);
+
+            // "A spell or ability" is every use of the event and needs nothing looked up. The
+            // qualified readings all ask something about what did the targeting, so they need the
+            // object on the stack - and a stack object the state cannot find is a question with
+            // no answer, which is a trigger that does not fire rather than one that fires blind.
+            var asksAboutTheSource = mine || theirs || kind is not "a spell or ability";
+
+            return (e, state, source) =>
+            {
+                if (e is not TargetsChosen chosen)
+                    return false;
+
+                // CR 603.2c: the trigger is on being chosen as a target, which happens once as
+                // the spell or ability is put on the stack (CR 601.2c) rather than on resolution.
+                var aimedAt = onHost ? source.Permanent?.AttachedTo : source.Id;
+                if (aimedAt is not { } victim || !chosen.Targets.Any(t => t.Subject == victim))
+                    return false;
+
+                if (!asksAboutTheSource)
+                    return true;
+
+                if (!state.TryGetObject(chosen.StackId, out var by) || by.Zone != Zone.Stack)
+                    return false;
+
+                // CR 113.3: an ability on the stack is an object that is not a spell, and the two
+                // are told apart here by whether it has one - the same test the cast-targeting
+                // reader beside this one uses.
+                var isSpell = by.Ability is null;
+
+                // Computed rather than printed (CR 613): a spell can have been given a type or
+                // become a copy of something else on its way to the stack, and the printed card
+                // is the wrong answer for every one of those.
+                var matches = kind switch
+                {
+                    "a spell" => isSpell,
+                    "an ability" => !isSpell,
+                    "an instant or sorcery spell" => isSpell
+                        && (Characteristics.Of(state, source.Abilities, by).CardTypes
+                            & (CardType.Instant | CardType.Sorcery)) != CardType.None,
+                    "an aura spell" => isSpell
+                        && Characteristics.Of(state, source.Abilities, by).HasSubtype("Aura"),
+                    _ => true,
+                };
+
+                if (!matches)
+                    return false;
+
+                return (!mine || by.ControllerId == source.ControllerId)
+                    && (!theirs || by.ControllerId != source.ControllerId);
+            };
         }
 
         var life = GainsOrLosesLife().Match(condition);
@@ -18796,8 +18880,29 @@ public static partial class TriggerConditions
     [GeneratedRegex(@"^~ is dealt (?<combat>combat )?damage$", RegexOptions.IgnoreCase)]
     private static partial Regex IsDealtDamage();
 
+    /// <summary>"Whenever this creature becomes the target of a spell an opponent controls".</summary>
+    /// <remarks>
+    /// One condition with three independent qualifiers, and only the bare form was read. What was
+    /// missing is not vocabulary but the *grammar* around a reader that already worked: the corpus
+    /// prints this sentence 112 times and the pattern it replaced matched eight of them, so a
+    /// Thorn Lieutenant and a Frost Titan were two unread lines rather than one read line with a
+    /// word about whose spell it was. The three slots multiply rather than enumerate - what did
+    /// the targeting, whose it was, and which of the two permanents the sentence is about - which
+    /// is the same reason <see cref="Specs"/> and <see cref="ZoneChangeLine"/> are grammars.
+    /// <para>
+    /// "For the first time each turn" is deliberately not here. It is a limit on how often the
+    /// ability triggers rather than a description of the event (CR 603.1), it is printed on
+    /// conditions right across the corpus, and the compiler already has a field for it - so it
+    /// comes off the condition before this is reached and becomes
+    /// <see cref="Abilities.TriggeredAbilityDefinition.OncePerTurn"/>.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^~ becomes the target of a spell( or ability)?$", RegexOptions.IgnoreCase)]
+        @"^(?<who>~|enchanted creature|equipped creature) becomes the target of "
+            + @"(?<what>a spell or ability|a spell|an ability"
+            + @"|an instant or sorcery spell|an Aura spell)"
+            + @"(\s+(?<whose>you control|an opponent controls))?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex BecomesTargeted();
 
     /// <remarks>

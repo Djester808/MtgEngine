@@ -73559,6 +73559,455 @@ public sealed class CompiledCardBehaviourTests
         Assert.Contains(lord, game.State.Battlefield);
     }
 
+    // ---- Which spell aimed at it, and which object the sentence means (CR 603.2) ----
+
+    /// <summary>
+    /// Thorn Lieutenant: "a spell or ability <em>an opponent controls</em>".
+    /// </summary>
+    /// <remarks>
+    /// The condition had one reading — the bare "becomes the target of a spell or ability" — and
+    /// the corpus prints it 112 times with three independent qualifiers on it: what did the
+    /// targeting, whose it was, and which of two permanents the sentence is about. Eight lines
+    /// matched the old pattern, so a Thorn Lieutenant and a Frost Titan were unread lines rather
+    /// than one read line with a word about whose spell it was.
+    /// <para>
+    /// Both halves are asserted in one game because the failure that matters is a qualifier that
+    /// reads and does nothing: a trigger that fired on its controller's own spell as well would
+    /// pass any test that only casts the opponent's, and it would be a strictly better card than
+    /// the one printed — every Aura and pump its controller aimed at it would draw a card too.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_targeting_trigger_reads_whose_spell_did_the_targeting()
+    {
+        var watcher = Card(
+            "Whose Spell Test",
+            "Whenever ~ becomes the target of a spell or ability an opponent controls,"
+                + " you gain 5 life.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(watcher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var creature = game.Create(alice, watcher, Zone.Battlefield);
+
+        // Its own controller's spell is not "a spell an opponent controls".
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Whose Spell Mine Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            bob,
+            TestCards.PutInHand(game, bob, Card("Whose Spell Theirs Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Stormchaser Drake: "a spell you control" is not "a spell or ability you control".
+    /// </summary>
+    /// <remarks>
+    /// CR 113.3: an ability on the stack is an object that is not a spell, and a card that names
+    /// only one of them means only one of them. The distinction is free in the engine — a stack
+    /// object carries the ability it is, or does not — and it was the whole difference between
+    /// reading this line and reading none of it.
+    /// </remarks>
+    [Fact]
+    public void A_targeting_trigger_that_names_a_spell_does_not_fire_on_an_ability()
+    {
+        var drake = Card(
+            "Spell Only Test",
+            "Whenever ~ becomes the target of a spell you control, you gain 3 life.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(drake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, drake, Zone.Battlefield);
+
+        // An artifact rather than a creature, so the tap cost is payable the turn it arrives:
+        // CR 302.6 is about creatures and about nothing else.
+        var pinger = game.Create(
+            alice,
+            Card(
+                "Spell Only Pinger Test",
+                "{T}: Target creature gets +1/+1 until end of turn.",
+                CardType.Artifact),
+            Zone.Battlefield);
+
+        game.ActivateAbility(alice, pinger, "a", [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Spell Only Bolt Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Fugitive Druid: the kind of spell, read from what it <em>is</em> rather than what it says.
+    /// </summary>
+    /// <remarks>
+    /// Computed rather than printed (CR 613), which is the rule every other characteristic
+    /// question in this engine answers the same way: a spell can have been given a type on its
+    /// way to the stack, and the printed card is the wrong answer for all of those.
+    /// </remarks>
+    [Fact]
+    public void A_targeting_trigger_can_name_the_kind_of_spell_that_aimed_at_it()
+    {
+        var druid = Card(
+            "Aura Watch Test",
+            "Whenever ~ becomes the target of an Aura spell, you draw a card.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(druid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, druid, Zone.Battlefield);
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, Card("Aura Watch Bolt Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        // The bolt left the hand and drew nothing back into it.
+        Assert.Equal(held, game.State.GetPlayer(alice).Hand.Count);
+
+        var aura = Card(
+            "Aura Watch Aura Test",
+            "Enchant creature\nEnchanted creature gets +1/+1.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, aura), [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(held + 1, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// Heartfire Hero: "put a +1/+1 counter on it", where "it" is the creature and not the spell.
+    /// </summary>
+    /// <remarks>
+    /// The load-bearing test of this family, and the reason the ability carries
+    /// <see cref="TriggeredAbilityDefinition.SubjectIsSource"/> at all. A <c>TargetsChosen</c> is
+    /// the one event in this engine that names <em>two</em> objects — the spell or ability that
+    /// did the targeting, and the permanent it was aimed at — and <c>Game.SubjectObjectOf</c> can
+    /// only answer with one. It answers with the spell, because ward's "counter it" is much the
+    /// commonest sentence written on that event.
+    /// <para>
+    /// So the seven corpus cards printing this sentence would have compiled, resolved, and put a
+    /// +1/+1 counter on an object in the stack zone: a card that reads perfectly, plays as
+    /// nothing, and counts as coverage. The condition already knows which of the two it means —
+    /// it said <c>~</c> — so the ability records the answer and the event stops guessing.
+    /// </para>
+    /// <para>
+    /// Asserted on the computed power as well as on the counter, because a counter recorded on a
+    /// permanent nothing reads would satisfy the first assertion on its own.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_pronoun_in_a_targeting_trigger_means_the_creature_and_not_the_spell()
+    {
+        var hero = Card(
+            "Targeted Pronoun Test",
+            "Whenever ~ becomes the target of a spell or ability you control,"
+                + " put a +1/+1 counter on it.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(hero);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, hero, Zone.Battlefield);
+        var bystander = game.Create(
+            alice, TestCards.Creature("Targeted Pronoun Bystander Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Targeted Pronoun Poke Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(
+            1,
+            game.State.GetObject(creature).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(3, computed.Power);
+        Assert.Equal(3, computed.Toughness);
+
+        // Nothing else on the battlefield was the subject of the sentence.
+        Assert.Equal(
+            0,
+            game.State.GetObject(bystander).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
+    /// <summary>
+    /// Task Force: the one card already reading this sentence, now reading it as a pronoun.
+    /// </summary>
+    /// <remarks>
+    /// It compiled before this round and it compiled to something else. With no subject for a
+    /// pronoun to mean, "it gets +0/+3" fell through to the reader that pumps the source, which
+    /// happened to be the right permanent; with a subject it reads as the pronoun the card
+    /// actually prints. The two are the same creature and that is the point — a path change on a
+    /// card that already worked is exactly the kind that a coverage number cannot see, so the
+    /// card is played rather than diffed.
+    /// </remarks>
+    [Fact]
+    public void A_pronoun_pump_in_a_targeting_trigger_still_lands_on_the_creature()
+    {
+        var force = Card(
+            "Targeted Pump Test",
+            "Whenever ~ becomes the target of a spell or ability, it gets +0/+3 until end of turn.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(force);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, force, Zone.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Targeted Pump Poke Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(creature));
+        Assert.Equal(2, computed.Power);
+        Assert.Equal(5, computed.Toughness);
+    }
+
+    /// <summary>
+    /// Valiant: "for the first time each turn" is a limit on the ability, not part of the event.
+    /// </summary>
+    /// <remarks>
+    /// CR 603.1 — the same thing "this ability triggers only once each turn" says after the
+    /// effect, written into the condition instead. Lifted off before the condition is read, for
+    /// the reason the sentence form is lifted off the effect: every condition reader is written
+    /// against the event on its own, so a condition carrying the limit reached each of them as a
+    /// shape none of them had.
+    /// <para>
+    /// Lifted generically rather than inside the targeting grammar because 33 corpus cards print
+    /// it across 23 different conditions — life gained, life lost, counters put on, cards
+    /// discarded, a surveil, a crew — and twelve cards outside this family completed on the
+    /// rewrite alone. A clause in each of those readers would have been the same work 23 times.
+    /// </para>
+    /// <para>
+    /// Both halves are asserted: it fires once however many times the event happens, and it is
+    /// watching again next turn. A limit that never released would be as wrong as one that never
+    /// applied, and only the second cast in the same turn can tell those two apart.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_condition_limited_to_the_first_time_each_turn_fires_once_and_resets()
+    {
+        var mouse = Card(
+            "First Time Test",
+            "Whenever ~ becomes the target of a spell or ability you control for the first time"
+                + " each turn, you gain 4 life.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(mouse);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.True(Assert.Single(compiled.Triggers).OncePerTurn);
+
+        var (game, alice, _) = InMainPhase();
+        var creature = game.Create(alice, mouse, Zone.Battlefield);
+
+        foreach (var n in Enumerable.Range(0, 2))
+        {
+            game.CastSpell(
+                alice,
+                TestCards.PutInHand(
+                    game,
+                    alice,
+                    Card("First Time Poke " + n + " Test", "Untap target creature.")),
+                [Target.ToPermanent(creature)]);
+            Settle(game);
+        }
+
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
+
+        // Alice's next turn: the budget is spent per turn, so it is back.
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("First Time Next Turn Test", "Untap target creature.")),
+            [Target.ToPermanent(creature)]);
+        Settle(game);
+
+        Assert.Equal(28, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Sleeping Potion: the same sentence about the permanent the Aura is attached to.
+    /// </summary>
+    /// <remarks>
+    /// CR 702.5c — the Aura is not what was targeted, and a reading that aimed the condition at
+    /// the source would make every card of this shape watch an object no spell ever names. The
+    /// subject is deliberately <em>not</em> admitted to <c>TriggerConditions.TargetsTheSource</c>:
+    /// the host is a third answer and not that one, so these cards read only the sentences whose
+    /// effect names no object at all.
+    /// </remarks>
+    [Fact]
+    public void An_aura_can_watch_its_host_being_targeted_rather_than_itself()
+    {
+        var potion = Card(
+            "Host Targeted Test",
+            "Enchant creature\n"
+                + "When enchanted creature becomes the target of a spell or ability, sacrifice ~.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(potion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var host = game.Create(
+            alice, TestCards.Creature("Host Targeted Host Test", 2, 2), Zone.Battlefield);
+        var other = game.Create(
+            alice, TestCards.Creature("Host Targeted Other Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, potion), [Target.ToPermanent(host)]);
+        Settle(game);
+
+        var aura = game.State.Battlefield.Single(id =>
+            game.State.GetObject(id).Card.Name == "Host Targeted Test");
+
+        // A spell aimed somewhere else is not this sentence's event.
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Host Targeted Elsewhere Test", "Untap target creature.")),
+            [Target.ToPermanent(other)]);
+        Settle(game);
+
+        Assert.Contains(aura, game.State.Battlefield);
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(
+                game, alice, Card("Host Targeted Poke Test", "Untap target creature.")),
+            [Target.ToPermanent(host)]);
+        Settle(game);
+
+        Assert.DoesNotContain(aura, game.State.Battlefield);
+        Assert.Contains(host, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Ward on the same permanent, and the reason the two readings cannot be one.
+    /// </summary>
+    /// <remarks>
+    /// Ward's "counter it" means the spell that did the targeting; the trigger beside it means the
+    /// creature that was targeted. Both fire off the same event and each has to get its own
+    /// object, so this is the regression that catches the subject override leaking into the
+    /// keyword. Countering the creature instead of the spell is a silent no-op —
+    /// <c>CounterSubjectSpell</c> checks the zone and returns nothing — so the spell would resolve
+    /// and no test that only asserts the trigger would notice.
+    /// <para>
+    /// The compiler withholds the override from any ability whose effect names "that spell" or
+    /// "that ability", for the same reason. Ten corpus cards print both — Frost Titan, Reality
+    /// Smasher, Glyph Keeper, the two Glasskites, Bonecrusher Giant, Forsaken Wastes, Lava
+    /// Runner, Retromancer and Agrus Kos — and they stay unread rather than wrong.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Ward_counters_the_spell_while_the_trigger_beside_it_reads_the_creature()
+    {
+        var sentinel = Card(
+            "Warded Watch Test",
+            "Ward {2}\n"
+                + "Whenever ~ becomes the target of a spell or ability an opponent controls,"
+                + " put a +1/+1 counter on ~.",
+            CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(sentinel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var guarded = game.Create(alice, sentinel, Zone.Battlefield);
+
+        TestCards.PassToTurn(game, 2);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var land = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(bob, land, "mana");
+        }
+
+        game.CastSpell(
+            bob,
+            TestCards.PutInHand(
+                game, bob, Card("Warded Watch Bolt Test", "Destroy target creature.")),
+            [Target.ToPermanent(guarded)]);
+
+        // Both abilities trigger off the one event, so their controller is asked for an order
+        // before the tax is offered (CR 603.3b). That question is answered here rather than
+        // waited through: it is the proof that this permanent really has two of them.
+        for (var guard = 0;
+            guard < 12 && game.State.Choice is not { Kind: ChoiceKind.OptionalPayment };
+            guard++)
+        {
+            if (game.State.Choice is { } order)
+            {
+                Assert.Equal(ChoiceKind.OrderTriggers, order.Kind);
+                Assert.Equal(2, order.Options.Count);
+                game.Choose(
+                    order.PlayerId,
+                    [.. order.Options.Take(Math.Max(order.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is { } holder)
+                game.PassPriority(holder);
+        }
+
+        Assert.Equal(bob, game.State.Choice!.PlayerId);
+        game.Choose(bob, ["no"]);
+        Settle(game);
+
+        // Ward found the spell, so the creature is still here rather than destroyed.
+        Assert.Contains(guarded, game.State.Battlefield);
+
+        // And the trigger beside it found the creature.
+        Assert.Equal(
+            1,
+            game.State.GetObject(guarded).Permanent!.Counters
+                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+    }
+
     // ---- Fuse (CR 702.102) ---------------------------------------------------
 
     /// <summary>
