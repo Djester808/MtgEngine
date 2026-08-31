@@ -3073,6 +3073,569 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
     }
 
+    // ---- Which object a demonstrative possessive means (CR 107.3) -------------
+
+    /// <summary>A card with a mana value, because that is the field this family reads.</summary>
+    /// <remarks>
+    /// The shared <c>Card</c> helper leaves the cost off, which is exactly what these tests
+    /// measure — a board built with it has every candidate at nought, and a reader picking any of
+    /// them would pass.
+    /// <para>
+    /// Not called <c>Priced</c>, and the name is load-bearing: this file already has a three-argument
+    /// <c>Priced(name, cost, manaValue)</c> whose middle argument is a mana cost. Overload resolution
+    /// took every three-argument call here to that one, so the sentence under test arrived as a mana
+    /// cost and the card compiled to something else entirely — four tests failed with errors about
+    /// targets that had nothing to do with what they were testing.
+    /// </para>
+    /// </remarks>
+    private static CardDefinition ReferentCard(
+        string name,
+        string oracleText,
+        int manaValue,
+        CardType types = CardType.Instant,
+        string manaCostRaw = "",
+        int? power = null,
+        int? toughness = null) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = oracleText,
+            Cmc = manaValue,
+            ManaCostRaw = manaCostRaw,
+            CardTypes = types,
+            Power = power,
+            Toughness = toughness,
+        };
+
+    /// <summary>
+    /// "Counter target spell. Draw cards equal to that spell's mana value" — the spell it chose.
+    /// </summary>
+    /// <remarks>
+    /// Overwhelming Intellect's sentence, and the board is arranged so that every other object a
+    /// reader could reach carries a different number: the counterspell itself is a 6, the creature
+    /// its caster controls is a 5/5, and the spell it targets is a 4. Only one of those is the
+    /// answer, and three of the four possible mistakes are visible in the count of cards drawn.
+    /// </remarks>
+    [Fact]
+    public void A_countered_spells_mana_value_is_read_off_the_spell_the_sentence_targeted()
+    {
+        var intellect = ReferentCard(
+            "Referent Intellect Test",
+            "Counter target creature spell. Draw cards equal to that spell's mana value.",
+            6);
+
+        var compiled = CardCompiler.Compile(intellect);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // A five-power creature on the board, so a reader that took a power instead of a mana
+        // value has a wrong number to find rather than the right one by accident.
+        game.Create(alice, TestCards.Creature("Referent Intellect Bear Test", 5, 5), Zone.Battlefield);
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        var threat = TestCards.PutInHand(
+            game,
+            bob,
+            ReferentCard(
+                "Referent Intellect Threat Test",
+                string.Empty,
+                4,
+                CardType.Creature,
+                power: 1,
+                toughness: 1));
+
+        var onStack = game.CastSpell(bob, threat, []);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, intellect), [Target.ToSpell(onStack)]);
+
+        Settle(game);
+
+        // Four drawn. The counterspell is put into the hand after the count is taken and
+        // leaves it again as it is cast, so it is not in either figure.
+        Assert.Equal(held + 4, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Empty(game.State.Stack);
+    }
+
+    /// <summary>
+    /// The X announced for a spell counts towards the mana value read off it (CR 107.3a).
+    /// </summary>
+    /// <remarks>
+    /// The rule that makes Mana Drain the card it is. A spell with {X} in its cost has a mana
+    /// value on the stack that includes the value announced as it was cast, and X is nought in
+    /// every other zone (CR 107.3g) — so reading the printed cost off the card gives one where the
+    /// card says four, and the difference is three mana or three cards every time.
+    /// </remarks>
+    [Fact]
+    public void The_x_announced_for_a_spell_counts_towards_the_mana_value_read_off_it()
+    {
+        var drain = ReferentCard(
+            "Referent Drain Test",
+            "Counter target spell. Draw cards equal to that spell's mana value.",
+            2);
+
+        var compiled = CardCompiler.Compile(drain);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        TestCards.PassUntil(game, () => game.State.ActivePlayerId == bob
+            && game.State.CurrentStep == TurnStep.PrecombatMain
+            && game.State.Priority.Holder == bob);
+
+        // Printed mana value one, cast for X = 3: four on the stack and one anywhere else.
+        var threat = TestCards.PutInHand(
+            game,
+            bob,
+            ReferentCard(
+                "Referent Drain Threat Test",
+                "You gain X life.",
+                1,
+                CardType.Sorcery,
+                manaCostRaw: "{X}{U}"));
+
+        // Four blue sources for {X}{U} with X announced as three. The cost is real because the
+        // {X} in it is the whole point: a card with no printed {X} has nothing for the
+        // announcement to attach to (CR 107.3a).
+        foreach (var _ in Enumerable.Range(0, 4))
+        {
+            var island = game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+            game.ActivateAbility(bob, island, "mana");
+        }
+
+        var onStack = game.CastSpell(bob, threat, [], variableValue: 3);
+
+        TestCards.PassUntil(game, () => game.State.Priority.Holder == alice);
+
+        var held = game.State.GetPlayer(alice).Hand.Count;
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, drain), [Target.ToSpell(onStack)]);
+        Settle(game);
+
+        // Four, not the one the printed cost says.
+        Assert.Equal(held + 4, game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// A cast trigger's "that spell" is the spell that was cast, never the permanent (CR 603.3b).
+    /// </summary>
+    /// <remarks>
+    /// Manaplasm's sentence. The referent is not in the effect at all — it is in the trigger's
+    /// condition — which is why the compiler proves it there and writes the proof into the words.
+    /// The source is a 5/5 and the spell is a 4, so a reader that fell back to the permanent with
+    /// the ability leaves it a 10/10 and one that found nothing leaves it a 5/5.
+    /// </remarks>
+    [Fact]
+    public void A_cast_triggers_demonstrative_is_the_spell_that_was_cast()
+    {
+        var plasm = ReferentCard(
+            "Referent Manaplasm Test",
+            "Whenever you cast a spell, ~ gets +X/+X until end of turn, "
+                + "where X is that spell's mana value.",
+            3,
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(plasm);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var it = game.Create(alice, plasm, Zone.Battlefield);
+
+        var spell = TestCards.PutInHand(
+            game, alice, ReferentCard("Referent Manaplasm Spell Test", "You gain 1 life.", 4));
+
+        game.CastSpell(alice, spell, []);
+        Settle(game);
+
+        // Five plus four. Ten would be the source read twice; five would be a clause that found
+        // nothing and bound X to nought.
+        Assert.Equal(9, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// A trigger that copies as well as casts is refused, because a copy is never cast.
+    /// </summary>
+    /// <remarks>
+    /// Zaffai and Deekah's wording. CR 707.10: a copy is put on the stack without being cast, so
+    /// the event carries a card and no object at all — and a clause reading the trigger's subject
+    /// there would bind X to nought and make a 0/0 token every time the card did the thing it is
+    /// played for. Left unread instead, which is the whole of this family's discipline.
+    /// </remarks>
+    [Fact]
+    public void A_trigger_that_copies_as_well_as_casts_is_left_unread()
+    {
+        var conductor = ReferentCard(
+            "Referent Conductor Test",
+            "Whenever you cast or copy an instant or sorcery spell, ~ gets +X/+X until end of "
+                + "turn, where X is that spell's mana value.",
+            5,
+            CardType.Creature,
+            power: 4,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(conductor);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("that spell's mana value", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// "That artifact's mana value" agrees with the artifact and not with the creature beside it.
+    /// </summary>
+    /// <remarks>
+    /// Hoard-Smelter Dragon's ability, and the reason a demonstrative is answerable where "its" is
+    /// not: the noun names a type, so the referent is settled by agreeing it against what the
+    /// ability chose rather than by guessing at the nearest thing. It is also read <em>after</em>
+    /// the artifact has been destroyed, which is the ordinary case for this family — mana value is
+    /// a fact about the card (CR 202.3b) and survives the move.
+    /// </remarks>
+    [Fact]
+    public void A_demonstrative_reads_the_target_whose_type_its_noun_names()
+    {
+        var dragon = ReferentCard(
+            "Referent Smelter Test",
+            "{3}{R}: Destroy target artifact. ~ gets +X/+0 until end of turn, "
+                + "where X is that artifact's mana value.",
+            6,
+            CardType.Creature,
+            power: 5,
+            toughness: 5);
+
+        var compiled = CardCompiler.Compile(dragon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var it = game.Create(alice, dragon, Zone.Battlefield);
+
+        // A five-power creature and a six-cost source, so the only four on the board is the
+        // artifact the ability is about.
+        game.Create(alice, TestCards.Creature("Referent Smelter Bear Test", 5, 5), Zone.Battlefield);
+
+        var scrap = game.Create(
+            bob,
+            ReferentCard("Referent Smelter Scrap Test", string.Empty, 4, CardType.Artifact),
+            Zone.Battlefield);
+
+        // Floated before the ability is activated, because this engine cannot activate a mana
+        // ability inside a cost payment - the same way every other paying test in this file
+        // arranges it. The printed cost is kept rather than dropped, so the ability under test
+        // is the one the card prints.
+        foreach (var _ in Enumerable.Range(0, 4))
+        {
+            var mountain = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+            game.ActivateAbility(alice, mountain, "mana");
+        }
+
+        game.ActivateAbility(alice, it, "a", [Target.ToPermanent(scrap)]);
+        Settle(game);
+
+        Assert.Equal(9, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
+    /// <summary>
+    /// A power read after the permanent has gone is what it last was (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// Grisly Spectacle destroys the creature and then asks how big it was, which is the commonest
+    /// shape in this family. A card in a graveyard answers its <em>printed</em> power, so a 2/2
+    /// carrying three +1/+1 counters would mill two where the card says five — short by everything
+    /// that made it worth killing.
+    /// </remarks>
+    [Fact]
+    public void A_power_read_after_the_permanent_has_gone_is_what_it_last_was()
+    {
+        var spectacle = ReferentCard(
+            "Referent Spectacle Test",
+            "Destroy target nonartifact creature. Its controller mills cards equal to "
+                + "that creature's power.",
+            4);
+
+        var compiled = CardCompiler.Compile(spectacle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        // Printed 2/2, three counters, so the printed answer and the true answer differ.
+        var victim = game.Create(
+            bob, TestCards.Creature("Referent Spectacle Victim Test", 2, 2), Zone.Battlefield);
+        game.ChangeCounters(victim, CounterKinds.PlusOnePlusOne, 3);
+
+        // And a nine-power creature of Alice's, so the source's side of the board is not five.
+        game.Create(
+            alice, TestCards.Creature("Referent Spectacle Bear Test", 9, 9), Zone.Battlefield);
+
+        var library = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, spectacle),
+            [Target.ToPermanent(victim)]);
+
+        Settle(game);
+
+        Assert.Equal(library - 5, game.State.GetPlayer(bob).Library.Count);
+    }
+
+    /// <summary>
+    /// With nothing targeted, the demonstrative is the object the trigger was about.
+    /// </summary>
+    /// <remarks>
+    /// Monkey Cage's sentence. The trigger names one object and its condition is on the allow-list
+    /// that says so, which is what gives the demonstrative something to mean when the ability
+    /// chose nothing. The Cage is a 5 and the creature already on the board is a 7, so only the
+    /// creature that entered is a 4.
+    /// </remarks>
+    [Fact]
+    public void A_demonstrative_with_nothing_targeted_is_the_object_the_trigger_named()
+    {
+        var cage = ReferentCard(
+            "Referent Cage Test",
+            "When a creature enters, sacrifice ~ and create X 2/2 green Monkey creature tokens, "
+                + "where X is that creature's mana value.",
+            5,
+            CardType.Artifact);
+
+        var compiled = CardCompiler.Compile(cage);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        // Before the Cage, so its own trigger is not watching when this one arrives.
+        game.Create(
+            alice,
+            ReferentCard(
+                "Referent Cage Bystander Test",
+                string.Empty,
+                7,
+                CardType.Creature,
+                power: 7,
+                toughness: 7),
+            Zone.Battlefield);
+
+        var it = game.Create(alice, cage, Zone.Battlefield);
+        Settle(game);
+
+        game.Create(
+            alice,
+            ReferentCard(
+                "Referent Cage Arrival Test",
+                string.Empty,
+                4,
+                CardType.Creature,
+                power: 1,
+                toughness: 1),
+            Zone.Battlefield);
+
+        Settle(game);
+
+        Assert.False(game.State.TryGetObject(it, out _));
+
+        var monkeys = game.State.Battlefield.Count(
+            id => game.State.GetObject(id).Card.Name == "Monkey");
+
+        Assert.Equal(4, monkeys);
+    }
+
+    /// <summary>
+    /// A demonstrative no target agrees with is left unread, however near the noun stands.
+    /// </summary>
+    /// <remarks>
+    /// Twisted Justice: "Target player sacrifices a creature of their choice. You draw cards equal
+    /// to that creature's power." The creature is real and the sentence is about it, but nobody
+    /// chose it and no trigger named it — the only thing this ability targeted is a player, who
+    /// has no power at all (CR 107.3). Answering with the player would draw nothing for ever;
+    /// answering with the caster's own creature would draw the wrong number. Unread is the honest
+    /// third answer, and it is the one this whole reader is arranged around.
+    /// </remarks>
+    [Fact]
+    public void A_demonstrative_no_target_agrees_with_is_left_unread()
+    {
+        var justice = ReferentCard(
+            "Referent Justice Test",
+            "Target player sacrifices a creature of their choice. "
+                + "You draw cards equal to that creature's power.",
+            5);
+
+        var compiled = CardCompiler.Compile(justice);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            line => line.Contains("that creature's power", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A demonstrative distributed over a group is left unread (CR 109.2).
+    /// </summary>
+    /// <remarks>
+    /// Canopy Gargantuan is the card that says why the refusals here are not timidity. "Put a
+    /// number of +1/+1 counters on each other creature you control equal to that creature's
+    /// toughness" gives every creature counters equal to <em>its own</em> toughness, which is a
+    /// different number per creature — and every arm of this reader answers with one number for
+    /// the lot. A control run that swapped the demonstrative for the source's own name compiled it
+    /// cleanly, which is exactly the false positive an excision census reports as a win.
+    /// </remarks>
+    [Fact]
+    public void A_demonstrative_distributed_over_a_group_is_left_unread()
+    {
+        var gargantuan = ReferentCard(
+            "Referent Gargantuan Test",
+            "At the beginning of your upkeep, put a number of +1/+1 counters on each other "
+                + "creature you control equal to that creature's toughness.",
+            7,
+            CardType.Creature,
+            power: 6,
+            toughness: 6);
+
+        var compiled = CardCompiler.Compile(gargantuan);
+
+        Assert.False(compiled.IsComplete);
+    }
+
+    /// <summary>
+    /// Two targets of the noun's own kind and the sentence stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Constructed rather than printed, because the ambiguity it guards is the one the corpus does
+    /// not yet contain — and a guard measured only against the cards that exist today is a guard
+    /// that fails on the first card that does not. With two creatures chosen, "that creature"
+    /// picks between them by words this reader does not read, so it declines rather than taking
+    /// whichever came first.
+    /// </remarks>
+    [Fact]
+    public void Two_targets_agreeing_with_the_noun_leave_the_sentence_unread()
+    {
+        var pair = ReferentCard(
+            "Referent Pair Test",
+            "Destroy target creature. Target creature gets +X/+X until end of turn, "
+                + "where X is that creature's power.",
+            4);
+
+        var compiled = CardCompiler.Compile(pair);
+
+        Assert.False(compiled.IsComplete);
+    }
+
+    /// <summary>
+    /// Every corpus card this reader unblocked, compiled from the line it actually prints.
+    /// </summary>
+    /// <remarks>
+    /// The tests above play seven sentences; this says which real cards those sentences are, and
+    /// keeps the reader anchored to printed wordings rather than to the paraphrases a test is free
+    /// to write. Each line is the card's own, with its self-reference written as the token the
+    /// compiler normalises the name to.
+    /// </remarks>
+    [Theory]
+    [InlineData(
+        "Referent Corpus Intellect Test",
+        "Counter target creature spell. Draw cards equal to that spell's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Swindle Test",
+        "Counter target spell. Create X Treasure tokens, where X is that spell's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Access Test",
+        "Counter target spell. Create X 1/1 colorless Thopter artifact creature tokens with "
+            + "flying, where X is that spell's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Hurl Test",
+        "Counter target artifact or creature spell. Discover X, where X is that spell's mana "
+            + "value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Aura Mutation Test",
+        "Destroy target enchantment. Create X 1/1 green Saproling creature tokens, where X is "
+            + "that enchantment's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Artifact Mutation Test",
+        "Destroy target artifact. It can't be regenerated. Create X 1/1 green Saproling creature "
+            + "tokens, where X is that artifact's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Aether Mutation Test",
+        "Return target creature to its owner's hand. Create X 1/1 green Saproling creature "
+            + "tokens, where X is that creature's mana value.",
+        false)]
+    [InlineData(
+        "Referent Corpus Souls Might Test",
+        "Put X +1/+1 counters on target creature, where X is that creature's power.",
+        false)]
+    [InlineData(
+        "Referent Corpus Spectacle Test",
+        "Destroy target nonartifact creature. Its controller mills cards equal to that creature's "
+            + "power.",
+        false)]
+    [InlineData(
+        "Referent Corpus Whelk Test",
+        "When ~ enters, counter target spell. Put X +1/+1 counters on ~, where X is that spell's "
+            + "mana value.",
+        true)]
+    [InlineData(
+        "Referent Corpus Seedshark Test",
+        "Whenever you cast a noncreature spell, incubate X, where X is that spell's mana value.",
+        true)]
+    [InlineData(
+        "Referent Corpus Cyclops Test",
+        "Whenever you cast an instant or sorcery spell, ~ gets +X/+0 until end of turn, where X "
+            + "is that spell's mana value.",
+        true)]
+    [InlineData(
+        "Referent Corpus Livaan Test",
+        "Whenever you cast a noncreature spell, target creature gets +X/+0 until end of turn, "
+            + "where X is that spell's mana value.",
+        true)]
+    [InlineData(
+        "Referent Corpus Kirin Test",
+        "Whenever you cast a Spirit or Arcane spell, you may gain life equal to that spell's mana "
+            + "value.",
+        true)]
+    [InlineData(
+        "Referent Corpus Hamletback Test",
+        "Whenever another creature enters, you may put X +1/+1 counters on ~, where X is that "
+            + "creature's power.",
+        true)]
+    [InlineData(
+        "Referent Corpus Archon Test",
+        "Whenever ~ or another creature you control with flying enters, you may gain life equal "
+            + "to that creature's power.",
+        true)]
+    [InlineData(
+        "Referent Corpus Mentor Test",
+        "{2}{G}, {T}: Target creature gets +X/+X until end of turn, where X is that creature's "
+            + "power.",
+        true)]
+    [InlineData(
+        "Referent Corpus Smelter Test",
+        "{3}{R}: Destroy target artifact. ~ gets +X/+0 until end of turn, where X is that "
+            + "artifact's mana value.",
+        true)]
+    public void Every_printed_line_the_demonstrative_reader_unblocked_reads(
+        string name, string text, bool permanent)
+    {
+        var card = permanent
+            ? ReferentCard(name, text, 5, CardType.Creature, power: 2, toughness: 2)
+            : ReferentCard(name, text, 5);
+
+        var compiled = CardCompiler.Compile(card);
+
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+    }
+
     // ---- Counting a life change (CR 118.3) -----------------------------------
 
     [Fact]

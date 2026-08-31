@@ -57,7 +57,23 @@ public enum TouchVerb
 /// <param name="Card">The card it was, through the computed characteristics (CR 613.2c).</param>
 /// <param name="Power">Its power as it left, or null when it had none.</param>
 /// <param name="Toughness">Its toughness as it left, or null when it had none.</param>
-public sealed record LastKnown(CardDefinition Card, int? Power, int? Toughness);
+public sealed record LastKnown(CardDefinition Card, int? Power, int? Toughness)
+{
+    /// <summary>Its mana value as it left, with the X it was cast for (CR 107.3a).</summary>
+    /// <remarks>
+    /// The one characteristic of a <em>spell</em> that cannot be read back off the card. A
+    /// spell with {X} in its cost has a mana value on the stack that counts the value
+    /// announced as it was cast, and CR 107.3g puts that X at nought everywhere else - so a
+    /// Fireball cast for five is a six on the stack and a one in the graveyard it is countered
+    /// into. Mana Drain is the card that turns on the difference, and every "counter target
+    /// spell, then do something equal to that spell's mana value" is the same question.
+    /// <para>
+    /// Null for an object that was not a spell, where the card's own mana value is the whole
+    /// answer and there is nothing for the record to add.
+    /// </para>
+    /// </remarks>
+    public int? ManaValue { get; init; }
+}
 
 /// <summary>One thing an earlier effect of this same resolution did to one object (CR 608.2c).</summary>
 /// <remarks>
@@ -113,6 +129,13 @@ public sealed record Touch(
 
     /// <summary>What it last had for toughness, as it left (CR 608.2h).</summary>
     public int? Toughness { get; init; }
+
+    /// <summary>What it last had for mana value, with its announced X (CR 107.3a).</summary>
+    /// <remarks>
+    /// Null unless the object left the stack, because everywhere else the card answers this
+    /// exactly and a second copy of the number could only drift from it.
+    /// </remarks>
+    public int? ManaValue { get; init; }
 
     /// <summary>Whether this is one of the things a printed participle names.</summary>
     /// <remarks>
@@ -206,6 +229,7 @@ public sealed record ResolutionRecord
                 OldId = moved.OldId,
                 Power = leaving?.Power,
                 Toughness = leaving?.Toughness,
+                ManaValue = leaving?.ManaValue,
             });
         }
 

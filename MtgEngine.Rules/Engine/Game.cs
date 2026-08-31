@@ -14011,8 +14011,19 @@ public sealed class Game
 
         var card = Characteristics.CardOf(State, _abilities, live);
 
+        // CR 107.3a: the X announced as a spell was cast counts towards its mana value while
+        // it is on the stack, and CR 107.3g puts X at nought in every other zone - so a spell
+        // countered into a graveyard cannot be asked afterwards what it cost. Recorded here,
+        // where the object still exists, which is what CR 608.2h means by last known
+        // information; noted only for a spell, because everywhere else the card answers it.
+        int? announced = live.Zone == Zone.Stack
+            ? card.Cmc
+                + (live.VariableValue
+                    * WithMeasuredVariable.VariableSymbols(live.Card.ManaCostRaw))
+            : null;
+
         if (live.Zone != Zone.Battlefield)
-            return new LastKnown(card, card.Power, card.Toughness);
+            return new LastKnown(card, card.Power, card.Toughness) { ManaValue = announced };
 
         var now = Characteristics.Of(State, _abilities, live);
         return new LastKnown(card, now.Power, now.Toughness);

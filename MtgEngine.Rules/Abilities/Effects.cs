@@ -10329,14 +10329,25 @@ public sealed record WithMeasuredVariable(
 
         if (stat == TouchStat.ManaValue)
         {
-            var announced = named.Zone == Zone.Stack ? named.VariableValue : 0;
+            if (named.Zone == Zone.Stack)
+            {
+                return Math.Max(
+                    0,
+                    named.Card.Cmc
+                        + (named.VariableValue
+                            * VariableSymbols(named.Card.ManaCostRaw)));
+            }
 
-            return Math.Max(
-                0,
-                named.Card.Cmc
-                    + (announced <= 0
-                        ? 0
-                        : announced * VariableSymbols(named.Card.ManaCostRaw)));
+            // A spell this same resolution countered has left the stack, and with it the X
+            // it was cast for (CR 107.3g). The record kept the number as it went, which is
+            // the only place it survives.
+            foreach (var touch in context.Record.Touches)
+            {
+                if (touch.Id == named.Id && touch.ManaValue is { } was)
+                    return Math.Max(0, was);
+            }
+
+            return Math.Max(0, named.Card.Cmc);
         }
 
         if (named.Zone != Zone.Battlefield)
@@ -10359,7 +10370,12 @@ public sealed record WithMeasuredVariable(
     }
 
     /// <summary>How many {X} a printed mana cost carries — two exist, so it is counted.</summary>
-    private static int VariableSymbols(string? cost)
+    /// <remarks>
+    /// Public because the engine writes the same number down as a spell leaves the stack, and
+    /// two ways of counting the same symbol is exactly the drift this codebase keeps paying
+    /// for. One implementation, two callers.
+    /// </remarks>
+    public static int VariableSymbols(string? cost)
     {
         if (string.IsNullOrEmpty(cost))
             return 0;
