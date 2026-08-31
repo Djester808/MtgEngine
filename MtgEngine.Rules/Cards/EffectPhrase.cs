@@ -5845,6 +5845,35 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Search its controller's graveyard, hand, and library for all cards with the same name
+        // as that spell and exile them" - the extraction family, and the reason the zone list
+        // exists (CR 701.23a). Three zones at once, somebody else's, and the name is not written
+        // on the card: it is whatever the sentence before this one countered or exiled, which is
+        // why the filter carries a sentinel rather than a word.
+        //
+        // Written as its own matcher rather than as more alternatives in the tutor grammar above.
+        // The two share a zone list and a filter vocabulary and nothing else - this one names no
+        // kind of card, always exiles, never reveals, and reads its subject through a target - and
+        // folding them together would have made one pattern that could say things no card says.
+        m = ExtractionSearchLine().Match(sentence);
+        if (m.Success && SearchedZones(m.Groups["zones"].Value) is { } takenFrom)
+        {
+            effects.Add(new SearchLibrary(
+                Abilities.SearchFilters.NamedPrefix + Abilities.SearchFilters.TargetsName,
+                Zone.Exile,
+                Zones: takenFrom,
+                Whose: m.Groups["whose"].Value.StartsWith(
+                    "its owner", StringComparison.OrdinalIgnoreCase)
+                    ? Abilities.SearchWhoseZones.TargetsOwner
+                    : Abilities.SearchWhoseZones.TargetsController,
+
+                // "All cards with that name" and "any number of cards" are the same ceiling here:
+                // however many the zones turn out to hold. "Up to four" is the one printed bound.
+                Count: m.Groups["n"].Success ? SearchCount(m.Groups["n"].Value) : AnyNumber));
+
+            return true;
+        }
+
         // "Seek a nonland card." - a search with the choice taken away and the shuffle removed.
         // The filter, the count and the mana-value bounds are read by the same vocabulary the
         // search above uses, so a word either of them learns is learned by both; what is
@@ -16341,9 +16370,33 @@ public static partial class EffectPhrase
     /// compiling to an empty spell.
     /// </remarks>
     [GeneratedRegex(
-        @"^(if you (search|searched) your library this way, )?shuffle( your library)?$",
+        @"^((if you (search|searched) your library this way, )|((then )?that player |they )?)"
+            + @"shuffles?( your library| their library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex BareShuffleLine();
+
+    /// <remarks>
+    /// The extraction family (CR 701.23a): three zones of somebody else's at once, everything
+    /// found exiled, and the name taken from what the sentence before this one targeted.
+    /// <para>
+    /// "Its controller's" and "its owner's" are the only two spellings admitted. "That player's"
+    /// appears on four more cards and means whoever an <em>earlier sentence</em> named — a
+    /// revealed hand, an opponent whose graveyard was picked from — which is a different question
+    /// and is left unread rather than guessed at as the target.
+    /// </para>
+    /// <para>
+    /// The noun after "that" is matched and dropped. "That spell", "that land", "that artifact"
+    /// and "that card" all mean the thing this effect targets, and reading the word would be
+    /// re-deciding from the sentence what the target list already says.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^search (?<whose>its controller's|its owner's) "
+            + @"(?<zones>(library|graveyard|hand)(,? (and/or |or |and )?(library|graveyard|hand))*)"
+            + @" for (all|any number of|up to (?<n>one|two|three|four|five)) "
+            + @"cards with the same name as that [a-z]+ and exile them$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ExtractionSearchLine();
 
     /// <remarks>
     /// The filter is optional: "search your library for a card" has none at all, and requiring

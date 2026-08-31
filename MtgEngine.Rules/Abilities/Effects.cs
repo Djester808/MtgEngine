@@ -7289,6 +7289,20 @@ public sealed record SearchLibrary(
             filter = filter.Replace("~", self.Card.Name, StringComparison.Ordinal);
         }
 
+        // "All cards with the same name as that spell" - the name of what this effect targets,
+        // followed forward because the sentence before it has already countered or exiled the
+        // thing (CR 400.7). Without a target to read there is no name and therefore no search
+        // (CR 608.2b): a filter left holding the sentinel would match nothing and the card would
+        // report itself as having done its job.
+        if (filter.Contains(SearchFilters.TargetsName, StringComparison.Ordinal))
+        {
+            if (context.PeerAt(TargetIndex) is not { } named)
+                return [];
+
+            filter = filter.Replace(
+                SearchFilters.TargetsName, named.Card.Name, StringComparison.Ordinal);
+        }
+
         var searcher = context.ControllerId;
 
         if (Who == SearchWho.SubjectController)
@@ -7447,6 +7461,25 @@ public static class SearchFilters
     /// the whole reason filters are strings.
     /// </remarks>
     public const string NamedPrefix = "name:";
+
+    /// <summary>
+    /// Stands in for the name of the card a search's target turned out to be — "all cards with
+    /// the same name as that spell".
+    /// </summary>
+    /// <remarks>
+    /// The same trick, and for the same reason, as the tilde a card uses for its own name: the
+    /// parser reads a sentence and not a game, so it has no name to put here, and it is filled in
+    /// when the effect resolves. What reaches the log names the card outright, which is what makes
+    /// a replayed extraction look for the same thing rather than for whatever the replay's target
+    /// happens to be.
+    /// <para>
+    /// Deliberately not a word: a card name is capitalised by definition, and a capital is how
+    /// <see cref="Matches"/> tells a subtype from everything else. A sentinel that could be read
+    /// as a name would be one more capitalised word in a type table, which this codebase has been
+    /// bitten by seven times.
+    /// </para>
+    /// </remarks>
+    public const string TargetsName = "*target*";
 
     /// <summary>Whether a card answers to a filter name.</summary>
     /// <remarks>

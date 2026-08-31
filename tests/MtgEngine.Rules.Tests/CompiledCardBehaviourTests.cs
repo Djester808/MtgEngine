@@ -8,6 +8,7 @@ using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
+using MtgEngine.Rules.Views;
 
 namespace MtgEngine.Rules.Tests;
 
@@ -3636,6 +3637,232 @@ public sealed class CompiledCardBehaviourTests
             o => o.Card.Name == "Sought Idol Test");
 
         Assert.True(game.Log.OfType<LibraryShuffled>().Count() > shufflesBefore);
+    }
+
+    /// <summary>
+    /// One instruction that empties a graveyard, a hand and a library at once - the extraction
+    /// family (CR 701.23a), on Sowing Salt's printed wording.
+    /// </summary>
+    /// <remarks>
+    /// Everything this family needs that a tutor does not is here at once: three zones in one
+    /// search, zones that belong to somebody other than the player doing the searching, a filter
+    /// whose name is not written on the card but taken from what the sentence before it exiled,
+    /// and a destination of exile.
+    /// <para>
+    /// The control is a card of a different name sitting in all three of the same zones. It is
+    /// the assertion that matters most here, because every plausible way of getting this wrong -
+    /// dropping the filter, reading the sentinel as a subtype, taking the whole zone - shows up
+    /// as the control moving and as nothing else.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_extraction_takes_the_named_card_out_of_all_three_zones_at_once()
+    {
+        var sought = Card("Sought Tower Test", string.Empty, CardType.Land);
+        var spared = Card("Spared Tower Test", string.Empty, CardType.Land);
+
+        var salt = Card(
+            "Salt Sower Test",
+            "Exile target nonbasic land. Search its controller's graveyard, hand, and library "
+                + "for all cards with the same name as that land and exile them. Then that "
+                + "player shuffles.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(salt);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var onBoard = game.Create(bob, sought, Zone.Battlefield);
+
+        // One copy in each of the three zones the card names...
+        game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Library);
+
+        // ...and a differently named card beside each of them.
+        game.Create(bob, spared, Zone.Graveyard);
+        game.Create(bob, spared, Zone.Hand);
+        game.Create(bob, spared, Zone.Library);
+
+        var card = TestCards.PutInHand(game, alice, salt);
+        game.CastSpell(alice, card, [Target.ToPermanent(onBoard)]);
+
+        var asked = SettleTakingEverything(game);
+
+        // The question went to the caster, not to the player whose cards were being looked
+        // through. Getting this the wrong way round would be a card that asks its victim to
+        // choose what they lose.
+        Assert.Equal(alice, asked);
+
+        // Gone from every zone it was in.
+        Assert.DoesNotContain(
+            game.State.GetPlayer(bob).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Tower Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(bob).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Tower Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(bob).Library.Select(game.State.GetObject),
+            o => o.Card.Name == "Sought Tower Test");
+
+        // Four of them in exile: the permanent the spell targeted, and one from each zone.
+        Assert.Equal(
+            4,
+            game.State.Exile.Select(game.State.GetObject)
+                .Count(o => o.Card.Name == "Sought Tower Test"));
+
+        // The control is untouched in all three zones, and none of it reached exile.
+        Assert.Contains(
+            game.State.GetPlayer(bob).Graveyard.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Tower Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(bob).Hand.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Tower Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(bob).Library.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Tower Test");
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Spared Tower Test");
+    }
+
+    /// <summary>
+    /// Searching a hand shows the searcher what matched and nothing else (CR 400.2).
+    /// </summary>
+    /// <remarks>
+    /// A <c>GameState</c> is never serialised to a client, so a search that reaches into an
+    /// opponent's hand cannot be a peek at one - it has to be an event, and the event is the
+    /// question. <see cref="PlayerViewProjector"/> sends a choice's options only to the player
+    /// being asked, which is what lets the caster see the matching card in a hand they are
+    /// otherwise not allowed to look at, while the rest of that hand stays where it was.
+    /// </remarks>
+    [Fact]
+    public void An_extraction_shows_the_searcher_the_match_and_not_the_rest_of_the_hand()
+    {
+        var sought = Card("Sought Tower Test", string.Empty, CardType.Land);
+        var secret = Card("Secret Tower Test", string.Empty, CardType.Land);
+
+        var salt = Card(
+            "Salt Sower Test",
+            "Exile target nonbasic land. Search its controller's graveyard, hand, and library "
+                + "for all cards with the same name as that land and exile them. Then that "
+                + "player shuffles.",
+            CardType.Sorcery);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var onBoard = game.Create(bob, sought, Zone.Battlefield);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, secret, Zone.Hand);
+
+        var card = TestCards.PutInHand(game, alice, salt);
+        game.CastSpell(alice, card, [Target.ToPermanent(onBoard)]);
+
+        RunUntilSearchAsked(game);
+
+        var choice = game.State.Choice;
+        Assert.NotNull(choice);
+        Assert.Equal(ChoiceKind.SearchLibrary, choice!.Kind);
+        Assert.Equal(alice, choice.PlayerId);
+
+        // The match in Bob's hand is among the options Alice is offered...
+        Assert.Contains(choice.Options, o => o.Label == "Sought Tower Test");
+
+        // ...and the card beside it, which the filter does not name, is not.
+        Assert.DoesNotContain(choice.Options, o => o.Label == "Secret Tower Test");
+
+        var forAlice = PlayerViewProjector.Project(game.State, alice, Pool);
+
+        // Alice is asked the question and given its options.
+        Assert.NotNull(forAlice.Choice?.Options);
+        Assert.Contains(forAlice.Choice!.Options!, o => o.Label == "Sought Tower Test");
+
+        // Bob's hand is still absent from her view of the board: what she may see is what the
+        // question named, not the zone it came out of.
+        Assert.Null(forAlice.Players.Single(p => p.PlayerId == bob).Hand);
+
+        // And Bob, who is not being asked, is sent the question without its options.
+        var forBob = PlayerViewProjector.Project(game.State, bob, Pool);
+        Assert.Equal(alice, forBob.Choice?.PlayerId);
+        Assert.Null(forBob.Choice?.Options);
+    }
+
+    /// <summary>Plays on until a search is the question on the table, and stops there.</summary>
+    /// <remarks>
+    /// The shared <see cref="Run"/> answers every question it meets, which leaves nothing to look
+    /// at. What the search offers, and to whom, is the whole subject of the test that uses this.
+    /// </remarks>
+    private static void RunUntilSearchAsked(Game game)
+    {
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { Kind: ChoiceKind.SearchLibrary })
+                return;
+
+            if (game.State.Choice is { } other)
+            {
+                game.Choose(
+                    other.PlayerId,
+                    [.. other.Options.Take(Math.Max(other.MinPicks, 1)).Select(o => o.Id)]);
+                continue;
+            }
+
+            if (game.State.Priority.Holder is not { } holder)
+                return;
+
+            game.PassPriority(holder);
+        }
+    }
+
+    /// <summary>
+    /// Plays on until nothing is waiting, answering a search with every option it offers.
+    /// </summary>
+    /// <remarks>
+    /// The shared <see cref="Run"/> takes the smallest legal answer, which for "all cards with
+    /// that name" is one card - an extraction that took one copy and left the other two would
+    /// pass every assertion about the zone it happened to take from.
+    /// </remarks>
+    /// <returns>Who was asked the search, or the empty id if nothing was.</returns>
+    private static Guid SettleTakingEverything(Game game)
+    {
+        var asked = Guid.Empty;
+        var passedOnce = false;
+
+        for (var guard = 0; guard < 80; guard++)
+        {
+            if (game.State.Choice is { } choice)
+            {
+                if (choice.Kind == ChoiceKind.SearchLibrary)
+                    asked = choice.PlayerId;
+
+                game.Choose(
+                    choice.PlayerId,
+                    [.. choice.Options
+                        .Take(Math.Max(choice.MinPicks, choice.Kind == ChoiceKind.SearchLibrary
+                            ? choice.MaxPicks
+                            : 1))
+                        .Select(o => o.Id)]);
+                continue;
+            }
+
+            if (passedOnce && game.State.Stack.IsEmpty && game.State.PendingTriggers.IsEmpty)
+                break;
+
+            if (game.State.Priority.Holder is not { } holder)
+                break;
+
+            game.PassPriority(holder);
+            passedOnce = true;
+        }
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+        return asked;
     }
 
     // ---- Searching by name (CR 701.23) ---------------------------------------
