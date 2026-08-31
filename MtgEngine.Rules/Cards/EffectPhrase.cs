@@ -4827,9 +4827,6 @@ public static partial class EffectPhrase
             return true;
         }
 
-        // "Create [N] [tapped] token(s) that's a copy of ..." — of this permanent, of something
-        // targeted, or of whatever the sentence before named. Three sources, one effect, because
-        // the only thing that differs is which permanent's card is taken.
         // "Conjure a duplicate of X into your hand" (CR 701.55, 701.56) - the reachable half of
         // Alchemy's conjure, and it is the token-copy reader with a zone instead of a mint. The
         // three ways of naming X are the same three, read by the same code path, because the
@@ -4885,6 +4882,9 @@ public static partial class EffectPhrase
             return false;
         }
 
+        // "Create [N] [tapped] token(s) that's a copy of ..." — of this permanent, of something
+        // targeted, or of whatever the sentence before named. Three sources, one effect, because
+        // the only thing that differs is which permanent's card is taken.
         var tokenCopy = TokenCopyLine().Match(sentence);
         if (tokenCopy.Success)
         {

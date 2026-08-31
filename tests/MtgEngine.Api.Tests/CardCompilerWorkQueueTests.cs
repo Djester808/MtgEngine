@@ -250,13 +250,43 @@ public sealed partial class CardCompilerWorkQueueTests(ITestOutputHelper output)
             "[Cc]onjures? (a|an|two|three|four|X) cards? named [A-Z][^,.]*",
             "search your library for a card")),
         ("perpetual", "perpetual", WithoutPerpetually),
-        ("spellbook", "spellbook", l => l),
-        ("specialize", "specialize", l => l),
-        ("attraction", "attraction", l => l),
-        ("sticker", "sticker", l => l),
+
+        // The Alchemy card-list mechanics have no plainer wording, so the substitute is the
+        // plainest *instruction* - a draw - left inside the sentence that carried them. That is
+        // the distinction the whole table exists for: if the trigger, the cost and the clause
+        // after the comma are already read, the card is waiting on a reader; if they are not,
+        // the mechanic was never what blocked it.
+        ("spellbook", "spellbook", l => Regex.Replace(
+            l,
+            "([Dd]raft|[Cc]onjure)s? (a |an |each )?(random |of your choice )?cards? "
+                + "(of your choice )?from ([^,.]*?)[Ss]pellbook",
+            "draw a card")),
+
+        // A keyword ability with a cost, rewritten to an activated ability with the same cost -
+        // so what is measured is whether the rest of the printed line ("Activate only if you
+        // control six or more lands") reads, which is all that could be left.
+        ("specialize", "specialize", l => Regex.Replace(
+            l, @"Specialize ((?:\{[^}]+\})+)", "$1: Draw a card")),
+
+        ("attraction", "attraction", l => l
+            .Replace("Open an Attraction", "Draw a card", StringComparison.Ordinal)
+            .Replace("open an Attraction", "draw a card", StringComparison.Ordinal)
+            .Replace("Open two Attractions", "Draw two cards", StringComparison.Ordinal)
+            .Replace("open two Attractions", "draw two cards", StringComparison.Ordinal)
+            .Replace("Roll to visit your Attractions", "Draw a card", StringComparison.Ordinal)
+            .Replace("roll to visit your Attractions", "draw a card", StringComparison.Ordinal)),
+
+        ("sticker", "sticker", l => Regex.Replace(
+            l,
+            "([Yy]ou may )?put (a|an|up to two|up to one) (name )?stickers? on [^,.]*",
+            m => (m.Groups[1].Success ? "you may draw a card" : "draw a card"))),
+
         ("seek", "seek ", l => Regex.Replace(
             l, "[Ss]eeks? (a|an|two|three) ", "search your library for $1 ")),
-        ("double team", "double team", l => l),
+        // A keyword line rewritten to a keyword that reads, for the same reason specialize is.
+        ("double team", "double team", l => l
+            .Replace("Double team", "Flying", StringComparison.Ordinal)
+            .Replace("double team", "flying", StringComparison.Ordinal)),
     ];
 
     /// <summary>"Perpetually X" is "X" with a duration Alchemy invented (CR 614 is not it).</summary>

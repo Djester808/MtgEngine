@@ -539,24 +539,36 @@ sentence standing, which is what modelling the mechanic would actually buy.
 |---|---|---|---|---|---|
 | conjure | 164 | 171 | 171 | 111 | 31 |
 | perpetual | 238 | 245 | 245 | **193** | **4** |
-| spellbook | 64 | 64 | 60 | 43 | 0 |
-| specialize | 19 | 19 | 9 | 12 | 0 |
-| attraction | 27 | 34 | 22 | 24 | 0 |
-| sticker | 47 | 63 | 53 | 42 | 0 |
-| seek | 81 | 85 | 84 | 61 | 0 |
-| double team | 23 | 24 | 10 | 14 | 0 |
+| spellbook | 64 | 64 | 60 | 43 | 15 |
+| specialize | 19 | 19 | 9 | 12 | **11** |
+| attraction | 27 | 34 | 22 | 24 | 14 |
+| sticker | 47 | 63 | 53 | 42 | 2 |
+| seek | 81 | 85 | 84 | 61 | **0** |
+| double team | 23 | 24 | 10 | 14 | 3 |
 
-**Perpetual is the whole lesson: 193 against 4.** Take the word "perpetually" out of all 245 lines
-and 241 of them are *still* unread, because what is left is "creature cards in your graveyard get
-+1/+1", "a random land card in your library gains …", "each nonland card in defending player's
-hand gains …" — pumping and granting to cards in zones the compiler's grammar has never been
-shown. Perpetual duration is a small part of that family and modelling it completes four cards.
-Ranking this work by 193 recommends fifty times what it can pay for.
+**Perpetual is the lesson at one end: 193 against 4.** Take the word "perpetually" out of all 245
+lines and 241 of them are *still* unread, because what is left is "creature cards in your graveyard
+get +1/+1", "a random land card in your library gains …", "each nonland card in defending player's
+hand gains …" — pumping and granting to cards in zones the compiler's grammar has never been shown.
+Perpetual duration is a small part of that family and modelling it completes four cards. Ranking
+this work by 193 recommends fifty times what it can pay for. Seek is the same story taken to zero, and it is
+the family that proves the reading rather than illustrating it: **the seek verb already has a
+reader** (`Seek` in `Effects.cs`, and its own behaviour test), and 81 cards still carry an unread
+seek line. Substitute a printed tutor wording for the verb and **0 of 85** read, because what is
+left is the filter — "a card with mana value less than the number of cards in your hand", "a
+creature card of the most prevalent creature type in your library" — which is where the work
+always was.
 
-The `distinct` column says the same thing from the other side. 245 unread perpetual lines have 245
-distinct spellings; 171 conjure lines have 171. **These families have no template.** The one that
-does is specialize — 19 lines, 9 spellings, 15 of them the bare `Specialize {2}` — and it is the
-one whose data turned out to be complete.
+**Specialize is the lesson at the other end: 12 against 11.** Rewrite `Specialize {3}` to
+`{3}: Draw a card` and eleven of the twelve compile whole — every other word on those cards
+already reads, including the activation restrictions printed beside it. That is a family waiting
+on one reader, and it is the family whose data turned out to be complete. Attraction is the same
+shape one step weaker: 24 against 14.
+
+The `distinct` column is the third thing to read, and it is why the middle of this table is not
+worth what it looks like. 245 unread perpetual lines have 245 distinct spellings; 171 conjure lines
+have 171; 53 sticker lines have 53. **Those families have no template at all.** Specialize has 19
+lines and 9 spellings, 15 of them the bare `Specialize {2}`.
 
 #### What was built, and what it proved
 
@@ -581,36 +593,54 @@ and the shared grammar expands it to two targets and one effect apiece, so the r
 do its own counting. There is a test asserting exactly that, because the instinct to add a count
 here is the wrong one and would have to be resisted twice.
 
-#### The declines, with the number behind each
+#### The verdict, ranked by what the substitution column says is actually reachable
 
-- **Conjure a card *named* X — 94 cards.** Not a grammar problem, and the name grammar landing did
-  not change it: `MtgEngine.Rules` has no name-to-definition lookup at all. `IAbilitySource` takes
-  a `CardDefinition` in and never a name; `CompiledPool` compiles definitions it is handed.
-  Conjuring Lightning Bolt needs the corpus reachable from the engine, which is a new seam, not a
-  template. The precedents cited for it — `TokenCards.Granting`, emblems — all build a definition
-  out of words *printed on the card doing the conjuring*, and a named conjure prints no text.
-- **Spellbook — 64 cards, 43 by excision.** The one decline that is genuinely a data decline. The
-  contents are not in `oracle_cards.json` under any key, and `all_parts` does not carry them.
-  Reachable only with a second data source.
-- **Specialize — 19 cards, 12 by excision.** *Not* blocked on data, which is the correction. It
-  needs `all_parts` to reach `CardDefinition`, five extra definitions per card in the pool, and an
-  exchange action; and the five specialized versions carry their own unread text ("when this
-  creature specializes", "it unspecializes"), so reading `Specialize {2}` alone would be an ability
-  that activates and does nothing. Bounded work, and the smallest of these families — but engine
-  work, not compiler work.
-- **Attraction — 27 cards, 24 by excision.** Also not a data decline: every Attraction carries its
-  lights. It needs an Attraction deck outside the game (CR 717.2), a die roll, a visit trigger and
-  a new zone. 12 of the 27 print the identical line `When ~ enters, open an Attraction.`, which is
-  the largest single unread Alchemy/Un shape in the corpus.
-- **Sticker — 47 cards, 42 by excision.** The sheets are excluded correctly. Name stickers change a
-  card's name, ability stickers add text, power/toughness stickers change a printed size — four
-  mechanics behind one word, on 53 distinct lines.
-- **Perpetual — 238 cards, 193 by excision, 4 by substitution.** See above. The zone-change
-  identity problem (CR 400.7) is real and is *not* the reason these cards are unread.
-- **Seek — 81 cards, 61 by excision.** Included because it is the Alchemy family that looks most
-  buildable and is not: the substitution to a printed tutor wording reads **0 of 85** lines. The
-  filters are the work — "a card with mana value less than the number of cards in your hand", "a
-  creature card of the most prevalent creature type in your library" — not the verb.
+**Reachable, and the next round's work.**
+
+- **Specialize — 19 cards, 12 by excision, 11 by substitution.** The correction, and the only
+  family in the table whose mechanic really is the whole blocker. Its data is complete: every base
+  card carries `all_parts` with six entries, and the five specialized versions are in the dump.
+  What it needs is `all_parts` reaching `CardDefinition`, five extra definitions per card in the
+  pool, and an exchange action (CR 702.161). The five versions carry their own unread text ("when
+  this creature specializes", "it unspecializes"), so a `Specialize {2}` that compiled without them
+  would be an ability that activates and does nothing — which is worse than the unread line.
+  Engine and loader work, not compiler work, and it is bounded.
+- **Attraction — 27 cards, 24 by excision, 14 by substitution.** Also not a data decline: every
+  Attraction in the dump carries its lights. It needs an Attraction deck outside the game
+  (CR 717.2), a die roll, a visit trigger and a new zone. 12 of the 27 print the identical line
+  `When ~ enters, open an Attraction.` — the largest single unread Alchemy/Un shape in the corpus.
+
+**Reachable only behind a seam that does not exist.**
+
+- **Conjure a card *named* X — 94 cards, 31 by substitution.** Not a grammar problem, and the name
+  grammar landing this round did not change it: `MtgEngine.Rules` has no name-to-definition lookup
+  at all. `IAbilitySource` takes a `CardDefinition` in and never a name; `CompiledPool` compiles
+  definitions it is handed. Conjuring Lightning Bolt needs the corpus reachable from the engine,
+  which is a new seam, not a template. The precedents offered for it — `TokenCards.Granting`,
+  emblems — all build a definition out of words *printed on the card doing the conjuring*, and a
+  named conjure prints no text. (A second agent's independent control this round put the same
+  family at 55 cards under a narrower rewrite and reached the same conclusion.)
+
+**Not reachable from this dump.**
+
+- **Spellbook — 64 cards, 43 by excision, 15 by substitution.** The one decline that is genuinely a
+  data decline, and the substitution column is what proves it is *only* a data decline for fifteen
+  of them: swap the draft for a draw and they compile whole. The contents are not in
+  `oracle_cards.json` under any key, and `all_parts` carries `combo_piece` and `token` and nothing
+  else. A second data source, or nothing.
+
+**Not worth what the excision number says.**
+
+- **Perpetual — 238 cards, 193 by excision, 4 by substitution.** The zone-change identity problem
+  (CR 400.7) is real and is *not* the reason these cards are unread.
+- **Sticker — 47 cards, 42 by excision, 2 by substitution.** The sheets are excluded correctly.
+  Name stickers change a card's name, ability stickers add text, power/toughness stickers change a
+  printed size — four mechanics behind one word, on 53 distinct lines, and swapping the sticker out
+  leaves 45 of the 47 still unread.
+- **Seek — 81 cards, 61 by excision, 0 by substitution.** The verb is already built. What is left
+  is 84 distinct filters, which is not this family's work but the target grammar's.
+- **Double team — 23 cards, 14 by excision, 3 by substitution.** It is conjure plus perpetual
+  wearing a keyword, and it inherits both walls.
 
 ### Round twenty-one: the basic land type of your choice, and two neighbours re-measured
 
