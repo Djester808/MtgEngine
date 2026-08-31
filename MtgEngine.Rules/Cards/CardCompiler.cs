@@ -3410,6 +3410,40 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
                     + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
 
+            // "Create a number of Food tokens equal to the number of opponents you have",
+            // "target opponent loses life equal to the number of Elves you control", "~ deals
+            // damage equal to the number of Giants you control to each non-Giant creature" —
+            // one quantity written the long way round, and the *last* place in this compiler
+            // where a count had to be taught to a verb one verb at a time.
+            //
+            // The short way round is already read, generically: `EffectPhrase`'s "…, where X is
+            // the number of …" clause takes any head at all, reads it with X left as the
+            // variable every verb already knows, and fills the count in when the sentence
+            // resolves. So the two spellings are made one here — "equal to the number of …"
+            // becomes "X …, where X is the number of …" — and every verb that can carry a
+            // number gains the whole counting vocabulary at once, rather than each of them
+            // growing an "equal to the number of" arm of its own. Four already had: the life
+            // family, the draw family, the damage family and the per-each pumps, each written
+            // in a different round, and each reading only the sentence shape its author had in
+            // front of them. "You gain life equal to the number of Elves you control" read;
+            // "target opponent loses life equal to the number of Elves you control" did not.
+            //
+            // It runs after the devotion and aggregate rewrites above, and composes with both:
+            // those two spell their phrases into "the number of …", so a card saying "create a
+            // number of Elemental tokens equal to your devotion to blue" arrives here already
+            // in the shape this reads.
+            //
+            // **Only a count.** The same sentence shape carries "equal to its power", and that
+            // one may not be rewritten: the clause reader resolves "its" against the head's
+            // target, so "~ deals damage equal to its power to target creature" would compile
+            // as the *target's* power — a card that reads and does the wrong thing, which is
+            // worse than one left unread. 23 more cards would complete that way and are
+            // declined for exactly that reason.
+            cleaned = CountAsANumber().Replace(
+                cleaned,
+                m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
+                    + ", where X is " + m.Groups["amount"].Value);
+
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
             cleaned = AbilityWord().Replace(cleaned, string.Empty);
@@ -19014,6 +19048,40 @@ public static partial class CardCompiler
             + @"(?<field>power|toughness|mana value) (?<join>of|among) ",
         RegexOptions.IgnoreCase)]
     private static partial Regex AggregateAsANumber();
+
+    /// <summary>
+    /// "…equal to the number of …" — a count written as a quantity rather than as a "for each".
+    /// </summary>
+    /// <remarks>
+    /// Two arms because the corpus prints the noun two ways. "A number of X equal to …" says
+    /// outright that the quantity is a variable and names the thing after it; "damage/life/cards
+    /// equal to …" leaves the words "a number of" implied and puts the noun in front. Both mean
+    /// the same sentence with X spelled out, which is what the replacement writes.
+    /// <para>
+    /// The noun list is closed on purpose. Those three are the quantity nouns the corpus puts in
+    /// front of this phrase — 229, 134 and 64 unread lines — and every other word that lands
+    /// there is part of a *comparison* rather than a quantity: "with mana value equal to", "its
+    /// power is equal to", "power less than or equal to". Widening the list would rewrite those
+    /// into nonsense, and the "or" lookbehind refuses the comparison spelling that reaches the
+    /// noun anyway.
+    /// </para>
+    /// <para>
+    /// The recipient tail is captured and carried across rather than left inside the count,
+    /// because a damage sentence names who it hits after the amount: "deals damage equal to the
+    /// number of Giants you control to each non-Giant creature". The count is lazy and the tail
+    /// starts at the first " to " it can, so a split that guesses wrong hands the target grammar
+    /// a phrase it cannot read and the line stays unread — the fail-closed direction.
+    /// </para>
+    /// <para>
+    /// The amount must begin "the number of". "Equal to twice the number of" is a multiplier the
+    /// clause reader has no room for, and it is left to the hand-written arms that do.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?:a number of (?<what>[^.;]+?)|\b(?<what>damage|life|cards))(?<!\bor)"
+            + @" equal to (?<amount>the number of [^.;]+?)(?<tail> to [^.;]+?)?(?=\.|$)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex CountAsANumber();
 
     /// <summary>
     /// "It deals ..." where the pronoun opens a clause, which is the only place it is a subject.

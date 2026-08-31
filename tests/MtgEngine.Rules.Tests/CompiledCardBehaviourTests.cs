@@ -2208,6 +2208,322 @@ public sealed class CompiledCardBehaviourTests
             u => u.Contains("basic land type of your choice", StringComparison.Ordinal));
     }
 
+    // ---- A quantity written as "equal to ..." (CR 107.3) ---------------------
+
+    /// <summary>
+    /// "Create a number of X tokens equal to the number of ..." — a count, the long way round.
+    /// </summary>
+    /// <remarks>
+    /// The corpus writes one quantity two ways. "Create a Soldier token for each creature you
+    /// control" is read, and has been for rounds; "create a number of Soldier tokens equal to
+    /// the number of creatures you control" is the same instruction and was not — and 1,165
+    /// incomplete cards carry an unread line with those two words in it.
+    /// <para>
+    /// Nothing new counts them. The compiler already reads "…, where X is the number of …" for
+    /// <em>any</em> head at all, so the long spelling is normalised into that one before a
+    /// matcher sees it, and every verb that can take a number gains the whole counting vocabulary
+    /// at once. The alternative — an "equal to" arm per verb — is what had already happened four
+    /// times, and is why "you gain life equal to the number of Elves you control" read while
+    /// "target opponent loses life equal to the number of Elves you control" did not.
+    /// </para>
+    /// <para>
+    /// Reverent Hoplite's own wording, so this is also the proof that the rewrite composes with
+    /// the devotion one above it: the card says "your devotion to white", which becomes "the
+    /// number of white mana symbols …", which becomes the X clause. Three separate numbers would
+    /// each be wrong here — one is what a defaulting reader would give, four is the permanents
+    /// Alice controls, and six is every white symbol on the board including Bob's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_token_count_written_as_equal_to_makes_that_many_tokens()
+    {
+        var hoplite = Card(
+            "Equal To Hoplite Test",
+            "When ~ enters, create a number of 1/1 white Soldier creature tokens equal to your"
+                + " devotion to white.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            keywords: KeywordAbility.None,
+            "Human",
+            "Soldier");
+
+        var compiled = CardCompiler.Compile(hoplite);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, TestCards.Costed("Equal To Hoplite Peer", "{W}{W}", 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Costed("Equal To Hoplite Squire", "{1}{W}", 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Costed("Equal To Hoplite Mage", "{U}{U}", 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Costed("Equal To Hoplite Ox", "{2}", 2), Zone.Battlefield);
+
+        // Bob's white permanent is Bob's devotion, not Alice's (CR 700.5).
+        game.Create(bob, TestCards.Costed("Equal To Hoplite Rival", "{W}{W}{W}", 3), Zone.Battlefield);
+
+        game.Create(alice, hoplite, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(
+            3,
+            game.State.Battlefield.Select(game.State.GetObject)
+                .Count(o => o.Card.Name == "Soldier"));
+    }
+
+    /// <summary>
+    /// Shaman of the Pack: "target opponent loses life equal to the number of Elves you control".
+    /// </summary>
+    /// <remarks>
+    /// The life family had an "equal to the number of" arm already, and its subject list was
+    /// "you", "each opponent" and "each player" — so the targeted spelling, which is what this
+    /// card and a dozen beside it print, reached none of it. That is the shape of the whole
+    /// problem: not a missing count, but a count written into one verb's pattern instead of into
+    /// the vocabulary every verb shares.
+    /// <para>
+    /// Three wrong answers are excluded at once. Five is Alice's creatures, seven is every Elf on
+    /// the battlefield, and one is what a reader that lost the amount would take — so a tally
+    /// where a filtered count was meant, and a default of one, both fail here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_targeted_life_loss_written_as_equal_to_counts_the_group_it_names()
+    {
+        var shaman = Card(
+            "Equal To Shaman Test",
+            "When ~ enters, target opponent loses life equal to the number of Elves you control.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            keywords: KeywordAbility.None,
+            "Elf",
+            "Shaman");
+
+        var compiled = CardCompiler.Compile(shaman);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, EqualToElf("Equal To Shaman Kin One"), Zone.Battlefield);
+        game.Create(alice, EqualToElf("Equal To Shaman Kin Two"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Equal To Shaman Ox One", 2, 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Equal To Shaman Ox Two", 2, 2), Zone.Battlefield);
+
+        // Bob's Elves are Bob's: "you control" is the ability's controller (CR 109.5).
+        foreach (var n in new[] { 1, 2, 3, 4 })
+            game.Create(bob, EqualToElf("Equal To Shaman Rival " + n), Zone.Battlefield);
+
+        game.Create(alice, shaman, Zone.Battlefield);
+        Settle(game);
+
+        // Two kin and the Shaman itself: three Elves, so three life.
+        Assert.Equal(17, game.State.GetPlayer(bob).Life);
+        Assert.Equal(20, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// Thundercloud Shaman: the count is followed by who the damage goes to.
+    /// </summary>
+    /// <remarks>
+    /// The one shape of this sentence that is not simply "verb, amount, full stop": a damage line
+    /// names its recipient <em>after</em> the amount, so the rewrite has to carry the recipient
+    /// across rather than leave it inside the count. The split is made at the first " to " the
+    /// count can end before, and a split that guesses wrong hands the target grammar a phrase it
+    /// cannot read — which leaves the line unread rather than pointing the damage somewhere else.
+    /// <para>
+    /// Both halves are asserted because either alone would pass a wrong reading. The oxen take
+    /// three, which is the count of Giants Alice controls rather than the five creatures she has
+    /// or the four Giants on the battlefield; and Bob's own Giant takes none, which is the filter
+    /// in the recipient phrase still doing its work after the sentence was rewritten around it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_damage_count_written_as_equal_to_keeps_its_recipient()
+    {
+        var thundercloud = Card(
+            "Equal To Thundercloud Test",
+            "When ~ enters, ~ deals damage equal to the number of Giants you control to each"
+                + " non-Giant creature.",
+            CardType.Creature,
+            power: 3,
+            toughness: 3,
+            keywords: KeywordAbility.None,
+            "Giant",
+            "Warrior");
+
+        var compiled = CardCompiler.Compile(thundercloud);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        game.Create(alice, EqualToGiant("Equal To Thundercloud Kin One"), Zone.Battlefield);
+        game.Create(alice, EqualToGiant("Equal To Thundercloud Kin Two"), Zone.Battlefield);
+        var mine = game.Create(
+            alice, TestCards.Creature("Equal To Thundercloud Ox", 5, 5), Zone.Battlefield);
+
+        var theirs = game.Create(
+            bob, TestCards.Creature("Equal To Thundercloud Bear", 5, 5), Zone.Battlefield);
+
+        var theirGiant = game.Create(bob, EqualToGiant("Equal To Thundercloud Rival"), Zone.Battlefield);
+
+        game.Create(alice, thundercloud, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, game.State.GetObject(mine).Permanent?.DamageMarked);
+        Assert.Equal(3, game.State.GetObject(theirs).Permanent?.DamageMarked);
+        Assert.Equal(0, game.State.GetObject(theirGiant).Permanent?.DamageMarked);
+    }
+
+    /// <summary>
+    /// Reverent Hunter: "put a number of +1/+1 counters on it equal to your devotion to green".
+    /// </summary>
+    /// <remarks>
+    /// The counter verb, and the third verb this one rewrite reaches without being told about it.
+    /// A 1/1 that arrives as a 5/5 is the assertion; a reader that lost the amount would leave a
+    /// 2/2, and one that counted permanents instead of symbols would leave a 4/4.
+    /// </remarks>
+    [Fact]
+    public void A_counter_count_written_as_equal_to_puts_that_many_counters_on()
+    {
+        var hunter = Card(
+            "Equal To Hunter Test",
+            "When ~ enters, put a number of +1/+1 counters on it equal to your devotion to green.",
+            CardType.Creature,
+            power: 1,
+            toughness: 1,
+            keywords: KeywordAbility.None,
+            "Human",
+            "Archer");
+
+        var compiled = CardCompiler.Compile(hunter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+
+        game.Create(alice, TestCards.Costed("Equal To Hunter Grove", "{G}{G}", 2), Zone.Battlefield);
+        game.Create(alice, TestCards.Costed("Equal To Hunter Elder", "{1}{G}{G}", 3), Zone.Battlefield);
+        game.Create(alice, TestCards.Costed("Equal To Hunter Ox", "{2}", 2), Zone.Battlefield);
+
+        var archer = game.Create(alice, hunter, Zone.Battlefield);
+        Settle(game);
+
+        var grown = Characteristics.Of(game.State, Pool, game.State.GetObject(archer));
+        Assert.Equal(5, grown.Power);
+        Assert.Equal(5, grown.Toughness);
+    }
+
+    /// <summary>
+    /// "Target player mills cards equal to the number of lands you control."
+    /// </summary>
+    /// <remarks>
+    /// The third quantity noun — the corpus puts "damage", "life" and "cards" in front of this
+    /// phrase and nothing else — on a verb whose subject is a target, which is the position the
+    /// hand-written arms never reached. Alice's four lands are the number; Bob's six are the
+    /// count a reader that measured the milled player would take, and one is what a reader that
+    /// lost the amount would take.
+    /// </remarks>
+    [Fact]
+    public void A_mill_count_written_as_equal_to_counts_the_caster_s_board()
+    {
+        var anomaly = Card(
+            "Equal To Anomaly Test",
+            "Target player mills cards equal to the number of lands you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(anomaly);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var n in new[] { 1, 2, 3, 4 })
+            game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        foreach (var n in new[] { 1, 2, 3, 4, 5, 6 })
+            game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        var before = game.State.GetPlayer(bob).Library.Count;
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, anomaly), [Target.ToPlayer(bob)]);
+
+        Settle(game);
+
+        Assert.Equal(before - 4, game.State.GetPlayer(bob).Library.Count);
+    }
+
+    /// <summary>
+    /// The spelling that already read still resolves to the same number.
+    /// </summary>
+    /// <remarks>
+    /// The rewrite runs before every matcher, so 61 cards that were already complete now compile
+    /// through the shared X clause instead of through the arm their verb had grown — a change of
+    /// mechanism on cards nothing was asking to change. None of them stopped reading, which the
+    /// corpus census says, but "still reads" is not "still does the same thing": this is the
+    /// assertion that the number at the table is the one it was.
+    /// </remarks>
+    [Fact]
+    public void The_spelling_that_already_read_still_gains_the_same_life()
+    {
+        var gift = Card(
+            "Equal To Gift Test",
+            "You gain life equal to the number of Elves you control.");
+
+        var compiled = CardCompiler.Compile(gift);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var n in new[] { 1, 2, 3 })
+            game.Create(alice, EqualToElf("Equal To Gift Kin " + n), Zone.Battlefield);
+
+        game.Create(bob, EqualToElf("Equal To Gift Rival"), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Equal To Gift Ox", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, gift));
+        Settle(game);
+
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>
+    /// A multiplier the X clause has no room for leaves the line unread.
+    /// </summary>
+    /// <remarks>
+    /// "Equal to <em>twice</em> the number of" is the same sentence with a factor in front of the
+    /// count, and <c>WithCountedVariable</c> has nowhere to put one — it defines X as the count
+    /// and nothing else. So the rewrite refuses the phrase rather than dropping the word, which
+    /// is the whole discipline of this vocabulary: a card that read this at one-per would be a
+    /// card at half strength, complete, castable, and quietly wrong every time it resolved.
+    /// <para>
+    /// The targeted subject is what makes the refusal visible. The life family's own arm reads a
+    /// multiplier and would have taken this sentence, but only for the three subjects it knows;
+    /// "target opponent" is not one of them, so nothing else catches the line and it stays in
+    /// <c>Unhandled</c> where it belongs.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_multiplied_count_written_as_equal_to_is_left_unread()
+    {
+        var doubled = Card(
+            "Equal To Doubled Test",
+            "Target opponent loses life equal to twice the number of Elves you control.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(doubled);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled,
+            u => u.Contains("twice the number of Elves", StringComparison.Ordinal));
+    }
+
+    /// <summary>A creature of one tribe, for the counts that name one.</summary>
+    private static CardDefinition EqualToElf(string name) =>
+        Card(name, string.Empty, CardType.Creature, 1, 1, KeywordAbility.None, "Elf");
+
+    /// <summary>The same, for the count whose recipient phrase filters on the tribe.</summary>
+    private static CardDefinition EqualToGiant(string name) =>
+        Card(name, string.Empty, CardType.Creature, 3, 3, KeywordAbility.None, "Giant");
+
     // ---- "Deals combat damage" with no recipient (CR 510.2) ------------------
 
     [Fact]
