@@ -11104,17 +11104,29 @@ public sealed class Game
         // only as it was *before*: the card whose trigger the whole cast was for is still a spell
         // on the stack there, and its own mutate trigger would never fire. It is considered once,
         // afterwards, which is the only state that has all of its abilities.
-        var justMerged = e is PermanentMutated merged ? merged.Id : (ObjectId?)null;
+        //
+        // Specializing is the same shape and was the same bug. "When this creature specializes"
+        // is printed on the specialized version, which is the card the permanent only has once
+        // the event has applied — so read as it was *before*, the permanent is still the base
+        // card and the trigger the whole ability exists for is on nobody. The version compiled,
+        // the ability activated, the definition swapped, and the two Zombies were never created:
+        // a card reading perfectly and doing less than it says.
+        var remade = e switch
+        {
+            PermanentMutated merged => merged.Id,
+            PermanentSpecialized became => became.Id,
+            _ => (ObjectId?)null,
+        };
 
         foreach (var (id, obj) in before.Objects)
         {
-            if (id != justMerged)
+            if (id != remade)
                 Consider(e, before, id, obj);
         }
 
         foreach (var (id, obj) in State.Objects)
         {
-            if (!before.Objects.ContainsKey(id) || id == justMerged)
+            if (!before.Objects.ContainsKey(id) || id == remade)
                 Consider(e, State, id, obj);
         }
     }

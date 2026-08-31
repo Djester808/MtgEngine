@@ -56,10 +56,104 @@ public static partial class CardFaces
         };
     }
 
-    /// <summary>The oracle id with any face suffix taken off.</summary>
+    /// <summary>
+    /// The definition for one specialized version, or the card itself when it has none.
+    /// </summary>
+    /// <remarks>
+    /// The same trick <see cref="Definition"/> plays, on the other list. Index 0 is the base
+    /// card, so unspecializing is this same call with a zero, and the whole list travels with the
+    /// swapped-in definition — which is what lets a permanent specialize again into another
+    /// colour, and lets it come back.
+    /// <para>
+    /// The mana value is the base's plus one because a specialized version's cost <em>is</em> the
+    /// base's plus one coloured pip. That is not an assumption: it holds on all nineteen cards
+    /// and all ninety-five versions, and it is the fact the loader reads to say which colour a
+    /// version is in the first place.
+    /// </para>
+    /// </remarks>
+    public static CardDefinition Specialized(CardDefinition card, int index)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        if (index < 0 || index >= card.Specializations.Count)
+            return card;
+
+        var version = card.Specializations[index];
+
+        return new CardDefinition
+        {
+            OracleId = index == 0
+                ? BaseId(card.OracleId)
+                : BaseId(card.OracleId) + "$" + index.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+            Name = version.Name,
+            OracleText = version.OracleText,
+            ManaCostRaw = version.ManaCostRaw,
+            Cmc = index == 0 ? card.Cmc : card.Cmc + 1,
+            CardTypes = version.CardTypes,
+            Subtypes = version.Subtypes,
+            Supertypes = version.Supertypes,
+            Keywords = version.Keywords,
+            Colors = version.Colors,
+
+            // CR 903.4: a specialized version is a different card with different mana symbols on
+            // it, but nothing in this engine asks a permanent for its commander identity, and the
+            // base card is the one a deck was built around.
+            ColorIdentity = card.ColorIdentity,
+            Power = version.Power,
+            Toughness = version.Toughness,
+            Defense = version.Defense,
+            Faces = card.Faces,
+            Specializations = card.Specializations,
+            ImageUriNormal = card.ImageUriNormal,
+            ImageUriSmall = card.ImageUriSmall,
+            ImageUriArtCrop = card.ImageUriArtCrop,
+        };
+    }
+
+    /// <summary>
+    /// Which specialized version a definition is, read back off the id suffix.
+    /// </summary>
+    /// <remarks>
+    /// Zero for a base card and for anything with no specializations at all — the same shape as
+    /// <see cref="FaceIndexOf"/>, and for the same reason: the swap has to be readable back off
+    /// the definition, so that nothing needs a state field to remember it.
+    /// </remarks>
+    public static int SpecializationIndexOf(string oracleId)
+    {
+        ArgumentNullException.ThrowIfNull(oracleId);
+
+        var at = oracleId.IndexOf('$', StringComparison.Ordinal);
+        return at >= 0
+            && int.TryParse(
+                oracleId[(at + 1)..],
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var index)
+            ? index
+            : 0;
+    }
+
+    /// <summary>
+    /// The base card behind a specialized one, or the card itself when it is not specialized.
+    /// </summary>
+    /// <remarks>
+    /// CR 400.7: the object that leaves the battlefield is a new object elsewhere, and what is
+    /// in the graveyard afterwards is the card that was cast — not the version a discarded card
+    /// turned it into. Without this a dead Klement, Life Acolyte would be a card nobody put in
+    /// their deck, under an oracle id no deck list contains.
+    /// </remarks>
+    public static CardDefinition Unspecialized(CardDefinition card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        return SpecializationIndexOf(card.OracleId) == 0 ? card : Specialized(card, 0);
+    }
+
+    /// <summary>The oracle id with any face or specialization suffix taken off.</summary>
     private static string BaseId(string oracleId)
     {
-        var at = oracleId.IndexOf('#', StringComparison.Ordinal);
+        var at = oracleId.IndexOfAny(['#', '$']);
         return at < 0 ? oracleId : oracleId[..at];
     }
 

@@ -1843,6 +1843,37 @@ public sealed record PermanentTransformed(ObjectId Id, int FaceIndex) : GameEven
 }
 
 /// <summary>
+/// A permanent became the specialized version for one colour, or went back to its base.
+/// </summary>
+/// <remarks>
+/// Specialize is an Alchemy mechanic and is in none of the printed Comprehensive Rules — the
+/// numbering the corpus notes had for it, 702.157, is Squad. The authority is the Arena rules
+/// bulletin: "Specialize [cost]" is "[Cost], Discard a card: This permanent specializes into the
+/// specialized version associated with the color of the discarded card. Activate only as a
+/// sorcery."
+/// <para>
+/// Its own event and not a <see cref="PermanentTransformed"/> with a wider index, even though
+/// the reducer does very nearly the same thing with it. The two are different questions and the
+/// cards ask them separately: "when this creature specializes" is printed on nineteen cards'
+/// versions and must not fire when a werewolf turns over, and "transform this permanent" must
+/// not put a discarded card's colour on the board.
+/// </para>
+/// <para>
+/// The version number rather than a colour so that zero can mean the base card, which is what
+/// unspecializing is. Named <c>Version</c> and not <c>Index</c> because it is not a target index
+/// and the invariant guard is right to ask - it is a locator, the same kind of thing
+/// <c>EffectIndex</c> is. No state field goes with it: the swapped-in definition carries the
+/// number in its own oracle id, the way a turned-over face does.
+/// </para>
+/// </remarks>
+public sealed record PermanentSpecialized(ObjectId Id, int Version) : GameEvent
+{
+    public override string Describe() => Version == 0
+        ? $"{Id} unspecialized."
+        : $"{Id} specialized into version {Version}.";
+}
+
+/// <summary>
 /// A spell on the stack was copied (CR 707.10).
 /// </summary>
 /// <remarks>

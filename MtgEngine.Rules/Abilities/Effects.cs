@@ -10408,6 +10408,43 @@ public sealed record TransformSource : IEffect
     }
 }
 
+/// <summary>
+/// The source becomes its specialized version for one colour (Alchemy: "specialize").
+/// </summary>
+/// <remarks>
+/// One effect per colour rather than one that reads the discarded card, because the colour is
+/// decided by the cost the player chose to pay and a cost is paid <em>with</em> the activation —
+/// so by the time this resolves the card is already in the graveyard and the branch has already
+/// been taken. Five abilities on the permanent is what the mechanic actually is: five prices for
+/// five different results, and the board can offer them side by side.
+/// <para>
+/// The permanent behind the ability, not the ability on the stack — the trap
+/// <see cref="TransformSource"/> fell into and the reason it is written down there.
+/// </para>
+/// <para>
+/// Silent when the permanent has no such version, the way an impossible transform is: the
+/// compiler refuses to emit this at all for a card whose versions the loader could not link, so
+/// reaching here without one is a bug at the throw site rather than something to crash a game
+/// over.
+/// </para>
+/// </remarks>
+public sealed record SpecializeSource(int Version) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var subject = context.PhysicalSourceId;
+
+        return context.State.TryGetObject(subject, out var permanent)
+            && permanent.Permanent is not null
+            && Version > 0
+            && Version < permanent.Card.Specializations.Count
+            ? [new PermanentSpecialized(subject, Version)]
+            : [];
+    }
+}
+
 /// <summary>Sacrifices the source itself (CR 701.21).</summary>
 /// <summary>
 /// Exiles the permanent this ability belongs to (CR 701.13a).

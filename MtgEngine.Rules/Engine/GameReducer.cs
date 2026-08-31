@@ -329,6 +329,7 @@ public static class GameReducer
                     })
                 : state,
             PermanentTransformed turnedOver => Transform(state, turnedOver),
+            PermanentSpecialized specialized => Specialize(state, specialized),
             DayNightChanged sky => state with { IsDay = sky.IsDay },
             SummoningSicknessCleared cleared => ClearSickness(state, cleared.Ids),
             LandDropUsed land => LandDrop(state, land),
@@ -853,11 +854,20 @@ public static class GameReducer
 
         var resolving = moving.Zone == Zone.Stack && e.To == Zone.Battlefield;
 
+        // CR 400.7 with the specialize mechanic on top of it: a specialized permanent is the
+        // base card everywhere except the battlefield, so what lands in the graveyard is the card
+        // somebody put in their deck rather than the version a discarded card turned it into. The
+        // departure record above deliberately keeps the specialized card, because that is the
+        // object that died and its own "when this creature dies" trigger is written about it.
+        var arriving = e.From == Zone.Battlefield
+            ? MtgEngine.Rules.Cards.CardFaces.Unspecialized(moving.Card)
+            : moving.Card;
+
         state = state.WithObject(new GameObject
         {
             Id = e.NewId,
             PreviousId = e.OldId,
-            Card = moving.Card,
+            Card = arriving,
             // CR 108.3: ownership never changes, whatever happens to control.
             OwnerId = moving.OwnerId,
             // A card in a library, hand, or graveyard is its owner's (CR 108.4); elsewhere the
@@ -867,7 +877,7 @@ public static class GameReducer
             Timestamp = timestamp,
             // CR 403.3: every object on the battlefield is a permanent, and only there.
             Permanent = e.To == Zone.Battlefield
-                ? EnteringPermanent(moving.Card, state.TurnNumber)
+                ? EnteringPermanent(arriving, state.TurnNumber)
                 : null,
 
             // Stamped from the move rather than from a separate event, because the move is
@@ -1891,6 +1901,36 @@ public static class GameReducer
         {
             Card = MtgEngine.Rules.Cards.CardFaces.Definition(permanent.Card, e.FaceIndex),
             Permanent = onBattlefield with { FaceIndex = e.FaceIndex },
+        });
+    }
+
+    /// <summary>
+    /// Swaps a permanent's card for one of its specialized versions, or back to its base.
+    /// </summary>
+    /// <remarks>
+    /// The whole of what specializing does to the state, and it needs no field of its own: the
+    /// version's definition carries its index in its oracle id, so "which version is this" is
+    /// read back off the card rather than remembered beside it. The layers, the ability source,
+    /// the legality checks and the per-player view all keep reading one definition.
+    /// <para>
+    /// A card with no specializations, or an index it does not have, is left exactly as it was —
+    /// a fold has to be total, and an event naming a version that is not there is a bug at the
+    /// throw site rather than a reason to lose the permanent.
+    /// </para>
+    /// </remarks>
+    private static GameState Specialize(GameState state, PermanentSpecialized e)
+    {
+        if (!state.TryGetObject(e.Id, out var permanent)
+            || permanent.Permanent is null
+            || e.Version < 0
+            || permanent.Card.Specializations.Count <= e.Version)
+        {
+            return state;
+        }
+
+        return state.WithObject(permanent with
+        {
+            Card = MtgEngine.Rules.Cards.CardFaces.Specialized(permanent.Card, e.Version),
         });
     }
 

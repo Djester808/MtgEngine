@@ -96,6 +96,34 @@ public sealed class CardDefinition
     /// </para>
     /// </remarks>
     public IReadOnlyList<CardFace> Faces { get; init; } = [];
+
+    /// <summary>
+    /// The versions this card can specialize into, when it has a specialize ability.
+    /// </summary>
+    /// <remarks>
+    /// Empty for all but nineteen cards. Specialize is an Alchemy mechanic and is in none of the
+    /// printed Comprehensive Rules — the file this repository ships has 702.157 as Squad — so the
+    /// authority for it is the Arena rules bulletin: "Specialize [cost]" is an activated ability
+    /// whose cost includes discarding a card of a colour, and paying it makes the permanent the
+    /// specialized version for that colour.
+    /// <para>
+    /// Six entries or none. Index 0 is the base card's own face, so unspecializing is the same
+    /// lookup as specializing, and indices 1-5 are the white, blue, black, red and green versions
+    /// in that order. This is <see cref="Faces"/>'s shape and deliberately not <see cref="Faces"/>
+    /// itself: every specialized version prints a mana cost, and a face with a printed cost is
+    /// how the compiler tells the half of a split card from the back of a transforming one — so
+    /// putting them in <c>Faces</c> would have given each of these nineteen cards five extra
+    /// castable halves.
+    /// </para>
+    /// <para>
+    /// The data behind it is complete and machine-readable: all 19 base cards carry
+    /// <c>all_parts</c> with exactly six entries, and each version's mana cost is the base's plus
+    /// exactly one coloured pip, which is what says which colour it is. The colour is not
+    /// readable off <c>colors</c> — Klement, Novice Acolyte is white and so is its white version.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<CardFace> Specializations { get; init; } = [];
+
     public string? FlavorText { get; init; }
     public string? Artist { get; init; }
     public string? SetCode { get; init; }

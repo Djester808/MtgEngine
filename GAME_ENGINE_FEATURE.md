@@ -1061,7 +1061,9 @@ here is the wrong one and would have to be resisted twice.
   pool, and an exchange action (CR 702.161). The five versions carry their own unread text ("when
   this creature specializes", "it unspecializes"), so a `Specialize {2}` that compiled without them
   would be an ability that activates and does nothing — which is worse than the unread line.
-  Engine and loader work, not compiler work, and it is bounded.
+  Engine and loader work, not compiler work, and it is bounded. **Built — and both figures
+  above turned out to be measurements of a card whose five destinations the compiler could
+  not see. With the versions linked, excision reads 0. See "specialize is built" below.**
 - **Attraction — 27 cards, 24 by excision, 14 by substitution.** Also not a data decline: every
   Attraction in the dump carries its lights. It needs an Attraction deck outside the game
   (CR 717.2), a die roll, a visit trigger and a new zone. 12 of the 27 print the identical line
@@ -1098,6 +1100,145 @@ here is the wrong one and would have to be resisted twice.
   is 84 distinct filters, which is not this family's work but the target grammar's.
 - **Double team — 23 cards, 14 by excision, 3 by substitution.** It is conjure plus perpetual
   wearing a keyword, and it inherits both walls.
+### Round twenty-one: specialize is built, and the mechanic was never the blocker
+
+The correction to the correction. Round twenty-one found the specialize family's data complete —
+19 base cards, all in the playable corpus, each carrying `all_parts` with six entries — and ranked
+it the one reachable Alchemy family at **12 by excision, 11 by substitution**. Both of those
+figures were measured with the five specialized versions *invisible*, because the loader dropped
+them on legality. With the versions linked and compiled, the same three measurements read
+**0, 0 and 3**, and the mechanic is worth nothing at all today.
+
+#### What was built
+
+`CardDefinition.Specializations` is `Faces`' shape on a second list, six entries with the base
+card at index 0 and the white, blue, black, red and green versions at 1-5. It is deliberately not
+`Faces`: every specialized version prints a mana cost, and a face with a printed cost is exactly
+how the compiler tells the half of a split card from the back of a transforming one — putting them
+in `Faces` would have given each of the nineteen cards five extra castable halves.
+
+Three facts made the link possible and every one of them is in the data:
+
+- All 19 base cards carry `all_parts` with exactly six entries, and all 114 ids resolve against
+  `oracle_cards.json`'s own `id` field.
+- The five versions are `hbg` and `not_legal` in every format, which is why the corpus filter drops
+  them. They are read anyway and kept as faces under their printing id, never as cards — the same
+  shape as the reversible-card type-line fallback beside it. **They must not enter the corpus:**
+  they are not cards a deck may contain.
+- **Which colour a version is cannot be read off `colors`.** Klement, Novice Acolyte is white and
+  so is its white version. It can be read off the cost: a version's cost is the base's plus exactly
+  one coloured pip, and that holds on all nineteen cards and all ninety-five versions.
+
+`Specialize [cost]` compiles to **five** activated abilities, one per colour, each costing the
+printed mana plus a discard of a card of that colour. Not one ability that reads the discarded
+card afterwards: a discard is a cost, paid *with* the activation, so the branch is taken before
+anything resolves — reading the payment during resolution is the continuation a log cannot rebuild
+and this engine deliberately cannot hold. Written as five, every existing piece already worked:
+`ChosenCost`'s filter refuses a hand with no card of that colour, and the board can offer the five
+side by side.
+
+`PermanentSpecialized(Id, Index)` is its own event with its own reducer arm — twelve lines, the
+same swap `Transform` makes — and **no new state field**: the swapped-in definition carries its
+index in its own oracle id, which is what `CardFaces.FaceIndexOf` already exists to do for faces.
+Index 0 is the base card, so unspecializing is the same call with a zero, and `GameReducer.Move`
+uses it: a specialized permanent that leaves the battlefield is its base card in the graveyard
+(CR 400.7), under the oracle id a deck list actually contains.
+
+It is not a `PermanentTransformed` with a wider index, and the cards say why: nineteen cards'
+versions print "when this creature specializes", and a werewolf turning over is not that.
+
+#### The bug this would have shipped with, and where it already had a name
+
+The first run compiled, activated, swapped the definition — and created no Zombies. "When this
+creature specializes" is printed on the *version*, which is the card the permanent only has once
+the event has applied, and `Game.CollectTriggers` considers a permanent that keeps its id only as
+it was **before** the event. The comment explaining that was already in the file, one mechanic
+along: `PermanentMutated` had the identical bug and is considered once, afterwards, "which is the
+only state that has all of its abilities". Specialize joins it there.
+
+That is the exact failure this round's audits kept finding — a card that reads perfectly and does
+less than it says — and the only thing that caught it was a test that played the game and counted
+the tokens. An assertion about the permanent's name would have passed.
+
+#### The measurement, three ways, on one binary
+
+| | cards complete |
+|---|---:|
+| control (before) | 18,419 of 32,717 (56.3%) |
+| measured (after) | **18,419 of 32,717 (56.3%)** |
+| specialize family, complete | 0 of 19 |
+| the `Specialize {N}` line itself, read | **17 of 19** |
+| excision control — the `Specialize {N}` line deleted outright | **0 of 19** |
+| line control — one *different* unread line dropped on the same card | **3 of 19** |
+| if every specialized version read | **11 of 19** |
+
+**The excision control is the finding.** Delete the keyword from all nineteen cards, leave the
+versions linked, and *none* of them completes — so the word was never what blocked any of them.
+The old 12-by-excision and 11-by-substitution figures were both measuring a card whose five
+destinations the compiler could not see. The line control is the honest comparison beside it:
+dropping one arbitrary unread line instead completes **three** (Rasaad, Gale and Jaheira, each of
+which has exactly one other unread line), which is *more* than the mechanic buys.
+
+And the 11 is the old number arriving in a new place. It is not what modelling specialize is
+worth; it is what would complete **if the versions read**, which is where the family's work
+actually is: 87 unread lines across the nineteen, and the shapes are `perpetually` (Rasaad, Gale,
+Wilson ×5), "you get a one-time boon", `seek` with a filter, conjure-a-duplicate-by-name, "remove
+all study counters … that many", "when this creature specializes **from your graveyard**", and one
+shape that is four faces of a single card — `another target attacking creature gains <keyword> and
+gets +X/+0 until end of turn, where X is ~'s power`, which is the nearest single card to complete
+(Skanos, Dragon Vassal, whose base and fifth version already read).
+
+Effect diff: 17 of the 19 gained five activated abilities apiece (85 in total); the two refused
+are Imoen's printed cost reduction and Karlach's "you may also activate this ability if ~ is in
+your graveyard", which is an activation from a zone the ability does not function in. Nothing else
+in the corpus changed — no card gained or lost a trigger, static or replacement, and the set of
+complete cards is identical.
+
+#### Four mutations, four tests
+
+Each of the nine tests was checked by breaking the thing it is about and confirming that it, and
+nothing else, went red.
+
+| the mechanism broken | what failed |
+|---|---|
+| the discard cost stops naming a colour | the refusal test only — the five abilities collapse into a free choice of version |
+| leaving the battlefield keeps the specialized card | the graveyard test only |
+| the fail-closed guard on "six versions or nothing" is dropped | the orphan-line test only |
+| `CollectTriggers` no longer reconsiders the specialized permanent | the Zombie count only |
+
+The last of those is not hypothetical: it is the state the first implementation was actually in,
+and the Zombie count is what found it.
+
+#### What is declined, with counts
+
+- **Imoen's printed cost reduction (1).** "Specialize {5}. This ability costs {3} less to activate
+  if there are two or more instant or sorcery cards in your graveyard."
+  `ActivatedAbilityDefinition.CostReduction` exists and would hold it, but the sentence is printed
+  *inside* the keyword line and the whole-line reader that gathers it is never offered this one.
+  One card, and reading it would still leave Imoen five unread version lines short.
+- **Karlach's graveyard activation (1).** "You may also activate this ability if ~ is in your
+  graveyard." `FunctionsFrom` is a single zone, not a set, and a second ability keyed to the
+  graveyard would also have to specialize a card that is not a permanent — Karlach's versions
+  print "when this creature specializes **from your graveyard**, return it to the battlefield",
+  which is a different action from the one built here. Ten unread version lines behind it.
+- **Unspecializing as a printed action (5).** "When ~ dies, it unspecializes. If it unspecializes
+  this way, return it to the battlefield tapped" — Lukamina's five versions. The reducer can
+  already do it (version zero) and the zone change already does it; what is unread is the
+  sentence, and its second clause is a return-from-graveyard rider on a trigger whose subject is
+  the object that just died.
+- **Wiring the production pool (0 cards).** `CardParser` reads one bulk object at a time and has
+  no cross-card index, so linking `all_parts` there means a second pass in `BulkDataService`. It
+  is worth nothing today: none of the nineteen compiles whole, so `CompiledPool.Refuses` turns
+  every one of them away from a deck either way.
+
+#### One correction to the numbering
+
+Specialize is an Alchemy mechanic and is in **none** of the printed Comprehensive Rules. The
+citations that had been attached to it in these notes — CR 702.157, CR 702.161 — are Squad and
+Living Metal; the word "specialize" appears nowhere in the rules file this repository ships. The
+authority is the Arena rules bulletin, and it is quoted where the code needs it rather than
+pointed at.
+
 ### Round twenty-one: the third audit of the same family, and the first that can see inside a closure
 
 Every instrument this project had compared compiled **structure**. Coverage counts lines the

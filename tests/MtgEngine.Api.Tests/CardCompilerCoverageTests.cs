@@ -72,32 +72,212 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
     {
         var cards = new List<CardDefinition>(40_000);
 
+        // A specialize card's five specialized versions are real objects in this file, and they
+        // are legal in no format at all - which is why the filter below drops all 45 of them and
+        // why they were reported for four rounds as "absent from the corpus". They are not
+        // cards a deck may contain and must not enter the corpus as ones; they are reachable
+        // only through the base card that names them, which is exactly the shape the reversible
+        // face fallback below already has. So every object is read, the not-playable ones are
+        // kept only as faces under their printing id, and the link is made once the whole file
+        // has been seen - all_parts can name a version that appears later in it.
+        var versions = new Dictionary<string, CardFace>(StringComparer.Ordinal);
+        var links = new List<(int Card, List<string> Parts)>();
+
         foreach (var line in File.ReadLines(path))
         {
             var trimmed = line.Trim().TrimEnd(',');
             if (trimmed.Length < 2 || trimmed is "[" or "]")
                 continue;
 
-            CardDefinition? card;
+            JsonElement json;
             try
             {
-                card = FromScryfall(JsonDocument.Parse(trimmed).RootElement);
+                json = JsonDocument.Parse(trimmed).RootElement;
             }
             catch (JsonException)
             {
                 continue;
             }
 
-            if (card is not null)
-                cards.Add(card);
+            var card = FromScryfall(json, out var self, out var playable);
+            if (card is null)
+                continue;
+
+            var printing = Text(json, "id");
+            if (printing.Length > 0)
+                versions[printing] = self;
+
+            if (!playable)
+                continue;
+
+            if (SpecializeParts(json, card) is { } parts)
+                links.Add((cards.Count, parts));
+
+            cards.Add(card);
         }
+
+        foreach (var (index, parts) in links)
+            cards[index] = WithSpecializations(cards[index], parts, versions);
 
         return cards;
     }
 
-    /// <summary>Only what the compiler reads: the printed characteristics and the rules text.</summary>
-    private static CardDefinition? FromScryfall(JsonElement json)
+    /// <summary>
+    /// The printing ids of a specialize card's five versions, or null if this is not one.
+    /// </summary>
+    /// <remarks>
+    /// Six entries and no fewer, because that is what the data actually says on all nineteen of
+    /// them: the card itself plus its five colours. Anything else is a card this does not
+    /// understand and is left alone rather than half-linked.
+    /// </remarks>
+    private static List<string>? SpecializeParts(JsonElement json, CardDefinition card)
     {
+        if (!card.OracleText.Contains("Specialize", StringComparison.Ordinal))
+            return null;
+
+        if (!json.TryGetProperty("all_parts", out var parts)
+            || parts.ValueKind != JsonValueKind.Array
+            || parts.GetArrayLength() != 6)
+        {
+            return null;
+        }
+
+        var ids = new List<string>(6);
+        foreach (var part in parts.EnumerateArray())
+        {
+            var id = Text(part, "id");
+            if (id.Length > 0)
+                ids.Add(id);
+        }
+
+        return ids.Count == 6 ? ids : null;
+    }
+
+    /// <summary>
+    /// The same card carrying the five versions its specialize ability can turn it into.
+    /// </summary>
+    /// <remarks>
+    /// Which colour a version is cannot be read off its <c>colors</c> - Klement, Novice Acolyte
+    /// is white and so is its white version - but it can be read off its cost, which is the
+    /// base's plus exactly one coloured pip. That holds on all nineteen cards and all
+    /// ninety-five versions; anything that does not answer that shape leaves the card
+    /// unlinked, and the specialize line then stays unread rather than compiling into an
+    /// ability that would turn the permanent into nothing.
+    /// </remarks>
+    private static CardDefinition WithSpecializations(
+        CardDefinition card,
+        List<string> parts,
+        Dictionary<string, CardFace> versions)
+    {
+        var slots = new CardFace?[6];
+        slots[0] = SelfFace(card);
+
+        foreach (var id in parts)
+        {
+            if (!versions.TryGetValue(id, out var version)
+                || string.Equals(version.Name, card.Name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var colour = AddedPip(card.ManaCostRaw, version.ManaCostRaw);
+            if (colour is null or ManaColor.Colorless || slots[(int)colour] is not null)
+                return card;
+
+            slots[(int)colour] = version;
+        }
+
+        if (Array.Exists(slots, slot => slot is null))
+            return card;
+
+        return Copy(card, [.. slots.Select(slot => slot!)]);
+    }
+
+    /// <summary>The one coloured pip a specialized version's cost has and the base's does not.</summary>
+    private static ManaColor? AddedPip(string baseCost, string versionCost)
+    {
+        var extra = Pips(versionCost);
+        foreach (var pip in Pips(baseCost))
+            extra.Remove(pip);
+
+        return extra.Count == 1 ? extra[0] : null;
+    }
+
+    private static List<ManaColor> Pips(string cost)
+    {
+        var found = new List<ManaColor>();
+
+        foreach (var symbol in cost)
+        {
+            var colour = symbol switch
+            {
+                'W' => ManaColor.White,
+                'U' => ManaColor.Blue,
+                'B' => ManaColor.Black,
+                'R' => ManaColor.Red,
+                'G' => ManaColor.Green,
+                _ => ManaColor.Colorless,
+            };
+
+            if (colour != ManaColor.Colorless)
+                found.Add(colour);
+        }
+
+        return found;
+    }
+
+    /// <summary>The card's own characteristics as a face, which is specialization slot zero.</summary>
+    private static CardFace SelfFace(CardDefinition card) => new()
+    {
+        Name = card.Name,
+        ManaCostRaw = card.ManaCostRaw,
+        CardTypes = card.CardTypes,
+        Supertypes = card.Supertypes,
+        Subtypes = card.Subtypes,
+        OracleText = card.OracleText,
+        Power = card.Power,
+        Toughness = card.Toughness,
+        Colors = card.Colors,
+        Keywords = card.Keywords,
+    };
+
+    /// <summary>The same definition with its specializations attached.</summary>
+    /// <remarks>
+    /// Written out rather than a <c>with</c> because <see cref="CardDefinition"/> is a class:
+    /// it is compared by reference everywhere it is used, which a record would silently change.
+    /// </remarks>
+    private static CardDefinition Copy(CardDefinition card, CardFace[] versions) => new()
+    {
+        OracleId = card.OracleId,
+        Name = card.Name,
+        OracleText = card.OracleText,
+        CardTypes = card.CardTypes,
+        Keywords = card.Keywords,
+        ColorIdentity = card.ColorIdentity,
+        Colors = card.Colors,
+        ManaCostRaw = card.ManaCostRaw,
+        Cmc = card.Cmc,
+        Power = card.Power,
+        Toughness = card.Toughness,
+        Defense = card.Defense,
+        Supertypes = card.Supertypes,
+        Subtypes = card.Subtypes,
+        Faces = card.Faces,
+        Specializations = versions,
+    };
+
+    /// <summary>Only what the compiler reads: the printed characteristics and the rules text.</summary>
+    /// <param name="json">One object out of the bulk file.</param>
+    /// <param name="self">The same characteristics as a face, for a card another card names.</param>
+    /// <param name="playable">
+    /// Whether a deck may contain this. False objects are still read - a specialize card's five
+    /// versions are legal nowhere and are reachable only through it - but never enter the corpus.
+    /// </param>
+    private static CardDefinition? FromScryfall(
+        JsonElement json, out CardFace self, out bool playable)
+    {
+        self = new CardFace();
+        playable = false;
         var layout = json.TryGetProperty("layout", out var l) ? l.GetString() : null;
         if (layout is "token" or "emblem" or "art_series" or "double_faced_token")
             return null;
@@ -115,21 +295,17 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
             return null;
         }
 
-        if (!json.TryGetProperty("legalities", out var legal))
-            return null;
-
-        var playable = false;
-        foreach (var format in legal.EnumerateObject())
+        if (json.TryGetProperty("legalities", out var legal))
         {
-            if (format.Value.GetString() is "legal" or "restricted")
+            foreach (var format in legal.EnumerateObject())
             {
-                playable = true;
-                break;
+                if (format.Value.GetString() is "legal" or "restricted")
+                {
+                    playable = true;
+                    break;
+                }
             }
         }
-
-        if (!playable)
-            return null;
 
         var keywords = KeywordAbility.None;
         if (json.TryGetProperty("keywords", out var kws))
@@ -214,6 +390,22 @@ public sealed class CardCompilerCoverageTests(ITestOutputHelper output)
         // A card with faces keeps its cost, power and toughness on the faces too, so the front
         // face answers for the card - which is the face that is cast.
         var front = FaceOrSelf(json);
+
+        self = new CardFace
+        {
+            Name = Text(json, "name"),
+            ManaCostRaw = Text(front, "mana_cost"),
+            TypeLine = typeLine,
+            CardTypes = types,
+            Supertypes = SupertypesOf(typeLine),
+            Subtypes = SubtypesOf(typeLine),
+            OracleText = rules,
+            Power = Stat(front, "power"),
+            Toughness = Stat(front, "toughness"),
+            Defense = Stat(front, "defense"),
+            Colors = itsColours,
+            Keywords = keywords,
+        };
 
         return new CardDefinition
         {
