@@ -370,4 +370,62 @@ public sealed class TempMeasureR2104(ITestOutputHelper output)
             output.WriteLine("  SWAP-STILL-FAILS " + n);
         }
     }
+
+    /// <summary>
+    /// Every card's compiled shape, one line each, for a before/after diff. Effects are rendered
+    /// rather than counted: a change that swaps one effect for another leaves the count alone.
+    /// </summary>
+    [Fact]
+    public void Dump()
+    {
+        var corpus = CardCompilerCoverageTests.LoadCorpusOrSkip();
+        if (corpus is null)
+        {
+            output.WriteLine("NO CORPUS");
+            return;
+        }
+
+        var to = System.Environment.GetEnvironmentVariable("R2104_DUMP");
+        if (string.IsNullOrEmpty(to))
+        {
+            output.WriteLine("NO R2104_DUMP");
+            return;
+        }
+
+        using var writer = new StreamWriter(to);
+
+        foreach (var card in corpus.OrderBy(c => c.OracleId, System.StringComparer.Ordinal))
+        {
+            var c = CardCompiler.Compile(card);
+            var parts = new List<string>
+            {
+                card.OracleId,
+                card.Name,
+                c.IsComplete ? "COMPLETE" : "INCOMPLETE",
+                "unread=" + string.Join(" ## ", c.Unhandled),
+            };
+
+            if (c.Spell is { } spell)
+            {
+                parts.Add("spell=" + string.Join(",", spell.Effects.Select(e => e.ToString())));
+            }
+
+            foreach (var a in c.Activated)
+            {
+                parts.Add(
+                    $"act[{a.Id}] self={a.SelfCost} from={a.FunctionsFrom} mana={a.ManaCost} "
+                        + $"tap={a.RequiresTap} life={a.LifeCost} chosen={a.ChosenCosts.Count} "
+                        + $"eff=" + string.Join(",", a.Effects.Select(e => e.ToString())));
+            }
+
+            foreach (var t in c.Triggers)
+            {
+                parts.Add($"trig[{t.Id}] eff=" + string.Join(",", t.Effects.Select(e => e.ToString())));
+            }
+
+            writer.WriteLine(string.Join(" | ", parts));
+        }
+
+        output.WriteLine("WROTE " + to);
+    }
 }
