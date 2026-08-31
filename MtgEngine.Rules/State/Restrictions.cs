@@ -462,6 +462,66 @@ public sealed record FlashPermission
     public PlayerScope? Caster { get; init; }
 }
 
+/// <summary>
+/// Cards a permanent lets somebody play from the top of their library (CR 601.3).
+/// </summary>
+/// <remarks>
+/// **A cast source is not a characteristic either, so this is read the way
+/// <see cref="FlashPermission"/> beside it is read** — off the battlefield, at the one moment
+/// the question is asked, from whatever is there right then. Future Sight changes nothing about
+/// the card on top of the library: it is the same card with the same abilities, and if it is
+/// milled or drawn it takes nothing with it. What the permanent changes is which zone its
+/// controller may play from, and CR 613.1 orders only the effects that modify objects'
+/// characteristics.
+/// <para>
+/// That treatment is also what makes it stop dead when the permanent leaves (CR 611.2c) with no
+/// state anywhere to sweep — and it is what makes a replay reach the same offer, because the
+/// battlefield and the library are both in the state a log folds to. A permission written onto
+/// the library's top card instead would have to be re-written every time the top card changed,
+/// and the card that became new top would be castable or not depending on whether something had
+/// remembered to look.
+/// </para>
+/// <para>
+/// <b>It grants a zone and nothing else.</b> Timing is still the ordinary rule — Future Sight
+/// does not hand anybody flash — the cost is still the printed one, and whether the player may
+/// <em>see</em> the card is a separate permission answered by
+/// <c>PlayerViewProjector.SeesTopOfLibrary</c> from
+/// <see cref="Abilities.IAbilitySource.ShowsTopOfLibrary"/> and
+/// <see cref="Abilities.IAbilitySource.RevealsTopOfLibrary"/>. Every printing in the corpus
+/// prints a look-or-reveal line beside this one, and the two are kept apart rather than folded
+/// together because a permission that granted its own visibility would let a player cast a card
+/// they are not entitled to have seen.
+/// </para>
+/// </remarks>
+public sealed record LibraryTopPermission
+{
+    public required string Id { get; init; }
+
+    /// <summary>Whether lands may be played from the top — "You may play lands".</summary>
+    /// <remarks>
+    /// Unqualified, always. "You may play snow lands and cast snow spells from the top of your
+    /// library" names a family this record has no slot for, so that line is left unread rather
+    /// than being widened into permission to play any land: a permission read one word too wide
+    /// is a strictly better card than the printed one, which coverage scores as a win.
+    /// </remarks>
+    public bool Lands { get; init; }
+
+    /// <summary>Whether spells may be cast from the top — "and cast creature spells".</summary>
+    public bool Spells { get; init; }
+
+    /// <summary>
+    /// A filter the spell has to answer — "creature", "artifact|colorless".
+    /// </summary>
+    /// <remarks>
+    /// Null only for the unfiltered printing, "You may play lands and cast spells from the top
+    /// of your library", which is Future Sight and asks nothing of the spell. A qualifier the
+    /// filter vocabulary cannot name leaves the whole line unread, exactly as
+    /// <see cref="FlashPermission.SpellFilter"/> does and for the same reason — "spells with
+    /// mana value 4 or greater" read loosely is a Future Sight wearing another card's name.
+    /// </remarks>
+    public string? SpellFilter { get; init; }
+}
+
 /// <summary>Whether something on the battlefield permits a cast (CR 601.3, 702.8b).</summary>
 /// <remarks>
 /// The mirror image of <see cref="Bans"/> and kept beside it deliberately: both answer a
@@ -524,4 +584,76 @@ public static class CastPermissions
 
         return false;
     }
+    /// <summary>
+    /// Whether anything on the battlefield lets this player play this card from the top of
+    /// their library (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// One question rather than two, because the card decides which half of the permission it
+    /// needs and nothing else can: a land is played and everything else is cast (CR 305.1), so
+    /// asking the caller to say which arm applies would be asking it to re-derive a fact the
+    /// card already carries — and to get it wrong on Dryad Arbor, which is a land and a creature
+    /// at once and is never cast.
+    /// <para>
+    /// The card is asked by its printed characteristics, exactly as <see cref="Bans"/> and
+    /// <see cref="MayCastAsThoughItHadFlash"/> ask theirs: the object is in a library, and CR
+    /// 613's layers describe permanents.
+    /// </para>
+    /// <para>
+    /// Whether the card <em>is</em> the top one is the caller's question and deliberately not
+    /// asked here: this answers what a permanent permits, and the library is the engine's to
+    /// look at. Answered here as well it would be the same read in two places, and the day one
+    /// of them learned about a second castable position they would stop agreeing.
+    /// </para>
+    /// </remarks>
+    public static bool MayPlayFromTopOfLibrary(
+        GameState state,
+        Abilities.IAbilitySource abilities,
+        Guid playerId,
+        Domain.Models.CardDefinition playing)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(abilities);
+        ArgumentNullException.ThrowIfNull(playing);
+
+        var isLand = playing.CardTypes.HasFlag(Domain.Enums.CardType.Land);
+
+        foreach (var id in state.Battlefield)
+        {
+            if (!state.TryGetObject(id, out var host))
+                continue;
+
+            var granted = abilities.LibraryTopPermissionsOf(host.Card);
+            if (granted.Count == 0 || !Bans.StillSpeaks(state, abilities, host))
+                continue;
+
+            // CR 613.1b: "your library" is the library of whoever controls the permanent now,
+            // not whoever it entered under - a stolen Future Sight shows the thief their own
+            // deck, which is the same reading the flash permission beside this one takes.
+            if (Characteristics.ControllerOf(state, abilities, host) != playerId)
+                continue;
+
+            foreach (var said in granted)
+            {
+                if (isLand)
+                {
+                    if (said.Lands)
+                        return true;
+
+                    continue;
+                }
+
+                if (!said.Spells)
+                    continue;
+
+                if (said.SpellFilter is { } filter && !SearchFilters.Matches(filter, playing))
+                    continue;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
+

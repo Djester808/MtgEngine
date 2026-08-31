@@ -336,6 +336,25 @@ public interface IAbilitySource : ISpellSource, ICostModifierSource
         [];
 
     /// <summary>
+    /// Which cards this card's static abilities let somebody play from the top of their library
+    /// (CR 601.3).
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="FlashPermissionsOf"/> and apart from it for one reason: the two grant
+    /// different things. That one moves <em>when</em> a spell may be cast and this one moves
+    /// <em>where from</em>, and a card prints either without the other - Vedalken Orrery says
+    /// nothing about a library and Future Sight says nothing about timing. One list answering
+    /// both would have to carry a flag saying which half it meant, and the day a card said only
+    /// one of them the other would be granted for free.
+    /// <para>
+    /// Asked of the battlefield at the moment a play is attempted, which is what makes the
+    /// permission close the instant the permanent leaves (CR 611.2c) with nothing to sweep.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<State.LibraryTopPermission> LibraryTopPermissionsOf(
+        Domain.Models.CardDefinition card) => [];
+
+    /// <summary>
     /// What a card's static abilities forbid outright — prevention, and life gain
     /// (CR 119.7, 615.12).
     /// </summary>

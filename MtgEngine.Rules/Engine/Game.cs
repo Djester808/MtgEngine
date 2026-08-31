@@ -858,6 +858,22 @@ public sealed class Game
             && card.WarpedOnTurn is { } warpedOn
             && State.TurnNumber > warpedOn;
 
+        // CR 601.3: something on the battlefield may permit a cast from the top of a library -
+        // Future Sight, Melek, Vizier of the Menagerie. Read off the battlefield at this moment
+        // rather than written onto the card, because the card on top is not a thing that knows
+        // it is on top: the next draw makes it a card in a hand and makes a different card
+        // castable, and a permission stamped onto an object would have to be restamped by every
+        // draw, mill and shuffle in the game.
+        //
+        // The position is asked here and the permission there, and the split is deliberate: the
+        // library belongs to the engine and what a permanent permits belongs to the permission.
+        // Only the top card - a permission to cast the top card is not a permission to reach
+        // past it, and "the top card" is index 0 by this engine's one convention.
+        var fromLibraryTop = card.Zone == Zone.Library
+            && State.GetPlayer(playerId).Library is [var onTop, ..]
+            && onTop == cardId
+            && CastPermissions.MayPlayFromTopOfLibrary(State, _abilities, playerId, card.Card);
+
         // CR 601.3e: permission to play a card from exile, paying its cost as normal. Unlike a
         // free cast this grants nothing about the price - only about the zone and the window.
         // The longer window carries no deadline to compare against: it is revoked outright when
@@ -926,7 +942,7 @@ public sealed class Game
 
         if (card.Zone != Zone.Hand && !fromCommandZone && !fromElsewhere && !fromForetell
             && !fromPlot && !fromWarp && !fromImpulse && !fromAdventure && !fromGraveyard
-            && !onTheHouse && !prepared)
+            && !onTheHouse && !prepared && !fromLibraryTop)
             throw new InvalidOperationException("A spell is cast from hand.");
 
         if (card.Card.CardTypes.HasFlag(CardType.Land))
@@ -3611,7 +3627,16 @@ public sealed class Game
                 || (card.MayPlayUntilTurn is { } through && State.TurnNumber <= through)
                 || card.MayPlayThroughOwnersNextTurn is not null);
 
-        if (card.Zone != Zone.Hand && !loosed)
+        // CR 601.3: and from the top of a library, while something on the battlefield says so -
+        // Oracle of Mul Daya's half of the same permission Future Sight prints whole. The land
+        // drop is still spent and the timing is still sorcery speed, both checked below: the
+        // permission buys the zone and nothing else.
+        var fromLibraryTop = card.Zone == Zone.Library
+            && State.GetPlayer(playerId).Library is [var onTop, ..]
+            && onTop == cardId
+            && CastPermissions.MayPlayFromTopOfLibrary(State, _abilities, playerId, card.Card);
+
+        if (card.Zone != Zone.Hand && !loosed && !fromLibraryTop)
             throw new InvalidOperationException("A land is played from hand.");
 
         if (!card.Card.CardTypes.HasFlag(CardType.Land))

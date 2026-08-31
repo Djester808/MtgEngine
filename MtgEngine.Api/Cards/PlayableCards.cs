@@ -149,6 +149,10 @@ public sealed class PlayableCards : IAbilitySource
 
     public bool RevealsTopOfLibrary(CardDefinition card) => For(card).RevealsTopOfLibrary(card);
 
+    public IReadOnlyList<MtgEngine.Rules.State.LibraryTopPermission> LibraryTopPermissionsOf(
+        CardDefinition card) =>
+        For(card).LibraryTopPermissionsOf(card);
+
     public string? AttacksOnlyIfDefenderControls(CardDefinition card) =>
         For(card).AttacksOnlyIfDefenderControls(card);
 
