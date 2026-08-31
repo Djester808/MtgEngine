@@ -711,9 +711,25 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         output.WriteLine($"  distinct lands that made mana:   {found.Producers.Count,6}");
         output.WriteLine($"  exactly what they promised:      {found.Exact,6}");
         output.WriteLine($"  production the text decides:     {found.Unreadable,6}");
+        output.WriteLine($"  offered a mana ability:          {found.Offering.Count,6}");
         output.WriteLine($"non-mana buttons pressed:          {found.Pressed,6}");
         output.WriteLine($"  distinct lands that pressed one: {found.Pressers.Count,6}");
+        output.WriteLine($"  offered one:                     {found.Buttons.Count,6}");
         output.WriteLine($"lands with no mana ability at all: {found.NoManaAbility.Count,6}");
+
+        // The residue that matters: a land the compiler gave a mana ability, put on a real
+        // battlefield, and asked for mana, which never produced any. Most of these are the rules
+        // saying no - a cost this harness cannot pay, a condition it does not arrange - and the
+        // engine's own words are printed beside each so that "the rules refused" and "the land is
+        // broken" can be told apart by reading rather than by assuming.
+        var silent = found.Offering.Except(found.Producers, StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        output.WriteLine(string.Empty);
+        output.WriteLine($"lands that offered mana and never produced any: {silent.Count}");
+        foreach (var name in silent)
+            output.WriteLine($"           {name}  --  {found.WhyNot.GetValueOrDefault(name, "never even tried")}");
 
         output.WriteLine(string.Empty);
         output.WriteLine("lands whose pool did not match what the ability said:");
@@ -747,8 +763,8 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             output.WriteLine($"  refused {n,5}  {why}");
 
         output.WriteLine(string.Empty);
-        output.WriteLine("a sample of the lands that make no mana at all:");
-        foreach (var name in found.NoManaAbility.Order(StringComparer.Ordinal).Take(20))
+        output.WriteLine("the lands that carry no mana ability at all:");
+        foreach (var name in found.NoManaAbility.Order(StringComparer.Ordinal))
             output.WriteLine($"           {name}");
 
         // A floor on the reach before anything about the outcome, the discipline the other soaks
@@ -833,6 +849,15 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
         public int Pressed;
 
         public HashSet<string> Reached { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Lands that offered a mana ability, whether or not one ever paid off.</summary>
+        public HashSet<string> Offering { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Lands that offered a button that is not a mana ability.</summary>
+        public HashSet<string> Buttons { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The last thing the engine said when a land refused to tap, by land.</summary>
+        public Dictionary<string, string> WhyNot { get; } = new(StringComparer.Ordinal);
 
         public HashSet<string> Producers { get; } = new(StringComparer.Ordinal);
 
@@ -976,13 +1001,20 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
                 if (round == 0)
                     CheckIntrinsic(land, offered, found);
 
-                // The buttons that are not mana abilities go first, and the reason is that most
-                // of both kinds cost a tap: a land carrying "{T}: Add {B}" and "{T}: Draw a card"
-                // has one tap to spend per turn, and whichever is tried first is the only one
-                // that ever fires. Mana is the plentiful half - a land offering several taps for
-                // one of them per turn anyway and comes back next round - so the scarce tap is
-                // spent first on the ability nothing else in the run reaches at all.
-                foreach (var mana in new[] { false, true })
+                // Which kind of button goes first alternates with the round, and both halves of
+                // that matter.
+                //
+                // Most abilities of both kinds cost a tap, and a land has one tap per turn, so
+                // whichever is tried first is the only one that fires that round - fix the order
+                // and the other kind is never reached at all. Alternating gives each of them
+                // four of the eight rounds.
+                //
+                // Mana goes first on the round the land arrives, because a good many of these
+                // lands pay for their non-mana ability by sacrificing themselves - every
+                // Panorama, every Blighted land, every Horizon land - and a land that has been
+                // sacrificed has no mana ability left to try. Measured: pressing those first
+                // left 65 lands that offered mana and were never once asked for it.
+                foreach (var mana in round % 2 == 0 ? new[] { true, false } : [false, true])
                 {
                     foreach (var ability in offered)
                     {
@@ -1071,8 +1103,13 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             .Select(p => p.Color)
             .ToHashSet();
 
-        if (!offered.Any(a => a.IsManaAbility))
+        if (offered.Any(a => a.IsManaAbility))
+            found.Offering.Add(land.Card.Name);
+        else
             found.NoManaAbility.Add(land.Card.Name);
+
+        if (offered.Any(a => !a.IsManaAbility))
+            found.Buttons.Add(land.Card.Name);
 
         foreach (var (subtype, colour) in BasicLandTypes)
         {
@@ -1126,6 +1163,7 @@ public sealed class CompiledCardSoakTests(ITestOutputHelper output)
             // working, and the next untap step may be the moment this one wanted.
             var why = Shorten(refused.Message);
             found.Refused[why] = found.Refused.GetValueOrDefault(why) + 1;
+            found.WhyNot[card.Name] = why;
             return false;
         }
 
