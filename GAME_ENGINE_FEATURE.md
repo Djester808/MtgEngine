@@ -515,6 +515,100 @@ cheaper of the two.
 
 Coverage is **54.3% of playable cards fully read** (17,765 of 32,717), 70.0% of lines.
 
+### Round twenty-one: a quoted ability that is a static, and the population is 33 rather than 232
+
+`TryQuotedAbility` took a trigger, an activated ability or a mana ability and nothing else, so
+every grant whose quotation is a *static* ability was refused at the frame with both halves of the
+sentence readable. `TryQuotedStatic` is the missing arm.
+
+#### The brief's population was measured a different way, and it is much smaller
+
+Round twenty's quadrant said 571 quoted one-short cards — 16 both readable, 142 frame-reads, **232
+inner-reads-frame-doesn't**, 181 neither — and read the last of those as mostly wanting a granted
+static. Measured against the compiler's own text, by compiling each quoted span as a card of its
+own and asking what it produced:
+
+| | cards |
+|---|---|
+| one line short, and the blocker carries a quotation | 558 |
+| ... every quoted span on it compiles to **statics alone** | **33** |
+| ... and the frame reads with a known-readable ability swapped in | **9** |
+| ... frame blocked as well | 24 |
+
+The 232 is not 232 statics. Most quoted spans that compile without being an activated or triggered
+ability compile to *nothing* — they are unread, not statics — and a span that compiles to a
+trigger *and* a static is a trigger this reader already took. Nine cards is what the whole
+"quoted ability that is a static" family was worth as a sole blocker, and eight of them landed.
+
+The two families round nineteen listed were re-measured at the same time and are **not**
+quotation work: `as though its power were N greater` is the sole blocker on **17** cards (the
+brief said 6) and `can't be blocked by non-[tribe] creatures` on **4**. Both are printed statics
+with no reader anywhere, and neither is touched by anything below.
+
+#### Where the effect lands is the whole difficulty
+
+A granted *ability* goes in layer 6 (CR 613.1f) and there is a slot for it —
+`CharacteristicsBuilder.GrantedActivated` and its triggered twin. A granted *static* has no
+ability to store: what it has is a continuous effect, and CR 613.1 says that effect applies in
+whichever layer the effect belongs to. `+1/+1` is 7c. Put in layer 6 it would be added and then
+erased by any layer-7b effect setting a base size, on a card that compiled clean — which is the
+assertion `A_granted_bonus_is_applied_after_a_base_size_is_set` exists to make.
+
+So there is no new slot on the builder, and there was never a place for one. The granted static is
+a `ContinuousEffectDefinition` **of the granting permanent**, reporting the *inner* effect's
+layer, gathered from the battlefield with every other static (CR 604.2). `GrantedStatic` is the
+wrapper: it finds the permanent *carrying* the ability and hands that permanent to the inner
+effect as its source. That one substitution is what makes a tilde inside the quotation mean the
+bearer, "equipped creature" mean what the bearer is attached to, and "you" mean whoever controls
+it — Sedge Sliver's bonus reaches Bob's Sliver only when *Bob* controls a Swamp.
+
+**Which permanent is carrying it is a different question from which permanent it changes**, and
+that is why the wrapper takes a bearer rather than reusing `Receives`. `As long as enchanted
+permanent is an Equipment, it has "Equipped creature gets +1/+1 and has trample"` is three
+objects: the Aura owns the effect, the Equipment carries the ability, and the creature the
+Equipment holds is what changes. Handing the inner reader the Equipment is the whole of it; the
+five Runes needed nothing else.
+
+#### The refusal, and it is the same hazard the layers always had
+
+Every bearer arm reads **raw state** — the source itself, or `Permanent.AttachedTo`. A group
+cannot be answered that way: finding which permanents are in it means computing another
+permanent's characteristics from inside this one's, which is CR 613.8's hazard and has overflowed
+the stack here before. So a **group** frame takes only a static whose subject is the permanent
+receiving it, where the receiver *is* the object being computed and no second one has to be
+found. `Commander creatures you own have "Creature tokens you control get +2/+2"` (Inspiring
+Leader) is the one card that costs, and it stays unread.
+
+Two more refusals, for the reason `Characteristics` refuses the same two outside their own layer:
+a granted static may not remove all abilities and may not be a copy effect. Each is two things and
+only one of them is an effect — both are decided before any effect is applied, by a pass over
+permanents that are not the one being computed, and nothing reachable from a granted effect can
+make that call.
+
+#### Result
+
+**18,004 → 18,012 complete, +8, none lost.** Diffed as a set and again as a per-card fingerprint
+of every compiled ability: **9 cards moved** — the 8 plus A-Ancestral Katana, which gained its
+whole Equipment half and is still one line short of a trigger. Lines read 43,366 → 43,375.
+
+The eight: Sedge Sliver, Giant's Amulet, Prison Barricade, and the five Runes (Sustenance, Might,
+Flight, Speed, Mortality).
+
+#### Declined, with the measurement behind each
+
+- **A granted static whose subject is a group, on a group frame — 1 card.** Above.
+- **A token created with a quoted static — 8 cards.** `create a green Treefolk Warrior creature
+  token with "~'s power and toughness are each equal to the number of Forests you control"`. These
+  are frame-blocked, not quotation-blocked: swapping a known-readable *activated* ability into the
+  quotation does not complete them either. The token has no printed power or toughness, because
+  the granted characteristic-defining ability is where its size comes from — which is a token
+  reader problem and not this one.
+- **Emblems — still the largest single missing frame in the quadrant.** Unchanged from round
+  twenty; CR 114's command-zone object does not exist here.
+- **`as though its power were N greater` (17) and `can't be blocked by non-[tribe] creatures`
+  (4).** Printed statics on bare creatures, with no reader at all. Nothing here touches them, and
+  the quotation is not what blocks them.
+
 ### Round twenty: a card name the player chooses, and a row that was 169 and is 8
 
 Meddling Mage, Pithing Needle, Nevermore and their kin ask a question no other entry choice
