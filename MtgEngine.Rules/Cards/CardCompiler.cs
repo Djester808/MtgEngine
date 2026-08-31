@@ -16372,8 +16372,8 @@ public static partial class CardCompiler
                 DamageIn(e) is { } damage
                 && damage.Amount > 0
                 && (combat is null || combat == damage.IsCombat)
-                && dealer(state, source, damage.SourceId)
-                && victim(state, source, e),
+                && dealer(state, abilities, source, damage.SourceId)
+                && victim(state, abilities, source, e),
 
             Replace = (e, _, _) => Rescaled(e, scale(DamageIn(e)!.Value.Amount)),
         });
@@ -16419,12 +16419,21 @@ public static partial class CardCompiler
     /// not require it to still exist — a spell that has finished resolving is gone by the time
     /// anything looks. The narrower phrases all need the object, and answer false without it,
     /// which errs towards doing nothing rather than towards doing it to everybody.
+    /// <para>
+    /// The <see cref="IAbilitySource"/> travels with the state because every narrow phrase asks a
+    /// CR 613 question about the dealer — its colour, its controller, its types — and all three
+    /// are computed rather than printed. A creature an effect has made red, a creature stolen from
+    /// the other side of the table, and an animated Vehicle are what the printed card gets wrong,
+    /// and each of them widens or narrows a damage multiplier that then reads every source on the
+    /// board.
+    /// </para>
     /// </remarks>
-    private static Func<GameState, GameObject, ObjectId, bool>? DamageDealer(string printed)
+    private static Func<GameState, IAbilitySource, GameObject, ObjectId, bool>? DamageDealer(
+        string printed)
     {
         // "~" — this permanent's own damage, the one phrase that describes no group at all.
         if (string.Equals(printed, "~", StringComparison.Ordinal))
-            return static (_, source, dealt) => dealt == source.Id;
+            return static (_, _, source, dealt) => dealt == source.Id;
 
         var m = DamageSourcePhrase().Match(printed);
         if (m.Success)
@@ -16448,9 +16457,9 @@ public static partial class CardCompiler
             }
 
             if (!spell && !yours && !other && colour is null)
-                return static (_, _, _) => true;
+                return static (_, _, _, _) => true;
 
-            return (state, source, dealt) =>
+            return (state, abilities, source, dealt) =>
             {
                 if (other && dealt == source.Id)
                     return false;
@@ -16463,12 +16472,12 @@ public static partial class CardCompiler
                 if (spell && dealer.Zone != Zone.Stack)
                     return false;
 
-                var computed = Characteristics.Of(state, EmptyAbilities.Instance, dealer);
+                var computed = Characteristics.Of(state, abilities, dealer);
 
                 if (colour is { } wanted && !computed.Colors.Contains(wanted))
                     return false;
 
-                return !yours || computed.ControllerId == ControllerIn(state, source);
+                return !yours || computed.ControllerId == ControllerIn(state, abilities, source);
             };
         }
 
@@ -16478,20 +16487,28 @@ public static partial class CardCompiler
         if (spec is not { Kind: TargetKind.Permanent })
             return null;
 
-        return (state, source, dealt) =>
+        return (state, abilities, source, dealt) =>
             (!excludesSource || dealt != source.Id)
             && state.TryGetObject(dealt, out var dealer)
-            && Answers(spec, state, source, dealer);
+            && Answers(spec, state, abilities, source, dealer);
     }
 
     /// <summary>What the damage has to be dealt to, or null when the phrase is not read.</summary>
-    private static Func<GameState, GameObject, GameEvent, bool>? DamageRecipient(string? printed)
+    /// <remarks>
+    /// Carries the <see cref="IAbilitySource"/> for the same reason its sibling
+    /// <see cref="DamageDealer"/> does: "damage dealt to creatures with flying" and "damage dealt
+    /// to a creature you control" are questions about the victim's computed characteristics, and
+    /// the printed card answers both of them wrongly the moment anything on the board has granted
+    /// an ability or taken control of a permanent.
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, GameEvent, bool>? DamageRecipient(
+        string? printed)
     {
         // Nothing named, or the phrase that names every recipient there is.
         if (printed is null
             || string.Equals(printed, "a permanent or player", StringComparison.OrdinalIgnoreCase))
         {
-            return static (_, _, _) => true;
+            return static (_, _, _, _) => true;
         }
 
         // "An opponent or a permanent an opponent controls" is one question about two kinds of
@@ -16502,9 +16519,9 @@ public static partial class CardCompiler
             "an opponent or a permanent an opponent controls",
             StringComparison.OrdinalIgnoreCase))
         {
-            return static (state, source, e) =>
+            return static (state, abilities, source, e) =>
             {
-                var mine = ControllerIn(state, source);
+                var mine = ControllerIn(state, abilities, source);
 
                 return e switch
                 {
@@ -16512,8 +16529,7 @@ public static partial class CardCompiler
                     DamageMarked marked =>
                         state.TryGetObject(marked.Id, out var hurt)
                         && hurt.Zone == Zone.Battlefield
-                        && Characteristics.Of(state, EmptyAbilities.Instance, hurt).ControllerId
-                            != mine,
+                        && Characteristics.Of(state, abilities, hurt).ControllerId != mine,
                     _ => false,
                 };
             };
@@ -16523,17 +16539,18 @@ public static partial class CardCompiler
         if (spec is null)
             return null;
 
-        return (state, source, e) => e switch
+        return (state, abilities, source, e) => e switch
         {
             PlayerDamaged hit =>
                 spec.Kind is TargetKind.Player or TargetKind.Any
-                && (spec.PlayerFilter?.Invoke(state, hit.PlayerId, ControllerIn(state, source))
+                && (spec.PlayerFilter?.Invoke(
+                        state, hit.PlayerId, ControllerIn(state, abilities, source))
                     ?? true),
 
             DamageMarked marked =>
                 spec.Kind is TargetKind.Permanent or TargetKind.Any
                 && state.TryGetObject(marked.Id, out var hurt)
-                && Answers(spec, state, source, hurt),
+                && Answers(spec, state, abilities, source, hurt),
 
             _ => false,
         };
@@ -16632,7 +16649,7 @@ public static partial class CardCompiler
             Applies = (e, state, abilities, source) =>
                 e is CountersChanged { Delta: > 0 } put
                 && string.Equals(put.Kind, kind, StringComparison.OrdinalIgnoreCase)
-                && holds(state, source, put.Id),
+                && holds(state, abilities, source, put.Id),
 
             Replace = (e, _, _) =>
             {
@@ -16647,19 +16664,25 @@ public static partial class CardCompiler
     }
 
     /// <summary>Which permanents a counter replacement watches, or null when it is not read.</summary>
-    private static Func<GameState, GameObject, ObjectId, bool>? CounterGroup(string printed)
+    /// <remarks>
+    /// Given the board's abilities for the reason <see cref="Answers"/> now needs them: "a creature
+    /// you control" is layer 2 and "an artifact creature" is layer 4, and a doubler asked with an
+    /// empty source reads the printed card instead of the permanent.
+    /// </remarks>
+    private static Func<GameState, IAbilitySource, GameObject, ObjectId, bool>? CounterGroup(
+        string printed)
     {
         if (string.Equals(printed, "~", StringComparison.Ordinal))
-            return static (_, source, id) => id == source.Id;
+            return static (_, _, source, id) => id == source.Id;
 
         var (spec, excludesSource) = GroupSpec(printed);
         if (spec is not { Kind: TargetKind.Permanent })
             return null;
 
-        return (state, source, id) =>
+        return (state, abilities, source, id) =>
             (!excludesSource || id != source.Id)
             && state.TryGetObject(id, out var held)
-            && Answers(spec, state, source, held);
+            && Answers(spec, state, abilities, source, held);
     }
 
     /// <summary>
@@ -16717,7 +16740,7 @@ public static partial class CardCompiler
             Applies = (e, state, abilities, source) =>
                 e is LifeChanged { Delta: > 0 } gained
                 && (who is "a player"
-                    || (gained.PlayerId == ControllerIn(state, source)) == mine),
+                    || (gained.PlayerId == ControllerIn(state, abilities, source)) == mine),
 
             Replace = (e, state, _) =>
             {
@@ -16804,11 +16827,11 @@ public static partial class CardCompiler
         var library = bottom || where.Contains("library", StringComparison.Ordinal);
 
         var who = m.Groups["who"].Value.Trim();
-        Func<GameState, GameObject, ObjectId, bool> dying;
+        Func<GameState, IAbilitySource, GameObject, ObjectId, bool> dying;
 
         if (string.Equals(who, "~", StringComparison.Ordinal))
         {
-            dying = static (_, source, id) => id == source.Id;
+            dying = static (_, _, source, id) => id == source.Id;
         }
         else
         {
@@ -16816,10 +16839,10 @@ public static partial class CardCompiler
             if (spec is not { Kind: TargetKind.Permanent })
                 return false;
 
-            dying = (state, source, id) =>
+            dying = (state, abilities, source, id) =>
                 (!excludesSource || id != source.Id)
                 && state.TryGetObject(id, out var doomed)
-                && Answers(spec, state, source, doomed);
+                && Answers(spec, state, abilities, source, doomed);
         }
 
         into.Add(new ReplacementEffectDefinition
@@ -16830,7 +16853,7 @@ public static partial class CardCompiler
             FunctionsFrom = Zone.Battlefield,
             Applies = (e, state, abilities, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard } gone
-                && dying(state, source, gone.OldId),
+                && dying(state, abilities, source, gone.OldId),
 
             Replace = (e, _, _) =>
             {
@@ -16856,9 +16879,17 @@ public static partial class CardCompiler
     /// controlled it when the permanent arrived. A stolen doubler doubles its new controller's
     /// damage, and reading the stored controller would have it still working for the player it was
     /// taken from.
+    /// <para>
+    /// And the board's abilities are what makes that answer honest. Layer 2 is computed from the
+    /// continuous effects on the board, so a control-changing effect is only visible when the
+    /// gatherer is given the ability source that can find it; handed
+    /// <see cref="EmptyAbilities"/> the walk gathers nothing and answers with where control
+    /// <em>started</em>. Every caller is inside a replacement's <c>Applies</c>, which runs outside
+    /// the layer walk — the one place computing another permanent is not CR 613.8's hazard.
+    /// </para>
     /// </remarks>
-    private static Guid ControllerIn(GameState state, GameObject source) =>
-        Characteristics.Of(state, EmptyAbilities.Instance, source).ControllerId;
+    private static Guid ControllerIn(GameState state, IAbilitySource abilities, GameObject source)
+        => Characteristics.Of(state, abilities, source).ControllerId;
 
     /// <summary>
     /// A printed group phrase read as a target spec, with the article and "another" lifted off.
@@ -16890,19 +16921,29 @@ public static partial class CardCompiler
     /// (CR 702.11b, 702.18b) and a replacement effect chooses nothing, so asking
     /// <see cref="TargetSpec.IsLegal"/> here would exempt a hexproof creature from Furnace of Rath
     /// — which is not a rule anywhere.
+    /// <para>
+    /// The <see cref="IAbilitySource"/> is what the phrase is asked <em>with</em>. "A creature you
+    /// control", "an artifact creature", "a creature with flying" are all CR 613 questions, and
+    /// the filters answer them out of computed characteristics — so an empty source gathers no
+    /// continuous effects and the phrase reads the printed card. A Furnace of Rath asked about "a
+    /// creature you control" would then miss a creature its controller had stolen, and an animated
+    /// land would not be a creature at all.
+    /// </para>
     /// </remarks>
     private static bool Answers(
-        TargetSpec spec, GameState state, GameObject source, GameObject subject)
+        TargetSpec spec,
+        GameState state,
+        IAbilitySource abilities,
+        GameObject source,
+        GameObject subject)
     {
         if (subject.Zone != Zone.Battlefield)
             return false;
 
-        var controller = ControllerIn(state, source);
+        var controller = ControllerIn(state, abilities, source);
 
-        return (spec.ObjectFilter?.Invoke(
-                state, EmptyAbilities.Instance, subject, controller) ?? true)
-            && (spec.SourceFilter?.Invoke(
-                state, EmptyAbilities.Instance, subject, source, controller) ?? true);
+        return (spec.ObjectFilter?.Invoke(state, abilities, subject, controller) ?? true)
+            && (spec.SourceFilter?.Invoke(state, abilities, subject, source, controller) ?? true);
     }
 
     /// <summary>When a "cast this only ..." line allows the spell to be cast (CR 601.3e).</summary>
