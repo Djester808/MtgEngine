@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
@@ -4030,7 +4030,109 @@ public static partial class EffectPhrase
                     : Zone.Hand,
                 MoveCause.Return,
                 effects.Count,
-                From: Zone.Graveyard));
+                From: Zone.Graveyard,
+                Count: raise.Groups["n"].Success ? Number(raise.Groups["n"].Value).Fixed : 1,
+                AtRandom: raise.Groups["random"].Success));
+
+            return true;
+        }
+
+        // The same choice with the library as its destination - "you may put a land card from
+        // your graveyard on top of your library". One effect serves both because the only thing
+        // that differs is where the card lands, and the end of the library is captured rather
+        // than assumed: the top is a tutor and the bottom is a burial.
+        var shelvedMatch = ChooseFromGraveyardOntoLibraryLine().Match(sentence);
+        var shelvedKind = shelvedMatch.Groups["what"].Value.Trim();
+        if (shelvedMatch.Success
+            && Specs.Parse(
+                shelvedKind.Length == 0
+                    ? "target card in your graveyard"
+                    : $"target {shelvedKind} card in your graveyard")
+                is { Kind: TargetKind.CardInGraveyard } gyShelf)
+        {
+            effects.Add(new ChooseAndMove(
+                gyShelf,
+                Zone.Library,
+                MoveCause.Return,
+                effects.Count,
+                From: Zone.Graveyard,
+                Position: shelvedMatch.Groups["where"].Value.Equals(
+                    "bottom", StringComparison.OrdinalIgnoreCase)
+                    ? ZonePosition.Bottom
+                    : ZonePosition.Top));
+
+            return true;
+        }
+
+        // "Target opponent puts a card from their hand on top of their library" - the discard's
+        // machinery with a different destination, and never read as a discard: a card put onto a
+        // library reaches no graveyard, so nothing watching for one may fire.
+        var handTuck = HandOntoLibraryLine().Match(sentence);
+        if (handTuck.Success)
+        {
+            var tucker = handTuck.Groups["who"].Success
+                ? handTuck.Groups["who"].Value.Trim()
+                : "you";
+
+            // The subject and both possessives have to agree. A sentence that mixes them is not
+            // one any card prints, and guessing at it would post a card into the wrong deck.
+            var ownHand = tucker.Equals("you", StringComparison.OrdinalIgnoreCase);
+            var expected = ownHand ? "your" : "their";
+
+            if (!handTuck.Groups["hand"].Value.Equals(expected, StringComparison.OrdinalIgnoreCase)
+                || !handTuck.Groups["lib"].Value.Equals(expected, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var howMany = Number(handTuck.Groups["n"].Value).Fixed;
+            var end = handTuck.Groups["where"].Value.Equals(
+                "bottom", StringComparison.OrdinalIgnoreCase)
+                ? ZonePosition.Bottom
+                : ZonePosition.Top;
+
+            // There is no target kind for a card in a hand, and none is consulted for a choice
+            // made on resolution - the zone in From is what the eligible set is built from - so
+            // this carries the nearest true thing, exactly as the hand exile beside it does.
+            var held = new TargetSpec
+            {
+                Kind = TargetKind.CardInGraveyard,
+                Description = howMany == 1
+                    ? $"a card from {(ownHand ? "your" : "their")} hand"
+                    : $"{howMany} cards from {(ownHand ? "your" : "their")} hand",
+            };
+
+            // "Target player" is a target and every other subject is a scope, and the two cannot
+            // both be given - the same split every matcher that takes this vocabulary makes.
+            if (tucker.StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Specs.Parse(tucker) is not { Kind: TargetKind.Player } toldTo)
+                    return false;
+
+                targets.Add(toldTo);
+                effects.Add(new ChooseAndMove(
+                    held,
+                    Zone.Library,
+                    MoveCause.Other,
+                    effects.Count,
+                    PlayerScope.You,
+                    TargetIndex: targets.Count - 1,
+                    From: Zone.Hand,
+                    Position: end,
+                    Count: howMany));
+
+                return true;
+            }
+
+            effects.Add(new ChooseAndMove(
+                held,
+                Zone.Library,
+                MoveCause.Other,
+                effects.Count,
+                ScopeOf(tucker),
+                From: Zone.Hand,
+                Position: end,
+                Count: howMany));
 
             return true;
         }
@@ -5703,11 +5805,38 @@ public static partial class EffectPhrase
         var deckbound = PutSelfOnLibraryLine().Match(sentence);
         if (deckbound.Success)
         {
-            effects.Add(new PutSourceOnLibrary(
-                deckbound.Groups["where"].Value.StartsWith(
-                    "bottom", StringComparison.OrdinalIgnoreCase)
-                    ? ZonePosition.Bottom
-                    : ZonePosition.Top));
+            var deckEnd = deckbound.Groups["where"].Value.StartsWith(
+                "bottom", StringComparison.OrdinalIgnoreCase)
+                ? ZonePosition.Bottom
+                : ZonePosition.Top;
+
+            // "Put it on top of its owner's library" after a target is about that target, and the
+            // targeted effect already files a permanent or a graveyard card. Everything else is
+            // the source effect, and which object it means comes from the shared pronoun reader
+            // rather than from a rule spelled out again here.
+            var deckbent = ObjectOf(
+                deckbound.Groups["t"].Value, targets, objectNamedByTrigger);
+
+            // A pronoun the shared reader cannot place is the trigger's subject, and this is the
+            // one sentence where that is the safe answer rather than the dangerous one. The
+            // subject scope asks the event first and falls back to the permanent with the
+            // ability, and both answers are right here: "when this creature dies, put it on top
+            // of its owner's library" means the card that died, which is the source, and
+            // "whenever you cast a spell, you may put it on the bottom of its owner's library"
+            // means the spell, which is what the event names. The general refusal exists because
+            // a verb aimed at the wrong permanent destroys or taps something it should not; this
+            // verb's fallback is the card the sentence is printed on, which is exactly what four
+            // of the six corpus cards printing it mean. Its sibling one line below - "shuffle it
+            // into its owner's library" - has read the same pronoun the same way for longer, and
+            // reads it as the source in every case rather than asking at all.
+            effects.Add(deckbent switch
+            {
+                { Subject: EffectSubject.Target } aimed =>
+                    new PutTargetOnLibrary(aimed.Index, deckEnd),
+                { } placed => new PutSourceOnLibrary(deckEnd, placed.Subject),
+                _ => new PutSourceOnLibrary(deckEnd, EffectSubject.TriggerSubject),
+            });
+
             return true;
         }
 
@@ -16631,11 +16760,54 @@ public static partial class EffectPhrase
     /// "A" and not "target": this is a choice on resolution, so nothing is chosen as the spell is
     /// cast and hexproof has nothing to say about it.
     /// </remarks>
+    /// <remarks>
+    /// "At random" is the other half of the same sentence and the opposite card: the game picks
+    /// rather than the player, so the printed words have to reach the effect rather than be
+    /// dropped as decoration. Reading them off and ignoring them would have turned nine cards
+    /// into strictly better ones, which coverage would have counted as progress.
+    /// </remarks>
     [GeneratedRegex(
-        @"^(?<verb>[Rr]eturn|[Ee]xile) an? ((?<what>[a-zA-Z ]+?) )?card from your graveyard "
-            + @"to your hand\.?$",
+        @"^(?<verb>[Rr]eturn|[Ee]xile) (an?|(?<n>two|three|four)) ((?<what>[a-zA-Z ]+?) )?"
+            + @"cards?( (?<random>at random))? from your graveyard to your hand\.?$",
         RegexOptions.None)]
     private static partial Regex ChooseFromGraveyardLine();
+
+    /// <summary>
+    /// "Put an artifact card from your graveyard on top of your library" (CR 401.1, 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The same choice its return-to-hand sibling above makes, with the library as the
+    /// destination - which is why it is a sibling regex feeding one shared effect rather than a
+    /// second reader with its own machinery. Which end of the library is captured because the
+    /// two ends are opposite cards: the top is a tutor and the bottom is a burial.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^[Pp]ut an? ((?<what>[a-zA-Z ]+?) )?card from your graveyard on (the )?"
+            + @"(?<where>top|bottom) of your library\.?$",
+        RegexOptions.None)]
+    private static partial Regex ChooseFromGraveyardOntoLibraryLine();
+
+    /// <summary>
+    /// "Target opponent puts a card from their hand on top of their library" (CR 401.1, 609.4).
+    /// </summary>
+    /// <remarks>
+    /// The hand is hidden and the choice is the holder's, which makes this the discard's
+    /// machinery pointed at a different destination rather than anything new - the same shape
+    /// "target player exiles a card from their hand" already uses. What it must not become is a
+    /// discard: a card put onto a library never reaches a graveyard, so nothing that watches for
+    /// one fires and madness never gets its chance.
+    /// <para>
+    /// The subject and the two possessives have to agree, and disagreement is refused rather
+    /// than guessed: "put a card from your hand on top of <em>their</em> library" is not a
+    /// sentence any card prints, and reading one would post a card into somebody else's deck.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?:" + WOrTarget + @" puts|[Pp]ut) (?<n>a|one|two|three) cards? (in|from) "
+            + @"(?<hand>your|their) hand on (the )?(?<where>top|bottom) of "
+            + @"(?<lib>your|their) library( in any order)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex HandOntoLibraryLine();
 
     /// <summary>"Target opponent exiles a card from their hand" (CR 609.4).</summary>
     /// <remarks>
@@ -17161,8 +17333,17 @@ public static partial class EffectPhrase
     private static partial Regex TargetMayAttackDespiteDefenderLine();
 
     /// <summary>"Put ~ on top of its owner's library" (CR 400.7).</summary>
+    /// <remarks>
+    /// The pronoun is admitted beside the tilde and is not the same object: nearly every printing
+    /// of this sentence says "it", and the four that say "~" are the minority. Which permanent
+    /// the word means is decided by the shared pronoun reader - a target named earlier, else the
+    /// object the trigger was about, else nothing at all - so "whenever a creature you control
+    /// dies, put it on the bottom of its owner's library" buries the creature that died rather
+    /// than the artifact that watched it.
+    /// </remarks>
     [GeneratedRegex(
-        @"^put ~ on (the )?(?<where>top|bottom) of its owner's library\.?$",
+        @"^put (?<t>~|it|that card|that creature) on (the )?(?<where>top|bottom) "
+            + @"of its owner's library\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex PutSelfOnLibraryLine();
 

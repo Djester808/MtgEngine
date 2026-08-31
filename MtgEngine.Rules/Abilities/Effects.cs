@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
@@ -6292,28 +6292,51 @@ public sealed record ReturnSourceToHand : IEffect
 /// stolen permanent goes home to the deck it came from.
 /// </para>
 /// </remarks>
-public sealed record PutSourceOnLibrary(ZonePosition Position = ZonePosition.Top) : IEffect
+public sealed record PutSourceOnLibrary(
+    ZonePosition Position = ZonePosition.Top,
+
+    /// <summary>
+    /// Which object the sentence meant - "put <em>~</em>" or "put <em>it</em>".
+    /// </summary>
+    /// <remarks>
+    /// The two are not the same permanent. "When this creature dies, put it on top of its
+    /// owner's library" is about the source, and "whenever a creature you control dies, put it on
+    /// the bottom of its owner's library" is about whatever died - so the pronoun goes through
+    /// the shared reader that already tells those apart rather than being assumed to mean the
+    /// card it is printed on.
+    /// </remarks>
+    EffectSubject Subject = EffectSubject.Source) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var sourceId = context.PhysicalSourceId;
-
-        if (!context.State.TryGetObject(sourceId, out var permanent)
-            || permanent.Zone != Zone.Battlefield)
-        {
+        if (Subjects.Resolve(context, Subject, 0) is not { } sourceId)
             return [];
-        }
+
+        // A death trigger resolves after the permanent has become a card in a graveyard, and CR
+        // 400.7 makes that a different object under a different id - so the id is followed
+        // forward when it no longer names anything, exactly as ReturnSourceToHand does. Without
+        // it every "when this dies, put it on top of its owner's library" compiled and moved
+        // nothing, which is the one failure coverage cannot see.
+        var moving = context.State.TryGetObject(sourceId, out var live)
+            ? live
+            : context.ObjectBehind?.Invoke(sourceId);
+
+        // Both zones are public, which is what makes following the id legal at all (CR 400.7j).
+        // Anywhere else - a hand, a library - the card is gone as far as this sentence is
+        // concerned and doing nothing is the honest answer.
+        if (moving is not { Zone: Zone.Battlefield or Zone.Graveyard })
+            return [];
 
         return
         [
             new ObjectMoved(
-                sourceId,
+                moving.Id,
                 ObjectId.New(),
-                Zone.Battlefield,
+                moving.Zone,
                 Zone.Library,
-                permanent.OwnerId,
+                moving.OwnerId,
                 MoveCause.Return,
                 Position),
         ];
@@ -9210,7 +9233,31 @@ public sealed record ChooseAndMove(
     int EffectIndex = 0,
     PlayerScope Scope = PlayerScope.You,
     int? TargetIndex = null,
-    Zone From = Zone.Battlefield) : IEffect
+    Zone From = Zone.Battlefield,
+
+    /// <summary>
+    /// Which end of the library a card sent to one arrives at (CR 401.1).
+    /// </summary>
+    /// <remarks>
+    /// Meaningless for every other destination and load-bearing for this one: "put a card from
+    /// your hand on top of your library" and "on the bottom" are the same sentence and opposite
+    /// cards. Defaulted to the top so nothing that already asked this question changes.
+    /// </remarks>
+    ZonePosition Position = ZonePosition.Top,
+
+    /// <summary>How many cards the sentence asks for - "put <em>two</em> cards from your hand".</summary>
+    int Count = 1,
+
+    /// <summary>
+    /// Whether the game picks rather than the player (CR 701.9b's rule, one zone over).
+    /// </summary>
+    /// <remarks>
+    /// "Return a creature card <em>at random</em> from your graveyard to your hand" is not a
+    /// choice at all, and offering it as one would be a strictly better card. The roll is made
+    /// by the engine through its seeded source so a replay agrees, which is why this is a flag
+    /// here and an early return there rather than an effect that picks for itself.
+    /// </remarks>
+    bool AtRandom = false) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {

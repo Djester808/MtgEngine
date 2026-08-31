@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Cards;
 using Xunit.Abstractions;
