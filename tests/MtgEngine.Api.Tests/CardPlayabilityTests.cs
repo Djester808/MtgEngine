@@ -261,9 +261,16 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// </summary>
     /// <remarks>
     /// This is a claim about the reach of the tests, not about the cards: a card counted here is
-    /// <em>unverified</em>, which is much weaker than <em>broken</em>. The three soaks in
+    /// <em>unverified</em>, which is much weaker than <em>broken</em>. The soaks in
     /// <c>CompiledCardSoakTests</c> pick their cards by predicate, so the set they never select
     /// is computed exactly rather than instrumented.
+    /// <para>
+    /// There are four buckets now rather than three. The residue this test existed to measure was
+    /// 826 lands, and the land soak was written to play them: it drops each one from hand as a
+    /// land drop (CR 305.1), lets its arrival replacements and questions run, and taps it for
+    /// mana. So the land predicate is restated here beside the other two and the residue is
+    /// measured against all three - which is the only way this number can ever fall.
+    /// </para>
     /// </remarks>
     [Fact]
     public void Complete_cards_that_no_soak_ever_selects_are_counted()
@@ -276,16 +283,19 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
 
         var permanents = corpus.Complete.Where(c => SoakPermanent(c.CardTypes)).ToImmutableList();
         var spells = corpus.Complete.Where(SoakSpell).ToImmutableList();
+        var lands = corpus.Complete.Where(c => SoakLand(c.CardTypes)).ToImmutableList();
         var neither = Unsoaked(corpus.Complete);
 
         var permanentCount = permanents.Count;
         var spellCount = spells.Count;
+        var landCount = lands.Count;
         var neitherCount = neither.Count;
 
         output.WriteLine($"fully read                       {corpus.Complete.Count,6}");
         output.WriteLine($"  played by the permanent soak   {permanentCount,6}");
         output.WriteLine($"  selected by the spell soak     {spellCount,6}");
-        output.WriteLine($"  selected by neither            {neitherCount,6}");
+        output.WriteLine($"  played by the land soak        {landCount,6}");
+        output.WriteLine($"  selected by none of them       {neitherCount,6}");
         output.WriteLine(string.Empty);
         output.WriteLine("what the soaks never select, by printed type:");
 
@@ -316,13 +326,19 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
             $"the spell soak selects {spellCount}, below the recorded {SoakCastsSpells}.");
 
         Assert.True(
+            landCount >= SoakPlaysLands,
+            $"the land soak selects {landCount}, below the recorded {SoakPlaysLands}.");
+
+        Assert.True(
             neitherCount <= SoakSelectsNeither,
             $"{neitherCount} complete cards are selected by no soak, above the recorded "
                 + $"{SoakSelectsNeither} - a card kind has appeared that nothing plays.");
 
-        // The three sets partition the fully read cards: a card is a soak permanent, a soak
-        // spell, or unselected. If that stops holding the predicates have drifted from the soak.
-        Assert.Equal(corpus.Complete.Count, permanentCount + spellCount + neitherCount);
+        // The four sets partition the fully read cards: a card is a soak permanent, a soak
+        // spell, a soak land, or unselected. If that stops holding the predicates have drifted
+        // from the soaks - which is the whole reason they are restated rather than shared.
+        Assert.Equal(
+            corpus.Complete.Count, permanentCount + spellCount + landCount + neitherCount);
     }
 
     /// <summary>Fully read permanents the permanent soak puts on a battlefield.</summary>
@@ -340,13 +356,34 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     private const int SoakCastsSpells = 3_039;
 
     /// <summary>
+    /// Fully read lands the land soak plays from hand and taps for mana.
+    /// </summary>
+    /// <remarks>
+    /// Playing is the whole of it here, in a way it is not for the other two: the land soak drops
+    /// each of these from hand as a land drop, answers whatever it asks on arrival, and then
+    /// activates its mana abilities and compares the pool against what the ability said it would
+    /// add. Measured on the run that introduced it: 826 played, 775 of them offered a mana
+    /// ability and all 775 produced, 1,306 activations matched their declaration exactly and none
+    /// diverged.
+    /// </remarks>
+    private const int SoakPlaysLands = 826;
+
+    /// <summary>
     /// Fully read cards no soak selects at all - the ones nothing has ever played.
     /// </summary>
     /// <remarks>
-    /// Every one of them is a land, and the cause is one predicate:
-    /// <c>CompiledCardSoakTests.IsPermanent</c> names creature, artifact, enchantment and
-    /// planeswalker, and a land is none of those. They are not instants or sorceries either, so
-    /// the spell soak does not see them. See <see cref="SoakPermanent"/>.
+    /// <strong>Empty, as of the land soak.</strong> Every card counted here was a land, and the
+    /// cause was one predicate: the restatement of <c>CompiledCardSoakTests.IsPermanent</c> below
+    /// names creature, artifact, enchantment and planeswalker, and a land is none of those; they
+    /// are not instants or sorceries either, so the spell soak did not see them. There is now a
+    /// third predicate that does - see <see cref="SoakLand"/> - and the residue it leaves is
+    /// nothing at all.
+    /// <para>
+    /// The ratchet stays, and stays a <c>&lt;=</c>. What it is for is the next card kind, not
+    /// this one: it has caught something real twice - 48 sticker sheets that are not cards, and
+    /// four reversible printings arriving with no type at all - and both showed up in the
+    /// typeless bucket, which is why the failure message names its residents card by card.
+    /// </para>
     /// </remarks>
     // 782 and every one of them a Land, checked rather than assumed: the typeless bucket
     // this number exists to police is empty, and it rose because one more land became
@@ -357,23 +394,33 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // when CR 305.6 moved the intrinsic mana ability off the printed card. Checked rather than
     // assumed - all 826 print Land and the typeless bucket stays empty. A card counted here is
     // unverified, not broken, and the soaks cannot reach it: see SoakPermanent.
+    //
+    // Round twenty-one measures 0. The 826 were the whole of this number and the land soak plays
+    // every one of them, so the population it describes is now empty - the constant is left at
+    // its recorded value for the merge owner to re-record, and the assertion below is a <= so an
+    // empty residue passes it. Nothing was removed from the corpus and nothing became
+    // half-read: what changed is that a soak was written for the one card type that had none.
     private const int SoakSelectsNeither = 826;
 
     /// <summary>
-    /// The cards no soak selects, put into real games to find out what they do.
+    /// Every fully read land and battle, created on a battlefield and played from a hand.
     /// </summary>
     /// <remarks>
-    /// The measurement above says these are unverified. This is what turns some of that into a
-    /// verified claim: the same three assertions the soak makes - nothing threw, the layers can
-    /// still compute characteristics, and <c>Replay(log)</c> equals the state - against the cards
-    /// the soak's own predicate excludes.
+    /// This was written as "the cards no soak plays", and that is no longer what it selects: the
+    /// land soak plays every land in the set now, and taps it. What is left that only this test
+    /// does is the pairing - the same cards <em>created</em> on a battlefield as well as
+    /// <em>played</em> from hand, and the battles, which no soak has a predicate for.
     /// <para>
-    /// Run twice, because for a land the two are different code. The soak <em>creates</em> its
-    /// permanents directly onto the battlefield; a land in a real game is <em>played</em> from
-    /// hand (CR 305.1), which is a special action rather than a spell. That distinction has
-    /// already produced one whole-class bug here - every "enters tapped" land arrived untapped,
-    /// because the replacement was pinned to the zone a spell is in - so the second pass exists
-    /// specifically to run the path the first one skips.
+    /// The two passes are different code and that is the point of running both. A soak
+    /// <em>creates</em> its permanents directly onto the battlefield; a land in a real game is
+    /// <em>played</em> from hand (CR 305.1), which is a special action rather than a spell. That
+    /// distinction has already produced one whole-class bug here - every "enters tapped" land
+    /// arrived untapped, because the replacement was pinned to the zone a spell is in.
+    /// </para>
+    /// <para>
+    /// What it asserts is the soak's three invariants: nothing threw, the layers can still
+    /// compute characteristics, and <c>Replay(log)</c> equals the state. What comes out of a
+    /// land's mana ability is asserted by the land soak, which is the test written to ask it.
     /// </para>
     /// <para>
     /// A fault is attributed by re-running each card of the broken table alone, so a finding
@@ -385,7 +432,7 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     /// </para>
     /// </remarks>
     [Fact]
-    public void The_complete_cards_no_soak_plays_survive_being_played()
+    public void Lands_and_battles_survive_being_created_and_being_played_from_hand()
     {
         if (Loaded.Value is not { } corpus)
         {
@@ -393,15 +440,17 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
             return;
         }
 
-        // Only the ones that can be put onto a battlefield at all. Anything else in the
-        // unselected set is counted and named by the test above rather than played.
-        var table = Unsoaked(corpus.Complete)
+        // Everything that reaches a battlefield and is not a soak permanent or a soak spell -
+        // which is exactly what this selected when it was written, spelled out rather than taken
+        // as the residue, because the residue is empty now that the land soak selects the lands.
+        var table = corpus.Complete
+            .Where(c => !SoakPermanent(c.CardTypes) && !SoakSpell(c))
             .Where(c => c.CardTypes.HasFlag(CardType.Land) || c.CardTypes.HasFlag(CardType.Battle))
             .OrderBy(Scatter)
             .ThenBy(c => c.OracleId, StringComparer.Ordinal)
             .ToImmutableList();
 
-        Assert.True(table.Count > 500, $"only {table.Count} unsoaked permanents - wrong set.");
+        Assert.True(table.Count > 500, $"only {table.Count} lands and battles - wrong set.");
 
         var pool = new CompiledPool();
         var broken = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -901,8 +950,25 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
         !SoakPermanent(card.CardTypes)
         && (card.CardTypes.HasFlag(CardType.Instant) || card.CardTypes.HasFlag(CardType.Sorcery));
 
+    /// <summary>
+    /// <c>CompiledCardSoakTests.IsLand</c>, which is what the land soak plays and taps.
+    /// </summary>
+    /// <remarks>
+    /// Copied deliberately rather than shared, for the reason <see cref="SoakPermanent"/> gives:
+    /// a copy that drifts is caught by the partition assertion above rather than by trust. Note
+    /// what it still does not name - <see cref="CardType.Battle"/>, which no soak selects and
+    /// which the census counts in the residue.
+    /// </remarks>
+    private static bool SoakLand(CardType types) =>
+        types.HasFlag(CardType.Land)
+        && !SoakPermanent(types)
+        && !types.HasFlag(CardType.Instant)
+        && !types.HasFlag(CardType.Sorcery)
+        && !types.HasFlag(CardType.Token);
+
     private static ImmutableList<CardDefinition> Unsoaked(ImmutableList<CardDefinition> complete) =>
-        [.. complete.Where(c => !SoakPermanent(c.CardTypes) && !SoakSpell(c))];
+        [.. complete.Where(c =>
+            !SoakPermanent(c.CardTypes) && !SoakSpell(c) && !SoakLand(c.CardTypes))];
 
     private static string TypeWord(CardType types)
     {
