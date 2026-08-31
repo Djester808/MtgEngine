@@ -513,6 +513,125 @@ cheaper of the two.
 
 ## Known gaps
 
+### Round twenty-one: the third audit of the same family, and the first that can see inside a closure
+
+Every instrument this project had compared compiled **structure**. Coverage counts lines the
+compiler read; the set diff compares which cards became complete; the per-card effect fingerprint
+compares effect lists; `DeadWriteAuditTests` decodes IL to find a marker nothing reads;
+`CardCompilerInvariantTests.Inert` asks whether an effect list is empty, a filter *string* selects
+nothing, a deferred question can be found again. None of them can see inside a `Func`, because a
+predicate is a closure and its captured parameters are private fields of a compiler-generated
+class with no name — which is exactly where the worst defects have lived. The 23-card subtype
+class (`TriggerConditions` pairing every capitalised noun with `CardType.Creature`, so "whenever a
+Forest you control enters" watched for a *creature* with the land type Forest) was invisible to
+the card diff by construction, and was found by playing a card.
+
+`TriggerProbeAuditTests` closes that. For every triggered ability a complete card compiles it
+fires a battery of real `GameEvent`s at the predicate on real boards and asks whether **any** of
+them is accepted. A predicate that accepts nothing is the closure-shaped inert card: the ability
+exists, is watched on every event, and cannot fire.
+
+#### The probes are printed cards, and that is the whole design
+
+Its nearest neighbour — `Every_printed_noun_phrase_the_grammar_reads_can_be_satisfied` — also runs
+a closure, but over a *synthesised* witness board that deliberately holds "one permanent that is
+every type at once". That board answers **yes** to a creature with the land type Forest, so it
+could never have found the twenty-three. Here the objects the battery moves, casts, attacks with
+and kills are corpus cards, and the deep sweep is one representative of every distinct (card
+types, subtype) pair the corpus prints. "No object the corpus can produce satisfies this
+predicate" is then a claim about the printed game rather than about what the compiler believes.
+
+Three stages, because the space is a product of three independent things: a **screen** (every
+step, every zone-change pair against every move cause, both combat declarations, and one
+reflectively built instance of every other `GameEvent` type in the assembly, so no event family
+is missed by omission), then the **worlds** (the same battery on boards whose counters, turn
+history, attachment, lean, designations and daylight differ, because "if this permanent is tapped"
+and "your second spell each turn" are questions about the board and not about the event), then the
+**deep probes**.
+
+#### What the noise was, and it was all battery rather than compiler
+
+The screen's first run reported **1,256 of 8,099 triggers** as firing on nothing. Every reduction
+from there to three was a limit in the probe set, found and closed rather than suppressed:
+
+| what was missing | cards it wrongly reported |
+|---|---|
+| counters the compiler invents and no card prints — `fade`, `echo` | 40 |
+| a populated board (a party, powers that differ, a stocked graveyard, a commander) | ~130 |
+| a *lean*, so "an opponent controls more lands than you" has a direction | ~56 |
+| the two ids of a zone change tried both ways round (CR 400.7) | every Aura in the game |
+| a source that had been kicked with its own printed costs, blitzed, disguised, gifted | ~35 |
+| the cycling ability id, both Room doors, and casting the source itself | ~74 |
+| mana of every colour spent, and `WasTeamwork`, `OnAdventure`, `IsSolved` off as well as on | ~15 |
+
+The lesson is the one the noun guard already learned: **the witness board is half the instrument,
+and the half that decides whether the answer means anything.** A list of counter names somebody
+wrote is a list somebody can leave `fade` off, so the names are now read out of
+`State.CounterKinds` by reflection and out of the corpus by frequency, and only the two the
+compiler invents are written down.
+
+#### The finding: a trigger pinned to a zone its own condition forbids
+
+Six cards asked to be in two zones at once. `Game.Consider` refuses an ability whose source is not
+in its functioning zone (CR 603.6), the compiler wrote the default battlefield on these, and their
+own intervening-if says the card is somewhere else:
+
+- **Genesis**, **Gigapede**, **Arden Angel** — "at the beginning of your upkeep, if ~ is in your
+  graveyard, …"
+- **Blood Operative** — "whenever you surveil, if ~ is in your graveyard, …"
+- **Pyrewild Shaman** — "whenever one or more creatures you control deal combat damage to a
+  player, if ~ is in your graveyard, …"
+- **Oloro, Ageless Ascetic** — "at the beginning of your upkeep, if ~ is in the command zone, you
+  gain 2 life", which is the whole reason anybody plays the card
+
+All six compiled clean, read as complete, counted towards coverage, and could not do anything on
+any board. Nothing structural could see it: the zone is a field, the condition is a closure, and
+the contradiction is *between* them — the effect list, the target list, the filter strings and the
+IL are all exactly what a working card's would be.
+
+`GraveyardOnly` was already the same rule read off the **effects**, and it cannot reach these: it
+is restricted to cards with no permanent type, because a creature's "when this dies, return it to
+your hand" has to keep watching from the battlefield (CR 603.10a). All six of these are permanents.
+What makes the new rule safe where that one is not is that the card has *said* where it is, so
+`BoardConditions.ZoneTheSourceMustBeIn` reads the zone off the condition's own words and answers
+null for a negation ("isn't on the battlefield" says where it is not), for an alternation ("in the
+command zone or on the battlefield" names two and an ability functions from one), and for a
+trigger whose own condition already named a zone of its own.
+
+#### Result
+
+**18,108 → 18,108 complete cards, none gained, none lost.** The per-card fingerprint of every
+compiled trigger, activated ability, spell, static, replacement and cost modifier moves on
+**exactly 7 cards**, and on one field of one trigger in each: `FunctionsFrom`, battlefield to
+graveyard or command zone. Six are the complete cards above; the seventh is Auntie's Snitch, which
+is one line short of complete and whose trigger is now right for the day it is not.
+
+#### Three survivors, and what is known about each
+
+The audit is a gate: a card it reports that is not named in `Understood` fails the build. The
+three named are live defects rather than battery limits, and each says why it was not fixed here.
+
+- **Slayer's Plate**, **Avacyn's Collar** — "whenever equipped creature dies, **if it was a
+  Human**". `BoardConditions.SelfTypeLine` asks the question of the ability's own *source*, and an
+  Equipment is never a Human, so the condition is false on every board. Its own comment says so
+  out loud — "'It' is the source here rather than a target … the pronoun in that sentence has only
+  one thing it can mean" — which is true of the clauses it was written for and false here, where
+  the trigger's subject is the creature that died. The fix is a signature: `BoardCondition` carries
+  a state, an ability source, the source object and a *seat*, and has nowhere to put the object a
+  trigger was about.
+- **Storyteller Pixie** — "whenever you cast an **Adventure** spell". The cast reader treats
+  "Adventure" as a subtype and filters the cast card on it, and nothing in this engine produces an
+  object carrying it: an adventure is a *face* (CR 715.3), the spell put on the stack keeps the
+  creature card's own subtypes, and `OnAdventure` is marked on the exiled card after resolution.
+  That is the twenty-three-card defect exactly, one card wide.
+
+#### The gate was made to fail
+
+Reverting the one-line fix and re-running the audit turns it red naming **precisely** the six
+cards — Genesis, Oloro, Arden Angel, Gigapede, Pyrewild Shaman, Blood Operative — and the two
+behaviour tests beside it go red for the two things a player would see: the graveyard trigger
+never reaches the log, and Oloro's controller stays on 20 life.
+
 ### Round twenty-one: the basic land type of your choice, and two neighbours re-measured
 
 Round twenty moved CR 305.6's intrinsic mana ability off the printed card and onto the land's
