@@ -3208,6 +3208,88 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "…, where X is that spell's mana value", "…, where X is that creature's power" — the
+        // demonstrative possessive, and the whole of its difficulty is *which* object the words
+        // point at. This family was declined twice on correctness grounds before this reader
+        // existed, and both declines were right about the danger: a stat read off the wrong object
+        // is a card that compiles, plays and pays a number the card does not print, which is
+        // strictly worse than a line left unread.
+        //
+        // What makes it answerable is that a demonstrative names a *type* where the pronoun names
+        // nothing. "That spell" is a spell, and a targeted creature standing between the two words
+        // is not a candidate however near it stands — so the referent is settled by type agreement
+        // rather than by the nearest-antecedent guess "its" is stuck with. The rule is:
+        //
+        //   - among what this ability has targeted, keep the targets whose own description names
+        //     the demonstrative's noun. **Exactly one** and it is the referent; two and the
+        //     sentence is genuinely ambiguous, and it stays unread;
+        //   - with none agreeing, the object the trigger was about — but only where the trigger's
+        //     condition has been admitted to <c>TriggerConditions.NamesAnObject</c>, the
+        //     allow-list that already guarantees <c>Game.SubjectObjectOf</c> answers with one.
+        //     Refused for "that spell", because that allow-list is about permanents;
+        //   - "the cast spell's" is not a printed spelling. <c>CardCompiler</c> writes it where it
+        //     has proved the trigger is a cast trigger, whose event names the spell that was cast,
+        //     and it resolves to that subject and never to a target.
+        //
+        // Everything else is refused. Canopy Gargantuan is the card that says why the refusals are
+        // not timidity: "put a number of +1/+1 counters on each other creature you control equal to
+        // that creature's toughness" distributes the demonstrative over a group this reader cannot
+        // see, and every one of the three arms above would answer it with a single wrong number.
+        var byDemonstrative = VariableIsDemonstrativeStatLine().Match(sentence);
+        if (byDemonstrative.Success)
+        {
+            var scratch = ImmutableList.CreateBuilder<IEffect>();
+
+            if (!TryOne(
+                    byDemonstrative.Groups["head"].Value.Trim(),
+                    targets,
+                    scratch,
+                    objectNamedByTrigger))
+            {
+                return false;
+            }
+
+            var wantedStat = StatNamed(byDemonstrative.Groups["stat"].Value);
+
+            // The head is read first because it is where the target usually arrives: "Put X +1/+1
+            // counters on target creature, where X is that creature's power" has nothing to agree
+            // with until the head has been parsed.
+            if (!byDemonstrative.Groups["noun"].Success)
+            {
+                effects.Add(new WithCountedVariable(
+                    context => WithMeasuredVariable.Measure(
+                        context, TriggerSubject(context), wantedStat),
+                    scratch.ToImmutable()));
+
+                return true;
+            }
+
+            var noun = byDemonstrative.Groups["noun"].Value.ToLowerInvariant();
+
+            var agreeing = Enumerable.Range(0, targets.Count)
+                .Where(i => Agrees(targets[i], noun))
+                .ToList();
+
+            if (agreeing is [var only])
+            {
+                effects.Add(new WithMeasuredVariable(only, wantedStat, scratch.ToImmutable()));
+                return true;
+            }
+
+            if (agreeing.Count > 0
+                || !objectNamedByTrigger
+                || noun.Equals("spell", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            effects.Add(new WithCountedVariable(
+                context => WithMeasuredVariable.Measure(context, TriggerSubject(context), wantedStat),
+                scratch.ToImmutable()));
+
+            return true;
+        }
+
         // "Target creature gets +X/+0 until end of turn, where X is its power." The same clause
         // as above measuring one permanent instead of counting a group, and read the same way:
         // the head keeps X as the variable it always is and the clause says what X comes to.
@@ -13168,31 +13250,56 @@ public static partial class EffectPhrase
     /// either measures a permanent still on the battlefield or one this very resolution moved.
     /// </para>
     /// </remarks>
-    private static int StatAsItLastWas(ResolutionContext context, GameObject? named, string wanted)
+    private static int StatAsItLastWas(
+        ResolutionContext context, GameObject? named, string wanted) =>
+        WithMeasuredVariable.Measure(context, named, StatNamed(wanted));
+
+    /// <summary>Which of the three stats a printed word names.</summary>
+    private static TouchStat StatNamed(string wanted) =>
+        wanted.StartsWith("power", StringComparison.OrdinalIgnoreCase) ? TouchStat.Power
+        : wanted.StartsWith("toughness", StringComparison.OrdinalIgnoreCase) ? TouchStat.Toughness
+        : TouchStat.ManaValue;
+
+    /// <summary>
+    /// Whether a target is the kind of object a demonstrative's noun names (CR 109.2).
+    /// </summary>
+    /// <remarks>
+    /// The whole of the referent question for "that creature's power", and it is answered off the
+    /// target's own printed description rather than off a second vocabulary — "target nonartifact
+    /// creature" is what the card says the player chose, and it is what says whether "that
+    /// creature" can be pointing at it.
+    /// <para>
+    /// The word has to stand alone. "Noncreature" and "nonartifact" contain the nouns they negate,
+    /// and a substring test would have "destroy target noncreature artifact" agree with "that
+    /// creature" — the exact mis-reading this reader exists to refuse.
+    /// </para>
+    /// </remarks>
+    private static bool Agrees(TargetSpec spec, string noun) =>
+        noun.Equals("spell", StringComparison.Ordinal)
+            ? spec.Kind == TargetKind.SpellOnStack
+            : spec.Kind == TargetKind.Permanent && NamesNoun(spec.Description, noun);
+
+    /// <summary>Whether a description contains a noun as a word of its own.</summary>
+    private static bool NamesNoun(string description, string noun)
     {
-        if (named is null)
-            return 0;
+        var at = description.IndexOf(noun, StringComparison.OrdinalIgnoreCase);
 
-        // Mana value is a fact about the card and never about the permanent (CR 202.3b), so the
-        // layers and the record have nothing to say about it that the card does not.
-        if (named.Zone == Zone.Battlefield || wanted.StartsWith("mana", StringComparison.Ordinal))
-            return StatOfObject(context, named, wanted);
-
-        foreach (var touch in context.Record.Touches)
+        while (at >= 0)
         {
-            if (touch.Id != named.Id)
-                continue;
+            var end = at + noun.Length;
 
-            var was = wanted.StartsWith("power", StringComparison.Ordinal)
-                ? touch.Power
-                : touch.Toughness;
+            if ((at == 0 || !char.IsLetter(description[at - 1]))
+                && (end >= description.Length || !char.IsLetter(description[end])))
+            {
+                return true;
+            }
 
-            if (was is { } known)
-                return Math.Max(0, known);
+            at = description.IndexOf(noun, at + 1, StringComparison.OrdinalIgnoreCase);
         }
 
-        return StatOfObject(context, named, wanted);
+        return false;
     }
+
 
     /// <summary>
     /// The power or toughness of whatever the trigger was about, read when the effect resolves.
@@ -15895,6 +16002,41 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex VariableIsRecordLine();
 
+
+    /// <summary>
+    /// "…, where X is that spell's mana value" — a quantity measured on an object the sentence
+    /// points at by type rather than by name (CR 107.3).
+    /// </summary>
+    /// <remarks>
+    /// The demonstrative twin of <see cref="VariableIsStatLine"/>, and the noun is what makes it a
+    /// different question: "its" names nothing and has to be guessed at from the shape of the
+    /// head, while "that spell" says outright what kind of object it is about. The reader settles
+    /// the referent by agreeing that noun against what the ability targeted, which is why the noun
+    /// is captured rather than skipped over.
+    /// <para>
+    /// The noun list is closed and every word in it is a kind the target grammar can name. "That
+    /// card's mana value" and "that token's power" are printed too and are deliberately absent:
+    /// neither is a thing this ability chose, so there is nothing for the noun to agree with and
+    /// the sentence would fall through to a guess.
+    /// </para>
+    /// <para>
+    /// The stat list is the closed one its sibling keeps, and for the same reason — "that
+    /// creature's power plus its toughness" is printed, and an arithmetic tail admitted here would
+    /// read as the bare stat and give the card a number it does not print.
+    /// </para>
+    /// <para>
+    /// <b>"The cast spell's" is not a printed spelling.</b> <c>CardCompiler</c> writes it into a
+    /// trigger's effect text where it has proved the trigger's event is a spell being cast, which
+    /// is a fact about the condition that this reader cannot see and the compiler can. It is
+    /// spelled out rather than flagged so that the proof travels with the words, the same way the
+    /// tilde carries the fact that a name was the card's own.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<head>.+?), where X is (?:that (?<noun>spell|creature|artifact|permanent|enchantment)"
+            + @"|the cast spell)'s (?<stat>power|toughness|mana value)$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex VariableIsDemonstrativeStatLine();
 
     /// <summary>
     /// "…, where X is its power" — X measured on one permanent rather than counted (CR 107.3).
@@ -19839,6 +19981,44 @@ public static partial class TriggerConditions
 
         var aimed = BecomesTargeted().Match(condition);
         return aimed.Success && aimed.Groups["who"].Value.Equals("~", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Whether this trigger's event is a spell being cast, so that "that spell" names it.
+    /// </summary>
+    /// <remarks>
+    /// An allow-list with the same discipline as <see cref="NamesAnObject"/>, and checked at both
+    /// ends the same way: every shape admitted here is one whose predicate accepts nothing but a
+    /// <c>SpellCastEvent</c>, and <c>Game.SubjectObjectOf</c> answers that event with the id of the
+    /// spell on the stack. The number is answerable at all because a triggered ability goes on the
+    /// stack above the spell that triggered it and resolves first (CR 603.3b), so the spell is
+    /// still there to be measured.
+    /// <para>
+    /// <b>"Cast or copy" is refused.</b> A copy is put on the stack without being cast (CR 707.10)
+    /// and arrives as a <c>SpellCopied</c>, which carries a card and not an object — so
+    /// <c>SubjectObjectOf</c> answers nothing for it and the quantity would be nought. Deekah,
+    /// Fractal Theorist and Zaffai, Thunder Conductor print that wording, and a card that makes a
+    /// 0/0 token every time it copies a spell is worse than one left unread.
+    /// </para>
+    /// <para>
+    /// Kept separate from <see cref="NamesAnObject"/> rather than added to it, because the two
+    /// questions have different answers on the same condition. That flag says a bare "that
+    /// creature" has a permanent to mean, and a cast trigger's subject is a spell on the stack —
+    /// admitting the cast family there would put a +1/+1 counter on an object in the stack zone.
+    /// </para>
+    /// </remarks>
+    public static bool CastsASpell(string condition)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+
+        var cast = CastsLine().Match(condition);
+        if (cast.Success)
+            return !cast.Groups["copy"].Success;
+
+        var nth = NthEachTurn().Match(condition);
+
+        return nth.Success
+            && nth.Groups["what"].Value.StartsWith("spell", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
