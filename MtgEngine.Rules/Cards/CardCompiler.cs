@@ -1523,7 +1523,6 @@ public static partial class CardCompiler
                 continue;
             }
 
-
             if (CastOnlyLine().Match(line) is { Success: true } onlyWhen)
             {
                 // Unread words leave the card alone rather than dropping the restriction: a
@@ -3410,40 +3409,6 @@ public static partial class CardCompiler
                 m => m.Groups["lead"].Value + " the number of " + m.Groups["how"].Value + " "
                     + m.Groups["field"].Value + " " + m.Groups["join"].Value + " ");
 
-            // "Create a number of Food tokens equal to the number of opponents you have",
-            // "target opponent loses life equal to the number of Elves you control", "~ deals
-            // damage equal to the number of Giants you control to each non-Giant creature" —
-            // one quantity written the long way round, and the *last* place in this compiler
-            // where a count had to be taught to a verb one verb at a time.
-            //
-            // The short way round is already read, generically: `EffectPhrase`'s "…, where X is
-            // the number of …" clause takes any head at all, reads it with X left as the
-            // variable every verb already knows, and fills the count in when the sentence
-            // resolves. So the two spellings are made one here — "equal to the number of …"
-            // becomes "X …, where X is the number of …" — and every verb that can carry a
-            // number gains the whole counting vocabulary at once, rather than each of them
-            // growing an "equal to the number of" arm of its own. Four already had: the life
-            // family, the draw family, the damage family and the per-each pumps, each written
-            // in a different round, and each reading only the sentence shape its author had in
-            // front of them. "You gain life equal to the number of Elves you control" read;
-            // "target opponent loses life equal to the number of Elves you control" did not.
-            //
-            // It runs after the devotion and aggregate rewrites above, and composes with both:
-            // those two spell their phrases into "the number of …", so a card saying "create a
-            // number of Elemental tokens equal to your devotion to blue" arrives here already
-            // in the shape this reads.
-            //
-            // **Only a count.** The same sentence shape carries "equal to its power", and that
-            // one may not be rewritten: the clause reader resolves "its" against the head's
-            // target, so "~ deals damage equal to its power to target creature" would compile
-            // as the *target's* power — a card that reads and does the wrong thing, which is
-            // worse than one left unread. 23 more cards would complete that way and are
-            // declined for exactly that reason.
-            cleaned = CountAsANumber().Replace(
-                cleaned,
-                m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
-                    + ", where X is " + m.Groups["amount"].Value);
-
             // An ability word — "Landfall —", "Constellation —" — is flavour with no rules
             // meaning at all (CR 207.2c). Stripping it lets the sentence behind be read.
             cleaned = AbilityWord().Replace(cleaned, string.Empty);
@@ -3508,6 +3473,40 @@ public static partial class CardCompiler
             var body = cleaned;
             cleaned = SourcePronounDamage().Replace(
                 body, m => MeansTheSource(body, m.Index) ? "~ deals" : m.Value);
+
+            // "Create a number of Food tokens equal to the number of opponents you have",
+            // "target opponent loses life equal to the number of Elves you control", "~ deals
+            // damage equal to the number of Giants you control to each non-Giant creature" —
+            // one quantity written the long way round, and the *last* place in this compiler
+            // where a count had to be taught to a verb one verb at a time.
+            //
+            // The short way round is already read, generically: `EffectPhrase`'s "…, where X is
+            // the number of …" clause takes any head at all, reads it with X left as the
+            // variable every verb already knows, and fills the count in when the sentence
+            // resolves. So the two spellings are made one here — "equal to the number of …"
+            // becomes "X …, where X is the number of …" — and every verb that can carry a
+            // number gains the whole counting vocabulary at once, rather than each of them
+            // growing an "equal to the number of" arm of its own. Four already had: the life
+            // family, the draw family, the damage family and the per-each pumps, each written
+            // in a different round, and each reading only the sentence shape its author had in
+            // front of them. "You gain life equal to the number of Elves you control" read;
+            // "target opponent loses life equal to the number of Elves you control" did not.
+            //
+            // It runs after the devotion and aggregate rewrites above, and composes with both:
+            // those two spell their phrases into "the number of …", so a card saying "create a
+            // number of Elemental tokens equal to your devotion to blue" arrives here already
+            // in the shape this reads.
+            //
+            // **Only a count.** The same sentence shape carries "equal to its power", and that
+            // one may not be rewritten: the clause reader resolves "its" against the head's
+            // target, so "~ deals damage equal to its power to target creature" would compile
+            // as the *target's* power — a card that reads and does the wrong thing, which is
+            // worse than one left unread. 23 more cards would complete that way and are
+            // declined for exactly that reason.
+            cleaned = CountAsANumber().Replace(
+                cleaned,
+                m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
+                    + ", where X is " + m.Groups["amount"].Value);
 
             // The rule between a card's two faces, which the card pool writes as a line of its
             // own. It is deliberately left unread, and that is the whole of the engine's answer
@@ -13073,7 +13072,6 @@ public static partial class CardCompiler
     private static bool DividesSomething(ImmutableList<IEffect> effects) =>
         effects.OfType<IDividedEffect>().Any();
 
-
     /// <summary>How many modes a written-out number asks for, or null if it is not one.</summary>
     /// <remarks>
     /// "Choose X" is deliberately not here. The count would be the X the spell was cast for,
@@ -19076,9 +19074,19 @@ public static partial class CardCompiler
     /// The amount must begin "the number of". "Equal to twice the number of" is a multiplier the
     /// clause reader has no room for, and it is left to the hand-written arms that do.
     /// </para>
+    /// <para>
+    /// The rewrite runs <em>after</em> <see cref="SourcePronounDamage"/> has decided whether a
+    /// sentence's "it" can mean the source, and refuses the sentences it left alone. That order
+    /// is load-bearing: the pronoun rule's refusal is a refusal <em>by omission</em> — it leaves
+    /// "it deals damage equal to …" spelled as it was and relies on nothing reading that shape.
+    /// Rewriting first turned Hawkeye, Trick Shot's "whenever ~ or another Hero you control
+    /// enters, it deals damage equal to the number of Heroes you control" into a sentence the
+    /// narrow "it deals N damage" reader takes, which is the source dealing damage the Hero that
+    /// arrived should have dealt (CR 120.2b).
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"(?:a number of (?<what>[^.;]+?)|\b(?<what>damage|life|cards))(?<!\bor)"
+        @"(?:a number of (?<what>[^.;]+?)|(?<!\bit deals )\b(?<what>damage|life|cards))(?<!\bor)"
             + @" equal to (?<amount>the number of [^.;]+?)(?<tail> to [^.;]+?)?(?=\.|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex CountAsANumber();
