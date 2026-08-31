@@ -7234,15 +7234,21 @@ public sealed class CompiledCardBehaviourTests
     }
 
     /// <summary>
-    /// "~ enters with X +1/+1 counters on it, where X is the greatest power among <em>other</em>
-    /// creatures you control" — Prime Speaker Zegana (CR 109.5).
+    /// "When ~ enters, you gain life equal to the greatest power among <em>other</em> creatures
+    /// you control" — Flourishing Hunter's shape (CR 109.5).
     /// </summary>
     /// <remarks>
-    /// The word "other" is put on the group spec's <em>source</em> filter, not its object filter,
-    /// and a reader that asks only the object filter parses the word, drops it, and lets the
-    /// permanent answer about itself. On a tally that is one too many; on an aggregate it is
-    /// worse, because the thing asking is usually the biggest thing there — this creature is a
-    /// 9/9 beside a 4/4, so the two readings differ by five counters rather than by one.
+    /// The word "other" is put on the group spec's <em>source</em> filter, not on its object
+    /// filter, and a reader that asks only the object filter parses the word, drops it, and lets
+    /// the permanent answer about itself. On a tally that is one too many; on an aggregate it is
+    /// worse, because the thing asking is usually the biggest thing on the board — this creature
+    /// is a 9/9 beside a 4/4, so the two readings are five life apart rather than one.
+    /// <para>
+    /// A trigger and not an enters-with-counters replacement, which is the same sentence and
+    /// cannot test this: a replacement is applied while the permanent is still on its way in, so
+    /// it is not on the battlefield to be counted and "other" costs nothing there. The source has
+    /// to be standing among the group for the exclusion to be doing any work.
+    /// </para>
     /// <para>
     /// The empty board is the second half. With nothing else to measure the answer is nought
     /// (CR 107.2), and a reader that had quietly included the source would say nine.
@@ -7251,34 +7257,30 @@ public sealed class CompiledCardBehaviourTests
     [Fact]
     public void An_other_aggregate_leaves_out_the_permanent_that_is_asking()
     {
-        var speaker = Card(
-            "Other Greatest Speaker Test",
-            "~ enters with X +1/+1 counters on it, where X is the greatest power among other "
-                + "creatures you control.",
+        var hunter = Card(
+            "Other Greatest Hunter Test",
+            "When ~ enters, you gain life equal to the greatest power among other creatures you "
+                + "control.",
             CardType.Creature, 9, 9);
 
-        var compiled = CardCompiler.Compile(speaker);
+        var compiled = CardCompiler.Compile(hunter);
         Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
 
         var (game, alice, bob) = InMainPhase();
         game.Create(alice, TestCards.Creature("Other Greatest Friend", 4, 4), Zone.Battlefield);
         game.Create(bob, TestCards.Creature("Other Greatest Rival", 8, 8), Zone.Battlefield);
 
-        var entered = game.Create(alice, speaker, Zone.Battlefield);
+        game.Create(alice, hunter, Zone.Battlefield);
         Settle(game);
 
-        Assert.Equal(
-            4, game.State.GetObject(entered).Permanent!.Counters[CounterKinds.PlusOnePlusOne]);
+        Assert.Equal(24, game.State.GetPlayer(alice).Life);
 
         // The control board: nothing else to measure at all.
         var (empty, carol, _) = InMainPhase();
-        var alone = empty.Create(carol, speaker, Zone.Battlefield);
+        empty.Create(carol, hunter, Zone.Battlefield);
         Settle(empty);
 
-        Assert.Equal(
-            0,
-            empty.State.GetObject(alone).Permanent!.Counters
-                .GetValueOrDefault(CounterKinds.PlusOnePlusOne));
+        Assert.Equal(20, empty.State.GetPlayer(carol).Life);
     }
 
     /// <summary>
