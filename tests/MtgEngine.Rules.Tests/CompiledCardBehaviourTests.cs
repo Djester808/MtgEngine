@@ -18444,7 +18444,7 @@ public sealed class CompiledCardBehaviourTests
             {
                 Id = "shield",
                 FunctionsFrom = Zone.Battlefield,
-                Applies = (e, _, source) =>
+                Applies = (e, _, _, source) =>
                     e is ObjectMoved { To: Zone.Graveyard } gone && gone.OldId == source.Id,
                 Replace = (e, _, _) => [((ObjectMoved)e) with { To = Zone.Exile }],
             })
@@ -19872,7 +19872,7 @@ public sealed class CompiledCardBehaviourTests
         // Null, not Battlefield: a permanent created on the battlefield was never anywhere else,
         // and one that resolves off the stack is replaced while it is still a spell (CR 614.6).
         FunctionsFrom = null,
-        Applies = (e, _, source) => ArrivingAs(e, source) is not null,
+        Applies = (e, _, _, source) => ArrivingAs(e, source) is not null,
         Replace = (e, _, source) =>
         [
             // Before the arrival, not after it. Reversed, the permanent is still a copy with the

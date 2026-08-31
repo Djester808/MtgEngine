@@ -2163,7 +2163,7 @@ public sealed partial class CardCompilerInvariantTests(ITestOutputHelper output)
         // rather than captured, because by the time the object exists the arrival has happened.
         var arrival = new ObjectCreated(arriving, card, alice, alice, Zone.Battlefield);
 
-        if (!replacement.Applies(arrival, game.State, source))
+        if (!replacement.Applies(arrival, game.State, pool, source))
             return false;
 
         var state = game.State;

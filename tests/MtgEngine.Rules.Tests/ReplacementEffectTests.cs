@@ -53,7 +53,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-all",
-            Applies = (e, state, source) => e is DamageMarked,
+            Applies = (e, state, _, source) => e is DamageMarked,
             Replace = (e, state, source) => [],
         };
         var (game, alice, _) = InMainPhase(new Abilities(("shield", shield)));
@@ -75,7 +75,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-all",
-            Applies = (e, state, source) => e is DamageMarked,
+            Applies = (e, state, _, source) => e is DamageMarked,
             Replace = (e, state, source) => [],
         };
         var (game, alice, _) = InMainPhase(new Abilities(("shield", shield)));
@@ -94,7 +94,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-2",
-            Applies = (e, state, source) => e is DamageMarked { Amount: > 2 },
+            Applies = (e, state, _, source) => e is DamageMarked { Amount: > 2 },
             Replace = (e, state, source) =>
                 [new DamageMarked(((DamageMarked)e).Id, ((DamageMarked)e).Amount - 2)],
         };
@@ -115,7 +115,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-1",
-            Applies = (e, state, source) => e is DamageMarked { Amount: > 0 },
+            Applies = (e, state, _, source) => e is DamageMarked { Amount: > 0 },
             Replace = (e, state, source) =>
                 [new DamageMarked(((DamageMarked)e).Id, ((DamageMarked)e).Amount - 1)],
         };
@@ -138,7 +138,7 @@ public sealed class ReplacementEffectTests
         {
             Id = "enters-with-two",
             FunctionsFrom = Zone.Stack,
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { To: Zone.Battlefield } m && m.OldId == source.Id,
             Replace = (e, state, source) =>
             {
@@ -169,7 +169,7 @@ public sealed class ReplacementEffectTests
         var exileInstead = new ReplacementEffectDefinition
         {
             Id = "exile-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) =>
             {
@@ -194,7 +194,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-all",
-            Applies = (e, state, source) => e is DamageMarked,
+            Applies = (e, state, _, source) => e is DamageMarked,
             Replace = (e, state, source) => [],
         };
         var (game, alice, _) = InMainPhase(new Abilities(("shield", shield)));
@@ -216,14 +216,14 @@ public sealed class ReplacementEffectTests
         var exileInstead = new ReplacementEffectDefinition
         {
             Id = "exile-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Exile }],
         };
         var libraryInstead = new ReplacementEffectDefinition
         {
             Id = "library-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Library }],
         };
@@ -258,7 +258,7 @@ public sealed class ReplacementEffectTests
         var shield = new ReplacementEffectDefinition
         {
             Id = "prevent-all",
-            Applies = (e, state, source) => e is DamageMarked,
+            Applies = (e, state, _, source) => e is DamageMarked,
             Replace = (e, state, source) => [],
         };
         var (game, alice, _) = InMainPhase(new Abilities(("shield", shield)));
@@ -277,7 +277,7 @@ public sealed class ReplacementEffectTests
         var exileInstead = new ReplacementEffectDefinition
         {
             Id = "exile-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Exile }],
         };
@@ -310,7 +310,7 @@ public sealed class ReplacementEffectTests
         var exileInstead = new ReplacementEffectDefinition
         {
             Id = "exile-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Exile }],
         };
@@ -318,7 +318,7 @@ public sealed class ReplacementEffectTests
         var libraryInstead = new ReplacementEffectDefinition
         {
             Id = "library-instead",
-            Applies = (e, state, source) =>
+            Applies = (e, state, _, source) =>
                 e is ObjectMoved { From: Zone.Battlefield, To: Zone.Graveyard },
             Replace = (e, state, source) => [((ObjectMoved)e) with { To = Zone.Library }],
         };
