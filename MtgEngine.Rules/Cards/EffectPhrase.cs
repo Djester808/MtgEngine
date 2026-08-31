@@ -51,6 +51,13 @@ public static partial class EffectPhrase
         // moving a compiled effect would move what those indices point at.
         text = HoistPreventionBan(text);
 
+        // "Each player shuffles their hand and graveyard into their library, then draws seven
+        // cards." The clause splitter cuts at ", then" and hands the halves out one at a time,
+        // which drops the subject of the second - so the draw was read as the controller's and
+        // Timetwister dealt six players a hand each and drew for one. The subject is carried
+        // over here, where the sentence is still whole.
+        text = CarrySubjectAcrossThen(text);
+
         var effects = ImmutableList.CreateBuilder<IEffect>();
         var targets = ImmutableList.CreateBuilder<TargetSpec>();
 
@@ -399,6 +406,18 @@ public static partial class EffectPhrase
         var sentenceStart = 0;
         var previousSentenceStart = 0;
 
+        // Where the previous clause's *targets* begin, for the sentence that says "each of
+        // them". The effects boundary above cannot answer it: the run of targets a sentence
+        // chose is not the run of effects it added, and "tap up to two target creatures" adds
+        // one effect per creature while "put a stun counter on each of them" needs the whole
+        // run of targets rather than the last one.
+        //
+        // Negative means "no run this can name". The branches below consume a clause without
+        // going through the ordinary reader, so after one of them nothing here knows where the
+        // previous sentence's targets started - and a pronoun aimed at a run guessed too wide
+        // would put counters on targets its sentence never mentioned.
+        var previousTargets = -1;
+
         for (var i = 0; i < sentences.Count; i++)
         {
             if (i > 0 && clauses[i].StartsSentence)
@@ -417,6 +436,7 @@ public static partial class EffectPhrase
                     objectNamedByTrigger))
             {
                 i++;
+                previousTargets = -1;
                 continue;
             }
 
@@ -433,6 +453,7 @@ public static partial class EffectPhrase
             {
                 effects.Add(new RepeatForOpponentsAttackingEnchanted(
                     [.. effects.Skip(lastSentenceStart)]));
+                previousTargets = -1;
                 continue;
             }
 
@@ -455,13 +476,29 @@ public static partial class EffectPhrase
                     i++;
 
                 sentenceStart = previousSentenceStart;
+                previousTargets = -1;
+                continue;
+            }
+
+            // "Tap up to two target creatures. Put a stun counter on each of them." The second
+            // sentence chooses nothing: "them" is every target the sentence before it chose,
+            // and this is the only place that knows where that run starts.
+            if (i > 0
+                && previousTargets >= 0
+                && targets.Count > previousTargets
+                && TryToEachOfThem(
+                    sentences[i], previousTargets, targets, effects, objectNamedByTrigger))
+            {
                 continue;
             }
 
             lastSentenceStart = effects.Count;
+            var targetsHere = targets.Count;
 
             if (!TryOne(sentences[i], targets, effects, objectNamedByTrigger))
                 return false;
+
+            previousTargets = targetsHere;
         }
 
         if (effects.Count == 0)
@@ -504,6 +541,96 @@ public static partial class EffectPhrase
 
         return Sentences(text);
     }
+
+    /// <summary>
+    /// Reads a sentence about "each of them" - the targets the sentence before it chose.
+    /// </summary>
+    /// <remarks>
+    /// "Tap up to two target creatures. Put a stun counter on each of them." Thirty-odd corpus
+    /// cards print a pair like this and both halves were understood separately; what was
+    /// missing was the pronoun joining them, and a plural pronoun is the one thing the shared
+    /// target grammar cannot express, because a spec names one thing.
+    /// <para>
+    /// So the sentence is read once in the singular - "each of them" rewritten to "it", which
+    /// every verb here already understands - against a scratch list ending at the first of
+    /// those targets, and the effects that come back are then copied once per target. Copying
+    /// at compile time rather than wrapping in a block is what makes it exact: the run is
+    /// closed, so a target a *later* sentence adds cannot be swept into it.
+    /// </para>
+    /// <para>
+    /// Three refusals, each of which would otherwise be a card doing something it does not say.
+    /// A sentence that chooses a target of its own is not talking about the earlier ones. A run
+    /// that ends in an announced block has no count yet, so there is nothing to copy. And a
+    /// deferred question copied N times is N records carrying one locator, which the lookup
+    /// answers with nothing (see <see cref="FindsItselfByIndex"/>).
+    /// </para>
+    /// </remarks>
+    private static bool TryToEachOfThem(
+        string sentence,
+        int from,
+        ImmutableList<TargetSpec>.Builder targets,
+        ImmutableList<IEffect>.Builder effects,
+        bool objectNamedByTrigger)
+    {
+        if (!EachOfThemPhrase().IsMatch(sentence))
+            return false;
+
+        for (var t = from; t < targets.Count; t++)
+        {
+            if (targets[t].AnyNumber)
+                return false;
+        }
+
+        var singular = EachOfThemPhrase().Replace(sentence, "it");
+
+        var scratchTargets = ImmutableList.CreateBuilder<TargetSpec>();
+        scratchTargets.AddRange(targets.Take(from + 1));
+
+        var scratchEffects = ImmutableList.CreateBuilder<IEffect>();
+
+        if (!TryOne(singular, scratchTargets, scratchEffects, objectNamedByTrigger)
+            || scratchTargets.Count != from + 1
+            || scratchEffects.Count == 0
+            || EffectTree.Flatten(scratchEffects).Any(FindsItselfByIndex))
+        {
+            return false;
+        }
+
+        for (var t = from; t < targets.Count; t++)
+        {
+            foreach (var one in scratchEffects)
+                effects.Add(EffectTargets.Shift(one, t - from));
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Repeats a group subject over the clause after ", then" (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// English carries the subject of "each player does A, then does B" across the comma; the
+    /// clause splitter does not, and every reader downstream sees a verb with nobody in front of
+    /// it. Where that verb has a subject of its own in the vocabulary the effect came out aimed
+    /// at the controller instead of at the group - "each player discards their hand, then draws
+    /// seven cards" drew for one player - which is a card doing less than it says while looking
+    /// complete, the failure the compiler exists to avoid.
+    /// <para>
+    /// A rewrite rather than a reader, for the reason every other rewrite in this file is one:
+    /// both halves are already understood and only the grammar joining them is not, so the
+    /// sentence is put into the form the readers expect and every guard on the way through
+    /// applies unchanged. It is idempotent - the ", then" it consumes is gone afterwards.
+    /// </para>
+    /// <para>
+    /// <strong>Only a group, and only a bare verb.</strong> A targeted subject may not be
+    /// repeated: "target player does A, then does B" written out twice announces two targets
+    /// (CR 601.2c) and the card would ask for two players where it prints one. And a tail that
+    /// names its own subject - "..., then that player draws a card" - is left alone, which is
+    /// what the third-person verb the pattern requires is testing for.
+    /// </para>
+    /// </remarks>
+    private static string CarrySubjectAcrossThen(string text) =>
+        EachThenLine().Replace(text, "${who} ${head}. ${who} ${tail}");
 
     /// <summary>
     /// Rewrites a granted ability printed as its own sentence into the inline form.
@@ -1062,6 +1189,12 @@ public static partial class EffectPhrase
         if (!m.Success)
             return false;
 
+        // Where this offer's targets will start, so a refusal below leaves the builder as it
+        // found it. The branches are hoisted into it as they are read, and a sentence this
+        // method turns down is read again by the sentence loop - against a target list that
+        // must not already hold the specs the branch chose.
+        var targetsBefore = targets.Count;
+
         // "You may draw a card" is the same shape with no cost: an offer whose price is nothing.
         // It goes through the same machinery rather than getting a mechanism of its own, because
         // the thing that is hard about both is identical — the answer decides what happens next.
@@ -1128,7 +1261,7 @@ public static partial class EffectPhrase
             ? char.ToUpperInvariant(m.Groups["free"].Value[0]) + m.Groups["free"].Value[1..]
             : null;
 
-        effects.Add(new MayPay(
+        var offer = new MayPay(
             cost,
             ifYouDo,
             ifYouDont,
@@ -1136,7 +1269,28 @@ public static partial class EffectPhrase
             YesLabel: yes ?? (energy > 0 ? $"Pay {new string('E', energy)} energy" : null),
             NoLabel: yes is null && energy == 0 ? null : "Decline",
             EnergyCost: energy,
-            LifeCost: life));
+            LifeCost: life);
+
+        // Every question in the tree has to be findable afterwards, and the offer's own locator
+        // is one of the ones that can collide - which is the case nothing was checking, because
+        // the offer does not exist until here. Both are 0 whenever this sentence is the first
+        // thing the ability does, so "You may tap or untap target permanent" compiled to a
+        // question holding a question, both carrying 0; <c>EffectTree.Locate</c> answers null
+        // rather than guessing between two, and neither was ever asked. The card resolved into
+        // silence while counting as covered.
+        //
+        // Refused rather than renumbered, and handed back to the sentence loop rather than
+        // failing the line: a reader that takes the whole sentence itself - the tap-or-untap
+        // choice does - produces one question and is reached the moment this declines.
+        if (!EveryQuestionFindsItself([.. effects, offer]))
+        {
+            while (targets.Count > targetsBefore)
+                targets.RemoveAt(targets.Count - 1);
+
+            return false;
+        }
+
+        effects.Add(offer);
 
         return true;
     }
@@ -1940,10 +2094,18 @@ public static partial class EffectPhrase
     /// is the shape this exists for — the mill reads, the return reads, and the pair did not.
     /// </para>
     /// </remarks>
+    /// <para>
+    /// And the offer itself is a third question, which the two conditions above could not see:
+    /// it is created after this is asked and takes <c>soFar.Count</c>, which is 0 exactly when
+    /// the branch's question is. So the offer that would be built is asked about here too, with
+    /// the same predicate the compiler uses on a whole tree.
+    /// </para>
     private static bool OneQuestionCanBeNested(
         ImmutableList<IEffect>.Builder soFar, ImmutableList<IEffect>.Builder branch) =>
         branch.Count(FindsItselfByIndex) == 1
-        && !EffectTree.Flatten(soFar).Any(FindsItselfByIndex);
+        && !EffectTree.Flatten(soFar).Any(FindsItselfByIndex)
+        && EveryQuestionFindsItself(
+            [.. soFar, new MayPay(Mana.ManaCostSpec.Free, [.. branch], [], soFar.Count)]);
 
     /// <summary>
     /// "Target opponent reveals their hand. You choose a card from it. That player discards
@@ -2931,7 +3093,11 @@ public static partial class EffectPhrase
         if (m.Success)
         {
             effects.Add(new ShuffleLibrary(
-                PlayerScope.You, GraveyardFirst: m.Groups["yard"].Success));
+                PlayerScope.You, GraveyardFirst: m.Groups["yard"].Success)
+            {
+                HandFirst = m.Groups["hand"].Success,
+            });
+
             return true;
         }
 
@@ -2946,9 +3112,15 @@ public static partial class EffectPhrase
             var whose = shuffleWho.Groups["who"].Value;
             var yard = shuffleWho.Groups["yard"].Success;
 
+            var hand = shuffleWho.Groups["hand"].Success;
+
             if (!whose.StartsWith("target", StringComparison.OrdinalIgnoreCase))
             {
-                effects.Add(new ShuffleLibrary(ScopeOf(whose.ToLowerInvariant()), yard));
+                effects.Add(new ShuffleLibrary(ScopeOf(whose.ToLowerInvariant()), yard)
+                {
+                    HandFirst = hand,
+                });
+
                 return true;
             }
 
@@ -2957,7 +3129,82 @@ public static partial class EffectPhrase
 
             targets.Add(shuffler);
             effects.Add(new ShuffleLibrary(
-                PlayerScope.You, yard, TargetIndex: targets.Count - 1));
+                PlayerScope.You, yard, TargetIndex: targets.Count - 1)
+            {
+                HandFirst = hand,
+            });
+
+            return true;
+        }
+
+        // "Shuffle all nonland cards from your graveyard into your library" - the shuffle that
+        // takes part of a graveyard rather than the whole of it. The kind goes through the same
+        // filter vocabulary a tutor names its card with, so whatever that learns, this learns.
+        //
+        // "Your graveyard" only, exactly as the group move beside it reads: the filter is asked
+        // of the cards in the graveyard being shuffled, and pointing it at a player named
+        // elsewhere in the sentence would need a spec filtered by another target, which nothing
+        // in the target grammar can say.
+        var shuffleAll = ShuffleAllFromGraveyardLine().Match(sentence);
+        if (shuffleAll.Success)
+        {
+            if (GraveyardCardSpec(shuffleAll.Groups["what"].Value) is not { } wanted)
+                return false;
+
+            effects.Add(new ShuffleLibrary(PlayerScope.You, GraveyardFirst: true)
+            {
+                OnlyCards = wanted,
+            });
+
+            return true;
+        }
+
+        // "Shuffle any number of target cards from your graveyard into your library" - the
+        // cards are targets, because a graveyard is a public zone (CR 404.2), and putting each
+        // one into the library is the move the reanimation readers already make. The block is
+        // built here rather than left to the general "any number of" rewrite so that the
+        // shuffle sits *outside* it: expanded per target it would be one shuffle per card
+        // chosen, which is several entries in the log for something the card does once.
+        var anyShuffled = ShuffleAnyTargetCardsLine().Match(sentence);
+        if (anyShuffled.Success)
+        {
+            if (GraveyardCardSpec(anyShuffled.Groups["what"].Value) is not { } eachCard)
+                return false;
+
+            var at = targets.Count;
+            targets.Add(eachCard with { AnyNumber = true });
+            effects.Add(new ToEachChosenTarget([new MoveTargetedCard(Zone.Library, at)], at));
+            effects.Add(new ShuffleLibrary(PlayerScope.You));
+
+            return true;
+        }
+
+        // "Shuffle up to four target cards from your graveyard into your library" - the same
+        // instruction with the number printed on the card instead of announced. "Up to" is what
+        // every one of these says, so each slot is optional and a player with two cards worth
+        // returning is not forced to name four (CR 115.1).
+        var someShuffled = ShuffleTargetCardsLine().Match(sentence);
+        if (someShuffled.Success)
+        {
+            if (GraveyardCardSpec(someShuffled.Groups["what"].Value) is not { } oneCard)
+                return false;
+
+            var howMany = Number(someShuffled.Groups["n"].Value).Fixed;
+            if (howMany is < 1 or > 10)
+                return false;
+
+            for (var slot = 0; slot < howMany; slot++)
+            {
+                targets.Add(oneCard with
+                {
+                    Optional = true,
+                    Description = "up to one " + oneCard.Description,
+                });
+
+                effects.Add(new MoveTargetedCard(Zone.Library, targets.Count - 1));
+            }
+
+            effects.Add(new ShuffleLibrary(PlayerScope.You));
 
             return true;
         }
@@ -3656,6 +3903,25 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // The same offer about the permanent an earlier sentence already chose. It adds no
+        // target of its own, so it is only readable once one exists - a sentence saying "that
+        // creature" with nothing before it names nothing, and is refused rather than aimed at
+        // whatever happens to be last in an unrelated ability.
+        if (targets.Count > 0 && TapOrUntapThatLine().IsMatch(sentence))
+        {
+            var named = targets.Count - 1;
+
+            effects.Add(new MayPay(
+                Mana.ManaCostSpec.Free,
+                IfYouDo: [new TapTarget(named)],
+                IfYouDont: [new UntapTarget(named)],
+                EffectIndex: effects.Count,
+                YesLabel: "Tap it",
+                NoLabel: "Untap it"));
+
+            return true;
+        }
+
         m = TargetMillLine().Match(sentence);
         if (m.Success
             && Specs.Parse(m.Groups["t"].Value.Trim()) is { Kind: TargetKind.Player } milled)
@@ -3986,7 +4252,7 @@ public static partial class EffectPhrase
             // is left unread rather than guessed at.
             var one = several.Groups["t"].Success
                 ? (several.Groups["other"].Success ? "another target " : "target ")
-                    + Singular(several.Groups["t"].Value.Trim())
+                    + SingularTargets(several.Groups["t"].Value.Trim())
                 : several.Groups["other"].Success
                 ? null
                 : "any target";
@@ -4057,7 +4323,7 @@ public static partial class EffectPhrase
         {
             var one = unbounded.Groups["head"].Value
                 + (unbounded.Groups["other"].Success ? "another target " : "target ")
-                + Singular(unbounded.Groups["t"].Value.Trim())
+                + SingularTargets(unbounded.Groups["t"].Value.Trim())
                 + Agreeing(unbounded.Groups["tail"].Value);
 
             var blockTargets = ImmutableList.CreateBuilder<TargetSpec>();
@@ -8061,6 +8327,29 @@ public static partial class EffectPhrase
         : Zone.Hand;
 
     /// <summary>
+    /// A card in your own graveyard of the kind a sentence named, or null for a kind we cannot
+    /// read (CR 404.2).
+    /// </summary>
+    /// <remarks>
+    /// One place rather than three, because the three shuffle readers that ask differ only in
+    /// how many cards they take. An empty kind is every card, which is what "all cards from your
+    /// graveyard" says; anything the shared vocabulary cannot name leaves the sentence unread,
+    /// because a filter wider than the card is a card that returns more than it says.
+    /// </remarks>
+    private static TargetSpec? GraveyardCardSpec(string kind)
+    {
+        var what = kind.Trim();
+
+        return Specs.Parse(
+                what.Length == 0
+                    ? "target card in your graveyard"
+                    : "target " + what + " card in your graveyard")
+            is { Kind: TargetKind.CardInGraveyard } found
+            ? found
+            : null;
+    }
+
+    /// <summary>
     /// The search filter a printed phrase names, or null if it names one we cannot honour.
     /// </summary>
     /// <remarks>
@@ -10266,14 +10555,22 @@ public static partial class EffectPhrase
     /// </summary>
     /// <remarks>
     /// <see cref="Singular(string)"/> folds the first plural word it finds and stops, which is
-    /// right for a phrase with one noun in it and wrong for the "and/or" phrases these sentences
+    /// right for a phrase with one noun in it and wrong for the joined phrases these sentences
     /// print: it left "target creature and/or planeswalkers", which the target grammar does not
-    /// read. Each side of the "and/or" is folded on its own, which is what the phrase means.
+    /// read. Each side of the join is folded on its own, which is what the phrase means.
+    /// <para>
+    /// A bare "or" is the same phrase said the commoner way - "destroy two target artifacts or
+    /// enchantments" - and was not split, so twenty-six cards printed a two-noun target the
+    /// grammar could read in the singular and never saw it in one. "And" is deliberately left
+    /// alone: between two nouns the cards mean "and/or" and spell it that way, and elsewhere it
+    /// joins a qualifier rather than a noun.
+    /// </para>
     /// </remarks>
-    private static string SingularTargets(string phrase) =>
-        string.Join(
-            " and/or ",
-            phrase.Split(" and/or ", StringSplitOptions.None).Select(Singular));
+    internal static string SingularTargets(string phrase) =>
+        NounJoin().Split(phrase) is var parts && parts.Length == 1
+            ? Singular(phrase)
+            : string.Concat(parts.Select(
+                (part, i) => i % 2 == 1 ? part : Singular(part)));
 
     internal static string Singular(string phrase)
     {
@@ -12513,6 +12810,42 @@ public static partial class EffectPhrase
     [GeneratedRegex(@"^(an?|the)\s+|\s+cards?$", RegexOptions.IgnoreCase)]
     private static partial Regex ArticleAndCard();
 
+    /// <summary>What joins the two nouns of a two-noun target phrase.</summary>
+    /// <remarks>
+    /// The separator is a capturing group so <see cref="Regex.Split(string)"/> keeps it: the
+    /// phrase is put back together with the same word it was written with, which is what lets
+    /// one method fold both spellings without knowing which it was handed.
+    /// </remarks>
+    [GeneratedRegex(@"(\s+(?:and/or|or)\s+)", RegexOptions.IgnoreCase)]
+    private static partial Regex NounJoin();
+
+    /// <summary>The plural pronoun for "the targets the sentence before this one chose".</summary>
+    /// <remarks>
+    /// "Each of those creatures you don't control" is <em>not</em> this phrase, and the way it
+    /// is refused is worth knowing: the words after the noun are left standing when the pronoun
+    /// is swapped in, so the rewritten sentence says "on it you don't control", which no reader
+    /// takes and the whole line goes unread. A narrower set of targets than the ones already
+    /// chosen cannot be said this way, so it must not compile as the wider one.
+    /// <para>
+    /// "Either of them" is a different word doing a different job - one of the two, chosen - and
+    /// is deliberately absent.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"\beach of (them|those [a-z]+)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex EachOfThemPhrase();
+
+    /// <summary>"Each player [does A], then [does B]" - one subject over two clauses.</summary>
+    /// <remarks>
+    /// Bounded by <c>[^.]</c> on both sides rather than anchored, so it works on one sentence of
+    /// a longer line: "Each player shuffles their hand and graveyard into their library, then
+    /// draws seven cards. Exile ~." is two sentences and only the first is this one's business.
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?<who>[Ee]ach (?:player|opponent|other player)) (?<head>[^.]+?)"
+            + @", then (?<tail>[a-z]+s\b[^.]*)",
+        RegexOptions.None)]
+    private static partial Regex EachThenLine();
+
     [GeneratedRegex(@"^spend this mana only to (?<what>.+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex SpendOnlyLine();
 
@@ -12591,7 +12924,9 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^(if you search(ed)? your library this way, )?"
-            + @"shuffle( your library| (?<yard>your graveyard) into your library)?$",
+            + @"shuffle( your library"
+            + @"| your (?<hand>hand and )?(?<yard>graveyard) into your library"
+            + @"| your (?<yard>graveyard) and (?<hand>hand) into your library)?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleLine();
 
@@ -12603,9 +12938,42 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(
         @"^" + WOrTarget + @" shuffles "
-            + @"(their library|(?<yard>their graveyard) into their library)$",
+            + @"(their library"
+            + @"|their (?<hand>hand and )?(?<yard>graveyard) into their library"
+            + @"|their (?<yard>graveyard) and (?<hand>hand) into their library)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleWhoLine();
+
+    /// <summary>"Shuffle all nonland cards from your graveyard into your library."</summary>
+    /// <remarks>
+    /// The kind is optional, because "shuffle all cards from your graveyard" names none - and it
+    /// is the same optional group the group-move pattern beside it uses, so the two agree about
+    /// what a bare "cards" means.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^shuffle all (?<what>[a-z ]*?)cards? from your graveyard into your library$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ShuffleAllFromGraveyardLine();
+
+    /// <summary>"Shuffle any number of target cards from your graveyard into your library."</summary>
+    [GeneratedRegex(
+        @"^shuffle any number of target (?<what>[a-z ]*?)cards? "
+            + @"from your graveyard into your library$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ShuffleAnyTargetCardsLine();
+
+    /// <summary>"Shuffle up to four target cards from your graveyard into your library."</summary>
+    /// <remarks>
+    /// "Up to" is required rather than optional, and that is the whole of the refusal this
+    /// pattern makes: every printed card of this shape says it, and a fixed count would be a
+    /// spell that cannot be cast at all with fewer cards in the graveyard than the number
+    /// (CR 601.2c) - narrower than any of them, and silently so.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^shuffle up to (?<n>one|two|three|four|five|six|seven|eight|nine|ten|\d+) "
+            + @"target (?<what>[a-z ]*?)cards? from your graveyard into your library$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex ShuffleTargetCardsLine();
 
     [GeneratedRegex(
         @"^(then )?shuffle and put (it|that card) on top( of your library)?$",
@@ -13233,8 +13601,47 @@ public static partial class EffectPhrase
         RegexOptions.IgnoreCase)]
     private static partial Regex ItPumpsPerEach();
 
-    [GeneratedRegex(@"^tap or untap (?<t>target [a-z0-9'’ ]+)$", RegexOptions.IgnoreCase)]
+    /// <remarks>
+    /// The noun is the shared target grammar's, not a narrower one of this reader's own. It was
+    /// written to take a single unbroken run of letters after "target", which read "target
+    /// permanent" and "target creature" and stopped there - so "tap or untap target artifact,
+    /// creature, or land" and "tap or untap another target permanent" went unread on cards whose
+    /// every other line compiled, over a comma and a prefix <see cref="Specs.Parse"/> has
+    /// understood all along. Widening the class only lets more text reach that method; anything
+    /// it cannot read still refuses the sentence.
+    /// </remarks>
+    /// <remarks>
+    /// The "you may" is part of this pattern rather than left to the general free-offer reader,
+    /// and the reason is that reader produced a card which did nothing at all. It wraps what it
+    /// reads in an offer of its own, so the sentence compiled to a question holding a question -
+    /// and both carried locator 0, because the outer takes its index from an effect list that is
+    /// still empty when the sentence is the first thing the ability does. <c>EffectTree.Locate</c>
+    /// answers null rather than guessing between two, so neither question was ever asked and
+    /// "You may tap or untap target permanent" resolved into silence.
+    /// <para>
+    /// Reading the two words here loses nothing the card offers. One of the two answers is
+    /// always the one that does nothing - a permanent is either tapped or untapped, and both
+    /// verbs are no-ops on a permanent already that way - so a player made to answer can always
+    /// answer with the outcome declining would have produced.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(you may )?tap or untap "
+            + @"(?<t>(?:another |up to one (?:other )?)?target [a-z0-9'’, ]+)$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex TapOrUntapChoiceLine();
+
+    /// <summary>The same choice offered about a permanent an earlier sentence named.</summary>
+    /// <remarks>
+    /// "Put a -1/-1 counter on target creature. You may tap or untap that creature." The pronoun
+    /// is the target the sentence before it chose, which is the same back-reference the exile
+    /// rider takes, and it is why this is a second pattern rather than an optional group on the
+    /// one above: that one adds a target and this one may not.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(you may )?tap or untap (it|that (creature|permanent|artifact|land))$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TapOrUntapThatLine();
 
     [GeneratedRegex(
         // The trailing "of their choice" says what the effect does anyway - the sacrificing
@@ -14376,8 +14783,21 @@ public static partial class EffectPhrase
         RegexOptions.None)]
     private static partial Regex ExileAndReturnLine();
 
+    /// <remarks>
+    /// Every subject the cards print for one instruction. A sorcery that goes back into the
+    /// deck says its own name, a dies-trigger says "it", and the end-step form names the owner
+    /// as the one doing the shuffling - which changes nothing about what happens, because a
+    /// card always goes into its own owner's library (CR 400.3) and the effect has said so
+    /// since the beacons were built.
+    /// <para>
+    /// The pronoun is safe here where it is not elsewhere: this effect takes no target and
+    /// always means the source, so there is no earlier target for "it" to be confused with.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
-        @"^shuffle ~ into its owner's library\.?$", RegexOptions.IgnoreCase)]
+        @"^((it|~)'s owner shuffles (it|~)|shuffle (it|~))"
+            + @" into (its owner's|their) library\.?$",
+        RegexOptions.IgnoreCase)]
     private static partial Regex ShuffleSelfIntoLibraryLine();
 
     /// <remarks>

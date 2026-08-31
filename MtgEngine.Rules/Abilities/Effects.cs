@@ -1774,7 +1774,64 @@ public sealed record UntapTarget(
         if (permanent.Permanent?.IsTapped != true)
             return [];
 
-        return [new PermanentsUntapped([waking])];
+        return StunCounters.Untapping(context.State, [waking]);
+    }
+}
+
+/// <summary>
+/// The replacement every untap goes through while stun counters exist (CR 122.1c).
+/// </summary>
+/// <remarks>
+/// "If a permanent with a stun counter on it would become untapped, remove a stun counter from
+/// it instead." Nothing read the counter. It compiled - "put a stun counter on it" is a named
+/// counter like any other and the counter reader has taken any name for months - so every card
+/// in the family was counted as covered, went onto the battlefield, put its counters on, and
+/// then watched the creature untap on schedule. Eighty-seven corpus cards mention one.
+/// <para>
+/// A helper rather than a <c>ReplacementEffectDefinition</c>, because there is no permanent to
+/// hang one on: this is part of the game rather than something a card grants, and it applies to
+/// an untap from any source. Every place that emits <see cref="PermanentsUntapped"/> asks here
+/// instead, which is what stops the next untap that gets written from missing it.
+/// </para>
+/// <para>
+/// The removals go in the log beside the untap rather than in place of it silently. A replay
+/// has to reach the same board, and "these untapped, that one spent a counter" is the whole of
+/// what happened.
+/// </para>
+/// </remarks>
+public static class StunCounters
+{
+    /// <summary>What actually happens when these permanents would untap (CR 122.1c).</summary>
+    public static IReadOnlyList<GameEvent> Untapping(
+        GameState state, IReadOnlyList<ObjectId> ids)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var waking = ImmutableList.CreateBuilder<ObjectId>();
+        var spent = new List<GameEvent>();
+
+        foreach (var id in ids)
+        {
+            if (state.TryGetObject(id, out var obj)
+                && obj.Permanent is { } permanent
+                && permanent.Counters.GetValueOrDefault(CounterKinds.Stun) > 0)
+            {
+                // One counter, however many the permanent carries: the rule replaces this
+                // untap and the next one is replaced again by the next counter.
+                spent.Add(new CountersChanged(id, CounterKinds.Stun, -1));
+                continue;
+            }
+
+            waking.Add(id);
+        }
+
+        // An untap of nobody is not emitted at all. "Untap target creature" aimed at a stunned
+        // creature untaps nothing, and an event saying so is a line every replay and every log
+        // reader has to know to ignore.
+        return waking.Count > 0
+            ? [new PermanentsUntapped(waking.ToImmutable()), .. spent]
+            : spent;
     }
 }
 
@@ -5301,8 +5358,54 @@ public sealed record ShuffleLibrary(
         return [.. PlayerScopes.Resolve(Whose, context).Select(who => Requested(context, who))];
     }
 
-    private ShuffleRequested Requested(ResolutionContext context, Guid who) =>
-        new(who, GraveyardFirst ? context.State.GetPlayer(who).Graveyard : []);
+    /// <summary>Whether the hand goes in with it (CR 701.24a).</summary>
+    /// <remarks>
+    /// Timetwister and everything printed after it: "each player shuffles their hand and
+    /// graveyard into their library, then draws seven cards". A flag beside the graveyard one
+    /// rather than a second effect, because the two zones are named by one sentence and go in
+    /// together - the shuffle is one act, and two requests would be two shuffles in the log for
+    /// something the card does once.
+    /// </remarks>
+    public bool HandFirst { get; init; }
+
+    /// <summary>Which graveyard cards go in, or null for all of them.</summary>
+    /// <remarks>
+    /// "Shuffle all nonland cards from your graveyard into your library" - the same instruction
+    /// over part of a graveyard. The filter is the one the tutors name their card with, asked
+    /// the way <c>MoveGraveyardGroup</c> asks it, so a kind that can be searched for can be
+    /// shuffled back and neither reader has a vocabulary of its own.
+    /// </remarks>
+    public TargetSpec? OnlyCards { get; init; }
+
+    private ShuffleRequested Requested(ResolutionContext context, Guid who)
+    {
+        var player = context.State.GetPlayer(who);
+        var going = ImmutableList.CreateBuilder<ObjectId>();
+
+        if (GraveyardFirst)
+        {
+            foreach (var id in player.Graveyard)
+            {
+                if (OnlyCards is { ObjectFilter: { } wanted }
+                    && (!context.State.TryGetObject(id, out var card)
+                        || !wanted(context.State, context.Abilities, card, who)))
+                {
+                    continue;
+                }
+
+                going.Add(id);
+            }
+        }
+
+        // The hand after the graveyard, which is the order the sentence names them in. Both are
+        // read off the player whose shuffle this is rather than off the controller: "each player
+        // shuffles their hand and graveyard into their library" is one instruction carried out
+        // once per player, over that player's own zones.
+        if (HandFirst)
+            going.AddRange(player.Hand);
+
+        return new ShuffleRequested(who, going.ToImmutable());
+    }
 }
 
 /// <summary>
@@ -6531,7 +6634,7 @@ public sealed record ToEachPermanent(
                     break;
 
                 case GroupAction.Untap when obj.Permanent?.IsTapped == true:
-                    events.Add(new PermanentsUntapped([id]));
+                    events.AddRange(StunCounters.Untapping(context.State, [id]));
                     break;
 
                 case GroupAction.Damage:
@@ -8595,7 +8698,7 @@ public sealed record UntapSource : IEffect
 
         return context.State.TryGetObject(sourceId, out var permanent)
             && permanent.Permanent?.IsTapped == true
-                ? [new PermanentsUntapped([sourceId])]
+                ? StunCounters.Untapping(context.State, [sourceId])
                 : [];
     }
 }
