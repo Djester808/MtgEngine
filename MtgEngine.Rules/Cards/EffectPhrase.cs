@@ -11531,6 +11531,34 @@ public static partial class EffectPhrase
         if (!lastsTheTurn)
             return false;
 
+        // Which removal this is, decided before anything is added to the spell: a keyword list
+        // this engine cannot model has to leave the sentence to the readers below with nothing
+        // half-built behind it.
+        var lost = m.Groups["lost"].Value;
+        var allAbilities = string.Equals(lost, "all abilities", StringComparison.Ordinal);
+        var removed = allAbilities ? null : Keywords(lost);
+
+        if (!allAbilities && removed is null)
+            return false;
+
+        // "Loses first strike and double strike until end of turn" is one list with the
+        // conjunction inside it rather than a removal and a tail, and the two are told apart by
+        // asking the keyword table: a tail that is itself a keyword name would otherwise be
+        // handed to the sentence grammar as an instruction, which reads as nothing.
+        if (removed is { } firstNamed && rest is not null)
+        {
+            const string Ueot = " until end of turn";
+            var joined = rest.EndsWith(Ueot, StringComparison.OrdinalIgnoreCase)
+                ? rest[..^Ueot.Length]
+                : rest;
+
+            if (Keywords(lost + " and " + joined) is { } both)
+            {
+                removed = firstNamed | both;
+                rest = null;
+            }
+        }
+
         var who = head.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)
             ? head[Prefix.Length..].Trim()
             : head;
@@ -11578,7 +11606,9 @@ public static partial class EffectPhrase
             targets.Add(named);
         }
 
-        var id = GenerativeEffects.LosesAllAbilitiesId();
+        var id = removed is { } lostKeywords
+            ? GenerativeEffects.LoseKeywordsId(lostKeywords)
+            : GenerativeEffects.LosesAllAbilitiesId();
 
         if (onSource)
         {
@@ -18413,9 +18443,18 @@ public static partial class EffectPhrase
     /// <em>except mana abilities</em>" is the case that matters: it does not match, which is the
     /// right answer, because a land silenced outright is a land that cannot tap for mana.
     /// </para>
+    /// <para>
+    /// The second arm is a <em>named</em> keyword — "target creature loses flying until end of
+    /// turn" — and it is the same sentence with a smaller removal, which is why it shares this
+    /// pattern rather than getting one beside it: the head, the duration and the lifted tail are
+    /// word for word the ones the removal already had. Digits are outside the class on purpose,
+    /// so "target player loses 3 life" cannot reach here at all, and every word that does reach
+    /// here is checked against <see cref="Keywords"/> before anything is built — a list this
+    /// engine cannot model leaves the line unread rather than removing the half it knows.
+    /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<head>.+?) loses? all abilities"
+        @"^(?<head>.+?) loses? (?<lost>all abilities|[a-z' ]+?)"
             + @"(?<ueot> until end of turn)?"
             + @"( and (?<rest>.+?))?\.?$",
         RegexOptions.None)]

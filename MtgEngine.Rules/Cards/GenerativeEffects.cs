@@ -497,6 +497,24 @@ public static partial class GenerativeEffects
     /// </remarks>
     public static string LosesAllAbilitiesId() => "lose-abilities";
 
+    /// <summary>The id for "loses flying until end of turn" (CR 613.1f, layer 6).</summary>
+    /// <remarks>
+    /// The named removal beside <see cref="LosesAllAbilitiesId"/>, and it is a different
+    /// mechanism rather than a narrower one. All-abilities is <em>declared</em>, because the
+    /// silenced permanent has to stop offering its own statics to everything else on the board;
+    /// a keyword is a flag on the object being computed and nothing else can see it, so this one
+    /// is applied — the bits come off in layer 6, in timestamp order with the grants beside it,
+    /// which is what makes "loses flying" and a lord that gives flying settle the way CR 613.7
+    /// says rather than by which reader ran.
+    /// <para>
+    /// Sixty-four bits for the reason <see cref="GrantId"/> is: the protection colours live past
+    /// bit 31, and an <see langword="int"/> cast would turn a removal of protection from red
+    /// into a removal of nothing while reading perfectly in the log.
+    /// </para>
+    /// </remarks>
+    public static string LoseKeywordsId(KeywordAbility keywords) =>
+        "lose-keywords:" + ((long)keywords).ToString(CultureInfo.InvariantCulture);
+
     /// <summary>
     /// The id for "doesn't untap during its controller's untap step" (CR 502.3).
     /// </summary>
@@ -723,6 +741,26 @@ public static partial class GenerativeEffects
                 Layer = EffectLayer.Ability,
                 Applies = (_, _, _) => true,
                 Apply = (_, _, builder) => builder.Keywords |= keywords,
+            };
+        }
+
+        // The same layer with the bits going the other way. It is applied rather than declared
+        // for the reason recorded on LoseKeywordsId: a keyword is a characteristic of the object
+        // being computed, so clearing it here is the whole of the removal - and doing it in
+        // layer 6 rather than anywhere else is what lets a grant with a later timestamp put the
+        // keyword back, which is exactly what CR 613.7 asks for.
+        var lost = LostKeywordsName().Match(definitionId);
+        if (lost.Success)
+        {
+            var keywords = (KeywordAbility)long.Parse(
+                lost.Groups["k"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+            return new ContinuousEffectDefinition
+            {
+                Id = definitionId,
+                Layer = EffectLayer.Ability,
+                Applies = (_, _, _) => true,
+                Apply = (_, _, builder) => builder.Keywords &= ~keywords,
             };
         }
 
@@ -1285,6 +1323,9 @@ public static partial class GenerativeEffects
 
     [GeneratedRegex(@"^grant:(?<k>\d+)$")]
     private static partial Regex GrantName();
+
+    [GeneratedRegex(@"^lose-keywords:(?<k>\d+)$")]
+    private static partial Regex LostKeywordsName();
 
     [GeneratedRegex(@"^becomes:(?<t>\d+)$")]
     private static partial Regex BecomesName();

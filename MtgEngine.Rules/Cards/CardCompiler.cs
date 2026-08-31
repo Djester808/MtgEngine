@@ -11572,6 +11572,18 @@ public static partial class CardCompiler
                 return null;
         }
 
+        // "Target creature loses flying" is a spell's sentence, not a group's, and nothing in the
+        // noun vocabulary refused it: the word "Target" was read as a creature type and the line
+        // compiled into a lord over a tribe no card belongs to. That is the capitalised-word
+        // defect this file has recorded eight times, and it was reachable from every arm of every
+        // group reader - "target creature gets +1/+1", "target creature has flying" and "target
+        // creature loses all abilities" each compiled as a static, complete and doing nothing.
+        //
+        // A phrase that merely *contains* the word is untouched: "creatures target player
+        // controls" is a real group and the word is doing a different job inside it.
+        if (printedNoun.TrimStart().StartsWith("target ", StringComparison.OrdinalIgnoreCase))
+            return null;
+
         // "Each" takes a singular noun - "Each other Human you control" - so a bare tribe under
         // it arrives without the plural the tribe arm otherwise demands.
         return ReadStaticGroup(printedNoun.Trim(), scopeWord.StartsWith("each", StringComparison.Ordinal))
@@ -11718,6 +11730,17 @@ public static partial class CardCompiler
             : null;
 
         if (m.Groups["needs"].Success && needs is null)
+            return false;
+
+        // "All creatures lose flying" - the group spelling of the removal the attached reader
+        // knows, asked of the same keyword table so the two cannot disagree about what a word
+        // means. Fails closed with the rest of this reader: a word the table does not carry
+        // leaves the whole line unread rather than reading as a lord that takes nothing away.
+        var lostKeywords = m.Groups["lostkw"].Success
+            ? EffectPhrase.Keywords(m.Groups["lostkw"].Value)
+            : null;
+
+        if (m.Groups["lostkw"].Success && lostKeywords is null)
             return false;
 
         // "Each creature you control with a +1/+1 counter on it has trample" - the other thing
@@ -11906,6 +11929,21 @@ public static partial class CardCompiler
                 RemovesAllAbilities = true,
                 Applies = Matches,
                 Apply = (_, _, _) => { },
+            });
+        }
+
+        // The named removal, applied rather than declared: a keyword is a characteristic of the
+        // creature being computed, and taking it off is the whole of what the card says. Layer 6
+        // in timestamp order beside the grants, so a lord that gives flying and a Gravity Sphere
+        // that takes it away settle by CR 613.7 rather than by which reader ran first.
+        if (lostKeywords is { } massLost)
+        {
+            into.Add(new ContinuousEffectDefinition
+            {
+                Id = $"mass:{describedAs}:{card.Name}:{GenerativeEffects.LoseKeywordsId(massLost)}",
+                Layer = EffectLayer.Ability,
+                Applies = Matches,
+                Apply = (_, _, builder) => builder.Keywords &= ~massLost,
             });
         }
 
@@ -20103,7 +20141,13 @@ public static partial class CardCompiler
             + @"|(?<must>attacks each combat if able)"
             + @"|(?<silenced>its activated abilities can't be activated)))?"
             + @"|has base power and toughness (?<basep>\d+)/(?<baset>\d+)"
-            + @"|has (?<kw>[a-z0-9{} ,]+?)"
+            // The removal on its own - "Enchanted creature loses flying" - and behind a keyword
+            // grant, which is Sky Tether: "Enchanted creature has defender and loses flying."
+            // Both are the clause the pump arm above already reads, in the two other places the
+            // corpus prints it, so the reader underneath is untouched and there is one removal
+            // rather than two spellings of one.
+            + @"|has (?<kw>[a-z0-9{} ,]+?)(,? and loses (?<lost>[a-z ,]+?))?"
+            + @"|loses (?<lost>[a-z ,]+?)"
             + @"|can't (?<cant>attack or block|attack|block|be blocked)"
             + @"(?<silenced>,? and its activated abilities can't be activated)?"
             + @"|(?<must>attacks each combat if able)"
@@ -20301,6 +20345,12 @@ public static partial class CardCompiler
             + @"|(has|have) (?<kw>[a-z0-9{} ,]+?)( and (?<must>attacks? each combat if able))?"
             + @"|(?<lose>loses? all abilities)"
             + @"( and (has|have) base power and toughness (?<basep>\d+)/(?<baset>\d+))?"
+            // "All creatures lose flying" - the named removal, after the all-abilities arm so
+            // that arm keeps the sentence it already read. The class carries no digits, so the
+            // life-loss wordings cannot reach it, and the word itself is checked against the
+            // keyword table below: a removal this engine cannot model leaves the line unread
+            // rather than reading as a lord that takes nothing away.
+            + @"|(?<losekw>loses? (?<lostkw>[a-z' ]+?))"
             + @"|(?<must>attacks? each combat if able)"
             + @"|(?<blocks>can block an additional creature each combat)"
             // The prohibitions, longest spelling first so "be blocked by more than one

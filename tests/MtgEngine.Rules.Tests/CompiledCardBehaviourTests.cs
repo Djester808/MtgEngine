@@ -12032,6 +12032,459 @@ public sealed class CompiledCardBehaviourTests
             game.State, Pool, game.State.GetObject(green), game.State.GetObject(beast), bob));
     }
 
+    // ---- A keyword taken away rather than every ability (CR 613.1f) ----------
+
+    /// <summary>
+    /// "Target creature loses flying until end of turn" - the removal that names one keyword.
+    /// </summary>
+    /// <remarks>
+    /// This engine had exactly one removal and it took <em>everything</em>, so the corpus lines
+    /// that take a single keyword away were unread whole - 56 cards with the removal as their
+    /// sole blocker. It is the grant's own layer with the bits going the other way (CR 613.1f),
+    /// which is why nothing new was built underneath: what was missing was a name for the effect
+    /// and the three readers that already knew how to say "loses all abilities" in the three
+    /// places a card prints it.
+    /// <para>
+    /// Asserted by playing the block, because the block is where the keyword is actually read. A
+    /// 2/2 flier stripped of flying is stopped by a 1/1 on the ground; the flier standing beside
+    /// it that nothing was cast on refuses the same blocker, which is the control - a removal
+    /// that reached every creature would pass every assertion above it and fail that one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_spell_that_takes_flying_away_lets_a_ground_creature_block()
+    {
+        var groundward = Card(
+            "R2157 Groundward Test",
+            "Target creature loses flying until end of turn.",
+            CardType.Instant);
+
+        Assert.True(
+            CardCompiler.Compile(groundward).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(groundward).Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var hawk = game.Create(alice, Skyward("R2157 Hawk Test"), Zone.Battlefield);
+        var kite = game.Create(alice, Skyward("R2157 Kite Test"), Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("R2157 Footman Test", 1, 1), Zone.Battlefield);
+
+        // Before anything is cast, neither flier can be blocked from the ground (CR 702.9b).
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(hawk), bob));
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var inHand = TestCards.PutInHand(game, alice, groundward);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(hawk)]);
+        Settle(game);
+
+        var stripped = Characteristics.Of(game.State, Pool, game.State.GetObject(hawk));
+        Assert.False(stripped.Has(KeywordAbility.Flying));
+
+        // The removal is not the silencing one: this creature still has every other ability it
+        // was printed with, and nothing on the board has stopped offering anything.
+        Assert.False(stripped.HasLostAllAbilities);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(hawk), bob));
+
+        // The control: the flier the spell did not name is still a flier.
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(kite))
+                .Has(KeywordAbility.Flying));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(kite), bob));
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareAttackers);
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [hawk] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.DeclareBlockers);
+        game.DeclareBlockers(
+            bob, new Dictionary<ObjectId, IReadOnlyList<ObjectId>> { [hawk] = [footman] });
+
+        Assert.Single(game.State.Combat.Blocked);
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        // The block stood, so nothing got through, and the 1/1 that stepped in front of a 2/2
+        // is dead. Both are the engine reading a keyword this spell took off.
+        Assert.Equal(20, game.State.GetPlayer(bob).Life);
+        Assert.DoesNotContain(footman, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// The removal takes the keyword it names and nothing else (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The failure this exists to catch is the cheap implementation: reading "loses flying" as
+    /// the removal the engine already had. That card compiles, plays, and reports no flying -
+    /// every assertion in the test above passes on it - while silently taking the creature's
+    /// button, its other keyword and its static ability with it.
+    /// <para>
+    /// So the creature under the spell keeps a printed keyword the sentence did not name, and its
+    /// activated ability is <em>used</em> rather than merely found: a silenced permanent's
+    /// abilities are read from the card at sites that have nothing to do with the layers, and the
+    /// only honest way to ask is to press the button.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void The_removal_leaves_every_ability_it_did_not_name()
+    {
+        var raptor = Card(
+            "R2157 Raptor Test",
+            "Flying\nFirst strike\n{T}: You gain 3 life.",
+            CardType.Creature,
+            2,
+            2,
+            keywords: KeywordAbility.Flying | KeywordAbility.FirstStrike);
+
+        var compiled = CardCompiler.Compile(raptor);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var groundward = Card(
+            "R2157 Groundward Narrow Test",
+            "Target creature loses flying until end of turn.",
+            CardType.Instant);
+
+        var (game, alice, _) = InMainPhase();
+        var bird = game.Create(alice, raptor, Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+
+        var inHand = TestCards.PutInHand(game, alice, groundward);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(bird)]);
+        Settle(game);
+
+        var stripped = Characteristics.Of(game.State, Pool, game.State.GetObject(bird));
+        Assert.False(stripped.Has(KeywordAbility.Flying));
+
+        // The control, and the whole difference from the silencing effect beside it: the keyword
+        // the sentence did not name is untouched.
+        Assert.True(stripped.Has(KeywordAbility.FirstStrike));
+        Assert.False(stripped.HasLostAllAbilities);
+
+        var life = game.State.GetPlayer(alice).Life;
+        game.ActivateAbility(alice, bird, compiled.Activated.Single().Id);
+        Settle(game);
+
+        Assert.Equal(life + 3, game.State.GetPlayer(alice).Life);
+    }
+
+    /// <summary>The keyword comes back in the cleanup step (CR 514.2).</summary>
+    /// <remarks>
+    /// The duration is required rather than assumed by the reader, so this is what the words
+    /// bought: a removal read without them would have been permanent, and one read <em>with</em>
+    /// them and never cleaned up would be the same card. The flier is asked again on the turn
+    /// after, and the ground creature is refused again for the reason it was refused before the
+    /// spell was ever cast.
+    /// </remarks>
+    [Fact]
+    public void The_keyword_comes_back_when_the_turn_ends()
+    {
+        var groundward = Card(
+            "R2157 Groundward Cleanup Test",
+            "Target creature loses flying until end of turn.",
+            CardType.Instant);
+
+        var (game, alice, bob) = InMainPhase();
+        var hawk = game.Create(alice, Skyward("R2157 Cleanup Hawk Test"), Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("R2157 Cleanup Footman Test", 1, 1), Zone.Battlefield);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        var inHand = TestCards.PutInHand(game, alice, groundward);
+        game.CastSpell(alice, inHand, [Target.ToPermanent(hawk)]);
+        Settle(game);
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(hawk), bob));
+
+        PassTo(game, 4, TurnStep.Upkeep);
+
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(hawk))
+                .Has(KeywordAbility.Flying));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(hawk), bob));
+    }
+
+    /// <summary>
+    /// Removal and grant are one layer, settled by timestamp (CR 613.1f, 613.7).
+    /// </summary>
+    /// <remarks>
+    /// This is the reason the removal is <em>applied</em> rather than declared. All-abilities has
+    /// to be decided before any effect runs, because the silenced permanent must stop offering
+    /// its statics to everything else on the board; a keyword is a characteristic of the object
+    /// being computed and nothing else can see it, so clearing the bits inside layer 6 is the
+    /// whole of it - and that is what puts the removal in timestamp order beside the grants.
+    /// <para>
+    /// The same two spells in the two orders, on two boards, are the test and its control. Read
+    /// out of order - a removal that swept the keyword away whenever it applied - the second
+    /// board would look exactly like the first.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_grant_after_the_removal_puts_the_keyword_back()
+    {
+        var groundward = Card(
+            "R2157 Order Removal Test",
+            "Target creature loses flying until end of turn.",
+            CardType.Instant);
+
+        var lift = Card(
+            "R2157 Order Grant Test",
+            "Target creature gains flying until end of turn.",
+            CardType.Instant);
+
+        Assert.True(
+            CardCompiler.Compile(lift).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(lift).Unhandled));
+
+        // Removal first, then the grant: the later timestamp wins and the creature flies.
+        var (regained, alice, _) = InMainPhase();
+        var first = regained.Create(
+            alice, TestCards.Creature("R2157 Order Grunt Test", 2, 2), Zone.Battlefield);
+
+        PassTo(regained, 3, TurnStep.PrecombatMain);
+        regained.CastSpell(
+            alice, TestCards.PutInHand(regained, alice, groundward), [Target.ToPermanent(first)]);
+        Settle(regained);
+        regained.CastSpell(
+            alice, TestCards.PutInHand(regained, alice, lift), [Target.ToPermanent(first)]);
+        Settle(regained);
+
+        Assert.True(
+            Characteristics.Of(regained.State, Pool, regained.State.GetObject(first))
+                .Has(KeywordAbility.Flying));
+
+        // The control: the same two spells the other way round, and the removal is last.
+        var (grounded, carol, _) = InMainPhase();
+        var second = grounded.Create(
+            carol, TestCards.Creature("R2157 Order Grunt Test", 2, 2), Zone.Battlefield);
+
+        PassTo(grounded, 3, TurnStep.PrecombatMain);
+        grounded.CastSpell(
+            carol, TestCards.PutInHand(grounded, carol, lift), [Target.ToPermanent(second)]);
+        Settle(grounded);
+        grounded.CastSpell(
+            carol, TestCards.PutInHand(grounded, carol, groundward), [Target.ToPermanent(second)]);
+        Settle(grounded);
+
+        Assert.False(
+            Characteristics.Of(grounded.State, Pool, grounded.State.GetObject(second))
+                .Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// "Enchanted creature has defender and loses flying" - Sky Tether (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The attached spelling, and the reason it is not a reader of its own: the removal clause
+    /// was already read behind a pump ("Equipped creature gets +10/+10 and loses flying" is
+    /// Colossus Hammer), so what was missing was the same clause in the two other places the
+    /// corpus prints it - behind a keyword grant, and alone. Widening the pattern it already
+    /// lives in keeps one removal rather than growing a second spelling of one.
+    /// <para>
+    /// Both halves of the sentence are asserted in force: the granted defender refuses the
+    /// attack, and the removed flying lets a ground creature block. The control is the creature
+    /// beside it, which the Aura is not attached to - and then the same creature once the Aura is
+    /// destroyed, which is the other control, because an effect that outlived its source would
+    /// pass every assertion made while it was on the battlefield.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_that_takes_flying_away_holds_it_off_only_while_it_is_attached()
+    {
+        var tether = Card(
+            "R2157 Tether Test",
+            "Enchant creature\nEnchanted creature has defender and loses flying.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(tether);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var tethered = game.Create(alice, Skyward("R2157 Tethered Hawk Test"), Zone.Battlefield);
+        var free = game.Create(alice, Skyward("R2157 Free Hawk Test"), Zone.Battlefield);
+        var footman = game.Create(
+            bob, TestCards.Creature("R2157 Tether Footman Test", 1, 1), Zone.Battlefield);
+
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, tether), [Target.ToPermanent(tethered)]);
+        Settle(game);
+
+        var aura = game.State.Battlefield.Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "R2157 Tether Test");
+
+        Assert.Equal(tethered, aura.Permanent!.AttachedTo);
+
+        var held = Characteristics.Of(game.State, Pool, game.State.GetObject(tethered));
+        Assert.False(held.Has(KeywordAbility.Flying));
+        Assert.True(held.Has(KeywordAbility.Defender));
+
+        // Both halves in force: the granted keyword stops the attack and the removed one lets
+        // the block through.
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        Assert.NotNull(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(tethered), alice, bob));
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(tethered), bob));
+
+        // The control: the flier the Aura is not on keeps both answers.
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(free), alice, bob));
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(free), bob));
+
+        game.Move(aura.Id, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        // And the second control: the removal is the Aura's, so it leaves with the Aura.
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(tethered))
+                .Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// "Creatures your opponents control lose flying" - the group spelling (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The third place the clause is printed, and the one where the ownership half of the
+    /// sentence is doing the work. Melira, Sylvok Outcast is the card the corpus was blocked on:
+    /// "Creatures your opponents control lose infect" was the only line on it nothing could read.
+    /// <para>
+    /// The two fliers are the test and the control on one board, in one turn, under one
+    /// enchantment - which is what makes the ownership clause the only difference between them.
+    /// A removal that reached every creature would take the enchantment's own side's flier down
+    /// with it and still report the line as read.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_removal_reaches_only_the_side_its_sentence_names()
+    {
+        var sphere = Card(
+            "R2157 Sphere Test",
+            "Creatures your opponents control lose flying.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(sphere);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, Skyward("R2157 Sphere Mine Test"), Zone.Battlefield);
+        var theirs = game.Create(bob, Skyward("R2157 Sphere Theirs Test"), Zone.Battlefield);
+        var footman = game.Create(
+            alice, TestCards.Creature("R2157 Sphere Footman Test", 1, 1), Zone.Battlefield);
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(theirs), alice));
+
+        game.Create(alice, sphere, Zone.Battlefield);
+        Settle(game);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(theirs))
+                .Has(KeywordAbility.Flying));
+
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(footman), game.State.GetObject(theirs), alice));
+
+        // The control: the same enchantment, the same turn, the other side of the table.
+        Assert.True(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(mine))
+                .Has(KeywordAbility.Flying));
+    }
+
+    /// <summary>
+    /// A word the engine cannot model, and a removal with no duration, both stay unread.
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half, in all three readers. Prowess is a triggered ability rather than a
+    /// flag (which is why the shared keyword table leaves it out), so a reader that shrugged at
+    /// the word would compile a card that reports itself finished and takes nothing away - the
+    /// one failure coverage cannot see, because the line reads either way.
+    /// <para>
+    /// The duration is the same refusal one clause along. "Target creature loses flying" with no
+    /// duration is not a shorter version of the sentence this reads; it is a different card, and
+    /// the effect built here comes off in the cleanup step whatever the words said.
+    /// </para>
+    /// <para>
+    /// Each refusal is paired with the same sentence carrying a word the table does know, so what
+    /// is being asserted is the word rather than the shape - a pattern that had simply stopped
+    /// matching would pass the first half of every pair and fail the second.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_keyword_the_engine_cannot_model_leaves_the_line_unread()
+    {
+        var unreadable = new[]
+        {
+            Card(
+                "R2157 Unread Spell Test",
+                "Target creature loses prowess until end of turn.",
+                CardType.Instant),
+            Card(
+                "R2157 Unread Aura Test",
+                "Enchant creature\nEnchanted creature loses prowess.",
+                CardType.Enchantment,
+                subtypes: "Aura"),
+            Card(
+                "R2157 Unread Group Test",
+                "Creatures your opponents control lose prowess.",
+                CardType.Enchantment),
+            Card(
+                "R2157 Unread Duration Test",
+                "Target creature loses flying.",
+                CardType.Instant),
+        };
+
+        foreach (var card in unreadable)
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.False(compiled.IsComplete, card.Name);
+            Assert.Contains(compiled.Unhandled, line => line.Contains("loses", StringComparison.Ordinal)
+                || line.Contains("lose ", StringComparison.Ordinal));
+        }
+
+        // The controls: the same three sentences with a keyword the table carries.
+        var readable = new[]
+        {
+            Card(
+                "R2157 Read Spell Test",
+                "Target creature loses flying until end of turn.",
+                CardType.Instant),
+            Card(
+                "R2157 Read Aura Test",
+                "Enchant creature\nEnchanted creature loses flying.",
+                CardType.Enchantment,
+                subtypes: "Aura"),
+            Card(
+                "R2157 Read Group Test",
+                "Creatures your opponents control lose flying.",
+                CardType.Enchantment),
+        };
+
+        foreach (var card in readable)
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, card.Name + ": " + string.Join(" | ", compiled.Unhandled));
+        }
+    }
+
+    /// <summary>A 2/2 with flying printed on it, for the removals above.</summary>
+    private static CardDefinition Skyward(string name) => Card(
+        name, "Flying", CardType.Creature, 2, 2, keywords: KeywordAbility.Flying);
+
     // ---- Auras and equipment -------------------------------------------------
 
     [Fact]
