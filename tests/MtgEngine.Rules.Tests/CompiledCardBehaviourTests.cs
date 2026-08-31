@@ -507,6 +507,484 @@ public sealed class CompiledCardBehaviourTests
         Assert.Empty(game.State.Battlefield);
     }
 
+    // ---- Attractions (CR 717, 701.51, 701.52, 702.159) ------------------------
+
+    /// <summary>
+    /// An Attraction: a card plus the column of numbers lit up beside its text box (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// The lights are the point. They appear in no sentence the card prints and cannot be derived
+    /// from one - two Attractions with the same English name are printed with different numbers
+    /// lit - so they are a printed characteristic that only the bulk data carries, and every one
+    /// of these fixtures uses the numbers its real printing has.
+    /// </remarks>
+    private static CardDefinition AttractionCard(
+        string name, string visitText, params int[] lights) => new()
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = visitText,
+            CardTypes = CardType.Artifact,
+            Subtypes = ["Attraction"],
+            AttractionLights = lights,
+        };
+
+    /// <summary>Information Booth, whose visit ability is the plainest one printed.</summary>
+    private static CardDefinition InformationBooth() =>
+        AttractionCard("Information Booth Test", "Visit — Draw a card.", 2, 6);
+
+    /// <summary>Clown Extruder: lit on 2 and 6, and on nothing else.</summary>
+    private static CardDefinition ClownExtruder() =>
+        AttractionCard(
+            "Clown Extruder Test",
+            "Visit — Create a 1/1 white Clown Robot artifact creature token.",
+            2,
+            6);
+
+    /// <summary>Kiddie Coaster: lit on 3 as well, which is what makes the pair worth playing.</summary>
+    private static CardDefinition KiddieCoaster() =>
+        AttractionCard(
+            "Kiddie Coaster Test",
+            "Visit — Creatures you control get +1/+0 until end of turn.",
+            2,
+            3,
+            6);
+
+    /// <summary>Deadbeat Attendant's wording, which twelve corpus cards share verbatim.</summary>
+    private static CardDefinition Attendant() =>
+        Card(
+            "Deadbeat Attendant Test",
+            "When this creature enters, open an Attraction. (Put the top card of your Attraction"
+                + " deck onto the battlefield.)",
+            CardType.Creature,
+            power: 1,
+            toughness: 1);
+
+    /// <summary>Step Right Up, the only card in the corpus that opens two.</summary>
+    private static CardDefinition StepRightUp() =>
+        Card(
+            "Step Right Up Test",
+            "Open two Attractions. (Put the top two cards of your Attraction deck onto the"
+                + " battlefield.)",
+            CardType.Sorcery);
+
+    /// <summary>
+    /// A game in which Alice brought an Attraction deck (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// The deck is handed to the setup rather than shuffled into the library, because Attraction
+    /// cards do not begin the game in a deck and do not count towards its size (CR 717.2). The
+    /// seed is a parameter for the reason <c>InMainPhaseSeeded</c> takes one: the visit die is
+    /// the randomness under test, and one seed can only ever show one of its faces.
+    /// </remarks>
+    private static (Game Game, Guid Alice, Guid Bob) WithAttractions(
+        int seed, params CardDefinition[] attractions)
+    {
+        var alice = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var bob = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var game = Game.Start(
+            Guid.NewGuid(),
+            [
+                new PlayerSetup(alice, "Alice", 20, TestCards.Deck(40, "Alice"))
+                {
+                    AttractionDeck = attractions,
+                },
+                new PlayerSetup(bob, "Bob", 20, TestCards.Deck(40, "Bob")),
+            ],
+            new GameRandom(seed),
+            startingPlayerId: alice,
+            abilities: Pool);
+
+        game.BeginPlay(withMulligans: false);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+        return (game, alice, bob);
+    }
+
+    /// <summary>The Attractions this player controls on the battlefield, by name.</summary>
+    private static List<string> AttractionsOut(Game game, Guid who) =>
+        [.. game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.ControllerId == who && Attractions.Is(o.Card))
+            .Select(o => o.Card.Name)
+            .Order(StringComparer.Ordinal)];
+
+    /// <summary>How many Clown Robot tokens are on the table.</summary>
+    private static int RobotsOut(Game game) =>
+        game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Count(o => string.Equals(o.Card.Name, "Clown Robot", StringComparison.Ordinal));
+
+    /// <summary>
+    /// An Attraction deck is a supplementary deck that exists in the command zone (CR 717.2).
+    /// </summary>
+    /// <remarks>
+    /// The whole feature rests on this being true rather than on a new zone: an Attraction is an
+    /// object in a zone the reducer has always folded, so opening one is an ordinary move and
+    /// nothing about the state had to grow a field. The middle assertions are the ones worth
+    /// having - an Attraction card is not a permanent and is not in the library, so nothing may
+    /// draw one, count it towards a deck's size, or sweep it away before it is ever opened.
+    /// </remarks>
+    [Fact]
+    public void An_attraction_deck_begins_in_the_command_zone()
+    {
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+
+        var deck = Attractions.DeckOf(game.State, alice);
+        Assert.Equal(2, deck.Count);
+        Assert.All(deck, card => Assert.Equal(Zone.Command, card.Zone));
+        Assert.All(deck, card => Assert.Null(card.Permanent));
+        Assert.All(deck, card => Assert.Contains(card.Id, game.State.Command));
+
+        Assert.Empty(AttractionsOut(game, alice));
+        Assert.Equal(
+            40,
+            game.State.GetPlayer(alice).Library.Count + game.State.GetPlayer(alice).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Open an Attraction" moves the top card of the Attraction deck onto the battlefield
+    /// (CR 701.51b), and the move says it was an opening (CR 701.51c).
+    /// </summary>
+    /// <remarks>
+    /// The cause on the move is not decoration. "Whenever you open an Attraction" has nothing
+    /// else to watch: a commander and a dungeon leave the command zone too, and a trigger that
+    /// only asked where the card came from would fire on both of them.
+    /// </remarks>
+    [Fact]
+    public void Opening_an_attraction_takes_the_top_card_of_the_deck()
+    {
+        var attendant = Attendant();
+        var compiled = CardCompiler.Compile(attendant);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+
+        game.Create(alice, attendant, Zone.Battlefield);
+        Settle(game);
+
+        var opened = Assert.Single(AttractionsOut(game, alice));
+        Assert.Single(Attractions.DeckOf(game.State, alice));
+
+        var move = Assert.Single(
+            game.Log.OfType<ObjectMoved>(), m => m.Cause == MoveCause.OpenAttraction);
+
+        Assert.Equal(Zone.Command, move.From);
+        Assert.Equal(Zone.Battlefield, move.To);
+        Assert.Equal(opened, game.State.GetObject(move.NewId).Card.Name);
+    }
+
+    /// <summary>
+    /// "Open two Attractions" takes two, and a player with no Attraction deck opens nothing
+    /// (CR 701.51a).
+    /// </summary>
+    /// <remarks>
+    /// The second half is the fail-closed one. CR 701.51a lets a player open an Attraction only
+    /// in a game they are playing with an Attraction deck, so an instruction with no deck behind
+    /// it is one that cannot be followed - and the card carries on to whatever it says next
+    /// rather than the game stopping. Every card in this family is legal in a deck that brought
+    /// no Attractions at all.
+    /// </remarks>
+    [Fact]
+    public void Opening_takes_what_the_deck_has_and_nothing_more()
+    {
+        var step = StepRightUp();
+        Assert.True(CardCompiler.Compile(step).IsComplete);
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, step), []);
+        Settle(game);
+
+        Assert.Equal(2, AttractionsOut(game, alice).Count);
+        Assert.Empty(Attractions.DeckOf(game.State, alice));
+
+        // The same card in a game nobody brought Attractions to.
+        var (bare, without, _) = WithAttractions(1);
+        bare.CastSpell(without, TestCards.PutInHand(bare, without, step), []);
+        Settle(bare);
+
+        Assert.Empty(AttractionsOut(bare, without));
+        Assert.DoesNotContain(
+            bare.Log.OfType<ObjectMoved>(), m => m.Cause == MoveCause.OpenAttraction);
+    }
+
+    /// <summary>
+    /// The precombat main phase rolls a d6, and only the Attractions whose lights hold the
+    /// result are visited (CR 505.5, 701.52a, 717.4).
+    /// </summary>
+    /// <remarks>
+    /// This is the test the round is for, and it is written against the number in the log rather
+    /// than a number the test chose: whatever came up, the board has to be what those lights say
+    /// and nothing else. Clown Extruder is lit on 2 and 6; Kiddie Coaster is lit on 2, 3 and 6.
+    /// So a 3 is a roll that visits one of them and not the other, a 2 or a 6 visits both, and a
+    /// 1, 4 or 5 visits neither - and every one of those cases is asserted by the same
+    /// expression.
+    /// <para>
+    /// It runs over twelve seeds and then asserts that the seeds between them produced a roll
+    /// that lit the Extruder and a roll that did not. Without that last assertion a dozen unlucky
+    /// seeds could all miss, every board would agree with its roll, and the test would pass
+    /// having never once shown an Attraction do anything - which is exactly the shape of a card
+    /// that compiles and can never fire.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_visit_roll_lights_only_the_attractions_whose_numbers_match()
+    {
+        var extruder = ClownExtruder();
+        var coaster = KiddieCoaster();
+
+        foreach (var card in new[] { extruder, coaster })
+        {
+            var compiled = CardCompiler.Compile(card);
+            Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+            Assert.Single(compiled.Triggers);
+        }
+
+        var litExtruder = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed, extruder, coaster);
+            game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+            Settle(game);
+
+            var bear = game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+            Assert.Equal(2, AttractionsOut(game, alice).Count);
+
+            // CR 717.4: the roll happens as the active player's precombat main phase begins and
+            // only when they control an Attraction, so turn one rolled nothing - the Attractions
+            // were still in the deck when it began - and Bob's turn rolls nothing either.
+            Assert.Empty(game.Log.OfType<DiceRolled>());
+
+            PassTo(game, 3, TurnStep.PrecombatMain);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            Assert.Equal(6, rolled.Sides);
+            Assert.Equal(alice, rolled.PlayerId);
+
+            var extruderLit = rolled.Result is 2 or 6;
+            var coasterLit = rolled.Result is 2 or 3 or 6;
+            litExtruder.Add(extruderLit);
+
+            var visited = game.Log
+                .OfType<AttractionVisited>()
+                .Select(v => game.State.GetObject(v.AttractionId).Card.Name)
+                .Order(StringComparer.Ordinal)
+                .ToList();
+
+            var expected = new List<string>();
+            if (extruderLit)
+                expected.Add("Clown Extruder Test");
+            if (coasterLit)
+                expected.Add("Kiddie Coaster Test");
+
+            Assert.Equal(expected, visited);
+
+            // The lit one did its thing, and the unlit one did nothing at all.
+            Assert.Equal(extruderLit ? 1 : 0, RobotsOut(game));
+            Assert.Equal(coasterLit ? 3 : 2, PowerNow(game, bear));
+        }
+
+        Assert.Equal([false, true], litExtruder.Order().ToList());
+    }
+
+    /// <summary>
+    /// The visit roll is in the log as its outcome, so a resumed game reads the number rather
+    /// than rolling a new one (CR 706.2's rule, applied to CR 701.52a's die).
+    /// </summary>
+    /// <remarks>
+    /// The same promise the shuffle and the coin flip make, and the reason this feature needed no
+    /// new machinery to keep it: a visit is computed from a <c>DiceRolled</c> the fold already
+    /// replays. Resumed with a different <c>GameRandom</c> the board has to come out identical -
+    /// and it is the board that is compared and not the log, so a visit recomputed from a fresh
+    /// number would show up as a missing token rather than as a matching list of events.
+    /// </remarks>
+    [Fact]
+    public void A_visit_replays_from_the_logged_roll_rather_than_rolling_again()
+    {
+        var (game, alice, _) = WithAttractions(4, ClownExtruder(), KiddieCoaster());
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, StepRightUp()), []);
+        Settle(game);
+
+        PassTo(game, 3, TurnStep.PrecombatMain);
+        Settle(game);
+
+        Assert.Single(game.Log.OfType<DiceRolled>());
+
+        var resumed = Game.Resume([.. game.Log], new GameRandom(987654), Pool);
+        Assert.Equal(game.State, resumed.State);
+    }
+
+    /// <summary>
+    /// Line Cutter: "When this creature enters, roll to visit your Attractions" is the same roll
+    /// the turn asks for, printed on a card (CR 701.52).
+    /// </summary>
+    /// <remarks>
+    /// The two reach it by different routes and must not come apart. The turn-based action rolls
+    /// in the engine because it has no card behind it; the printed sentence compiles to the
+    /// ordinary deferred roll, whose results table is one row covering every number and whose row
+    /// reads the result out of the resolution that ran it. What they share is
+    /// <c>Attractions.VisitEvents</c> - which lights answer to which number is decided in one
+    /// place, the way every venture in this engine goes through one method.
+    /// </remarks>
+    [Fact]
+    public void A_card_that_rolls_to_visit_reaches_the_same_lights()
+    {
+        var cutter = Card(
+            "Line Cutter Test",
+            "When this creature enters, roll to visit your Attractions.",
+            CardType.Creature,
+            power: 3,
+            toughness: 4);
+
+        var compiled = CardCompiler.Compile(cutter);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var seen = new HashSet<bool>();
+
+        foreach (var seed in Enumerable.Range(1, 12))
+        {
+            var (game, alice, _) = WithAttractions(seed);
+            game.Create(alice, ClownExtruder(), Zone.Battlefield);
+            game.Create(alice, InformationBooth(), Zone.Battlefield);
+            Settle(game);
+
+            var before = game.State.GetPlayer(alice).Hand.Count;
+            game.Create(alice, cutter, Zone.Battlefield);
+            Settle(game);
+
+            var rolled = Assert.Single(game.Log.OfType<DiceRolled>());
+            Assert.Equal(6, rolled.Sides);
+
+            var lit = rolled.Result is 2 or 6;
+            seen.Add(lit);
+
+            Assert.Equal(lit ? 1 : 0, RobotsOut(game));
+            Assert.Equal(before + (lit ? 1 : 0), game.State.GetPlayer(alice).Hand.Count);
+        }
+
+        Assert.Equal([false, true], seen.Order().ToList());
+    }
+
+    /// <summary>
+    /// An Attraction that arrived without its lights keeps its visit line unread (CR 717.1).
+    /// </summary>
+    /// <remarks>
+    /// The fail-closed half of the feature, and the reason the compiler asks about data at all.
+    /// The lights are printed beside the text box and appear in no sentence, so a card that
+    /// reached the compiler without them is one that no result could ever match: it would open,
+    /// sit on the battlefield, and do nothing on every roll for the rest of the game while
+    /// counting as a card the engine had fully read. Left unread instead - a card a deck check
+    /// can refuse rather than one that quietly plays as a blank.
+    /// </remarks>
+    [Fact]
+    public void An_attraction_with_no_lights_leaves_its_visit_line_unread()
+    {
+        var dark = AttractionCard("Unlit Booth Test", "Visit — Draw a card.");
+        var compiled = CardCompiler.Compile(dark);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(
+            compiled.Unhandled, l => l.StartsWith("Visit —", StringComparison.Ordinal));
+
+        Assert.Empty(compiled.Triggers);
+
+        // The same words with the printing's own lights on them read whole.
+        Assert.True(CardCompiler.Compile(InformationBooth()).IsComplete);
+    }
+
+    /// <summary>
+    /// "Whenever you open an Attraction" fires on the opening and on nothing else (CR 701.51c).
+    /// </summary>
+    /// <remarks>
+    /// The negative half is the load-bearing one. Plenty of things enter the battlefield and a
+    /// commander leaves the command zone to do it, so a trigger that watched the zones rather
+    /// than the cause of the move would count both - a counter on a creature for something that
+    /// is not an Attraction and not an opening.
+    /// </remarks>
+    [Fact]
+    public void A_watcher_of_openings_counts_openings_and_not_arrivals()
+    {
+        var watcher = Card(
+            "Buttoneer Watch Test",
+            "Whenever you open an Attraction, put a +1/+1 counter on ~.",
+            CardType.Creature,
+            power: 2,
+            toughness: 2);
+
+        var compiled = CardCompiler.Compile(watcher);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth(), ClownExtruder());
+        var seen = game.Create(alice, watcher, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(2, PowerNow(game, seen));
+
+        // An ordinary permanent entering is not an opening.
+        game.Create(alice, TestCards.Creature("Bear", 2, 2), Zone.Battlefield);
+        Settle(game);
+        Assert.Equal(2, PowerNow(game, seen));
+
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, PowerNow(game, seen));
+    }
+
+    /// <summary>
+    /// A destroyed Attraction goes to its owner's junkyard in the command zone, never to a
+    /// graveyard (CR 717.6).
+    /// </summary>
+    /// <remarks>
+    /// Draconian Gate-Bot and Down for Repairs both print the reminder "It's put into their
+    /// junkyard", and without this rule that sentence would describe something the engine does
+    /// not do: the card would land in a graveyard where it could be counted, recurred and
+    /// targeted by cards that have never been able to see an Attraction. CR 717.6a is explicit
+    /// that the junkyard is a pile and not a zone of its own, so the command zone is where it
+    /// goes and there was nothing else to build.
+    /// <para>
+    /// The move still happens and still leaves the battlefield - only the destination changes -
+    /// so anything watching a permanent leave still sees it leave.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_destroyed_attraction_is_junked_rather_than_buried()
+    {
+        var wrecker = Card(
+            "Gate-Bot Test",
+            "Destroy target Attraction. (It's put into its owner's junkyard.)",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(wrecker);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = WithAttractions(1, InformationBooth());
+        game.Create(alice, Attendant(), Zone.Battlefield);
+        Settle(game);
+
+        var booth = Assert.Single(
+            game.State.Battlefield.Select(game.State.GetObject), o => Attractions.Is(o.Card));
+
+        game.CastSpell(
+            alice,
+            TestCards.PutInHand(game, alice, wrecker),
+            [Target.ToPermanent(booth.Id)]);
+
+        Settle(game);
+
+        Assert.Empty(AttractionsOut(game, alice));
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard.Select(game.State.GetObject),
+            o => Attractions.Is(o.Card));
+
+        Assert.Contains(
+            game.State.Command.Select(game.State.GetObject),
+            o => string.Equals(
+                o.Card.Name, "Information Booth Test", StringComparison.Ordinal));
+    }
+
     // ---- Removal -------------------------------------------------------------
 
     [Fact]
