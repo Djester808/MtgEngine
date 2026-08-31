@@ -3747,7 +3747,7 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (mana, life, chosen))
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (mana, life, chosen, counted, energy))
             return false;
 
         into.Add(WardTrigger(
@@ -3759,7 +3759,9 @@ public static partial class CardCompiler
             life,
             chosen?.Kind,
             chosen?.Count ?? 1,
-            chosen?.What));
+            chosen?.What,
+            counted,
+            energy));
 
         return true;
     }
@@ -3782,7 +3784,9 @@ public static partial class CardCompiler
         int life = 0,
         ChosenCostKind? kind = null,
         int count = 1,
-        TargetSpec? what = null)
+        TargetSpec? what = null,
+        Amount? counted = null,
+        int energy = 0)
     {
         // CR 702.21a: only an opponent's spell taxes. Your own targeting is free, which is what
         // makes ward a defensive ability rather than a drawback. For a granted ward the source
@@ -3807,10 +3811,14 @@ public static partial class CardCompiler
                     IfYouDont: [new CounterSubjectSpell()],
                     EffectIndex: 0,
                     AskSubjectPlayer: true,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: kind,
                     ChosenCount: count,
-                    ChosenWhat: what),
+                    ChosenWhat: what)
+                {
+                    VariablePrice = counted,
+                },
             ],
         };
     }
@@ -6529,7 +6537,7 @@ public static partial class CardCompiler
         if (!m.Success)
             return false;
 
-        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (cost, life, chosen))
+        if (OfferedCost(m.Groups["cost"].Value.Trim()) is not var (cost, life, chosen, counted, energy))
             return false;
 
         replacements.Add(new ReplacementEffectDefinition
@@ -6571,10 +6579,14 @@ public static partial class CardCompiler
                     IfYouDo: [],
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: chosen?.Kind,
                     ChosenCount: chosen?.Count ?? 1,
-                    ChosenWhat: chosen?.What),
+                    ChosenWhat: chosen?.What)
+                {
+                    VariablePrice = counted,
+                },
             ],
         });
 
@@ -12420,13 +12432,95 @@ public static partial class CardCompiler
     /// Leaving the line unread is the direction that costs nothing.
     /// </para>
     /// </remarks>
-    internal static (ManaCostSpec Mana, int Life, ChosenCost? Chosen)? OfferedCost(string cost)
+    internal static
+        (ManaCostSpec Mana, int Life, ChosenCost? Chosen, Amount? Generic, int Energy)?
+        OfferedCost(string cost)
     {
+        ArgumentNullException.ThrowIfNull(cost);
+
+        // Energy, which is a price an offer can take and the cost reader cannot see: its energy
+        // pattern wants the printed word "pay", and a keyword's price arrives as the symbols
+        // alone. Read before the guard below, because {E} is exactly the symbol that guard is
+        // there to refuse - the mana parser drops it, and "sacrifice this unless you pay {E}{E}"
+        // became a Lathnu Hellion nobody ever had to sacrifice.
+        var energy = EnergyPrice().Match(cost.Trim());
+        if (energy.Success)
+            return (ManaCostSpec.Free, 0, null, null, energy.Groups["e"].Captures.Count);
+
+        // A mana symbol the parser does not know is *dropped*, not refused - {E} and {S} both
+        // are - so a price made of nothing but symbols can come back as no price at all, and an
+        // offer that costs nothing is one every player takes. "Tap this creature unless you pay
+        // {E}" compiled clean and never tapped anything. Every printed symbol has to survive the
+        // parse or the line stays unread.
+        if (PureManaPrice().Match(cost.Trim()) is { Success: true } printed
+            && ManaCostSpec.Parse(cost).Symbols.Count != printed.Groups["s"].Captures.Count)
+        {
+            return null;
+        }
+
+        // A price that is a computation rather than a number, lifted off before the cost reader
+        // sees it. It is done *here*, in the one reader every keyword's price already goes
+        // through, so ward, echo, cumulative upkeep and the punisher learn the counted form
+        // together rather than one of them growing a second cost vocabulary.
+        //
+        // The whole price is the computation or none of it is: every printing in the corpus is a
+        // bare "{N} for each ...", and admitting a coloured pip beside one would mean deciding
+        // which half the count scaled - a question no card asks and this could only guess at.
+        if (CountedPrice().Match(cost.Trim()) is { Success: true } counted)
+        {
+            var each = int.Parse(counted.Groups["n"].Value, CultureInfo.InvariantCulture);
+            var phrase = counted.Groups["what"].Value.Trim();
+
+            // hasSource: true, through the shared counting vocabulary - an offer is made while
+            // something resolves, so "for each +1/+1 counter on it" has a permanent to point at.
+            // A phrase it cannot read leaves the line unread rather than pricing the offer at
+            // nought, which would be a ward nobody pays.
+            if (EffectPhrase.CountingAmount(new Amount(each), "each " + phrase) is not { } scaled)
+                return null;
+
+            return (ManaCostSpec.Free, 0, null, scaled, 0);
+        }
+
+        // "{X}, where X is your devotion to blue" - the same computation said the other way
+        // round. The sentence defines X itself, so the count is read from the tail rather than
+        // from the caster's announcement, and one printed number ({1} per thing) becomes one
+        // per whatever the phrase names.
+        if (DefinedPrice().Match(cost.Trim()) is { Success: true } defined)
+        {
+            var phrase = defined.Groups["what"].Value.Trim();
+
+            // "The number of X" and "X" are the same group counted two ways round, and the
+            // shared vocabulary is entered at the group. Stripped here rather than taught to
+            // that reader, which every other caller already enters without the words.
+            if (phrase.StartsWith(NumberOf, StringComparison.OrdinalIgnoreCase))
+                phrase = phrase[NumberOf.Length..].Trim();
+
+            return EffectPhrase.CountingAmount(new Amount(1), phrase) is not { } sized
+                ? null
+                : (ManaCostSpec.Free, 0, null, sized, 0);
+        }
+
+        // A bare "{X}" is the value the payer's opponent announced as they cast this
+        // (CR 107.3b): Condescend's {X}{U} names the tax it charges. Read as the announced
+        // amount rather than refused, because it is the only thing X can mean in a sentence
+        // whose own cost declared it - and read as *nothing*, which is what a variable symbol
+        // in a printed offer came to before this, it made every X counterspell in the game a
+        // spell the opponent escaped for free.
+        if (BareVariablePrice().IsMatch(cost.Trim()))
+            return (ManaCostSpec.Free, 0, null, Amount.X, 0);
+
         if (ReadKeywordCost(cost) is not { } paid || paid.Chosen.Count > 1)
             return null;
 
+        // {X} is a price nobody is charged. The payment reader takes a variable symbol as
+        // nothing (CR 202.3b), so an offer carrying one is free at the table while compiling
+        // clean - a ward that costs nothing, a counterspell that counters nobody. Refused unless
+        // the sentence said what X is, which is what the counted form above answers.
+        if (paid.Mana.HasVariable)
+            return null;
+
         if (paid.Chosen.Count == 0)
-            return (paid.Mana, paid.Life, null);
+            return (paid.Mana, paid.Life, null, null, 0);
 
         var chosen = paid.Chosen[0];
 
@@ -12445,8 +12539,37 @@ public static partial class CardCompiler
         // exclusion cannot even be re-derived. Refused rather than widened.
         return chosen.ExcludesSource || chosen.MinTotalPower > 0
             ? null
-            : (paid.Mana, paid.Life, chosen);
+            : (paid.Mana, paid.Life, chosen, null, 0);
     }
+
+    /// <summary>"{E}{E}" — a price paid out of the energy counters a player has (CR 107.4c).</summary>
+    [GeneratedRegex(@"^(?<e>\{E\})+$", RegexOptions.IgnoreCase)]
+    private static partial Regex EnergyPrice();
+
+    /// <summary>A price that is nothing but mana symbols, symbol by symbol.</summary>
+    [GeneratedRegex(@"^(?<s>\{[^}]+\})+$")]
+    private static partial Regex PureManaPrice();
+
+    /// <summary>"{1} for each card in your graveyard" — a price with a count in it (CR 107.3).</summary>
+    /// <remarks>
+    /// Anchored at both ends and a single generic symbol at the front, which is what refuses a
+    /// price the offer could only guess at. The count itself is not read here: the phrase goes to
+    /// <see cref="EffectPhrase.CountingAmount"/>, the same reader "gain 2 life for each creature
+    /// you control" uses, so a group that vocabulary learns is a price this can quote.
+    /// </remarks>
+    [GeneratedRegex(@"^\{(?<n>\d+)\} for each (?<what>.+?)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex CountedPrice();
+
+    /// <summary>The words "the number of", which a group phrase is read without.</summary>
+    private const string NumberOf = "the number of ";
+
+    /// <summary>"{X}, where X is your devotion to blue" — a price the sentence defines.</summary>
+    [GeneratedRegex(@"^\{X\},? where X is (?<what>.+?)\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex DefinedPrice();
+
+    /// <summary>"{X}" alone — the amount the caster announced (CR 107.3b).</summary>
+    [GeneratedRegex(@"^\{X\}$", RegexOptions.IgnoreCase)]
+    private static partial Regex BareVariablePrice();
 
     /// <summary>
     /// Which spells a splice keyword names, as a filter id, or null for one it does not
@@ -13449,9 +13572,11 @@ public static partial class CardCompiler
             : (ManaCostSpec.Parse(
                 $"{{{m.Groups["a"].Value.Trim('{', '}')}/{m.Groups["b"].Value.Trim('{', '}')}}}"),
                 0,
-                (ChosenCost?)null);
+                (ChosenCost?)null,
+                (Amount?)null,
+                0);
 
-        if (priced is not var (charged, life, chosen))
+        if (priced is not var (charged, life, chosen, counted, energy))
             return false;
 
         into.Add(new TriggeredAbilityDefinition
@@ -13471,10 +13596,14 @@ public static partial class CardCompiler
                     IfYouDont: [new SacrificeSource()],
                     EffectIndex: 1,
                     TimesCounter: AgeCounter,
+                    EnergyCost: energy,
                     LifeCost: life,
                     ChosenKind: chosen?.Kind,
                     ChosenCount: chosen?.Count ?? 1,
-                    ChosenWhat: chosen?.What),
+                    ChosenWhat: chosen?.What)
+                {
+                    VariablePrice = counted,
+                },
             ],
         });
 

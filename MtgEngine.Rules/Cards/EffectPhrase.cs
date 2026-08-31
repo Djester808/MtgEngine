@@ -1869,6 +1869,14 @@ public static partial class EffectPhrase
     /// {2}" is one question per opponent and <see cref="MayPay"/> asks one; the guard below keeps
     /// it unread rather than charging the first opponent on everybody's behalf.
     /// </para>
+    /// <para>
+    /// <b>"You" is a payer on the paying arm only.</b> "Sacrifice this creature unless you
+    /// discard a card" is already read, by a matcher built for exactly that sentence
+    /// (<c>SacrificeSourceUnlessPaid</c>), and a general reader that also matched it would
+    /// silently take those twenty-eight cards off a purpose-built path onto this one - a change
+    /// nothing asked for and nothing would have noticed. The payer word is admitted where this
+    /// reader is the only one that reads the sentence and refused where it is not.
+    /// </para>
     /// </remarks>
     private static bool TryUnlessTheyPay(
         string text,
@@ -1879,7 +1887,8 @@ public static partial class EffectPhrase
         if (!m.Success)
             return false;
 
-        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not var (charged, life, chosen))
+        if (CardCompiler.OfferedCost(PrintedPrice(m)) is not
+            var (charged, life, chosen, counted, energy))
             return false;
 
         // The consequence is what happens when they *decline*, so it is parsed as the "if you
@@ -1913,11 +1922,19 @@ public static partial class EffectPhrase
         // is one player said twice. Read off the consequence rather than assumed, because
         // NamedPlayer would find nobody there — the trigger is about a creature, not a seat — and
         // an offer nobody is asked is a punisher that never offers the way out.
+        //
+        // "Unless *you* pay" is the fourth payer and the only one that redirects nothing: the
+        // offer goes where an offer goes when nobody says otherwise, which is the controller of
+        // the ability making it — the same seat echo and cumulative upkeep charge. It has to be
+        // said out loud all the same, because the target arm below would otherwise claim it and
+        // charge whoever the consequence was aimed at: "destroy target creature unless you pay
+        // {2}" would tax the creature's controller, which is the opposite of the printed card.
         var payer = m.Groups["who"].Value.ToLowerInvariant();
+        var itself = payer is "you";
         var pronoun = payer is "that player" or "they";
         var relation = pronoun && ControllerRelation().IsMatch(m.Groups["effect"].Value);
         var named = pronoun && !relation;
-        var asksTheTarget = !named && !relation && scratchTargets.Count == 1;
+        var asksTheTarget = !itself && !named && !relation && scratchTargets.Count == 1;
 
         effects.Add(new MayPay(
             charged,
@@ -1925,14 +1942,16 @@ public static partial class EffectPhrase
             IfYouDont: [.. scratchEffects.Select(e => EffectTargets.Shift(e, offset))],
             EffectIndex: effects.Count,
             AskTargetController: asksTheTarget ? offset : null,
+            EnergyCost: energy,
             LifeCost: life,
             ChosenKind: chosen?.Kind,
             ChosenCount: chosen?.Count ?? 1,
             ChosenWhat: chosen?.What)
         {
-            AskScope = asksTheTarget
+            AskScope = itself || asksTheTarget
                 ? null
                 : named ? PlayerScope.NamedPlayer : PlayerScope.SubjectController,
+            VariablePrice = counted,
         });
 
         return true;
@@ -1948,8 +1967,12 @@ public static partial class EffectPhrase
     /// </remarks>
     private static string PrintedPrice(Match m)
     {
+        // The counted tail travels *with* the price rather than being read here. A tax whose
+        // amount is worked out is still one price, and the reader that prices ward and echo is
+        // where the corpus's one counted spelling belongs - so a second counted form learnt
+        // there is learnt by all four at once.
         if (m.Groups["cost"].Success)
-            return m.Groups["cost"].Value.Trim();
+            return (m.Groups["cost"].Value + m.Groups["each"].Value).Trim();
 
         if (m.Groups["life"].Success)
             return "Pay " + m.Groups["life"].Value.Trim() + " life";
@@ -3552,11 +3575,32 @@ public static partial class EffectPhrase
         m = SacrificeUnlessPayLine().Match(sentence);
         if (m.Success)
         {
+            // Priced through the shared reader rather than parsed here. This arm called
+            // ManaCostSpec.Parse directly, and that parser *drops* a symbol it does not know
+            // ({E}, {S}) instead of refusing it - so "sacrifice this unless you pay {S}" was a
+            // sacrifice nobody ever had to avoid, on a card that compiled clean. Everything the
+            // shared reader knows arrives with the guard: the counted price, the announced X,
+            // and the refusal of a price that parses to nothing.
+            if (CardCompiler.OfferedCost(m.Groups["cost"].Value) is not
+                var (price, owed, chosenCost, countedPrice, owedEnergy))
+            {
+                return false;
+            }
+
             effects.Add(new MayPay(
-                Mana.ManaCostSpec.Parse(m.Groups["cost"].Value),
+                price,
                 IfYouDo: [],
                 IfYouDont: [new SacrificeSource()],
-                effects.Count));
+                effects.Count,
+                EnergyCost: owedEnergy,
+                LifeCost: owed,
+                ChosenKind: chosenCost?.Kind,
+                ChosenCount: chosenCost?.Count ?? 1,
+                ChosenWhat: chosenCost?.What)
+            {
+                VariablePrice = countedPrice,
+            });
+
             return true;
         }
 
@@ -10401,7 +10445,7 @@ public static partial class EffectPhrase
         Resolution,
     }
 
-    private static Amount? CountingAmount(Amount each, string groupPhrase)
+    internal static Amount? CountingAmount(Amount each, string groupPhrase)
     {
         // "For each creature card exiled this way", "equal to the number of creatures destroyed
         // this way" - a count of what this resolution has already done rather than of the board
@@ -16271,9 +16315,12 @@ public static partial class EffectPhrase
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"^(?<effect>.+?) unless (?<who>" + ItsController + @"|that player|they) "
-            + @"(?:pays? (?:(?<cost>(\{[^}]+\})+)|(?<life>\d+) life)"
-            + @"|(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
+        @"^(?<effect>.+?) unless "
+            + @"(?:(?<who>" + ItsController + @"|that player|they|you) "
+            + @"pays? (?:(?<cost>(\{[^}]+\})+)"
+            + @"(?<each> for each [^.]+?|,? where X is [^.]+?)?|(?<life>\d+) life)"
+            + @"|(?<who>" + ItsController + @"|that player|they) "
+            + @"(?<verb>sacrifices?|discards?) (?<what>[a-z][^,.]*?)"
             + @"(?: of their choice)?)\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex UnlessTheyPayLine();
