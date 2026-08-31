@@ -110,6 +110,30 @@ public static partial class CardCompiler
         if (CompileGiftSpell(card) is { } gifted)
             return gifted;
 
+        // A specialize card is a card with five more cards behind it, and they are read here for
+        // exactly the reason the faces below are: the ability turns the permanent into one of
+        // them, so a version this compiler cannot read is text the player would be given and the
+        // engine would not play. Rolled up rather than dropped, and the card stays incomplete
+        // until every version reads — a "Specialize {2}" that compiled while one of its five
+        // destinations was half-read would be the failure this whole file exists to avoid.
+        //
+        // The reading of the base itself is marked with a $0 so this branch is entered once: the
+        // versions come back with $1..$5 on their ids and go straight down the ordinary path,
+        // where their own text is all there is.
+        if (card.Specializations.Count == 6
+            && !card.OracleId.Contains('$', StringComparison.Ordinal))
+        {
+            var itself = Compile(BaseReading(card));
+
+            var versions = ImmutableList.CreateBuilder<string>();
+            versions.AddRange(itself.Unhandled);
+
+            for (var version = 1; version < card.Specializations.Count; version++)
+                versions.AddRange(Compile(CardFaces.Specialized(card, version)).Unhandled);
+
+            return itself with { Unhandled = versions.ToImmutable() };
+        }
+
         if (card.Faces.Count > 1 && !card.OracleId.Contains('#', StringComparison.Ordinal))
         {
             var front = Compile(FrontOnly(card));
@@ -616,6 +640,9 @@ public static partial class CardCompiler
                 continue;
 
             if (TryReconfigure(line, activated, statics))
+                continue;
+
+            if (TrySpecialize(line, card, activated))
                 continue;
 
             if (TryJobSelect(line, triggers))
@@ -2031,6 +2058,34 @@ public static partial class CardCompiler
     /// halves joined, and the face list is emptied so <see cref="Compile"/> reads this as an
     /// ordinary card instead of coming straight back here.
     /// </remarks>
+    /// <summary>
+    /// The same card marked as its own base reading, so the specialize branch is entered once.
+    /// </summary>
+    /// <remarks>
+    /// The marker is the same one <see cref="CardFaces.Specialized"/> writes, because the two
+    /// have to agree about what a specialized id looks like: the versions come back as
+    /// <c>$1</c>..<c>$5</c> and the base as <c>$0</c>, and every one of them has already been
+    /// dealt with by the time the ordinary line loop sees it.
+    /// </remarks>
+    private static CardDefinition BaseReading(CardDefinition card) => new()
+    {
+        OracleId = card.OracleId + "$0",
+        Name = card.Name,
+        OracleText = card.OracleText,
+        ManaCostRaw = card.ManaCostRaw,
+        Cmc = card.Cmc,
+        CardTypes = card.CardTypes,
+        Subtypes = card.Subtypes,
+        Supertypes = card.Supertypes,
+        Keywords = card.Keywords,
+        Colors = card.Colors,
+        ColorIdentity = card.ColorIdentity,
+        Power = card.Power,
+        Toughness = card.Toughness,
+        Defense = card.Defense,
+        Specializations = card.Specializations,
+    };
+
     private static CardDefinition FrontOnly(CardDefinition card) => new()
     {
         OracleId = card.OracleId,
@@ -4559,6 +4614,99 @@ public static partial class CardCompiler
 
         return true;
     }
+
+    /// <summary>
+    /// "Specialize [cost]" - five activated abilities, one per colour (Alchemy).
+    /// </summary>
+    /// <remarks>
+    /// Specialize is in none of the printed Comprehensive Rules; the authority is the Arena rules
+    /// bulletin, which spells it out as "[Cost], Discard a card: This permanent specializes into
+    /// the specialized version associated with the color of the discarded card. Activate only as
+    /// a sorcery."
+    /// <para>
+    /// <strong>Five abilities, not one.</strong> Which version you get is decided by the colour
+    /// of the card you discard, and a discard is a cost - paid <em>with</em> the activation, so
+    /// the branch is taken before anything resolves (see the note on
+    /// <see cref="ActivatedAbilityDefinition.ChosenCosts"/>). Written as one ability that read the
+    /// discarded card afterwards it would have needed the payment kept and looked at during
+    /// resolution, which is the continuation this engine deliberately cannot hold. Written as
+    /// five, each with its own coloured price, every existing piece already works: the cost check
+    /// refuses a hand with no card of that colour, and the board can offer the five side by side.
+    /// </para>
+    /// <para>
+    /// Refused outright when the card's five versions were not linked, which is what keeps this
+    /// fail-closed: an ability that activated, took the mana and the card, and turned the
+    /// permanent into nothing is worse than the unread line it replaced. Two of the nineteen
+    /// printed lines are refused for the tail they carry rather than the keyword - a printed cost
+    /// reduction and Karlach's "you may also activate this ability if it is in your graveyard",
+    /// which is an activation from a zone this ability does not function in.
+    /// </para>
+    /// </remarks>
+    private static bool TrySpecialize(
+        string line,
+        CardDefinition card,
+        ImmutableList<ActivatedAbilityDefinition>.Builder into)
+    {
+        var m = SpecializeLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        // Nothing to become. The line stays unread, which is the honest answer: the card says it
+        // can specialize and this compiler has not been told what into.
+        if (card.Specializations.Count != 6)
+            return false;
+
+        var cost = ManaCostSpec.Parse(m.Groups["cost"].Value);
+
+        var timing = ActivationTiming.SorceryOnly;
+        int? limit = null;
+        BoardCondition? onlyIf = null;
+
+        if (m.Groups["only"].Success)
+        {
+            if (ReadActivationRestrictions(m.Groups["only"].Value.Trim()) is not { } read)
+                return false;
+
+            // A printed timing beside the keyword's own would be two answers to one question, and
+            // taking either would print a card nobody has. No corpus line does it.
+            if (read.Timing != ActivationTiming.AnyTime && read.Timing != timing)
+                return false;
+
+            limit = read.Limit;
+            onlyIf = read.OnlyIf;
+        }
+
+        for (var version = 1; version < card.Specializations.Count; version++)
+        {
+            var colour = (ManaColor)version;
+            if (SpecForCardPayment(ColourWords[colour] + " card", 1) is not { } discard)
+                return false;
+
+            into.Add(new ActivatedAbilityDefinition
+            {
+                Id = "specialize-" + ColourWords[colour],
+                Text = line,
+                ManaCost = cost,
+                Timing = timing,
+                MaxActivationsPerTurn = limit,
+                ActivateOnlyIf = onlyIf,
+                ChosenCosts = [new ChosenCost(ChosenCostKind.DiscardCards, 1, discard)],
+                Effects = [new SpecializeSource(version)],
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>The word a card prints for each colour, in <see cref="ManaColor"/>'s order.</summary>
+    private static readonly Dictionary<ManaColor, string> ColourWords = new()
+    {
+        [ManaColor.White] = "white",
+        [ManaColor.Blue] = "blue",
+        [ManaColor.Black] = "black",
+        [ManaColor.Red] = "red",
+        [ManaColor.Green] = "green",
+    };
 
     /// <summary>
     /// "Job select" - an Equipment that brings its own wearer (CR 702.182a).
@@ -19428,6 +19576,17 @@ public static partial class CardCompiler
 
     [GeneratedRegex(@"^reconfigure (?<cost>[^.]+?)\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex ReconfigureLine();
+
+    /// <remarks>
+    /// The ability word in front of it - "Wild Shape", "Rage Beyond Death" - is already off
+    /// by the time a line reaches here (CR 207.2c), so this reads the keyword and, if the
+    /// card prints one, the "Activate only ..." sentence beside it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^specialize (?<cost>(?:\{[^}]+\})+)"
+            + @"(?:\. activate only (?<only>[^.]+))?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex SpecializeLine();
 
     [GeneratedRegex(@"^job select$", RegexOptions.IgnoreCase)]
     private static partial Regex JobSelectLine();

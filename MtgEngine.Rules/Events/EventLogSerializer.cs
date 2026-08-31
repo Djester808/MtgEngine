@@ -147,6 +147,7 @@ public static class EventLogSerializer
             ["MonarchChanged"] = typeof(MonarchChanged),
             ["InitiativeTaken"] = typeof(InitiativeTaken),
             ["PermanentTransformed"] = typeof(PermanentTransformed),
+            ["PermanentSpecialized"] = typeof(PermanentSpecialized),
             ["DayNightChanged"] = typeof(DayNightChanged),
             ["PermanentSaddled"] = typeof(PermanentSaddled),
             ["SpellBargained"] = typeof(SpellBargained),
@@ -441,7 +442,13 @@ public static class EventLogSerializer
         //
         // CardFace is already only what the compiler reads - no oracle id, no prices, no images -
         // so it travels whole rather than being trimmed into a second shape that could drift.
-        IReadOnlyList<CardFace> Faces)
+        IReadOnlyList<CardFace> Faces,
+
+        // The same reason again, one mechanic along: a re-read specialize card with no
+        // versions makes GameReducer.Specialize refuse every index, so a saved game came
+        // back with its specialized permanents on their base cards and unable to
+        // specialize again. Nineteen corpus cards carry these.
+        IReadOnlyList<CardFace> Specializations)
     {
         public static PrintedCard Of(CardDefinition card) => new(
             card.OracleId,
@@ -459,7 +466,8 @@ public static class EventLogSerializer
             card.Keywords,
             card.ColorIdentity,
             card.Colors,
-            card.Faces);
+            card.Faces,
+            card.Specializations);
 
         public CardDefinition ToDefinition() => new()
         {
@@ -479,6 +487,7 @@ public static class EventLogSerializer
             ColorIdentity = [.. ColorIdentity],
             Colors = [.. Colors],
             Faces = [.. Faces],
+            Specializations = [.. Specializations],
         };
     }
 }

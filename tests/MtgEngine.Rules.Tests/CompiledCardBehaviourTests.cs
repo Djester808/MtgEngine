@@ -6288,6 +6288,425 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(0, game.State.GetObject(mine).Permanent?.DamageMarked);
     }
 
+    // ---- Specialize: five prices, five cards behind one (Alchemy) ------------
+
+    /// <summary>
+    /// A base card and its five specialized versions, linked the way the bulk data links them.
+    /// </summary>
+    /// <remarks>
+    /// Six entries with the base at zero, which is the shape <c>CardDefinition.Specializations</c>
+    /// asks for and the shape the corpus loader builds out of <c>all_parts</c>. The versions'
+    /// costs are the base's plus one coloured pip, because that is the fact that says which
+    /// colour each of them is.
+    /// </remarks>
+    private static CardDefinition Specializing(
+        string name,
+        string baseText,
+        string cost,
+        params (string Name, string Text, int Power, int Toughness, KeywordAbility Keywords)[] versions)
+    {
+        var slots = new List<CardFace>
+        {
+            new()
+            {
+                Name = name,
+                ManaCostRaw = cost,
+                CardTypes = CardType.Creature,
+                OracleText = baseText,
+                Power = 2,
+                Toughness = 2,
+            },
+        };
+
+        foreach (var (versionName, text, power, toughness, keywords) in versions)
+        {
+            slots.Add(new CardFace
+            {
+                Name = versionName,
+                ManaCostRaw = cost + PipOf(slots.Count),
+                CardTypes = CardType.Creature,
+                OracleText = text,
+                Power = power,
+                Toughness = toughness,
+                Keywords = keywords,
+            });
+        }
+
+        return new CardDefinition
+        {
+            OracleId = "oracle-" + name.ToLowerInvariant().Replace(' ', '-'),
+            Name = name,
+            OracleText = baseText,
+            ManaCostRaw = cost,
+            Cmc = 2,
+            CardTypes = CardType.Creature,
+            Power = 2,
+            Toughness = 2,
+            Specializations = slots,
+        };
+    }
+
+    private static string PipOf(int index) => index switch
+    {
+        1 => "{W}",
+        2 => "{U}",
+        3 => "{B}",
+        4 => "{R}",
+        _ => "{G}",
+    };
+
+    /// <summary>The five versions used by most of the tests below, one line of text apiece.</summary>
+    private static (string, string, int, int, KeywordAbility)[] FiveVersions(string stem) =>
+    [
+        (stem + ", White", "Lifelink", 3, 3, KeywordAbility.Lifelink),
+        (stem + ", Blue", "Flying", 3, 4, KeywordAbility.Flying),
+        (stem + ", Black",
+            "When ~ specializes, create two 2/2 black Zombie creature tokens.",
+            3, 3, KeywordAbility.None),
+        (stem + ", Red", "Double strike", 2, 3, KeywordAbility.DoubleStrike),
+        (stem + ", Green", "Other creatures you control get +1/+1.", 4, 4, KeywordAbility.None),
+    ];
+
+    /// <summary>
+    /// Paying the black price makes the permanent the black version, and its trigger fires.
+    /// </summary>
+    /// <remarks>
+    /// The whole mechanic in one game. Which version you get is decided by the colour of the card
+    /// discarded, so the five colours are five abilities with five different prices - and what
+    /// this asserts is not that a swap happened but that the <em>new text works</em>: the card
+    /// under the permanent is the black version, it is the size the black version is printed at,
+    /// and the trigger printed only on that version resolved and left two Zombies behind. A
+    /// specialize that compiled and granted nothing would pass an assertion about the name alone.
+    /// </remarks>
+    [Fact]
+    public void Specializing_makes_the_permanent_the_version_whose_colour_was_discarded()
+    {
+        var acolyte = Specializing(
+            "Novice Acolyte R2141",
+            "Specialize {2}",
+            "{1}{W}",
+            FiveVersions("Acolyte R2141"));
+
+        var compiled = CardCompiler.Compile(acolyte);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Equal(5, compiled.Activated.Count);
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, acolyte, Zone.Battlefield);
+
+        var swamp = TestCards.PutInHand(game, alice, Coloured("Black Fodder R2141", ManaColor.Black));
+        game.AddMana(alice, null, 2);
+
+        game.ActivateAbility(alice, permanent, "specialize-black", costPayment: [swamp]);
+        Settle(game);
+
+        var after = game.State.GetObject(permanent);
+        Assert.Equal("Acolyte R2141, Black", after.Card.Name);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, after).Power);
+
+        // The line printed on the version and nowhere else. Two Zombies is the version's own
+        // trigger having fired on the specialize event, which is the half of this mechanic that
+        // cannot be faked by swapping a definition.
+        Assert.Equal(
+            2,
+            game.State.Objects.Values.Count(o =>
+                o.Zone == Zone.Battlefield && o.Card.Name == "Zombie"));
+    }
+
+    /// <summary>
+    /// The green version's static ability applies once the permanent has specialized.
+    /// </summary>
+    /// <remarks>
+    /// The other half of "the new text actually working": a continuous effect rather than a
+    /// trigger, so the layers have to be reading the swapped-in definition rather than the card
+    /// that was cast. Measured before as well as after, because a bear that was 3/3 all along
+    /// would prove nothing.
+    /// </remarks>
+    [Fact]
+    public void A_versions_static_ability_applies_after_the_permanent_specializes()
+    {
+        var druid = Specializing(
+            "Moon Druid R2141",
+            "Specialize {2}",
+            "{2}{G}",
+            FiveVersions("Druid R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, druid, Zone.Battlefield);
+        var bear = game.Create(alice, TestCards.Creature("Druid Bear R2141"), Zone.Battlefield);
+
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        var forest = TestCards.PutInHand(game, alice, Coloured("Green Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 2);
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Druid R2141, Green", game.State.GetObject(permanent).Card.Name);
+        Assert.Equal(3, Characteristics.Of(game.State, Pool, game.State.GetObject(bear)).Power);
+
+        // "Other creatures": the source is not pumped by its own lord, and reading that off the
+        // swapped card is what says the static came from the version rather than from the base.
+        Assert.Equal(
+            4,
+            Characteristics.Of(game.State, Pool, game.State.GetObject(permanent)).Power);
+    }
+
+    /// <summary>
+    /// The colour of the discard is a cost, so paying the wrong one is refused (CR 601.2h).
+    /// </summary>
+    /// <remarks>
+    /// The control the whole design turns on. Five abilities exist because the colour is decided
+    /// as the cost is paid, and if the cost accepted any card in hand the five would collapse
+    /// into a free choice of version - a strictly better card than the printed one. Refused twice
+    /// here: once for the mana and once for the wrong colour, so neither half is carrying the
+    /// other.
+    /// </remarks>
+    [Fact]
+    public void Specialize_refuses_a_discard_of_the_wrong_colour_and_a_pool_with_no_mana()
+    {
+        var monk = Specializing(
+            "Sun Monk R2141",
+            "Specialize {2}",
+            "{2}{W}",
+            FiveVersions("Monk R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, monk, Zone.Battlefield);
+        var plains = TestCards.PutInHand(game, alice, Coloured("White Fodder R2141", ManaColor.White));
+
+        // No mana in the pool: the price is refused before anything is spent (CR 601.2h).
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]));
+
+        game.AddMana(alice, null, 2);
+
+        // A white card is a card, and that is exactly what the black price does not accept.
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-black", costPayment: [plains]));
+
+        Assert.Equal("Sun Monk R2141", game.State.GetObject(permanent).Card.Name);
+        Assert.Contains(plains, game.State.GetPlayer(alice).Hand);
+
+        // The same card, the same permanent, the right price.
+        game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]);
+        Settle(game);
+
+        Assert.Equal("Monk R2141, White", game.State.GetObject(permanent).Card.Name);
+        Assert.True(Characteristics.Of(game.State, Pool, game.State.GetObject(permanent))
+            .Keywords.HasFlag(KeywordAbility.Lifelink));
+    }
+
+    /// <summary>Specialize is sorcery-speed, so it is refused with a spell on the stack.</summary>
+    [Fact]
+    public void Specialize_is_refused_at_instant_speed()
+    {
+        var monk = Specializing(
+            "Quick Monk R2141",
+            "Specialize {2}",
+            "{2}{W}",
+            FiveVersions("Quick R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, monk, Zone.Battlefield);
+        var plains = TestCards.PutInHand(game, alice, Coloured("Quick Fodder R2141", ManaColor.White));
+        game.AddMana(alice, null, 2);
+
+        var bolt = TestCards.PutInHand(
+            game,
+            alice,
+            Card("Quick Bolt R2141", "~ deals 1 damage to any target.", CardType.Instant));
+
+        game.CastSpell(alice, bolt, [Target.ToPlayer(alice)]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-white", costPayment: [plains]));
+
+        Settle(game);
+    }
+
+    /// <summary>
+    /// An "Activate only if" printed beside the keyword is read, and it refuses (CR 602.5b).
+    /// </summary>
+    /// <remarks>
+    /// Four of the nineteen printed lines carry something after the cost, and the ability word in
+    /// front of two of them - "Wild Shape", "Rage Beyond Death" - is flavour the line reader has
+    /// already taken off (CR 207.2c). This plays the whole printed line rather than the bare
+    /// keyword, because a restriction dropped on the way in would make the card strictly better
+    /// than the one printed and nothing else would notice.
+    /// </remarks>
+    [Fact]
+    public void An_activation_restriction_printed_beside_specialize_is_kept()
+    {
+        var druid = Specializing(
+            "Wild Druid R2141",
+            "Wild Shape — Specialize {2}. Activate only if you control three or more lands.",
+            "{2}{G}",
+            FiveVersions("Wild R2141"));
+
+        var compiled = CardCompiler.Compile(druid);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, druid, Zone.Battlefield);
+        var forest = TestCards.PutInHand(game, alice, Coloured("Wild Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 4);
+
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]));
+
+        game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Wild R2141, Green", game.State.GetObject(permanent).Card.Name);
+    }
+
+    /// <summary>
+    /// A specialized permanent that dies is its base card in the graveyard (CR 400.7).
+    /// </summary>
+    /// <remarks>
+    /// The version exists only on the battlefield. Without this the graveyard would hold a card
+    /// nobody put in their deck, under an oracle id no deck list contains - and every card that
+    /// asks about a card in a graveyard would be asking about it. The departure record keeps the
+    /// specialized card deliberately, because the trigger that reads it is printed on the version
+    /// and is written about the thing that died.
+    /// </remarks>
+    [Fact]
+    public void A_specialized_permanent_leaves_the_battlefield_as_its_base_card()
+    {
+        var vassal = Specializing(
+            "Dragon Vassal R2141",
+            "Specialize {2}",
+            "{4}{G}",
+            FiveVersions("Vassal R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, vassal, Zone.Battlefield);
+        var forest = TestCards.PutInHand(game, alice, Coloured("Vassal Fodder R2141", ManaColor.Green));
+        game.AddMana(alice, null, 2);
+
+        game.ActivateAbility(alice, permanent, "specialize-green", costPayment: [forest]);
+        Settle(game);
+
+        Assert.Equal("Vassal R2141, Green", game.State.GetObject(permanent).Card.Name);
+
+        var doom = TestCards.PutInHand(
+            game,
+            alice,
+            Card("Vassal Doom R2141", "Destroy target creature.", CardType.Sorcery));
+
+        game.CastSpell(alice, doom, [Target.ToPermanent(permanent)]);
+        Settle(game);
+
+        var dead = game.State.GetPlayer(alice).Graveyard
+            .Select(id => game.State.GetObject(id))
+            .Single(o => o.Card.Name.StartsWith("Dragon Vassal", StringComparison.Ordinal));
+
+        Assert.Equal("Dragon Vassal R2141", dead.Card.Name);
+        Assert.Equal("oracle-dragon-vassal-r2141", dead.Card.OracleId);
+        Assert.Equal(6, dead.Card.Specializations.Count);
+    }
+
+    /// <summary>
+    /// A specialize line whose versions were never linked stays unread.
+    /// </summary>
+    /// <remarks>
+    /// Fail-closed, and the reason the compiler is handed the card rather than the line alone. An
+    /// ability that took the mana and the card and turned the permanent into nothing is worse
+    /// than the unread line it replaced - it reads perfectly and does less than it says, which is
+    /// the exact defect three audits found in this tree this round.
+    /// </remarks>
+    [Fact]
+    public void A_specialize_line_with_no_versions_behind_it_is_left_unread()
+    {
+        var orphan = Card("Orphan Acolyte R2141", "Specialize {2}", CardType.Creature, 2, 2);
+
+        var compiled = CardCompiler.Compile(orphan);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains("Specialize {2}", compiled.Unhandled);
+        Assert.Empty(compiled.Activated);
+    }
+
+    /// <summary>
+    /// A version the compiler cannot read keeps the whole card incomplete.
+    /// </summary>
+    /// <remarks>
+    /// The rule the split card and the adventure already follow, applied to the list the
+    /// specialize ability reaches: a destination whose text this compiler cannot play is text the
+    /// player would be shown and the engine would not honour. Nineteen corpus cards sit behind
+    /// this and none of them completes today - which is the measurement, not a disappointment.
+    /// The keyword was never what blocked them.
+    /// </remarks>
+    [Fact]
+    public void An_unreadable_version_keeps_the_base_card_incomplete()
+    {
+        var half = Specializing(
+            "Half Read R2141",
+            "Specialize {2}",
+            "{1}{W}",
+            ("Half R2141, White", "Lifelink", 3, 3, KeywordAbility.Lifelink),
+            ("Half R2141, Blue", "Flying", 3, 4, KeywordAbility.Flying),
+            ("Half R2141, Black",
+                @"When ~ specializes, you get a one-time boon with ""Draw a card.""",
+                3, 3, KeywordAbility.None),
+            ("Half R2141, Red", "Double strike", 2, 3, KeywordAbility.DoubleStrike),
+            ("Half R2141, Green", "Other creatures you control get +1/+1.", 4, 4, KeywordAbility.None));
+
+        var compiled = CardCompiler.Compile(half);
+
+        Assert.False(compiled.IsComplete);
+        Assert.Contains(compiled.Unhandled, l => l.Contains("one-time boon", StringComparison.Ordinal));
+
+        // The base's own line still read: what is unread is the destination, and saying so is the
+        // whole value of rolling the versions up rather than dropping them.
+        Assert.DoesNotContain("Specialize {2}", compiled.Unhandled);
+    }
+
+    /// <summary>
+    /// The specialize trigger does not fire when a permanent turns over instead.
+    /// </summary>
+    /// <remarks>
+    /// The reason specializing has an event of its own rather than a wider face index on
+    /// <c>PermanentTransformed</c>. Both swap a permanent's card for another set of
+    /// characteristics, and the cards ask about them separately - nineteen cards' versions print
+    /// "when this creature specializes", and a werewolf turning over is not that.
+    /// </remarks>
+    [Fact]
+    public void A_transform_is_not_a_specialize()
+    {
+        var watcher = Specializing(
+            "Watcher R2141",
+            "Specialize {2}",
+            "{1}{B}",
+            FiveVersions("Watcher R2141"));
+
+        var (game, alice, _) = InMainPhase();
+        var permanent = game.Create(alice, watcher, Zone.Battlefield);
+
+        var trigger = CardCompiler
+            .Compile(CardFaces.Specialized(watcher, (int)ManaColor.Black))
+            .Triggers
+            .Single();
+
+        var source = new TriggerSource(game.State.GetObject(permanent), Pool);
+
+        Assert.True(trigger.Triggers(
+            new PermanentSpecialized(permanent, (int)ManaColor.Black), game.State, source));
+
+        Assert.False(trigger.Triggers(
+            new PermanentTransformed(permanent, 1), game.State, source));
+
+        // Nor does going back to the base card, which is index zero and what a zone change does.
+        Assert.False(trigger.Triggers(
+            new PermanentSpecialized(permanent, 0), game.State, source));
+    }
+
     // ---- "Its controller ..." (CR 608.2) -------------------------------------
 
     [Fact]

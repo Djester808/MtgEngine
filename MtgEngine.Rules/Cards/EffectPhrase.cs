@@ -18709,6 +18709,25 @@ public static partial class TriggerConditions
                 && m.OldId == source.Id;
         }
 
+        // "When this creature specializes" and "when this creature enters or specializes" - the
+        // linked half of the Alchemy specialize ability, printed on the versions rather than on
+        // the card that turns into them. Its own event for the reason exploit has one: nothing
+        // about the card swap underneath says which of the several ways a permanent can change
+        // its characteristics this was, and a trigger that fired on a werewolf turning over
+        // would be a different card.
+        //
+        // Unspecializing is deliberately not this trigger: index zero is a permanent going
+        // back to its base card, and no printed line asks about it.
+        var specializing = SpecializesLine().Match(condition);
+        if (specializing.Success)
+        {
+            var alsoOnEntry = specializing.Groups["entering"].Success;
+
+            return (e, state, source) =>
+                (e is PermanentSpecialized { Index: > 0 } became && became.Id == source.Id)
+                || (alsoOnEntry && Entered(e, state)?.Id == source.Id);
+        }
+
         // "When this creature exploits a creature" (CR 702.110b). Its own event rather than a
         // sacrifice, because sacrifices happen for all sorts of reasons and nothing about the
         // move says which of them this was.
@@ -20903,6 +20922,17 @@ public static partial class TriggerConditions
 
     [GeneratedRegex(@"^~ exploits an? [a-z' ]*creature$", RegexOptions.IgnoreCase)]
     private static partial Regex ExploitsLine();
+
+    /// <remarks>
+    /// "When ~ specializes" and "when ~ enters or specializes" are one condition with an
+    /// optional first half, because the second half is what the versions actually print and
+    /// five of them print both. "Whenever ~ specializes or attacks" is deliberately not here:
+    /// the attack half is a declaration condition with its own subject rules, and folding it in
+    /// would be guessing at which of the two the pronoun after the comma means.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^~ (?<entering>enters or )?specializes$", RegexOptions.IgnoreCase)]
+    private static partial Regex SpecializesLine();
 
     [GeneratedRegex(
         @"^((?<who>you|a player|an opponent) taps? "
