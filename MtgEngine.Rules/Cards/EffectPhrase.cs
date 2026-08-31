@@ -18724,7 +18724,7 @@ public static partial class TriggerConditions
             var alsoOnEntry = specializing.Groups["entering"].Success;
 
             return (e, state, source) =>
-                (e is PermanentSpecialized { Index: > 0 } became && became.Id == source.Id)
+                (e is PermanentSpecialized { Version: > 0 } became && became.Id == source.Id)
                 || (alsoOnEntry && Entered(e, state)?.Id == source.Id);
         }
 

@@ -1917,15 +1917,15 @@ public static class GameReducer
     {
         if (!state.TryGetObject(e.Id, out var permanent)
             || permanent.Permanent is null
-            || e.Index < 0
-            || permanent.Card.Specializations.Count <= e.Index)
+            || e.Version < 0
+            || permanent.Card.Specializations.Count <= e.Version)
         {
             return state;
         }
 
         return state.WithObject(permanent with
         {
-            Card = MtgEngine.Rules.Cards.CardFaces.Specialized(permanent.Card, e.Index),
+            Card = MtgEngine.Rules.Cards.CardFaces.Specialized(permanent.Card, e.Version),
         });
     }
 

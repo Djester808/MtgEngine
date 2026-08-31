@@ -1810,16 +1810,18 @@ public sealed record PermanentTransformed(ObjectId Id, int FaceIndex) : GameEven
 /// not put a discarded card's colour on the board.
 /// </para>
 /// <para>
-/// The index rather than a colour so that zero can mean the base card, which is what
-/// unspecializing is. No state field goes with it: the swapped-in definition carries the index
-/// in its own oracle id, the way a turned-over face does.
+/// The version number rather than a colour so that zero can mean the base card, which is what
+/// unspecializing is. Named <c>Version</c> and not <c>Index</c> because it is not a target index
+/// and the invariant guard is right to ask - it is a locator, the same kind of thing
+/// <c>EffectIndex</c> is. No state field goes with it: the swapped-in definition carries the
+/// number in its own oracle id, the way a turned-over face does.
 /// </para>
 /// </remarks>
-public sealed record PermanentSpecialized(ObjectId Id, int Index) : GameEvent
+public sealed record PermanentSpecialized(ObjectId Id, int Version) : GameEvent
 {
-    public override string Describe() => Index == 0
+    public override string Describe() => Version == 0
         ? $"{Id} unspecialized."
-        : $"{Id} specialized into version {Index}.";
+        : $"{Id} specialized into version {Version}.";
 }
 
 /// <summary>

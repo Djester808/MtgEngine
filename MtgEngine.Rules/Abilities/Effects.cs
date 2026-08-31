@@ -10188,7 +10188,7 @@ public sealed record TransformSource : IEffect
 /// over.
 /// </para>
 /// </remarks>
-public sealed record SpecializeSource(int Index) : IEffect
+public sealed record SpecializeSource(int Version) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
@@ -10198,9 +10198,9 @@ public sealed record SpecializeSource(int Index) : IEffect
 
         return context.State.TryGetObject(subject, out var permanent)
             && permanent.Permanent is not null
-            && Index > 0
-            && Index < permanent.Card.Specializations.Count
-            ? [new PermanentSpecialized(subject, Index)]
+            && Version > 0
+            && Version < permanent.Card.Specializations.Count
+            ? [new PermanentSpecialized(subject, Version)]
             : [];
     }
 }
