@@ -78,6 +78,18 @@ public sealed class PlayableCards : IAbilitySource
     public IReadOnlyList<ReplacementEffectDefinition> ReplacementsOf(CardDefinition card) =>
         For(card).ReplacementsOf(card);
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// A timing permission is read off the battlefield when the question is asked, so a card
+    /// that is not delegated here loses it silently: Vedalken Orrery and Leyline of Anticipation
+    /// compile perfectly and then grant nothing at a real table. The fourth member to be added
+    /// to <c>IAbilitySource</c> and forgotten here, which is why the reflection test in
+    /// <c>PlayableCardsTests</c> exists rather than a code review convention.
+    /// </remarks>
+    public IReadOnlyList<MtgEngine.Rules.State.FlashPermission> FlashPermissionsOf(
+        CardDefinition card) =>
+        For(card).FlashPermissionsOf(card);
+
     public IReadOnlyList<CostReducer> CostReducersOf(CardDefinition card) =>
         For(card).CostReducersOf(card);
 

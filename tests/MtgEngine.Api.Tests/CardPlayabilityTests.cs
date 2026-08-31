@@ -251,7 +251,20 @@ public sealed class CardPlayabilityTests(ITestOutputHelper output)
     // collections this naive question counts. Nothing left the list, so the rise is purely
     // additive. The production gate asks CompiledPool.Refuses, which is !IsComplete and admits
     // all seven; they are playable, and this row measures only the naive question s blind spot.
-    private const int CompiledGateRefusesComplete = 475;
+    // Re-recorded 475 -> 502 for round twenty-one, investigated by diffing the full refusal
+    // list at both tips rather than trusting the twelve-card sample this test prints. 33
+    // arrived and 6 left. Every one of the 33 is a card whose whole text lands in a collection
+    // this naive question does not count, and the round added four such: a flash permission
+    // (Vedalken Orrery, Leyline of Anticipation, Yeva), a combat tax (Ghostly Prison,
+    // Propaganda, Sphere of Safety), a library-top permission (Future Sight, Oracle of Mul
+    // Daya) and a cost modifier (the four Familiars, the four Bannerets). The 6 that left are
+    // the max-blockers fix: they had compiled to Menace - the opposite restriction - and now
+    // carry a counted characteristic instead.
+    //
+    // The production gate asks CompiledPool.Refuses, which is !IsComplete and admits all of
+    // them; this row measures only the naive question's blind spot, and it widens precisely
+    // when a new kind of ability becomes readable.
+    private const int CompiledGateRefusesComplete = 502;
 
     /// <summary>Half-read and admitted anyway. Should be 0; see PLAYABILITY.md.</summary>
     private const int CompiledGateAdmitsHalfRead = 6_679;
