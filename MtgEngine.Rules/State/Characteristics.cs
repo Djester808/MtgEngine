@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
@@ -231,6 +232,37 @@ public sealed record ComputedCharacteristics
     /// </remarks>
     public bool HasLostAllAbilities { get; init; }
 
+    /// <summary>
+    /// Whether this land's types were set to a basic land type, taking its text (CR 305.7).
+    /// </summary>
+    /// <remarks>
+    /// Read by the same two readers <see cref="HasLostAllAbilities"/> is read by, and for the
+    /// same reason: what it removes is looked up from an <see cref="IAbilitySource"/> by card,
+    /// so no computation in this file can reach it. What it removes is narrower — the printed
+    /// abilities go and the granted ones stay (CR 305.7's own last sentence) — which is why the
+    /// two flags are separate and why this one does not empty
+    /// <see cref="GrantedActivated"/>: the mana ability the type change just granted is one of
+    /// the abilities it must not take away.
+    /// <para>
+    /// <strong>Two things it does not reach, and both are deliberate.</strong> The land's own
+    /// <em>static</em> abilities are still gathered from the battlefield: silencing those means
+    /// asking every permanent whether it has been retyped from inside the computation of every
+    /// other one, which is the CR 613.8 loop this file already bounds by hand for outright
+    /// ability removal and pays for only when something on the board removes an ability. And its
+    /// <em>replacement</em> effects still apply, so a "this land enters tapped" under a Blood
+    /// Moon still enters tapped where the rules say it should not.
+    /// </para>
+    /// <para>
+    /// Both were measured rather than assumed. Of the 1,265 nonbasic lands in the corpus, 131
+    /// print a line that is neither a trigger nor an activated ability, and all but a handful of
+    /// those are an "enters tapped" replacement or a bare keyword - the keywords this does take,
+    /// in <see cref="CharacteristicsBuilder.LoseAbilitiesFromRulesText"/>. What is left is a
+    /// short list of lands with a real static ability (Eye of Ugin's cost reduction is the
+    /// shape), none of which this round makes playable.
+    /// </para>
+    /// </remarks>
+    public bool HasLostPrintedAbilities { get; init; }
+
     /// <summary>The player this creature must attack if it can (CR 702.141a).</summary>
     /// <remarks>
     /// Goad's mirror: that one says "anybody but this player" and this says "this player and
@@ -442,6 +474,20 @@ public static class Characteristics
             ReadMergedComponents(abilities, obj, builder);
         }
 
+        // CR 305.6's intrinsic mana ability, hung on the end of layer 4 for the reason the copy
+        // read is hung on the end of layer 1: the types it reads are settled there and nothing
+        // later changes them, and layer 6 has to be able to take the ability away again.
+        var landAbilitiesRead = false;
+
+        void ReadIntrinsicLandAbilities()
+        {
+            if (landAbilitiesRead)
+                return;
+
+            landAbilitiesRead = true;
+            AddIntrinsicLandAbilities(abilities, builder);
+        }
+
         // CR 613.1: start with the printed values, then apply the effects layer by layer. Within
         // a layer the order is by timestamp (CR 613.7) unless one effect depends on another, in
         // which case dependency wins (CR 613.8).
@@ -458,6 +504,13 @@ public static class Characteristics
             if (layer.Key != EffectLayer.Copy)
                 ReadCopiableValues();
 
+            // Past layer 4, so the subtypes are final. Written as "any layer above type" rather
+            // than hung on the type group alone for the reason recorded above it: the loop only
+            // visits layers that have effects in them, and a board with a lord on it and no
+            // type-changer would never reach a layer-4 group at all.
+            if (layer.Key > EffectLayer.Type)
+                ReadIntrinsicLandAbilities();
+
             foreach (var candidate in InDependencyOrder(state, [.. layer], builder))
             {
                 // Applicability is asked again here rather than reused: an effect earlier in the
@@ -467,10 +520,14 @@ public static class Characteristics
 
             if (layer.Key == EffectLayer.Copy)
                 ReadCopiableValues();
+
+            if (layer.Key == EffectLayer.Type)
+                ReadIntrinsicLandAbilities();
         }
 
         // A board with no continuous effects on it at all never entered the loop.
         ReadCopiableValues();
+        ReadIntrinsicLandAbilities();
 
         // CR 701.54c: the Ring is an emblem rather than a permanent, so its abilities have no
         // source object to hang a continuous effect on. They are applied here, after the layers,
@@ -479,6 +536,79 @@ public static class Characteristics
         ApplyTheRing(state, obj, builder);
 
         return builder.Build();
+    }
+
+    /// <summary>The five basic land types and the mana each one taps for (CR 305.6).</summary>
+    private static readonly (string Subtype, string Symbol, ManaProduction Produces)[]
+        BasicLandTypes =
+        [
+            ("Plains", "{W}", new ManaProduction(ManaColor.White, 1)),
+            ("Island", "{U}", new ManaProduction(ManaColor.Blue, 1)),
+            ("Swamp", "{B}", new ManaProduction(ManaColor.Black, 1)),
+            ("Mountain", "{R}", new ManaProduction(ManaColor.Red, 1)),
+            ("Forest", "{G}", new ManaProduction(ManaColor.Green, 1)),
+        ];
+
+    /// <summary>
+    /// Gives a land the mana ability each basic land type it has right now carries (CR 305.6).
+    /// </summary>
+    /// <remarks>
+    /// "An object with the land card type and a basic land type has the intrinsic ability
+    /// '{T}: Add [mana symbol]', even if the text box doesn't actually contain that text or the
+    /// object has no text box." Both halves of that condition are things the layers decide, which
+    /// is why this is here and not in the compiler. It <em>was</em> in the compiler, read off the
+    /// printed subtypes, and that made the ability a property of the card: a Mountain turned into
+    /// an Island by a Spreading Seas still tapped for {R}, and no effect anywhere could take the
+    /// ability away, because taking it away would have meant editing the compiled card.
+    /// <para>
+    /// It goes in <see cref="ComputedCharacteristics.GrantedActivated"/> — where a copy's
+    /// abilities and an Aura's grant already live — because a permanent's abilities are looked up
+    /// from an <see cref="IAbilitySource"/> <em>by card</em>, and there is no card to look this
+    /// one up on. That also settles the interaction with CR 613.1f for free: layer 6 runs after
+    /// this and <see cref="CharacteristicsBuilder.LoseAllAbilities"/> empties the list, so a land
+    /// stripped of its abilities stops tapping for mana.
+    /// </para>
+    /// <para>
+    /// <strong>The id is the first "mana" the card has not already used.</strong> The compiler
+    /// numbers a printed mana ability "mana", "mana1" and so on from zero, and it numbers them
+    /// without knowing this exists — so Murmuring Bosk, a Forest that also prints "{T}: Add {W}",
+    /// would have two abilities called "mana" and an activation by id would find whichever came
+    /// first in the list. The board and the log both address an ability by its id, so a collision
+    /// is not a duplicate in a list: it is the wrong ability resolving.
+    /// </para>
+    /// </remarks>
+    private static void AddIntrinsicLandAbilities(
+        IAbilitySource abilities, CharacteristicsBuilder builder)
+    {
+        // Both halves of CR 305.6's condition, asked of the object rather than of its card. The
+        // card-type test comes first because it is a flag comparison and every non-land on the
+        // board pays only for that: this runs inside the hottest loop in the engine.
+        if (!builder.CardTypes.HasFlag(CardType.Land))
+            return;
+
+        List<string>? taken = null;
+
+        foreach (var (subtype, symbol, produces) in BasicLandTypes)
+        {
+            if (!builder.HasSubtype(subtype))
+                continue;
+
+            taken ??= [.. abilities.ActivatedOf(builder.Card).Select(a => a.Id)];
+
+            var id = "mana";
+            for (var n = 1; taken.Contains(id, StringComparer.Ordinal); n++)
+                id = "mana" + n.ToString(CultureInfo.InvariantCulture);
+
+            taken.Add(id);
+
+            builder.GrantedActivated.Add(new ActivatedAbilityDefinition
+            {
+                Id = id,
+                Text = "{T}: Add " + symbol + ".",
+                RequiresTap = true,
+                Produces = [produces],
+            });
+        }
     }
 
     /// <summary>

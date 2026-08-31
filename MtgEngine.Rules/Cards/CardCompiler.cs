@@ -303,23 +303,14 @@ public static partial class CardCompiler
         AlternativeCastZone? castFrom = null;
         Func<GameState, Guid, bool>? castOnly = null;
 
-        // CR 305.6: a land with a basic land type has the matching mana ability whether or not
-        // it is printed. It is printed only as reminder text, in brackets — which this compiler
-        // strips as noise — so without this the commonest cards in Magic compile to nothing at
-        // all and no deck can produce mana.
-        foreach (var (subtype, colour) in BasicLandTypes)
-        {
-            if (!card.Subtypes.Contains(subtype, StringComparer.OrdinalIgnoreCase))
-                continue;
-
-            activated.Add(new ActivatedAbilityDefinition
-            {
-                Id = "mana" + Suffix(activated.Count),
-                Text = "{T}: Add " + colour.Symbol + ".",
-                RequiresTap = true,
-                Produces = [colour.Production],
-            });
-        }
+        // CR 305.6's mana ability is deliberately *not* built here. It used to be, read off the
+        // printed subtypes - and a printed subtype is the wrong thing to read it from: the rule
+        // says an object "with the land card type and a basic land type" has the ability, and
+        // which basic land types a permanent has is a layer 4 answer, not a fact about its card.
+        // A Mountain that a Spreading Seas has turned into an Island kept "{T}: Add {R}", because
+        // the ability had been baked in when the card compiled and nothing afterwards could take
+        // it back off. It lives in Characteristics.AddIntrinsicLandAbilities now, computed from
+        // the subtypes the permanent has at the moment it is asked.
 
         // CR 310.12b: every Siege has "When the last defense counter is removed from this
         // permanent, exile it, then you may cast it transformed without paying its mana cost."
@@ -7772,7 +7763,15 @@ public static partial class CardCompiler
             || TryCountingStatic(line, card, statics)
             || TrySoulbondStatic(line, card, statics)
             || TryConditionalStatic(line, card, statics)
-            || TryMassStatic(line, card, statics);
+            || TryMassStatic(line, card, statics)
+
+            // Both land-type readers sit at the end of the chain on purpose, and it is the same
+            // reason the conjunction fold does: a reader that only ever sees lines every other
+            // matcher has refused cannot take a line one of them was already reading. "Enchanted
+            // land is an Island" and "Nonbasic lands are Mountains" are short sentences in a very
+            // common shape, and put earlier either of them could have claimed a neighbour's.
+            || TryAttachedTypeReplacement(line, statics)
+            || TryGroupLandType(line, card, statics);
 
     /// <summary>
     /// "Enchanted creature gets +2/+2, has flying, and is a Bird in addition to its other types."
@@ -8169,6 +8168,152 @@ public static partial class CardCompiler
             Apply = (_, _, builder) => builder.CardTypes |= added,
         });
 
+        return true;
+    }
+
+    /// <summary>
+    /// "Enchanted land is an Island" — the other half of CR 205.1, layer 4 (CR 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TryAttachedTypeAddition"/> one clause apart. That reader requires "in addition
+    /// to its other types" and this one requires its absence, and the two words are the whole
+    /// difference: with them the subtype joins the ones the permanent had (CR 205.1b), without
+    /// them it <em>replaces</em> the ones from its own set (CR 205.1a). Spreading Seas is the
+    /// second sentence and Ensoul Artifact is the first.
+    /// <para>
+    /// The replacement is <see cref="GenerativeEffects"/>'s own, taken rather than written out
+    /// here. That definition already knows which set a subtype displaces, and it already carries
+    /// what CR 305.7 makes of the answer when the subtype is a basic land type and the permanent
+    /// is a land — the enchanted land loses the abilities its rules text generated. A second copy
+    /// of that would be the one that forgot, and forgetting it is the difference between
+    /// Spreading Seas and a Spreading Seas that leaves an Ancient Tomb tapping for {C}{C}.
+    /// </para>
+    /// <para>
+    /// A capitalised word only, exactly as the addition reader requires: a capital says subtype
+    /// and a lowercase word says card type (CR 205.3). "Enchanted permanent is a land" is a
+    /// different operation in the same layer and is left unread rather than guessed at.
+    /// </para>
+    /// </remarks>
+    private static bool TryAttachedTypeReplacement(
+        string line, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = AttachedTypeReplacementLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        var printed = m.Groups["what"].Value;
+        if (!char.IsUpper(printed[0]))
+            return false;
+
+        if (GenerativeEffects.Resolve(GenerativeEffects.BecomesCreatureTypeId(printed))
+            is not { } replacement)
+        {
+            return false;
+        }
+
+        static bool OnTheHost(GameState _, GameObject? source, CharacteristicsBuilder target) =>
+            source?.Permanent?.AttachedTo is { } host && target.Subject.Id == host;
+
+        into.Add(replacement with
+        {
+            Id = "attached:becomes-type:" + printed,
+            Applies = OnTheHost,
+        });
+
+        return true;
+    }
+
+    /// <summary>
+    /// "Nonbasic lands are Mountains" and "Each land is a Swamp in addition to its other land
+    /// types" — a land type said about a group, in layer 4 (CR 305.7, 613.1d).
+    /// </summary>
+    /// <remarks>
+    /// One reader for both halves of CR 305.7, because the sentences differ by the same clause
+    /// the attached pair differ by and the rule turns on exactly that: a land <em>set</em> to a
+    /// basic land type loses its old land types and the abilities its rules text generated, and
+    /// one that <em>gains</em> one "keeps its land types and rules text". Blood Moon is the first
+    /// sentence and Urborg is the second, and reading either as the other is a different card.
+    /// <para>
+    /// The group comes from <see cref="ReadGroupFilter"/> and the type change from
+    /// <see cref="GenerativeEffects"/>, so this method owns neither vocabulary. What it adds is
+    /// the join, and one narrowing: the subtype has to be a basic land type. The sentence shape
+    /// reaches every subtype in the game — "All creatures are Zombies" is the same grammar — and
+    /// admitting those would hand a whole untested family to a reader written for CR 305.6, which
+    /// is coverage bought with behaviour nothing plays.
+    /// </para>
+    /// <para>
+    /// The effects are built into a local list and added only once every one of them is built.
+    /// "Every basic land type" is five effects from one sentence, and a line that gave up halfway
+    /// would leave a card with two of the five and no record that it had failed.
+    /// </para>
+    /// </remarks>
+    private static bool TryGroupLandType(
+        string line, CardDefinition card, ImmutableList<ContinuousEffectDefinition>.Builder into)
+    {
+        var m = GroupLandTypeLine().Match(line);
+        if (!m.Success)
+            return false;
+
+        if (ReadGroupFilter(
+                m.Groups["noun"].Value, m.Groups["scope"].Value, m.Groups["side"].Value)
+            is not { } group)
+        {
+            return false;
+        }
+
+        // A land type said about something that is not a group of lands is a sentence this
+        // reader has no rule for: CR 305.6 and CR 305.7 both begin "an object with the land card
+        // type". Ashaya's "Nontoken creatures you control are Forest lands in addition to their
+        // other types" is the printed shape that means it, and it says the card type out loud in
+        // the same breath - a second operation in the same layer, and unread rather than guessed.
+        if (!group.Group.Types.Contains(CardType.Land))
+            return false;
+
+        var adds = m.Groups["add"].Success;
+        var named = m.Groups["what"].Value;
+
+        // "Lands you control are every basic land type in addition to their other types" — the
+        // five subtypes CR 305.6 names, said in four words. Only the adding spelling is printed,
+        // and only the adding spelling has an answer: a land *set* to all five at once would lose
+        // its rules text five times over under CR 305.7, on a sentence no card writes.
+        var everyBasic = string.Equals(
+            named, "every basic land type", StringComparison.OrdinalIgnoreCase);
+
+        if (everyBasic && !adds)
+            return false;
+
+        string[] types = everyBasic
+            ? EffectPhrase.BasicLandTypes
+            : [EffectPhrase.SingularWord(named)];
+
+        if (!Array.TrueForAll(types, EffectPhrase.Specs.IsBasicLandType))
+            return false;
+
+        bool Matches(GameState state, GameObject? source, CharacteristicsBuilder target) =>
+            group.Matches(state, source, target);
+
+        var built = new List<ContinuousEffectDefinition>(types.Length);
+
+        foreach (var type in types)
+        {
+            var definitionId = adds
+                ? GenerativeEffects.GainsCreatureTypeId(type)
+                : GenerativeEffects.BecomesCreatureTypeId(type);
+
+            if (GenerativeEffects.Resolve(definitionId) is not { } change)
+                return false;
+
+            // The group's own words go into the id for the reason the lord's do: a card printing
+            // two of these is told apart by nothing else, and the invariant suite reads a
+            // repeated id as one ability written twice.
+            built.Add(change with
+            {
+                Id = $"mass:{group.Described}:{card.Name}:{definitionId}",
+                Applies = Matches,
+            });
+        }
+
+        into.AddRange(built);
         return true;
     }
 
@@ -10309,8 +10454,16 @@ public static partial class CardCompiler
                 return null;
             }
 
+            // Which card type a bare plural asks for, from the shared classifier rather than
+            // assumed. It had been hardcoded to Creature, and that is right for the great
+            // majority of these sentences and silently wrong for the rest: "All Mountains are
+            // Plains" compiled to a lord for the *creature* type Mountain, matched nothing on any
+            // board, and read as a complete card. The same hardcoding made "Shrines you control",
+            // "Gates you control" and "Vehicles you control" ask for a creature none of them is.
+            // The target grammar has classified these words all along - "destroy target Gate"
+            // knows it is a land - so this is one vocabulary finally asked in both places.
             return new StaticGroup(
-                [CardType.Creature], one, null, described + "|" + one);
+                [EffectPhrase.SubtypeSetOf(one)], one, null, described + "|" + one);
         }
 
         string? subtype = null;
@@ -10397,6 +10550,13 @@ public static partial class CardCompiler
             if (rest is "legendary")
                 return (true, (_, target) => !target.IsLegendary);
 
+            // "Nonbasic lands are Mountains" — Blood Moon, and the word this vocabulary was
+            // missing. CR 305.8: a land without the basic supertype is a nonbasic land "even if
+            // it has a basic land type", so the question is about the supertype and never about
+            // the subtypes the layers have just finished changing.
+            if (rest is "basic")
+                return (true, (_, target) => !IsBasicPermanent(target));
+
             // "Non-Elf creatures", "non-Human creatures" \u2014 a negated creature type, and the
             // hyphen is what says so. That is the same rule the target grammar's adjective
             // vocabulary uses (CR 702.73a decides the awkward case: a changeling is every
@@ -10425,6 +10585,12 @@ public static partial class CardCompiler
             // A supertype, so it is read off the printed card (CR 205.4a) — nothing in the engine
             // changes one, which is why the builder carries it rather than computing it.
             "legendary" => (true, (_, target) => target.IsLegendary),
+
+            // The other supertype a card describes a group by, and read the same way: "basic
+            // lands you control" (CR 205.4a). Named here rather than left to the tribe fallback
+            // so it cannot become a lord for the creature type "Basic", which is the silent
+            // no-op every word in this switch is here to prevent.
+            "basic" => (true, (_, target) => IsBasicPermanent(target)),
 
             "attacking" => (true, (state, target) =>
                 state.Combat.Attackers.ContainsKey(target.Subject.Id)),
@@ -10480,6 +10646,18 @@ public static partial class CardCompiler
             _ => (false, null),
         };
     }
+
+    /// <summary>
+    /// Whether a permanent carries the basic supertype (CR 205.4a, 305.8).
+    /// </summary>
+    /// <remarks>
+    /// Off the card the permanent <em>is</em> rather than off the object's own, because a
+    /// supertype is a copiable value (CR 707.2) — a Clone of a basic land is one. Not computed,
+    /// for the reason the legendary test beside it is not: nothing in the game changes a
+    /// supertype, and CR 305.7 says setting a land's subtype explicitly does not.
+    /// </remarks>
+    private static bool IsBasicPermanent(CharacteristicsBuilder target) =>
+        target.Card.Supertypes.Contains("Basic", StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Whose permanents a group sentence is about (CR 109.5, 613.4c).</summary>
     /// <remarks>
@@ -16947,17 +17125,6 @@ public static partial class CardCompiler
             .Replace(",", string.Empty, StringComparison.Ordinal)
             .Trim();
 
-    /// <summary>The five basic land types and the mana each one taps for (CR 305.6).</summary>
-    private static readonly (string Subtype, (string Symbol, ManaProduction Production) Mana)[]
-        BasicLandTypes =
-        [
-            ("Plains", ("{W}", new ManaProduction(ManaColor.White, 1))),
-            ("Island", ("{U}", new ManaProduction(ManaColor.Blue, 1))),
-            ("Swamp", ("{B}", new ManaProduction(ManaColor.Black, 1))),
-            ("Mountain", ("{R}", new ManaProduction(ManaColor.Red, 1))),
-            ("Forest", ("{G}", new ManaProduction(ManaColor.Green, 1))),
-        ];
-
     /// <summary>Keyword words the engine models, by the name printed on the card.</summary>
     /// <remarks>
     /// The first quality is captured by the same group as the rest, so the captures are the
@@ -17524,6 +17691,39 @@ public static partial class CardCompiler
             + @" is an? (?<what>[A-Za-z][A-Za-z'-]*) in addition to its other types\.?$",
         RegexOptions.IgnoreCase)]
     private static partial Regex AttachedTypeAdditionLine();
+
+    /// <remarks>
+    /// The same sentence without the clause, which is what makes it CR 205.1a rather than 205.1b.
+    /// Anchored at both ends so the two patterns cannot both match a line: this one ends at the
+    /// subtype, and the addition above needs six more words after it.
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(enchanted|equipped) " + AttachedSubject
+            + @" is an? (?<what>[A-Za-z][A-Za-z'-]*)\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex AttachedTypeReplacementLine();
+
+    /// <remarks>
+    /// The group half of CR 305.7, with the trailing clause optional because the rule's two arms
+    /// are the sentence with and without it. The noun phrase, the scope word and the ownership
+    /// clause are spelled exactly as <see cref="MassStaticLine"/> spells them and are handed to
+    /// the same <see cref="ReadGroupFilter"/> — a group vocabulary restated is the drift this
+    /// file has already paid for three times.
+    /// <para>
+    /// "Every basic land type" is in the type slot rather than in a reader of its own because it
+    /// is a way of naming five subtypes, not a different sentence: Prismatic Omen and Yavimaya
+    /// say the same thing about the same group and differ only in how many types they name.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<scope>all|other|each other|each)?\s*"
+            + @"(?<noun>[A-Za-z][A-Za-z-]*(?:\s+[a-z][a-z-]*){0,3}?)"
+            + @"(?<side>\s+you control|\s+your opponents control|\s+an opponent controls)?"
+            + @"\s+(?:is|are) (?:an? )?"
+            + @"(?<what>every basic land type|[A-Za-z][A-Za-z'-]*)"
+            + @"(?<add> in addition to (?:its|their) other (?:land )?types)?\.?$",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex GroupLandTypeLine();
 
     /// <remarks>
     /// The possessive arm is the same silencing clause the pacifism tail already reads, printed

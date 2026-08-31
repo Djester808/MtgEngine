@@ -5563,6 +5563,33 @@ public static partial class EffectPhrase
             return true;
         }
 
+        // "Target land becomes an Island until end of turn." — the same family with no size to
+        // set, which makes it CR 305.7 rather than CR 613.4b: the land loses its old land types
+        // and its rules text and gains the new type's mana ability, and none of that is a
+        // power/toughness question. The layer-4 half above is the whole of this sentence.
+        //
+        // The duration is required for exactly the reason the animation's is. What this builds is
+        // an effect created with the turn number on it, which ends in the cleanup step — so a card
+        // that retypes a land *for good* ("{T}, Sacrifice a green creature: Target land becomes a
+        // Forest.") would be read as something that undoes itself, and would read as a complete
+        // card while doing it. Those stay in the work queue instead.
+        m = LandRetypeLine().Match(sentence);
+        if (m.Success
+            && (m.Groups["pre"].Success || m.Groups["ueot"].Success)
+            && Specs.IsBasicLandType(m.Groups["what"].Value)
+            && Specs.Parse(m.Groups["t"].Value) is { Kind: TargetKind.Permanent } retyped)
+        {
+            targets.Add(retyped);
+
+            effects.Add(new PumpUntilEndOfTurn(
+                m.Groups["add"].Success
+                    ? GenerativeEffects.GainsCreatureTypeId(m.Groups["what"].Value)
+                    : GenerativeEffects.BecomesCreatureTypeId(m.Groups["what"].Value),
+                targets.Count - 1));
+
+            return true;
+        }
+
         // "{2}: ~ becomes a copy of target artifact, creature, enchantment, or land until end of
         // turn" (CR 613.2a, 707.2). Layer 1, so everything else on the board applies on top of
         // the card it became rather than of the card it was printed as.
@@ -9084,8 +9111,14 @@ public static partial class EffectPhrase
     /// sentence unread — an amount that silently came out as one would be a card that does far
     /// less than it says, and nothing downstream would notice.
     /// </remarks>
-    /// <summary>The five basic land types domain counts (CR 305.6).</summary>
-    private static readonly string[] BasicLandTypes =
+    /// <summary>The five basic land types, in CR 305.6's own order.</summary>
+    /// <remarks>
+    /// Domain counts them and <see cref="Specs.IsBasicLandType"/> tests against them, and until
+    /// this was made one list they were two: the test next door spelled the five out again as an
+    /// <c>is</c> pattern. Neither copy was wrong, which is exactly how a list like this goes bad —
+    /// the day the set changes, one of them changes.
+    /// </remarks>
+    internal static readonly string[] BasicLandTypes =
         ["Plains", "Island", "Swamp", "Mountain", "Forest"];
 
     /// <summary>
@@ -12120,8 +12153,16 @@ public static partial class EffectPhrase
                 !Characteristics.Of(state, abilities, obj).Colors.Contains(color);
 
         /// <summary>The five subtypes that name a land rather than a creature (CR 205.3i).</summary>
+        /// <remarks>
+        /// Against the one list rather than a second spelling of it, and case-insensitively for
+        /// the reason every other subtype comparison in this file is: a printed word arrives with
+        /// whatever capitalisation the sentence gave it, and a mid-sentence "swamp" is the same
+        /// land type as a sentence-initial "Swamp".
+        /// </remarks>
         internal static bool IsBasicLandType(string subtype) =>
-            subtype is "Plains" or "Island" or "Swamp" or "Mountain" or "Forest";
+            Array.Exists(
+                BasicLandTypes,
+                one => string.Equals(one, subtype, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>The artifact types, verbatim from CR 205.3g.</summary>
         private static readonly HashSet<string> ArtifactTypes =
@@ -14786,6 +14827,24 @@ public static partial class EffectPhrase
             + @"(?<ueot> until end of turn)?$",
         RegexOptions.None)]
     private static partial Regex AnimateLine();
+
+    /// <remarks>
+    /// The animation's sentence with the size taken out, and it has to be its own pattern rather
+    /// than an optional group in that one: the size is what tells a permanent being animated from
+    /// a land being retyped, and making it optional there would let "target land becomes a Forest
+    /// creature" through with no power or toughness at all.
+    /// <para>
+    /// The subtype is required to be capitalised, which is the same rule the whole compiler reads
+    /// CR 205.3 by: a capital says subtype and a lowercase word says card type. Case-sensitive
+    /// for that reason, exactly as the animation beside it is.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"^(?<pre>[Uu]ntil end of turn, )?" + T + @" [Bb]ecomes an? (?<what>[A-Z][a-z']+)"
+            + @"(?<add> in addition to its other types)?"
+            + @"(?<ueot> until end of turn)?$",
+        RegexOptions.None)]
+    private static partial Regex LandRetypeLine();
 
     /// <summary>The same animation, said of the permanent whose ability it is.</summary>
     [GeneratedRegex(

@@ -12621,7 +12621,12 @@ public sealed class Game
         // granted ones are not cleared here - the layers have already settled which of those
         // survive, because a grant that applied after the removal still applies and one that
         // applied before does not (CR 613.7). Same shape as the face-down rule above.
-        if (now.HasLostAllAbilities)
+        // CR 305.7 does the same thing to a land whose types were set to a basic land type, and
+        // only to its printed half: "it loses all abilities generated from its rules text ...
+        // this doesn't remove any abilities that were granted to the land by other effects". The
+        // mana ability the retyping itself grants is one of those, and it is already in the
+        // granted list below, so it survives exactly as the rule says it should.
+        if (now.HasLostAllAbilities || now.HasLostPrintedAbilities)
             printed = [];
 
         var granted = now.GrantedActivated;
@@ -12689,7 +12694,9 @@ public sealed class Game
         // granted ones are not cleared here - the layers have already settled which of those
         // survive, because a grant that applied after the removal still applies and one that
         // applied before does not (CR 613.7). Same shape as the face-down rule above.
-        if (now.HasLostAllAbilities)
+        // CR 305.7, the same way: a Dark Depths that Blood Moon has turned into a Mountain stops
+        // watching for its own counters, because that trigger is generated from its rules text.
+        if (now.HasLostAllAbilities || now.HasLostPrintedAbilities)
             printed = [];
 
         // A copied trigger is on the stack as an id against a permanent whose own card has never

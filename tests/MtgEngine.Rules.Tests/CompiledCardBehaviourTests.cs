@@ -61355,6 +61355,361 @@ public sealed class CompiledCardBehaviourTests
                 .AbilitiesCantBeActivated);
     }
 
+    // ---- Land types and the mana they carry (CR 305.6, 305.7) ----------------
+
+    /// <summary>An Aura that sets what land type the land it is on is (CR 205.1a).</summary>
+    private static CardDefinition Retyping(string name, string landType) => Card(
+        name,
+        "Enchant land\nEnchanted land is " + (landType == "Island" ? "an " : "a ") + landType + ".",
+        CardType.Enchantment,
+        subtypes: "Aura");
+
+    /// <summary>Every mana ability a permanent has right now, as the board would be told.</summary>
+    private static IReadOnlyList<ActivatedAbilityDefinition> ManaAbilitiesOf(Game game, ObjectId id) =>
+        [.. Game.ActivatedAbilitiesOf(game.State, Pool, game.State.GetObject(id))
+            .Where(a => a.IsManaAbility)];
+
+    [Fact]
+    public void A_mountain_turned_into_an_island_stops_tapping_for_red()
+    {
+        // The defect this whole section exists for. CR 305.6 gives a land with a basic land type
+        // the matching mana ability "even if the text box doesn't actually contain that text",
+        // and the compiler used to build it from the *printed* subtypes - so it was a property of
+        // the card, and no effect could take it off. A Mountain under a Spreading Seas kept
+        // "{T}: Add {R}" for as long as the game lasted.
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        // Before: a Mountain, and red mana arrives.
+        game.ActivateAbility(alice, land, "mana");
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+
+        var seas = Retyping("Spreading Test", "Island");
+        var compiled = CardCompiler.Compile(seas);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var card = TestCards.PutInHand(game, alice, seas);
+        game.CastSpell(alice, card, [Target.ToPermanent(land)]);
+        Settle(game);
+
+        // Round to Alice's own untap step, so the land is untapped and the pool has emptied
+        // (CR 500.4) rather than still holding the red from before.
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        // After: the same permanent, the same ability id, and blue mana.
+        game.ActivateAbility(alice, land, "mana");
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+    }
+
+    [Theory]
+    [InlineData("Plains", ManaColor.White)]
+    [InlineData("Island", ManaColor.Blue)]
+    [InlineData("Swamp", ManaColor.Black)]
+    [InlineData("Mountain", ManaColor.Red)]
+    [InlineData("Forest", ManaColor.Green)]
+    public void Each_basic_land_type_carries_its_own_mana_wherever_it_came_from(
+        string landType, ManaColor colour)
+    {
+        // CR 305.6 names five pairings and the table that holds them is now in the layers rather
+        // than in the compiler. All five are played rather than compared against a list, because
+        // a list checked against a list is two copies of the same possible mistake.
+        var (game, alice, _) = InMainPhase();
+        var plain = Card("Colourless Land Test " + landType, "{T}: Add {C}.", CardType.Land);
+        var land = game.Create(alice, plain, Zone.Battlefield);
+
+        var card = TestCards.PutInHand(game, alice, Retyping("Retype Test " + landType, landType));
+        game.CastSpell(alice, card, [Target.ToPermanent(land)]);
+        Settle(game);
+
+        var mana = ManaAbilitiesOf(game, land);
+        Assert.Single(mana);
+
+        game.ActivateAbility(alice, land, mana[0].Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[colour]);
+    }
+
+    [Fact]
+    public void A_land_set_to_a_basic_type_loses_the_abilities_its_own_text_gave_it()
+    {
+        // CR 305.7: "It loses all abilities generated from its rules text, its old land types,
+        // and any copiable effects affecting that land, and it gains the appropriate mana ability
+        // for each new basic land type." Without this half, a Spreading Seas leaves an Ancient
+        // Tomb tapping for {C}{C} *and* {U} - a strictly better board than the printed one, and
+        // one nothing downstream can see, because the type line is right.
+        var tomb = Card("Ancient Test Tomb", "{T}: Add {C}{C}.", CardType.Land);
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, tomb, Zone.Battlefield);
+
+        Assert.Equal("{T}: Add {C}{C}.", Assert.Single(ManaAbilitiesOf(game, land)).Text);
+
+        // Written out rather than built by the helper, because MechanicCoverageTests reads the
+        // card lines out of this file's own source: a sentence assembled from three fragments is
+        // a shape no test appears to play.
+        var seas = Card(
+            "Seas Test",
+            "Enchant land\nEnchanted land is an Island.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var card = TestCards.PutInHand(game, alice, seas);
+        game.CastSpell(alice, card, [Target.ToPermanent(land)]);
+        Settle(game);
+
+        var after = Assert.Single(ManaAbilitiesOf(game, land));
+        Assert.Equal("{T}: Add {U}.", after.Text);
+
+        game.ActivateAbility(alice, land, after.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Colorless);
+    }
+
+    [Fact]
+    public void A_land_that_gains_a_basic_type_keeps_its_own_text_and_its_own_types()
+    {
+        // CR 305.7's last sentence, and the whole of the difference between Urborg and Blood
+        // Moon: "If a land gains one or more land types in addition to its own, it keeps its land
+        // types and rules text, and it gains the new land types and mana abilities." One clause
+        // in the printed sentence decides which of the two rules applies, so the compiler emits
+        // two different layer-4 effects for it.
+        var urborg = Card(
+            "Urborg Test",
+            "Each land is a Swamp in addition to its other land types.",
+            CardType.Land);
+
+        var compiled = CardCompiler.Compile(urborg);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        var second = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, urborg, Zone.Battlefield);
+        Settle(game);
+
+        // Two abilities and one {T} between them (CR 305.6 grants an ability per type, not a
+        // second tap), so the two colours are taken off two lands.
+        var mana = ManaAbilitiesOf(game, forest);
+        Assert.Equal(2, mana.Count);
+
+        game.ActivateAbility(alice, forest, mana.Single(a => a.Text == "{T}: Add {G}.").Id);
+        game.ActivateAbility(
+            alice, second, ManaAbilitiesOf(game, second).Single(a => a.Text == "{T}: Add {B}.").Id);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Black]);
+    }
+
+    [Fact]
+    public void Nonbasic_lands_are_mountains_and_a_basic_land_is_not_one_of_them()
+    {
+        // Blood Moon, whole. Two rules meet on it: CR 305.7 takes the utility land's own text
+        // away and gives it red mana, and CR 305.8 keeps the basics out of the group - "any land
+        // that doesn't have this supertype is a nonbasic land, even if it has a basic land type".
+        // A reader that asked about subtypes instead would have turned every Forest into a
+        // Mountain as well.
+        var moon = Card("Moon Test", "Nonbasic lands are Mountains.", CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(moon);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var utility = game.Create(
+            alice, Card("Utility Test Land", "{T}: Add {C}{C}.", CardType.Land), Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.Create(alice, moon, Zone.Battlefield);
+        Settle(game);
+
+        var retyped = Assert.Single(ManaAbilitiesOf(game, utility));
+        Assert.Equal("{T}: Add {R}.", retyped.Text);
+        game.ActivateAbility(alice, utility, retyped.Id);
+
+        var basic = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {G}.", basic.Text);
+        game.ActivateAbility(alice, forest, basic.Id);
+
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Red]);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool.Colorless);
+    }
+
+    [Fact]
+    public void Every_basic_land_type_at_once_is_five_mana_abilities()
+    {
+        // Prismatic Omen and Dryad of the Ilysian Grove. "Every basic land type" is a way of
+        // naming five subtypes rather than a sixth thing to be, and because the sentence says "in
+        // addition" the land keeps whatever it could already do.
+        var omen = Card(
+            "Omen Test",
+            "Lands you control are every basic land type in addition to their other types.",
+            CardType.Enchantment);
+
+        var compiled = CardCompiler.Compile(omen);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(
+            alice, Card("Omen Land Test", "{T}: Add {C}.", CardType.Land), Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+
+        game.Create(alice, omen, Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(6, ManaAbilitiesOf(game, mine).Count);
+
+        foreach (var ability in ManaAbilitiesOf(game, mine).Where(a => a.RequiresTap).Take(1))
+            game.ActivateAbility(alice, mine, ability.Id);
+
+        // "You control" is doing work: the opponent's Island is not one of these lands.
+        Assert.Single(ManaAbilitiesOf(game, theirs));
+    }
+
+    [Fact]
+    public void A_land_retyped_until_end_of_turn_taps_for_its_old_colour_afterwards()
+    {
+        // Tidal Warrior. The effect is created with the turn number on it and comes off in the
+        // cleanup step, which is why the compiler refuses the same sentence printed without a
+        // duration: an indefinite retyping read as this one would quietly undo itself.
+        var warrior = Card(
+            "Tidal Test",
+            "{T}: Target land becomes an Island until end of turn.",
+            CardType.Creature,
+            1,
+            1,
+
+            // Haste only so the ability can be used the turn it arrives (CR 302.6); the template
+            // under test is the sentence, and the keyword is not part of it.
+            KeywordAbility.Haste);
+
+        var compiled = CardCompiler.Compile(warrior);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var shaper = game.Create(alice, warrior, Zone.Battlefield);
+        var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+
+        game.ActivateAbility(alice, shaper, "a", [Target.ToPermanent(forest)]);
+        Settle(game);
+
+        var island = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {U}.", island.Text);
+        game.ActivateAbility(alice, forest, island.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.TurnNumber == 3 && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var back = Assert.Single(ManaAbilitiesOf(game, forest));
+        Assert.Equal("{T}: Add {G}.", back.Text);
+        game.ActivateAbility(alice, forest, back.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Blue]);
+    }
+
+    [Fact]
+    public void A_lands_printed_mana_ability_and_its_intrinsic_one_do_not_share_an_id()
+    {
+        // Murmuring Bosk: a Forest that also prints a mana ability of its own. The compiler
+        // numbers a printed mana ability "mana", "mana1" and so on from zero and knows nothing
+        // about CR 305.6, so the intrinsic one has to take an id the card has not used. The cost
+        // of getting this wrong is not a duplicate in a list - an ability goes on the stack and
+        // into the log as an id, and a collision resolves the wrong one.
+        var bosk = Card(
+            "Bosk Test", "{T}: Add {W}.", CardType.Land, subtypes: ["Forest"]);
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, bosk, Zone.Battlefield);
+
+        var mana = ManaAbilitiesOf(game, land);
+        Assert.Equal(2, mana.Count);
+        Assert.Equal(2, mana.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count());
+
+        // Both are reachable by the id the board would send, and each makes its own colour.
+        var white = mana.Single(a => a.Text == "{T}: Add {W}.");
+        var green = mana.Single(a => a.Text == "{T}: Add {G}.");
+
+        game.ActivateAbility(alice, land, white.Id);
+        Assert.Equal(1, game.State.GetPlayer(alice).ManaPool[ManaColor.White]);
+        Assert.Equal(0, game.State.GetPlayer(alice).ManaPool[ManaColor.Green]);
+        Assert.NotEqual(white.Id, green.Id);
+    }
+
+    [Fact]
+    public void Landwalk_is_turned_on_by_a_land_type_an_effect_granted()
+    {
+        // The check that had never been exercised end to end. CombatRules reads the *computed*
+        // land types of what the defender controls, which is the right reading of CR 702.14b -
+        // but until a card could change a land's type there was no way to reach the half of it
+        // that is not the printed subtype, so the rule was correct and untested.
+        var walker = Card(
+            "Island Walker Test", "Islandwalk", CardType.Creature, 2, 2,
+            keywords: KeywordAbility.Islandwalk);
+
+        var (game, alice, bob) = InMainPhase();
+        var attacker = game.Create(alice, walker, Zone.Battlefield);
+        var blocker = game.Create(bob, TestCards.Creature("Walk Blocker Test", 2, 2), Zone.Battlefield);
+        var theirLand = game.Create(bob, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+
+        // A Mountain is not an Island, so the block is legal.
+        Assert.Null(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(attacker), bob));
+
+        var card = TestCards.PutInHand(game, alice, Retyping("Walk Seas Test", "Island"));
+        game.CastSpell(alice, card, [Target.ToPermanent(theirLand)]);
+        Settle(game);
+
+        Assert.NotNull(CombatRules.CannotBlock(
+            game.State, Pool, game.State.GetObject(blocker), game.State.GetObject(attacker), bob));
+    }
+
+    [Fact]
+    public void Two_lands_that_retype_each_other_settle_rather_than_recurse()
+    {
+        // CR 613.8's hazard, written as the test that would hang if the predicate were wrong.
+        // Both of these are lands, so each is a member of the other's group *and* of its own, and
+        // one of them names an ownership clause - which is the filter that has to ask a question
+        // about a permanent that is not the one being computed. It asks it through the
+        // control-only reader; a filter that asked for the source's full characteristics instead
+        // would compute each land from inside the other without bottom.
+        var swamps = Card(
+            "Swampbenders Test",
+            "Lands you control are Swamps in addition to their other types.",
+            CardType.Land);
+
+        var forests = Card(
+            "Yavimaya Test",
+            "Each land is a Forest in addition to its other land types.",
+            CardType.Land);
+
+        Assert.True(CardCompiler.Compile(swamps).IsComplete);
+        Assert.True(CardCompiler.Compile(forests).IsComplete);
+
+        var (game, alice, bob) = InMainPhase();
+        var mine = game.Create(alice, swamps, Zone.Battlefield);
+        var alsoMine = game.Create(alice, forests, Zone.Battlefield);
+        var theirs = game.Create(bob, TestCards.BasicLand("Island"), Zone.Battlefield);
+        Settle(game);
+
+        // Each land is both of the things the other says, and answers in finite time.
+        foreach (var land in new[] { mine, alsoMine })
+        {
+            var texts = ManaAbilitiesOf(game, land).Select(a => a.Text).ToList();
+            Assert.Contains("{T}: Add {B}.", texts, StringComparer.Ordinal);
+            Assert.Contains("{T}: Add {G}.", texts, StringComparer.Ordinal);
+        }
+
+        // Bob's Island is a Forest - "each land" has no ownership clause - and is not a Swamp,
+        // because the other sentence does.
+        var acrossTheTable = ManaAbilitiesOf(game, theirs).Select(a => a.Text).ToList();
+        Assert.Contains("{T}: Add {U}.", acrossTheTable, StringComparer.Ordinal);
+        Assert.Contains("{T}: Add {G}.", acrossTheTable, StringComparer.Ordinal);
+        Assert.DoesNotContain("{T}: Add {B}.", acrossTheTable, StringComparer.Ordinal);
+    }
+
     // ---- Adventures (CR 715) -------------------------------------------------
 
     /// <summary>A card with two castable halves, printed the way the real ones are.</summary>

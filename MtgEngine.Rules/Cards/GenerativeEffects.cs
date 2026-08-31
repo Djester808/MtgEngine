@@ -1028,6 +1028,12 @@ public static partial class GenerativeEffects
             var named = retyped.Groups["t"].Value;
             var displaces = EffectPhrase.SubtypeSetOf(named);
 
+            // Whether CR 305.7's second sentence is in play, read once here rather than on every
+            // recomputation: the rule names the *basic* land types alone, so a land told it is a
+            // Gate or a Locus keeps its text and only a Plains, Island, Swamp, Mountain or
+            // Forest takes it away.
+            var retypesALand = EffectPhrase.Specs.IsBasicLandType(named);
+
             return new ContinuousEffectDefinition
             {
                 Id = definitionId,
@@ -1044,6 +1050,16 @@ public static partial class GenerativeEffects
                         had => EffectPhrase.SubtypeSetOf(had) == displaces);
 
                     builder.Subtypes.Add(named);
+
+                    // CR 305.7: setting a land's subtype to a basic land type is the one type
+                    // change that takes the permanent's own text away as well - "it loses all
+                    // abilities generated from its rules text, its old land types, and any
+                    // copiable effects affecting that land". Marked here rather than worked out
+                    // later because only this effect knows which half of the rule it is: the
+                    // "in addition to its other types" spelling next door keeps every word, and
+                    // the two ids exist to tell them apart.
+                    if (retypesALand && builder.CardTypes.HasFlag(CardType.Land))
+                        builder.LoseAbilitiesFromRulesText();
                 },
             };
         }
