@@ -3502,8 +3502,9 @@ public static partial class CardCompiler
             // one may not be rewritten: the clause reader resolves "its" against the head's
             // target, so "~ deals damage equal to its power to target creature" would compile
             // as the *target's* power — a card that reads and does the wrong thing, which is
-            // worse than one left unread. 23 more cards would complete that way and are
-            // declined for exactly that reason.
+            // worse than one left unread. Measured side by side, a rewrite that took the stat
+            // amounts too completed 49 cards where this one completed 26; the 23 between them
+            // are declined for exactly that reason.
             cleaned = CountAsANumber().Replace(
                 cleaned,
                 m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
