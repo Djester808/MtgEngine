@@ -1122,6 +1122,396 @@ public sealed class CompiledCardBehaviourTests
         Assert.True(game.State.GetPlayer(alice).ManaPool.IsEmpty);
     }
 
+    // ---- An aggregate over the set this resolution just touched (CR 608.2h) ----
+
+    /// <summary>
+    /// "You gain life equal to the total power of creatures exiled this way" (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The third source for the fold that already reads a board group and a zone pile, and the
+    /// one no state can answer: the set is what an earlier sentence of this same resolution
+    /// touched. A tally of it was already readable, which is exactly why the aggregate had to be
+    /// built rather than approximated — the two are different numbers about the same objects, and
+    /// a card that totals a set has no way to say so if the only reading available counts it.
+    /// <para>
+    /// Both boards carry two creatures, so every reading that counts permanents answers two twice
+    /// and gains the same two life on each. Only a reading that adds their power tells the boards
+    /// apart, and neither answer it gives happens to equal the tally's.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_total_over_the_touched_set_adds_it_up_rather_than_counting_it()
+    {
+        var reckoning = Card(
+            "Touched Total Reckoning Test",
+            "Exile all creatures. You gain life equal to the total power of creatures exiled "
+                + "this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(reckoning);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Total Ogre One", 4, 4), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Total Ogre Two", 4, 4), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, reckoning), []);
+        Settle(game);
+
+        // Four and four, not two things.
+        Assert.Equal(28, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two creatures by count, a different total. A tally reading
+        // gains two here and two above; this gains four here and eight above.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Total Runt", 1, 1), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Total Cub", 3, 3), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, reckoning), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// What a creature was as it left, not what the card in the graveyard says (CR 608.2h).
+    /// </summary>
+    /// <remarks>
+    /// The whole difficulty of this family in one board. A creature that died with three +1/+1
+    /// counters on it was a 5/5 at the moment it was destroyed; the object lying in the graveyard
+    /// is a new one (CR 400.7) that no continuous effect applies to (CR 613.1), so its power is
+    /// the printed 2 on its face (CR 202.3). CR 608.2h is what settles it: an effect needing
+    /// information about an object that has left uses what was last known about it.
+    /// <para>
+    /// So a fold that looked each touch up where it now lies would answer four on both boards —
+    /// silently, on a card that compiled and played. The two boards carry the same two creatures
+    /// and differ only in the counters, which is the one thing such a reader cannot see.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_touched_total_reads_what_each_creature_was_as_it_left()
+    {
+        var sweep = Card(
+            "Touched Memory Sweep Test",
+            "Destroy all creatures. You gain life equal to the total power of creatures "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(sweep);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var first = game.Create(
+            alice, TestCards.Creature("Touched Memory Bear One", 2, 2), Zone.Battlefield);
+        var second = game.Create(
+            alice, TestCards.Creature("Touched Memory Bear Two", 2, 2), Zone.Battlefield);
+
+        game.ChangeCounters(first, CounterKinds.PlusOnePlusOne, 3);
+        game.ChangeCounters(second, CounterKinds.PlusOnePlusOne, 3);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, sweep), []);
+        Settle(game);
+
+        // Two 5/5s as they left, not two 2/2s as they now lie.
+        Assert.Equal(30, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two printed 2/2s with nothing on them. A reader that took
+        // the graveyard card's printed power gains four on both and cannot tell them apart.
+        var (control, carol, _) = InMainPhase();
+        control.Create(
+            carol, TestCards.Creature("Touched Memory Bear Three", 2, 2), Zone.Battlefield);
+        control.Create(
+            carol, TestCards.Creature("Touched Memory Bear Four", 2, 2), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, sweep), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// "The greatest power among creatures exiled this way" is the largest, not how many.
+    /// </summary>
+    /// <remarks>
+    /// The other fold, on boards built so that the tally, the total and the greatest are three
+    /// different numbers and no two of them coincide. Three creatures on each: a count gains
+    /// three either way, a total gains seven and four, and the greatest gains five and two.
+    /// </remarks>
+    [Fact]
+    public void A_greatest_over_the_touched_set_is_the_largest_and_not_how_many()
+    {
+        var levy = Card(
+            "Touched Greatest Levy Test",
+            "Exile all creatures. You gain life equal to the greatest power among creatures "
+                + "exiled this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(levy);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Greatest Rat One", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Greatest Rat Two", 1, 1), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Greatest Champion", 5, 5), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, levy), []);
+        Settle(game);
+
+        Assert.Equal(25, game.State.GetPlayer(alice).Life);
+
+        // The control board: three creatures again, and the champion two sizes smaller.
+        var (control, carol, _) = InMainPhase();
+        control.Create(
+            carol, TestCards.Creature("Touched Greatest Rat Three", 1, 1), Zone.Battlefield);
+        control.Create(
+            carol, TestCards.Creature("Touched Greatest Rat Four", 1, 1), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Greatest Cub", 2, 2), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, levy), []);
+        Settle(control);
+
+        Assert.Equal(22, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// A permanent with no power at all is left out of the fold, not folded in as a nought.
+    /// </summary>
+    /// <remarks>
+    /// The rule the board aggregate next door already keeps, and it only shows on the folds that
+    /// can be dragged down: an artifact destroyed alongside the creatures has no power, and
+    /// counting it as zero would make "the least power among permanents destroyed this way"
+    /// nought whenever anything but a creature went with them.
+    /// <para>
+    /// Three permanents on each board, so a tally gains three twice; the least gains three and
+    /// one; a reader that folded the artifact in as a zero gains nothing at all, on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_permanent_with_no_such_characteristic_is_left_out_of_the_touched_fold()
+    {
+        var quake = Card(
+            "Touched Least Quake Test",
+            "Destroy all permanents. You gain life equal to the least power among permanents "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(quake);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Touched Least Ox", 3, 3), Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Least Giant", 5, 5), Zone.Battlefield);
+        game.Create(
+            alice,
+            Card("Touched Least Relic", string.Empty, CardType.Artifact),
+            Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, quake), []);
+        Settle(game);
+
+        // Three and five; the relic has no power to be least.
+        Assert.Equal(23, game.State.GetPlayer(alice).Life);
+
+        // The control board: the relic swapped for something that does have a power, and the
+        // answer moves to it. A reader that had been folding the relic in as nought answers
+        // nought on the first board and nought here.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Least Ox Two", 3, 3), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Least Giant Two", 5, 5), Zone.Battlefield);
+        control.Create(carol, TestCards.Creature("Touched Least Mouse", 1, 1), Zone.Battlefield);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, quake), []);
+        Settle(control);
+
+        Assert.Equal(21, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// The one touch that is not read from the record is the one still on the battlefield.
+    /// </summary>
+    /// <remarks>
+    /// Nothing has left, so there is no last known information to use: a creature put onto the
+    /// battlefield this way is standing there and CR 613 applies to it, anthems and counters
+    /// included. What the record holds for that touch is what the card was in the graveyard it
+    /// came from, which is the one number that is certainly wrong.
+    /// <para>
+    /// The two boards differ only by the anthem, which is invisible to a reader that took the
+    /// stored value: that reader gains four on both. It is invisible to a tally too, which gains
+    /// two on both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_touch_that_is_still_on_the_battlefield_is_read_through_the_layers()
+    {
+        var rise = Card(
+            "Touched Rise Test",
+            "Return all creature cards from your graveyard to the battlefield. You gain life "
+                + "equal to the total power of creatures put onto the battlefield this way.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(rise);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var anthem = Card(
+            "Touched Rise Anthem Test",
+            "Creatures you control get +2/+0.",
+            CardType.Enchantment);
+
+        Assert.True(CardCompiler.Compile(anthem).IsComplete);
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, anthem, Zone.Battlefield);
+        game.Create(alice, TestCards.Creature("Touched Rise Bear One", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.Creature("Touched Rise Bear Two", 2, 2), Zone.Graveyard);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, rise), []);
+        Settle(game);
+
+        // Two 4/4s as they now stand, not the 2/2s the graveyard held.
+        Assert.Equal(28, game.State.GetPlayer(alice).Life);
+
+        // The control board: the same two cards, no anthem over them.
+        var (control, carol, _) = InMainPhase();
+        control.Create(carol, TestCards.Creature("Touched Rise Bear Three", 2, 2), Zone.Graveyard);
+        control.Create(carol, TestCards.Creature("Touched Rise Bear Four", 2, 2), Zone.Graveyard);
+
+        control.CastSpell(carol, TestCards.PutInHand(control, carol, rise), []);
+        Settle(control);
+
+        Assert.Equal(24, control.State.GetPlayer(carol).Life);
+    }
+
+    /// <summary>
+    /// A participle the record cannot answer is refused by the aggregate exactly as by the tally.
+    /// </summary>
+    /// <remarks>
+    /// The verb list is the family's fail-closed guard and the fold inherits it whole, because
+    /// the fold asks the same reader for its set. A sacrifice is a question the engine defers to
+    /// the settle after the resolution, so a later sentence of that resolution asking about it
+    /// would total an empty record, answer nought for ever, and do it on a card coverage counts
+    /// as complete. Two cards differing in one word say which half the refusal is about: the
+    /// aggregate is readable, and this participle is not.
+    /// </remarks>
+    [Fact]
+    public void A_touched_aggregate_refuses_the_participles_the_record_cannot_answer()
+    {
+        var deferred = Card(
+            "Touched Deferred Rite Test",
+            "Each player sacrifices a creature. You gain life equal to the total power of the "
+                + "creatures sacrificed this way.",
+            CardType.Sorcery);
+
+        var refused = CardCompiler.Compile(deferred);
+        Assert.False(refused.IsComplete);
+        Assert.Contains(
+            refused.Unhandled,
+            line => line.Contains("total power", StringComparison.Ordinal));
+
+        // The same fold over a participle the record does keep, so the refusal above is about the
+        // verb rather than about the aggregate.
+        var kept = Card(
+            "Touched Deferred Twin Test",
+            "Destroy all creatures. You gain life equal to the total power of the creatures "
+                + "destroyed this way.",
+            CardType.Sorcery);
+
+        var read = CardCompiler.Compile(kept);
+        Assert.True(read.IsComplete, string.Join(" | ", read.Unhandled));
+    }
+
+    // ---- A count with a constant added to it (CR 107.3) ----------------------
+
+    /// <summary>
+    /// "~ deals X damage to any target, where X is 2 plus the number of cards named ~ in all
+    /// graveyards" — Kindle (CR 201.2a).
+    /// </summary>
+    /// <remarks>
+    /// An amount is a fixed part times a count and has nowhere to add a term once, so the
+    /// constant comes off in front of the group grammar instead. Dropping it is the fail-open
+    /// this refuses: 18 of the 35 corpus cards blocked on this shape compile as complete with the
+    /// constant thrown away, and Kindle then deals nothing at all the first time it is cast.
+    /// <para>
+    /// The empty graveyard is the board that says so. A reader without the constant deals nought
+    /// there and two on the control board — which is the number this one deals on the first.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_count_with_a_constant_added_keeps_the_constant()
+    {
+        var kindle = Card(
+            "Kindle Additive Test",
+            "~ deals X damage to any target, where X is 2 plus the number of cards named ~ in "
+                + "all graveyards.");
+
+        var compiled = CardCompiler.Compile(kindle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, kindle), [Target.ToPlayer(bob)]);
+        Settle(game);
+
+        // Nothing in any graveyard, so the count is nought and the constant is the whole of it.
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+
+        // The control board: two copies already in graveyards, one in each, so the count is two
+        // and the constant still stands on top of it.
+        var (control, carol, dave) = InMainPhase();
+        control.Create(carol, kindle, Zone.Graveyard);
+        control.Create(dave, kindle, Zone.Graveyard);
+
+        control.CastSpell(
+            carol, TestCards.PutInHand(control, carol, kindle), [Target.ToPlayer(dave)]);
+        Settle(control);
+
+        Assert.Equal(16, control.State.GetPlayer(dave).Life);
+    }
+
+    /// <summary>
+    /// "~'s power and toughness are each equal to 1 plus the number of lands you control" —
+    /// Allosaurus Rider (CR 604.3).
+    /// </summary>
+    /// <remarks>
+    /// Why the constant comes off in front of the group grammar rather than going onto the
+    /// amount: this count reaches the same reader with no amount anywhere near it. A
+    /// characteristic-defining ability keeps answering as the board moves, so the constant has to
+    /// travel with the count rather than with the number some effect multiplies.
+    /// <para>
+    /// The empty board is the assertion that matters, and it is a sharp one: without the constant
+    /// the creature is a 0/0 and the state-based actions bury it (CR 704.5a). With it, it stands
+    /// as a 1/1 and grows a land at a time.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_defined_power_with_a_constant_added_keeps_the_constant()
+    {
+        var rider = Card(
+            "Additive Rider Test",
+            "Additive Rider Test's power and toughness are each equal to 1 plus the number of "
+                + "lands you control.",
+            CardType.Creature,
+            power: 0,
+            toughness: 0);
+
+        var compiled = CardCompiler.Compile(rider);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var it = game.Create(alice, rider, Zone.Battlefield);
+        Settle(game);
+
+        // No lands at all: the constant on its own, and a 0/0 would already be in the graveyard.
+        Assert.Contains(it, game.State.Battlefield);
+        Assert.Equal(1, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+
+        // Alice's three, not Bob's one, and the constant still on top.
+        game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Island"), Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Mountain"), Zone.Battlefield);
+        game.Create(bob, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+
+        Assert.Equal(4, Characteristics.PowerOf(game.State, Pool, game.State.GetObject(it)));
+    }
+
     // ---- A counter put on something the sentence names by role (CR 603.2) ----
 
     [Fact]
