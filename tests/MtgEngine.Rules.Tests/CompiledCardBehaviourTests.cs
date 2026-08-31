@@ -68417,6 +68417,397 @@ public sealed class CompiledCardBehaviourTests
         Assert.Equal(start + 2, game.State.GetPlayer(alice).Life);
     }
 
+    // ---- Shuffling back in, stun counters, and "each of them" -----------------
+
+    /// <summary>
+    /// Timetwister: "Each player shuffles their hand and graveyard into their library, then
+    /// draws seven cards" (CR 701.24a).
+    /// </summary>
+    /// <remarks>
+    /// The shuffle already carried a graveyard; the hand it names in the same breath had nowhere
+    /// to go, and the settle that performs the shuffle only moved cards that were in a graveyard.
+    /// Both halves are asserted here, because a shuffle that took the graveyard and left the hand
+    /// alone would still have produced a bigger library and a fresh seven cards.
+    /// </remarks>
+    [Fact]
+    public void Shuffling_a_hand_and_graveyard_back_in_empties_both()
+    {
+        var twister = Card(
+            "Acc Timetwister Test",
+            "Each player shuffles their hand and graveyard into their library, then draws "
+                + "seven cards.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(twister);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Acc Buried Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(bob, TestCards.BasicLand("Acc Buried Forest Test"), Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, twister);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        // Seven each, from a library that everything they held has gone back into.
+        Assert.Equal(7, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(7, game.State.GetPlayer(bob).Hand.Count);
+
+        // The graveyards went in too - and the spell itself is the one card that is allowed to
+        // be in one afterwards, because it reached the graveyard after the shuffle named its
+        // cards (CR 608.2m).
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Acc Buried Bear Test");
+
+        Assert.Empty(game.State.GetPlayer(bob).Graveyard);
+    }
+
+    /// <summary>
+    /// The subject of "each player does A, then does B" governs both halves (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// Wheel of Fortune, and five cards printed like it. The clause splitter cuts at ", then" and
+    /// offers the halves to the readers one at a time, which left "draws seven cards" standing
+    /// with nobody in front of it - so it compiled as the controller's draw and the card dealt
+    /// every player a fresh hand while drawing for one of them.
+    /// <para>
+    /// Bob is the assertion. Alice drawing seven proves nothing at all: she draws seven under
+    /// both readings.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_subject_carries_over_the_clause_after_then()
+    {
+        var wheel = Card(
+            "Acc Wheel Test",
+            "Each player discards their hand, then draws seven cards.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(wheel);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var card = TestCards.PutInHand(game, alice, wheel);
+
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.Equal(7, game.State.GetPlayer(alice).Hand.Count);
+        Assert.Equal(7, game.State.GetPlayer(bob).Hand.Count);
+    }
+
+    /// <summary>
+    /// "Shuffle up to two target cards from your graveyard into your library" (CR 404.2).
+    /// </summary>
+    /// <remarks>
+    /// A graveyard is a public zone, so the cards are ordinary targets and every slot is optional
+    /// - which is what "up to" says, and what lets this be cast with one card in the graveyard.
+    /// The card left behind is the assertion that matters: an effect that shuffled the whole
+    /// graveyard back would pass every other check here.
+    /// </remarks>
+    [Fact]
+    public void Shuffling_targeted_cards_back_leaves_the_rest_in_the_graveyard()
+    {
+        var journey = Card(
+            "Acc Memory Journey Test",
+            "Shuffle up to two target cards from your graveyard into your library.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(journey);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var kept = game.Create(alice, TestCards.Creature("Acc Kept Bear Test", 2, 2), Zone.Graveyard);
+        var taken = game.Create(alice, TestCards.Creature("Acc Taken Bear Test", 2, 2), Zone.Graveyard);
+        var library = game.State.GetPlayer(alice).Library.Count;
+
+        var card = TestCards.PutInHand(game, alice, journey);
+        game.CastSpell(alice, card, [Target.ToCard(taken)]);
+        Settle(game);
+
+        Assert.Equal(library + 1, game.State.GetPlayer(alice).Library.Count);
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Acc Kept Bear Test");
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Acc Taken Bear Test");
+
+        Assert.NotEqual(kept, taken);
+    }
+
+    /// <summary>
+    /// "Shuffle all creature cards from your graveyard into your library" (CR 701.24a).
+    /// </summary>
+    /// <remarks>
+    /// The filter is the one a tutor names its card with, asked of the graveyard rather than of
+    /// the library. A land in the same graveyard is what proves it is a filter at all.
+    /// </remarks>
+    [Fact]
+    public void Shuffling_all_cards_of_a_kind_back_leaves_the_others()
+    {
+        var spiral = Card(
+            "Acc Psychic Spiral Test",
+            "Shuffle all creature cards from your graveyard into your library.",
+            CardType.Sorcery);
+
+        var compiled = CardCompiler.Compile(spiral);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, TestCards.Creature("Acc Spiral Bear Test", 2, 2), Zone.Graveyard);
+        game.Create(alice, TestCards.BasicLand("Acc Spiral Forest Test"), Zone.Graveyard);
+
+        var card = TestCards.PutInHand(game, alice, spiral);
+        game.CastSpell(alice, card, []);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Acc Spiral Bear Test");
+
+        Assert.Contains(
+            game.State.GetPlayer(alice).Graveyard,
+            id => game.State.GetObject(id).Card.Name == "Acc Spiral Forest Test");
+    }
+
+    /// <summary>
+    /// "At the beginning of the end step, ~'s owner shuffles it into their library."
+    /// </summary>
+    /// <remarks>
+    /// The same instruction the beacons print, said of a permanent rather than of a resolving
+    /// sorcery - so the card being shuffled is on the battlefield when the request is settled.
+    /// The settle used to move only cards it found in a graveyard, which would have left this
+    /// creature exactly where it was on a card that compiled and looked finished.
+    /// </remarks>
+    [Fact]
+    public void A_permanent_that_shuffles_itself_away_leaves_the_battlefield()
+    {
+        var hellion = new CardDefinition
+        {
+            OracleId = "oracle-acc-blitz-hellion-test",
+            Name = "Acc Blitz Hellion Test",
+            OracleText = "At the beginning of the end step, ~'s owner shuffles it into their "
+                + "library.",
+            CardTypes = CardType.Creature,
+            Power = 7,
+            Toughness = 7,
+        };
+
+        var compiled = CardCompiler.Compile(hellion);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var library = game.State.GetPlayer(alice).Library.Count;
+        game.Create(alice, hellion, Zone.Battlefield);
+
+        TestCards.PassToStep(game, TurnStep.End);
+        Settle(game);
+
+        Assert.DoesNotContain(
+            game.State.Battlefield,
+            id => game.State.GetObject(id).Card.Name == "Acc Blitz Hellion Test");
+
+        Assert.Equal(library + 1, game.State.GetPlayer(alice).Library.Count);
+        Assert.Empty(game.State.GetPlayer(alice).Graveyard);
+    }
+
+    /// <summary>
+    /// A stun counter is spent instead of the untap step's untap (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// The counter compiled from the day named counters did - "put a stun counter on it" is a
+    /// counter like any other - and nothing anywhere read it, so eighty-seven corpus cards put
+    /// their counters on and then watched the creature untap on schedule. This is the rule those
+    /// cards are for.
+    /// <para>
+    /// Two untap steps, because one proves only half of it: the counter has to stop the first
+    /// untap <em>and</em> be spent doing so, or a stunned creature would never untap again.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_stun_counter_is_spent_instead_of_untapping()
+    {
+        var chill = Card(
+            "Acc Rime Chill Test",
+            "Tap target creature. Put a stun counter on it.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(chill);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Acc Stunned Bear Test", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, chill);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.Equal(1, game.State.GetObject(bear).Permanent?.Counters[CounterKinds.Stun]);
+
+        // Alice's next turn: the untap step finds the counter and spends it instead.
+        TestCards.PassToTurn(game, 3);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        Assert.True(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.DoesNotContain(CounterKinds.Stun, game.State.GetObject(bear).Permanent!.Counters);
+
+        // And the turn after that, with the counter gone, it untaps as it always did.
+        TestCards.PassToTurn(game, 5);
+        TestCards.PassToStep(game, TurnStep.PrecombatMain);
+
+        Assert.False(game.State.GetObject(bear).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// The same replacement applies to an untap an effect asks for (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// "Would become untapped" is every untap, not the untap step's. A rule implemented only
+    /// where it is commonest is the kind that looks right for a year.
+    /// </remarks>
+    [Fact]
+    public void A_stun_counter_is_spent_instead_of_an_untap_effect()
+    {
+        var chill = Card(
+            "Acc Cooldown Test",
+            "Tap target creature. Put a stun counter on it.",
+            CardType.Instant);
+
+        var wake = Card("Acc Wake Test", "Untap target creature.", CardType.Instant);
+
+        var (game, alice, _) = InMainPhase();
+        var bear = game.Create(alice, TestCards.Creature("Acc Woken Bear Test", 2, 2), Zone.Battlefield);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, chill), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        game.CastSpell(alice, TestCards.PutInHand(game, alice, wake), [Target.ToPermanent(bear)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(bear).Permanent?.IsTapped);
+        Assert.DoesNotContain(CounterKinds.Stun, game.State.GetObject(bear).Permanent!.Counters);
+    }
+
+    /// <summary>
+    /// "Tap up to two target creatures. Put a stun counter on each of them" (CR 608.2c).
+    /// </summary>
+    /// <remarks>
+    /// The second sentence chooses nothing. "Them" is every target the sentence before it chose,
+    /// which is the one thing a target spec cannot say, because a spec names one thing - so the
+    /// sentence is read once in the singular and copied once per target.
+    /// <para>
+    /// Both creatures are asserted. Copying the effect onto the last target alone is the reading
+    /// every other pronoun in this file takes, and it would look right on any card that chose one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Each_of_them_reaches_every_target_the_sentence_before_chose()
+    {
+        var chill = Card(
+            "Acc Succumb Test",
+            "Tap up to two target creatures. Put a stun counter on each of them.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(chill);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var first = game.Create(bob, TestCards.Creature("Acc First Bear Test", 2, 2), Zone.Battlefield);
+        var second = game.Create(bob, TestCards.Creature("Acc Second Bear Test", 2, 2), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, chill);
+
+        game.CastSpell(alice, card, [Target.ToPermanent(first), Target.ToPermanent(second)]);
+        Settle(game);
+
+        foreach (var id in new[] { first, second })
+        {
+            Assert.True(game.State.GetObject(id).Permanent?.IsTapped);
+            Assert.Equal(1, game.State.GetObject(id).Permanent?.Counters[CounterKinds.Stun]);
+        }
+    }
+
+    /// <summary>
+    /// A second sentence that <em>narrows</em> the group is not "each of them" (CR 601.2c).
+    /// </summary>
+    /// <remarks>
+    /// "Tap X target creatures. Put a stun counter on each of those creatures you don't control."
+    /// The counters go on some of the targets and the pronoun cannot say which, so the card is
+    /// left unread rather than compiled into one that stuns every creature it tapped - which is
+    /// a strictly better card than the one printed.
+    /// <para>
+    /// The refusal is structural rather than a special case: swapping the pronoun for "it" leaves
+    /// the qualifier standing, and no reader takes "on it you don't control".
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Each_of_those_with_a_qualifier_after_it_is_left_unread()
+    {
+        var maze = Card(
+            "Acc Lost In The Maze Test",
+            "Tap up to two target creatures. Put a stun counter on each of those creatures you "
+                + "don't control.",
+            CardType.Instant);
+
+        Assert.False(CardCompiler.Compile(maze).IsComplete);
+    }
+
+    /// <summary>
+    /// "You may tap or untap target artifact, creature, or land" (CR 115.1).
+    /// </summary>
+    /// <remarks>
+    /// The choice reader had a noun grammar of its own that took one unbroken word after
+    /// "target", so the commonest phrase in the family - three types in a list - went unread on
+    /// cards whose every other line compiled. It asks <see cref="Specs"/> the same question every
+    /// other verb asks now.
+    /// </remarks>
+    [Fact]
+    public void Tap_or_untap_reads_the_shared_target_grammar()
+    {
+        var twiddle = Card(
+            "Acc Twiddle Test",
+            "You may tap or untap target artifact, creature, or land.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(twiddle);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        var land = game.Create(alice, TestCards.BasicLand("Acc Twiddled Forest Test"), Zone.Battlefield);
+        var card = TestCards.PutInHand(game, alice, twiddle);
+
+        Assert.False(game.State.GetObject(land).Permanent?.IsTapped);
+
+        // The harness takes the first option of every question, which is the offer and then the
+        // tap - so a land the spell reached is a tapped land, and a land it could not target
+        // would still be untapped.
+        game.CastSpell(alice, card, [Target.ToPermanent(land)]);
+        Settle(game);
+
+        Assert.True(game.State.GetObject(land).Permanent?.IsTapped);
+    }
+
+    /// <summary>
+    /// "Another target permanent" is the same phrase with one word (CR 115.1).
+    /// </summary>
+    [Fact]
+    public void Tap_or_untap_reads_another_target()
+    {
+        var strings = Card(
+            "Acc Fatestitcher Test",
+            "You may tap or untap another target permanent.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(strings);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+        Assert.Single(compiled.Spell!.Targets);
+        Assert.Contains("another", compiled.Spell!.Targets[0].Description, StringComparison.Ordinal);
+    }
+
     // ---- Prevention described rather than aimed (CR 615.1) --------------------
 
     /// <summary>

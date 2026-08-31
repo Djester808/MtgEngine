@@ -1458,6 +1458,17 @@ public static class CounterKinds
     public const string Charge = "charge";
 
     /// <summary>
+    /// Stun counters, which spend themselves keeping a permanent tapped (CR 122.1c).
+    /// </summary>
+    /// <remarks>
+    /// Named here rather than left as the string the compiler happens to produce, because two
+    /// pieces of the engine have to agree about it: the counter reader writes it and
+    /// <see cref="Abilities.StunCounters"/> looks for it on every untap. They agreed by
+    /// coincidence until now - the counter went on and nothing ever read it.
+    /// </remarks>
+    public const string Stun = "stun";
+
+    /// <summary>
     /// Level counters, which are how a leveler tracks how far it has been levelled (CR 711.2a).
     /// </summary>
     /// <remarks>

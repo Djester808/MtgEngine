@@ -5937,8 +5937,21 @@ public sealed class Game
             // graveyard - a different object (CR 400.7), and the only one that can be moved.
             var now = _resolvedSources.TryGetValue(id, out var landed) ? landed : id;
 
-            if (State.TryGetObject(now, out var card) && card.Zone == Zone.Graveyard)
+            // A graveyard, a hand, or the battlefield - the three zones a card is shuffled in
+            // from, and the test has to admit all three because it is the only thing standing
+            // between the request and a silent no-op. Restricted to the graveyard it dropped the
+            // hand half of every Timetwister and the whole of "at the beginning of the end step,
+            // ~'s owner shuffles it into their library", which left the permanent where it was
+            // on a card that compiled and looked finished.
+            //
+            // A card already in a library or in exile is *not* moved: it is either where the
+            // shuffle wanted it or somewhere the effect never named, and moving it again would
+            // be this method inventing a zone change nobody asked for.
+            if (State.TryGetObject(now, out var card)
+                && card.Zone is Zone.Graveyard or Zone.Hand or Zone.Battlefield)
+            {
                 Move(now, Zone.Library, MoveCause.Other, owed.PlayerId);
+            }
         }
 
         Emit(new LibraryShuffled(
@@ -6723,8 +6736,8 @@ public sealed class Game
             .Where(id => State.TryGetObject(id, out var o) && o.Permanent?.IsTapped == true)
             .ToImmutableList();
 
-        if (!chosen.IsEmpty)
-            Emit(new PermanentsUntapped(chosen));
+        foreach (var e in StunCounters.Untapping(State, chosen))
+            Emit(e);
     }
 
     /// <summary>
@@ -12012,9 +12025,11 @@ public sealed class Game
             .Where(id => _abilities.MayDeclineUntap(State.GetObject(id).Card))
             .ToImmutableList();
 
+        // CR 122.1c: a permanent with a stun counter does not untap here either - it spends a
+        // counter instead, and the untap step is where nearly every one of them is spent.
         var automatic = tapped.RemoveRange(optional);
-        if (!automatic.IsEmpty)
-            Emit(new PermanentsUntapped(automatic));
+        foreach (var e in StunCounters.Untapping(State, automatic))
+            Emit(e);
 
         _optionalUntaps = optional;
 
