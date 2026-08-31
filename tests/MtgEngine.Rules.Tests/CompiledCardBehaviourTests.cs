@@ -3119,6 +3119,120 @@ public sealed class CompiledCardBehaviourTests
             line => line.Contains("its controller's", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Extirpate's wording: a card in a graveyard is pointed at, and every copy of it goes
+    /// (CR 701.23a).
+    /// </summary>
+    /// <remarks>
+    /// The other half of this family, where the name comes off an object rather than off a
+    /// question. The search half has read for a round; what was missing was the opening sentence,
+    /// which declares a target and does nothing with it — the card it names is not moved by that
+    /// sentence at all, it is simply one of the copies the search finds.
+    /// <para>
+    /// The control is again a differently named card in all three zones, because "took the right
+    /// card" and "took the zone" look identical without one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_card_pointed_at_in_a_graveyard_is_extracted_along_with_every_copy_of_it()
+    {
+        var sought = Card("Extirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+        var spared = Card("Unextirpated Bear Test", string.Empty, CardType.Creature, 2, 2);
+
+        var extirpate = Card(
+            "Extirpate Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var compiled = CardCompiler.Compile(extirpate);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        var pointedAt = game.Create(bob, sought, Zone.Graveyard);
+        game.Create(bob, sought, Zone.Hand);
+        game.Create(bob, sought, Zone.Library);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+            game.Create(bob, spared, zone);
+
+        var card = TestCards.PutInHand(game, alice, extirpate);
+        game.CastSpell(alice, card, [Target.ToCard(pointedAt)]);
+
+        // No name is asked for: this half of the family reads the name off the card it was
+        // pointed at, so the only question is the search, and it goes to the caster.
+        Assert.Equal(alice, SettleTakingEverything(game));
+        Assert.DoesNotContain(game.Log, e => e is CardNameChoiceRequested);
+
+        foreach (var zone in new[] { Zone.Graveyard, Zone.Hand, Zone.Library })
+        {
+            Assert.DoesNotContain(CardsIn(game, bob, zone), o => o.Card.Name == sought.Name);
+            Assert.Contains(CardsIn(game, bob, zone), o => o.Card.Name == spared.Name);
+        }
+
+        Assert.Equal(
+            3,
+            game.State.Exile.Select(game.State.GetObject).Count(o => o.Card.Name == sought.Name));
+
+        Assert.DoesNotContain(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == spared.Name);
+
+        Assert.Equal(game.State, GameReducer.Replay(game.Log));
+    }
+
+    /// <summary>
+    /// "Other than a basic land card" refuses a basic land and nothing else (CR 205.4a).
+    /// </summary>
+    /// <remarks>
+    /// The clause is the whole reason Extirpate is not a Stone Rain: without it, pointing at a
+    /// Forest in a graveyard exiles every Forest its owner has, which is a card nobody printed.
+    /// <para>
+    /// A basic land card is one with the supertype Basic, not one with a basic land type
+    /// (CR 205.4a), and the difference is Dryad Arbor — a Forest with no supertype, which
+    /// Extirpate is perfectly entitled to name. Both directions are asserted, because a clause
+    /// that refused every land would satisfy the first half on its own.
+    /// </remarks>
+    [Fact]
+    public void A_card_named_other_than_a_basic_land_may_not_be_a_basic_land()
+    {
+        var extirpate = Card(
+            "Extirpate Clause Test",
+            "Choose target card in a graveyard other than a basic land card. Search its "
+                + "owner's graveyard, hand, and library for all cards with the same name as "
+                + "that card and exile them. Then that player shuffles.",
+            CardType.Instant);
+
+        var (game, alice, bob) = InMainPhase();
+
+        var basic = game.Create(bob, TestCards.BasicLand("Forest"), Zone.Graveyard);
+
+        // A land with a basic land type and no Basic supertype: Dryad Arbor's shape.
+        var arbor = game.Create(
+            bob,
+            Card("Dryad Arbor Test", string.Empty, CardType.Land, subtypes: "Forest"),
+            Zone.Graveyard);
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(
+                alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(basic)]));
+
+        // The land that is not a basic land card is a legal choice.
+        game.CastSpell(
+            alice, TestCards.PutInHand(game, alice, extirpate), [Target.ToCard(arbor)]);
+
+        Run(game);
+
+        Assert.Contains(
+            game.State.Exile.Select(game.State.GetObject),
+            o => o.Card.Name == "Dryad Arbor Test");
+
+        // And the Forest is still where it was.
+        Assert.Contains(CardsIn(game, bob, Zone.Graveyard), o => o.Card.Name == "Forest");
+    }
+
     /// <summary>Everything a player holds in one zone, as objects.</summary>
     private static IEnumerable<GameObject> CardsIn(Game game, Guid player, Zone zone) =>
         (zone switch

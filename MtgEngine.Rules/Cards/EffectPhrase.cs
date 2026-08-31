@@ -2877,10 +2877,21 @@ public static partial class EffectPhrase
         var pick = ChooseTargetSentence().Match(sentence);
         if (pick.Success)
         {
-            if (Specs.Parse(pick.Groups["t"].Value.Trim()) is not { } spec)
+            // "Choose target card in a graveyard other than a basic land card" - Extirpate and
+            // Surgical Extraction. The clause is lifted off and applied on top of whatever the
+            // target grammar makes of the rest, rather than taught to that grammar: it is a
+            // restriction on the card chosen and not a kind of card, and every noun the grammar
+            // already knows gets it for free.
+            var phrase = pick.Groups["t"].Value.Trim();
+            var exceptBasics = ExceptABasicLand().Match(phrase);
+
+            if (exceptBasics.Success)
+                phrase = phrase[..exceptBasics.Index].Trim();
+
+            if (Specs.Parse(phrase) is not { } spec)
                 return false;
 
-            targets.Add(spec);
+            targets.Add(exceptBasics.Success ? NotABasicLandCard(spec) : spec);
             return true;
         }
 
@@ -10616,6 +10627,28 @@ public static partial class EffectPhrase
     }
 
     /// <summary>
+    /// The same target with basic lands taken out of it - "other than a basic land card"
+    /// (CR 205.4a).
+    /// </summary>
+    /// <remarks>
+    /// The supertype rather than the land types, and the difference is a real card: CR 205.4a
+    /// says a basic land card is one with the supertype Basic, and Dryad Arbor has every Forest's
+    /// land type without it. Reading this as "has a basic land type" would refuse Dryad Arbor,
+    /// which Extirpate is perfectly entitled to name.
+    /// <para>
+    /// Composed onto whatever filter the target already carried rather than replacing it, so the
+    /// phrase costs the shared graveyard-target grammar nothing and works on any noun it learns.
+    /// </para>
+    /// </remarks>
+    private static TargetSpec NotABasicLandCard(TargetSpec spec) => spec with
+    {
+        Description = spec.Description + " other than a basic land card",
+        ObjectFilter = (state, abilities, obj, controller) =>
+            (spec.ObjectFilter is null || spec.ObjectFilter(state, abilities, obj, controller))
+            && !obj.Card.Supertypes.Contains("Basic", StringComparer.Ordinal),
+    };
+
+    /// <summary>
     /// Which target names the player whose zones an extraction searches, or null when the
     /// sentence names nobody this reader may point at (CR 701.23a).
     /// </summary>
@@ -17071,6 +17104,14 @@ public static partial class EffectPhrase
     /// </remarks>
     [GeneratedRegex(@"^[Cc]hoose (?<t>target [a-z0-9' ,-]+)$")]
     private static partial Regex ChooseTargetSentence();
+
+    /// <remarks>
+    /// The clause Extirpate and Surgical Extraction print after the noun. Anchored at the end,
+    /// because it is a restriction on the whole phrase in front of it rather than an adjective
+    /// belonging to any one word of it.
+    /// </remarks>
+    [GeneratedRegex(@" other than a basic land card$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExceptABasicLand();
 
     /// <remarks>
     /// "Any of those results" alongside "the roll", because a card that watches "one or more
