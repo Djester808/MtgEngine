@@ -30,7 +30,7 @@ public static partial class BoardConditions
     /// by the controls-a-noun reader, which then cannot name that noun - so a combinator sitting
     /// after them would never be reached by the clauses it exists for.
     /// </remarks>
-    public static Func<GameState, IAbilitySource, GameObject, bool>? Parse(string condition)
+    public static BoardCondition? Parse(string condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
 
@@ -51,7 +51,7 @@ public static partial class BoardConditions
     }
 
     /// <summary>One condition, with no "and" or "or" holding two of them together.</summary>
-    private static Func<GameState, IAbilitySource, GameObject, bool>? Single(string condition)
+    private static BoardCondition? Single(string condition)
     {
         var text = condition;
 
@@ -129,7 +129,7 @@ public static partial class BoardConditions
             var atLeast = !totalPower.Groups["dir"].Value.StartsWith(
                 "less", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 // Power as it is now, not as printed: a lord's creatures have the power the lord
                 // gives them, which is the whole reason a card asks this rather than a count.
@@ -158,7 +158,7 @@ public static partial class BoardConditions
             if (wanted is not { } zone)
                 return null;
 
-            return (_, _, source) => source.CastFromZone == zone;
+            return (_, _, source, _) => source.CastFromZone == zone;
         }
 
         // "You control three or more creatures with different powers" — how many *distinct*
@@ -171,7 +171,7 @@ public static partial class BoardConditions
         {
             var leastDistinct = Number(spread.Groups["n"].Value);
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var powers = new HashSet<int>();
 
@@ -209,7 +209,7 @@ public static partial class BoardConditions
             var least = Number(alike.Groups["n"].Value);
             var distinct = alike.Groups["different"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var names = new List<string>();
 
@@ -288,7 +288,7 @@ public static partial class BoardConditions
                 _ => count <= wantedHeld,
             };
 
-            return (state, _, source) => mine
+            return (state, _, source, _) => mine
                 ? Holds(state.GetPlayer(source.ControllerId).Hand.Count)
                 : state.TurnOrder
                     .Where(id => id != source.ControllerId && !state.GetPlayer(id).HasLost)
@@ -310,7 +310,7 @@ public static partial class BoardConditions
             // three can tell apart.
             var theirs = compared.Groups["theirs"].Success;
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
             {
                 var mine = state.GetPlayer(source.ControllerId).Hand.Count;
 
@@ -375,7 +375,7 @@ public static partial class BoardConditions
                 || (state.TryGetObject(id, out var card)
                     && Abilities.SearchFilters.Matches(filter, card.Card));
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (!anyOpponent)
                 {
@@ -412,7 +412,7 @@ public static partial class BoardConditions
                 ? PermanentCardTypes
                 : CardTypesForDelirium;
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
             {
                 var seen = tallied.Count(
                     type => state.GetPlayer(source.ControllerId).Graveyard.Any(
@@ -433,7 +433,7 @@ public static partial class BoardConditions
             var orMoreValues = values.Groups["dir"].Value
                 .StartsWith("more", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
             {
                 // The mana value of a card in a graveyard is the one its cost gives it
                 // (CR 202.3); nothing on this side of the stack can be holding an X.
@@ -450,7 +450,7 @@ public static partial class BoardConditions
         if (turn.Success)
         {
             var negated = turn.Groups["not"].Success;
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 (state.ActivePlayerId == source.ControllerId) != negated;
         }
 
@@ -466,7 +466,7 @@ public static partial class BoardConditions
             var exactly = life.Groups["exactly"].Success;
             var who = life.Groups["who"].Value.ToLowerInvariant();
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 // "An opponent has ..." is true if any one of them does, and "a player has ..."
                 // is true if anyone at all does — including the controller, which is the whole
@@ -522,7 +522,7 @@ public static partial class BoardConditions
             // every God in the cycle on and off exactly one permanent early.
             var below = devoted.Groups["less"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var symbols = EffectPhrase.DevotionTo(
                     state, abilities, source.ControllerId, wantedColours);
@@ -544,7 +544,7 @@ public static partial class BoardConditions
             // has an answer here and nothing claims a clause it then cannot read.
             var hue = ColourNamed(census.Groups["colour"].Value);
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var commonest = MostCommonColours(state, abilities);
 
@@ -580,7 +580,7 @@ public static partial class BoardConditions
             // Hollow would pay out with an opponent holding six cards.
             var everyone = emptyHand.Groups["everyone"].Success;
 
-            return (state, abilities, source) => everyone
+            return (state, abilities, source, _) => everyone
                 ? state.TurnOrder.TrueForAll(other => state.GetPlayer(other).Hand.IsEmpty)
                 : anyone
                     ? state.TurnOrder.Any(other => state.GetPlayer(other).Hand.IsEmpty)
@@ -605,7 +605,7 @@ public static partial class BoardConditions
             var every = richer.Groups["each"].Value
                 .StartsWith("each", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
             {
                 var mine = state.GetPlayer(source.ControllerId).Life;
 
@@ -634,7 +634,7 @@ public static partial class BoardConditions
                 return null;
             }
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 wanted.ObjectFilter?.Invoke(
                     state, abilities, source, source.ControllerId) != false;
         }
@@ -647,7 +647,7 @@ public static partial class BoardConditions
             var orMore = direction.Equals("greater", StringComparison.OrdinalIgnoreCase)
                 || direction.Equals("more", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => state.Battlefield.Any(id =>
+            return (state, abilities, source, _) => state.Battlefield.Any(id =>
             {
                 var computed = Characteristics.Of(state, abilities, state.GetObject(id));
                 if (!computed.IsCreature || computed.ControllerId != source.ControllerId)
@@ -666,7 +666,7 @@ public static partial class BoardConditions
             var theirs = bloodied.Groups["who"].Value.Contains(
                 "opponent", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => state.TurnOrder.Any(id =>
+            return (state, abilities, source, _) => state.TurnOrder.Any(id =>
                 (theirs ? id != source.ControllerId : id == source.ControllerId)
                 && state.GetPlayer(id).WasDealtDamageThisTurn);
         }
@@ -674,7 +674,7 @@ public static partial class BoardConditions
         if (DiedThisTurnLine().Match(text) is { Success: true } deaths)
         {
             var nobody = deaths.Groups["none"].Success;
-            return (state, _, _) => state.CreatureDiedThisTurn != nobody;
+            return (state, _, _, _) => state.CreatureDiedThisTurn != nobody;
         }
 
         // "Three or more creatures died this turn" - the same fact asked as a number. Read before
@@ -683,7 +683,7 @@ public static partial class BoardConditions
         if (CreaturesDiedCountLine().Match(text) is { Success: true } toll)
         {
             var least = Number(toll.Groups["n"].Value);
-            return (state, _, _) => state.CreaturesDiedThisTurn() >= least;
+            return (state, _, _, _) => state.CreaturesDiedThisTurn() >= least;
         }
 
         // "~ entered this turn", and the pronoun that means the same permanent. Not summoning
@@ -695,7 +695,7 @@ public static partial class BoardConditions
         // trigger was about, and a board condition is not given the trigger's subject - it would
         // answer about the permanent asking instead, which is a different card.
         if (SelfEnteredThisTurnLine().IsMatch(text))
-            return (state, _, source) => state.EnteredThisTurn(source.Id);
+            return (state, _, source, _) => state.EnteredThisTurn(source.Id);
 
         // "A permanent left the battlefield under your control this turn", and the same sentence
         // with the possessive moved. Scoped to the asker's own permanents in both spellings,
@@ -703,7 +703,7 @@ public static partial class BoardConditions
         // an opponent's permanent died, which is a strictly easier card than the one printed.
         if (LeftBattlefieldThisTurnLine().IsMatch(text))
         {
-            return (state, _, source) =>
+            return (state, _, source, _) =>
                 state.PermanentsLeftBattlefieldThisTurn(source.ControllerId) >= 1;
         }
 
@@ -717,7 +717,7 @@ public static partial class BoardConditions
             if (Crossings(arrived) is not { } arrival)
                 return null;
 
-            return (state, _, source) => arrival.Happened(state.ArrivalsThisTurn, state, source);
+            return (state, _, source, _) => arrival.Happened(state.ArrivalsThisTurn, state, source);
         }
 
         // "If a creature died under your control this turn", "if another Human died under your
@@ -729,7 +729,7 @@ public static partial class BoardConditions
             if (Crossings(lost) is not { } death)
                 return null;
 
-            return (state, _, source) => death.Happened(
+            return (state, _, source, _) => death.Happened(
                 state.DeparturesThisTurn.Where(gone => gone.To == Zone.Graveyard),
                 state,
                 source);
@@ -739,7 +739,7 @@ public static partial class BoardConditions
         // anywhere. Not the same question as descend 4, which reads the graveyard's contents now
         // and needs no record of the turn at all.
         if (DescendedThisTurnLine().IsMatch(text))
-            return (state, _, source) => state.GetPlayer(source.ControllerId).TimesDescendedThisTurn >= 1;
+            return (state, _, source, _) => state.GetPlayer(source.ControllerId).TimesDescendedThisTurn >= 1;
 
         // "If {U} was spent to cast this spell", "if {R}{R} was spent to cast it", "if at least
         // four mana was spent", "if no mana was spent". Four questions about one record - the
@@ -793,7 +793,7 @@ public static partial class BoardConditions
                 ? Number(spending.Groups["same"].Value)
                 : 0;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (!state.TryGetObject(source.Id, out var self))
                     return false;
@@ -833,7 +833,7 @@ public static partial class BoardConditions
             var kind = bearing.Groups["kind"].Value.Trim().ToLowerInvariant();
             var least = bearing.Groups["n"].Success ? Number(bearing.Groups["n"].Value) : 1;
 
-            return (_, _, source) =>
+            return (_, _, source, _) =>
                 source.Permanent?.Counters.GetValueOrDefault(kind) >= least;
         }
 
@@ -853,7 +853,7 @@ public static partial class BoardConditions
                 ? Number(bearingAny.Groups["n"].Value)
                 : 1;
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
                 Subject(state, source, pronoun) is { } self
                 && self.Permanent is { } carried
                 && carried.Counters.Values.Sum() >= least;
@@ -873,7 +873,7 @@ public static partial class BoardConditions
         // asked continuously rather than at the moment of declaring, so it cannot reuse that.
         if (AttackingAloneLine().IsMatch(text))
         {
-            return (state, _, source) =>
+            return (state, _, source, _) =>
                 state.Combat.Attackers.Count == 1
                 && state.Combat.Attackers.ContainsKey(source.Id);
         }
@@ -912,7 +912,7 @@ public static partial class BoardConditions
                 return null;
             }
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var count = state.Combat.Attackers.Keys.Count(id =>
                     state.TryGetObject(id, out var attacker)
@@ -928,7 +928,7 @@ public static partial class BoardConditions
         // for it. Not the negation of "~ is blocking" beside it - that is the other side of the
         // same combat, and a creature can be neither.
         if (SelfBlockedLine().IsMatch(text))
-            return (state, _, source) => !state.Combat.BlockersOf(source.Id).IsEmpty;
+            return (state, _, source, _) => !state.Combat.BlockersOf(source.Id).IsEmpty;
 
         // "An opponent has three or more poison counters" - the tally is in the state for the
         // rule that ends the game at ten (CR 704.5c); nothing could ask it short of that.
@@ -939,7 +939,7 @@ public static partial class BoardConditions
             var theirs = poisoned.Groups["who"].Value
                 .StartsWith("an", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, source) => theirs
+            return (state, _, source, _) => theirs
                 ? state.TurnOrder.Any(id => id != source.ControllerId
                     && state.GetPlayer(id).PoisonCounters >= wantedPoison)
                 : state.GetPlayer(source.ControllerId).PoisonCounters >= wantedPoison;
@@ -956,7 +956,7 @@ public static partial class BoardConditions
             var defending = envenomed.Groups["who"].Value
                 .StartsWith("defending", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
             {
                 if (defending)
                 {
@@ -983,7 +983,7 @@ public static partial class BoardConditions
                 ? Number(drawnThisTurn.Groups["n"].Value)
                 : 1;
 
-            return (state, _, source) =>
+            return (state, _, source, _) =>
                 state.GetPlayer(source.ControllerId).CardsDrawnThisTurn >= least;
         }
 
@@ -1022,7 +1022,7 @@ public static partial class BoardConditions
             // would have had to say and what a second threshold would have got wrong.
             var idle = castThisTurn.Groups["not"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var player = state.GetPlayer(source.ControllerId);
 
@@ -1079,7 +1079,7 @@ public static partial class BoardConditions
 
             var negated = where.Groups["not"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 // No object is no answer, in both directions: reading a card that has ceased to
                 // exist as one that "isn't on the battlefield" is the fail-open half of this
@@ -1113,7 +1113,7 @@ public static partial class BoardConditions
             var strictly = !contest.Groups["dir"].Value
                 .StartsWith("fewer", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 int CountFor(Guid id) => state.Battlefield.Count(objectId =>
                 {
@@ -1150,7 +1150,7 @@ public static partial class BoardConditions
         {
             var unkicked = kicked.Groups["not"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self) && self.WasKicked != unkicked;
         }
 
@@ -1160,7 +1160,7 @@ public static partial class BoardConditions
         // kicked twice.
         if (KickedTwiceLine().IsMatch(text))
         {
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self) && self.TimesKicked >= 2;
         }
 
@@ -1171,7 +1171,7 @@ public static partial class BoardConditions
         {
             var cost = which.Groups["cost"].Value.ToUpperInvariant();
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self)
                 && self.KickedWith.Contains(cost, StringComparer.OrdinalIgnoreCase);
         }
@@ -1181,7 +1181,7 @@ public static partial class BoardConditions
         // move that turns it into a permanent (CR 607.2), exactly as kicker's flag is.
         if (TeamworkCastLine().IsMatch(text))
         {
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self) && self.WasTeamwork;
         }
 
@@ -1194,7 +1194,7 @@ public static partial class BoardConditions
         {
             var unpromised = gifted.Groups["not"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self)
                 && (self.GiftedTo is not null) != unpromised;
         }
@@ -1207,7 +1207,7 @@ public static partial class BoardConditions
         // zone change, exactly as kicker's does.
         if (WasBargainedLine().IsMatch(text))
         {
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self) && self.WasBargained;
         }
 
@@ -1216,7 +1216,7 @@ public static partial class BoardConditions
         // the ability asking, so a permanent taken from the player who cast it stops paying.
         if (WasCastLine().IsMatch(text))
         {
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 state.TryGetObject(source.Id, out var self)
                 && self.CastBy == source.ControllerId;
         }
@@ -1226,7 +1226,7 @@ public static partial class BoardConditions
         // speed is a number the game already keeps and a second field for the top of its range
         // would be a place for the two to disagree.
         if (MaxSpeedLine().IsMatch(text))
-            return (state, _, source) => state.GetPlayer(source.ControllerId).Speed >= 4;
+            return (state, _, source, _) => state.GetPlayer(source.ControllerId).Speed >= 4;
 
         // "As long as an opponent owns a card in exile" - exile is a shared zone (CR 400.1), so
         // the question is whose card it is rather than whose pile: an opponent's card you exiled
@@ -1238,7 +1238,7 @@ public static partial class BoardConditions
             var mine = banished.Groups["who"].Value
                 .StartsWith("you", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, source) => state.Exile.Any(id =>
+            return (state, _, source, _) => state.Exile.Any(id =>
                 state.TryGetObject(id, out var card)
                 && (card.OwnerId == source.ControllerId) == mine);
         }
@@ -1252,7 +1252,7 @@ public static partial class BoardConditions
             var mine = blessed.Groups["who"].Value.Equals(
                 "you", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => mine
+            return (state, abilities, source, _) => mine
                 ? state.GetPlayer(source.ControllerId).HasCitysBlessing
                 : state.TurnOrder.Any(
                     other => other != source.ControllerId
@@ -1269,7 +1269,7 @@ public static partial class BoardConditions
             var none = lastTurn.Groups["none"].Success;
             var wanted = none ? 0 : NumberWord(lastTurn.Groups["n"].Value);
 
-            return (state, _, _) => none
+            return (state, _, _, _) => none
                 ? state.TurnOrder.All(who => state.GetPlayer(who).SpellsCastLastTurn == 0)
                 : state.TurnOrder.Any(who => state.GetPlayer(who).SpellsCastLastTurn >= wanted);
         }
@@ -1283,7 +1283,7 @@ public static partial class BoardConditions
         {
             var mine = !delved.Groups["opponent"].Success;
 
-            return (state, _, source) => mine
+            return (state, _, source, _) => mine
                 ? state.GetPlayer(source.ControllerId).HasCompletedADungeon
                 : state.ActivePlayers().Any(who =>
                     who != source.ControllerId && state.GetPlayer(who).HasCompletedADungeon);
@@ -1300,12 +1300,12 @@ public static partial class BoardConditions
             // "somebody else is the monarch" would make each of them fire exactly when it must
             // not - and would still compile.
             if (crowned.Groups["nobody"].Success)
-                return (state, _, _) => state.MonarchId is null;
+                return (state, _, _, _) => state.MonarchId is null;
 
             var mine = crowned.Groups["who"].Value.Equals(
                 "you", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => mine
+            return (state, abilities, source, _) => mine
                 ? state.MonarchId == source.ControllerId
                 : state.MonarchId is { } held && held != source.ControllerId;
         }
@@ -1316,7 +1316,7 @@ public static partial class BoardConditions
         // arrives inside a longer clause this vocabulary does not read, and an arm no card
         // exercises is an arm no test can keep honest.
         if (InitiativeLine().IsMatch(text))
-            return (state, _, source) => state.InitiativeId == source.ControllerId;
+            return (state, _, source, _) => state.InitiativeId == source.ControllerId;
 
         // "If it's night", "if it's neither day nor night" (CR 731.1). A designation the game
         // itself has rather than a player, so it sits beside the monarch — and it has three
@@ -1340,7 +1340,7 @@ public static partial class BoardConditions
                 ? (bool?)null
                 : sky.Groups["what"].Value.Equals("day", StringComparison.OrdinalIgnoreCase);
 
-            return (state, _, _) => wanted is { } designation
+            return (state, _, _, _) => wanted is { } designation
                 ? state.IsDay == designation
                 : state.IsDay is null;
         }
@@ -1359,7 +1359,7 @@ public static partial class BoardConditions
             // that is. Twenty-two cards say "a commander".
             var anyones = commander.Groups["any"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var mine = state.GetPlayer(source.ControllerId).CommanderOracleId;
                 if (!anyones && mine is null)
@@ -1395,7 +1395,7 @@ public static partial class BoardConditions
         // "If you have a full party" (CR 700.8c). A count of four roles rather than of four
         // creatures, and the rule for taking it is what makes it worth a reader of its own.
         if (FullPartyLine().IsMatch(text))
-            return (state, abilities, source) => HasFullParty(state, abilities, source.ControllerId);
+            return (state, abilities, source, _) => HasFullParty(state, abilities, source.ControllerId);
 
         // "If you dealt combat damage to a player this turn" - twenty-four cards ask it and
         // none of them could be read, in any of the three places a condition is asked from: a
@@ -1407,7 +1407,7 @@ public static partial class BoardConditions
             var mine = connected.Groups["who"].Value.Equals(
                 "you", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => mine
+            return (state, abilities, source, _) => mine
                 ? state.GetPlayer(source.ControllerId).DealtCombatDamageToPlayerThisTurn
                 : state.TurnOrder.Any(
                     other => other != source.ControllerId
@@ -1425,7 +1425,7 @@ public static partial class BoardConditions
             // player not having attacked says nothing about the other two.
             if (attacked.Groups["nobody"].Success)
             {
-                return (state, _, _) => state.TurnOrder.All(
+                return (state, _, _, _) => state.TurnOrder.All(
                     id => !state.GetPlayer(id).AttackedThisTurn);
             }
 
@@ -1434,7 +1434,7 @@ public static partial class BoardConditions
 
             var negated = attacked.Groups["not"].Success;
 
-            return (state, _, source) => state.TurnOrder
+            return (state, _, source, _) => state.TurnOrder
                 .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
                 .Any(id => state.GetPlayer(id).AttackedThisTurn) != negated;
         }
@@ -1451,7 +1451,7 @@ public static partial class BoardConditions
             var either = moved.Groups["dir"].Value.Contains(" or ", StringComparison.OrdinalIgnoreCase);
             var theirs = moved.Groups["who"].Value.StartsWith("an opponent", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) => state.TurnOrder
+            return (state, abilities, source, _) => state.TurnOrder
                 .Where(id => theirs ? id != source.ControllerId : id == source.ControllerId)
                 .Any(id =>
                 {
@@ -1481,7 +1481,7 @@ public static partial class BoardConditions
 
             var pronoun = itself.Groups["it"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 Subject(state, source, pronoun) is { } self
                 && (self.Permanent?.IsTapped ?? false) == wantsTapped;
         }
@@ -1495,7 +1495,7 @@ public static partial class BoardConditions
         {
             var needsSoulbond = bonded.Groups["soulbond"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 Subject(state, source, bonded.Groups["it"].Success) is { } self
                 && state.PairedPartnerOf(self) is { } partner
                 && (!needsSoulbond
@@ -1520,7 +1520,7 @@ public static partial class BoardConditions
             // possessive on "enchanted creature's power" says the same thing in full.
             var elsewhere = mighty.Groups["it"].Success || mighty.Groups["host"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (Subject(state, source, elsewhere) is not { } self)
                     return false;
@@ -1551,7 +1551,7 @@ public static partial class BoardConditions
 
             var pronoun = standing.Groups["it"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (Subject(state, source, pronoun) is not { } self)
                     return false;
@@ -1605,7 +1605,7 @@ public static partial class BoardConditions
                 return null;
             }
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
                 source.Permanent?.AttachedTo is { } worn
                 && state.TryGetObject(worn, out var wearer)
                 && wearer.Zone == Zone.Battlefield
@@ -1621,7 +1621,7 @@ public static partial class BoardConditions
         {
             var pronoun = altered.Groups["it"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (Subject(state, source, pronoun) is not { } self)
                     return false;
@@ -1664,7 +1664,7 @@ public static partial class BoardConditions
             if (spec is not { Kind: Abilities.TargetKind.Permanent } filter)
                 return null;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (source.Permanent?.AttachedTo is not { } host
                     || !state.TryGetObject(host, out var wearing))
@@ -1692,7 +1692,7 @@ public static partial class BoardConditions
 
             var negated = isA.Groups["not"].Success;
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 if (!state.TryGetObject(source.Id, out var self) || self.Zone != Zone.Battlefield)
                     return false;
@@ -1773,7 +1773,7 @@ public static partial class BoardConditions
 
             var spec = specs[0];
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 Guid? defender = null;
 
@@ -1814,7 +1814,7 @@ public static partial class BoardConditions
             var wanted = Number(opponents.Groups["n"].Value);
             var orMore = opponents.Groups["dir"].Value.StartsWith("more", StringComparison.OrdinalIgnoreCase);
 
-            return (state, abilities, source) =>
+            return (state, abilities, source, _) =>
             {
                 var count = state.TurnOrder.Count(
                     id => id != source.ControllerId && !state.GetPlayer(id).HasLost);
@@ -1842,10 +1842,10 @@ public static partial class BoardConditions
     /// can do to a card is what was already happening to it.</item>
     /// </list>
     /// </remarks>
-    private static Func<GameState, IAbilitySource, GameObject, bool>? Joined(string text)
+    private static BoardCondition? Joined(string text)
     {
-        var viable = new List<(bool All, Func<GameState, IAbilitySource, GameObject, bool> Left,
-            Func<GameState, IAbilitySource, GameObject, bool> Right)>();
+        var viable = new List<(bool All, BoardCondition Left,
+            BoardCondition Right)>();
 
         foreach (Match join in JoinWord().Matches(text))
         {
@@ -1865,11 +1865,17 @@ public static partial class BoardConditions
 
         var (all, first, second) = viable[0];
 
+        // The seat is carried into both halves rather than dropped, because a conjunction
+        // says one thing about one player: "if that player controls a Forest and has no cards
+        // in hand" is two questions about the same seat, and a half that lost it would ask the
+        // second about nobody and answer false for every card printing the shape.
         return all
-            ? (state, abilities, source) =>
-                first(state, abilities, source) && second(state, abilities, source)
-            : (state, abilities, source) =>
-                first(state, abilities, source) || second(state, abilities, source);
+            ? (state, abilities, source, subject) =>
+                first(state, abilities, source, subject)
+                && second(state, abilities, source, subject)
+            : (state, abilities, source, subject) =>
+                first(state, abilities, source, subject)
+                || second(state, abilities, source, subject);
     }
 
     /// <summary>
@@ -1882,7 +1888,7 @@ public static partial class BoardConditions
     /// mangled into a question about controlling a turn, and the subject must be one of the
     /// phrases that can carry a bare noun after it.
     /// </remarks>
-    private static Func<GameState, IAbilitySource, GameObject, bool>? Elided(
+    private static BoardCondition? Elided(
         string left, string right)
     {
         if (!ElidedTail().IsMatch(right))
@@ -1919,7 +1925,7 @@ public static partial class BoardConditions
     /// applied, so "other" and "any" would give the same answer today — but they will not once
     /// something else asks the same question, and reading the word is free.
     /// </remarks>
-    private static Func<GameState, IAbilitySource, GameObject, bool>? Counting(Match m)
+    private static BoardCondition? Counting(Match m)
     {
         var wanted = Number(m.Groups["n"].Value);
 
@@ -1971,7 +1977,7 @@ public static partial class BoardConditions
         bool Passes(int count) =>
             exactly ? count == wanted : orMore ? count >= wanted : count <= wanted;
 
-        return (state, abilities, source) =>
+        return (state, abilities, source, _) =>
         {
             // Tallied once per controller rather than swept once per subject. The four subjects
             // this reader answers - yours, all your opponents' together, any one opponent's, and
@@ -2305,7 +2311,7 @@ public static partial class BoardConditions
     /// written as numbers, so a reader that lowercased "+1/+1" cannot go looking for a counter
     /// nothing ever adds.
     /// </remarks>
-    private static Func<GameState, IAbilitySource, GameObject, bool> CountersOn(Match m)
+    private static BoardCondition CountersOn(Match m)
     {
         var kind = m.Groups["kind"].Value is "+1/+1" or "-1/-1"
             ? m.Groups["kind"].Value
@@ -2324,7 +2330,7 @@ public static partial class BoardConditions
         // clause about what it is not carrying either.
         var negated = m.Groups["not"].Success;
 
-        return (state, _, source) =>
+        return (state, _, source, _) =>
         {
             // No subject is no answer, in both directions. Reading a permanent that has left
             // the battlefield as one carrying no counters would make "there are no depletion

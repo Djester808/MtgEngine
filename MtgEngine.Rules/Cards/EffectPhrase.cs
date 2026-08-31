@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.State;
 
@@ -941,7 +942,8 @@ public static partial class EffectPhrase
                     [
                         new OnlyIf(holds!, scratch.ToImmutable()),
                         new OnlyIf(
-                            (state, abilities, source) => !holds!(state, abilities, source),
+                            (state, abilities, source, subject) =>
+                                !holds!(state, abilities, source, subject),
                             replaced),
                     ]));
 
@@ -1140,7 +1142,8 @@ public static partial class EffectPhrase
             [
                 new OnlyIf(holds, then.ToImmutable()),
                 new OnlyIf(
-                    (state, abilities, source) => !holds(state, abilities, source),
+                    (state, abilities, source, subject) =>
+                        !holds(state, abilities, source, subject),
                     instead.ToImmutable()),
             ]));
 
@@ -1148,8 +1151,8 @@ public static partial class EffectPhrase
     }
 
     /// <summary>A condition that is always met — the wrapper above holds two that are not.</summary>
-    private static bool Whatever(GameState state, IAbilitySource abilities, GameObject source) =>
-        true;
+    private static bool Whatever(
+        GameState state, IAbilitySource abilities, GameObject source, Guid? subject) => true;
 
     private static IEnumerable<string> Sentences(string text)
     {
@@ -6496,7 +6499,7 @@ public static partial class EffectPhrase
                 return false;
 
             effects.Add(new OnlyIf(
-                (_, _, self) =>
+                (_, _, self, _) =>
                     (self.Permanent?.Counters.GetValueOrDefault(kind, 0) ?? 0) == 0,
                 [new SacrificeSource()]));
 
@@ -6512,7 +6515,7 @@ public static partial class EffectPhrase
                 return false;
 
             effects.Add(new OnlyIf(
-                (_, _, arrived) => arrived.ManaSpent[needed] == 0,
+                (_, _, arrived, _) => arrived.ManaSpent[needed] == 0,
                 [new SacrificeSource()]));
 
             return true;
@@ -7220,7 +7223,7 @@ public static partial class EffectPhrase
         if (adapting.Success)
         {
             effects.Add(new OnlyIf(
-                (state, _, source) => state.TryGetObject(source.Id, out var self)
+                (state, _, source, _) => state.TryGetObject(source.Id, out var self)
                     && (self.Permanent?.Counters.GetValueOrDefault(CounterKinds.PlusOnePlusOne) ?? 0) == 0,
                 [
                     new PutCounters(
@@ -7559,7 +7562,8 @@ public static partial class EffectPhrase
             }
 
             effects.Add(new OnlyIf(
-                (state, abilities, source) => !forbidden(state, abilities, source),
+                (state, abilities, source, subject) =>
+                    !forbidden(state, abilities, source, subject),
                 otherwise.ToImmutable()));
 
             return true;
@@ -16955,7 +16959,8 @@ public static partial class TriggerConditions
                 return null;
 
             return (e, state, source) =>
-                fires(e, state, source) && holds(state, source.Abilities, source);
+                fires(e, state, source)
+                && holds(state, source.Abilities, source, Game.SubjectOf(e, state));
         }
 
         if (TryPhase(condition) is { } phase)

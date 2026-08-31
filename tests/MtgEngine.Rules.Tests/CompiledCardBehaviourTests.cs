@@ -74172,7 +74172,7 @@ public sealed class CompiledCardBehaviourTests
         // And the pair the check exists to refuse: two of a kind carrying one locator.
         var twice = ImmutableList.Create<IEffect>(
             new OnlyIf(
-                (_, _, _) => true,
+                (_, _, _, _) => true,
                 [
                     new MayPay(ManaCostSpec.Parse("{1}"), [], []),
                     new MayPay(ManaCostSpec.Parse("{2}"), [], []),

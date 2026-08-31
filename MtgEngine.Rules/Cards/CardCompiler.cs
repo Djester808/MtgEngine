@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using MtgEngine.Domain.Enums;
 using MtgEngine.Domain.Models;
 using MtgEngine.Rules.Abilities;
+using MtgEngine.Rules.Engine;
 using MtgEngine.Rules.Events;
 using MtgEngine.Rules.Mana;
 using MtgEngine.Rules.State;
@@ -251,9 +252,10 @@ public static partial class CardCompiler
                     roomActivated.AddRange(behind.Activated.Select(a => a with
                     {
                         Id = "door" + key.ToString(CultureInfo.InvariantCulture) + a.Id,
-                        ActivateOnlyIf = (state, abilities, self) =>
+                        ActivateOnlyIf = (state, abilities, self, subject) =>
                             Unlocked(state, self.Id, key)
-                            && a.ActivateOnlyIf?.Invoke(state, abilities, self) != false,
+                            && a.ActivateOnlyIf?.Invoke(state, abilities, self, subject)
+                                != false,
                     }));
                 }
 
@@ -2348,7 +2350,8 @@ public static partial class CardCompiler
             Id = "gift",
             Text = line,
             Triggers = (e, state, source) =>
-                arrival(e, state, source) && promised(state, source.Abilities, source),
+                arrival(e, state, source)
+                && promised(state, source.Abilities, source, Game.SubjectOf(e, state)),
             Effects = [new OnlyIf(promised, delivery)],
             FunctionsFrom = Zone.Battlefield,
         });
@@ -2565,7 +2568,7 @@ public static partial class CardCompiler
                 Text = "To solve \u2014 " + condition,
                 Triggers = (e, state, source) =>
                     atEndStep(e, state, source)
-                    && holds(state, source.Abilities, source)
+                    && holds(state, source.Abilities, source, Game.SubjectOf(e, state))
 
                     // CR 719.3a: "and this Case is not solved". Without it the Case solves itself
                     // again at the end of every one of your turns for the rest of the game, and
@@ -2584,9 +2587,9 @@ public static partial class CardCompiler
             activated.AddRange(section.Activated.Select(a => a with
             {
                 Id = "solved" + a.Id,
-                ActivateOnlyIf = (state, abilities, self) =>
+                ActivateOnlyIf = (state, abilities, self, subject) =>
                     self.Permanent is { IsSolved: true }
-                    && a.ActivateOnlyIf?.Invoke(state, abilities, self) != false,
+                    && a.ActivateOnlyIf?.Invoke(state, abilities, self, subject) != false,
             }));
 
             triggers.AddRange(section.Triggers.Select(t => t with
@@ -2684,7 +2687,7 @@ public static partial class CardCompiler
                     Text = "Level " + to.ToString(CultureInfo.InvariantCulture),
                     ManaCost = cost,
                     Timing = ActivationTiming.SorceryOnly,
-                    ActivateOnlyIf = (_, _, self) => self.Permanent?.Level == to - 1,
+                    ActivateOnlyIf = (_, _, self, _) => self.Permanent?.Level == to - 1,
                     Effects = [new GainClassLevel(to)],
                 });
             }
@@ -2721,9 +2724,9 @@ public static partial class CardCompiler
             activated.AddRange(section.Activated.Select(a => a with
             {
                 Id = "l" + need.ToString(CultureInfo.InvariantCulture) + a.Id,
-                ActivateOnlyIf = (state, abilities, self) =>
+                ActivateOnlyIf = (state, abilities, self, subject) =>
                     AtLeastLevel(self, need)
-                    && a.ActivateOnlyIf?.Invoke(state, abilities, self) != false,
+                    && a.ActivateOnlyIf?.Invoke(state, abilities, self, subject) != false,
             }));
 
             triggers.AddRange(section.Triggers.Select(t => t with
@@ -2986,9 +2989,9 @@ public static partial class CardCompiler
             activated.AddRange(section.Activated.Select(a => a with
             {
                 Id = "l" + floor + a.Id,
-                ActivateOnlyIf = (state, abilities, self) =>
+                ActivateOnlyIf = (state, abilities, self, subject) =>
                     reached.Covers(LevelsOn(self))
-                    && a.ActivateOnlyIf?.Invoke(state, abilities, self) != false,
+                    && a.ActivateOnlyIf?.Invoke(state, abilities, self, subject) != false,
             }));
 
             triggers.AddRange(section.Triggers.Select(t => t with
@@ -4413,7 +4416,7 @@ public static partial class CardCompiler
             Text = line,
             ManaCost = cost,
             Timing = ActivationTiming.SorceryOnly,
-            ActivateOnlyIf = (_, _, source) => source.Permanent?.AttachedTo is not null,
+            ActivateOnlyIf = (_, _, source, _) => source.Permanent?.AttachedTo is not null,
             Effects = [new UnattachSource()],
         });
 
@@ -6595,7 +6598,7 @@ public static partial class CardCompiler
             FunctionsFrom = null,
             Applies = (e, state, source) =>
                 Arriving(e, source) is not null
-                && bloodied(state, EmptyAbilities.Instance, source),
+                && bloodied(state, EmptyAbilities.Instance, source, null),
             Replace = (e, _, source) =>
             {
                 var arrived = Arriving(e, source)!.Value;
@@ -6666,14 +6669,15 @@ public static partial class CardCompiler
             },
         });
 
-        bool BigX(GameState _, IAbilitySource __, GameObject source) => source.VariableValue >= 5;
+        bool BigX(GameState _, IAbilitySource __, GameObject source, Guid? ___) =>
+            source.VariableValue >= 5;
 
         triggers.Add(new TriggeredAbilityDefinition
         {
             Id = "ravenous",
             Text = $"When {card.Name} enters, if X is 5 or more, draw a card.",
             Triggers = (e, state, source) =>
-                entered(e, state, source) && BigX(state, source.Abilities, source),
+                entered(e, state, source) && BigX(state, source.Abilities, source, null),
             Effects = [new OnlyIf(BigX, [new DrawCards(new Amount(1))])],
         });
 
@@ -7171,7 +7175,7 @@ public static partial class CardCompiler
         if (m.Groups["given"].Success && m.Groups["when"].Success)
             return false;
 
-        Func<GameState, IAbilitySource, GameObject, bool>? when = null;
+        BoardCondition? when = null;
         if (asked.Success)
         {
             when = BoardConditions.Parse(asked.Value.Trim());
@@ -7189,8 +7193,11 @@ public static partial class CardCompiler
                 var arrived = Arriving(e, source)!.Value;
 
                 // Asked as it enters, which is when the replacement runs (CR 614.1c).
-                if (when is not null && !when(state, EmptyAbilities.Instance, source))
+                if (when is not null
+                    && !when(state, EmptyAbilities.Instance, source, null))
+                {
                     return tapped ? [e, new PermanentTapped(arrived)] : [e];
+                }
 
                 // X rides on the object that is casting, which only a move has: a token was
                 // never cast and has no X to read, so it arrives with the fixed number or none.
@@ -7303,7 +7310,7 @@ public static partial class CardCompiler
             Id = "ascend",
             Text = "Any time you control ten or more permanents and you don't have the city's "
                 + "blessing, you get the city's blessing for the rest of the game.",
-            StateCondition = static (state, _, source) => state.Battlefield.Count(
+            StateCondition = static (state, _, source, _) => state.Battlefield.Count(
                 id => state.TryGetObject(id, out var permanent)
                     && permanent.ControllerId == source.ControllerId) >= 10,
             Triggers = static (_, _, _) => false,
@@ -8073,7 +8080,7 @@ public static partial class CardCompiler
         int from,
         string subject,
         string condition,
-        Func<GameState, IAbilitySource, GameObject, bool> holds,
+        BoardCondition holds,
         CardDefinition card,
         ImmutableList<ContinuousEffectDefinition>.Builder into)
     {
@@ -8125,7 +8132,7 @@ public static partial class CardCompiler
         string clause,
         string subject,
         string condition,
-        Func<GameState, IAbilitySource, GameObject, bool> holds,
+        BoardCondition holds,
         CardDefinition card,
         ImmutableList<ContinuousEffectDefinition>.Builder into)
     {
@@ -8158,7 +8165,7 @@ public static partial class CardCompiler
                 // else's characteristics (CR 613.8).
                 Applies = (state, source, target) =>
                     source is not null
-                        && holds(state, EmptyAbilities.Instance, source)
+                        && holds(state, EmptyAbilities.Instance, source, null)
                         && inner.Applies(state, source, target),
             });
         }
@@ -9413,7 +9420,7 @@ public static partial class CardCompiler
         // belongs in Applies, where it stops applying and starts again as the counters come and
         // go. A condition that cannot be read leaves the line unread rather than holding the
         // permanent down unconditionally.
-        Func<GameState, IAbilitySource, GameObject, bool>? when = null;
+        BoardCondition? when = null;
         if (m.Groups["when"].Success)
         {
             when = BoardConditions.Parse(m.Groups["when"].Value.Trim());
@@ -9426,7 +9433,7 @@ public static partial class CardCompiler
             && (onSelf
                 ? target.Subject.Id == source.Id
                 : source.Permanent?.AttachedTo == target.Subject.Id)
-            && (when is null || when(state, EmptyAbilities.Instance, source));
+            && (when is null || when(state, EmptyAbilities.Instance, source, null));
 
         into.Add(new ContinuousEffectDefinition
         {
@@ -10250,8 +10257,8 @@ public static partial class CardCompiler
         // "Can't attack unless you control another artifact" is "has defender as long as you
         // do *not*" - the same restriction with the condition turned round. Read as a negation
         // rather than given its own reader, so the whole condition vocabulary serves both.
-        var holds = m.Groups["unless"].Success
-            ? (state, abilities, source) => !parsed(state, abilities, source)
+        BoardCondition holds = m.Groups["unless"].Success
+            ? (state, abilities, source, subject) => !parsed(state, abilities, source, subject)
             : parsed;
 
         var keywords = m.Groups["kw"].Success ? EffectPhrase.Keywords(m.Groups["kw"].Value) : null;
@@ -10329,7 +10336,7 @@ public static partial class CardCompiler
 
         bool OnSelfWhile(GameState state, GameObject? source, CharacteristicsBuilder target)
         {
-            if (source is null || !holds(state, EmptyAbilities.Instance, source))
+            if (source is null || !holds(state, EmptyAbilities.Instance, source, null))
                 return false;
 
             if (!onHost)
@@ -11823,7 +11830,8 @@ public static partial class CardCompiler
                 ControllerId = playerId,
                 Zone = Zone.Stack,
                 Timestamp = 0,
-            })
+            },
+            null)
             ? less
             : 0;
 
@@ -12071,7 +12079,8 @@ public static partial class CardCompiler
                     ControllerId = playerId,
                     Zone = Zone.Stack,
                     Timestamp = 0,
-                });
+                },
+                null);
         }
 
         // CR 118.9a does not say the price has to be mana, and 78 corpus cards take it at its
@@ -13713,7 +13722,7 @@ public static partial class CardCompiler
             Applies = (state, source, target) =>
                 source is not null
                 && target.Subject.Id == source.Id
-                && yourTurn(state, EmptyAbilities.Instance, source),
+                && yourTurn(state, EmptyAbilities.Instance, source, null),
 
             // "An artifact creature in addition to its other types" - both words, even though
             // every card printing this is already an artifact. The rule says both, and a Vehicle
@@ -14636,7 +14645,7 @@ public static partial class CardCompiler
         // "…unless you control two or more other lands" — the slow-land cycles. The condition is
         // read into a board query rather than matched as a whole line, because the same handful
         // of counting questions recur across dozens of lands with different nouns.
-        Func<GameState, IAbilitySource, GameObject, bool>? unless = null;
+        BoardCondition? unless = null;
         if (m.Groups["unless"].Success)
         {
             unless = BoardConditions.Parse(m.Groups["unless"].Value.Trim());
@@ -14656,7 +14665,8 @@ public static partial class CardCompiler
                 Arriving(e, source) is not null
                 // CR 614.1c: the replacement simply does not apply when the condition is met, so
                 // the land arrives upright and nothing has to untap it afterwards.
-                && (unless is null || !unless(state, EmptyAbilities.Instance, source)),
+                && (unless is null
+                    || !unless(state, EmptyAbilities.Instance, source, null)),
             Replace = (e, _, source) => [e, new PermanentTapped(Arriving(e, source)!.Value)],
         });
 
@@ -15057,7 +15067,7 @@ public static partial class CardCompiler
         string line, ImmutableList<ReplacementEffectDefinition>.Builder into)
     {
         var sentence = line;
-        Func<GameState, IAbilitySource, GameObject, bool>? when = null;
+        BoardCondition? when = null;
 
         // "During your turn, prevent all damage that would be dealt to you" — a static ability
         // with a condition on it (CR 604.3). A replacement effect asks its question when the
@@ -15142,7 +15152,7 @@ public static partial class CardCompiler
         DamageKind kind,
         string? victims,
         string? sources,
-        Func<GameState, IAbilitySource, GameObject, bool>? when,
+        BoardCondition? when,
         List<ReplacementEffectDefinition> built)
     {
         // A sentence naming neither what it shields nor whose damage it watches is a permanent
@@ -15231,7 +15241,7 @@ public static partial class CardCompiler
         (string? Filter, PlayerScope? Who, bool Other) described,
         PreventionAnchor dealer,
         (string? Filter, PlayerScope? Who) from,
-        Func<GameState, IAbilitySource, GameObject, bool>? when)
+        BoardCondition? when)
     {
         var template = new PreventionEffect
         {
@@ -15296,7 +15306,7 @@ public static partial class CardCompiler
             IsPrevention = true,
             Applies = (e, state, source) =>
             {
-                if (when is not null && !when(state, EmptyAbilities.Instance, source))
+                if (when is not null && !when(state, EmptyAbilities.Instance, source, null))
                     return false;
 
                 if (Bind(state, source) is not { } shield)
@@ -16276,7 +16286,7 @@ public static partial class CardCompiler
         // uses the stack — which a mana ability must never do (CR 605.3b), and which an opponent
         // could then respond to.
         var printed = line;
-        Func<GameState, IAbilitySource, GameObject, bool>? onlyIf = null;
+        BoardCondition? onlyIf = null;
         var timing = ActivationTiming.AnyTime;
         int? manaLimit = null;
 
@@ -16479,7 +16489,7 @@ public static partial class CardCompiler
             RequiresTap = paid.RequiresTap,
             ManaCost = paid.Mana,
             Targets = [host],
-            ActivateOnlyIf = (state, _, source) => !IsWearingTheAura(state, source),
+            ActivateOnlyIf = (state, _, source, _) => !IsWearingTheAura(state, source),
             Effects =
             [
                 new AttachSourceTo(0),
@@ -16498,7 +16508,7 @@ public static partial class CardCompiler
             Id = "a" + Suffix(into.Count),
             Text = $"You may pay {back} to end this effect.",
             ManaCost = back,
-            ActivateOnlyIf = (state, _, source) => IsWearingTheAura(state, source),
+            ActivateOnlyIf = (state, _, source, _) => IsWearingTheAura(state, source),
             Effects = [new EndSourceEffect(becoming), new UnattachSource()],
         });
 
@@ -16580,7 +16590,8 @@ public static partial class CardCompiler
             // The condition is asked of the permanent whose ability this is, which is what the
             // board reader wants and what "you control" means here (CR 109.5). Unlike the spell
             // form beside it, no stand-in has to be invented: the source is on the battlefield.
-            reduction = (state, abilities, source, _) => holds(state, abilities, source) ? less : 0;
+            reduction = (state, abilities, source, _) =>
+                holds(state, abilities, source, null) ? less : 0;
 
             text = SelfConditionalCostReductionLine().Replace(text, string.Empty).Trim();
             return true;
@@ -16634,7 +16645,7 @@ public static partial class CardCompiler
         // printed as a sentence at the end of the effect rather than as part of the cost
         // (CR 602.5d). Lifted off here so the effect behind it can be read.
         var timing = ActivationTiming.AnyTime;
-        Func<GameState, IAbilitySource, GameObject, bool>? onlyIf = null;
+        BoardCondition? onlyIf = null;
         var restricted = ActivationTimingLine().Match(effectText);
         if (restricted.Success)
         {
@@ -16993,7 +17004,7 @@ public static partial class CardCompiler
     private readonly record struct ActivationRestrictions(
         ActivationTiming Timing,
         int? Limit,
-        Func<GameState, IAbilitySource, GameObject, bool>? OnlyIf);
+        BoardCondition? OnlyIf);
 
     /// <summary>
     /// "Activate only as a sorcery and only once each turn" — one sentence, two rules
@@ -17018,7 +17029,7 @@ public static partial class CardCompiler
     {
         var timing = ActivationTiming.AnyTime;
         int? limit = null;
-        Func<GameState, IAbilitySource, GameObject, bool>? onlyIf = null;
+        BoardCondition? onlyIf = null;
 
         foreach (var clause in ActivationConjunction().Split(when))
         {
@@ -17054,8 +17065,9 @@ public static partial class CardCompiler
                 var earlier = onlyIf;
                 onlyIf = earlier is null
                     ? asked
-                    : (state, abilities, self) =>
-                        earlier(state, abilities, self) && asked(state, abilities, self);
+                    : (state, abilities, self, subject) =>
+                        earlier(state, abilities, self, subject)
+                        && asked(state, abilities, self, subject);
 
                 continue;
             }
@@ -17306,7 +17318,7 @@ public static partial class CardCompiler
         // as it resolves. The condition is lifted off here and applied to both halves — the
         // predicate below and the effects it wraps — because a card that only checked once is a
         // different card, and which way it differs depends on what happened in between.
-        Func<GameState, IAbilitySource, GameObject, bool>? intervening = null;
+        BoardCondition? intervening = null;
         var iffy = InterveningIf().Match(effectText);
         if (iffy.Success)
         {
@@ -17405,7 +17417,8 @@ public static partial class CardCompiler
         {
             var inner = predicate;
             predicate = (e, state, source) =>
-                inner(e, state, source) && condition(state, source.Abilities, source);
+                inner(e, state, source)
+                && condition(state, source.Abilities, source, Game.SubjectOf(e, state));
 
             effects = [new OnlyIf(condition, effects)];
 

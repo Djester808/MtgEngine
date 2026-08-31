@@ -9028,15 +9028,19 @@ public sealed record Monstrosity(Amount Count) : IEffect
 /// </para>
 /// </remarks>
 public sealed record OnlyIf(
-    Func<GameState, IAbilitySource, GameObject, bool> Condition,
+    BoardCondition Condition,
     ImmutableList<IEffect> Effects) : IEffect
 {
     public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        // The seat CR 603.4 means by "that player" is the one the triggering event named, and
+        // the resolution already carries it. Passed rather than dropped, so an intervening-if
+        // about a particular player is re-checked about the same player it was checked about
+        // when the ability triggered — which is the entire point of a rule that checks twice.
         if (!context.State.TryGetObject(context.PhysicalSourceId, out var source)
-            || !Condition(context.State, context.Abilities, source))
+            || !Condition(context.State, context.Abilities, source, context.SubjectPlayer))
         {
             return [];
         }
