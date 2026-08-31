@@ -177,7 +177,7 @@ public sealed class CompiledCardBehaviourTests
                 && s.Id.Contains("static:", StringComparison.Ordinal));
 
         var otherSliver = Card(
-            "Muscle Sliver Test", string.Empty, CardType.Creature,
+            "Sedge Fellow Sliver Test", string.Empty, CardType.Creature,
             power: 2, toughness: 2, subtypes: "Sliver");
 
         var (game, alice, bob) = InMainPhase();
