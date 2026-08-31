@@ -3677,6 +3677,31 @@ public static partial class CardCompiler
                     ? "X " + m.Groups["what"].Value + ", where X is ~'s " + m.Groups["stat"].Value
                     : m.Value);
 
+            // "Draw cards equal to that spell's mana value", "~ deals damage equal to that
+            // creature's power to any target" — the same quantity as the possessive above with a
+            // demonstrative where the pronoun stood, and spelled into the same clause so that
+            // every verb gains it at once.
+            //
+            // No <see cref="PossessiveNamesTheSource"/> guard, and that is the difference between
+            // the two families rather than an omission. That one is asking whether a pronoun can
+            // only mean the source, which is a question about the words in between; this one is
+            // not about the source at all — a demonstrative names the *type* of the object it
+            // points at, and the reader it writes into settles the referent by agreeing that noun
+            // against what the ability targeted. A sentence it cannot settle stays exactly as
+            // printed and the line stays unread.
+            //
+            // The recipient tail is carried across for the same reason the count rewrite next door
+            // carries one: a damage sentence names who it hits after the amount, and leaving "to
+            // any target" inside the clause would hand the stat reader a phrase ending in a
+            // target. Damage is in the noun list here where it is struck out of the possessive
+            // rewrite above, because the whole-sentence matcher that took those has nothing to say
+            // about a demonstrative.
+            cleaned = DemonstrativeStatAsANumber().Replace(
+                cleaned,
+                m => "X " + m.Groups["what"].Value + m.Groups["tail"].Value
+                    + ", where X is that " + m.Groups["noun"].Value + "'s "
+                    + m.Groups["stat"].Value);
+
             // The rule between a card's two faces, which the card pool writes as a line of its
             // own. It is deliberately left unread, and that is the whole of the engine's answer
             // to two-faced cards: a CardDefinition holds one set of characteristics and one body
@@ -19082,6 +19107,40 @@ public static partial class CardCompiler
             return true;
         }
 
+        // "Whenever you cast a noncreature spell, incubate X, where X is that spell's mana value."
+        // The demonstrative names the spell that was cast, and the proof of that is in the trigger
+        // *condition* — which the sentence reader never sees, because a sentence is read the same
+        // way whatever kind of ability it ends up in. So the proof is made here, where the
+        // condition is in hand, and written into the words: "the cast spell's" is a spelling no
+        // printed card uses, and the clause reader resolves it to the trigger's subject and never
+        // to a target.
+        //
+        // TriggerConditions.CastsASpell is the allow-list, and it is the same discipline as
+        // NamesAnObject next to it: every shape it admits has a predicate that accepts nothing but
+        // a SpellCastEvent, which is the one event Game.SubjectObjectOf answers with the id of the
+        // spell on the stack. That the spell is still there to be measured is CR 603.3b — the
+        // ability goes on the stack above it and resolves first.
+        //
+        // Refused where the effect targets a spell of its own, because then the sentence holds two
+        // spells and the demonstrative picks between them by words this does not read. No corpus
+        // card prints that pair today; the guard is here so that one arriving is left unread
+        // rather than answered with whichever spell this happens to reach first.
+        // And only where nothing already reads the sentence. The life family reads "that
+        // player loses life equal to that spell's mana value" and reads it correctly - it has
+        // its own answer for the possessive, and falls back to the trigger's subject when the
+        // line targeted nothing, which on a cast trigger is this same spell. Rewriting first
+        // spelled the words into a shape that reader does not know and lost The Frightful Four,
+        // a card that had compiled for months. So the guard is the parse itself, exactly as the
+        // keyword fold two hundred lines up uses the join: a rewrite exists to unlock a line
+        // nothing can read, and may never take one away from a reader that already has it.
+        if (ThatSpellsStat().IsMatch(effectText)
+            && TriggerConditions.CastsASpell(whenText)
+            && !TargetsASpell().IsMatch(effectText)
+            && !EffectPhrase.TryParse(effectText, out _, namesAnObject))
+        {
+            effectText = ThatSpellsStat().Replace(effectText, "the cast spell's ${stat}");
+        }
+
         if (predicate is null
             || !EffectPhrase.TryParse(effectText, out var parsed, namesAnObject))
         {
@@ -19724,6 +19783,58 @@ public static partial class CardCompiler
             + @"(?!\s+(?:plus|minus|and|or)\b)",
         RegexOptions.IgnoreCase)]
     private static partial Regex StatAsANumber();
+
+    /// <summary>
+    /// "…equal to that spell's mana value" — the demonstrative twin of <see cref="StatAsANumber"/>.
+    /// </summary>
+    /// <remarks>
+    /// The noun in front is the count rewrite's list rather than the possessive rewrite's: damage
+    /// is admitted here, because the whole-sentence damage matcher that takes "~ deals damage
+    /// equal to its power" is a reader about a pronoun and has nothing to say about "that
+    /// creature's power". The recipient tail is captured and carried across exactly as
+    /// <see cref="CountAsANumber"/> captures one, and for the same reason: the amount comes before
+    /// the target on a damage sentence, and a split that guesses wrong leaves the line unread.
+    /// <para>
+    /// The stat ends at the word, as it does in both siblings — "that creature's power plus its
+    /// toughness" is printed, and an arithmetic tail admitted here would read as the bare stat.
+    /// </para>
+    /// <para>
+    /// <b>The life family keeps its own sentences.</b> "You gain life equal to that creature's
+    /// toughness" is already read, and read <em>better</em> than this could: that reader answers
+    /// the possessive with a permanent an earlier sentence of the same line targeted, which is a
+    /// reading made of things this rewrite cannot see. Taking those sentences away from it lost
+    /// seven cards that compiled — Abattoir Ghoul, Feed the Swarm, Consuming Vapors, Ikra
+    /// Shidiqi, Doomgape, Tribute to Hunger and Cleric Class — so the lookbehind names that
+    /// reader's own subject list rather than the verb alone. "You <em>may</em> gain life equal to
+    /// that spell's mana value" is not one of its sentences and is still taken here.
+    /// </para>
+    /// <para>
+    /// The demonstrative's own noun list is closed to the kinds a target can be, because that is
+    /// what the reader agrees it against: a noun naming something nobody chose has nothing to
+    /// agree with, so admitting it would only move a refusal one reader further along.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"(?:a number of (?<what>[^.;]+?)|\b(?<what>damage|cards)"
+            + @"|(?<!\b(?:you|each opponent|each player|that player"
+            + @"|the subject's controller) (?:gains?|loses?) )\b(?<what>life))(?<!\bor)"
+            + @" equal to that (?<noun>spell|creature|artifact|permanent|enchantment)'s "
+            + @"(?<stat>power|toughness|mana value)\b(?!\s+(?:plus|minus|and|or)\b)"
+            + @"(?<tail> to [^.;]+?)?(?=\.|$)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex DemonstrativeStatAsANumber();
+
+    /// <summary>"That spell's mana value" — the demonstrative a cast trigger's effect prints.</summary>
+    [GeneratedRegex(
+        @"\bthat spell's (?<stat>power|toughness|mana value)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ThatSpellsStat();
+
+    /// <summary>A second spell in the same sentence, which the demonstrative could mean instead.</summary>
+    [GeneratedRegex(
+        @"\btarget\b[^.;]{0,48}?\bspell\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TargetsASpell();
 
     /// <summary>A person, who has no power and no toughness to be the antecedent of (CR 107.3).</summary>
     [GeneratedRegex(

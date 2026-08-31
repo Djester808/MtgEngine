@@ -574,6 +574,15 @@ public static class EffectTargets
             e => e.PeerIndex,
             (e, n) => e.PeerIndex is { } i ? e with { PeerIndex = i + n } : e);
 
+        // A measured variable is aimed at a target and holds effects that are not: what it
+        // binds is X, and the effects underneath read X rather than the target. Its index is
+        // read and shifted like every other, which is the whole reason the clause compiles to
+        // a record with a property instead of a delegate closing over a number - a captured
+        // index is invisible here, and a card whose earlier line targeted something else
+        // would measure that instead.
+        Add<WithMeasuredVariable>(
+            e => e.TargetIndex, (e, n) => e with { TargetIndex = e.TargetIndex + n });
+
         return table.ToImmutable();
     }
 

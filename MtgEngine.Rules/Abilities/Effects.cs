@@ -10257,6 +10257,126 @@ public sealed record WithCountedVariable(
     }
 }
 
+/// <summary>
+/// Binds X to a stat measured on one of this spell or ability's own targets (CR 107.3).
+/// </summary>
+/// <remarks>
+/// The measured twin of <see cref="WithCountedVariable"/>: same wrapper, same binding of X, and
+/// the amount comes off one object instead of off a count of them. "Counter target spell. Draw
+/// cards equal to that spell's mana value" is the shape, and <em>which</em> object is the whole of
+/// the reading — see <c>EffectPhrase</c>'s demonstrative clause, which is what decides it.
+/// <para>
+/// <b>It carries an index rather than a closure, and that is the point of the type.</b> The
+/// compiler folds a clause parsed on its own into a larger ability and shifts every target index
+/// past what is already there; an index captured inside a delegate is invisible to that shift and
+/// would keep pointing at the first target on a card whose earlier line targeted something else.
+/// A record with a property is what <see cref="EffectTargets"/> can see, which is also what makes
+/// the corpus invariant check able to say the index is in range.
+/// </para>
+/// </remarks>
+public sealed record WithMeasuredVariable(
+    int TargetIndex, TouchStat Stat, ImmutableList<IEffect> Effects) : IEffect
+{
+    public IReadOnlyList<GameEvent> Resolve(ResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var bound = context with
+        {
+            VariableValue = Measure(context, context.PeerAt(TargetIndex), Stat),
+        };
+
+        var events = new List<GameEvent>();
+        foreach (var effect in Effects)
+            events.AddRange(effect.Resolve(bound));
+
+        return events;
+    }
+
+    /// <summary>
+    /// One object's stat, read where the object is now (CR 202.3b, CR 608.2h, CR 613).
+    /// </summary>
+    /// <remarks>
+    /// Three readings of one question, and each of them is a rule rather than a convenience.
+    /// <para>
+    /// <b>Mana value is a fact about the card</b> (CR 202.3b), so the layers have nothing to say
+    /// about it and nor does the record. CR 107.3a is the one thing the stack adds: while a spell
+    /// with {X} in its mana cost is on the stack, that X is the value announced as it was cast,
+    /// and it is zero in every other zone (CR 107.3g). Mana Drain on a Fireball cast for five adds
+    /// six mana, and reading the printed cost gives one — which is the whole of what that card is.
+    /// </para>
+    /// <para>
+    /// <b>Power and toughness on the battlefield are computed</b> (CR 613), so a lord's bonus and
+    /// every counter count. <b>Off it they come from this resolution's own record</b> (CR 608.2h):
+    /// the commonest printing of this family measures something the sentence in front of it has
+    /// already moved — "Destroy target creature. Its controller mills cards equal to that
+    /// creature's power" — and a card in a graveyard answers its printed power, which is short by
+    /// every counter it was carrying. The printed characteristics remain the floor for an object
+    /// the record never saw, because they are the honest answer for one that left before this
+    /// resolution began.
+    /// </para>
+    /// <para>
+    /// Nothing to measure is nought rather than a refusal: an amount cannot decline, and the
+    /// reader that built it is where a card is refused instead.
+    /// </para>
+    /// </remarks>
+    public static int Measure(ResolutionContext context, GameObject? named, TouchStat stat)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (named is null)
+            return 0;
+
+        if (stat == TouchStat.ManaValue)
+        {
+            var announced = named.Zone == Zone.Stack ? named.VariableValue : 0;
+
+            return Math.Max(
+                0,
+                named.Card.Cmc
+                    + (announced <= 0
+                        ? 0
+                        : announced * VariableSymbols(named.Card.ManaCostRaw)));
+        }
+
+        if (named.Zone != Zone.Battlefield)
+        {
+            foreach (var touch in context.Record.Touches)
+            {
+                if (touch.Id != named.Id)
+                    continue;
+
+                var was = stat == TouchStat.Power ? touch.Power : touch.Toughness;
+
+                if (was is { } known)
+                    return Math.Max(0, known);
+            }
+        }
+
+        var now = Characteristics.Of(context.State, context.Abilities, named);
+
+        return Math.Max(0, (stat == TouchStat.Power ? now.Power : now.Toughness) ?? 0);
+    }
+
+    /// <summary>How many {X} a printed mana cost carries — two exist, so it is counted.</summary>
+    private static int VariableSymbols(string? cost)
+    {
+        if (string.IsNullOrEmpty(cost))
+            return 0;
+
+        var found = 0;
+        var at = cost.IndexOf("{X}", StringComparison.OrdinalIgnoreCase);
+
+        while (at >= 0)
+        {
+            found++;
+            at = cost.IndexOf("{X}", at + 3, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return found;
+    }
+}
+
 /// <summary>Untaps the source itself (CR 701.26b).</summary>
 public sealed record UntapSource : IEffect
 {
