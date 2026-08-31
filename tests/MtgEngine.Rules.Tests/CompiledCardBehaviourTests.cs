@@ -133,6 +133,350 @@ public sealed class CompiledCardBehaviourTests
         }
     }
 
+    // ---- A quoted ability that is a static (CR 604.1, 613.1) -----------------
+
+    /// <summary>
+    /// Sedge Sliver: a group grant whose quotation is a static, applied in layer 7c.
+    /// </summary>
+    /// <remarks>
+    /// <c>TryQuotedAbility</c> took a trigger, an activated ability or a mana ability and
+    /// nothing else, so every card granting a <em>static</em> was refused at the frame with both
+    /// halves of the sentence readable. The half that was missing is not the reading — the
+    /// quotation compiles through the same static readers a printed line does — it is
+    /// <em>where the effect lands</em>: a granted ability goes in layer 6, and a granted
+    /// static's effect goes in whichever layer that effect belongs to, which here is 7c.
+    /// <para>
+    /// Two things are asserted that a grant applied to the source alone would also pass, and
+    /// they are why this is the test for the family. The bonus reaches a <em>different</em>
+    /// Sliver, so the ability is genuinely on each member of the group rather than on the card
+    /// that printed it. And the condition inside the quotation is answered against the
+    /// permanent <em>carrying</em> the ability, not the one that granted it: Alice controls the
+    /// Swamp, so her Slivers grow and Bob's does not, which is what "you" means on an ability a
+    /// permanent has (CR 109.5).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_grant_of_a_static_pumps_each_member_and_reads_its_own_condition()
+    {
+        var sedge = Card(
+            "Sedge Sliver Test",
+            "All Sliver creatures have \"This creature gets +1/+1 as long as you control a"
+                + " Swamp.\"\nAll Slivers have \"{B}: Regenerate this permanent.\"",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            subtypes: "Sliver");
+
+        var compiled = CardCompiler.Compile(sedge);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        // The bonus is 7c and not layer 6, which is the whole of what this round built.
+        Assert.Contains(
+            compiled.Statics,
+            s => s.Layer == EffectLayer.PowerToughnessModify
+                && s.Id.Contains("static:", StringComparison.Ordinal));
+
+        var otherSliver = Card(
+            "Muscle Sliver Test", string.Empty, CardType.Creature,
+            power: 2, toughness: 2, subtypes: "Sliver");
+
+        var (game, alice, bob) = InMainPhase();
+        var source = game.Create(alice, sedge, Zone.Battlefield);
+        var mine = game.Create(alice, otherSliver, Zone.Battlefield);
+        var theirs = game.Create(bob, otherSliver, Zone.Battlefield);
+        Settle(game);
+
+        int PowerOf(ObjectId id) =>
+            Characteristics.Of(game.State, Pool, game.State.GetObject(id)).Power!.Value;
+
+        // No Swamp anywhere: the ability is granted and its condition is false, so nothing moves.
+        Assert.Equal(2, PowerOf(source));
+        Assert.Equal(2, PowerOf(mine));
+        Assert.Equal(2, PowerOf(theirs));
+
+        game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        Settle(game);
+
+        Assert.Equal(3, PowerOf(source));
+        Assert.Equal(3, PowerOf(mine));
+
+        // Bob controls no Swamp, and the ability his Sliver has says "you".
+        Assert.Equal(2, PowerOf(theirs));
+    }
+
+    /// <summary>
+    /// The granted bonus is applied after a base power and toughness is set (CR 613.4b, 613.4c).
+    /// </summary>
+    /// <remarks>
+    /// The assertion the layer is for. Layer 6 is the only place the engine had to put anything
+    /// a static ability granted, and a <c>+1/+1</c> put there would be added and then
+    /// <em>erased</em> by the layer-7b effect that sets a base size — the creature would come out
+    /// 0/1, exactly as though the grant had never happened, on a card that compiled clean.
+    /// Reported in its own layer it survives, and 0/1 plus the granted +1/+1 is 1/2.
+    /// </remarks>
+    [Fact]
+    public void A_granted_bonus_is_applied_after_a_base_size_is_set()
+    {
+        var sedge = Card(
+            "Layered Sliver Test",
+            "All Sliver creatures have \"This creature gets +1/+1 as long as you control a"
+                + " Swamp.\"",
+            CardType.Creature,
+            power: 2,
+            toughness: 2,
+            subtypes: "Sliver");
+
+        var shrink = Card(
+            "Sliver Shrink Test",
+            "Enchant creature\nEnchanted creature has base power and toughness 0/1.",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        Assert.True(
+            CardCompiler.Compile(shrink).IsComplete,
+            string.Join(" | ", CardCompiler.Compile(shrink).Unhandled));
+
+        var (game, alice, _) = InMainPhase();
+        game.Create(alice, sedge, Zone.Battlefield);
+        game.Create(alice, TestCards.BasicLand("Swamp"), Zone.Battlefield);
+        var victim = game.Create(
+            alice,
+            Card("Shrunk Sliver Test", string.Empty, CardType.Creature,
+                power: 4, toughness: 4, subtypes: "Sliver"),
+            Zone.Battlefield);
+
+        var aura = TestCards.PutInHand(game, alice, shrink);
+        game.CastSpell(alice, aura, [Target.ToPermanent(victim)]);
+        Settle(game);
+
+        var computed = Characteristics.Of(game.State, Pool, game.State.GetObject(victim));
+        Assert.Equal(1, computed.Power);
+        Assert.Equal(2, computed.Toughness);
+    }
+
+    /// <summary>
+    /// Giant's Amulet: an Equipment granting its bearer a static about itself (CR 613.1f).
+    /// </summary>
+    /// <remarks>
+    /// The permission is asserted twice over, because a keyword flag alone would also be set by
+    /// a reader that granted hexproof outright and dropped the condition. The creature is
+    /// untapped and an opponent's spell is refused; the creature is tapped and the same spell,
+    /// from the same hand, on the same turn, is accepted.
+    /// </remarks>
+    [Fact]
+    public void An_equipment_grants_its_bearer_a_static_about_itself()
+    {
+        var amulet = Card(
+            "Giant's Amulet Test",
+            "Equipped creature gets +0/+1 and has \"This creature has hexproof as long as it's"
+                + " untapped.\"\nEquip {2}",
+            CardType.Artifact,
+            subtypes: "Equipment");
+
+        var compiled = CardCompiler.Compile(amulet);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+        var equipment = game.Create(alice, amulet, Zone.Battlefield);
+        var bearer = game.Create(alice, TestCards.Creature("Amulet Bearer Test", 2, 2), Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.ActivateAbility(alice, equipment, "equip", [Target.ToPermanent(bearer)]);
+        Settle(game);
+
+        var equipped = Characteristics.Of(game.State, Pool, game.State.GetObject(bearer));
+        Assert.Equal(2, equipped.Power);
+        Assert.Equal(3, equipped.Toughness);
+        Assert.True(equipped.Has(KeywordAbility.Hexproof));
+
+        TestCards.PassUntil(
+            game,
+            () => game.State.ActivePlayerId == bob
+                && game.State.CurrentStep == TurnStep.PrecombatMain);
+
+        var bolt = TestCards.PutInHand(
+            game, bob, Card("Amulet Bolt Test", "~ deals 3 damage to any target."));
+
+        Assert.Throws<InvalidOperationException>(
+            () => game.CastSpell(bob, bolt, [Target.ToPermanent(bearer)]));
+
+        // Tapped, the condition inside the quotation is false and the same spell is legal.
+        game.Tap(bearer);
+
+        Assert.False(
+            Characteristics.Of(game.State, Pool, game.State.GetObject(bearer))
+                .Has(KeywordAbility.Hexproof));
+
+        game.CastSpell(bob, bolt, [Target.ToPermanent(bearer)]);
+        Settle(game);
+
+        Assert.DoesNotContain(bearer, game.State.Battlefield);
+    }
+
+    /// <summary>
+    /// Rune of Might: an Aura giving an Equipment a static about a <em>third</em> permanent.
+    /// </summary>
+    /// <remarks>
+    /// The case that decides the shape of the whole feature. The effect is the Aura's — it exists
+    /// exactly while the Aura is on the battlefield (CR 604.2) — the permanent carrying the
+    /// ability is the Equipment, and the permanent it changes is the creature the Equipment is
+    /// attached to. Three objects, and the middle one is the one the inner reader has to be
+    /// handed: "equipped creature" is a question only the Equipment can answer.
+    /// <para>
+    /// Which is why the bearer is looked up from raw state rather than computed. Finding it by
+    /// asking another permanent for its characteristics, from inside the layers, is the
+    /// re-entrant read CR 613.8's hazard is about, and it has overflowed the stack here before.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_aura_on_an_equipment_grants_a_static_about_what_the_equipment_holds()
+    {
+        var rune = Card(
+            "Rune Of Might Test",
+            "Enchant permanent\nWhen this Aura enters, draw a card.\n"
+                + "As long as enchanted permanent is a creature, it gets +1/+1 and has trample.\n"
+                + "As long as enchanted permanent is an Equipment, it has \"Equipped creature"
+                + " gets +1/+1 and has trample.\"",
+            CardType.Enchantment,
+            subtypes: "Aura");
+
+        var compiled = CardCompiler.Compile(rune);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var sword = Card("Rune Sword Test", "Equip {2}", CardType.Artifact, subtypes: "Equipment");
+
+        var (game, alice, _) = InMainPhase();
+        var equipment = game.Create(alice, sword, Zone.Battlefield);
+        var bearer = game.Create(alice, TestCards.Creature("Rune Bearer Test", 2, 2), Zone.Battlefield);
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        game.ActivateAbility(alice, equipment, "equip", [Target.ToPermanent(bearer)]);
+        Settle(game);
+
+        // The Equipment alone does nothing to the creature it holds.
+        var bare = Characteristics.Of(game.State, Pool, game.State.GetObject(bearer));
+        Assert.Equal(2, bare.Power);
+        Assert.False(bare.Has(KeywordAbility.Trample));
+
+        var card = TestCards.PutInHand(game, alice, rune);
+        game.CastSpell(alice, card, [Target.ToPermanent(equipment)]);
+        Settle(game);
+
+        var aura = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Single(o => o.Card.Name == "Rune Of Might Test");
+
+        Assert.Equal(equipment, aura.Permanent!.AttachedTo);
+
+        // The Aura is on the Equipment, so the "is a creature" arm is not applying and the
+        // Equipment is not a creature. Everything the creature gained came through the quotation.
+        var held = Characteristics.Of(game.State, Pool, game.State.GetObject(bearer));
+        Assert.Equal(3, held.Power);
+        Assert.Equal(3, held.Toughness);
+        Assert.True(held.Has(KeywordAbility.Trample));
+
+        // And it is the Aura's effect: it ends when the Aura does (CR 604.2).
+        game.Move(aura.Id, Zone.Graveyard, MoveCause.Destroy);
+        Settle(game);
+
+        var after = Characteristics.Of(game.State, Pool, game.State.GetObject(bearer));
+        Assert.Equal(2, after.Power);
+        Assert.False(after.Has(KeywordAbility.Trample));
+    }
+
+    /// <summary>
+    /// Prison Barricade: a static a permanent has because of how it was cast (CR 607.2).
+    /// </summary>
+    /// <remarks>
+    /// The gift already read a quoted trigger or activated ability; a quoted static is the third
+    /// arm here as well, and the bearer is the permanent itself so nothing has to be looked for.
+    /// <para>
+    /// Both walls are on the board at once and only one of them was kicked, which is what makes
+    /// the permission evidence rather than a coincidence: a reader that granted it outright, or
+    /// one that lost the kicked flag across the resolution, would be indistinguishable from a
+    /// test that only cast the kicked half.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_kicked_permanent_keeps_a_granted_static_and_attacks_with_it()
+    {
+        var barricade = new CardDefinition
+        {
+            OracleId = "oracle-prison-barricade-test",
+            Name = "Prison Barricade Test",
+            OracleText = "Defender\nKicker {1}\nIf this creature was kicked, it enters with a"
+                + " +1/+1 counter on it and with \"This creature can attack as though it didn't"
+                + " have defender.\"",
+            CardTypes = CardType.Creature,
+            ManaCostRaw = "{1}",
+            Cmc = 1,
+            Power = 1,
+            Toughness = 3,
+            Keywords = KeywordAbility.Defender,
+        };
+
+        var compiled = CardCompiler.Compile(barricade);
+        Assert.True(compiled.IsComplete, string.Join(" | ", compiled.Unhandled));
+
+        var (game, alice, bob) = InMainPhase();
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            var forest = game.Create(alice, TestCards.BasicLand("Forest"), Zone.Battlefield);
+            game.ActivateAbility(alice, forest, "mana");
+        }
+
+        var kickedCard = TestCards.PutInHand(game, alice, barricade);
+        game.CastSpell(
+            alice, kickedCard, [], variableValue: 0, tapToPay: null, modes: null, kicked: true);
+        Settle(game);
+
+        var plainCard = TestCards.PutInHand(game, alice, barricade);
+        game.CastSpell(alice, plainCard, []);
+        Settle(game);
+
+        var walls = game.State.Battlefield
+            .Select(game.State.GetObject)
+            .Where(o => o.Card.Name == "Prison Barricade Test")
+            .ToList();
+
+        var kicked = walls.Single(o => o.WasKicked).Id;
+        var plain = walls.Single(o => !o.WasKicked).Id;
+
+        // The counter is the other half of the same printed sentence, and it says which is which.
+        Assert.Equal(2, Characteristics.Of(game.State, Pool, game.State.GetObject(kicked)).Power);
+        Assert.Equal(1, Characteristics.Of(game.State, Pool, game.State.GetObject(plain)).Power);
+
+        PassTo(game, 3, TurnStep.DeclareAttackers);
+
+        Assert.Null(CombatRules.CannotAttack(
+            game.State, Pool, game.State.GetObject(kicked), alice, bob));
+
+        Assert.Contains(
+            "702.3b",
+            CombatRules.CannotAttack(game.State, Pool, game.State.GetObject(plain), alice, bob)
+                ?? string.Empty,
+            StringComparison.Ordinal);
+
+        game.DeclareAttackers(
+            alice, new Dictionary<ObjectId, AttackTarget> { [kicked] = AttackTarget.Player(bob) });
+
+        TestCards.PassUntil(game, () => game.State.CurrentStep == TurnStep.EndOfCombat);
+        Settle(game);
+
+        Assert.Equal(18, game.State.GetPlayer(bob).Life);
+    }
+
     // ---- Damage --------------------------------------------------------------
 
     [Fact]
